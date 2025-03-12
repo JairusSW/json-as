@@ -16,9 +16,10 @@
   ],
   "license": "MIT",
   "scripts": {
-    "test": "ast test && rm -rf ./build/",
-    "pretest": "rm -rf ./build/ && ast build",
-    "bench": "astral --enable simd --runtime stub",
+    "test": "bash ./run-tests.sh",
+    "bench:as": "bash ./run-bench.as.sh",
+    "bench:js": "bash ./run-bench.js.sh",
+    "build:time": "time npx asc ./assembly/__benches__/abc.bench.ts --transform ./transform -o ./build/abc.bench.wasm --optimizeLevel 3 --shrinkLevel 0 --converge --noAssert --uncheckedBehavior always --runtime stub --enable simd --enable bulk-memory",
     "build:test": "rm -rf ./build/ && JSON_DEBUG=true asc assembly/test.ts --transform ./transform -o ./build/test.wasm",
     "build:transform": "tsc -p ./transform",
     "test:wasmtime": "wasmtime ./build/test.wasm",

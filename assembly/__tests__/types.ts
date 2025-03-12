@@ -61,9 +61,9 @@ export class Map4 {
 
 @json
 export class Vec3 {
-  x: f64;
-  y: f64;
-  z: f64;
+  x: f64 = 1.0;
+  y: f64 = 2.0;
+  z: f64 = 3.0;
 
   static shouldIgnore: string = "should not be serialized";
 }

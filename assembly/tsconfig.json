@@ -1,6 +1,6 @@
 {
   "extends": "assemblyscript/std/assembly.json",
-  "include": ["./**/*.ts"],
+  "include": ["./**/*.ts", "__tests__/arbitrary.spec.ts.disabled", "__tests__/box.spec.ts.disabled", "__tests__/custom.spec.ts.disabled", "__tests__/map.spec.ts.disabled", "__tests__/raw.spec.ts.disabled", "__benches__/large.bench.ts"],
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig to read more about this file */
     /* Projects */
