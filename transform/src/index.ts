@@ -323,7 +323,6 @@ class JSONTransform extends Visitor {
     }
 
     indent = "";
-    let shouldGroup = false;
 
     // DESERIALIZE += indent + "  console.log(\"data: \" + JSON.Util.ptrToStr(srcStart,srcEnd))\n";
     DESERIALIZE += indent + "  let keyStart: usize = 0;\n";
