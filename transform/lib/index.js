@@ -302,8 +302,7 @@ class JSONTransform extends Visitor {
         indent = "";
         let shouldGroup = false;
         DESERIALIZE += indent + "  let keyStart: usize = 0;\n";
-        if (shouldGroup || DEBUG)
-            DESERIALIZE += indent + "  let keyEnd: usize = 0;\n";
+        DESERIALIZE += indent + "  let keyEnd: usize = 0;\n";
         DESERIALIZE += indent + "  let isKey = false;\n";
         if (sortedMembers.object.length || sortedMembers.array.length)
             DESERIALIZE += indent + "  let depth: i32 = 0;\n";
@@ -321,8 +320,7 @@ class JSONTransform extends Visitor {
         DESERIALIZE += indent + "      if (code == 34 && load<u16>(srcStart - 2) !== 92) {\n";
         DESERIALIZE += indent + "        if (isKey) {\n";
         DESERIALIZE += indent + "          keyStart = lastIndex;\n";
-        if (shouldGroup || DEBUG)
-            DESERIALIZE += indent + "          keyEnd = srcStart;\n";
+        DESERIALIZE += indent + "          keyEnd = srcStart;\n";
         DESERIALIZE += indent + "          while (JSON.Util.isSpace((code = load<u16>((srcStart += 2))))) {}\n";
         DESERIALIZE += indent + "          if (code !== 58) throw new Error(\"Expected ':' after key at position \" + (srcEnd - srcStart).toString());\n";
         DESERIALIZE += indent + "          isKey = false;\n";
