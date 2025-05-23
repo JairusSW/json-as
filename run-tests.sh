@@ -2,6 +2,9 @@
 
 mkdir -p ./build
 
+npm run build:test
+npm run test:wasmtime
+
 for file in ./assembly/__tests__/*.spec.ts; do
   filename=$(basename -- "$file")
   output="./build/${filename%.ts}.wasm"
