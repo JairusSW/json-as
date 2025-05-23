@@ -8,7 +8,6 @@ import { serializeDate } from "./serialize/simple/date";
 import { deserializeBoolean } from "./deserialize/simple/bool";
 import { deserializeArray } from "./deserialize/simple/array";
 import { deserializeFloat } from "./deserialize/simple/float";
-import { deserializeStruct } from "./deserialize/simple/struct";
 import { deserializeMap } from "./deserialize/simple/map";
 import { deserializeDate } from "./deserialize/simple/date";
 import { deserializeInteger } from "./deserialize/simple/integer";
@@ -613,7 +612,7 @@ export namespace JSON {
     }
     throw new Error(`Could not deserialize data '${ptrToStr(srcStart, srcEnd).slice(0, 100)}' to type. Make sure to add the correct decorators to classes.`);
   }
-  namespace Util {
+  export namespace Util {
     // @ts-ignore: decorator
     @inline export function isSpace(code: u16): boolean {
       return code == 0x20 || code - 9 <= 4;

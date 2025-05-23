@@ -1,5 +1,11 @@
 # Change Log
 
+## 2025-05-23 - 1.1.3
+
+- feat: group properties of structs before code generation
+- fix: break out of switch case after completion
+- ci: make compatible with act for local testing
+
 ## 2025-05-22 - 1.1.2
 
 - fix: correct small typos in string value deserialization port
