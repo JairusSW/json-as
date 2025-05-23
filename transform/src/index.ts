@@ -10,7 +10,7 @@ import { getClasses, getImportedClass } from "./linker.js";
 let indent = "  ";
 
 const DEBUG = process.env["JSON_DEBUG"];
-const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "false";
+const STRICT = !(process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "false");
 
 class JSONTransform extends Visitor {
   static SN: JSONTransform = new JSONTransform();
@@ -357,28 +357,46 @@ class JSONTransform extends Visitor {
     DESERIALIZE += indent + "      }\n";
     DESERIALIZE += indent + "      srcStart += 2;\n";
     DESERIALIZE += indent + "    } else {\n";
-    // if (shouldGroup) DESERIALIZE += "    const keySize = keyEnd - keyStart;\n";
 
-    const groupMembers = (members: Property[]) => {
-      let sorted: Property[][] = [];
+    const groupMembers = (members: Property[]): Property[][] => {
+      const groups = new Map<number, Property[]>();
 
-      let len = -1;
-      members
-        .slice()
-        .sort((a, b) => (a.alias?.length || a.name.length) - (b.alias?.length || b.name.length))
-        .forEach((member) => {
-          const _nameLength = member.alias?.length || member.name.length;
-          if (_nameLength === len) {
-            sorted[sorted.length - 1].push(member);
-          } else {
-            sorted.push([member]);
-            len = _nameLength;
-          }
-        });
+      for (const member of members) {
+        const name = member.alias || member.name;
+        const length = name.length;
 
-      sorted = sorted.sort((a, b) => b.length - a.length);
-      return sorted;
+        if (!groups.has(length)) {
+          groups.set(length, []);
+        }
+
+        groups.get(length)!.push(member);
+      }
+
+      return [...groups.values()]
+        .map(group =>
+          group.sort((a, b) => {
+            const aLen = (a.alias || a.name).length;
+            const bLen = (b.alias || b.name).length;
+            return aLen - bLen;
+          })
+        )
+        .sort((a, b) => b.length - a.length);
     };
+
+    const generateGroups = (members: Property[], cb: (group: Property[]) => void) => {
+      const groups = groupMembers(members);
+      DESERIALIZE += "     switch (<u32>keyEnd - <u32>keyStart) {\n";
+
+      for (const group of groups) {
+        const groupLen = (group[0].alias || group[0].name).length << 1
+        DESERIALIZE += "           case " + groupLen + ": {\n";
+        cb(group);
+        DESERIALIZE += "\n            }\n";
+      }
+
+      DESERIALIZE += "    }\n";
+      DESERIALIZE += "  break;\n";
+    }
 
     const generateComparisions = (members: Property[]) => {
       if (members.some((m) => (m.alias || m.name).length << 1 == 2)) {
