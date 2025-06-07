@@ -1,5 +1,6 @@
 import { ClassDeclaration, Expression, FieldDeclaration, Source } from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
+import { JSONTransform } from "./index.js";
 
 export enum PropertyFlags {
   OmitNull,
@@ -17,6 +18,29 @@ export class Property {
   public node!: FieldDeclaration;
   public byteSize: number = 0;
   public generic: boolean = false;
+  public _custom: boolean = false;
+  public parent: Schema;
+  set custom(value: boolean) {
+    this._custom = value;
+  }
+  get custom(): boolean {
+    if (this._custom) return true;
+    if (this.parent.node.isGeneric && this.parent.node.typeParameters.some((p) => p.name.text == this.type)) {
+      // console.log("Custom (Generic): " + this.name);
+      this.generic = true;
+      this._custom = true;
+      return true;
+    }
+
+    for (const dep of this.parent.deps) {
+      if (this.name == dep.name) {
+        // console.log("Custom (Dependency): " + this.name);
+        this._custom = true;
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 export class Schema {
@@ -28,7 +52,15 @@ export class Schema {
   public needsLink: string | null = null;
   public byteSize: number = 0;
   public deps: Schema[] = [];
-  public custom: boolean = false;
+  private _custom: boolean = false;
+
+  set custom(value: boolean) {
+    this._custom = value;
+  }
+  get custom(): boolean {
+    if (this._custom) return true;
+    if (this.parent) return this.parent.custom;
+  }
 }
 
 export class Src {

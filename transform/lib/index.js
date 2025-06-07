@@ -14,7 +14,7 @@ const WRITE = process.env["JSON_WRITE"];
 const rawValue = process.env["JSON_DEBUG"];
 const DEBUG = rawValue === "true" ? 1 : rawValue === "false" || rawValue === "" ? 0 : isNaN(Number(rawValue)) ? 0 : Number(rawValue);
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
-class JSONTransform extends Visitor {
+export class JSONTransform extends Visitor {
     static SN = new JSONTransform();
     program;
     baseCWD;
@@ -150,8 +150,9 @@ class JSONTransform extends Visitor {
                 if (depSearch) {
                     if (DEBUG > 0)
                         console.log("Found " + unknownType + " in dependencies of " + source.internalPath);
-                    if (!schema.deps.some((v) => v.name == depSearch.name))
+                    if (!schema.deps.some((v) => v.name == depSearch.name)) {
                         schema.deps.push(depSearch);
+                    }
                 }
                 else {
                     const internalSearch = getClass(unknownType, source);
@@ -160,6 +161,8 @@ class JSONTransform extends Visitor {
                             console.log("Found " + unknownType + " internally from " + source.internalPath);
                         if (!this.visitedClasses.has(internalSearch.range.source.internalPath + internalSearch.name.text)) {
                             this.visitClassDeclarationRef(internalSearch);
+                            const internalSchema = this.schemas.get(internalSearch.range.source.internalPath)?.find((s) => s.name == internalSearch.name.text);
+                            schema.deps.push(internalSchema);
                             this.schemas.get(internalSearch.range.source.internalPath).push(this.schema);
                             this.visitClassDeclaration(node);
                             return;
@@ -176,6 +179,8 @@ class JSONTransform extends Visitor {
                                 console.log("Found " + externalSearch.name.text + " externally from " + source.internalPath);
                             if (!this.visitedClasses.has(externalSearch.range.source.internalPath + externalSearch.name.text)) {
                                 this.visitClassDeclarationRef(externalSearch);
+                                const externalSchema = this.schemas.get(externalSearch.range.source.internalPath)?.find((s) => s.name == externalSearch.name.text);
+                                schema.deps.push(externalSchema);
                                 this.schemas.get(externalSearch.range.source.internalPath).push(this.schema);
                                 this.visitClassDeclaration(node);
                                 return;
@@ -241,7 +246,7 @@ class JSONTransform extends Visitor {
                 deserializer.decorators.push(Node.createDecorator(Node.createIdentifierExpression("inline", deserializer.range), null, deserializer.range));
             }
             DESERIALIZE_CUSTOM += "  __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
-            DESERIALIZE_CUSTOM += "    return inline.always(this." + deserializer.name.text + "(changetype<string>(srcStart)));\n";
+            DESERIALIZE_CUSTOM += "    return inline.always(this." + deserializer.name.text + "(JSON.Util.ptrToStr(srcStart, srcEnd)));\n";
             DESERIALIZE_CUSTOM += "  }\n";
         }
         if (!members.length) {
@@ -258,6 +263,7 @@ class JSONTransform extends Visitor {
             if (type.startsWith("(") && type.includes("=>"))
                 continue;
             const mem = new Property();
+            mem.parent = this.schema;
             mem.name = name.text;
             mem.type = type;
             mem.value = value;
@@ -408,8 +414,7 @@ class JSONTransform extends Visitor {
         };
         for (const member of this.schema.members) {
             const type = stripNull(member.type);
-            if (node.isGeneric && node.typeParameters.some((p) => stripNull(p.name.text) == type)) {
-                member.generic = true;
+            if (member.custom) {
                 sortedMembers.string.push(member);
                 sortedMembers.number.push(member);
                 sortedMembers.object.push(member);
@@ -763,7 +768,7 @@ class JSONTransform extends Visitor {
                 const first = group[0];
                 const fName = first.alias || first.name;
                 DESERIALIZE += indent + "          if (" + (first.generic ? "isBoolean<" + first.type + ">() && " : "") + getComparision(fName) + ") { // " + fName + "\n";
-                DESERIALIZE += indent + "            store<" + first.type + ">(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
+                DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
                 DESERIALIZE += indent + "            srcStart += 2;\n";
                 DESERIALIZE += indent + "            keyStart = 0;\n";
                 DESERIALIZE += indent + "            break;\n";
@@ -772,7 +777,7 @@ class JSONTransform extends Visitor {
                     const mem = group[i];
                     const memName = mem.alias || mem.name;
                     DESERIALIZE += indent + " else if (" + (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") + getComparision(memName) + ") { // " + memName + "\n";
-                    DESERIALIZE += indent + "            store<" + mem.type + ">(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
+                    DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
                     DESERIALIZE += indent + "            srcStart += 2;\n";
                     DESERIALIZE += indent + "            keyStart = 0;\n";
                     DESERIALIZE += indent + "            break;\n";
@@ -807,7 +812,7 @@ class JSONTransform extends Visitor {
                 const first = group[0];
                 const fName = first.alias || first.name;
                 DESERIALIZE += indent + "          if (" + (first.generic ? "isBoolean<" + first.type + ">() && " : "") + getComparision(fName) + ") { // " + fName + "\n";
-                DESERIALIZE += indent + "            store<" + first.type + ">(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
+                DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
                 DESERIALIZE += indent + "            srcStart += 2;\n";
                 DESERIALIZE += indent + "            keyStart = 0;\n";
                 DESERIALIZE += indent + "            break;\n";
@@ -816,7 +821,7 @@ class JSONTransform extends Visitor {
                     const mem = group[i];
                     const memName = mem.alias || mem.name;
                     DESERIALIZE += indent + " else if (" + (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") + getComparision(memName) + ") { // " + memName + "\n";
-                    DESERIALIZE += indent + "            store<" + mem.type + ">(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
+                    DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
                     DESERIALIZE += indent + "            srcStart += 2;\n";
                     DESERIALIZE += indent + "            keyStart = 0;\n";
                     DESERIALIZE += indent + "            break;\n";
@@ -1076,7 +1081,7 @@ export default class Transformer extends Transform {
                 transformer.addImports(source);
             }
             if (source.normalizedPath == WRITE) {
-                writeFileSync(path.join(process.cwd(), this.baseDir, removeExtension(source.normalizedPath) + ".json.ts"), toString(source));
+                writeFileSync(path.join(process.cwd(), this.baseDir, removeExtension(source.normalizedPath) + ".tmp.ts"), toString(source));
             }
         }
     }
