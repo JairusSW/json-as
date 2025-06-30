@@ -5,7 +5,7 @@ import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { Property, PropertyFlags, Schema, SourceSet } from "./types.js";
-import { writeFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { CustomTransform } from "./linkers/custom.js";
 let indent = "  ";
 let id = 0;
@@ -13,7 +13,6 @@ const WRITE = process.env["JSON_WRITE"]?.trim();
 const rawValue = process.env["JSON_DEBUG"]?.trim();
 const DEBUG = rawValue === "true" ? 1 : rawValue === "false" || rawValue === "" ? 0 : isNaN(Number(rawValue)) ? 0 : Number(rawValue);
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
-console.log("DEBUG", DEBUG);
 export class JSONTransform extends Visitor {
     static SN = new JSONTransform();
     program;
@@ -934,7 +933,7 @@ export class JSONTransform extends Visitor {
     generateEmptyMethods(node) {
         let SERIALIZE_EMPTY = "@inline __SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
         let INITIALIZE_EMPTY = "@inline __INITIALIZE(): this {\n  return this;\n}";
-        let DESERIALIZE_EMPTY = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n  return this;\n}";
+        let DESERIALIZE_EMPTY = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n  return out;\n}";
         if (DEBUG > 0) {
             console.log(SERIALIZE_EMPTY);
             console.log(INITIALIZE_EMPTY);
@@ -961,14 +960,22 @@ export class JSONTransform extends Visitor {
     addImports(node) {
         this.baseCWD = this.baseCWD.replaceAll("/", path.sep);
         const baseDir = path.resolve(fileURLToPath(import.meta.url), "..", "..", "..");
-        const pkgPath = path.join(this.baseCWD, "node_modules");
         let fromPath = node.range.source.normalizedPath.replaceAll("/", path.sep);
+        const isLib = path.dirname(baseDir).endsWith("node_modules");
+        if (!isLib && !this.parser.sources.some((s) => s.normalizedPath.startsWith("assembly/index"))) {
+            const newPath = "./assembly/index.ts";
+            this.parser.parseFile(readFileSync(path.join(...newPath.split("/"))).toString(), newPath, false);
+        }
+        else if (isLib && !this.parser.sources.some((s) => s.normalizedPath.startsWith("~lib/json-as/assembly/index"))) {
+            const newPath = "~lib/json-as/assembly/index.ts";
+            this.parser.parseFile(readFileSync(path.join(...newPath.split("/"))).toString(), newPath, false);
+        }
         fromPath = fromPath.startsWith("~lib") ? fromPath.slice(5) : path.join(this.baseCWD, fromPath);
         const bsImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "bs" || d.name.text == "bs"));
         const jsonImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "JSON" || d.name.text == "JSON"));
         let baseRel = path.posix.join(...path.relative(path.dirname(fromPath), path.join(baseDir)).split(path.sep));
-        if (baseRel.endsWith("node_modules/json-as")) {
-            baseRel = "json-as" + baseRel.slice(baseRel.indexOf("node_modules/json-as") + 20);
+        if (baseRel.endsWith("json-as")) {
+            baseRel = "json-as" + baseRel.slice(baseRel.indexOf("json-as") + 7);
         }
         else if (!baseRel.startsWith(".") && !baseRel.startsWith("/") && !baseRel.startsWith("json-as")) {
             baseRel = "./" + baseRel;
