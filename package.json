@@ -1,6 +1,6 @@
 {
   "name": "json-as",
-  "version": "1.1.17",
+  "version": "1.1.19",
   "author": "Jairus Tanaka",
   "repository": {
     "type": "git",
@@ -9,10 +9,10 @@
   "main": "transform/lib/index.js",
   "devDependencies": {
     "@assemblyscript/wasi-shim": "^0.1.0",
-    "@types/node": "^22.15.32",
+    "@types/node": "^22.15.34",
     "assemblyscript": "^0.28.2",
     "assemblyscript-prettier": "^3.0.1",
-    "prettier": "^3.5.3",
+    "prettier": "^3.6.2",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   },

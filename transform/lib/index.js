@@ -968,7 +968,7 @@ export class JSONTransform extends Visitor {
         }
         else if (isLib && !this.parser.sources.some((s) => s.normalizedPath.startsWith("~lib/json-as/assembly/index"))) {
             const newPath = "~lib/json-as/assembly/index.ts";
-            this.parser.parseFile(readFileSync(path.join(...newPath.split("/"))).toString(), newPath, false);
+            this.parser.parseFile(readFileSync(path.join(baseDir, "assembly", "index.ts")).toString(), newPath, false);
         }
         fromPath = fromPath.startsWith("~lib") ? fromPath.slice(5) : path.join(this.baseCWD, fromPath);
         const bsImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "bs" || d.name.text == "bs"));

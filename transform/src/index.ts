@@ -1122,7 +1122,7 @@ export class JSONTransform extends Visitor {
       this.parser.parseFile(readFileSync(path.join(...newPath.split("/"))).toString(), newPath, false);
     } else if (isLib && !this.parser.sources.some((s) => s.normalizedPath.startsWith("~lib/json-as/assembly/index"))) {
       const newPath = "~lib/json-as/assembly/index.ts";
-      this.parser.parseFile(readFileSync(path.join(...newPath.split("/"))).toString(), newPath, false);
+      this.parser.parseFile(readFileSync(path.join(baseDir, "assembly", "index.ts")).toString(), newPath, false);
     }
 
     // console.log("baseCWD", this.baseCWD);

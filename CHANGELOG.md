@@ -1,5 +1,13 @@
 # Change Log
 
+## 2025-06-30 - 1.1.19
+
+- fix: wrong path used in `readFileSync` when importing from a library
+
+## 2025-06-30 - 1.1.18
+
+- fix: [#150](https://github.com/JairusSW/json-as/issues/150)
+
 ## 2025-06-17 - 1.1.17
 
 - fix: add support for classes within namespaces [#147](https://github.com/JairusSW/json-as/pull/147)
