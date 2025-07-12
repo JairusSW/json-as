@@ -1,7 +1,7 @@
 #!/bin/bash
 RUNTIMES=${RUNTIMES:-"minimal stub"}
 ENGINES=${ENGINES:-"liftoff ignition sparkplug turbofan llvm"}
-for file in ./assembly/__benches__/medium.bench.ts; do
+for file in ./assembly/__benches__/abc.bench.ts; do
     filename=$(basename -- "$file")
     output_wasi=
     for runtime in $RUNTIMES; do
@@ -44,7 +44,7 @@ for file in ./assembly/__benches__/medium.bench.ts; do
             fi
 
             if [[ "$engine" == "llvm" ]]; then
-                wasmer run "${output%.wasm}.wasi.wasm" --llvm --enable-simd --enable-bulk-memory --enable-relaxed-simd --enable-pass-params-opt
+                wasmer run "${output%.wasm}.wasi.wasm" --llvm --enable-simd --enable-bulk-memory
             fi
         done
     done
