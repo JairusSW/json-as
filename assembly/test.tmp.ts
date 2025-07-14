@@ -1,6 +1,7 @@
 import { JSON } from "../assembly/index";
 import { bs } from "../lib/as-bs";
 
+
 @json
 class Vec3 {
   x: f32 = 0;
@@ -23,6 +24,7 @@ class Vec3 {
     store<u16>(bs.offset, 125, 0);
     bs.offset += 2;
   }
+
 
   @inline
   __INITIALIZE(): this {
@@ -204,6 +206,7 @@ class Vec3 {
   }
 }
 
+
 @json
 class Player {
 
@@ -211,6 +214,7 @@ class Player {
   firstName!: string | null;
   lastName!: string;
   lastActive!: Array<i32>;
+
 
   @omitif((self: this): boolean => self.age < 18)
   age!: i32;
@@ -259,6 +263,7 @@ class Player {
     store<u16>(bs.offset, 125, 0);
     bs.offset += 2;
   }
+
 
   @inline
   __INITIALIZE(): this {

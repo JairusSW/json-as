@@ -1,20 +1,32 @@
-export function bench(description: string, routine: () => void, ops: u64 = 1_000_000): void {
+export function bench(description: string, routine: () => void, ops: u64 = 1_000_000, bytesPerOp: u64 = 0): void {
   console.log(" - Benchmarking " + description);
+
   let warmup = ops / 10;
   while (--warmup) {
     routine();
   }
-  const start = Date.now();
+
+  const start = performance.now();
+
   let count = ops;
-  while (count != 0) {
+  while (count--) {
     routine();
-    count--;
   }
-  const elapsed = Date.now() - start;
 
-  let opsPerSecond = (ops * 1000) / elapsed;
+  const end = performance.now();
+  const elapsed = Math.max(1, end - start);
 
-  console.log(`   Completed benchmark in ${formatNumber(elapsed)}ms at ${formatNumber(opsPerSecond)} ops/s\n`);
+  const opsPerSecond = f64(ops * 1000) / elapsed;
+
+  let log = `   Completed benchmark in ${formatNumber(u64(Math.round(elapsed)))}ms at ${formatNumber(u64(Math.round(opsPerSecond)))} ops/s`;
+
+  if (bytesPerOp > 0) {
+    const totalBytes = bytesPerOp * ops;
+    const mbPerSec = f64(totalBytes) / (elapsed / 1000) / (1000 * 1000);
+    log += ` @ ${formatNumber(u64(Math.round(mbPerSec)))}MB/s`;
+  }
+
+  console.log(log + "\n");
 }
 
 function formatNumber(n: u64): string {

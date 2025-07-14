@@ -10,6 +10,7 @@ const { exports } = new WebAssembly.Instance(module, {
       console.log(__liftString(ptr));
     },
     "Date.now": () => Date.now(),
+    "performance.now": () => performance.now(),
   },
 });
 

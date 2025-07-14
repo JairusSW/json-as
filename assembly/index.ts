@@ -28,6 +28,7 @@ import { deserializeObject } from "./deserialize/simple/object";
 import { serializeRaw } from "./serialize/simple/raw";
 import { deserializeRaw } from "./deserialize/simple/raw";
 import { serializeString_SIMD } from "./serialize/simd/string";
+// import { deserializeString_SIMD } from "./deserialize/simd/string";
 
 /**
  * Offset of the 'storage' property in the JSON.Value class.
@@ -180,7 +181,7 @@ export namespace JSON {
     } else if (isString<T>()) {
       if (dataSize < 4) throw new Error("Cannot parse data as string because it was formatted incorrectly!");
       // if (ASC_FEATURE_SIMD) {
-      // // @ts-ignore
+      //   // @ts-ignore
       //   return changetype<string>(deserializeString_SIMD(dataPtr, dataPtr + dataSize, __new(dataSize - 4, idof<string>())));
       // } else {
       // @ts-ignore
@@ -427,7 +428,7 @@ export namespace JSON {
     // @ts-ignore: type
     private storage: Map<string, JSON.Value> = new Map<string, JSON.Value>();
 
-    constructor() { }
+    constructor() {}
 
     // @ts-ignore: decorator
     @inline get size(): i32 {
@@ -543,7 +544,11 @@ export namespace JSON {
       store<u64>(bs.offset, 30399761348886638);
       bs.offset += 8;
     } else if (isString<nonnull<T>>()) {
-      serializeString(src as string);
+      if (ASC_FEATURE_SIMD) {
+        serializeString_SIMD(src as string);
+      } else {
+        serializeString(src as string);
+      }
       // @ts-ignore: Supplied by transform
     } else if (isDefined(src.__SERIALIZE_CUSTOM)) {
       // @ts-ignore

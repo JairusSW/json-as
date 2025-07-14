@@ -391,7 +391,7 @@ These benchmarks compare this library to JavaScript's native `JSON.stringify` an
 | Test Case       | Size       | Serialization (ops/s) | Deserialization (ops/s) | Serialization (MB/s) | Deserialization (MB/s) |
 | --------------- | ---------- | --------------------- | ----------------------- | -------------------- | ---------------------- |
 | Vector3 Object  | 38 bytes   | 26,611,226 ops/s      | 32,160,804 ops/s        | 1,357 MB/s           | 1,348 MB/s             |
-| Alphabet String | 104 bytes  | 13,617,021 ops/s      | 18,390,804 ops/s        | 1,416 MB/s           | 1,986 MB/s             |
+| Alphabet String | 104 bytes  | 16,916,886 ops/s      | 18,390,804 ops/s        | 1,759 MB/s           | 1,986 MB/s             |
 | Small Object    | 88 bytes   | 24,242,424 ops/s      | 12,307,692 ops/s        | 2,133 MB/s           | 1,083 MB/s             |
 | Medium Object   | 494 bytes  | 4,060,913 ops/s       | 1,396,160 ops/s         | 2,006 MB/s           | 689.7 MB/s             |
 | Large Object    | 3374 bytes | 479,616 ops/s         | 132,802 ops/s           | 2,074 MB/s           | 448.0 MB/s             |
@@ -401,7 +401,7 @@ These benchmarks compare this library to JavaScript's native `JSON.stringify` an
 | Test Case       | Size       | Serialization (ops/s) | Deserialization (ops/s) | Serialization (MB/s) | Deserialization (MB/s) |
 | --------------- | ---------- | --------------------- | ----------------------- | -------------------- | ---------------------- |
 | Vector3 Object  | 38 bytes   | 8,791,209 ops/s       | 5,369,12 ops/s          | 357.4 MB/s           | 204.3 MB/s             |
-| Alphabet String | 104 bytes  | 13,793,103 ops/s      | 14,746,544 ops/s        | 1,416 MB/s           | 1,592 MB/s             |
+| Alphabet String | 104 bytes  | 12,830,228 ops/s      | 12,140,296 ops/s        | 1,334 MB/s           | 1,311 MB/s             |
 | Small Object    | 88 bytes   | 8,376,963 ops/s       | 4,968,944 ops/s         | 737.1 MB/s           | 437.2 MB/s             |
 | Medium Object   | 494 bytes  | 2,395,210 ops/s       | 1,381,693 ops/s         | 1,183 MB/s           | 682.5 MB/s             |
 | Large Object    | 3374 bytes | 222,222 ops/s         | 117,233 ops/s           | 749.7 MB/s           | 395.5 MB/s             |
