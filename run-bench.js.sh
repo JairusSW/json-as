@@ -1,7 +1,7 @@
 #!/bin/bash
-RUNTIMES=${RUNTIMES:-"v8-liftoff v8-ignition v8-sparkplug v8-turbofan jsc-default"}
+RUNTIMES=${RUNTIMES:-"liftoff ignition sparkplug turbofan"}
 npx tsc -p ./bench > /dev/null 2>&1
-for file in ./bench/*.bench.ts; do
+for file in ./bench/abc.bench.ts; do
   filename=$(basename -- "$file")
   file_js="${filename%.ts}.js"
 
@@ -27,10 +27,6 @@ for file in ./bench/*.bench.ts; do
 
     if [[ "$engine" == "turbofan" ]]; then
       v8 --no-liftoff --no-wasm-tier-up --module ./build/$file_js
-    fi
-
-    if [[ "$engine" == "default" ]]; then
-      jsc -m ./build/$file_js
     fi
   done
 done

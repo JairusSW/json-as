@@ -27,6 +27,7 @@ import { serializeObject } from "./serialize/simple/object";
 import { deserializeObject } from "./deserialize/simple/object";
 import { serializeRaw } from "./serialize/simple/raw";
 import { deserializeRaw } from "./deserialize/simple/raw";
+import { serializeString_SIMD } from "./serialize/simd/string";
 
 /**
  * Offset of the 'storage' property in the JSON.Value class.
@@ -112,11 +113,11 @@ export namespace JSON {
       //   bs.setBuffer(oldBuf);
       //   return changetype<string>(newBuf);
       // }
-      // if (ASC_FEATURE_SIMD) {
-      //   serializeString_SIMD(data as string);
-      // } else {
-      serializeString(data as string);
-      // }
+      if (ASC_FEATURE_SIMD) {
+        serializeString_SIMD(data as string);
+      } else {
+        serializeString(data as string);
+      }
       return bs.out<string>();
       // @ts-ignore: Supplied by transform
     } else if (isDefined(data.__SERIALIZE)) {
@@ -426,7 +427,7 @@ export namespace JSON {
     // @ts-ignore: type
     private storage: Map<string, JSON.Value> = new Map<string, JSON.Value>();
 
-    constructor() {}
+    constructor() { }
 
     // @ts-ignore: decorator
     @inline get size(): i32 {

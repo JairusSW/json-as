@@ -7,21 +7,21 @@ for file in ./assembly/__benches__/abc.bench.ts; do
     for runtime in $RUNTIMES; do
         output="./build/${filename%.ts}.${runtime}.wasm"
 
-        npx asc "$file" --transform ./transform -o "${output}.1" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable simd --enable bulk-memory --exportStart start || {
+        npx asc "$file" --transform ./transform -o "${output}.wasm" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable simd --enable bulk-memory --exportStart start || {
             echo "Build failed"
             exit 1
         }
 
-        wasm-opt -all -O4 "${output}.1" -o "$output"
-        rm "${output}.1"
+        # wasm-opt -all -O4 "${output}.1" -o "$output"
+        # rm "${output}.1"
 
-        npx asc "$file" --transform ./transform -o "${output}.2" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable simd --enable bulk-memory --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json || {
+        npx asc "$file" --transform ./transform -o "${output}.wasi.wasm" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable simd --enable bulk-memory --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json || {
             echo "Build failed"
             exit 1
         }
 
-        wasm-opt -all -O4 "${output}.2" -o "${output%.wasm}.wasi.wasm"
-        rm "${output}.2"
+        # wasm-opt -all -O4 "${output}.2" -o "${output%.wasm}.wasi.wasm"
+        # rm "${output}.2"
 
         for engine in $ENGINES; do
             echo -e "$filename (asc/$runtime/$engine)\n"
