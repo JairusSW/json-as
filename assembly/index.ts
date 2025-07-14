@@ -428,7 +428,7 @@ export namespace JSON {
     // @ts-ignore: type
     private storage: Map<string, JSON.Value> = new Map<string, JSON.Value>();
 
-    constructor() {}
+    constructor() { }
 
     // @ts-ignore: decorator
     @inline get size(): i32 {
@@ -720,12 +720,12 @@ export namespace JSON {
         //   bs.setBuffer(oldBuf);
         //   return changetype<string>(newBuf);
         // }
-        // if (ASC_FEATURE_SIMD) {
-        //   serializeString_SIMD(data as string);
-        // } else {
-        bs.saveState();
-        serializeString(data as string);
-        // }
+        if (ASC_FEATURE_SIMD) {
+          serializeString_SIMD(data as string);
+        } else {
+          bs.saveState();
+          serializeString(data as string);
+        }
         return bs.cpyOut<string>();
         // @ts-ignore: Supplied by transform
       } else if (isDefined(data.__SERIALIZE)) {
