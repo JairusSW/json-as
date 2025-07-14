@@ -1,5 +1,9 @@
 # Change Log
 
+## 2025-07-14 - 1.1.20
+
+- feat: enable SIMD string serialization
+
 ## 2025-06-30 - 1.1.19
 
 - fix: wrong path used in `readFileSync` when importing from a library
