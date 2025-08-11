@@ -5,13 +5,13 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
  */
 export namespace bs {
   /** Current buffer pointer. */ // @ts-ignore
-  export let buffer: ArrayBuffer = new ArrayBuffer(32); //__new(32, idof<ArrayBuffer>());
+  export let buffer: ArrayBuffer = new ArrayBuffer(128); //__new(128, idof<ArrayBuffer>());
 
   /** Current offset within the buffer. */
   export let offset: usize = changetype<usize>(buffer);
 
   /** Byte length of the buffer. */
-  let bufferSize: usize = 32;
+  let bufferSize: usize = 128;
 
   /** Proposed size of output */
   export let stackSize: usize = 0;
@@ -58,7 +58,7 @@ export namespace bs {
   @inline export function ensureSize(size: u32): void {
     // console.log("Ensure   " + (stackSize).toString() + " -> " + (stackSize + size).toString() + " (" + size.toString() + ") " + (((stackSize + size) > bufferSize) ? "+" : ""));
     if (offset + size > bufferSize + changetype<usize>(buffer)) {
-      const deltaBytes = nextPowerOf2(size + 64);
+      const deltaBytes = nextPowerOf2(size + 128);
       bufferSize += deltaBytes;
       // @ts-ignore: exists
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
@@ -86,7 +86,7 @@ export namespace bs {
   }
 
   /**
-   * Increases the proposed size by nextPowerOf2(n + 64) if necessary.
+   * Increases the proposed size by nextPowerOf2(n + 128) if necessary.
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to grow by.
    */
@@ -94,7 +94,7 @@ export namespace bs {
   @inline export function growSize(size: u32): void {
     // console.log("Grow     " + (stackSize).toString() + " -> " + (stackSize + size).toString() + " (" + size.toString() + ") " + (((stackSize + size) > bufferSize) ? "+" : ""));
     if ((stackSize += size) > bufferSize) {
-      const deltaBytes = nextPowerOf2(size + 64);
+      const deltaBytes = nextPowerOf2(size + 128);
       bufferSize += deltaBytes;
       // @ts-ignore
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
