@@ -1,3 +1,4 @@
+import { JSON } from ".";
 
 @json
 class Vec3 {
@@ -5,7 +6,6 @@ class Vec3 {
   y: f32 = 0.0;
   z: f32 = 0.0;
 }
-
 
 @json
 class Player {

@@ -1,12 +1,12 @@
 #!/bin/bash
 RUNTIMES=${RUNTIMES:-"minimal stub"}
 ENGINES=${ENGINES:-"liftoff ignition sparkplug turbofan llvm"}
-for file in ./assembly/__benches__/abc.bench.ts; do
+for file in ./assembly/__benches__/vec3.bench.ts; do
     filename=$(basename -- "$file")
     for runtime in $RUNTIMES; do
         output="./build/${filename%.ts}.${runtime}"
 
-        npx asc "$file" --transform ./transform -o "${output}.1" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start || {
+        npx asc "$file" --transform ./transform -o "${output}.1" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable simd --enable bulk-memory --exportStart start || {
             echo "Build failed"
             exit 1
         }
@@ -43,7 +43,7 @@ for file in ./assembly/__benches__/abc.bench.ts; do
             fi
 
             if [[ "$engine" == "llvm" ]]; then
-                wasmer run --llvm --enable-simd --enable-bulk-memory "${output}.wasi.wasm"
+                wasmer run --cranelift --enable-simd --enable-bulk-memory "${output}.wasi.wasm"
             fi
         done
     done

@@ -10,14 +10,12 @@ import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables
 // todo: optimize and stuff. it works, its not pretty. ideally, i'd like this to be (nearly) branchless
 export function deserializeString_SIMD(srcStart: usize, srcEnd: usize, dst: usize): usize {
   const SPLAT_92 = i16x8.splat(92); /* \ */
-  let src_ptr = srcStart + 2;
+  srcStart += 2; srcEnd -= 2;
   let dst_ptr = changetype<usize>(dst);
+  const src_end_15 = srcEnd - 15;
 
-  const src_end = srcEnd - 2;
-  const src_end_15 = src_end - 15;
-
-  while (src_ptr < src_end_15) {
-    const block = v128.load(src_ptr);
+  while (srcStart < src_end_15) {
+    const block = v128.load(srcStart);
     v128.store(dst_ptr, block);
 
     const backslash_indices = i16x8.eq(block, SPLAT_92);
@@ -26,7 +24,7 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize, dst: usiz
     while (mask != 0) {
       const lane_index = ctz(mask) << 1;
       const dst_offset = dst_ptr + lane_index;
-      const src_offset = src_ptr + lane_index;
+      const src_offset = srcStart + lane_index;
       const code = load<u16>(src_offset, 2);
 
       mask &= mask - 1;
@@ -48,7 +46,7 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize, dst: usiz
         v128.store(dst_offset, v128.load(src_offset, 4), 2);
         if (lane_index >= 6) {
           const bytes_left = lane_index - 4;
-          src_ptr += bytes_left;
+          srcStart += bytes_left;
           dst_ptr += bytes_left;
           // console.log("  e: " + (bytes_left).toString())
         }
@@ -59,25 +57,25 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize, dst: usiz
         v128.store(dst_offset, v128.load(src_offset, 4), 2);
         // console.log("Escaped:");
         if (lane_index == 14) {
-          src_ptr += 2;
+          srcStart += 2;
         } else {
           dst_ptr -= 2;
         }
       }
     }
 
-    src_ptr += 16;
+    srcStart += 16;
     dst_ptr += 16;
 
-    // console.log("src: " + (src_ptr - changetype<usize>(src)).toString());
+    // console.log("src: " + (srcStart - changetype<usize>(src)).toString());
     // console.log("dst: " + (dst_ptr - dst).toString());
   }
-  while (src_ptr < src_end) {
-    let code = load<u16>(src_ptr);
+  while (srcStart < srcEnd) {
+    let code = load<u16>(srcStart);
     if (code == BACK_SLASH) {
-      code = load<u16>(DESERIALIZE_ESCAPE_TABLE + load<u8>(src_ptr, 2));
-      if (code == 117 && load<u32>(src_ptr, 4) == 3145776) {
-        const block = load<u32>(src_ptr, 8);
+      code = load<u16>(DESERIALIZE_ESCAPE_TABLE + load<u8>(srcStart, 2));
+      if (code == 117 && load<u32>(srcStart, 4) == 3145776) {
+        const block = load<u32>(srcStart, 8);
         const codeA = block & 0xffff;
         const codeB = (block >> 16) & 0xffff;
         const escapedA = load<u8>(ESCAPE_HEX_TABLE + codeA);
@@ -85,16 +83,16 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize, dst: usiz
         const escaped = (escapedA << 4) + escapedB;
         store<u16>(dst_ptr, escaped);
         dst_ptr += 2;
-        src_ptr += 12;
+        srcStart += 12;
       } else {
         store<u16>(dst_ptr, code);
         dst_ptr += 2;
-        src_ptr += 4;
+        srcStart += 4;
       }
     } else {
       store<u16>(dst_ptr, code);
       dst_ptr += 2;
-      src_ptr += 2;
+      srcStart += 2;
     }
   }
 

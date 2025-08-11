@@ -4,6 +4,10 @@ import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { bytes } from "../../util";
 
 const U00_MARKER = 13511005048209500;
+const SPLAT_34 = i16x8.splat(34); /* " */
+const SPLAT_92 = i16x8.splat(92); /* \ */
+
+const SPLAT_32 = i16x8.splat(32); /* [ESC] */
 
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
@@ -11,10 +15,6 @@ const U00_MARKER = 13511005048209500;
  * @param srcEnd pointer to end serialization at
  */
 export function serializeString_SIMD(src: string): void {
-  const SPLAT_34 = i16x8.splat(34); /* " */
-  const SPLAT_92 = i16x8.splat(92); /* \ */
-
-  const SPLAT_32 = i16x8.splat(32); /* [ESC] */
 
   const srcSize = bytes(src);
   let srcStart = changetype<usize>(src);

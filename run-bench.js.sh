@@ -1,7 +1,7 @@
 #!/bin/bash
 RUNTIMES=${RUNTIMES:-"liftoff ignition sparkplug turbofan"}
 npx tsc -p ./bench > /dev/null 2>&1
-for file in ./bench/abc.bench.ts; do
+for file in ./bench/vec3.bench.ts; do
   filename=$(basename -- "$file")
   file_js="${filename%.ts}.js"
 
