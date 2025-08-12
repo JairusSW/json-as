@@ -103,7 +103,7 @@ export class Src {
   private nodeMap: Map<Node, NamespaceDeclaration[]> = new Map<Node, NamespaceDeclaration[]>();
   private classes: Record<string, ClassDeclaration> = {};
   private enums: Record<string, EnumDeclaration> = {};
-  private imports: ImportStatement[] = [];
+  public imports: ImportStatement[] = [];
 
   constructor(
     source: Source,

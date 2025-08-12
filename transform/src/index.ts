@@ -44,6 +44,30 @@ export class JSONTransform extends Visitor {
     this.visitClassDeclaration(node);
   }
 
+  resolveType(type: string, source: Src): string {
+    let resolvedType = source.aliases.find((v) => stripNull(v.name) == stripNull(type))?.getBaseType();
+    if (resolvedType) {
+      return resolvedType;
+    } else {
+      for (const imp of source.imports) {
+        if (!imp.declarations) continue;
+        for (const decl of imp.declarations) {
+          if (decl.name.text === stripNull(type)) {
+            const externalSource = this.parser.sources.find(s => s.internalPath === imp.internalPath);
+            if (externalSource) {
+              const externalSrc = this.sources.get(externalSource);
+              const externalAlias = externalSrc.aliases.find(a => a.name === decl.foreignName.text);
+              if (externalAlias) {
+                return externalAlias.getBaseType();
+              }
+            }
+          }
+        }
+      }
+    }
+    return type;
+  }
+
   visitClassDeclaration(node: ClassDeclaration): void {
     if (!node.decorators?.length) return;
 
@@ -124,7 +148,7 @@ export class JSONTransform extends Visitor {
 
     const getUnknownTypes = (type: string, types: string[] = []): string[] => {
       type = stripNull(type);
-      type = source.aliases.find((v) => stripNull(v.name) == type)?.getBaseType() || type;
+      type = this.resolveType(type, source);
       if (type.startsWith("Array<")) {
         return getUnknownTypes(type.slice(6, -1));
       } else if (type.startsWith("Map<")) {
@@ -256,7 +280,7 @@ export class JSONTransform extends Visitor {
     for (const member of members) {
       if (!member.type) throwError("Fields must be strongly typed", node.range);
       let type = toString(member.type!);
-      type = source.aliases.find((v) => stripNull(v.name) == stripNull(type))?.getBaseType() || type;
+      type = this.resolveType(type, source);
 
       const name = member.name;
       const value = member.initializer ? toString(member.initializer!) : null;
