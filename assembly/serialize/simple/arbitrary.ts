@@ -44,6 +44,7 @@ export function serializeArbitrary(src: JSON.Value): void {
       const fn = JSON.Value.METHODS.get(src.type - JSON.Types.Struct);
       const ptr = src.get<usize>();
       call_indirect<void>(fn, 0, ptr);
+      break;
     }
   }
 }

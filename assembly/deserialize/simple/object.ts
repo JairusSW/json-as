@@ -3,6 +3,10 @@ import { BACK_SLASH, COMMA, CHAR_F, BRACE_LEFT, BRACKET_LEFT, CHAR_N, QUOTE, BRA
 import { isSpace } from "../../util";
 import { ptrToStr } from "../../util/ptrToStr";
 import { deserializeArbitrary } from "./arbitrary";
+import { deserializeArray } from "./array";
+import { deserializeBoolean } from "./bool";
+import { deserializeFloat } from "./float";
+import { deserializeString } from "./string";
 
 export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): JSON.Obj {
   const out = changetype<JSON.Obj>(dst || changetype<usize>(new JSON.Obj()));
@@ -48,8 +52,8 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
         while (srcStart < srcEnd) {
           const code = load<u16>(srcStart);
           if (code == QUOTE && load<u16>(srcStart - 2) !== BACK_SLASH) {
-            // console.log("Value (string): " + ptrToStr(lastIndex, srcStart + 2));
-            out.set(ptrToStr(keyStart, keyEnd), deserializeArbitrary(lastIndex, srcStart + 2, dst));
+            // console.log("Value (string):-" + deserializeString(lastIndex, srcStart + 2, 0) + "-");
+            out.set(ptrToStr(keyStart, keyEnd), deserializeString(lastIndex, srcStart + 2, 0));
             // while (isSpace(load<u16>(srcStart))) srcStart += 2;
             srcStart += 4;
             // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
@@ -65,7 +69,7 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
           const code = load<u16>(srcStart);
           if (code == COMMA || code == BRACE_RIGHT || isSpace(code)) {
             // console.log("Value (number): " + ptrToStr(lastIndex, srcStart));
-            out.set(ptrToStr(keyStart, keyEnd), deserializeArbitrary(lastIndex, srcStart, dst));
+            out.set(ptrToStr(keyStart, keyEnd), deserializeFloat<f64>(lastIndex, srcStart));
             // while (isSpace(load<u16>((srcStart += 2)))) {
             //   /* empty */
             // }
@@ -88,7 +92,7 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
           } else if (code == BRACE_RIGHT) {
             if (--depth == 0) {
               // console.log("Value (object): " + ptrToStr(lastIndex, srcStart + 2));
-              out.set(ptrToStr(keyStart, keyEnd), deserializeArbitrary(lastIndex, (srcStart += 2), dst));
+              out.set(ptrToStr(keyStart, keyEnd), deserializeObject(lastIndex, (srcStart += 2), 0));
               // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
               keyStart = 0;
               // while (isSpace(load<u16>(srcStart))) {
@@ -108,7 +112,7 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
           if (code == BRACKET_RIGHT) {
             if (--depth == 0) {
               // console.log("Value (array): " + ptrToStr(lastIndex, srcStart + 2));
-              out.set(ptrToStr(keyStart, keyEnd), deserializeArbitrary(lastIndex, (srcStart += 2), dst));
+              out.set(ptrToStr(keyStart, keyEnd), deserializeArray<JSON.Value[]>(lastIndex, (srcStart += 2), 0));
               // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
               keyStart = 0;
               // while (isSpace(load<u16>((srcStart += 2)))) {
@@ -122,7 +126,8 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
       } else if (code == CHAR_T) {
         if (load<u64>(srcStart) == 28429475166421108) {
           // console.log("Value (bool): " + ptrToStr(srcStart, srcStart + 8));
-          out.set(ptrToStr(keyStart, keyEnd), deserializeArbitrary(srcStart, (srcStart += 8), dst));
+          out.set(ptrToStr(keyStart, keyEnd), true);
+          srcStart += 8;
           // while (isSpace(load<u16>((srcStart += 2)))) {
           //   /* empty */
           // }
@@ -133,7 +138,8 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
       } else if (code == CHAR_F) {
         if (load<u64>(srcStart, 2) == 28429466576093281) {
           // console.log("Value (bool): " + ptrToStr(srcStart, srcStart + 10));
-          out.set(ptrToStr(keyStart, keyEnd), deserializeArbitrary(srcStart, (srcStart += 10), dst));
+          out.set(ptrToStr(keyStart, keyEnd), false);
+          srcStart += 10;
           // while (isSpace(load<u16>((srcStart += 2)))) {
           //   /* empty */
           // }
@@ -144,7 +150,8 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
       } else if (code == CHAR_N) {
         if (load<u64>(srcStart) == 30399761348886638) {
           // console.log("Value (null): " + ptrToStr(srcStart, srcStart + 8));
-          out.set(ptrToStr(keyStart, keyEnd), deserializeArbitrary(srcStart, (srcStart += 8), dst));
+          out.set(ptrToStr(keyStart, keyEnd), JSON.Value.from<usize>(0));
+          srcStart += 8;
           // while (isSpace(load<u16>((srcStart += 2)))) {
           /* empty */
           // }

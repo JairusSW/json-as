@@ -27,7 +27,7 @@ export function serializeArray<T extends any[]>(src: T): void {
 
   const lastBlock = unchecked(src[end]);
   JSON.__serialize<valueof<T>>(lastBlock);
-  bs.growSize(2);
+  // bs.growSize(2);
   store<u16>(bs.offset, BRACKET_RIGHT);
   bs.offset += 2;
 }

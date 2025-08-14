@@ -1,44 +1,46 @@
 import { bs } from "../../../lib/as-bs";
 import { JSON } from "../..";
-import { BRACE_LEFT, BRACE_RIGHT, QUOTE } from "../../custom/chars";
-import { bytes } from "../../util";
+import { BRACE_LEFT, BRACE_RIGHT, COLON, COMMA } from "../../custom/chars";
+import { serializeArbitrary } from "./arbitrary";
+import { serializeString } from "./string";
 
-export function serializeObject(data: JSON.Obj): void {
-  if (!data.size) {
+export function serializeObject(src: JSON.Obj): void {
+  const srcSize = src.size;
+  const srcEnd = srcSize - 1;
+
+  if (srcSize == 0) {
     bs.proposeSize(4);
     store<u32>(bs.offset, 8192123);
     bs.offset += 4;
     return;
   }
 
-  bs.proposeSize(load<u32>(changetype<usize>(data), offsetof<JSON.Obj>("stackSize")) - 2);
-  const keys = data.keys();
-  const values = data.values();
+  const keys = src.keys();
+  const values = src.values();
 
-  // console.log(" Keys    " + keys.join(" "));
-  // console.log(" Values  " + values.map<string>(v => v.toString()).join(" "))
-
+  bs.growSize(2);
   store<u16>(bs.offset, BRACE_LEFT);
   bs.offset += 2;
 
-  const firstKey = unchecked(keys[0]);
-  const keySize = bytes(firstKey);
-  store<u16>(bs.offset, QUOTE);
-  memory.copy(bs.offset + 2, changetype<usize>(firstKey), keySize);
-  store<u32>((bs.offset += keySize + 2), 3801122); // ":
-  bs.offset += 4;
-  JSON.__serialize(unchecked(values[0]));
+  for (let i = 0; i < srcEnd; i++) {
+    serializeString(unchecked(keys[i]));
+    bs.growSize(2);
+    store<u16>(bs.offset, COLON);
+    bs.offset += 2;
 
-  for (let i = 1; i < keys.length; i++) {
-    const key = unchecked(keys[i]);
-    const keySize = bytes(key);
-    store<u32>(bs.offset, 2228268); // ,"
-    memory.copy(bs.offset + 4, changetype<usize>(key), keySize);
-    store<u32>((bs.offset += keySize + 4), 3801122); // ":
-    bs.offset += 4;
-    JSON.__serialize(unchecked(values[i]));
+    serializeArbitrary(unchecked(values[i]));
+    bs.growSize(2);
+    store<u16>(bs.offset, COMMA);
+    bs.offset += 2;
   }
 
+  serializeString(unchecked(keys[srcEnd]));
+  bs.growSize(2);
+  store<u16>(bs.offset, COLON);
+  bs.offset += 2;
+  serializeArbitrary(unchecked(values[srcEnd]));
+
+  bs.growSize(2);
   store<u16>(bs.offset, BRACE_RIGHT);
   bs.offset += 2;
 }

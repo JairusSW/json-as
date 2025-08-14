@@ -16,7 +16,7 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
   let keys = src.keys();
   let values = src.values();
 
-  bs.proposeSize(srcSize << 3); // This needs to be predicted better
+  bs.proposeSize(4);
 
   store<u16>(bs.offset, BRACE_LEFT);
   bs.offset += 2;
@@ -37,7 +37,7 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
   store<u16>(bs.offset, COLON);
   bs.offset += 2;
   JSON.__serialize(unchecked(values[srcEnd]));
-  bs.growSize(2);
+  // bs.growSize(2);
   store<u16>(bs.offset, BRACE_RIGHT);
   bs.offset += 2;
 }

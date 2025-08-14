@@ -3,25 +3,24 @@ import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { bytes } from "../../util";
 
-const U00_MARKER = 13511005048209500;
-const SPLAT_34 = i16x8.splat(34); /* " */
-const SPLAT_92 = i16x8.splat(92); /* \ */
-
-const SPLAT_32 = i16x8.splat(32); /* [ESC] */
-
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
  * @param srcStart pointer to begin serializing at
  * @param srcEnd pointer to end serialization at
  */
 export function serializeString_SIMD(src: string): void {
+  const U00_MARKER = 13511005048209500;
+  const SPLAT_34 = i16x8.splat(34); /* " */
+  const SPLAT_92 = i16x8.splat(92); /* \ */
+
+  const SPLAT_32 = i16x8.splat(32); /* [ESC] */
 
   const srcSize = bytes(src);
   let srcStart = changetype<usize>(src);
   const srcEnd = srcStart + srcSize;
   const srcEnd16 = srcEnd - 16;
 
-  bs.proposeSize(srcSize + 40);
+  bs.proposeSize(srcSize + 4);
 
   store<u8>(changetype<usize>(bs.offset), 34); /* " */
   bs.offset += 2;

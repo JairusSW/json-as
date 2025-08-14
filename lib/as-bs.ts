@@ -56,9 +56,9 @@ export namespace bs {
    */
   // @ts-ignore: decorator
   @inline export function ensureSize(size: u32): void {
-    // console.log("Ensure   " + (stackSize).toString() + " -> " + (stackSize + size).toString() + " (" + size.toString() + ") " + (((stackSize + size) > bufferSize) ? "+" : ""));
+    // console.log("Ensure   " + (size).toString() + " -> " + (offset + size).toString() + " (" + (offset - changetype<usize>(buffer)).toString() + ")");
     if (offset + size > bufferSize + changetype<usize>(buffer)) {
-      const deltaBytes = nextPowerOf2(size + 128);
+      const deltaBytes = size + 128;
       bufferSize += deltaBytes;
       // @ts-ignore: exists
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
@@ -74,9 +74,9 @@ export namespace bs {
    */
   // @ts-ignore: decorator
   @inline export function proposeSize(size: u32): void {
-    // console.log("Propose  " + (stackSize).toString() + " -> " + (stackSize + size).toString() + " (" + size.toString() + ") " + (((stackSize + size) > bufferSize) ? "+" : ""));
+    // console.log("Propose  " + (size).toString() + " -> " + (stackSize + size).toString() + " (" + (offset - changetype<usize>(buffer)).toString() + ")");
     if ((stackSize += size) > bufferSize) {
-      const deltaBytes = nextPowerOf2(size);
+      const deltaBytes = size;
       bufferSize += deltaBytes;
       // @ts-ignore: exists
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
@@ -86,15 +86,15 @@ export namespace bs {
   }
 
   /**
-   * Increases the proposed size by nextPowerOf2(n + 128) if necessary.
+   * Increases the proposed size by n + 128 if necessary.
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to grow by.
    */
   // @ts-ignore: decorator
   @inline export function growSize(size: u32): void {
-    // console.log("Grow     " + (stackSize).toString() + " -> " + (stackSize + size).toString() + " (" + size.toString() + ") " + (((stackSize + size) > bufferSize) ? "+" : ""));
+    // console.log("Grow     " + (size).toString() + " -> " + (stackSize + size).toString() + " (" + (offset - changetype<usize>(buffer)).toString() + ")");
     if ((stackSize += size) > bufferSize) {
-      const deltaBytes = nextPowerOf2(size + 128);
+      const deltaBytes = size + 128;
       bufferSize += deltaBytes;
       // @ts-ignore
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
@@ -147,6 +147,7 @@ export namespace bs {
   // @ts-ignore: Decorator valid here
   @inline export function out<T>(): T {
     const len = offset - changetype<usize>(buffer);
+    // console.log("Out      " + (len).toString() + " -> " + (stackSize).toString() + " (" + (offset - changetype<usize>(buffer)).toString() + ")");
     // @ts-ignore: exists
     const _out = __new(len, idof<T>());
     memory.copy(_out, changetype<usize>(buffer), len);
@@ -177,9 +178,9 @@ export namespace bs {
 }
 
 // @ts-ignore: Decorator valid here
-@inline function nextPowerOf2(n: u32): u32 {
-  return 1 << (32 - clz(n - 1));
-}
+// @inline function nextPowerOf2(n: u32): u32 {
+//   return 1 << (32 - clz(n - 1));
+// }
 
 // @ts-ignore: Decorator valid here
 @inline function bytes<T>(o: T): i32 {

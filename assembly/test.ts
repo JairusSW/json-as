@@ -9,7 +9,6 @@ class Vec3 {
 
 @json
 class Player {
-
   @alias("first name")
   firstName!: string | null;
   lastName!: string;

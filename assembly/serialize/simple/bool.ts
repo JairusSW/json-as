@@ -5,7 +5,7 @@ import { bs } from "../../../lib/as-bs";
  * @returns void
  */
 export function serializeBool(data: bool): void {
-  if (data == true) {
+  if (data === true) {
     bs.proposeSize(8);
     store<u64>(bs.offset, 28429475166421108);
     bs.offset += 8;

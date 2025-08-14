@@ -260,6 +260,7 @@ export namespace JSON {
     }
   }
 
+  @final
   export class Value {
     static METHODS: Map<u32, u32> = new Map<u32, u32>();
     public type: i32;
@@ -334,7 +335,7 @@ export namespace JSON {
         this.type = JSON.Types.Struct;
         store<T>(changetype<usize>(this), value, STORAGE);
         // @ts-ignore: supplied by transform
-      } else if (isDefined(value.__SERIALIZE)) {
+      } else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
         this.type = idof<T>() + JSON.Types.Struct;
         // @ts-ignore
         if (!JSON.Value.METHODS.has(idof<T>())) JSON.Value.METHODS.set(idof<T>(), value.__SERIALIZE.index);
@@ -419,14 +420,17 @@ export namespace JSON {
         }
       }
     }
+
+    @unsafe private __visit(cookie: u32): void {
+      if (this.type >= JSON.Types.String) {
+        __visit(load<usize>(changetype<usize>(this), STORAGE), cookie);
+      }
+    }
   }
 
   export class Obj {
-    // When accessing stackSize, subtract 2
     // @ts-ignore: type
-    private stackSize: u32 = 6;
-    // @ts-ignore: type
-    private storage: Map<string, JSON.Value> = new Map<string, JSON.Value>();
+    storage: Map<string, JSON.Value> = new Map<string, JSON.Value>();
 
     constructor() { }
 
@@ -437,7 +441,7 @@ export namespace JSON {
 
     // @ts-ignore: decorator
     @inline set<T>(key: string, value: T): void {
-      if (!this.storage.has(key)) this.stackSize += bytes(key) + 8;
+      // if (!this.storage.has(key)) this.stackSize += bytes(key) + 8;
       this.storage.set(key, JSON.Value.from<T>(value));
     }
 
@@ -475,7 +479,7 @@ export namespace JSON {
     // @ts-ignore: decorator
     @inline static from<T>(value: T): JSON.Obj {
       if (value instanceof JSON.Obj) return value;
-      const out = changetype<JSON.Obj>(__new(offsetof<JSON.Obj>(), idof<JSON.Obj>()));
+      const out = new JSON.Obj();
 
       if (value instanceof Map) {
       }
