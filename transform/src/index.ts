@@ -1334,7 +1334,7 @@ function strToNum(data: string, simd: boolean = false, offset: number = 0): stri
   const out: string[][] = [];
   let n = data.length;
 
-  while (n >= 8 && simd) {  
+  while (n >= 8 && simd) {
     out.push(["v128", "i16x8(" + data.charCodeAt(offset + 0) + ", " + data.charCodeAt(offset + 1) + ", " + data.charCodeAt(offset + 2) + ", " + data.charCodeAt(offset + 3) + ", " + data.charCodeAt(offset + 4) + ", " + data.charCodeAt(offset + 5) + ", " + data.charCodeAt(offset + 6) + ", " + data.charCodeAt(offset + 7) + ")"]);
     offset += 8;
     n -= 8;
@@ -1415,7 +1415,7 @@ function isArray(type: string): boolean {
 }
 
 function isEnum(type: string, source: Src, parser: Parser): boolean {
-  return source.getEnum(type) != null || source.getImportedEnum(type, parser) != null
+  return source.getEnum(type) != null || source.getImportedEnum(type, parser) != null;
 }
 
 export function stripNull(type: string): string {

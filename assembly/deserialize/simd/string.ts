@@ -10,7 +10,8 @@ import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables
 // todo: optimize and stuff. it works, its not pretty. ideally, i'd like this to be (nearly) branchless
 export function deserializeString_SIMD(srcStart: usize, srcEnd: usize, dst: usize): usize {
   const SPLAT_92 = i16x8.splat(92); /* \ */
-  srcStart += 2; srcEnd -= 2;
+  srcStart += 2;
+  srcEnd -= 2;
   let dst_ptr = changetype<usize>(dst);
   const src_end_15 = srcEnd - 15;
 

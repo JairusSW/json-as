@@ -260,6 +260,7 @@ export namespace JSON {
     }
   }
 
+
   @final
   export class Value {
     static METHODS: Map<u32, u32> = new Map<u32, u32>();
@@ -421,6 +422,7 @@ export namespace JSON {
       }
     }
 
+
     @unsafe private __visit(cookie: u32): void {
       if (this.type >= JSON.Types.String) {
         __visit(load<usize>(changetype<usize>(this), STORAGE), cookie);
@@ -432,7 +434,7 @@ export namespace JSON {
     // @ts-ignore: type
     storage: Map<string, JSON.Value> = new Map<string, JSON.Value>();
 
-    constructor() { }
+    constructor() {}
 
     // @ts-ignore: decorator
     @inline get size(): i32 {

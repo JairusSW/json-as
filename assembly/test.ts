@@ -1,5 +1,6 @@
 import { JSON } from ".";
 
+
 @json
 class Vec3 {
   x: f32 = 0.0;
@@ -7,8 +8,10 @@ class Vec3 {
   z: f32 = 0.0;
 }
 
+
 @json
 class Player {
+
   @alias("first name")
   firstName!: string | null;
   lastName!: string;

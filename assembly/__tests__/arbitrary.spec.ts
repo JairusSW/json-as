@@ -23,8 +23,7 @@ describe("Should serialize arbitrary types", () => {
   o.get("properties")!.as<JSON.Obj>().get("steps")!.as<JSON.Obj>().set("type", "number");
   o.set("type", "object");
 
-  expect(o.toString())
-    .toBe('{"schema":"http://json-schema.org/draft-07/schema#","additionalProperties":false,"properties":{"duration":{"default":10.0,"description":"Duration of the operation in seconds","type":"number"},"steps":{"default":5.0,"description":"Number of steps in the operation","type":"number"}},"type":"object"}');
+  expect(o.toString()).toBe('{"schema":"http://json-schema.org/draft-07/schema#","additionalProperties":false,"properties":{"duration":{"default":10.0,"description":"Duration of the operation in seconds","type":"number"},"steps":{"default":5.0,"description":"Number of steps in the operation","type":"number"}},"type":"object"}');
 });
 
 describe("Should deserialize arbitrary types", () => {

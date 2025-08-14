@@ -1,6 +1,4 @@
-import {
-  JSON
-} from ".";
+import { JSON } from ".";
 const o = new JSON.Obj();
 o.set("schema", "http://json-schema.org/draft-07/schema#");
 o.set("additionalProperties", false);
