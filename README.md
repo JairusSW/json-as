@@ -1,34 +1,6 @@
-<h6 align="center">
-  <pre>
-<span style="font-size: 0.8em;">     ██ ███████  ██████  ███    ██        █████  ███████
-     ██ ██      ██    ██ ████   ██       ██   ██ ██     
-     ██ ███████ ██    ██ ██ ██  ██ █████ ███████ ███████
-██   ██      ██ ██    ██ ██  ██ ██       ██   ██      ██
- █████  ███████  ██████  ██   ████       ██   ██ ███████
- </span>
-    AssemblyScript - v1.1.20
-  </pre>
-</h6>
-
-## 📝 About
-
-JSON is the de-facto serialization format of modern web applications, but its serialization and deserialization remain a significant performance bottleneck, especially at scale. Traditional parsing approaches are computationally expensive, adding unnecessary overhead to both clients and servers. This library is designed to mitigate this by leveraging SIMD acceleration and highly optimized transformations.
-
-## 📚 Contents
-
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Examples](#-examples)
-  - [Omitting Fields](#️-omitting-fields)
-  - [Nullable Primitives](#️-using-nullable-primitives)
-  - [Unknown or Dynamic Data](#-working-with-unknown-or-dynamic-data)
-  - [Using Raw JSON Strings](#️-using-raw-json-strings)
-  - [Using Enums](#️-working-with-enums)
-  - [Custom Serializers](#️-using-custom-serializers-or-deserializers)
-- [Performance](#-performance)
-- [Debugging](#-debugging)
-- [License](#-license)
-- [Contact](#-contact)
+<h1 align="center"><pre> ╦╔═╗╔═╗╔╗╔   ╔═╗╔═╗
+ ║╚═╗║ ║║║║───╠═╣╚═╗
+╚╝╚═╝╚═╝╝╚╝   ╩ ╩╚═╝</pre></h1>
 
 ## 💾 Installation
 
@@ -297,7 +269,7 @@ console.log(JSON.stringify(map));
 
 ### 📝 Working with enums
 
-By default, enums arn't supported by `json-as`. However, you can use a workaround:
+By default, enums with values other than `i32` arn't supported by AssemblyScript. However, you can use a workaround:
 
 ```typescript
 namespace Foo {
