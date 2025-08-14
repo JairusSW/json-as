@@ -89,6 +89,7 @@ export class Src {
     exports;
     nodeMap = new Map();
     classes = {};
+    enums = {};
     imports = [];
     constructor(source, sourceSet) {
         this.sourceSet = sourceSet;
@@ -108,6 +109,10 @@ export class Src {
                     const classDeclaration = node;
                     this.classes[this.qualifiedName(classDeclaration, path)] = classDeclaration;
                     break;
+                case 52:
+                    const enumDeclaration = node;
+                    this.enums[this.qualifiedName(enumDeclaration, path)] = enumDeclaration;
+                    break;
                 case 42:
                     const importStatement = node;
                     this.imports.push(importStatement);
@@ -122,6 +127,9 @@ export class Src {
     getClass(qualifiedName) {
         return this.classes[qualifiedName] || null;
     }
+    getEnum(qualifiedName) {
+        return this.enums[qualifiedName] || null;
+    }
     getImportedClass(qualifiedName, parser) {
         for (const stmt of this.imports) {
             const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
@@ -131,6 +139,19 @@ export class Src {
             const classDeclaration = source.getClass(qualifiedName);
             if (classDeclaration && classDeclaration.flags & 2) {
                 return classDeclaration;
+            }
+        }
+        return null;
+    }
+    getImportedEnum(qualifiedName, parser) {
+        for (const stmt of this.imports) {
+            const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
+            if (!externalSource)
+                continue;
+            const source = this.sourceSet.get(externalSource);
+            const enumDeclaration = source.getEnum(qualifiedName);
+            if (enumDeclaration && enumDeclaration.flags & 2) {
+                return enumDeclaration;
             }
         }
         return null;
