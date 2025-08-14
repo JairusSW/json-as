@@ -8,7 +8,7 @@ for file in ./assembly/__tests__/*.spec.ts; do
     output="./build/${filename%.ts}.wasm"
 
     start_time=$(date +%s%3N)
-    ../compiler/bin/asc.js "$file" --transform ./transform -o "$output" --runtime incremental --enable simd --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json --debug --disableWarning 226 || { echo "Tests failed"; exit 1; }
+    npx asc "$file" --transform ./transform -o "$output" --runtime incremental --enable simd --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json --debug --disableWarning 226 || { echo "Tests failed"; exit 1; }
     end_time=$(date +%s%3N)
 
     build_time=$((end_time - start_time))
