@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - fix: JSON.parse on classes with enums [#155](https://github.com/JairusSW/json-as/issues/155)
+- fix: Resolve memory OOB issue within `serializeFloat` function [#153](https://github.com/JairusSW/json-as/issues/153)
 
 ## 2025-07-14 - 1.1.20
 
