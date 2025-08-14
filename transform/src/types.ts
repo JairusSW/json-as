@@ -1,4 +1,4 @@
-import { ClassDeclaration, Expression, FieldDeclaration, Source, NodeKind, Node, NamespaceDeclaration, DeclarationStatement, TypeName, Parser, ImportStatement, CommonFlags } from "assemblyscript/dist/assemblyscript.js";
+import { ClassDeclaration, Expression, FieldDeclaration, Source, NodeKind, Node, NamespaceDeclaration, DeclarationStatement, TypeName, Parser, ImportStatement, CommonFlags, EnumDeclaration } from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
 import { stripNull } from "./index.js";
 
@@ -102,6 +102,7 @@ export class Src {
   public exports: Schema[];
   private nodeMap: Map<Node, NamespaceDeclaration[]> = new Map<Node, NamespaceDeclaration[]>();
   private classes: Record<string, ClassDeclaration> = {};
+  private enums: Record<string, EnumDeclaration> = {};
   private imports: ImportStatement[] = [];
 
   constructor(
@@ -129,6 +130,10 @@ export class Src {
         case NodeKind.ClassDeclaration:
           const classDeclaration = node as ClassDeclaration;
           this.classes[this.qualifiedName(classDeclaration, path)] = classDeclaration;
+          break;
+        case NodeKind.EnumDeclaration:
+          const enumDeclaration = node as EnumDeclaration;
+          this.enums[this.qualifiedName(enumDeclaration, path)] = enumDeclaration;
           break;
         case NodeKind.Import:
           const importStatement = node as ImportStatement;
@@ -158,6 +163,15 @@ export class Src {
   }
 
   /**
+   * Get an enum declaration by its qualified name.
+   * @param qualifiedName Qualified name (eg. "Namespace.MyEnum")
+   * @returns Enum declaration or null if not found.
+   */
+  getEnum(qualifiedName: string): EnumDeclaration | null {
+    return this.enums[qualifiedName] || null;
+  }
+
+  /**
    * Get imported class from other sources in the parser.
    * @param qualifiedName Qualified name of class.
    * @param parser AssemblyScript parser.
@@ -172,6 +186,26 @@ export class Src {
       const classDeclaration = source.getClass(qualifiedName);
       if (classDeclaration && classDeclaration.flags & CommonFlags.Export) {
         return classDeclaration;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get imported enum from other sources in the parser.
+   * @param qualifiedName Qualified name of enum.
+   * @param parser AssemblyScript parser.
+   * @returns Enum declaration or null if not found.
+   */
+  getImportedEnum(qualifiedName: string, parser: Parser): EnumDeclaration | null {
+    for (const stmt of this.imports) {
+      const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
+      if (!externalSource) continue;
+
+      const source = this.sourceSet.get(externalSource);
+      const enumDeclaration = source.getEnum(qualifiedName);
+      if (enumDeclaration && enumDeclaration.flags & CommonFlags.Export) {
+        return enumDeclaration;
       }
     }
     return null;

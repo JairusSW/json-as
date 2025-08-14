@@ -433,7 +433,7 @@ export class JSONTransform extends Visitor {
                     sortedMembers.string.push(member);
                 else if (isBoolean(type) || type.startsWith("JSON.Box<bool"))
                     sortedMembers.boolean.push(member);
-                else if (isPrimitive(type) || type.startsWith("JSON.Box<"))
+                else if (isPrimitive(type) || type.startsWith("JSON.Box<") || isEnum(type, this.sources.get(this.schema.node.range.source), this.parser))
                     sortedMembers.number.push(member);
                 else if (isArray(type))
                     sortedMembers.array.push(member);
@@ -1225,6 +1225,9 @@ function isString(type) {
 }
 function isArray(type) {
     return type.startsWith("Array<");
+}
+function isEnum(type, source, parser) {
+    return source.getEnum(type) != null || source.getImportedEnum(type, parser) != null;
 }
 export function stripNull(type) {
     if (type.endsWith(" | null")) {

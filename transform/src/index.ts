@@ -448,7 +448,7 @@ export class JSONTransform extends Visitor {
         if (member.node.type.isNullable) sortedMembers.null.push(member);
         if (isString(type) || type == "JSON.Raw") sortedMembers.string.push(member);
         else if (isBoolean(type) || type.startsWith("JSON.Box<bool")) sortedMembers.boolean.push(member);
-        else if (isPrimitive(type) || type.startsWith("JSON.Box<")) sortedMembers.number.push(member);
+        else if (isPrimitive(type) || type.startsWith("JSON.Box<") || isEnum(type, this.sources.get(this.schema.node.range.source), this.parser)) sortedMembers.number.push(member);
         else if (isArray(type)) sortedMembers.array.push(member);
         /*else if (isStruct(type)) */ sortedMembers.object.push(member);
         // else console.warn("Could not determine type " + type + " for member " + member.name + " in class " + this.schema.name);
@@ -1412,6 +1412,10 @@ function isString(type: string) {
 
 function isArray(type: string): boolean {
   return type.startsWith("Array<");
+}
+
+function isEnum(type: string, source: Src, parser: Parser): boolean {
+  return source.getEnum(type) != null || source.getImportedEnum(type, parser) != null
 }
 
 export function stripNull(type: string): string {
