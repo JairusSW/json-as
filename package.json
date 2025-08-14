@@ -10,6 +10,7 @@
   "devDependencies": {
     "@assemblyscript/wasi-shim": "^0.1.0",
     "@types/node": "^24.0.8",
+    "as-console": "^7.0.0",
     "assemblyscript": "^0.28.2",
     "assemblyscript-prettier": "^3.0.1",
     "prettier": "^3.6.2",
