@@ -13,7 +13,7 @@
     "assemblyscript": "^0.28.4",
     "assemblyscript-prettier": "^3.0.1",
     "prettier": "^3.6.2",
-    "tinybench": "^4.1.0",
+    "tinybench": "^5.0.1",
     "typescript": "^5.9.2"
   },
   "bugs": {
