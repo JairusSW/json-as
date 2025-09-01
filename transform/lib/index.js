@@ -33,6 +33,37 @@ export class JSONTransform extends Visitor {
             throw new Error("Class " + node.name.text + " is missing an @json or @serializable decorator in " + node.range.source.internalPath);
         this.visitClassDeclaration(node);
     }
+    resolveType(type, source, visited = new Set()) {
+        const stripped = stripNull(type);
+        if (visited.has(stripped)) {
+            return stripped;
+        }
+        visited.add(stripped);
+        const resolvedType = source.aliases.find(v => stripNull(v.name) === stripped)?.getBaseType();
+        if (resolvedType) {
+            return this.resolveType(resolvedType, source, visited);
+        }
+        for (const imp of source.imports) {
+            if (!imp.declarations)
+                continue;
+            for (const decl of imp.declarations) {
+                if (decl.name.text === stripped) {
+                    const externalSource = this.parser.sources.find(s => s.internalPath === imp.internalPath);
+                    if (externalSource) {
+                        const externalSrc = this.sources.get(externalSource);
+                        if (!externalSrc)
+                            continue;
+                        const externalAlias = externalSrc.aliases.find(a => a.name === decl.foreignName.text);
+                        if (externalAlias) {
+                            const externalType = externalAlias.getBaseType();
+                            return this.resolveType(externalType, externalSrc, visited);
+                        }
+                    }
+                }
+            }
+        }
+        return stripped;
+    }
     visitClassDeclaration(node) {
         if (!node.decorators?.length)
             return;
@@ -113,7 +144,7 @@ export class JSONTransform extends Visitor {
         }
         const getUnknownTypes = (type, types = []) => {
             type = stripNull(type);
-            type = source.aliases.find((v) => stripNull(v.name) == type)?.getBaseType() || type;
+            type = this.resolveType(type, source);
             if (type.startsWith("Array<")) {
                 return getUnknownTypes(type.slice(6, -1));
             }
@@ -252,7 +283,7 @@ export class JSONTransform extends Visitor {
             if (!member.type)
                 throwError("Fields must be strongly typed", node.range);
             let type = toString(member.type);
-            type = source.aliases.find((v) => stripNull(v.name) == stripNull(type))?.getBaseType() || type;
+            type = this.resolveType(type, source);
             const name = member.name;
             const value = member.initializer ? toString(member.initializer) : null;
             if (type.startsWith("(") && type.includes("=>"))

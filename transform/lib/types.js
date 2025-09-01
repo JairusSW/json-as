@@ -87,10 +87,10 @@ export class Src {
     schemas;
     aliases;
     exports;
+    imports = [];
     nodeMap = new Map();
     classes = {};
     enums = {};
-    imports = [];
     constructor(source, sourceSet) {
         this.sourceSet = sourceSet;
         this.internalPath = source.internalPath;

@@ -100,10 +100,10 @@ export class Src {
   public schemas: Schema[];
   public aliases: TypeAlias[];
   public exports: Schema[];
+  public imports: ImportStatement[] = [];
   private nodeMap: Map<Node, NamespaceDeclaration[]> = new Map<Node, NamespaceDeclaration[]>();
   private classes: Record<string, ClassDeclaration> = {};
   private enums: Record<string, EnumDeclaration> = {};
-  private imports: ImportStatement[] = [];
 
   constructor(
     source: Source,

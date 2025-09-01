@@ -1,5 +1,9 @@
 # Change Log
 
+## UNRELEASED
+
+- fix: Type aliases should work across files [#154](https://github.com/JairusSW/json-as/issues/154)
+
 ## 2025-08-14 - 1.1.21
 
 - fix: JSON.parse on classes with enums [#155](https://github.com/JairusSW/json-as/issues/155)
