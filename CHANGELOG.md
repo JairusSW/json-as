@@ -1,6 +1,6 @@
 # Change Log
 
-## UNRELEASED
+## 2025-09-01 - 1.1.22
 
 - fix: Type aliases should work across files [#154](https://github.com/JairusSW/json-as/issues/154)
 
