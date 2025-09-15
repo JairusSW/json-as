@@ -85,7 +85,7 @@ export class JSONTransform extends Visitor {
       }
     }
 
-    return stripped;
+    return type;
   }
 
   visitClassDeclaration(node: ClassDeclaration): void {
@@ -664,7 +664,7 @@ export class JSONTransform extends Visitor {
 
     let mbElse = "      ";
     if (!STRICT || sortedMembers.string.length) {
-      // generateGroups(sortedMembers.string, generateComparisions)
+      // generateGroups(sortedMembers.string, generateComparisons)
       DESERIALIZE += mbElse + "if (code == 34) {\n";
       DESERIALIZE += "          lastIndex = srcStart;\n";
       DESERIALIZE += "          srcStart += 2;\n";
@@ -678,7 +678,7 @@ export class JSONTransform extends Visitor {
           generateConsts(group);
           const first = group[0];
           const fName = first.alias || first.name;
-          DESERIALIZE += indent + "            if (" + (first.generic ? "isString<" + first.type + ">() && " : "") + getComparision(fName) + ") { // " + fName + "\n";
+          DESERIALIZE += indent + "            if (" + (first.generic ? "isString<" + first.type + ">() && " : "") + getComparison(fName) + ") { // " + fName + "\n";
           DESERIALIZE += indent + "              store<" + first.type + ">(changetype<usize>(out), JSON.__deserialize<" + first.type + ">(lastIndex, srcStart + 2), offsetof<this>(" + JSON.stringify(first.name) + "));\n";
           DESERIALIZE += indent + "              srcStart += 4;\n";
           DESERIALIZE += indent + "              keyStart = 0;\n";
@@ -688,7 +688,7 @@ export class JSONTransform extends Visitor {
           for (let i = 1; i < group.length; i++) {
             const mem = group[i];
             const memName = mem.alias || mem.name;
-            DESERIALIZE += indent + " else if (" + (mem.generic ? "isString<" + mem.type + ">() && " : "") + getComparision(memName) + ") { // " + memName + "\n";
+            DESERIALIZE += indent + " else if (" + (mem.generic ? "isString<" + mem.type + ">() && " : "") + getComparison(memName) + ") { // " + memName + "\n";
             DESERIALIZE += indent + "              store<" + mem.type + ">(changetype<usize>(out), JSON.__deserialize<" + mem.type + ">(lastIndex, srcStart + 2), offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
             DESERIALIZE += indent + "              srcStart += 4;\n";
             DESERIALIZE += indent + "              keyStart = 0;\n";
@@ -733,7 +733,7 @@ export class JSONTransform extends Visitor {
           generateConsts(group);
           const first = group[0];
           const fName = first.alias || first.name;
-          DESERIALIZE += indent + "            if (" + (first.generic ? "(isInteger<" + first.type + ">() || isFloat<" + first.type + ">()) && " : "") + getComparision(fName) + ") { // " + fName + "\n";
+          DESERIALIZE += indent + "            if (" + (first.generic ? "(isInteger<" + first.type + ">() || isFloat<" + first.type + ">()) && " : "") + getComparison(fName) + ") { // " + fName + "\n";
           DESERIALIZE += indent + "              store<" + first.type + ">(changetype<usize>(out), JSON.__deserialize<" + first.type + ">(lastIndex, srcStart), offsetof<this>(" + JSON.stringify(first.name) + "));\n";
           DESERIALIZE += indent + "              srcStart += 2;\n";
           DESERIALIZE += indent + "              keyStart = 0;\n";
@@ -743,7 +743,7 @@ export class JSONTransform extends Visitor {
           for (let i = 1; i < group.length; i++) {
             const mem = group[i];
             const memName = mem.alias || mem.name;
-            DESERIALIZE += indent + " else if (" + (mem.generic ? "(isInteger<" + mem.type + ">() || isFloat<" + mem.type + ">()) && " : "") + getComparision(memName) + ") { // " + memName + "\n";
+            DESERIALIZE += indent + " else if (" + (mem.generic ? "(isInteger<" + mem.type + ">() || isFloat<" + mem.type + ">()) && " : "") + getComparison(memName) + ") { // " + memName + "\n";
             DESERIALIZE += indent + "              store<" + mem.type + ">(changetype<usize>(out), JSON.__deserialize<" + mem.type + ">(lastIndex, srcStart), offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
             DESERIALIZE += indent + "              srcStart += 2;\n";
             DESERIALIZE += indent + "              keyStart = 0;\n";
@@ -794,7 +794,7 @@ export class JSONTransform extends Visitor {
           generateConsts(group);
           const first = group[0];
           const fName = first.alias || first.name;
-          DESERIALIZE += indent + "            if (" + (first.generic ? "isDefined(out.__DESERIALIZE) &&" : "") + getComparision(fName) + ") { // " + fName + "\n";
+          DESERIALIZE += indent + "            if (" + (first.generic ? "isDefined(out.__DESERIALIZE) &&" : "") + getComparison(fName) + ") { // " + fName + "\n";
           DESERIALIZE += indent + "              store<" + first.type + ">(changetype<usize>(out), JSON.__deserialize<" + first.type + ">(lastIndex, srcStart), offsetof<this>(" + JSON.stringify(first.name) + "));\n";
           DESERIALIZE += indent + "              keyStart = 0;\n";
           DESERIALIZE += indent + "              break;\n";
@@ -803,7 +803,7 @@ export class JSONTransform extends Visitor {
           for (let i = 1; i < group.length; i++) {
             const mem = group[i];
             const memName = mem.alias || mem.name;
-            DESERIALIZE += indent + " else if (" + (mem.generic ? "isDefined(out.__DESERIALIZE) &&" : "") + getComparision(memName) + ") { // " + memName + "\n";
+            DESERIALIZE += indent + " else if (" + (mem.generic ? "isDefined(out.__DESERIALIZE) &&" : "") + getComparison(memName) + ") { // " + memName + "\n";
             DESERIALIZE += indent + "              store<" + mem.type + ">(changetype<usize>(out), JSON.__deserialize<" + mem.type + ">(lastIndex, srcStart), offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
             DESERIALIZE += indent + "              keyStart = 0;\n";
             DESERIALIZE += indent + "              break;\n";
@@ -854,7 +854,7 @@ export class JSONTransform extends Visitor {
           generateConsts(group);
           const first = group[0];
           const fName = first.alias || first.name;
-          DESERIALIZE += indent + "            if (" + (first.generic ? "isArray<" + first.type + ">() && " : "") + getComparision(fName) + ") { // " + fName + "\n";
+          DESERIALIZE += indent + "            if (" + (first.generic ? "isArray<" + first.type + ">() && " : "") + getComparison(fName) + ") { // " + fName + "\n";
           DESERIALIZE += indent + "              store<" + first.type + ">(changetype<usize>(out), JSON.__deserialize<" + first.type + ">(lastIndex, srcStart), offsetof<this>(" + JSON.stringify(first.name) + "));\n";
           DESERIALIZE += indent + "              keyStart = 0;\n";
           DESERIALIZE += indent + "              break;\n";
@@ -863,7 +863,7 @@ export class JSONTransform extends Visitor {
           for (let i = 1; i < group.length; i++) {
             const mem = group[i];
             const memName = mem.alias || mem.name;
-            DESERIALIZE += indent + " else if (" + (mem.generic ? "isArray" + mem.type + ">() && " : "") + getComparision(memName) + ") { // " + memName + "\n";
+            DESERIALIZE += indent + " else if (" + (mem.generic ? "isArray" + mem.type + ">() && " : "") + getComparison(memName) + ") { // " + memName + "\n";
             DESERIALIZE += indent + "              store<" + mem.type + ">(changetype<usize>(out), JSON.__deserialize<" + mem.type + ">(lastIndex, srcStart), offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
             DESERIALIZE += indent + "              keyStart = 0;\n";
             DESERIALIZE += indent + "              break;\n";
@@ -906,7 +906,7 @@ export class JSONTransform extends Visitor {
           generateConsts(group);
           const first = group[0];
           const fName = first.alias || first.name;
-          DESERIALIZE += indent + "          if (" + (first.generic ? "isBoolean<" + first.type + ">() && " : "") + getComparision(fName) + ") { // " + fName + "\n";
+          DESERIALIZE += indent + "          if (" + (first.generic ? "isBoolean<" + first.type + ">() && " : "") + getComparison(fName) + ") { // " + fName + "\n";
           DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
           DESERIALIZE += indent + "            srcStart += 2;\n";
           DESERIALIZE += indent + "            keyStart = 0;\n";
@@ -916,7 +916,7 @@ export class JSONTransform extends Visitor {
           for (let i = 1; i < group.length; i++) {
             const mem = group[i];
             const memName = mem.alias || mem.name;
-            DESERIALIZE += indent + " else if (" + (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") + getComparision(memName) + ") { // " + memName + "\n";
+            DESERIALIZE += indent + " else if (" + (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") + getComparison(memName) + ") { // " + memName + "\n";
             DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
             DESERIALIZE += indent + "            srcStart += 2;\n";
             DESERIALIZE += indent + "            keyStart = 0;\n";
@@ -960,7 +960,7 @@ export class JSONTransform extends Visitor {
 
           const first = group[0];
           const fName = first.alias || first.name;
-          DESERIALIZE += indent + "          if (" + (first.generic ? "isBoolean<" + first.type + ">() && " : "") + getComparision(fName) + ") { // " + fName + "\n";
+          DESERIALIZE += indent + "          if (" + (first.generic ? "isBoolean<" + first.type + ">() && " : "") + getComparison(fName) + ") { // " + fName + "\n";
           DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
           DESERIALIZE += indent + "            srcStart += 2;\n";
           DESERIALIZE += indent + "            keyStart = 0;\n";
@@ -970,7 +970,7 @@ export class JSONTransform extends Visitor {
           for (let i = 1; i < group.length; i++) {
             const mem = group[i];
             const memName = mem.alias || mem.name;
-            DESERIALIZE += indent + " else if (" + (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") + getComparision(memName) + ") { // " + memName + "\n";
+            DESERIALIZE += indent + " else if (" + (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") + getComparison(memName) + ") { // " + memName + "\n";
             DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
             DESERIALIZE += indent + "            srcStart += 2;\n";
             DESERIALIZE += indent + "            keyStart = 0;\n";
@@ -1015,7 +1015,7 @@ export class JSONTransform extends Visitor {
 
           const first = group[0];
           const fName = first.alias || first.name;
-          DESERIALIZE += indent + "          if (" + (first.generic ? "isNullable<" + first.type + ">() && " : "") + getComparision(fName) + ") { // " + fName + "\n";
+          DESERIALIZE += indent + "          if (" + (first.generic ? "isNullable<" + first.type + ">() && " : "") + getComparison(fName) + ") { // " + fName + "\n";
           DESERIALIZE += indent + "            store<usize>(changetype<usize>(out), 0, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
           DESERIALIZE += indent + "            srcStart += 2;\n";
           DESERIALIZE += indent + "            keyStart = 0;\n";
@@ -1025,7 +1025,7 @@ export class JSONTransform extends Visitor {
           for (let i = 1; i < group.length; i++) {
             const mem = group[i];
             const memName = mem.alias || mem.name;
-            DESERIALIZE += indent + " else if (" + (mem.generic ? "isNullable<" + mem.type + ">() && " : "") + getComparision(memName) + ") { // " + memName + "\n";
+            DESERIALIZE += indent + " else if (" + (mem.generic ? "isNullable<" + mem.type + ">() && " : "") + getComparison(memName) + ") { // " + memName + "\n";
             DESERIALIZE += indent + "            store<usize>(changetype<usize>(out), 0, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
             DESERIALIZE += indent + "            srcStart += 2;\n";
             DESERIALIZE += indent + "            keyStart = 0;\n";
@@ -1471,7 +1471,7 @@ export function stripNull(type: string): string {
   return type;
 }
 
-function getComparision(data: string) {
+function getComparison(data: string) {
   switch (data.length << 1) {
     case 2: {
       return "code16 == " + data.charCodeAt(0);
