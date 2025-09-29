@@ -1,44 +1,33 @@
 import { JSON } from ".";
+import { expect, it } from "./__tests__/lib";
 
+it("should deserialize a default empty array", () => {
+  const data =
+    '{"certificationGroups":[{"certGroupID":"0x653aae","title":"Food Safety"}]}';
+
+  const obj = JSON.parse<CertificationGroupResponse>(data);
+
+  expect(obj.certificationGroups.length).toBe(1);
+  expect(obj.certificationGroups[0].certGroupID).toBe("0x653aae");
+  expect(obj.certificationGroups[0].title).toBe("Food Safety");
+  expect(obj.certificationGroups[0].certifications.length).toBe(0);
+});
 
 @json
-class Vec3 {
-  x: f32 = 0.0;
-  y: f32 = 0.0;
-  z: f32 = 0.0;
+class Certification {
+  certID: string = "";
+  title: string = "";
+  abbr: string = "";
 }
-
 
 @json
-class Player {
-
-  @alias("first name")
-  firstName!: string | null;
-  lastName!: string;
-  lastActive!: i32[];
-  // Drop in a code block, function, or expression that evaluates to a boolean
-  @omitif((self: Player) => self.age < 18)
-  age!: i32;
-
-  pos!: Vec3 | null;
-  isVerified!: boolean;
+class CertificationGroup {
+  certGroupID!: string;
+  title!: string;
+  certifications!: Certification[];
 }
 
-const player: Player = {
-  firstName: "Jairus",
-  lastName: "Tanaka",
-  lastActive: [3, 9, 2025],
-  age: 18,
-  pos: {
-    x: 3.4,
-    y: 1.2,
-    z: 8.3,
-  },
-  isVerified: true,
-};
-
-const serialized = JSON.stringify<Player>(player);
-const deserialized = JSON.parse<Player>(serialized);
-
-console.log("Serialized    " + serialized);
-console.log("Deserialized  " + JSON.stringify(deserialized));
+@json
+class CertificationGroupResponse {
+  certificationGroups!: CertificationGroup[];
+}

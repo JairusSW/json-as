@@ -617,7 +617,7 @@ export namespace JSON {
       if (isDefined(type.__DESERIALIZE)) {
         const out = changetype<nonnull<T>>(dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
         // @ts-ignore: Defined by transform
-        if (isNullable<T>() && isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-ignore: Defined by transform
         return out.__DESERIALIZE(srcStart, srcEnd, out);
       } else if (type instanceof Map) {
