@@ -378,19 +378,6 @@ These benchmarks compare this library to JavaScript's native `JSON.stringify` an
 | Medium Object   | 494 bytes  | 2,395,210 ops/s       | 1,381,693 ops/s         | 1,183 MB/s           | 682.5 MB/s             |
 | Large Object    | 3374 bytes | 222,222 ops/s         | 117,233 ops/s           | 749.7 MB/s           | 395.5 MB/s             |
 
-**📌 Insights**
-
-- JSON-AS consistently outperforms JavaScript's native implementation.
-
-- **Serialization Speed:**
-
-  - JSON-AS achieves speeds up to `2,133 MB/s`, significantly faster than JavaScript's peak of `1,416 MB/s`.
-  - Large objects see the biggest improvement, with JSON-AS at `2,074 MB/s` vs. JavaScript’s `749.7 MB/s`.
-
-- **Deserialization Speed:**
-  - JSON-AS reaches `1,986 MB/s`, while JavaScript caps at `1,592 MB/s`.
-  - Small and medium objects see the most significant performance boost overall.
-
 ### 📈 Comparison to v0.9.x version
 
 **Table 1** - _v1.0.0_
@@ -413,12 +400,45 @@ These benchmarks compare this library to JavaScript's native `JSON.stringify` an
 | Medium Object   | 494 bytes  | 522,193 ops/s         | 508,582 ops/s           | 258.0 MB/s           | 251.2 MB/s             |
 | Large Object    | 3374 bytes | 51,229 ops/s          | 65,585 ops/s            | 172.8 MB/s           | 221.3 MB/s             |
 
-**📌 Insights:**
+### Running benchmarks locally
 
-- Massive performance improvements in JSON-AS `v1.0.0`:
-- Serialization is **2-12x faster** (e.g., Large Object: `2,074 MB/s` vs. `172.8 MB/s`).
-- Deserialization is **2-3x faster** (e.g., Large Object: `1,348 MB/s` vs. `221.3 MB/s`).
-- Vector3 Object serialization improved from `416 MB/s` to `1,357 MB/s`--a **3x benefit** through new code generation techniques.
+Benchmarks are run directly on top of v8 for more tailored control
+
+1. Download JSVU off of npm
+
+```bash
+npm install jsvu -g
+```
+
+2. Modify your dotfiles to add `~/.jsvu/bin` to `PATH`
+
+```bash
+export PATH="${HOME}/.jsvu/bin:${PATH}"
+```
+
+3. Clone the repository
+
+```bash
+git clone https://github.com/JairusSW/json-as
+```
+
+4. Install dependencies
+
+```bash
+npm i
+```
+
+5. Run benchmarks for either AssemblyScript or JavaScript
+
+```bash
+./run-bench.as.sh
+```
+
+or
+
+```bash
+./run-bench.js.sh
+```
 
 ## 🔭 What's Next
 
