@@ -1,7 +1,12 @@
 import { JSON } from "../..";
 import { BACK_SLASH, COMMA, CHAR_F, BRACE_LEFT, BRACKET_LEFT, CHAR_N, QUOTE, BRACE_RIGHT, BRACKET_RIGHT, CHAR_T, COLON } from "../../custom/chars";
 import { isSpace } from "../../util";
-import { ptrToStr } from "../../util/ptrToStr";
+
+// @ts-ignore: Decorator is valid here
+@inline function normalizeQuotes<T>(start: usize, end: usize): T {
+  if (isString<T>()) return JSON.__deserialize<T>(start - 2, end + 2);
+  return JSON.__deserialize<T>(start, end);
+}
 
 export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd: usize, dst: usize): T {
   const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
@@ -31,7 +36,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
           keyEnd = srcStart;
           // console.log("Key: " + ptrToStr(lastIndex, srcStart));
           // console.log("Next: " + String.fromCharCode(load<u16>(srcStart + 2)));
-          while (isSpace((code = load<u16>((srcStart += 2))))) {}
+          while (isSpace((code = load<u16>((srcStart += 2))))) { }
           if (code !== COLON) throw new Error("Expected ':' after key at position " + (srcEnd - srcStart).toString());
           isKey = false;
         } else {
@@ -51,7 +56,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
           if (code == QUOTE && load<u16>(srcStart - 2) !== BACK_SLASH) {
             // console.log("Value (string): " + ptrToStr(lastIndex, srcStart + 2));
             // @ts-ignore: type
-            out.set(ptrToStr(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(lastIndex, srcStart + 2));
+            out.set(normalizeQuotes<indexof<T>>(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(lastIndex, srcStart + 2));
             // while (isSpace(load<u16>(srcStart))) srcStart += 2;
             srcStart += 4;
             // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
@@ -68,7 +73,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
           if (code == COMMA || code == BRACE_RIGHT || isSpace(code)) {
             // console.log("Value (number): " + ptrToStr(lastIndex, srcStart));
             // @ts-ignore: type
-            out.set(ptrToStr(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(lastIndex, srcStart));
+            out.set(normalizeQuotes<indexof<T>>(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(lastIndex, srcStart));
             // while (isSpace(load<u16>((srcStart += 2)))) {
             //   /* empty */
             // }
@@ -92,7 +97,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
             if (--depth == 0) {
               // console.log("Value (object): " + ptrToStr(lastIndex, srcStart + 2));
               // @ts-ignore: type
-              out.set(ptrToStr(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(lastIndex, (srcStart += 2)));
+              out.set(normalizeQuotes<indexof<T>>(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(lastIndex, (srcStart += 2)));
               // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
               keyStart = 0;
               // while (isSpace(load<u16>(srcStart))) {
@@ -113,7 +118,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
             if (--depth == 0) {
               // console.log("Value (array): " + ptrToStr(lastIndex, srcStart + 2));
               // @ts-ignore: type
-              out.set(ptrToStr(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(lastIndex, (srcStart += 2)));
+              out.set(normalizeQuotes<indexof<T>>(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(lastIndex, (srcStart += 2)));
               // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
               keyStart = 0;
               // while (isSpace(load<u16>((srcStart += 2)))) {
@@ -128,7 +133,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
         if (load<u64>(srcStart) == 28429475166421108) {
           // console.log("Value (bool): " + ptrToStr(srcStart, srcStart + 8));
           // @ts-ignore: type
-          out.set(ptrToStr(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(srcStart, (srcStart += 8)));
+          out.set(normalizeQuotes<indexof<T>>(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(srcStart, (srcStart += 8)));
           // while (isSpace(load<u16>((srcStart += 2)))) {
           //   /* empty */
           // }
@@ -140,7 +145,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
         if (load<u64>(srcStart, 2) == 28429466576093281) {
           // console.log("Value (bool): " + ptrToStr(srcStart, srcStart + 10));
           // @ts-ignore: type
-          out.set(ptrToStr(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(srcStart, (srcStart += 10)));
+          out.set(normalizeQuotes<indexof<T>>(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(srcStart, (srcStart += 10)));
           // while (isSpace(load<u16>((srcStart += 2)))) {
           //   /* empty */
           // }
@@ -152,7 +157,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
         if (load<u64>(srcStart) == 30399761348886638) {
           // console.log("Value (null): " + ptrToStr(srcStart, srcStart + 8));
           // @ts-ignore: type
-          out.set(ptrToStr(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(srcStart, (srcStart += 8)));
+          out.set(normalizeQuotes<indexof<T>>(keyStart, keyEnd), JSON.__deserialize<valueof<T>>(srcStart, (srcStart += 8)));
           // while (isSpace(load<u16>((srcStart += 2)))) {
           /* empty */
           // }
