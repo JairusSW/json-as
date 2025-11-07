@@ -1,5 +1,9 @@
 # Change Log
 
+## 2025-11-06 - 1.1.23
+
+- fix: Map keys should follow proper typing and quote rules [#161](https://github.com/JairusSW/json-as/issues/161)
+
 ## 2025-09-01 - 1.1.22
 
 - fix: Type aliases should work across files [#154](https://github.com/JairusSW/json-as/issues/154)
