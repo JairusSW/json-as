@@ -36,7 +36,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
           keyEnd = srcStart;
           // console.log("Key: " + ptrToStr(lastIndex, srcStart));
           // console.log("Next: " + String.fromCharCode(load<u16>(srcStart + 2)));
-          while (isSpace((code = load<u16>((srcStart += 2))))) { }
+          while (isSpace((code = load<u16>((srcStart += 2))))) {}
           if (code !== COLON) throw new Error("Expected ':' after key at position " + (srcEnd - srcStart).toString());
           isKey = false;
         } else {

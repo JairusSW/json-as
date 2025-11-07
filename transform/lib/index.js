@@ -39,7 +39,7 @@ export class JSONTransform extends Visitor {
             return stripped;
         }
         visited.add(stripped);
-        const resolvedType = source.aliases.find(v => stripNull(v.name) === stripped)?.getBaseType();
+        const resolvedType = source.aliases.find((v) => stripNull(v.name) === stripped)?.getBaseType();
         if (resolvedType) {
             return this.resolveType(resolvedType, source, visited);
         }
@@ -48,12 +48,12 @@ export class JSONTransform extends Visitor {
                 continue;
             for (const decl of imp.declarations) {
                 if (decl.name.text === stripped) {
-                    const externalSource = this.parser.sources.find(s => s.internalPath === imp.internalPath);
+                    const externalSource = this.parser.sources.find((s) => s.internalPath === imp.internalPath);
                     if (externalSource) {
                         const externalSrc = this.sources.get(externalSource);
                         if (!externalSrc)
                             continue;
-                        const externalAlias = externalSrc.aliases.find(a => a.name === decl.foreignName.text);
+                        const externalAlias = externalSrc.aliases.find((a) => a.name === decl.foreignName.text);
                         if (externalAlias) {
                             const externalType = externalAlias.getBaseType();
                             return this.resolveType(externalType, externalSrc, visited);
