@@ -1,23 +1,28 @@
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+const SHRINK_EVERY_N: u32 = 200;
+const MIN_BUFFER_SIZE: u32 = 128;
 
 /**
  * Central buffer namespace for managing memory operations.
  */
 export namespace bs {
-  /** Current buffer pointer. */ // @ts-ignore
-  export let buffer: ArrayBuffer = new ArrayBuffer(128); //__new(128, idof<ArrayBuffer>());
+  /** Current buffer pointer. */
+  export let buffer: ArrayBuffer = new ArrayBuffer(MIN_BUFFER_SIZE);
 
   /** Current offset within the buffer. */
   export let offset: usize = changetype<usize>(buffer);
 
   /** Byte length of the buffer. */
-  let bufferSize: usize = 128;
+  let bufferSize: usize = MIN_BUFFER_SIZE;
 
   /** Proposed size of output */
   export let stackSize: usize = 0;
 
   let pauseOffset: usize = 0;
   let pauseStackSize: usize = 0;
+
+  let typicalSize: u32 = MIN_BUFFER_SIZE;
+  let counter: u32 = 0;
 
   /**
    * Stores the state of the buffer, allowing further changes to be reset
@@ -56,9 +61,8 @@ export namespace bs {
    */
   // @ts-ignore: decorator
   @inline export function ensureSize(size: u32): void {
-    // console.log("Ensure   " + (size).toString() + " -> " + (offset + size).toString() + " (" + (offset - changetype<usize>(buffer)).toString() + ")");
     if (offset + size > bufferSize + changetype<usize>(buffer)) {
-      const deltaBytes = size + 128;
+      const deltaBytes = size + MIN_BUFFER_SIZE;
       bufferSize += deltaBytes;
       // @ts-ignore: exists
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
@@ -74,7 +78,6 @@ export namespace bs {
    */
   // @ts-ignore: decorator
   @inline export function proposeSize(size: u32): void {
-    // console.log("Propose  " + (size).toString() + " -> " + (stackSize + size).toString() + " (" + (offset - changetype<usize>(buffer)).toString() + ")");
     if ((stackSize += size) > bufferSize) {
       const deltaBytes = size;
       bufferSize += deltaBytes;
@@ -86,19 +89,17 @@ export namespace bs {
   }
 
   /**
-   * Increases the proposed size by n + 128 if necessary.
+   * Increases the proposed size by n + MIN_BUFFER_SIZE if necessary.
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to grow by.
    */
   // @ts-ignore: decorator
   @inline export function growSize(size: u32): void {
-    // console.log("Grow     " + (size).toString() + " -> " + (stackSize + size).toString() + " (" + (offset - changetype<usize>(buffer)).toString() + ")");
     if ((stackSize += size) > bufferSize) {
-      const deltaBytes = size + 128;
+      const deltaBytes = size + MIN_BUFFER_SIZE;
       bufferSize += deltaBytes;
       // @ts-ignore
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
-      // if (buffer != newPtr) console.log("  Old: " + changetype<usize>(buffer).toString() + "\n  New: " + changetype<usize>(newPtr).toString());
       offset = offset + changetype<usize>(newPtr) - changetype<usize>(buffer);
       buffer = newPtr;
     }
@@ -147,10 +148,19 @@ export namespace bs {
   // @ts-ignore: Decorator valid here
   @inline export function out<T>(): T {
     const len = offset - changetype<usize>(buffer);
-    // console.log("Out      " + (len).toString() + " -> " + (stackSize).toString() + " (" + (offset - changetype<usize>(buffer)).toString() + ")");
     // @ts-ignore: exists
     const _out = __new(len, idof<T>());
     memory.copy(_out, changetype<usize>(buffer), len);
+
+    counter++;
+    typicalSize = (typicalSize + <u32>len) >> 1;
+
+    if (counter >= SHRINK_EVERY_N) {
+      if (bufferSize > (typicalSize << 2)) {
+        resize(typicalSize << 1);
+      }
+      counter = 0;
+    }
 
     offset = changetype<usize>(buffer);
     stackSize = 0;
@@ -171,24 +181,18 @@ export namespace bs {
     if (len != changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize) __renew(len, idof<T>());
     memory.copy(dst, changetype<usize>(buffer), len);
 
+    counter++;
+    typicalSize = (typicalSize + len) >> 1;
+
+    if (counter >= SHRINK_EVERY_N) {
+      if (bufferSize > (typicalSize << 2)) {
+        resize(typicalSize << 1);
+      }
+      counter = 0;
+    }
+    
     offset = changetype<usize>(buffer);
     stackSize = 0;
     return changetype<T>(dst);
-  }
-}
-
-// @ts-ignore: Decorator valid here
-// @inline function nextPowerOf2(n: u32): u32 {
-//   return 1 << (32 - clz(n - 1));
-// }
-
-// @ts-ignore: Decorator valid here
-@inline function bytes<T>(o: T): i32 {
-  if (isInteger<T>() || isFloat<T>()) {
-    return sizeof<T>();
-  } else if (isManaged<T>() || isReference<T>()) {
-    return changetype<OBJECT>(changetype<usize>(o) - TOTAL_OVERHEAD).rtSize;
-  } else {
-    throw new Error("Cannot convert type " + nameof<T>() + " to bytes!");
   }
 }
