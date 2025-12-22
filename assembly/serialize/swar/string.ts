@@ -3,8 +3,19 @@ import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { bytes } from "../../util/bytes";
 
+
+// @ts-ignore: decorator allowed
+@lazy const LANE_MASK_HIGH = 0xFF00_FF00_FF00_FF00;
+// @ts-ignore: decorator allowed
+@lazy const LANE_MASK_LOW = 0x00FF_00FF_00FF_00FF;
+// @ts-ignore: decorator allowed
+@lazy const UINT64_H8 = 0x8080808080808080;
 // @ts-ignore: decorator allowed
 @lazy const QUOTE_MASK = 0x0022_0022_0022_0022;
+// @ts-ignore: decorator allowed
+@lazy const BACKSLASH_MASK = 0x005C_005C_005C_005C;
+// @ts-ignore: decorator allowed
+@lazy const CONTROL_MASK = 0x0020_0020_0020_0020;
 // @ts-ignore: decorator allowed
 @lazy const U00_MARKER = 13511005048209500;
 
@@ -22,9 +33,11 @@ export function serializeString_SWAR(src: string): void {
     const block = load<u64>(srcStart);
     store<u64>(bs.offset, block);
 
-    const quotes = COMP(block, QUOTE_MASK);
-    let mask = quotes;
-
+    let mask = (
+      v64x4_eq(block, QUOTE_MASK) |
+      v64x4_eq(block, BACKSLASH_MASK) |
+      v64x4_ltu(block & LANE_MASK_LOW, CONTROL_MASK)
+    ) & UINT64_H8
 
     while (mask != 0) {
       const lane_index = usize(ctz(mask) >> 3);
@@ -81,9 +94,14 @@ export function serializeString_SWAR(src: string): void {
 }
 
 // @ts-ignore: decorators allowed
-@inline function COMP(x: u64, y: u64): u64 {
-  const LANE_MASK = 0xFF00_FF00_FF00_FF00;
-  const xored = (x ^ LANE_MASK) ^ y;
-  const mask = (((xored >> 1) | 0x8080808080808080) - xored) & 0x8080808080808080;
-  return (mask << 1) - (mask >> 7) & 0x8080808080808080;
+@inline function v64x4_eq(x: u64, y: u64): u64 {
+  const xored = (x ^ LANE_MASK_HIGH) ^ y;
+  const mask = (((xored >> 1) | UINT64_H8) - xored) & UINT64_H8;
+  return (mask << 1) - (mask >> 7);
+}
+
+// @ts-ignore: decorators allowed
+@inline function v64x4_ltu(a: u64, b: u64): u64 {
+  // Vigna's algorithm - fastest SWAR unsigned less-than
+  return (((a | UINT64_H8) - (b & ~UINT64_H8)) | (a ^ b)) ^ (a | ~b);
 }

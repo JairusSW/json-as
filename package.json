@@ -9,12 +9,12 @@
   "main": "transform/lib/index.js",
   "devDependencies": {
     "@assemblyscript/wasi-shim": "^0.1.0",
-    "@types/node": "^24.2.1",
-    "assemblyscript": "^0.28.4",
+    "@types/node": "^25.0.3",
+    "assemblyscript": "^0.28.9",
     "assemblyscript-prettier": "^3.0.1",
-    "prettier": "^3.6.2",
-    "tinybench": "^5.0.1",
-    "typescript": "^5.9.2"
+    "prettier": "^3.7.4",
+    "tinybench": "^6.0.0",
+    "typescript": "^5.9.3"
   },
   "bugs": {
     "url": "https://github.com/JairusSW/json-as/issues"
