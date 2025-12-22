@@ -1,5 +1,9 @@
 # Change Log
 
+## 2025-12-21 - 1.1.25
+
+- feat: Implement SWAR-based string serialization
+
 ## 2025-11-28 - 1.1.24
 
 - feat: Implement a moving average window to determine buffer size (essentially, allow the buffer size to shrink) [#163](https://github.com/JairusSW/json-as/pull/163)

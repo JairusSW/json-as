@@ -41,7 +41,7 @@ export function serializeString_SWAR(src: string): void {
 
     while (mask != 0) {
       const lane_index = usize(ctz(mask) >> 3);
-      // console.log("lane index "  + lane_index.toString());
+      console.log("lane index " + lane_index.toString());
       const src_offset = srcStart + lane_index;
       const code = load<u16>(src_offset) << 2;
       const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + code);
@@ -51,13 +51,15 @@ export function serializeString_SWAR(src: string): void {
         const dst_offset = bs.offset + lane_index;
         store<u64>(dst_offset, U00_MARKER);
         store<u32>(dst_offset, escaped, 8);
-        store<u64>(dst_offset, load<u64>(src_offset, 2), 12); // unsafe. can overflow here
+        // store<u64>(dst_offset, load<u64>(src_offset, 2), 12); // unsafe. can overflow here
+        memory.copy(dst_offset + 12, src_offset + 2, (4 - lane_index) << 1);
         bs.offset += 10;
       } else {
         bs.growSize(2);
         const dst_offset = bs.offset + lane_index;
         store<u32>(dst_offset, escaped);
-        store<u64>(dst_offset, load<u64>(src_offset, 2), 4);
+        // store<u64>(dst_offset, load<u64>(src_offset, 2), 4);
+        memory.copy(dst_offset + 4, src_offset + 2, (4 - lane_index) << 1);
         bs.offset += 2;
       }
 
