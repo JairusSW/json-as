@@ -1,4 +1,5 @@
 import { JSON } from "../..";
+import { serializeString_SWAR } from "../swar/string";
 import { serializeArray } from "./array";
 import { serializeBool } from "./bool";
 import { serializeFloat } from "./float";
@@ -27,7 +28,7 @@ export function serializeArbitrary(src: JSON.Value): void {
       serializeFloat<f64>(src.get<f64>());
       break;
     case JSON.Types.String:
-      serializeString(src.get<string>());
+      serializeString_SWAR(src.get<string>());
       break;
     case JSON.Types.Bool:
       serializeBool(src.get<bool>());

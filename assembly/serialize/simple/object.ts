@@ -2,7 +2,7 @@ import { bs } from "../../../lib/as-bs";
 import { JSON } from "../..";
 import { BRACE_LEFT, BRACE_RIGHT, COLON, COMMA } from "../../custom/chars";
 import { serializeArbitrary } from "./arbitrary";
-import { serializeString } from "./string";
+import { serializeString_SWAR } from "../swar/string";
 
 export function serializeObject(src: JSON.Obj): void {
   const srcSize = src.size;
@@ -23,7 +23,7 @@ export function serializeObject(src: JSON.Obj): void {
   bs.offset += 2;
 
   for (let i = 0; i < srcEnd; i++) {
-    serializeString(unchecked(keys[i]));
+    serializeString_SWAR(unchecked(keys[i]));
     bs.growSize(2);
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
@@ -34,7 +34,7 @@ export function serializeObject(src: JSON.Obj): void {
     bs.offset += 2;
   }
 
-  serializeString(unchecked(keys[srcEnd]));
+  serializeString_SWAR(unchecked(keys[srcEnd]));
   bs.growSize(2);
   store<u16>(bs.offset, COLON);
   bs.offset += 2;

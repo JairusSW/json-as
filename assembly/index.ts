@@ -1,7 +1,7 @@
 /// <reference path="./index.d.ts" />
 
 import { bs } from "../lib/as-bs";
-import { serializeString } from "./serialize/simple/string";
+// import { serializeString } from "./serialize/simple/string";
 import { serializeArray } from "./serialize/simple/array";
 import { serializeMap } from "./serialize/simple/map";
 import { serializeDate } from "./serialize/simple/date";
@@ -28,6 +28,7 @@ import { deserializeObject } from "./deserialize/simple/object";
 import { serializeRaw } from "./serialize/simple/raw";
 import { deserializeRaw } from "./deserialize/simple/raw";
 import { serializeString_SIMD } from "./serialize/simd/string";
+import { serializeString_SWAR } from "./serialize/swar/string";
 // import { deserializeString_SIMD } from "./deserialize/simd/string";
 
 /**
@@ -110,14 +111,14 @@ export namespace JSON {
       //   const newSize = bytes(data) + 4;
       //   const newBuf = __new(newSize, idof<string>());
       //   bs.setBuffer(newBuf);
-      //   serializeString(changetype<string>(data));
+      //   serializeString_SWAR(changetype<string>(data));
       //   bs.setBuffer(oldBuf);
       //   return changetype<string>(newBuf);
       // }
       if (ASC_FEATURE_SIMD) {
         serializeString_SIMD(data as string);
       } else {
-        serializeString(data as string);
+        serializeString_SWAR(data as string);
       }
       return bs.out<string>();
       // @ts-ignore: Supplied by transform
@@ -261,6 +262,7 @@ export namespace JSON {
   }
 
 
+  // @ts-ignore: decorators allowed here
   @final
   export class Value {
     static METHODS: Map<u32, u32> = new Map<u32, u32>();
@@ -553,7 +555,7 @@ export namespace JSON {
       if (ASC_FEATURE_SIMD) {
         serializeString_SIMD(src as string);
       } else {
-        serializeString(src as string);
+        serializeString_SWAR(src as string);
       }
       // @ts-ignore: Supplied by transform
     } else if (isDefined(src.__SERIALIZE_CUSTOM)) {
@@ -722,7 +724,7 @@ export namespace JSON {
         //   const newSize = bytes(data) + 4;
         //   const newBuf = __new(newSize, idof<string>());
         //   bs.setBuffer(newBuf);
-        //   serializeString(changetype<string>(data));
+        //   serializeString_SWAR(changetype<string>(data));
         //   bs.setBuffer(oldBuf);
         //   return changetype<string>(newBuf);
         // }
@@ -730,7 +732,7 @@ export namespace JSON {
           serializeString_SIMD(data as string);
         } else {
           bs.saveState();
-          serializeString(data as string);
+          serializeString_SWAR(data as string);
         }
         return bs.cpyOut<string>();
         // @ts-ignore: Supplied by transform

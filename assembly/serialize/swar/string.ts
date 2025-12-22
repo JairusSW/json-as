@@ -1,65 +1,58 @@
 import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
-import { bytes } from "../../util";
+import { bytes } from "../../util/bytes";
 
-/**
- * Serializes strings into their JSON counterparts using SIMD operations
- */
-export function serializeString_SIMD(src: string): void {
-  const U00_MARKER = 13511005048209500;
-  const SPLAT_34 = i16x8.splat(34); /* " */
-  const SPLAT_92 = i16x8.splat(92); /* \ */
+// @ts-ignore: decorator allowed
+@lazy const QUOTE_MASK = 0x0022_0022_0022_0022;
+// @ts-ignore: decorator allowed
+@lazy const U00_MARKER = 13511005048209500;
 
-  const SPLAT_32 = i16x8.splat(32); /* [ESC] */
-
+export function serializeString_SWAR(src: string): void {
   const srcSize = bytes(src);
   let srcStart = changetype<usize>(src);
   const srcEnd = srcStart + srcSize;
-  const srcEnd16 = srcEnd - 16;
+  const srcEnd8 = srcEnd - 8;
 
   bs.proposeSize(srcSize + 4);
-
-  store<u8>(bs.offset, 34); // "
+  store<u16>(bs.offset, 34); // "
   bs.offset += 2;
 
-  while (srcStart <= srcEnd16) {
-    const block = v128.load(srcStart);
+  while (srcStart <= srcEnd8) {
+    const block = load<u64>(srcStart);
+    store<u64>(bs.offset, block);
 
-    v128.store(bs.offset, block);
+    const quotes = COMP(block, QUOTE_MASK);
+    let mask = quotes;
 
-    const backslash_indices = i16x8.eq(block, SPLAT_92);
-    const quote_indices = i16x8.eq(block, SPLAT_34);
-    const escape_indices = i16x8.lt_u(block, SPLAT_32);
-    const sieve = v128.or(v128.or(backslash_indices, quote_indices), escape_indices);
-
-    let mask = i16x8.bitmask(sieve);
 
     while (mask != 0) {
-      const lane_index = ctz(mask) << 1;
+      const lane_index = usize(ctz(mask) >> 3);
       // console.log("lane index "  + lane_index.toString());
       const src_offset = srcStart + lane_index;
       const code = load<u16>(src_offset) << 2;
       const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + code);
-      mask &= mask - 1;
+
       if ((escaped & 0xffff) != BACK_SLASH) {
         bs.growSize(10);
         const dst_offset = bs.offset + lane_index;
         store<u64>(dst_offset, U00_MARKER);
         store<u32>(dst_offset, escaped, 8);
-        v128.store(dst_offset, v128.load(src_offset, 2), 12);
+        store<u64>(dst_offset, load<u64>(src_offset, 2), 12); // unsafe. can overflow here
         bs.offset += 10;
       } else {
         bs.growSize(2);
         const dst_offset = bs.offset + lane_index;
         store<u32>(dst_offset, escaped);
-        v128.store(dst_offset, v128.load(src_offset, 2), 4);
+        store<u64>(dst_offset, load<u64>(src_offset, 2), 4);
         bs.offset += 2;
       }
+
+      mask &= mask - 1;
     }
 
-    srcStart += 16;
-    bs.offset += 16;
+    srcStart += 8;
+    bs.offset += 8;
   }
 
   while (srcStart <= srcEnd - 2) {
@@ -83,6 +76,14 @@ export function serializeString_SIMD(src: string): void {
     srcStart += 2;
   }
 
-  store<u8>(bs.offset, 34); /* " */
+  store<u16>(bs.offset, 34); // "
   bs.offset += 2;
+}
+
+// @ts-ignore: decorators allowed
+@inline function COMP(x: u64, y: u64): u64 {
+  const LANE_MASK = 0xFF00_FF00_FF00_FF00;
+  const xored = (x ^ LANE_MASK) ^ y;
+  const mask = (((xored >> 1) | 0x8080808080808080) - xored) & 0x8080808080808080;
+  return (mask << 1) - (mask >> 7) & 0x8080808080808080;
 }

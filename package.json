@@ -31,7 +31,7 @@
     "Loredana Cirstea",
     "Accipiter Nisus"
   ],
-  "description": "The only JSON library you'll need for AssemblyScript. SIMD enabled",
+  "description": "The only JSON library you'll need for AssemblyScript with SIMD and SWAR",
   "homepage": "https://github.com/JairusSW/json-as#readme",
   "keywords": [
     "assemblyscript",

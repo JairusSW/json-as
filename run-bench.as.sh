@@ -1,7 +1,7 @@
 #!/bin/bash
 RUNTIMES=${RUNTIMES:-"minimal stub"}
 ENGINES=${ENGINES:-"liftoff ignition sparkplug turbofan llvm"}
-for file in ./assembly/__benches__/vec3.bench.ts; do
+for file in ./assembly/__benches__/abc.bench.ts; do
     filename=$(basename -- "$file")
     for runtime in $RUNTIMES; do
         output="./build/${filename%.ts}.${runtime}"
