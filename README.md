@@ -14,6 +14,12 @@ Add the `--transform` to your `asc` command (e.g. in package.json)
 --transform json-as/transform
 ```
 
+Optionally, for additional performance, also add:
+
+```bash
+--enable simd
+```
+
 Alternatively, add it to your `asconfig.json`
 
 ```typescript
