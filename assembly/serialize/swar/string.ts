@@ -41,7 +41,7 @@ export function serializeString_SWAR(src: string): void {
 
     while (mask != 0) {
       const lane_index = usize(ctz(mask) >> 3);
-      console.log("lane index " + lane_index.toString());
+      // console.log("lane index " + lane_index.toString());
       const src_offset = srcStart + lane_index;
       const code = load<u16>(src_offset) << 2;
       const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + code);
