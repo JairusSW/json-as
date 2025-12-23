@@ -47,12 +47,6 @@ jobs:
           mkdir -p ./data
           bun ./scripts/build-chart01.ts
 
-      - name: Upload Chart Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: chart01
-          path: ./data/chart01.svg
-          
       - name: Push Chart to docs branch
         run: |
           git config user.name "github-actions"

@@ -364,8 +364,9 @@ The `json-as` library has been optimized to achieve multi-GB/s processing speeds
 
 These benchmarks compare this library to JavaScript's native JSON implementation written in C.
 
-Click [here]() to re-generate the benchmarks.
+Click [Here](https://github.com/JairusSW/json-as/actions/workflows/benchmark.yml) to re-run the GitHub Action and regenerate the benchmarks
 
+Benchmarks are run with Github Actions. Most machines are much faster.
 <img src="./data/chart01.svg">
 
 ### Running benchmarks locally
