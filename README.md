@@ -367,7 +367,7 @@ These benchmarks compare this library to JavaScript's native JSON implementation
 Click [Here](https://github.com/JairusSW/json-as/actions/workflows/benchmark.yml) to re-run the GitHub Action and regenerate the benchmarks
 
 Benchmarks are run with Github Actions. Most machines are much faster.
-<img src="./data/chart01.svg">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart01.svg">
 
 ### Running benchmarks locally
 
