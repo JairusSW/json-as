@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
+import { execSync } from "child_process";
 
 interface BenchResult {
   language: "as" | "js";
@@ -27,6 +28,8 @@ const USE_TYPE: "serialize" | "deserialize" = "serialize";
 const logsDir = "./build/logs";
 const OUTPUT_FILE = "./data/chart01.svg";
 const VERSION = "v" + JSON.parse(fs.readFileSync("./package.json").toString()).version;
+const GIT_HASH = execSync("git rev-parse --short HEAD").toString().trim();
+const GIT_BRANCH = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 
 function readBenchLog(filePath: string): BenchResult {
   return JSON.parse(fs.readFileSync("./" + filePath, "utf-8")) as BenchResult;
@@ -116,7 +119,7 @@ function createChart(results: Map<string, BenchResult[]>, outfile: string) {
         datalabels: { anchor: "end", align: "end", font: { weight: "bold", size: 12 }, formatter: (v: number) => v.toFixed(0) },
         subtitle: {
           display: true,
-          text: `Generated: ${timestamp} • ${VERSION}`,
+          text: `${timestamp} • ${VERSION} • ${GIT_HASH} • ${GIT_BRANCH}`,
           font: { size: 14, weight: "bold" },
           color: "#6b7280",
           padding: { bottom: 20 },
