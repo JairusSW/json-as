@@ -26,6 +26,12 @@ jobs:
           export PATH="${HOME}/.jsvu/bin:${PATH}"
           echo "JSVU and V8 installed. PATH updated."
 
+      - name: Install Binaryen
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+          echo "Binaryen installed."
+          
       - name: Run AssemblyScript Benchmarks
         run: |
           chmod +x ./run-bench.as.sh
