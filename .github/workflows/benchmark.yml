@@ -22,7 +22,7 @@ jobs:
 
       - name: Install JSVU and V8
         run: |
-          bunxx jsvu --os=linux64 --engines=v8
+          bunx jsvu --os=linux64 --engines=v8
           export PATH="${HOME}/.jsvu/bin:${PATH}"
           echo "JSVU and V8 installed. PATH updated."
 
