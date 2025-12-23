@@ -358,54 +358,15 @@ This allows custom serialization while maintaining a generic interface for the l
 
 ## ⚡ Performance
 
-The `json-as` library has been optimized to achieve near-gigabyte-per-second JSON processing speeds through SIMD acceleration and highly efficient transformations. Below are detailed statistics comparing performance metrics such as build time, operations-per-second, and throughput.
+The `json-as` library has been optimized to achieve multi-GB/s processing speeds through SIMD and SWAR acceleration and highly efficient transformations. Below are detailed statistics comparing performance metrics such as build time, operations-per-second, and throughput.
 
 ### 🔍 Comparison to JavaScript
 
-These benchmarks compare this library to JavaScript's native `JSON.stringify` and `JSON.parse` functions.
+These benchmarks compare this library to JavaScript's native JSON implementation written in C.
 
-![img](./benchmarks.svg)
-**Table 1** - _AssemblyScript (LLVM)_
+Click [here]() to re-generate the benchmarks.
 
-| Test Case       | Size       | Serialization (ops/s) | Deserialization (ops/s) | Serialization (MB/s) | Deserialization (MB/s) |
-| --------------- | ---------- | --------------------- | ----------------------- | -------------------- | ---------------------- |
-| Vector3 Object  | 38 bytes   | 26,611,226 ops/s      | 32,160,804 ops/s        | 1,357 MB/s           | 1,348 MB/s             |
-| Alphabet String | 104 bytes  | 16,916,886 ops/s      | 18,390,804 ops/s        | 1,759 MB/s           | 1,986 MB/s             |
-| Small Object    | 88 bytes   | 24,242,424 ops/s      | 12,307,692 ops/s        | 2,133 MB/s           | 1,083 MB/s             |
-| Medium Object   | 494 bytes  | 4,060,913 ops/s       | 1,396,160 ops/s         | 2,006 MB/s           | 689.7 MB/s             |
-| Large Object    | 3374 bytes | 479,616 ops/s         | 132,802 ops/s           | 2,074 MB/s           | 448.0 MB/s             |
-
-**Table 2** - _JavaScript (V8)_
-
-| Test Case       | Size       | Serialization (ops/s) | Deserialization (ops/s) | Serialization (MB/s) | Deserialization (MB/s) |
-| --------------- | ---------- | --------------------- | ----------------------- | -------------------- | ---------------------- |
-| Vector3 Object  | 38 bytes   | 8,791,209 ops/s       | 5,369,12 ops/s          | 357.4 MB/s           | 204.3 MB/s             |
-| Alphabet String | 104 bytes  | 12,830,228 ops/s      | 12,140,296 ops/s        | 1,334 MB/s           | 1,311 MB/s             |
-| Small Object    | 88 bytes   | 8,376,963 ops/s       | 4,968,944 ops/s         | 737.1 MB/s           | 437.2 MB/s             |
-| Medium Object   | 494 bytes  | 2,395,210 ops/s       | 1,381,693 ops/s         | 1,183 MB/s           | 682.5 MB/s             |
-| Large Object    | 3374 bytes | 222,222 ops/s         | 117,233 ops/s           | 749.7 MB/s           | 395.5 MB/s             |
-
-### 📈 Comparison to v0.9.x version
-
-**Table 1** - _v1.0.0_
-
-| Test Case       | Size       | Serialization (ops/s) | Deserialization (ops/s) | Serialization (MB/s) | Deserialization (MB/s) |
-| --------------- | ---------- | --------------------- | ----------------------- | -------------------- | ---------------------- |
-| Vector3 Object  | 38 bytes   | 35,714,285 ops/s      | 35,435,552 ops/s        | 1,357 MB/s           | 1,348 MB/s             |
-| Alphabet String | 104 bytes  | 13,617,021 ops/s      | 18,390,804 ops/s        | 1,416 MB/s           | 1,986 MB/s             |
-| Small Object    | 88 bytes   | 24,242,424 ops/s      | 12,307,692 ops/s        | 2,133 MB/s           | 1,083 MB/s             |
-| Medium Object   | 494 bytes  | 4,060,913 ops/s       | 1,396,160 ops/s         | 2,006 MB/s           | 689.7 MB/s             |
-| Large Object    | 3374 bytes | 614,754 ops/s         | 132,802 ops/s           | 2,074 MB/s           | 448.0 MB/s             |
-
-**Table 2** - _v0.9.29_
-
-| Test Case       | Size       | Serialization (ops/s) | Deserialization (ops/s) | Serialization (MB/s) | Deserialization (MB/s) |
-| --------------- | ---------- | --------------------- | ----------------------- | -------------------- | ---------------------- |
-| Vector3 Object  | 38 bytes   | 6,896,551 ops/s       | 10,958,904 ops/s        | 262.1 MB/s           | 416.4 MB/s             |
-| Alphabet String | 104 bytes  | 5,128,205 ops/s       | 8,695,652 ops/s         | 533.3 MB/s           | 939.1 MB/s             |
-| Small Object    | 88 bytes   | 4,953,560 ops/s       | 3,678,160 ops/s         | 435.9 MB/s           | 323.7 MB/s             |
-| Medium Object   | 494 bytes  | 522,193 ops/s         | 508,582 ops/s           | 258.0 MB/s           | 251.2 MB/s             |
-| Large Object    | 3374 bytes | 51,229 ops/s          | 65,585 ops/s            | 172.8 MB/s           | 221.3 MB/s             |
+<img src="./data/chart01.svg">
 
 ### Running benchmarks locally
 
@@ -446,13 +407,6 @@ or
 ```bash
 ./run-bench.js.sh
 ```
-
-## 🔭 What's Next
-
-- Theorize plans to keep key-order in generated schemas
-- Generate optimized deserialization methods
-- Inline specific hot code paths
-- Implement error handling implementation
 
 ## 🐛 Debugging
 

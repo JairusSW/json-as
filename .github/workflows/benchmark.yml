@@ -11,42 +11,32 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      # Checkout the repo
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Set up Node.js
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-          cache: 'npm'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
 
-      # Install npm dependencies
       - name: Install Dependencies
-        run: npm ci
+        run: bun install
 
-      # Install jsvu (V8)
       - name: Install JSVU and V8
         run: |
-          npx jsvu --os=linux64 --engines=v8
+          bunxx jsvu --os=linux64 --engines=v8
           export PATH="${HOME}/.jsvu/bin:${PATH}"
           echo "JSVU and V8 installed. PATH updated."
 
-      # Run AssemblyScript benchmarks
       - name: Run AssemblyScript Benchmarks
         run: |
           chmod +x ./run-bench.as.sh
           ./run-bench.as.sh
 
-      # Run JS benchmarks
       - name: Run JavaScript Benchmarks
         run: |
           chmod +x ./run-bench.js.sh
           ./run-bench.js.sh
 
-      # Build the chart
       - name: Build Chart
         run: |
           mkdir -p ./data
-          node ./scripts/build-chart01.ts --experimental-strip-types
+          bun ./scripts/build-chart01.ts
