@@ -11,7 +11,7 @@ import { deserializeFloat } from "./deserialize/simple/float";
 import { deserializeMap } from "./deserialize/simple/map";
 import { deserializeDate } from "./deserialize/simple/date";
 import { deserializeInteger } from "./deserialize/simple/integer";
-import { deserializeString } from "./deserialize/simple/string";
+// import { deserializeString } from "./deserialize/simple/string";
 import { serializeArbitrary } from "./serialize/simple/arbitrary";
 
 import { NULL_WORD, QUOTE } from "./custom/chars";
@@ -29,6 +29,8 @@ import { serializeRaw } from "./serialize/simple/raw";
 import { deserializeRaw } from "./deserialize/simple/raw";
 import { serializeString_SIMD } from "./serialize/simd/string";
 import { serializeString_SWAR } from "./serialize/swar/string";
+import { deserializeString_SWAR } from "./deserialize/swar/string";
+import { deserializeString } from "./deserialize/simple/string";
 // import { deserializeString_SIMD } from "./deserialize/simd/string";
 
 /**
@@ -185,8 +187,9 @@ export namespace JSON {
       //   // @ts-ignore
       //   return changetype<string>(deserializeString_SIMD(dataPtr, dataPtr + dataSize, __new(dataSize - 4, idof<string>())));
       // } else {
+      
       // @ts-ignore
-      return deserializeString(dataPtr, dataPtr + dataSize, __new(dataSize - 4, idof<string>()));
+      return deserializeString(dataPtr, dataPtr + dataSize, 0);
       // }
     } else if (isArray<T>()) {
       // @ts-ignore
@@ -605,6 +608,7 @@ export namespace JSON {
       return deserializeFloat<T>(srcStart, srcEnd);
     } else if (isString<T>()) {
       if (srcEnd - srcStart < 4) throw new Error("Cannot parse data as string because it was formatted incorrectly!");
+      
       // @ts-ignore: type
       return deserializeString(srcStart, srcEnd, dst);
     } else if (isNullable<T>() && srcEnd - srcStart == 8 && load<u64>(srcStart) == 30399761348886638) {

@@ -1,36 +1,44 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench } from "./lib/bench";
-
+import { bench, blackbox } from "./lib/bench";
 
 @json
-class SmallJSON {
-  public id!: i32;
-  public name!: string;
-  public active!: boolean;
+class SessionStatusResponse {
+  authenticated!: boolean;
+  user_id!: i32;
+  username!: string;
+  role!: string;
+  expires_at!: string;
 }
 
-const v1: SmallJSON = {
-  id: 1,
-  name: "Small Object",
-  active: true,
-};
-const v2 = '{"id":1,"name":"Small Object","active":true}';
+const v1 = new SessionStatusResponse();
+
+v1.authenticated = true;
+v1.user_id = 8472;
+v1.username = "jairus";
+v1.role = "admin";
+v1.expires_at = "2025-12-23T04:30:00Z";
+
+const v2: string = JSON.stringify<SessionStatusResponse>(v1);
+const byteLength: usize = v2.length << 1;
 
 expect(JSON.stringify(v1)).toBe(v2);
+expect(JSON.stringify(JSON.parse<SessionStatusResponse>(v2))).toBe(v2);
 
 bench(
-  "Serialize Small Object",
+  "Serialize Small API Response",
   () => {
-    JSON.stringify(v1);
+    blackbox(inline.always(JSON.stringify<SessionStatusResponse>(v1)));
   },
-  16_000_00,
+  5_000_000,
+  byteLength
 );
 
 bench(
-  "Deserialize Small Object",
+  "Deserialize Small API Response",
   () => {
-    JSON.parse<SmallJSON>(v2);
+    blackbox(inline.always(JSON.parse<SessionStatusResponse>(v2)));
   },
-  16_000_00,
+  5_000_000,
+  byteLength
 );

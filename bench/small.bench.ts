@@ -1,4 +1,4 @@
-import { bench } from "./lib/bench.js";
+import { bench, blackbox } from "./lib/bench.js";
 
 class SmallJSON {
   public id!: number;
@@ -16,15 +16,17 @@ const v2 = '{"id":1,"name":"Small Object","active":true}';
 bench(
   "Serialize Small Object",
   () => {
-    JSON.stringify(v1);
+    blackbox(JSON.stringify(v1));
   },
   16_000_00,
+  v2.length << 1
 );
 
 bench(
   "Deserialize Small Object",
   () => {
-    JSON.parse(v2);
+    blackbox(JSON.parse(v2));
   },
   16_000_00,
+  v2.length << 1
 );

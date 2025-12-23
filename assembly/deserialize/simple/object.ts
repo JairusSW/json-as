@@ -1,7 +1,9 @@
 import { JSON } from "../..";
+import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH, COMMA, CHAR_F, BRACE_LEFT, BRACKET_LEFT, CHAR_N, QUOTE, BRACE_RIGHT, BRACKET_RIGHT, CHAR_T, COLON } from "../../custom/chars";
 import { isSpace } from "../../util";
 import { ptrToStr } from "../../util/ptrToStr";
+import { deserializeString_SWAR } from "../swar/string";
 import { deserializeArbitrary } from "./arbitrary";
 import { deserializeArray } from "./array";
 import { deserializeBoolean } from "./bool";
@@ -52,7 +54,7 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
         while (srcStart < srcEnd) {
           const code = load<u16>(srcStart);
           if (code == QUOTE && load<u16>(srcStart - 2) !== BACK_SLASH) {
-            // console.log("Value (string):-" + deserializeString(lastIndex, srcStart + 2, 0) + "-");
+            // console.log("Value (string):-" + deserializeString_SWAR(lastIndex, srcStart + 2, 0) + "-");
             out.set(ptrToStr(keyStart, keyEnd), deserializeString(lastIndex, srcStart + 2, 0));
             // while (isSpace(load<u16>(srcStart))) srcStart += 2;
             srcStart += 4;

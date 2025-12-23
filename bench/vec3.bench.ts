@@ -1,4 +1,4 @@
-import { bench } from "./lib/bench.js";
+import { bench, blackbox } from "./lib/bench.js";
 
 class Vec3 {
   public x!: number;
@@ -12,15 +12,17 @@ const v2 = '{"x":1,"y":2,"z":3}';
 bench(
   "Serialize Vec3",
   () => {
-    JSON.stringify(v1);
+    blackbox(JSON.stringify(v1));
   },
   16_000_00,
+  v2.length << 1
 );
 
 bench(
   "Deserialize Vec3",
   () => {
-    JSON.parse(v2);
+    blackbox(JSON.parse(v2));
   },
   16_000_00,
+  v2.length << 1
 );

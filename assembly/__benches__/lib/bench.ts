@@ -1,3 +1,20 @@
+import { JSON } from "../..";
+
+// @ts-ignore: decorator allowed
+@external("env", "dump")
+declare function dump(data: string): void;
+
+@json
+class BenchResult {
+  description!: string;
+  elapsed!: f64;
+  bytes!: u64;
+  operations!: u64;
+  features!: string[];
+  mbps!: f64;
+  gbps!: f64;
+}
+
 export function bench(description: string, routine: () => void, ops: u64 = 1_000_000, bytesPerOp: u64 = 0): void {
   console.log(" - Benchmarking " + description);
 
@@ -20,12 +37,28 @@ export function bench(description: string, routine: () => void, ops: u64 = 1_000
 
   let log = `   Completed benchmark in ${formatNumber(u64(Math.round(elapsed)))}ms at ${formatNumber(u64(Math.round(opsPerSecond)))} ops/s`;
 
+  let mbPerSec: f64 = 0;
   if (bytesPerOp > 0) {
     const totalBytes = bytesPerOp * ops;
-    const mbPerSec = f64(totalBytes) / (elapsed / 1000) / (1000 * 1000);
+    mbPerSec = f64(totalBytes) / (elapsed / 1000) / (1000 * 1000);
     log += ` @ ${formatNumber(u64(Math.round(mbPerSec)))}MB/s`;
   }
 
+  const features: string[] = [];
+  if (isDefined(ASC_FEATURE_SIMD)) features.push("simd");
+
+  const result: BenchResult = {
+    description,
+    elapsed,
+    bytes: bytesPerOp,
+    operations: ops,
+    features,
+    mbps: mbPerSec,
+    gbps: mbPerSec / 1000
+  }
+
+  dump(JSON.stringify(result));
+  
   console.log(log + "\n");
 }
 
@@ -39,4 +72,10 @@ function formatNumber(n: u64): string {
     result += str.charAt(i);
   }
   return result;
+}
+
+const blackBoxArea = memory.data(64);
+export function blackbox<T>(value: T): T {
+  store<T>(blackBoxArea, value);
+  return load<T>(blackBoxArea);
 }

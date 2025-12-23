@@ -994,8 +994,8 @@ export class JSONTransform extends Visitor {
         let fromPath = node.range.source.normalizedPath.replaceAll("/", path.sep);
         const isLib = path.dirname(baseDir).endsWith("node_modules");
         if (!isLib && !this.parser.sources.some((s) => s.normalizedPath.startsWith("assembly/index"))) {
-            const newPath = "./assembly/index.ts";
-            this.parser.parseFile(readFileSync(path.join(...newPath.split("/"))).toString(), newPath, false);
+            const newPath = path.join(baseDir, "assembly", "index.ts");
+            this.parser.parseFile(readFileSync(newPath).toString(), newPath, false);
         }
         else if (isLib && !this.parser.sources.some((s) => s.normalizedPath.startsWith("~lib/json-as/assembly/index"))) {
             const newPath = "~lib/json-as/assembly/index.ts";

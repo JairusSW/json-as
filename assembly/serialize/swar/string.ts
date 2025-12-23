@@ -7,9 +7,11 @@ import { bytes } from "../../util/bytes";
 // @ts-ignore: decorator allowed
 @lazy const LANE_MASK_HIGH = 0xFF00_FF00_FF00_FF00;
 // @ts-ignore: decorator allowed
+@lazy const ONES: u64 = 0x0101010101010101;
+// @ts-ignore: decorator allowed
 @lazy const LANE_MASK_LOW = 0x00FF_00FF_00FF_00FF;
 // @ts-ignore: decorator allowed
-@lazy const UINT64_H8 = 0x8080808080808080;
+@lazy const HIGHS = 0x8080808080808080;
 // @ts-ignore: decorator allowed
 @lazy const QUOTE_MASK = 0x0022_0022_0022_0022;
 // @ts-ignore: decorator allowed
@@ -37,18 +39,17 @@ export function serializeString_SWAR(src: string): void {
       v64x4_eq(block, QUOTE_MASK) |
       v64x4_eq(block, BACKSLASH_MASK) |
       v64x4_ltu(block & LANE_MASK_LOW, CONTROL_MASK)
-    ) & UINT64_H8
+    ) & HIGHS
 
     while (mask != 0) {
       const lane_index = usize(ctz(mask) >> 3);
-      // console.log("lane index " + lane_index.toString());
       const src_offset = srcStart + lane_index;
+      const dst_offset = bs.offset + lane_index;
       const code = load<u16>(src_offset) << 2;
       const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + code);
 
       if ((escaped & 0xffff) != BACK_SLASH) {
         bs.growSize(10);
-        const dst_offset = bs.offset + lane_index;
         store<u64>(dst_offset, U00_MARKER);
         store<u32>(dst_offset, escaped, 8);
         // store<u64>(dst_offset, load<u64>(src_offset, 2), 12); // unsafe. can overflow here
@@ -56,7 +57,6 @@ export function serializeString_SWAR(src: string): void {
         bs.offset += 10;
       } else {
         bs.growSize(2);
-        const dst_offset = bs.offset + lane_index;
         store<u32>(dst_offset, escaped);
         // store<u64>(dst_offset, load<u64>(src_offset, 2), 4);
         memory.copy(dst_offset + 4, src_offset + 2, (4 - lane_index) << 1);
@@ -97,13 +97,12 @@ export function serializeString_SWAR(src: string): void {
 
 // @ts-ignore: decorators allowed
 @inline function v64x4_eq(x: u64, y: u64): u64 {
-  const xored = (x ^ LANE_MASK_HIGH) ^ y;
-  const mask = (((xored >> 1) | UINT64_H8) - xored) & UINT64_H8;
-  return (mask << 1) - (mask >> 7);
+  const v = (x ^ y) | LANE_MASK_HIGH;
+  const m = (((v >> 1) | ONES) - v) & ONES;
+  return (m >> 7) * 0xff & 0x00ff00ff00ff00ff;
 }
 
 // @ts-ignore: decorators allowed
 @inline function v64x4_ltu(a: u64, b: u64): u64 {
-  // Vigna's algorithm - fastest SWAR unsigned less-than
-  return (((a | UINT64_H8) - (b & ~UINT64_H8)) | (a ^ b)) ^ (a | ~b);
+  return (((a | HIGHS) - (b & ~HIGHS)) | (a ^ b)) ^ (a | ~b);
 }

@@ -11,10 +11,6 @@ const { exports } = new WebAssembly.Instance(module, {
     },
     "Date.now": () => Date.now(),
     "performance.now": () => performance.now(),
-    "dump": (data) => {
-      data = __liftString(data);
-      writeFile("./build/logs/" + arguments[0].replace(".wasm", ".as.log.json"), data);
-    }
   },
 });
 

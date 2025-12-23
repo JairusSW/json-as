@@ -1,7 +1,9 @@
 #!/bin/bash
-RUNTIMES=${RUNTIMES:-"liftoff ignition sparkplug turbofan"}
+RUNTIMES=${RUNTIMES:-"turbofan"}
 npx tsc -p ./bench > /dev/null 2>&1
-for file in ./bench/vec3.bench.ts; do
+cp ./bench/lib/bench.js ./build/lib/bench.js
+mkdir -p ./build/logs
+for file in ./bench/*.bench.ts; do
   filename=$(basename -- "$file")
   file_js="${filename%.ts}.js"
 
@@ -12,21 +14,21 @@ for file in ./bench/vec3.bench.ts; do
     engine=$(echo $rt | cut -d'-' -f2-)
     echo -e "$filename (js/$runtime/$engine)\n"
 
-    arg="${filename%.ts}.${runtime}.wasm"
+    arg="${filename%.ts}.${runtime}.ts"
     if [[ "$engine" == "ignition" ]]; then
-      v8 --no-opt --module ./build/$file_js
+      v8 --no-opt --allow-natives-syntax --module ./build/$file_js -- $arg
     fi
 
     if [[ "$engine" == "liftoff" ]]; then
-      v8 --liftoff-only --no-opt --module ./build/$file_js
+      v8 --liftoff-only --no-opt --allow-natives-syntax --module ./build/$file_js -- $arg
     fi
 
     if [[ "$engine" == "sparkplug" ]]; then
-      v8 --sparkplug --always-sparkplug --no-opt --module ./build/$file_js
+      v8 --sparkplug --always-sparkplug --allow-natives-syntax --no-opt --module ./build/$file_js -- $arg
     fi
 
     if [[ "$engine" == "turbofan" ]]; then
-      v8 --no-liftoff --no-wasm-tier-up --module ./build/$file_js
+      v8 --no-liftoff --no-wasm-tier-up --allow-natives-syntax --module ./build/$file_js -- $arg
     fi
   done
 done

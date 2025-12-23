@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench } from "./lib/bench";
+import { bench, blackbox } from "./lib/bench";
 
 
 @json
@@ -14,19 +14,22 @@ const v1: Vec3 = { x: 1, y: 2, z: 3 };
 const v2 = '{"x":1,"y":2,"z":3}';
 
 expect(JSON.stringify(v1)).toBe(v2);
+expect(JSON.stringify(JSON.parse<Vec3>(v2))).toBe(v2);
 
 bench(
   "Serialize Vec3",
   () => {
-    JSON.stringify(v1);
+    blackbox(inline.always(JSON.stringify(v1)));
   },
   128_000_00,
+  v2.length << 1
 );
 
 bench(
   "Deserialize Vec3",
   () => {
-    JSON.parse<Vec3>(v2);
+    blackbox(inline.always(JSON.parse<Vec3>(v2)));
   },
   128_000_00,
+  v2.length << 1
 );
