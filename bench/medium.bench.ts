@@ -1,4 +1,4 @@
-import { bench, blackbox } from "./lib/bench.js";
+import { bench, blackbox, dumpToFile } from "./lib/bench.js";
 
 class UserPreferences {
   theme: string = "dark";
@@ -55,6 +55,7 @@ bench(
   500_000,
   v2.length << 1
 );
+dumpToFile("medium", "serialize")
 
 bench(
   "Deserialize Medium API Response",
@@ -64,3 +65,4 @@ bench(
   500_000,
   v2.length << 1
 );
+dumpToFile("medium", "deserialize")

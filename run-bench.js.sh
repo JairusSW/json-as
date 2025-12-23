@@ -2,7 +2,7 @@
 RUNTIMES=${RUNTIMES:-"turbofan"}
 npx tsc -p ./bench > /dev/null 2>&1
 cp ./bench/lib/bench.js ./build/lib/bench.js
-mkdir -p ./build/logs
+mkdir -p ./build/logs/js
 for file in ./bench/*.bench.ts; do
   filename=$(basename -- "$file")
   file_js="${filename%.ts}.js"

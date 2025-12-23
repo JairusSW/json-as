@@ -1,4 +1,4 @@
-import { bench, blackbox } from "./lib/bench.js";
+import { bench, blackbox, dumpToFile } from "./lib/bench.js";
 
 class RepoOwner {
   login: string = "octocat";
@@ -119,7 +119,9 @@ const v2 = `{"id":132935648,"node_id":"MDEwOlJlcG9zaXRvcnkxMzI5MzU2NDg=","name":
 bench("Serialize Large API Response", () => {
   blackbox(JSON.stringify(v1));
 }, 100_000, 10502);
+dumpToFile("large", "serialize")
 
 bench("Deserialize Large API Response", () => {
   blackbox(JSON.parse(v2));
 }, 100_000, 10502);
+dumpToFile("large", "deserialize")

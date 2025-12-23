@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench, blackbox } from "./lib/bench";
+import { bench, blackbox, dumpToFile } from "./lib/bench";
 
 
 @json
@@ -24,6 +24,7 @@ bench(
   128_000_00,
   v2.length << 1
 );
+dumpToFile("vec3", "serialize")
 
 bench(
   "Deserialize Vec3",
@@ -33,3 +34,4 @@ bench(
   128_000_00,
   v2.length << 1
 );
+dumpToFile("vec3", "deserialize")

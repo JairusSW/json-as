@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench, blackbox } from "./lib/bench";
+import { bench, blackbox, dumpToFile } from "./lib/bench";
 
 const v1 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const v2 = '"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"';
@@ -15,6 +15,7 @@ bench(
   24_000_00,
   v1.length << 1,
 );
+dumpToFile("abc", "serialize")
 
 bench(
   "Deserialize Alphabet",
@@ -24,3 +25,4 @@ bench(
   24_000_00,
   v2.length << 1,
 );
+dumpToFile("abc", "deserialize")

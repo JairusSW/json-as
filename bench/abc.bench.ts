@@ -1,3 +1,4 @@
+import { dumpToFile } from "./lib/bench.js";
 import { bench, blackbox } from "./lib/bench.js";
 
 const v1 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -11,6 +12,7 @@ bench(
   64_000_00,
   v1.length << 1,
 );
+dumpToFile("abc", "serialize")
 
 bench(
   "Deserialize Alphabet",
@@ -20,3 +22,4 @@ bench(
   64_000_00,
   v2.length << 1,
 );
+dumpToFile("abc", "deserialize")

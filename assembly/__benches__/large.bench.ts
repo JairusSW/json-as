@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench, blackbox } from "./lib/bench";
+import { bench, blackbox, dumpToFile } from "./lib/bench";
 
 @json
 class RepoOwner {
@@ -230,7 +230,9 @@ expect(JSON.stringify(JSON.parse<Repo>(v2))).toBe(v2);
 bench("Serialize Large API Response", () => {
   blackbox(inline.always(JSON.stringify(v1)));
 }, 10_000, 10502);
+dumpToFile("large", "serialize")
 
 bench("Deserialize Large API Response", () => {
   blackbox(inline.always(JSON.parse<Repo>(v2)));
 }, 10_000, 10502);
+dumpToFile("large", "deserialize")

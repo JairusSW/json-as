@@ -1,4 +1,4 @@
-const FILE = arguments[0];
+let result = {};
 export function bench(description, routine, ops = 1_000_000, bytesPerOp = 0) {
     console.log(" - Benchmarking " + description);
     let warmup = Math.floor(ops / 10);
@@ -20,17 +20,19 @@ export function bench(description, routine, ops = 1_000_000, bytesPerOp = 0) {
         mbPerSec = totalBytes / (elapsed / 1000) / (1000 * 1000);
         log += ` @ ${formatNumber(Math.round(mbPerSec))}MB/s`;
     }
-    const result = {
+    result = {
+        language: "javascript",
         description,
         elapsed,
         bytes: bytesPerOp,
         operations: ops,
         features: [],
-        mbps: mbPerSec,
-        gbps: mbPerSec / 1000
+        mbps: mbPerSec
     };
-    writeFile("./build/logs/" + FILE.replace(".ts", ".js.log.json"), JSON.stringify(result));
     console.log(log + "\n");
+}
+export function dumpToFile(suite, type) {
+    writeFile("./build/logs/js/" + suite+"."+type+".js.json", JSON.stringify(result));
 }
 function formatNumber(n) {
     let str = n.toString();

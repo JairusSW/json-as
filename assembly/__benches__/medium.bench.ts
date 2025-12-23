@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench, blackbox } from "./lib/bench";
+import { bench, blackbox, dumpToFile } from "./lib/bench";
 
 @json
 class UserPreferences {
@@ -115,6 +115,7 @@ bench(
   500_000,
   byteLength
 );
+dumpToFile("medium", "serialize")
 
 bench(
   "Deserialize Medium API Response",
@@ -124,3 +125,4 @@ bench(
   500_000,
   byteLength
 );
+dumpToFile("medium", "deserialize")

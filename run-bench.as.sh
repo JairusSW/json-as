@@ -1,7 +1,8 @@
 #!/bin/bash
 RUNTIMES=${RUNTIMES:-"incremental"} # incremental minimal stub
 ENGINES=${ENGINES:-"turbofan"} # liftoff ignition sparkplug turbofan
-mkdir -p ./build/logs
+mkdir -p ./build/logs/as/simd
+mkdir -p ./build/logs/as/swar
 for file in ./assembly/__benches__/*.bench.ts; do
     filename=$(basename -- "$file")
     for runtime in $RUNTIMES; do

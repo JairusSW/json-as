@@ -364,6 +364,7 @@ The `json-as` library has been optimized to achieve near-gigabyte-per-second JSO
 
 These benchmarks compare this library to JavaScript's native `JSON.stringify` and `JSON.parse` functions.
 
+![img](./benchmarks.svg)
 **Table 1** - _AssemblyScript (LLVM)_
 
 | Test Case       | Size       | Serialization (ops/s) | Deserialization (ops/s) | Serialization (MB/s) | Deserialization (MB/s) |

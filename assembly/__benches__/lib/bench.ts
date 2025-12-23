@@ -1,11 +1,11 @@
 import { JSON } from "../..";
-
 // @ts-ignore: decorator allowed
-@external("env", "dump")
-declare function dump(data: string): void;
+@external("env", "writeFile")
+declare function writeFile(fileName: string, data: string): void;
 
 @json
 class BenchResult {
+  language: string = "assemblyscript";
   description!: string;
   elapsed!: f64;
   bytes!: u64;
@@ -15,6 +15,7 @@ class BenchResult {
   gbps!: f64;
 }
 
+let result: BenchResult | null = null;
 export function bench(description: string, routine: () => void, ops: u64 = 1_000_000, bytesPerOp: u64 = 0): void {
   console.log(" - Benchmarking " + description);
 
@@ -45,9 +46,10 @@ export function bench(description: string, routine: () => void, ops: u64 = 1_000
   }
 
   const features: string[] = [];
-  if (isDefined(ASC_FEATURE_SIMD)) features.push("simd");
+  if (ASC_FEATURE_SIMD) features.push("simd");
 
-  const result: BenchResult = {
+  result = {
+    language: "assemblycript",
     description,
     elapsed,
     bytes: bytesPerOp,
@@ -56,10 +58,12 @@ export function bench(description: string, routine: () => void, ops: u64 = 1_000
     mbps: mbPerSec,
     gbps: mbPerSec / 1000
   }
-
-  dump(JSON.stringify(result));
   
   console.log(log + "\n");
+}
+
+export function dumpToFile(suite: string, type: string): void {
+  writeFile("./build/logs/as/"+ (ASC_FEATURE_SIMD ? "simd/" : "swar/") + suite+"."+type+".as.json", JSON.stringify(result));
 }
 
 function formatNumber(n: u64): string {

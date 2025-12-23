@@ -1,4 +1,4 @@
-import { bench, blackbox } from "./lib/bench.js";
+import { bench, blackbox, dumpToFile } from "./lib/bench.js";
 
 class SmallJSON {
   public id!: number;
@@ -21,6 +21,7 @@ bench(
   16_000_00,
   v2.length << 1
 );
+dumpToFile("small", "serialize")
 
 bench(
   "Deserialize Small Object",
@@ -30,3 +31,4 @@ bench(
   16_000_00,
   v2.length << 1
 );
+dumpToFile("small", "deserialize")

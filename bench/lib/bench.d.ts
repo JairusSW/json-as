@@ -23,3 +23,5 @@ export function bench(
  * @returns The same value
  */
 export function blackbox<T>(x: T): T;
+
+export function dumpToFile(suite: string, type: string): void;

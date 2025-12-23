@@ -12,12 +12,8 @@
     "@types/node": "^25.0.3",
     "assemblyscript": "^0.28.9",
     "assemblyscript-prettier": "^3.0.1",
-    "canvas": "^3.2.0",
-    "chart.js": "^4.5.1",
-    "chartist-svg": "^0.2.8",
     "chartjs-node-canvas": "^5.0.0",
-    "echarts": "^6.0.0",
-    "frappe-charts": "^1.6.2",
+    "chartjs-plugin-datalabels": "^2.2.0",
     "prettier": "^3.7.4",
     "tinybench": "^6.0.0",
     "typescript": "^5.9.3"

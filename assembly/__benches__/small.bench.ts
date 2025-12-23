@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench, blackbox } from "./lib/bench";
+import { bench, blackbox, dumpToFile } from "./lib/bench";
 
 @json
 class SessionStatusResponse {
@@ -33,6 +33,7 @@ bench(
   5_000_000,
   byteLength
 );
+dumpToFile("small", "serialize")
 
 bench(
   "Deserialize Small API Response",
@@ -42,3 +43,4 @@ bench(
   5_000_000,
   byteLength
 );
+dumpToFile("small", "deserialize")
