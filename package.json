@@ -1,6 +1,6 @@
 {
   "name": "json-as",
-  "version": "1.1.26",
+  "version": "1.1.27",
   "author": "Jairus Tanaka",
   "repository": {
     "type": "git",
@@ -59,7 +59,7 @@
     "test": "bash ./run-tests.sh",
     "bench:as": "bash ./run-bench.as.sh",
     "bench:js": "bash ./run-bench.js.sh",
-    "build:test": "rm -rf ./build/ && JSON_DEBUG=2 JSON_WRITE=assembly/test.ts asc assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --enable simd --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
+    "build:test": "rm -rf ./build/ && JSON_DEBUG=2 JSON_WRITE=assembly/test.ts asc assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
     "build:tmp:test": "rm -rf ./build/ && JSON_DEBUG=1 asc assembly/test.tmp.ts -o ./build/test.wasm --textFile ./build/test.wat --enable simd --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
     "build:test:wine": "JSON_DEBUG=1 JSON_WRITE=assembly/test.ts NODE_SKIP_PLATFORM_CHECK=1 wine ~/.win-bin/node/node.exe ./node_modules/assemblyscript/bin/asc.js assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
     "test:wasmtime": "wasmtime ./build/test.wasm",

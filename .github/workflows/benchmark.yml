@@ -55,6 +55,7 @@ jobs:
 
           git fetch origin docs || git checkout --orphan docs
           git checkout docs || git checkout --orphan docs
+          git pull
           mkdir -p charts
           mv ./data/*.svg charts/
 

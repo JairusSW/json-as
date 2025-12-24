@@ -1,39 +1,41 @@
 import { JSON } from "..";
 import { bs } from "../../lib/as-bs";
+import { expect } from "../__tests__/lib";
+import { bytes } from "../util";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
-@json // 256b
-class ObjSmall {
-  lorum: i32 = I32.MAX_VALUE;
-  ipsum: boolean = true;
-  dolor: Array<i32> = [1];
-  sit: string = "abcdefghijklmnopdasfqrstfuvwYZ1234567890`~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
-}
+// @json // 256b
+// class ObjSmall {
+//   lorum: i32 = I32.MAX_VALUE;
+//   ipsum: boolean = true;
+//   dolor: Array<i32> = [1];
+//   sit: string = "abcdefghijklmnopdasfqrstfuvwYZ1234567890`~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
+// }
 
-@json // 512b
-class ObjMedium {
-  lorum: u32 = U32.MAX_VALUE;
-  ipsum: boolean = true;
-  dolor: Array<i32> = [1,2,3,4,5];
-  sit: string = "abcdefghijklmnopdasfqrstfuvwYZ1234567890`~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
-  consectetur: i32 = 123456;
-  adipiscing: boolean = false;
-  elit: Array<i32> = [6,7,8,9,10];
-  sed: f64 = F64.MAX_VALUE;
-  eiusmod: string = "abcdYZ12345890./?";
-}
+// @json // 512b
+// class ObjMedium {
+//   lorum: u32 = U32.MAX_VALUE;
+//   ipsum: boolean = true;
+//   dolor: Array<i32> = [1,2,3,4,5];
+//   sit: string = "abcdefghijklmnopdasfqrstfuvwYZ1234567890`~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
+//   consectetur: i32 = 123456;
+//   adipiscing: boolean = false;
+//   elit: Array<i32> = [6,7,8,9,10];
+//   sed: f64 = F64.MAX_VALUE;
+//   eiusmod: string = "abcdYZ12345890./?";
+// }
 
 @json // 1 KB
 class ObjLarge {
   lorum: u32 = U32.MAX_VALUE;
   ipsum: boolean = true;
-  dolor: Array<i32> = [1,2,3,4,5,6,7,8,9,10];
-  sit: string = "abcdefghijklmnopdasfqrstfuvwYZ1234567890`~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
+  dolor: Array<i32> = [1,2,3,4,5];
+  sit: string = "abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
   consectetur: i32 = 123456;
   adipiscing: boolean = false;
-  elit: Array<i32> = [11,12,13,14,15];
+  elit: Array<i32> = [6,7,8,9,10];
   sed: f64 = F64.MAX_VALUE;
-  eiusmod: string = "abcdYZ12345890sdfw\"12i9i12dsf./?";
+  eiusmod: string = "abcdYZ12345890./?abcdYZ12345890./?abcdYZ12340./?";
   tempor: i32 = 999999;
   incididunt: boolean = true;
   ut: Array<i32> = [16,17,18,19,20];
@@ -45,9 +47,7 @@ class ObjLarge {
   argw: string = "abcdYZ12345890sdfw\"vie91kfESDFOK12i9i12dsf./?";
 }
 
-const objSmall = new ObjSmall();
-const objMedium = new ObjMedium();
-const objLarge = new ObjLarge();
+const obj = new ObjLarge();
 
 const arrSmall = new Array<i32>(25_600).fill(0);
 const arrMedium = new Array<i32>(128_000).fill(0);
@@ -65,21 +65,20 @@ const strSmallStr = JSON.stringify(strSmall);
 const strMediumStr = JSON.stringify(strMedium);
 const strLargeStr = JSON.stringify(strLarge);
 
-const objSmallStr = JSON.stringify(objSmall);
-const objMediumStr = JSON.stringify(objMedium);
-const objLargeStr = JSON.stringify(objLarge);
+const objStr = JSON.stringify(obj); // `{"lorum":4294967295,"ipsum":true,"dolor":[1,2,3,4,5],"sit":"abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\\\|;\\":'<>,./?","consectetur":123456,"adipiscing":false,"elit":[6,7,8,9,10],"sed":1.7976931348623157e+308,"eiusmod":"abcdYZ12345890./?abcdYZ12345890./?abcdYZ12340./?","tempor":999999,"incididunt":true,"ut":[16,17,18,19,20],"labore":3.1415926535,"et":"xyzXYZ09876!@#","dolore":-123456,"magna":false,"aliqua":[21,22,23,24,25],"argw":"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"}`;
+const objStrEnd = changetype<usize>(objStr) + (objStr.length << 1);
 
-const ITER = 1_000_000;
+console.log(objStr)
+expect(JSON.stringify(obj)).toBe(objStr);
+expect(JSON.stringify(JSON.parse<ObjLarge>(objStr))).toBe(objStr);
+const ITER = 2_000_000;
 
 /* --- OBJECTS --- */
-bench("Serialize Small Object", () => { // 1024b
-    // @ts-ignore
-    objMedium.__SERIALIZE(changetype<usize>(objMedium))
-    // @ts-ignore
-    objMedium.__SERIALIZE(changetype<usize>(objMedium))
-    blackbox<string>(bs.out<string>());
-}, ITER, (objMediumStr.length << 1) * 2);
-
+bench("Serialize Small Object", () => { // 1kb
+  // @ts-ignore
+  obj.__SERIALIZE(changetype<usize>(obj));
+  blackbox(bs.out<string>());
+}, 250_0000, objStr.length << 1);
 dumpToFile("small-obj", "serialize");
 
 // bench("Deserialize Small Object", () => {
@@ -87,20 +86,56 @@ dumpToFile("small-obj", "serialize");
 // }, ITER, objSmallStr.length << 1);
 // dumpToFile("small-obj", "deserialize");
 
-bench("Serialize Medium Object", () => {
-    let ops = 1000;
-    while (ops--) {
-    // @ts-ignore
-    objMedium.__SERIALIZE(changetype<usize>(objMedium))
-    }
-    blackbox<string>(bs.out<string>());
-}, 100_000, (objMediumStr.length << 1) * 1000);
-dumpToFile("medium-obj", "serialize");
+// bench("Serialize Medium Object", () => { // 500kb
+//   let ops = 500;
+//   while(ops > 0) {
+//   // @ts-ignore
+//   objLarge.__SERIALIZE(changetype<usize>(objLarge));
+//   ops--;
+//   }
+//   blackbox(bs.out<string>());
+// }, 5_000, (objLargeStr.length << 1) * 500);
+// dumpToFile("medium-obj", "serialize");
+
+// bench("Serialize Large Object", () => { // 500kb
+//   let ops = 1000;
+//   while(ops > 0) {
+//   // @ts-ignore
+//   objLarge.__SERIALIZE(changetype<usize>(objLarge));
+//   ops--;
+//   }
+//   blackbox(bs.out<string>());
+// }, 500, (objLargeStr.length << 1) * 1000);
+// dumpToFile("large-obj", "serialize");
+
+// bench("Deserialize Small Object", () => {
+//   // @ts-ignore
+//   objLarge.__DESERIALIZE<ObjLarge>(changetype<usize>(objLargeStr), objLargeStrEnd, changetype<ObjLarge>(__new(sizeof<ObjLarge>(), idof<ObjLarge>())));
+// }, 250_000, objLargeStr.length << 1);
+// dumpToFile("small-obj", "deserialize");
+
+// bench("Deserialize Medium Object", () => {
+//   let ops = 500;
+//   while (ops > 0) {
+//     // @ts-ignore
+//     objLarge.__DESERIALIZE<ObjLarge>(changetype<usize>(objLargeStr), objLargeStrEnd, changetype<ObjLarge>(__new(sizeof<ObjLarge>(), idof<ObjLarge>())));
+//     ops--;
+//   }
+// }, 5_000, (objLargeStr.length << 1) * 500);
+// dumpToFile("medium-obj", "deserialize");
+
+// bench("Deserialize Large Object", () => {
+//   let ops = 1000;
+//   while (ops > 0) {
+//     // @ts-ignore
+//     objLarge.__DESERIALIZE<ObjLarge>(changetype<usize>(objLargeStr), objLargeStrEnd, changetype<ObjLarge>(__new(sizeof<ObjLarge>(), idof<ObjLarge>())));
+//     ops--;
+//   }
+// }, 500, (objLargeStr.length << 1)*1000);
+// dumpToFile("large-obj", "deserialize");
+
 // // bench("Deserialize Medium Object", () => blackbox(JSON.parse<typeof objMedium>(objMediumStr)), ITER, objMediumStr.length << 1);
 // // dumpToFile("medium-obj", "deserialize");
-
-// // bench("Serialize Large Object", () => blackbox(JSON.stringify(objLarge)), ITER, objLargeStr.length << 1);
-// // dumpToFile("large-obj", "serialize");
 // // bench("Deserialize Large Object", () => blackbox(JSON.parse<typeof objLarge>(objLargeStr)), ITER, objLargeStr.length << 1);
 // // dumpToFile("large-obj", "deserialize");
 
