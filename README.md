@@ -380,19 +380,23 @@ This allows custom serialization while maintaining a generic interface for the l
 
 ## Performance
 
-The `json-as` library has been optimized to achieve multi-GB/s processing speeds through SIMD and SWAR acceleration and highly efficient transformations. Below are detailed statistics comparing performance metrics such as build time, operations-per-second, and throughput.
+The `json-as` library is engineered for **multi-GB/s processing speeds**, leveraging SIMD and SWAR optimizations along with highly efficient transformations. The charts below highlight key performance metrics such as build time, operations-per-second, and throughput.
 
-### Comparison to JavaScript
-
-This chart compares JSON-AS (both SWAR and SIMD variants) to JavaScript's built-in JSON implementation. Benchmarks were run in a GitHub Actions environment--on most modern machines, you may see even higher throughput.
-
-You can re-run the benchmarks anytime by clicking the button below, waiting for it to complete, and then refreshing your page here.
+You can **re-run the benchmarks** at any time by clicking the button below. After the workflow completes, refresh this page to view updated results.  
 
 [![Run Benchmarks](https://img.shields.io/badge/Run_Benchmark-blue)](https://github.com/JairusSW/json-as/actions/workflows/benchmark.yml)
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart01.svg">
+### Comparison to JavaScript
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart02.svg">
+The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaScript's native `JSON` implementation. Benchmarks were conducted in a GitHub Actions environment. On modern hardware, you may see even higher throughput.
+
+> Note: Benchmarks reflect the **latest version**. Older versions may show different performance.
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart01.svg" alt="Performance Chart 1">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart02.svg" alt="Performance Chart 2">
+
+> Note: I have focused on extensively optimizing serialization. I used to have deserialization be highly unsafe and extremely fast, but I've since doubled down on safety for deserialization which has negatively affected performance. I will be optimizing soon.
 
 ### Running benchmarks locally
 
