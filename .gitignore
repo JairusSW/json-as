@@ -1,0 +1,10 @@
+node_modules
+*.lock
+pnpm-lock.yaml
+package-lock.json
+.vscode
+logs
+as-tral
+*.lockb
+.vscode/
+build/

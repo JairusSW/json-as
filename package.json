@@ -1,0 +1,73 @@
+{
+  "name": "json-as",
+  "version": "1.2.0",
+  "author": "Jairus Tanaka",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JairusSW/json-as.git"
+  },
+  "main": "transform/lib/index.js",
+  "devDependencies": {
+    "@assemblyscript/wasi-shim": "^0.1.0",
+    "@types/node": "^25.0.3",
+    "assemblyscript": "^0.28.9",
+    "assemblyscript-prettier": "^3.0.1",
+    "chartjs-node-canvas": "^5.0.0",
+    "chartjs-plugin-datalabels": "^2.2.0",
+    "prettier": "^3.7.4",
+    "tinybench": "^6.0.0",
+    "typescript": "^5.9.3"
+  },
+  "bugs": {
+    "url": "https://github.com/JairusSW/json-as/issues"
+  },
+  "contributors": [
+    "DogWhich",
+    "Romdotdog",
+    "Derek Barrera",
+    "Frankk Taylor",
+    "lekiano",
+    "Florian Guitton",
+    "Matt Johnson-Pint",
+    "Tomáš Hromada",
+    "Loredana Cirstea",
+    "Accipiter Nisus"
+  ],
+  "description": "The only JSON library you'll need for AssemblyScript with SIMD and SWAR",
+  "homepage": "https://github.com/JairusSW/json-as#readme",
+  "keywords": [
+    "assemblyscript",
+    "json",
+    "serialize",
+    "deserialize",
+    "parse",
+    "stringify",
+    "performance",
+    "dynamic",
+    "serde",
+    "SIMD",
+    "optimized",
+    "fast",
+    "algorithm"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "@JairusSW:registry": "https://npm.pkg.github.com"
+  },
+  "scripts": {
+    "ci": "act",
+    "test": "bash ./run-tests.sh",
+    "bench:as": "bash ./run-bench.as.sh",
+    "bench:js": "bash ./run-bench.js.sh",
+    "build:test": "rm -rf ./build/ && JSON_DEBUG=2 JSON_WRITE=assembly/test.ts asc assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --enable simd --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
+    "build:tmp:test": "rm -rf ./build/ && JSON_DEBUG=1 asc assembly/test.tmp.ts -o ./build/test.wasm --textFile ./build/test.wat --enable simd --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
+    "build:test:wine": "JSON_DEBUG=1 JSON_WRITE=assembly/test.ts NODE_SKIP_PLATFORM_CHECK=1 wine ~/.win-bin/node/node.exe ./node_modules/assemblyscript/bin/asc.js assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
+    "test:wasmtime": "wasmtime ./build/test.wasm",
+    "test:wasmer": "wasmer ./build/test.wasm",
+    "build:transform": "tsc -p ./transform",
+    "bench:wasmer": "wasmer ./build/bench.wasm --llvm",
+    "format": "prettier -w ."
+  },
+  "type": "module",
+  "types": "assembly/index.ts"
+}
