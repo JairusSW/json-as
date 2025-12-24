@@ -392,9 +392,9 @@ The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaS
 
 > Note: Benchmarks reflect the **latest version**. Older versions may show different performance.
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart01.svg" alt="Performance Chart 1">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart01.svg" alt="Performance Chart 1">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart02.svg" alt="Performance Chart 2">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart02.svg" alt="Performance Chart 2">
 
 > Note: I have focused on extensively optimizing serialization. I used to have deserialization be highly unsafe and extremely fast, but I've since doubled down on safety for deserialization which has negatively affected performance. I will be optimizing soon.
 
