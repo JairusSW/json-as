@@ -1,5 +1,9 @@
 # Change Log
 
+## 2025-12-23 - 1.2.2-beta.1
+
+- chore: reduce package size to sub 70kb
+
 ## 2025-12-23 - 1.2.1
 
 - chore: fix chart link in readme
