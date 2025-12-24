@@ -1163,8 +1163,8 @@ export class JSONTransform extends Visitor {
       this.parser.parseFile(readFileSync(path.join(baseDir, "assembly", "index.ts")).toString(), newPath, false);
     }
 
-    console.log("baseCWD", this.baseCWD);
-    console.log("baseDir", baseDir);
+    // console.log("baseCWD", this.baseCWD);
+    // console.log("baseDir", baseDir);
 
     fromPath = fromPath.startsWith("~lib") ? fromPath.slice(5) : path.join(this.baseCWD, fromPath);
 
