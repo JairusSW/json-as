@@ -1,4 +1,5 @@
 {
+  "pluginSearchDirs": ["node_modules"],
   "plugins": ["assemblyscript-prettier"],
   "singleQuote": false,
   "printWidth": 65536,

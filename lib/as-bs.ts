@@ -168,6 +168,19 @@ export namespace bs {
   }
 
   /**
+   * Copies the buffer's content to a new object of a specified type.
+   * @returns The new object containing the buffer's content.
+   */
+  // @ts-ignore: Decorator valid here
+  @inline export function view<T>(): T {
+    const len = offset - changetype<usize>(buffer);
+    // @ts-ignore: exists
+    const _out = __new(len, idof<T>());
+    memory.copy(_out, changetype<usize>(buffer), len);
+    return changetype<T>(_out);
+  }
+
+  /**
    * Copies the buffer's content to a given destination pointer.
    * Optionally shrinks the buffer after copying.
    * @param dst - The destination pointer.

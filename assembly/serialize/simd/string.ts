@@ -37,7 +37,7 @@ export function serializeString_SIMD(src: string): void {
 
     while (mask != 0) {
       const lane_index = ctz(mask) << 1;
-      // console.log("lane index "  + lane_index.toString());
+      // console.log("lane: "  + (lane_index >= 8 ? (lane_index - 8).toString():lane_index.toString()));
       const src_offset = srcStart + lane_index;
       const code = load<u16>(src_offset) << 2;
       const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + code);

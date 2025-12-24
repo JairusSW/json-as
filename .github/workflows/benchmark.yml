@@ -48,17 +48,35 @@ jobs:
           bun ./scripts/build-chart01.ts
           bun ./scripts/build-chart02.ts
 
-      - name: Push Chart to docs branch
+      - name: Push Charts to docs branch
         run: |
+          set -e
+
           git config user.name "github-actions"
           git config user.email "actions@github.com"
 
-          git fetch origin docs || git checkout --orphan docs
-          git checkout docs || git checkout --orphan docs
-          git pull
-          mkdir -p charts
-          mv ./data/*.svg charts/
+          # Save generated charts safely
+          mkdir -p /tmp/charts
+          cp data/*.svg /tmp/charts/
 
+          # Fetch docs branch if it exists
+          git fetch origin docs || true
+
+          # Switch to docs branch (create if missing)
+          if git show-ref --verify --quiet refs/remotes/origin/docs; then
+            git checkout docs
+            git pull origin docs
+          else
+            git checkout --orphan docs
+            git reset --hard
+          fi
+
+          # Place charts
+          mkdir -p charts
+          cp /tmp/charts/*.svg charts/
+
+          # Commit all SVGs
           git add charts/*.svg
-          git commit -m "Update benchmark chart [skip ci]" || echo "No changes to commit"
+          git commit -m "Update benchmark charts [skip ci]" || echo "No changes to commit"
+
           git push origin docs
