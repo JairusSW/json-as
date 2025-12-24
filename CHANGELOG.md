@@ -1,5 +1,9 @@
 # Change Log
 
+## 2025-12-23 - 1.2.1
+
+- chore: fix chart link in readme
+
 ## 2025-12-23 - 1.2.0
 
 - feat: Implement SWAR based algorithms, SIMD improvements, and better documentation.
