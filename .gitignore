@@ -8,3 +8,4 @@ as-tral
 *.lockb
 .vscode/
 build/
+*.tmp.ts
