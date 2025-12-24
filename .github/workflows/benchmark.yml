@@ -11,72 +11,43 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v1
 
-      - name: Install Dependencies
-        run: bun install
+      - run: bun install
 
-      - name: Install JSVU and V8
-        run: |
+      - run: |
           bunx jsvu --os=linux64 --engines=v8
           echo "${HOME}/.jsvu/bin" >> $GITHUB_PATH
-          echo "JSVU and V8 installed. PATH updated."
 
-      - name: Install Binaryen
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y binaryen
-          echo "Binaryen installed."
+      - run: sudo apt-get update && sudo apt-get install -y binaryen
 
-      - name: Run AssemblyScript Benchmarks
-        run: |
-          chmod +x ./run-bench.as.sh
-          ./run-bench.as.sh
+      - run: ./run-bench.as.sh
+      - run: ./run-bench.js.sh
 
-      - name: Run JavaScript Benchmarks
-        run: |
-          chmod +x ./run-bench.js.sh
-          ./run-bench.js.sh
-
-      - name: Build Chart
-        run: |
-          mkdir -p ./data
+      - run: |
+          mkdir -p data
           bun ./scripts/build-chart01.ts
           bun ./scripts/build-chart02.ts
 
-      - name: Push Charts to docs branch
+      - name: Commit Charts to docs branch
         run: |
           set -e
-
           git config user.name "github-actions"
           git config user.email "actions@github.com"
 
-          # Save generated charts safely
-          mkdir -p /tmp/charts
-          cp data/*.svg /tmp/charts/
-
-          # Fetch docs branch if it exists
+          # Ensure the docs branch exists locally
           git fetch origin docs || true
-
-          # Switch to docs branch (create if missing)
-          if git show-ref --verify --quiet refs/remotes/origin/docs; then
-            git checkout docs
-            git pull origin docs
-          else
-            git checkout --orphan docs
-            git reset --hard
+          if git rev-parse --verify docs >/dev/null 2>&1; then
+            git branch -D docs
           fi
+          git checkout -b docs origin/docs || git checkout --orphan docs
 
-          # Place charts
+          # Copy generated charts
           mkdir -p charts
-          cp /tmp/charts/*.svg charts/
+          cp data/*.svg charts/
 
-          # Commit all SVGs
-          git add charts/*.svg
+          git add charts/
           git commit -m "Update benchmark charts [skip ci]" || echo "No changes to commit"
-
-          git push origin docs
+          git push origin docs --force
