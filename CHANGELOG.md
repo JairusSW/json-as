@@ -1,5 +1,9 @@
 # Change Log
 
+## 2025-12-23 - 1.2.0
+
+- feat: Implement SWAR based algorithms, SIMD improvements, and better documentation.
+
 ## 2025-12-21 - 1.1.26
 
 - chore: remove log
