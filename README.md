@@ -2,7 +2,29 @@
  ║╚═╗║ ║║║║══╠═╣╚═╗
 ╚╝╚═╝╚═╝╝╚╝  ╩ ╩╚═╝</pre></h1>
 
-## 💾 Installation
+<details>
+<summary>Table of Contents</summary>
+
+- [Installation](#installation)
+- [Usage](#usage)
+- [Examples](#examples)
+  - [Omitting Fields](#omitting-fields)
+  - [Using Nullable Primitives](#using-nullable-primitives)
+  - [Working with Unknown or Dynamic Data](#working-with-unknown-or-dynamic-data)
+  - [Using Raw JSON Strings](#using-raw-json-strings)
+  - [Working with Enums](#working-with-enums)
+  - [Using Custom Serializers or Deserializers](#using-custom-serializers-or-deserializers)
+- [Performance](#performance)
+  - [Comparison to JavaScript](#comparison-to-javascript)
+  - [Running Benchmarks Locally](#running-benchmarks-locally)
+  - [Re-run Benchmarks](#re-run-benchmarks)
+- [Debugging](#debugging)
+- [License](#license)
+- [Contact](#contact)
+
+</details>
+
+## Installation
 
 ```bash
 npm install json-as
@@ -32,7 +54,7 @@ Alternatively, add it to your `asconfig.json`
 
 If you'd like to see the code that the transform generates, run the build step with `DEBUG=true`
 
-## 🪄 Usage
+## Usage
 
 ```typescript
 import { JSON } from "json-as";
@@ -78,9 +100,9 @@ console.log("Serialized    " + serialized);
 console.log("Deserialized  " + JSON.stringify(deserialized));
 ```
 
-## 🔍 Examples
+## Examples
 
-### 🏷️ Omitting Fields
+### Omitting Fields
 
 This library allows selective omission of fields during serialization using the following decorators:
 
@@ -147,7 +169,7 @@ console.log(JSON.stringify(obj)); // { "name": "Jairus", "age": 99 }
 
 If age were higher than 18, it would be included in the serialization.
 
-### 🗳️ Using nullable primitives
+### Using nullable primitives
 
 AssemblyScript doesn't support using nullable primitive types, so instead, json-as offers the `JSON.Box` class to remedy it.
 
@@ -180,7 +202,7 @@ person.age = new JSON.Box<i32>(18); // Set age to 18
 console.log(JSON.stringify(person)); // {"name":"Jairus","age":18}
 ```
 
-### 📤 Working with unknown or dynamic data
+### Working with unknown or dynamic data
 
 Sometimes it's necessary to work with unknown data or data with dynamic types.
 
@@ -247,7 +269,7 @@ obj.data = JSON.Value.from("a string"); // Changing to a string
 console.log(JSON.stringify(obj)); // {"id":1,"name":"Example","data":"a string"}
 ```
 
-### 🏗️ Using Raw JSON strings
+### Using Raw JSON strings
 
 Sometimes its necessary to simply copy a string instead of serializing it.
 
@@ -273,7 +295,7 @@ console.log(JSON.stringify(map));
 // Now its properly formatted JSON where pos's value is of type Vec3 not string!
 ```
 
-### 📝 Working with enums
+### Working with enums
 
 By default, enums with values other than `i32` arn't supported by AssemblyScript. However, you can use a workaround:
 
@@ -290,7 +312,7 @@ const serialized = JSON.stringify<Foo>(Foo.bar);
 // "a"
 ```
 
-### ⚒️ Using custom serializers or deserializers
+### Using custom serializers or deserializers
 
 This library supports custom serialization and deserialization methods, which can be defined using the `@serializer` and `@deserializer` decorators.
 
@@ -356,18 +378,17 @@ These functions are then wrapped before being consumed by the json-as library:
 
 This allows custom serialization while maintaining a generic interface for the library to access.
 
-## ⚡ Performance
+## Performance
 
 The `json-as` library has been optimized to achieve multi-GB/s processing speeds through SIMD and SWAR acceleration and highly efficient transformations. Below are detailed statistics comparing performance metrics such as build time, operations-per-second, and throughput.
 
-### 🔍 Comparison to JavaScript
+### Comparison to JavaScript
 
-These benchmarks compare this library to JavaScript's native JSON implementation written in C.
+This chart compares JSON-AS (both SWAR and SIMD variants) to JavaScript's built-in JSON implementation. Benchmarks were run in a GitHub Actions environment--on most modern machines, you may see even higher throughput.
 
-Click [Here](https://github.com/JairusSW/json-as/actions/workflows/benchmark.yml) to re-run the GitHub Action and regenerate the benchmarks
-
-Benchmarks are run with Github Actions. Most machines are much faster.
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart01.svg">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart02.svg">
 
 ### Running benchmarks locally
 
@@ -409,17 +430,17 @@ or
 ./run-bench.js.sh
 ```
 
-## 🐛 Debugging
+## Debugging
 
 `JSON_DEBUG=1` - Prints out generated code at compile-time
 `JSON_DEBUG=2` - The above and prints keys/values as they are deserialized
 `JSON_WRITE=path-to-file.ts` - Writes out generated code to `path-to-file.json.ts` for easy inspection
 
-## 📃 License
+## License
 
 This project is distributed under an open source license. You can view the full license using the following link: [License](./LICENSE)
 
-## 📫 Contact
+## Contact
 
 Please send all issues to [GitHub Issues](https://github.com/JairusSW/json-as/issues) and to converse, please send me an email at [me@jairus.dev](mailto:me@jairus.dev)
 

@@ -46,6 +46,7 @@ jobs:
         run: |
           mkdir -p ./data
           bun ./scripts/build-chart01.ts
+          bun ./scripts/build-chart02.ts
 
       - name: Push Chart to docs branch
         run: |
@@ -55,8 +56,8 @@ jobs:
           git fetch origin docs || git checkout --orphan docs
           git checkout docs || git checkout --orphan docs
           mkdir -p charts
-          mv ./data/chart01.svg charts/
+          mv ./data/*.svg charts/
 
-          git add charts/chart01.svg
+          git add charts/*.svg
           git commit -m "Update benchmark chart [skip ci]" || echo "No changes to commit"
           git push origin docs
