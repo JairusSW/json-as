@@ -386,6 +386,10 @@ The `json-as` library has been optimized to achieve multi-GB/s processing speeds
 
 This chart compares JSON-AS (both SWAR and SIMD variants) to JavaScript's built-in JSON implementation. Benchmarks were run in a GitHub Actions environment--on most modern machines, you may see even higher throughput.
 
+You can re-run the benchmarks anytime by clicking the button below, waiting for it to complete, and then refreshing your page here.
+
+[![Run Benchmarks](https://img.shields.io/badge/Run_Benchmark-blue)](https://github.com/JairusSW/json-as/actions/workflows/benchmark.yml)
+
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart01.svg">
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/data/chart02.svg">
