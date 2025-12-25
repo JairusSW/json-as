@@ -25,11 +25,12 @@ for (const payload of Object.keys(PAYLOADS)) {
 }
 
 const config = createBarChart(chartData, PAYLOADS, {
-  title: "Deserialization Throughput by Payload Size",
+  title: "Deserialization Performance",
   yLabel: "Throughput (MB/s)",
   xLabel: "Payload",
   datasetLabels: [
     "Built-in JSON (JS)",
+    "JSON-AS (NAIVE)",
     "JSON-AS (SWAR)",
     "JSON-AS (SIMD)"
   ]

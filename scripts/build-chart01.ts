@@ -25,7 +25,7 @@ for (const payload of Object.keys(PAYLOADS)) {
 }
 
 const config = createBarChart(chartData, PAYLOADS, {
-  title: "Serialization Throughput by Payload Size",
+  title: "Serialization Performance",
   yLabel: "Throughput (MB/s)",
   xLabel: "Payload",
   datasetLabels: [
