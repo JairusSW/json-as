@@ -68,7 +68,7 @@ export function serializeString_SWAR(src: string): void {
     bs.offset += 8;
   }
 
-while (srcStart <= srcEnd - 2) {
+  while (srcStart <= srcEnd - 2) {
     const code = load<u16>(srcStart);
     if (code == 92 || code == 34 || code < 32) {
       const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
@@ -96,14 +96,14 @@ while (srcStart <= srcEnd - 2) {
 // @ts-ignore: decorators allowed
 @inline function v64x4_should_escape(x: u64): u64 {
   x = x ^ 0xFF00FF00FF00FF00;
-  
+
   const is_ascii: u64 = HIGHS & ~x;
   const xor2: u64 = x ^ 0x0202020202020202;
   const lt32_or_eq34: u64 = xor2 - 0x2121212121212121;
   const sub92: u64 = x ^ 0x5C5C5C5C5C5C5C5C;
   const eq92: u64 = sub92 - ONES;
-  
+
   const high_bits: u64 = (lt32_or_eq34 | eq92) & is_ascii;
-  
+
   return high_bits
 }
