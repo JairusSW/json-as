@@ -5,7 +5,8 @@ mkdir -p ./build/logs/as/swar
 mkdir -p ./build/logs/as/simd
 mkdir -p ./build/logs/as/naive
 
-for file in ./assembly/__benches__/*.bench.ts; do
+for file in ./assembly/__benches__/throughput/*.bench.ts \
+  ./assembly/__benches__/*.bench.ts; do
     filename=$(basename -- "$file")
     for runtime in $RUNTIMES; do
         output="./build/${filename%.ts}.${runtime}"
@@ -67,11 +68,11 @@ for file in ./assembly/__benches__/*.bench.ts; do
 
             if [[ "$engine" == "turbofan" ]]; then
                 echo -e "$filename (asc/$runtime/$engine/naive)\n"
-                v8 --no-liftoff --no-wasm-tier-up --module ./bench/runners/assemblyscript.js -- $argNaive
+                 v8 --no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize --wasm-simd-ssse3-codegen --module ./bench/runners/assemblyscript.js -- $argNaive
                 echo -e "$filename (asc/$runtime/$engine/swar)\n"
-                 v8 --no-liftoff --no-wasm-tier-up --module ./bench/runners/assemblyscript.js -- $argSwar
+                 v8 --no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize --wasm-simd-ssse3-codegen --module ./bench/runners/assemblyscript.js -- $argSwar
                 echo -e "$filename (asc/$runtime/$engine/simd)\n"
-                 v8 --no-liftoff --no-wasm-tier-up --module ./bench/runners/assemblyscript.js -- $argSimd
+                 v8 --no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize --wasm-simd-ssse3-codegen --module ./bench/runners/assemblyscript.js -- $argSimd
             fi
         done
     done

@@ -40,7 +40,7 @@ const VERSION =
 const GIT_HASH = execSync("git rev-parse --short HEAD").toString().trim();
 const GIT_BRANCH = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 
-function subtitle() {
+export function subtitle() {
   return `${new Date().toLocaleString()} • ${VERSION} • ${GIT_HASH} • ${GIT_BRANCH}`;
 }
 
