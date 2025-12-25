@@ -36,7 +36,7 @@ export function serializeString_SIMD(src: string): void {
     let mask = i16x8.bitmask(sieve);
 
     while (mask != 0) {
-      const lane_index = ctz(mask) << 1;
+      const lane_index = ctz(mask) << 1; // 0 2 4 6 8 10 12 14
       // console.log("lane: "  + (lane_index >= 8 ? (lane_index - 8).toString():lane_index.toString()));
       const src_offset = srcStart + lane_index;
       const code = load<u16>(src_offset) << 2;

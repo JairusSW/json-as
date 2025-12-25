@@ -1,4 +1,4 @@
-import { JSON } from "../..";
+import { JSON, JSONMode } from "../..";
 // @ts-ignore: decorator allowed
 @external("env", "writeFile")
 declare function writeFile(fileName: string, data: string): void;
@@ -58,12 +58,24 @@ export function bench(description: string, routine: () => void, ops: u64 = 1_000
     mbps: mbPerSec,
     gbps: mbPerSec / 1000
   }
-  
+
   console.log(log + "\n");
 }
 
+function JSON_MODE_TO_STRING(mode: JSONMode): string {
+  switch (mode) {
+    case JSONMode.NAIVE:
+      return "naive";
+    case JSONMode.SIMD:
+      return "simd";
+    case JSONMode.SWAR:
+      return "swar";
+  }
+  throw new Error("Unknown mode");
+}
+
 export function dumpToFile(suite: string, type: string): void {
-  writeFile("./build/logs/as/"+ (ASC_FEATURE_SIMD ? "simd/" : "swar/") + suite+"."+type+".as.json", JSON.stringify(result));
+  writeFile("./build/logs/as/" + JSON_MODE_TO_STRING(JSON_MODE) + "/" + suite + "." + type + ".as.json", JSON.stringify(result));
 }
 
 function formatNumber(n: u64): string {

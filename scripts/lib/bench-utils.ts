@@ -5,10 +5,6 @@ import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
 
-/* ================================
- * Types
- * ================================ */
-
 export interface BenchResult {
   language: "as" | "js";
   description: string;
@@ -36,10 +32,6 @@ export interface LineSeries {
   backgroundColor?: string;
 }
 
-/* ================================
- * Metadata
- * ================================ */
-
 const LOGS_DIR = "./build/logs";
 
 const VERSION =
@@ -52,10 +44,6 @@ function subtitle() {
   return `${new Date().toLocaleString()} • ${VERSION} • ${GIT_HASH} • ${GIT_BRANCH}`;
 }
 
-/* ================================
- * IO helpers
- * ================================ */
-
 function readBenchLog(filePath: string): BenchResult {
   return JSON.parse(fs.readFileSync("./" + filePath, "utf-8")) as BenchResult;
 }
@@ -64,17 +52,13 @@ function benchPath(
   kind: "js" | "as",
   payload: string,
   type: BenchKind,
-  engine?: "swar" | "simd"
+  engine?: "swar" | "simd" | "naive"
 ): string {
   if (kind === "js") {
     return path.join(LOGS_DIR, "js", `${payload}.${type}.js.json`);
   }
-  return path.join(LOGS_DIR, "as", engine!, `${payload}.${type}.as.json`);
+  return path.join(LOGS_DIR, "as", engine!.toLowerCase(), `${payload}.${type}.as.json`);
 }
-
-/* ================================
- * Public API
- * ================================ */
 
 export function getBenchResults(payloads: string[]): BenchResults {
   const out: BenchResults = {};
@@ -84,19 +68,16 @@ export function getBenchResults(payloads: string[]): BenchResults {
 
     for (const kind of ["serialize", "deserialize"] as const) {
       const js = readBenchLog(benchPath("js", payload, kind));
+      const naive = readBenchLog(benchPath("as", payload, kind, "naive"));
       const swar = readBenchLog(benchPath("as", payload, kind, "swar"));
       const simd = readBenchLog(benchPath("as", payload, kind, "simd"));
 
-      out[payload][kind] = [js, swar, simd];
+      out[payload][kind] = [js, naive, swar, simd];
     }
   }
 
   return out;
 }
-
-/* ================================
- * Bar chart (existing)
- * ================================ */
 
 export function createBarChart(
   data: Record<string, BenchResult[]>,
@@ -105,7 +86,7 @@ export function createBarChart(
     title: string;
     yLabel?: string;
     xLabel?: string;
-    datasetLabels?: [string, string, string];
+    datasetLabels?: string[];
   }
 ): ChartConfiguration<"bar"> {
   const payloadKeys = Object.keys(data);
@@ -117,6 +98,7 @@ export function createBarChart(
 
   const datasetNames = options.datasetLabels ?? [
     "Built-in JSON (JS)",
+    "JSON-AS (NAIVE)",
     "JSON-AS (SWAR)",
     "JSON-AS (SIMD)"
   ];
@@ -136,13 +118,20 @@ export function createBarChart(
         {
           label: datasetNames[1],
           data: payloadKeys.map(k => data[k][1].mbps),
-          backgroundColor: "rgba(34,197,94,0.85)",
-          borderColor: "#22c55e",
+          backgroundColor: "rgba(255, 241, 49, 0.85)", // vibrant purple
+          borderColor: "rgb(255, 241, 49)",
           borderWidth: 1
         },
         {
           label: datasetNames[2],
           data: payloadKeys.map(k => data[k][2].mbps),
+          backgroundColor: "rgba(34,197,94,0.85)",
+          borderColor: "#22c55e",
+          borderWidth: 1
+        },
+        {
+          label: datasetNames[3],
+          data: payloadKeys.map(k => data[k][3].mbps),
           backgroundColor: "rgba(239,68,68,0.9)",
           borderColor: "#ef4444",
           borderWidth: 2
@@ -210,10 +199,6 @@ export function createBarChart(
     plugins: [ChartDataLabels]
   };
 }
-
-/* ================================
- * NEW: Line chart (charts 3 & 4)
- * ================================ */
 
 export function createLineChart(
   labels: string[],
@@ -283,10 +268,6 @@ export function createLineChart(
   };
 }
 
-/* ================================
- * Render
- * ================================ */
-
 export function generateChart(
   config: ChartConfiguration,
   outfile: string
@@ -304,5 +285,5 @@ export function generateChart(
   );
 
   fs.writeFileSync(outfile, buffer);
-  console.log(`Chart written -> ${outfile}`);
+  console.log(`> ${outfile}`);
 }

@@ -3,20 +3,13 @@ import path from "path";
 import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
+import { subtitle } from "./lib/bench-utils";
 
-const LOGS_DIR = "./build/logs";
-
-/**
- * Load a bench log JSON by file path
- */
 function loadJSON(file: string) {
   const text = fs.readFileSync(file, "utf-8");
   return JSON.parse(text);
 }
 
-/**
- * Get throughput (mbps) and size (bytes) from a bench log
- */
 function getBenchData(filePath: string) {
   const data = loadJSON(filePath);
   return {
@@ -25,21 +18,14 @@ function getBenchData(filePath: string) {
   };
 }
 
-/* ================================
- * Payload Types — only strings
- * ================================ */
 const payloads = ["small-str", "medium-str", "large-str"];
-const engines = ["swar", "simd"];
-const modes = ["serialize", "deserialize"];
+const engines = ["naive", "swar", "simd"];
+const modes = ["serialize"];
 
-// Helper to build log file path
 function logPath(payload: string, engine: string, mode: string) {
-  return path.join(LOGS_DIR, "as", engine, `${payload}.${mode}.as.json`);
+  return path.join("./build", "logs", "as", engine, `${payload}.${mode}.as.json`);
 }
 
-/* ================================
- * Prepare Chart Data
- * ================================ */
 interface ChartPoint { x: number; y: number; }
 const chartData: Record<string, ChartPoint[]> = {};
 
@@ -56,9 +42,6 @@ for (const payload of payloads) {
   }
 }
 
-/* ================================
- * Configure Chart
- * ================================ */
 const canvas = new ChartJSNodeCanvas({
   width: 1200,
   height: 700,
@@ -66,12 +49,10 @@ const canvas = new ChartJSNodeCanvas({
 });
 
 const colors: Record<string, string> = {
-  "swar-serialize": "34,197,94",    // green
-  "swar-deserialize": "59,130,246", // blue
-  "simd-serialize": "234,179,8",    // yellow
-  "simd-deserialize": "220,38,38",  // red
+  "naive": "99,102,241",
+  "swar": "34,197,94",
+  "simd": "239,68,68"
 };
-
 
 const datasets = [];
 
@@ -79,23 +60,29 @@ for (const mode of modes) {
   for (const engine of engines) {
     const data: ChartPoint[] = payloads.map(p => chartData[`${p}-${engine}-${mode}`][0]);
     datasets.push({
-      label: `${engine} ${mode}`,
+      label: `${engine.toUpperCase()}`,
       data,
-      borderColor: `rgba(${colors[engine + "-" + mode]},0.9)`,
-      backgroundColor: `rgba(${colors[engine+"-"+mode]},0.3)`,
+      borderColor: `rgba(${colors[engine + "-" + mode] || colors[engine]},0.9)`,
+      backgroundColor: `rgba(${colors[engine + "-" + mode] || colors[engine]},0.3)`,
       fill: false,
       tension: 0.2,
       pointStyle: mode === "serialize" ? "circle" : "rect",
       pointRadius: 6,
-      borderDash: engine === "simd" ? [5, 5] : undefined,
+      borderDash: undefined,
     });
   }
 }
 
+let maxX = 0;
+let maxY = 0;
 
-/* ================================
- * Chart Configuration
- * ================================ */
+for (const points of Object.values(chartData)) {
+  for (const p of points) {
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+}
+
 const config: ChartConfiguration<"line"> = {
   type: "line",
   data: { datasets },
@@ -104,36 +91,53 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "String Serialization & Deserialization Throughput vs Payload Size (KB)",
+        text: "String Serialization Throughput vs Payload Size (KB)",
         font: { size: 20, weight: "bold" },
       },
-      legend: { position: "top", labels: { font: { size: 14, weight: "bold" } } },
+      legend: {
+        position: "top",
+        labels: {
+          font: { size: 16, weight: "bold" },
+          padding: 20
+        }
+      },
       datalabels: {
         anchor: "end",
         align: "top",
-        font: { size: 10, weight: "bold" },
-        formatter: (value: any) => `${value.y.toFixed(0)} MB/s`,
+        font: { size: 12, weight: "bold" },
+        formatter: (value: any) => value.y.toFixed(0) + " MB/s",
       },
+      subtitle: {
+        display: true,
+        text: subtitle(),
+        font: { size: 14, weight: "bold" },
+        color: "#6b7280",
+        padding: 16,
+        position: "right"
+      }
     },
     scales: {
       x: {
+        max: maxX + 7,
         title: { display: true, text: "Payload Size (KB)", font: { size: 16, weight: "bold" } },
         type: "linear",
+        grid: {
+          color: "rgba(0, 0, 0, 0.08)",
+          lineWidth: 1
+        }
       },
       y: {
         title: { display: true, text: "Throughput (MB/s)", font: { size: 16, weight: "bold" } },
-        beginAtZero: true,
+        beginAtZero: false,
+        grid: {
+          color: "rgba(0, 0, 0, 0.08)",
+          lineWidth: 1
+        }
       },
     },
   },
   plugins: [ChartDataLabels],
 };
 
-/* ================================
- * Render Chart to PNG
- * ================================ */
-console.log("Rendering chart03 for strings (serialize + deserialize)...");
 const buffer = canvas.renderToBufferSync(config, "image/png");
-const outFile = path.join(LOGS_DIR, "chart03.png");
-fs.writeFileSync(outFile, buffer);
-console.log(`chart03.png written → ${outFile}`);
+fs.writeFileSync('./build/charts/chart03.png', buffer);

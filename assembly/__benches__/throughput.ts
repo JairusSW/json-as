@@ -65,79 +65,12 @@ const strSmallStr = JSON.stringify(strSmall);
 const strMediumStr = JSON.stringify(strMedium);
 const strLargeStr = JSON.stringify(strLarge);
 
-const objStr = JSON.stringify(obj); // `{"lorum":4294967295,"ipsum":true,"dolor":[1,2,3,4,5],"sit":"abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\\\|;\\":'<>,./?","consectetur":123456,"adipiscing":false,"elit":[6,7,8,9,10],"sed":1.7976931348623157e+308,"eiusmod":"abcdYZ12345890./?abcdYZ12345890./?abcdYZ12340./?","tempor":999999,"incididunt":true,"ut":[16,17,18,19,20],"labore":3.1415926535,"et":"xyzXYZ09876!@#","dolore":-123456,"magna":false,"aliqua":[21,22,23,24,25],"argw":"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"}`;
+const objStr = `{"lorum":4294967295,"ipsum":true,"dolor":[1,2,3,4,5],"sit":"abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\\\|;\\":'<>,./?","consectetur":123456,"adipiscing":false,"elit":[6,7,8,9,10],"sed":1.7976931348623157e+308,"eiusmod":"abcdYZ12345890./?abcdYZ12345890./?abcdYZ12340./?","tempor":999999,"incididunt":true,"ut":[16,17,18,19,20],"labore":3.1415926535,"et":"xyzXYZ09876!@#","dolore":-123456,"magna":false,"aliqua":[21,22,23,24,25],"argw":"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"}`;
 const objStrEnd = changetype<usize>(objStr) + (objStr.length << 1);
 
-console.log(objStr)
 expect(JSON.stringify(obj)).toBe(objStr);
 expect(JSON.stringify(JSON.parse<ObjLarge>(objStr))).toBe(objStr);
 const ITER = 2_000_000;
-
-/* --- OBJECTS --- */
-bench("Serialize Small Object", () => { // 1kb
-  // @ts-ignore
-  obj.__SERIALIZE(changetype<usize>(obj));
-  blackbox(bs.out<string>());
-}, 250_0000, objStr.length << 1);
-dumpToFile("small-obj", "serialize");
-
-// bench("Deserialize Small Object", () => {
-//     blackbox(JSON.parse<typeof objSmall>(objSmallStr))
-// }, ITER, objSmallStr.length << 1);
-// dumpToFile("small-obj", "deserialize");
-
-// bench("Serialize Medium Object", () => { // 500kb
-//   let ops = 500;
-//   while(ops > 0) {
-//   // @ts-ignore
-//   objLarge.__SERIALIZE(changetype<usize>(objLarge));
-//   ops--;
-//   }
-//   blackbox(bs.out<string>());
-// }, 5_000, (objLargeStr.length << 1) * 500);
-// dumpToFile("medium-obj", "serialize");
-
-// bench("Serialize Large Object", () => { // 500kb
-//   let ops = 1000;
-//   while(ops > 0) {
-//   // @ts-ignore
-//   objLarge.__SERIALIZE(changetype<usize>(objLarge));
-//   ops--;
-//   }
-//   blackbox(bs.out<string>());
-// }, 500, (objLargeStr.length << 1) * 1000);
-// dumpToFile("large-obj", "serialize");
-
-// bench("Deserialize Small Object", () => {
-//   // @ts-ignore
-//   objLarge.__DESERIALIZE<ObjLarge>(changetype<usize>(objLargeStr), objLargeStrEnd, changetype<ObjLarge>(__new(sizeof<ObjLarge>(), idof<ObjLarge>())));
-// }, 250_000, objLargeStr.length << 1);
-// dumpToFile("small-obj", "deserialize");
-
-// bench("Deserialize Medium Object", () => {
-//   let ops = 500;
-//   while (ops > 0) {
-//     // @ts-ignore
-//     objLarge.__DESERIALIZE<ObjLarge>(changetype<usize>(objLargeStr), objLargeStrEnd, changetype<ObjLarge>(__new(sizeof<ObjLarge>(), idof<ObjLarge>())));
-//     ops--;
-//   }
-// }, 5_000, (objLargeStr.length << 1) * 500);
-// dumpToFile("medium-obj", "deserialize");
-
-// bench("Deserialize Large Object", () => {
-//   let ops = 1000;
-//   while (ops > 0) {
-//     // @ts-ignore
-//     objLarge.__DESERIALIZE<ObjLarge>(changetype<usize>(objLargeStr), objLargeStrEnd, changetype<ObjLarge>(__new(sizeof<ObjLarge>(), idof<ObjLarge>())));
-//     ops--;
-//   }
-// }, 500, (objLargeStr.length << 1)*1000);
-// dumpToFile("large-obj", "deserialize");
-
-// // bench("Deserialize Medium Object", () => blackbox(JSON.parse<typeof objMedium>(objMediumStr)), ITER, objMediumStr.length << 1);
-// // dumpToFile("medium-obj", "deserialize");
-// // bench("Deserialize Large Object", () => blackbox(JSON.parse<typeof objLarge>(objLargeStr)), ITER, objLargeStr.length << 1);
-// // dumpToFile("large-obj", "deserialize");
 
 // /* --- ARRAYS --- */
 // bench("Serialize Small Array", () => blackbox(JSON.stringify(arrSmall)), ITER, arrSmallStr.length << 1);

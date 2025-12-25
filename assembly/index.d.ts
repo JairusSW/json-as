@@ -43,3 +43,11 @@ declare function serializer(..._): any;
  */
 // @ts-ignore: type
 declare function deserializer(..._): any;
+
+declare enum JSONMode {
+  SWAR = 0,
+  SIMD = 1,
+  NAIVE = 2
+}
+
+declare const JSON_MODE: JSONMode;

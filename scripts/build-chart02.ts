@@ -14,7 +14,7 @@ const PAYLOADS: Record<string, string> = {
 };
 
 const KIND: BenchKind = "deserialize";
-const OUTPUT_FILE = "./data/chart02.svg";
+const OUTPUT_FILE = "./build/charts/chart02.svg";
 
 const allResults = getBenchResults(Object.keys(PAYLOADS));
 

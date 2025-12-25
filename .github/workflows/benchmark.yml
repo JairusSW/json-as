@@ -44,7 +44,7 @@ jobs:
 
       - name: Build Charts
         run: |
-          mkdir -p data
+          mkdir -p ./build/charts
           bun ./scripts/build-chart01.ts || true
           bun ./scripts/build-chart02.ts || true
         continue-on-error: true
@@ -65,7 +65,7 @@ jobs:
 
           # Copy generated charts
           mkdir -p charts
-          cp data/*.svg charts/ || true
+          cp build/charts/* charts/ || true
 
           git add charts/ || true
           git commit -m "Update benchmark charts [skip ci]" || echo "No changes to commit"

@@ -1,4 +1,4 @@
-import { ClassDeclaration, FieldDeclaration, IdentifierExpression, Parser, Source, NodeKind, CommonFlags, ImportStatement, Node, SourceKind, NamedTypeNode, Range, FunctionExpression, MethodDeclaration, Program, Feature } from "assemblyscript/dist/assemblyscript.js";
+import { ClassDeclaration, FieldDeclaration, IdentifierExpression, Parser, Source, NodeKind, CommonFlags, ImportStatement, Node, SourceKind, NamedTypeNode, Range, FunctionExpression, MethodDeclaration, Program, Feature, DeclaredElement, Type } from "assemblyscript/dist/assemblyscript.js";
 import { Transform } from "assemblyscript/dist/transform.js";
 import { Visitor } from "./visitor.js";
 import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { Property, PropertyFlags, Schema, Src, SourceSet } from "./types.js";
 import { readFileSync, writeFileSync } from "fs";
 import { CustomTransform } from "./linkers/custom.js";
+import binaryen from "binaryen";
 
 let indent = "  ";
 
@@ -18,6 +19,7 @@ const rawValue = process.env["JSON_DEBUG"]?.trim();
 const DEBUG = rawValue === "true" ? 1 : rawValue === "false" || rawValue === "" ? 0 : isNaN(Number(rawValue)) ? 0 : Number(rawValue);
 
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
+
 export class JSONTransform extends Visitor {
   static SN: JSONTransform = new JSONTransform();
 
@@ -1243,7 +1245,34 @@ export class JSONTransform extends Visitor {
   }
 }
 
+enum JSONMode {
+  SWAR = 0,
+  SIMD = 1,
+  NAIVE = 2
+}
+let MODE: JSONMode = JSONMode.SWAR;
 export default class Transformer extends Transform {
+  afterInitialize(program: Program): void | Promise<void> {
+    if (program.options.hasFeature(Feature.Simd)) MODE = JSONMode.SIMD;
+    if (process.env["JSON_MODE"]) {
+      switch (process.env["JSON_MODE"].toLowerCase().trim()) {
+        case "simd": {
+          MODE = JSONMode.SIMD;
+          break;
+        }
+        case "swar": {
+          MODE = JSONMode.SWAR;
+          break;
+        }
+        case "naive": {
+          MODE = JSONMode.NAIVE;
+          break;
+        }
+      }
+    }
+    program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE))
+  }
+
   afterParse(parser: Parser): void {
     const transformer = JSONTransform.SN;
     const sources = parser.sources

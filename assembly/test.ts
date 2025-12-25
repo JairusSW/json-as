@@ -1,0 +1,1 @@
+console.log("MODE: " + JSON_MODE.toString())

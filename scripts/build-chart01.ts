@@ -14,7 +14,7 @@ const PAYLOADS: Record<string, string> = {
 };
 
 const KIND: BenchKind = "serialize";
-const OUTPUT_FILE = "./data/chart01.svg";
+const OUTPUT_FILE = "./build/charts/chart01.svg";
 
 const allResults = getBenchResults(Object.keys(PAYLOADS));
 
@@ -30,6 +30,7 @@ const config = createBarChart(chartData, PAYLOADS, {
   xLabel: "Payload",
   datasetLabels: [
     "Built-in JSON (JS)",
+    "JSON-AS (NAIVE)",
     "JSON-AS (SWAR)",
     "JSON-AS (SIMD)"
   ]

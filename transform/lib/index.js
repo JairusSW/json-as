@@ -1,4 +1,4 @@
-import { Node } from "assemblyscript/dist/assemblyscript.js";
+import { Node, Type } from "assemblyscript/dist/assemblyscript.js";
 import { Transform } from "assemblyscript/dist/transform.js";
 import { Visitor } from "./visitor.js";
 import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
@@ -1070,7 +1070,37 @@ export class JSONTransform extends Visitor {
         return false;
     }
 }
+var JSONMode;
+(function (JSONMode) {
+    JSONMode[JSONMode["SWAR"] = 0] = "SWAR";
+    JSONMode[JSONMode["SIMD"] = 1] = "SIMD";
+    JSONMode[JSONMode["NAIVE"] = 2] = "NAIVE";
+})(JSONMode || (JSONMode = {}));
+let MODE = JSONMode.SWAR;
 export default class Transformer extends Transform {
+    afterInitialize(program) {
+        if (program.options.hasFeature(16))
+            MODE = JSONMode.SIMD;
+        if (process.env["JSON_MODE"]) {
+            switch (process.env["JSON_MODE"].toLowerCase().trim()) {
+                case "simd": {
+                    MODE = JSONMode.SIMD;
+                    break;
+                }
+                case "swar": {
+                    MODE = JSONMode.SWAR;
+                    break;
+                }
+                case "naive": {
+                    MODE = JSONMode.NAIVE;
+                    break;
+                }
+            }
+        }
+        program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE));
+    }
+    afterCompile(module) {
+    }
     afterParse(parser) {
         const transformer = JSONTransform.SN;
         const sources = parser.sources
