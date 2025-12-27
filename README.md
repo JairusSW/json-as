@@ -400,6 +400,19 @@ The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaS
 
 > Note: I have focused on extensively optimizing serialization. I used to have deserialization be highly unsafe and extremely fast, but I've since doubled down on safety for deserialization which has negatively affected performance. I will be optimizing soon.
 
+### Performance Tuning
+
+Instead of using flags for setting options, `json-as` is configured by environmental variables.
+Here's a short list:
+
+**JSON_CACHE** (default: 0) - Enables caching costly strings based on hit frequency. May boost string serialization in excess of 22 GB/s.
+
+**JSON_DEBUG** (default: 0) - Sets the debug level. May be within range `0-3`
+
+**JSON_MODE** (default: SWAR) - Selects which mode should be used. Can be `NAIVE,SWAR,SIMD`. Note that `--enable simd` may be required.
+
+**JSON_WRITE** (default: "") - Select a series of files to output after transform and optimization passes have completed for easy inspection. Usage: `JSON_WRITE=.path-to-file-a.ts,./path-to-file-b.ts`
+
 ### Running benchmarks locally
 
 Benchmarks are run directly on top of v8 for more tailored control
