@@ -35,4 +35,9 @@ describe("Should deserialize arbitrary types", () => {
   expect(JSON.parse<JSON.Value>("true").toString()).toBe("true");
   expect(JSON.stringify(JSON.parse<JSON.Value>('{"x":1.0,"y":2.0,"z":3.0}'))).toBe('{"x":1.0,"y":2.0,"z":3.0}');
   expect(JSON.stringify(JSON.parse<JSON.Value[]>('["string",true,3.14,{"x":1.0,"y":2.0,"z":3.0},[1.0,2.0,3,true]]'))).toBe('["string",true,3.14,{"x":1.0,"y":2.0,"z":3.0},[1.0,2.0,3.0,true]]');
+
+  let x = JSON.Box.fromValue<i32>(JSON.parse<JSON.Value>("null"))
+  expect(x ? x.toString() : "null").toBe("null");
+  x = JSON.Box.fromValue<i32>(JSON.parse<JSON.Value>("123"))
+  expect(x ? x.toString() : "null").toBe("123");
 });
