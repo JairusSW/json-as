@@ -13,7 +13,7 @@ export function expect<T>(left: T): Expectation {
   // @ts-ignore
   if (!isDefined(left.toString)) throw new Error("Expected left to have a toString method, but it does not.");
   // @ts-ignore
-  return new Expectation(isNull(left) ? "null" : left.toString());
+  return new Expectation(isNull(left) ? "null" : changetype<nonnull<T>>(left).toString());
 }
 
 class Expectation {

@@ -606,7 +606,9 @@ export namespace JSON {
     @inline static fromValue<T>(value: JSON.Value): Box<T> | null {
       if (!(value instanceof JSON.Value)) throw new Error("value must be of type JSON.Value");
       if (value.isNull) return null;
-      return new Box(value.get<T>());
+      const v = value.type === JSON.Types.F64 ?value.get<f64>() : value.get<T>();
+      // @ts-ignore
+      return new Box(isInteger<T>() || isFloat<T>() ? <T>(v) : v);
     }
     /**
      * Creates a reference to a primitive type
