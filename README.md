@@ -277,6 +277,11 @@ const value = JSON.Value.from<JSON.Box<i32> | null>(box);
 const reboxed = JSON.Box.fromValue<i32>(value); // Box<i32> | null
 console.log(reboxed !== null ? reboxed!.toString() : "null");
 // 123
+
+const value = JSON.parse<JSON.Value>("123");
+const boxed = JSON.Box.fromValue<i32>(value);
+console.log(boxed !== null ? boxed!.toString() : "null");
+// 123
 ```
 
 ### Using Raw JSON strings
