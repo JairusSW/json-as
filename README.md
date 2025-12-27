@@ -269,6 +269,16 @@ obj.data = JSON.Value.from("a string"); // Changing to a string
 console.log(JSON.stringify(obj)); // {"id":1,"name":"Example","data":"a string"}
 ```
 
+**Working with nullable primitives and dynamic data**
+
+```ts
+const box = JSON.Box.from<i32>(123);
+const value = JSON.Value.from<JSON.Box<i32> | null>(box);
+const reboxed = JSON.Box.fromValue<i32>(value); // Box<i32> | null
+console.log(reboxed !== null ? reboxed!.toString() : "null");
+// 123
+```
+
 ### Using Raw JSON strings
 
 Sometimes its necessary to simply copy a string instead of serializing it.

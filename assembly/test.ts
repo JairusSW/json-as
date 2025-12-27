@@ -20,9 +20,16 @@ const str: JSON.Value[] = [
   JSON.Value.from(true),
   JSON.Value.from<JSON.Box<i32> | null>(null),
   JSON.Value.from(vec),
-  JSON.Value.from<Vec3 | null>(null)
+  JSON.Value.from<Vec3 | null>(null),
+  JSON.Value.from<JSON.Box<i32> | null>(JSON.Box.from(123)),
+  JSON.Value.from<JSON.Box<i32> | null>(null),
 ];
-
+const box = JSON.Box.from<i32>(123);
+const value = JSON.Value.from<JSON.Box<i32> | null>(box);
+const reboxed = JSON.Box.fromValue<i32>(value); // Box<i32> | null
+console.log(reboxed !== null ? reboxed!.toString() : "null");
+// console.log(str[9]!.asBox<i32>()?.toString());
+// console.log(str.toString())
 const serialized = JSON.stringify(str);
 console.log("Serialized: " + serialized);
 

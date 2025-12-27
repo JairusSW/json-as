@@ -24,6 +24,9 @@ describe("Should serialize arbitrary types", () => {
   o.set("type", "object");
 
   expect(o.toString()).toBe('{"schema":"http://json-schema.org/draft-07/schema#","additionalProperties":false,"properties":{"duration":{"default":10.0,"description":"Duration of the operation in seconds","type":"number"},"steps":{"default":5.0,"description":"Number of steps in the operation","type":"number"}},"type":"object"}');
+
+  expect(JSON.stringify(JSON.Value.from<JSON.Box<i32> | null>(null))).toBe("null");
+  expect(JSON.stringify(JSON.Value.from<JSON.Box<i32> | null>(JSON.Box.from(123)))).toBe("123");
 });
 
 describe("Should deserialize arbitrary types", () => {

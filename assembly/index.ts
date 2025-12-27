@@ -302,56 +302,41 @@ export namespace JSON {
       out.set<T>(value);
       return out;
     }
+    @inline private setPrimitive<T>(value: T): void {
+      if (isBoolean(value)) {
+        this.type = JSON.Types.BoolNull;
+        store<T>(changetype<usize>(this), value, STORAGE);
+      } else if (value instanceof u8 || value instanceof i8) {
+        this.type = JSON.Types.U8Null;
+        store<T>(changetype<usize>(this), value, STORAGE);
+      } else if (value instanceof u16 || value instanceof i16) {
+        this.type = JSON.Types.U16;
+        store<T>(changetype<usize>(this), value, STORAGE);
+      } else if (value instanceof u32 || value instanceof i32) {
+        this.type = JSON.Types.U32Null;
+        store<T>(changetype<usize>(this), value, STORAGE);
+      } else if (value instanceof u64 || value instanceof i64) {
+        this.type = JSON.Types.U64Null;
+        store<T>(changetype<usize>(this), value, STORAGE);
+      } else if (value instanceof f32) {
+        this.type = JSON.Types.F32Null;
+        store<T>(changetype<usize>(this), value, STORAGE);
+      } else if (value instanceof f64) {
+        this.type = JSON.Types.F64Null;
+        store<T>(changetype<usize>(this), value, STORAGE);
+      }
+    }
     /**
      * Sets the value of the JSON.Value instance.
      * @param value - The value to be set.
      */
     @inline set<T>(value: T): void {
       if (isNullable<T>()) {
-
+        this.isNull = changetype<usize>(value) === 0;
         if (value instanceof JSON.Box) {
-          if (isBoolean<T>()) {
-            this.type = JSON.Types.BoolNull;
-            store<T>(changetype<usize>(this), value, STORAGE);
-          } else if (value instanceof u8 || value instanceof i8) {
-            this.type = JSON.Types.U8Null;
-            store<T>(changetype<usize>(this), value, STORAGE);
-          } else if (value instanceof u16 || value instanceof i16) {
-            this.type = JSON.Types.U16Null;
-            store<T>(changetype<usize>(this), value, STORAGE);
-          } else if (value instanceof u32 || value instanceof i32) {
-            this.type = JSON.Types.U32Null;
-            store<T>(changetype<usize>(this), value, STORAGE);
-          } else if (value instanceof u64 || value instanceof i64) {
-            this.type = JSON.Types.U64Null;
-            store<T>(changetype<usize>(this), value, STORAGE);
-          } else if (value instanceof f32) {
-            this.type = JSON.Types.F32Null;
-            store<T>(changetype<usize>(this), value, STORAGE);
-          } else if (value instanceof f64) {
-            this.type = JSON.Types.F64Null;
-            store<T>(changetype<usize>(this), value, STORAGE);
-          }
+          return this.setPrimitive(value.value);
         } else if (isBoolean<T>()) {
           this.type = JSON.Types.BoolNull;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof u8 || value instanceof i8) {
-          this.type = JSON.Types.U8Null;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof u16 || value instanceof i16) {
-          this.type = JSON.Types.U16Null;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof u32 || value instanceof i32) {
-          this.type = JSON.Types.U32Null;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof u64 || value instanceof i64) {
-          this.type = JSON.Types.U64Null;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof f32) {
-          this.type = JSON.Types.F32Null;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof f64) {
-          this.type = JSON.Types.F64Null;
           store<T>(changetype<usize>(this), value, STORAGE);
         } else if (isString<T>()) {
           this.type = JSON.Types.StringNull;
@@ -381,7 +366,6 @@ export namespace JSON {
           this.type = JSON.Types.ArrayNull;
           store<T>(changetype<usize>(this), value, STORAGE);
         }
-        this.isNull = changetype<usize>(value) === 0;
       } else {
         if (value instanceof JSON.Box) {
           return this.set(value.value);
@@ -455,6 +439,16 @@ export namespace JSON {
      */
     @inline as<T>(): T {
       return load<T>(changetype<usize>(this), STORAGE);
+    }
+
+    /**
+     * Gets the value of the JSON.Value instance as a Box<T>.
+     * Alias for .get<T>()
+     * @returns The encapsulated value.
+     */
+    @inline asBox<T>(): Box<T> | null {
+      if (this.isNull) return null;
+      return changetype<Box<T>>(JSON.Box.fromValue<T>(this));
     }
 
     /**
@@ -597,6 +591,22 @@ export namespace JSON {
     @inline set(value: T): Box<T> {
       this.value = value;
       return this;
+    }
+    /**
+     * Creates a Box<T> | null from a JSON.Value
+     * This means that it can create a nullable primitive from a JSON.Value
+     * ```js
+     * const value = JSON.parse<i32>("null"); // -> Box<i32> | null
+     * const boxed = JSON.Box.fromValue<i32>(value); // -> Box<i32> | null
+     * // null
+     * ```
+     * @param from T
+     * @returns Box<T> | null
+     */
+    @inline static fromValue<T>(value: JSON.Value): Box<T> | null {
+      if (!(value instanceof JSON.Value)) throw new Error("value must be of type JSON.Value");
+      if (value.isNull) return null;
+      return new Box(value.get<T>());
     }
     /**
      * Creates a reference to a primitive type
