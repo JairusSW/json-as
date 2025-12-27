@@ -18,7 +18,7 @@ class BenchResult {
 let result: BenchResult | null = null;
 export function bench(description: string, routine: () => void, ops: u64 = 1_000_000, bytesPerOp: u64 = 0): void {
   console.log(" - Benchmarking " + description);
-
+  const memory_log_stride = ops / 10;
   let warmup = ops / 10;
   while (--warmup) {
     routine();

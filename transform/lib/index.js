@@ -1077,6 +1077,7 @@ var JSONMode;
     JSONMode[JSONMode["NAIVE"] = 2] = "NAIVE";
 })(JSONMode || (JSONMode = {}));
 let MODE = JSONMode.SWAR;
+let CACHE = 0;
 export default class Transformer extends Transform {
     afterInitialize(program) {
         if (program.options.hasFeature(16))
@@ -1098,8 +1099,10 @@ export default class Transformer extends Transform {
             }
         }
         program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE));
-    }
-    afterCompile(module) {
+        if (process.env["JSON_CACHE"]?.trim().toLowerCase() === "true" ||
+            process.env["JSON_CACHE"]?.trim().toLowerCase() === "1") {
+            program.registerConstantInteger("JSON_CACHE", Type.bool, i64_one);
+        }
     }
     afterParse(parser) {
         const transformer = JSONTransform.SN;

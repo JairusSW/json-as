@@ -1,13 +1,13 @@
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
-const SHRINK_EVERY_N: u32 = 200;
-const MIN_BUFFER_SIZE: u32 = 128;
+const SHRINK_EVERY_N: usize = 200;
+const MIN_BUFFER_SIZE: usize = 128;
 
 /**
  * Central buffer namespace for managing memory operations.
  */
 export namespace bs {
   /** Current buffer pointer. */
-  export let buffer: ArrayBuffer = new ArrayBuffer(MIN_BUFFER_SIZE);
+  export let buffer: ArrayBuffer = new ArrayBuffer(i32(MIN_BUFFER_SIZE));
 
   /** Current offset within the buffer. */
   export let offset: usize = changetype<usize>(buffer);
@@ -21,9 +21,19 @@ export namespace bs {
   let pauseOffset: usize = 0;
   let pauseStackSize: usize = 0;
 
-  let typicalSize: u32 = MIN_BUFFER_SIZE;
-  let counter: u32 = 0;
+  let typicalSize: usize = MIN_BUFFER_SIZE;
+  let counter: usize = 0;
 
+  export let cacheOutput: usize = 0;
+  export let cacheOutputLen: usize = 0;
+
+  // @ts-ignore: decorators allowed
+  @inline export function digestArena(): void {
+    if (cacheOutput === 0) return;
+    proposeSize(cacheOutputLen);
+    memory.copy(bs.offset, cacheOutput, cacheOutputLen);
+    bs.cacheOutput = 0;
+  }
   /**
    * Stores the state of the buffer, allowing further changes to be reset
    */
@@ -61,8 +71,8 @@ export namespace bs {
    */
   // @ts-ignore: decorator
   @inline export function ensureSize(size: u32): void {
-    if (offset + size > bufferSize + changetype<usize>(buffer)) {
-      const deltaBytes = size + MIN_BUFFER_SIZE;
+    if (offset + usize(size) > bufferSize + changetype<usize>(buffer)) {
+      const deltaBytes = usize(size) + MIN_BUFFER_SIZE;
       bufferSize += deltaBytes;
       // @ts-ignore: exists
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
@@ -96,7 +106,7 @@ export namespace bs {
   // @ts-ignore: decorator
   @inline export function growSize(size: u32): void {
     if ((stackSize += size) > bufferSize) {
-      const deltaBytes = size + MIN_BUFFER_SIZE;
+      const deltaBytes = usize(size) + MIN_BUFFER_SIZE;
       bufferSize += deltaBytes;
       // @ts-ignore
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
@@ -146,26 +156,34 @@ export namespace bs {
    * @returns The new object containing the buffer's content.
    */
   // @ts-ignore: Decorator valid here
-  @inline export function out<T>(): T {
-    const len = offset - changetype<usize>(buffer);
-    // @ts-ignore: exists
-    const _out = __new(len, idof<T>());
-    memory.copy(_out, changetype<usize>(buffer), len);
+  export function out<T>(): T {
+    let out: usize;
+    if (cacheOutput === 0) {
+      const len = offset - changetype<usize>(buffer);
+      // @ts-ignore: exists
+      out = __new(len, idof<T>());
+      memory.copy(out, changetype<usize>(buffer), len);
 
-    counter++;
-    typicalSize = (typicalSize + <u32>len) >> 1;
-
-    if (counter >= SHRINK_EVERY_N) {
-      if (bufferSize > (typicalSize << 2)) {
-        resize(typicalSize << 1);
+      counter++;
+      typicalSize = (typicalSize + len) >> 1;
+      if (counter >= SHRINK_EVERY_N) {
+        if (bufferSize > (typicalSize << 2)) resize(u32(typicalSize << 1));
+        counter = 0;
       }
-      counter = 0;
+    } else {
+      // zero-copy path
+      // @ts-ignore: exists
+      out = __new(cacheOutputLen, idof<T>());
+      memory.copy(out, cacheOutput, cacheOutputLen);
+      // reset arena flag
+      cacheOutput = 0;
     }
 
     offset = changetype<usize>(buffer);
     stackSize = 0;
-    return changetype<T>(_out);
+    return changetype<T>(out);
   }
+
 
   /**
    * Copies the buffer's content to a new object of a specified type.
@@ -203,9 +221,82 @@ export namespace bs {
       }
       counter = 0;
     }
-    
+
     offset = changetype<usize>(buffer);
     stackSize = 0;
     return changetype<T>(dst);
+  }
+}
+
+export namespace sc {
+  // @ts-ignore: decorators allowed
+  @inline export const ENTRY_KEY = offsetof<sc.Entry>("key");
+  // @ts-ignore: decorators allowed
+  @inline export const ENTRY_PTR = offsetof<sc.Entry>("ptr");
+  // @ts-ignore: decorators allowed
+  @inline export const ENTRY_LEN = offsetof<sc.Entry>("len");
+  // @ts-ignore: decorators allowed
+  // @inline export const ENTRY_HITS = offsetof<sc.Entry>("hits");
+
+  export const CACHE_SIZE = 4096;
+  export const CACHE_MASK = CACHE_SIZE - 1;
+
+  export const ARENA_SIZE = 1 << 20;
+  export const MIN_CACHE_LEN: usize = 128;
+
+  @unmanaged
+  export class Entry {
+    key!: usize;
+    ptr!: usize
+    len!: usize;
+    // hits!: u16;
+  }
+
+  export const entries = new StaticArray<sc.Entry>(CACHE_SIZE);
+  export const arena = new ArrayBuffer(ARENA_SIZE);
+  export let arenaPtr: usize = changetype<usize>(arena);
+  export let arenaEnd: usize = arenaPtr + ARENA_SIZE;
+
+  // @ts-ignore: decorators allowed
+  @inline
+  export function indexFor(ptr: usize): usize {
+    return (ptr >> 4) & CACHE_MASK;
+  }
+
+  // @ts-ignore: decorators allowed
+  @inline
+  export function tryEmitCached(key: usize): bool {
+    const e = unchecked(entries[indexFor(key)]);
+    if (e.key == key) {
+      // bs.offset += e.len;
+      // bs.stackSize += e.len;
+      bs.cacheOutput = e.ptr;
+      bs.cacheOutputLen = e.len;
+      // e.hits++;
+      return true;
+    }
+    return false;
+  }
+
+  export function insertCached(
+    str: usize,
+    start: usize,
+    len: usize
+  ): void {
+    if (len < MIN_CACHE_LEN) return;
+    if (arenaPtr + len > arenaEnd) {
+      // wrap
+      arenaPtr = changetype<usize>(arena);
+    }
+
+    memory.copy(arenaPtr, start, len);
+
+    const e = unchecked(entries[(str >> 4) & CACHE_MASK]);
+    e.key = str;
+    e.ptr = arenaPtr;
+    e.len = len;
+    // e.hits = 1;
+
+    arenaPtr += len;
   }
 }

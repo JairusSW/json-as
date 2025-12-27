@@ -18,7 +18,7 @@ bench(
   () => {
     blackbox(JSON.stringify(v1));
   },
-  16_000_00,
+  5_000_000,
   v2.length << 1
 );
 dumpToFile("small", "serialize")
@@ -28,7 +28,7 @@ bench(
   () => {
     blackbox(JSON.parse(v2));
   },
-  16_000_00,
+  5_000_000,
   v2.length << 1
 );
 dumpToFile("small", "deserialize")

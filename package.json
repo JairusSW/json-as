@@ -10,6 +10,7 @@
   "devDependencies": {
     "@assemblyscript/wasi-shim": "^0.1.0",
     "@types/node": "^25.0.3",
+    "as-heap-analyzer": "^1.2.0",
     "assemblyscript": "^0.28.9",
     "assemblyscript-prettier": "^3.0.1",
     "chartjs-node-canvas": "^5.0.0",
@@ -59,8 +60,8 @@
     "test": "bash ./run-tests.sh",
     "bench:as": "bash ./run-bench.as.sh",
     "bench:js": "bash ./run-bench.js.sh",
-    "build:test": "rm -rf ./build/ && JSON_DEBUG=2 JSON_WRITE=assembly/test.ts asc assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --enable simd --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
-    "build:tmp:test": "rm -rf ./build/ && JSON_DEBUG=1 asc assembly/test.tmp.ts -o ./build/test.wasm --textFile ./build/test.wat --enable simd --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
+    "build:test": "JSON_DEBUG=2 asc assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --enable simd --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
+    "build:tmp:test": "JSON_DEBUG=1 asc assembly/test.tmp.ts -o ./build/test.wasm --textFile ./build/test.wat --enable simd --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
     "build:test:wine": "JSON_DEBUG=1 JSON_WRITE=assembly/test.ts NODE_SKIP_PLATFORM_CHECK=1 wine ~/.win-bin/node/node.exe ./node_modules/assemblyscript/bin/asc.js assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
     "test:wasmtime": "wasmtime ./build/test.wasm",
     "test:wasmer": "wasmer ./build/test.wasm",

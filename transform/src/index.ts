@@ -1250,7 +1250,9 @@ enum JSONMode {
   SIMD = 1,
   NAIVE = 2
 }
+
 let MODE: JSONMode = JSONMode.SWAR;
+let CACHE: number = 0;
 export default class Transformer extends Transform {
   afterInitialize(program: Program): void | Promise<void> {
     if (program.options.hasFeature(Feature.Simd)) MODE = JSONMode.SIMD;
@@ -1271,6 +1273,10 @@ export default class Transformer extends Transform {
       }
     }
     program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE))
+    if (process.env["JSON_CACHE"]?.trim().toLowerCase() === "true" ||
+      process.env["JSON_CACHE"]?.trim().toLowerCase() === "1") {
+      program.registerConstantInteger("JSON_CACHE", Type.bool, i64_one);
+    }
   }
 
   afterParse(parser: Parser): void {

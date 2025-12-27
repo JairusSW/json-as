@@ -9,7 +9,7 @@ bench(
   () => {
     blackbox(JSON.stringify(v1));
   },
-  64_000_00,
+  24_000_00,
   v1.length << 1,
 );
 dumpToFile("abc", "serialize")
@@ -19,7 +19,7 @@ bench(
   () => {
     blackbox(JSON.parse(v2));
   },
-  64_000_00,
+  24_000_00,
   v2.length << 1,
 );
 dumpToFile("abc", "deserialize")

@@ -1,7 +1,7 @@
-import { bs } from "../../../lib/as-bs";
+import { bs, sc } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
-import { bytes } from "../../util/bytes";
+import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 
 
 // @ts-ignore: decorator allowed
@@ -22,8 +22,21 @@ import { bytes } from "../../util/bytes";
 @lazy const U00_MARKER = 13511005048209500;
 
 export function serializeString_SWAR(src: string): void {
-  const srcSize = bytes(src);
   let srcStart = changetype<usize>(src);
+
+  if (isDefined(JSON_CACHE)) {
+    // check cache
+    const e = unchecked(sc.entries[(srcStart >> 4) & sc.CACHE_MASK]);
+    if (e.key == srcStart) {
+      // bs.offset += e.len;
+      // bs.stackSize += e.len;
+      bs.cacheOutput = e.ptr;
+      bs.cacheOutputLen = e.len;
+      return;
+    }
+  }
+
+  const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize
   const srcEnd = srcStart + srcSize;
   const srcEnd8 = srcEnd - 8;
 
@@ -91,19 +104,32 @@ export function serializeString_SWAR(src: string): void {
 
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
+
+  if (isDefined(JSON_CACHE)) sc.insertCached(changetype<usize>(src), srcStart, srcSize);
 }
 
 // @ts-ignore: decorators allowed
 @inline function v64x4_should_escape(x: u64): u64 {
-  x = x ^ 0xFF00FF00FF00FF00;
-
-  const is_ascii: u64 = HIGHS & ~x;
-  const xor2: u64 = x ^ 0x0202020202020202;
-  const lt32_or_eq34: u64 = xor2 - 0x2121212121212121;
-  const sub92: u64 = x ^ 0x5C5C5C5C5C5C5C5C;
-  const eq92: u64 = sub92 - ONES;
-
-  const high_bits: u64 = (lt32_or_eq34 | eq92) & is_ascii;
-
-  return high_bits
+ // console.log("input:    " + mask_to_string(x));
+  const hi = x & 0xff00_ff00_ff00_ff00;
+  const lo = x & 0x00ff_00ff_00ff_00ff;
+  x &= 0x00ff_00ff_00ff_00ff;
+  // const is_cp = hi & 0x8080_8080_8080_8080;
+  const is_ascii = 0x0080_0080_0080_0080 & ~x; // lane remains 0x80 if ascii
+  const lt32 = (x - 0x0020_0020_0020_0020);
+  const sub34 = x ^ 0x0022_0022_0022_0022;
+  const eq34 = (sub34 - 0x0001_0001_0001_0001);
+  const sub92 = x ^ 0x005C_005C_005C_005C;
+  const eq92 = (sub92 - 0x0001_0001_0001_0001);
+  // console.log("low:      " + mask_to_string(lo));
+  // console.log("high:     " + mask_to_string(hi));
+  // console.log("is_cp:    " + mask_to_string(is_cp));
+  // console.log("is_ascii: " + mask_to_string(is_ascii));
+  // console.log("lt32:     " + mask_to_string(lt32));
+  // console.log("sub34:    " + mask_to_string(sub34));
+  // console.log("eq34:     " + mask_to_string(eq34));
+  // console.log("eq92:     " + mask_to_string(eq92));
+  // console.log("pre:      " + mask_to_string((lt32 | eq34 | eq92)));
+  // console.log("out:      " + mask_to_string((lt32 | eq34 | eq92) & is_ascii));
+  return ((lt32 | eq34 | eq92)& is_ascii);
 }

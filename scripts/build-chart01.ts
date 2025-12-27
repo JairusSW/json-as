@@ -6,11 +6,12 @@ import {
 } from "./lib/bench-utils";
 
 const PAYLOADS: Record<string, string> = {
-  abc: "Alphabet (104b)",
-  vec3: "3D Vector (38b)",
-  small: "Small Payload (88b)",
-  medium: "Medium Payload (2.1kb)",
-  large: "Large Payload (10.5kb)"
+  abc: "Alphabet\n   (104b)",
+  uuidv4: "UUIDv4\n   (72b)",
+  vec3: "3D Vector\n     (38b)",
+  small: "Small Payload\n       (216b)",
+  medium: "Medium Payload\n        (2.1kb)",
+  large: "Large Payload\n      (10.5kb)"
 };
 
 const KIND: BenchKind = "serialize";
@@ -27,7 +28,7 @@ for (const payload of Object.keys(PAYLOADS)) {
 const config = createBarChart(chartData, PAYLOADS, {
   title: "Serialization Performance",
   yLabel: "Throughput (MB/s)",
-  xLabel: "Payload",
+  xLabel: "",
   datasetLabels: [
     "Built-in JSON (JS)",
     "JSON-AS (NAIVE)",

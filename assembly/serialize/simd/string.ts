@@ -1,4 +1,4 @@
-import { bs } from "../../../lib/as-bs";
+import { bs, sc } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { bytes } from "../../util";
@@ -7,6 +7,18 @@ import { bytes } from "../../util";
  * Serializes strings into their JSON counterparts using SIMD operations
  */
 export function serializeString_SIMD(src: string): void {
+  let srcStart = changetype<usize>(src);
+if (isDefined(JSON_CACHE)) {
+    // check cache
+    const e = unchecked(sc.entries[(srcStart >> 4) & sc.CACHE_MASK]);
+    if (e.key == srcStart) {
+      // bs.offset += e.len;
+      // bs.stackSize += e.len;
+      bs.cacheOutput = e.ptr;
+      bs.cacheOutputLen = e.len;
+      return;
+    }
+  }
   const U00_MARKER = 13511005048209500;
   const SPLAT_34 = i16x8.splat(34); /* " */
   const SPLAT_92 = i16x8.splat(92); /* \ */
@@ -14,7 +26,6 @@ export function serializeString_SIMD(src: string): void {
   const SPLAT_32 = i16x8.splat(32); /* [ESC] */
 
   const srcSize = bytes(src);
-  let srcStart = changetype<usize>(src);
   const srcEnd = srcStart + srcSize;
   const srcEnd16 = srcEnd - 16;
 
@@ -85,4 +96,6 @@ export function serializeString_SIMD(src: string): void {
 
   store<u8>(bs.offset, 34); /* " */
   bs.offset += 2;
+
+  if (isDefined(JSON_CACHE)) sc.insertCached(changetype<usize>(src), srcStart, srcSize);
 }

@@ -5,8 +5,7 @@ mkdir -p ./build/logs/as/swar
 mkdir -p ./build/logs/as/simd
 mkdir -p ./build/logs/as/naive
 
-for file in ./assembly/__benches__/throughput/*.bench.ts \
-  ./assembly/__benches__/*.bench.ts; do
+for file in ./assembly/__benches__/throughput/str-serialize.bench.ts; do
     filename=$(basename -- "$file")
     for runtime in $RUNTIMES; do
         output="./build/${filename%.ts}.${runtime}"

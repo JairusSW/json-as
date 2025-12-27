@@ -36,12 +36,13 @@ const LOGS_DIR = "./build/logs";
 
 const VERSION =
   "v" + JSON.parse(fs.readFileSync("./package.json", "utf-8")).version;
-
+let V8_VERSION = execSync("v8").toString().trim().slice(11);
+V8_VERSION = V8_VERSION.slice(0, V8_VERSION.indexOf("\n")).trim();
 const GIT_HASH = execSync("git rev-parse --short HEAD").toString().trim();
 const GIT_BRANCH = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 
 export function subtitle() {
-  return `${new Date().toLocaleString()} • ${VERSION} • ${GIT_HASH} • ${GIT_BRANCH}`;
+  return `${new Date().toDateString()} • ${VERSION} • v8 ${V8_VERSION} • ${GIT_HASH} • ${GIT_BRANCH}`;
 }
 
 function readBenchLog(filePath: string): BenchResult {
