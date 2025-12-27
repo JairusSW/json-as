@@ -121,7 +121,7 @@ export function deserializeArbitraryArray(srcStart: usize, srcEnd: usize, dst: u
       }
     } else if (code == CHAR_N) {
       if (load<u64>(srcStart) == 30399761348886638) {
-        console.log("Value (null): " + ptrToStr(srcStart, srcStart + 8));
+        // console.log("Value (null): " + ptrToStr(srcStart, srcStart + 8));
         // @ts-ignore: type
         out.push(JSON.__deserialize<JSON.Value>(srcStart, (srcStart += 8)));
         // while (isSpace(load<u16>((srcStart += 2)))) {

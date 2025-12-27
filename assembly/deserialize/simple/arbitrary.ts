@@ -5,8 +5,6 @@ import { deserializeFloat } from "./float";
 import { deserializeString } from "./string";
 import { deserializeObject } from "./object";
 import { BRACE_LEFT, BRACKET_LEFT, CHAR_N, QUOTE } from "../../custom/chars";
-import { bs } from "../../../lib/as-bs";
-import { deserializeString_SWAR } from "../swar/string";
 
 export function deserializeArbitrary(srcStart: usize, srcEnd: usize, dst: usize): JSON.Value {
   const firstChar = load<u16>(srcStart);

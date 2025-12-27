@@ -308,6 +308,7 @@ export namespace JSON {
      */
     @inline set<T>(value: T): void {
       if (isNullable<T>()) {
+
         if (value instanceof JSON.Box) {
           if (isBoolean<T>()) {
             this.type = JSON.Types.BoolNull;
@@ -331,8 +332,6 @@ export namespace JSON {
             this.type = JSON.Types.F64Null;
             store<T>(changetype<usize>(this), value, STORAGE);
           }
-
-          this.isNull = changetype<usize>(value) === 0;
         } else if (isBoolean<T>()) {
           this.type = JSON.Types.BoolNull;
           store<T>(changetype<usize>(this), value, STORAGE);
@@ -382,6 +381,7 @@ export namespace JSON {
           this.type = JSON.Types.ArrayNull;
           store<T>(changetype<usize>(this), value, STORAGE);
         }
+        this.isNull = changetype<usize>(value) === 0;
       } else {
         if (value instanceof JSON.Box) {
           return this.set(value.value);
