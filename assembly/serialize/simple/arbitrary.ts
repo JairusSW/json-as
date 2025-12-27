@@ -1,5 +1,5 @@
 import { JSON } from "../..";
-import { serializeString_SWAR } from "../swar/string";
+import { bs } from "../../../lib/as-bs";
 import { serializeArray } from "./array";
 import { serializeBool } from "./bool";
 import { serializeFloat } from "./float";
@@ -8,7 +8,21 @@ import { serializeObject } from "./object";
 import { serializeString } from "./string";
 
 export function serializeArbitrary(src: JSON.Value): void {
+  if (src.type < JSON.Types.Null) {
+    if (src.isNull) {
+      bs.proposeSize(8);
+      store<u64>(bs.offset, 30399761348886638);
+      bs.offset += 8;
+      return;
+    } else src.type = ~src.type + 1;
+  }
+
   switch (src.type) {
+    case JSON.Types.Null: 
+      bs.proposeSize(8);
+      store<u64>(bs.offset, 30399761348886638);
+      bs.offset += 8;
+      break;
     case JSON.Types.U8:
       serializeInteger<u8>(src.get<u8>());
       break;
@@ -28,7 +42,7 @@ export function serializeArbitrary(src: JSON.Value): void {
       serializeFloat<f64>(src.get<f64>());
       break;
     case JSON.Types.String:
-      serializeString_SWAR(src.get<string>());
+      serializeString(src.get<string>());
       break;
     case JSON.Types.Bool:
       serializeBool(src.get<bool>());
