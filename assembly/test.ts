@@ -1,38 +1,71 @@
-import { JSON } from ".";
+import { bs } from "../lib/as-bs";
+import { serializeString } from "./serialize/simple/string";
+import { serializeString_SWAR } from "./serialize/swar/string";
 
-@json
-class Vec3 {
-  x!: f32;
-  y!: f32;
-  z!: f32;
+function testSerialize(input: string, expected: string, description: string): void {
+  serializeString_SWAR(input);
+  const output = bs.out<string>();
+  if (output !== expected) {
+    console.log("Failed: " + description);
+    console.log("  Input:    " + (serializeString(input), bs.out<string>()));
+    console.log("  Expected (" + expected.length.toString() + "): " + expected);
+    console.log("  Got      (" + output.length.toString() + "): " + output);
+    process.exit(1);
+  }
+  console.log("Passed: " + description + "\n")
 }
 
-const vec: Vec3 = {
-  x: 1.0,
-  y: 2.0,
-  z: 3.0
-}
-const str: JSON.Value[] = [
-  JSON.Value.from<string>("foo"),
-  JSON.Value.from("bar"),
-  JSON.Value.from(1),
-  JSON.Value.from(2),
-  JSON.Value.from(true),
-  JSON.Value.from<JSON.Box<i32> | null>(null),
-  JSON.Value.from(vec),
-  JSON.Value.from<Vec3 | null>(null),
-  JSON.Value.from<JSON.Box<i32> | null>(JSON.Box.from(123)),
-  JSON.Value.from<JSON.Box<i32> | null>(null),
-];
-const box = JSON.Box.from<i32>(123);
-const value = JSON.Value.from<JSON.Box<i32> | null>(box);
-const reboxed = JSON.Box.fromValue<i32>(value); // Box<i32> | null
-console.log(reboxed !== null ? reboxed!.toString() : "null");
+// ------------------------
+// 1. Plain ASCII text
+// ------------------------
+testSerialize("Hello World!", '"Hello World!"', "Plain ASCII text should not escape");
 
-// console.log(str[9]!.asBox<i32>()?.toString());
-// console.log(str.toString())
-const serialized = JSON.stringify(str);
-console.log("Serialized: " + serialized);
+// ------------------------
+// 2. Quote and backslash
+// ------------------------
+testSerialize('He said: "Hello"', '"He said: \\"Hello\\""', 'Quotes should be escaped');
+testSerialize("Path\\to\\file", '"Path\\\\to\\\\file"', 'Backslashes should be escaped');
 
-const deserialized = JSON.parse<JSON.Value[]>(serialized);
-console.log("Deserialized: " + JSON.stringify(deserialized).toString());
+// ------------------------
+// 3. Control codes
+// ------------------------
+testSerialize("\u0000\u0001\u001F\u0000\u0001\u001F", '"\\u0000\\u0001\\u001f\\u0000\\u0001\\u001f"', 'Control codes should be escaped');
+
+// ------------------------
+// 4. Surrogate / codepoint check
+// ------------------------
+testSerialize("\uD83D\uDE00\uD83D\uDE00", '"😀😀"', 'Paired surrogate (😀) should be written as is');
+testSerialize("\uD83Dabc", '"\\ud83dabc"', 'Unpaired high surrogate should be escaped');
+testSerialize("\uDE00\uDE00\uDE00\uDE00", '"\\ude00\\ude00\\ude00\\ude00"', 'Unpaired low surrogate should be escaped');
+
+// ------------------------
+// 5. Mixed ASCII + Unicode
+// ------------------------
+testSerialize('A\uD83D\uDE00B', '"A😀B"', 'Mixed ASCII + emoji should serialize correctly');
+
+// Paired surrogate
+testSerialize("\uD83D\uDE00\uD83D\uDE00\uD83D\uDE00\uD83D\uDE00", '"😀😀😀😀"', "Paired surrogate (😀)");
+
+// Unpaired high surrogate
+testSerialize("\uD83D\uD83D\uD83D\uD83D", '"\\ud83d\\ud83d\\ud83d\\ud83d"', "Unpaired high surrogate should be escaped");
+
+// Unpaired low surrogate
+testSerialize("\uDE00\uDE00\uDE00\uDE00", '"\\ude00\\ude00\\ude00\\ude00"', "Unpaired low surrogate should be escaped");
+
+// Mixed paired + ASCII
+testSerialize("A\uD83D\uDE00B", '"A😀B"', "ASCII + paired surrogate");
+
+// Mixed unpaired + ASCII
+testSerialize("A\uD83DB\uDE00C", '"A\\ud83dB\\ude00C"', "ASCII + unpaired surrogates should be escaped");
+
+// BMP non-ASCII
+testSerialize("©é漢", '"©é漢"', "BMP non-ASCII characters");
+
+// ASCII only
+testSerialize("Hello!", '"Hello!"', "ASCII only");
+
+// ASCII + quote + backslash
+testSerialize('He said: "Hi\\"', '"He said: \\"Hi\\\\\\""', "");
+
+
+console.log("All tests passed!");

@@ -2,6 +2,8 @@ import { bs, sc } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { mask_to_string } from "../../util/masks";
+import { ptrToStr } from "../../util/ptrToStr";
 
 
 // @ts-ignore: decorator allowed
@@ -20,6 +22,10 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 @lazy const CONTROL_MASK = 0x0020_0020_0020_0020;
 // @ts-ignore: decorator allowed
 @lazy const U00_MARKER = 13511005048209500;
+// @ts-ignore: decorator allowed
+@lazy const U_MARKER = 7667804;
+console.log("U_MARKER: " + U_MARKER.toString());
+
 
 export function serializeString_SWAR(src: string): void {
   let srcStart = changetype<usize>(src);
@@ -48,8 +54,72 @@ export function serializeString_SWAR(src: string): void {
     const block = load<u64>(srcStart);
     store<u64>(bs.offset, block);
 
-    let mask = v64x4_should_escape(block);
+    let may_be_non_ascii_lanes = block & 0x8080_8080_8080_8080;
+    let handled_lanes_mask = may_be_non_ascii_lanes;
 
+    while (may_be_non_ascii_lanes !== 0) {
+      let lane_index = usize(ctz(may_be_non_ascii_lanes) >> 3);
+      const src_offset = srcStart + lane_index - 1;
+      const dst_offset = bs.offset + lane_index - 1
+
+      const code = load<u16>(src_offset);
+
+      let type: string = "";
+      console.log("-------------------------")
+      console.log("Data:   " + ptrToStr(srcStart, srcStart + 8));
+      console.log("Block:  " + mask_to_string(block));
+      console.log("Mask:   " + mask_to_string(may_be_non_ascii_lanes));
+      console.log("Lane:   " + (lane_index - 1).toString());
+      console.log("CTZ:    " + ctz(may_be_non_ascii_lanes).toString());
+      console.log("Code:   " + code.toString(16));
+
+      if (code >= 0xD800 && code <= 0xDBFF) {
+        // surrogate
+        if (src_offset + 2 <= srcEnd - 2) {
+          const next = load<u16>(src_offset, 2);
+          if (next >= 0xDC00 && next <= 0xDFFF) {
+            may_be_non_ascii_lanes &= ~(0xFF << (lane_index << 3));
+            lane_index += 2;
+            type = "surrogate pair";
+            may_be_non_ascii_lanes &= ~(0xFF << (lane_index << 3));
+            continue;
+          }
+        }
+        bs.growSize(8);
+        type = "unpaired surrogate 1";
+        may_be_non_ascii_lanes &= ~(0xFF << (lane_index << 3));
+        console.log("src_offset: " + load<u8>(src_offset).toString(16))
+        console.log("dst_offset: " + load<u8>(dst_offset).toString(16))
+        store<u32>(dst_offset, U_MARKER); // \u
+        store<u64>(dst_offset, load<u64>(changetype<usize>(code.toString(16))), 4);
+        store<u64>(dst_offset, load<u64>(src_offset, 2), 12);
+        bs.offset += 10;
+        continue;
+      }
+      if (code >= 0xDC00 && code <= 0xDFFF) {
+        bs.growSize(8);
+        type = "unpaired surrogate 2";
+        may_be_non_ascii_lanes &= ~(0xFF << (lane_index << 3));
+        console.log("src_offset: " + load<u8>(src_offset).toString(16))
+        console.log("dst_offset: " + load<u8>(dst_offset).toString(16))
+        store<u32>(dst_offset, U_MARKER); // \u
+        store<u64>(dst_offset, load<u64>(changetype<usize>(code.toString(16))), 4);
+        store<u64>(dst_offset, load<u64>(src_offset, 2), 12);
+        bs.offset += 10;
+        continue;
+      }
+
+      console.log("Type:   " + type);
+
+      may_be_non_ascii_lanes &= ~(0xFF << (lane_index << 3));
+      // handled_lanes_mask |= <u64>0x80 << (lane_index << 3);
+
+      console.log("ASCII:  " + mask_to_string(handled_lanes_mask >> 8));
+    }
+    // after all possible code units/surrogates are handled, we're left with ascii.
+    let mask = v64x4_should_escape(block) & ~(handled_lanes_mask >> 8);
+    // mask &= ~may_be_non_ascii_lanes; // mask out lanes that were surrogates. leave ascii
+    // handle ascii escapes & control codes
     while (mask != 0) {
       const lane_index = usize(ctz(mask) >> 3); // 0 2 4 6
       const src_offset = srcStart + lane_index;
@@ -57,6 +127,14 @@ export function serializeString_SWAR(src: string): void {
       const code = load<u16>(src_offset) << 2;
       // console.log("lane: " + lane_index.toString())
       const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + code);
+
+      console.log("+++++++++++++++++++++++++")
+      console.log("Data:  (" + ptrToStr(srcStart, srcStart + 8) + ")");
+      console.log("Block:  " + mask_to_string(block));
+      console.log("Mask:   " + mask_to_string(mask));
+      console.log("Lane:   " + lane_index.toString());
+      console.log("CodeA:  " + load<u8>(src_offset).toString(16));
+      console.log("CodeB:  " + load<u8>(src_offset, 1).toString(16));
 
       mask = mask & ~(0xFF << (lane_index << 3));
       if ((escaped & 0xffff) != BACK_SLASH) {
@@ -83,6 +161,7 @@ export function serializeString_SWAR(src: string): void {
 
   while (srcStart <= srcEnd - 2) {
     const code = load<u16>(srcStart);
+
     if (code == 92 || code == 34 || code < 32) {
       const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
       if ((escaped & 0xffff) != BACK_SLASH) {
@@ -95,10 +174,36 @@ export function serializeString_SWAR(src: string): void {
         store<u32>(bs.offset, escaped);
         bs.offset += 4;
       }
-    } else {
+      srcStart += 2;
+      continue;
+    }
+
+    if (code >= 0xD800 && code <= 0xDBFF) {
+      if (srcStart + 2 <= srcEnd) {
+        const next = load<u16>(srcStart, 2);
+        if (next >= 0xDC00 && next <= 0xDFFF) {
+          store<u16>(bs.offset, code);
+          store<u16>(bs.offset + 2, next);
+          bs.offset += 4;
+          srcStart += 4;
+          continue;
+        }
+      }
       store<u16>(bs.offset, code);
       bs.offset += 2;
+      srcStart += 2;
+      continue;
     }
+
+    if (code >= 0xDC00 && code <= 0xDFFF) {
+      store<u16>(bs.offset, code);
+      bs.offset += 2;
+      srcStart += 2;
+      continue;
+    }
+
+    store<u16>(bs.offset, code);
+    bs.offset += 2;
     srcStart += 2;
   }
 
@@ -110,9 +215,9 @@ export function serializeString_SWAR(src: string): void {
 
 // @ts-ignore: decorators allowed
 @inline function v64x4_should_escape(x: u64): u64 {
- // console.log("input:    " + mask_to_string(x));
-  const hi = x & 0xff00_ff00_ff00_ff00;
-  const lo = x & 0x00ff_00ff_00ff_00ff;
+  // console.log("input:    " + mask_to_string(x));
+  // const hi = x & 0xff00_ff00_ff00_ff00;
+  // const lo = x & 0x00ff_00ff_00ff_00ff;
   x &= 0x00ff_00ff_00ff_00ff;
   // const is_cp = hi & 0x8080_8080_8080_8080;
   const is_ascii = 0x0080_0080_0080_0080 & ~x; // lane remains 0x80 if ascii
@@ -131,5 +236,5 @@ export function serializeString_SWAR(src: string): void {
   // console.log("eq92:     " + mask_to_string(eq92));
   // console.log("pre:      " + mask_to_string((lt32 | eq34 | eq92)));
   // console.log("out:      " + mask_to_string((lt32 | eq34 | eq92) & is_ascii));
-  return ((lt32 | eq34 | eq92)& is_ascii);
+  return ((lt32 | eq34 | eq92) & is_ascii);
 }
