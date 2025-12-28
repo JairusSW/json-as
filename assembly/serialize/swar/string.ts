@@ -24,7 +24,6 @@ import { ptrToStr } from "../../util/ptrToStr";
 @lazy const U00_MARKER = 13511005048209500;
 // @ts-ignore: decorator allowed
 @lazy const U_MARKER = 7667804;
-console.log("U_MARKER: " + U_MARKER.toString());
 
 
 export function serializeString_SWAR(src: string): void {
@@ -54,42 +53,42 @@ export function serializeString_SWAR(src: string): void {
     const block = load<u64>(srcStart);
     store<u64>(bs.offset, block);
 
-    let may_be_non_ascii_lanes = block & 0x8080_8080_8080_8080;
-    let handled_lanes_mask = may_be_non_ascii_lanes;
+    let non_ascii = block & 0x8080_8080_8080_8080;
+    let handled_lanes_mask = non_ascii;
 
-    while (may_be_non_ascii_lanes !== 0) {
-      let lane_index = usize(ctz(may_be_non_ascii_lanes) >> 3);
+    while (non_ascii !== 0) {
+      let lane_index = usize(ctz(non_ascii) >> 3);
       const src_offset = srcStart + lane_index - 1;
       const dst_offset = bs.offset + lane_index - 1
 
       const code = load<u16>(src_offset);
 
-      let type: string = "";
-      console.log("-------------------------")
-      console.log("Data:   " + ptrToStr(srcStart, srcStart + 8));
-      console.log("Block:  " + mask_to_string(block));
-      console.log("Mask:   " + mask_to_string(may_be_non_ascii_lanes));
-      console.log("Lane:   " + (lane_index - 1).toString());
-      console.log("CTZ:    " + ctz(may_be_non_ascii_lanes).toString());
-      console.log("Code:   " + code.toString(16));
+      // let type: string = "";
+      // console.log("-------------------------")
+      // console.log("Data:   " + ptrToStr(srcStart, srcStart + 8));
+      // console.log("Block:  " + mask_to_string(block));
+      // console.log("Mask:   " + mask_to_string(non_ascii));
+      // console.log("Lane:   " + (lane_index - 1).toString());
+      // console.log("CTZ:    " + ctz(non_ascii).toString());
+      // console.log("Code:   " + code.toString(16));
 
       if (code >= 0xD800 && code <= 0xDBFF) {
         // surrogate
         if (src_offset + 2 <= srcEnd - 2) {
           const next = load<u16>(src_offset, 2);
           if (next >= 0xDC00 && next <= 0xDFFF) {
-            may_be_non_ascii_lanes &= ~(0xFF << (lane_index << 3));
+            non_ascii &= ~(0xFF << (lane_index << 3));
             lane_index += 2;
-            type = "surrogate pair";
-            may_be_non_ascii_lanes &= ~(0xFF << (lane_index << 3));
+            // type = "surrogate pair";
+            non_ascii &= ~(0xFF << (lane_index << 3));
             continue;
           }
         }
         bs.growSize(8);
-        type = "unpaired surrogate 1";
-        may_be_non_ascii_lanes &= ~(0xFF << (lane_index << 3));
-        console.log("src_offset: " + load<u8>(src_offset).toString(16))
-        console.log("dst_offset: " + load<u8>(dst_offset).toString(16))
+        // type = "unpaired surrogate 1";
+        non_ascii &= ~(0xFF << (lane_index << 3));
+        // console.log("src_offset: " + load<u8>(src_offset).toString(16))
+        // console.log("dst_offset: " + load<u8>(dst_offset).toString(16))
         store<u32>(dst_offset, U_MARKER); // \u
         store<u64>(dst_offset, load<u64>(changetype<usize>(code.toString(16))), 4);
         store<u64>(dst_offset, load<u64>(src_offset, 2), 12);
@@ -98,10 +97,10 @@ export function serializeString_SWAR(src: string): void {
       }
       if (code >= 0xDC00 && code <= 0xDFFF) {
         bs.growSize(8);
-        type = "unpaired surrogate 2";
-        may_be_non_ascii_lanes &= ~(0xFF << (lane_index << 3));
-        console.log("src_offset: " + load<u8>(src_offset).toString(16))
-        console.log("dst_offset: " + load<u8>(dst_offset).toString(16))
+        // type = "unpaired surrogate 2";
+        non_ascii &= ~(0xFF << (lane_index << 3));
+        // console.log("src_offset: " + load<u8>(src_offset).toString(16))
+        // console.log("dst_offset: " + load<u8>(dst_offset).toString(16))
         store<u32>(dst_offset, U_MARKER); // \u
         store<u64>(dst_offset, load<u64>(changetype<usize>(code.toString(16))), 4);
         store<u64>(dst_offset, load<u64>(src_offset, 2), 12);
@@ -109,12 +108,12 @@ export function serializeString_SWAR(src: string): void {
         continue;
       }
 
-      console.log("Type:   " + type);
+      // console.log("Type:   " + type);
 
-      may_be_non_ascii_lanes &= ~(0xFF << (lane_index << 3));
+      non_ascii &= ~(0xFF << (lane_index << 3));
       // handled_lanes_mask |= <u64>0x80 << (lane_index << 3);
 
-      console.log("ASCII:  " + mask_to_string(handled_lanes_mask >> 8));
+      // console.log("ASCII:  " + mask_to_string(handled_lanes_mask >> 8));
     }
     // after all possible code units/surrogates are handled, we're left with ascii.
     let mask = v64x4_should_escape(block) & ~(handled_lanes_mask >> 8);
@@ -128,13 +127,13 @@ export function serializeString_SWAR(src: string): void {
       // console.log("lane: " + lane_index.toString())
       const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + code);
 
-      console.log("+++++++++++++++++++++++++")
-      console.log("Data:  (" + ptrToStr(srcStart, srcStart + 8) + ")");
-      console.log("Block:  " + mask_to_string(block));
-      console.log("Mask:   " + mask_to_string(mask));
-      console.log("Lane:   " + lane_index.toString());
-      console.log("CodeA:  " + load<u8>(src_offset).toString(16));
-      console.log("CodeB:  " + load<u8>(src_offset, 1).toString(16));
+      // console.log("+++++++++++++++++++++++++")
+      // console.log("Data:  (" + ptrToStr(srcStart, srcStart + 8) + ")");
+      // console.log("Block:  " + mask_to_string(block));
+      // console.log("Mask:   " + mask_to_string(mask));
+      // console.log("Lane:   " + lane_index.toString());
+      // console.log("CodeA:  " + load<u8>(src_offset).toString(16));
+      // console.log("CodeB:  " + load<u8>(src_offset, 1).toString(16));
 
       mask = mask & ~(0xFF << (lane_index << 3));
       if ((escaped & 0xffff) != BACK_SLASH) {
@@ -178,10 +177,12 @@ export function serializeString_SWAR(src: string): void {
       continue;
     }
 
+    // High surrogate
     if (code >= 0xD800 && code <= 0xDBFF) {
-      if (srcStart + 2 <= srcEnd) {
+      if (srcStart + 2 <= srcEnd - 2) {
         const next = load<u16>(srcStart, 2);
         if (next >= 0xDC00 && next <= 0xDFFF) {
+          // valid surrogate pair
           store<u16>(bs.offset, code);
           store<u16>(bs.offset + 2, next);
           bs.offset += 4;
@@ -189,15 +190,15 @@ export function serializeString_SWAR(src: string): void {
           continue;
         }
       }
-      store<u16>(bs.offset, code);
-      bs.offset += 2;
+      // unpaired high surrogate
+      write_u_escape(code);
       srcStart += 2;
       continue;
     }
 
+    // Low surrogate
     if (code >= 0xDC00 && code <= 0xDFFF) {
-      store<u16>(bs.offset, code);
-      bs.offset += 2;
+      write_u_escape(code);
       srcStart += 2;
       continue;
     }
@@ -237,4 +238,19 @@ export function serializeString_SWAR(src: string): void {
   // console.log("pre:      " + mask_to_string((lt32 | eq34 | eq92)));
   // console.log("out:      " + mask_to_string((lt32 | eq34 | eq92) & is_ascii));
   return ((lt32 | eq34 | eq92) & is_ascii);
+}
+
+@inline function write_u_escape(code: u16): void {
+  bs.growSize(10);
+  store<u32>(bs.offset, U_MARKER); // "\u"
+  // write hex digits (lowercase, matches tests)
+  store<u16>(bs.offset + 4, hexNibble((code >> 12) & 0xF));
+  store<u16>(bs.offset + 6, hexNibble((code >> 8) & 0xF));
+  store<u16>(bs.offset + 8, hexNibble((code >> 4) & 0xF));
+  store<u16>(bs.offset + 10, hexNibble(code & 0xF));
+  bs.offset += 12;
+}
+
+@inline function hexNibble(n: u16): u16 {
+  return n < 10 ? (48 + n) : (87 + n);
 }
