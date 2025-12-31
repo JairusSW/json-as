@@ -53,7 +53,7 @@ export function serializeString_SWAR(src: string): void {
 
     do {
       const laneIdx = usize(ctz(mask) >> 3);
-      mask &= ~(0xFF << (laneIdx << 3));
+      mask &= mask - 1;
       // Even (0 2 4 6) -> Confirmed ASCII Escape
       // Odd (1 3 5 7) -> Possibly a Unicode code unit or surrogate
       const srcIdx = srcStart + laneIdx;
@@ -63,47 +63,41 @@ export function serializeString_SWAR(src: string): void {
 
         if ((escaped & 0xffff) != BACK_SLASH) {
           bs.growSize(10);
-          const dst_offset = bs.offset + laneIdx;
-          store<u64>(dst_offset, U00_MARKER);
-          store<u32>(dst_offset, escaped, 8);
-          store<u64>(dst_offset, load<u64>(srcIdx, 2), 12); // unsafe. can overflow here
+          const dstIdx = bs.offset + laneIdx;
+          store<u64>(dstIdx, U00_MARKER);
+          store<u32>(dstIdx, escaped, 8);
+          memory.copy(dstIdx + 12, srcIdx + 2, 6 - laneIdx);
+          // store<u64>(dstIdx, load<u64>(srcIdx, 2), 12); // unsafe. can overflow here
           bs.offset += 10;
-          continue;
         } else {
           bs.growSize(2);
-          const dst_offset = bs.offset + laneIdx;
-          store<u32>(dst_offset, escaped);
-          store<u64>(dst_offset, load<u64>(srcIdx, 2), 4);
+          const dstIdx = bs.offset + laneIdx;
+          store<u32>(dstIdx, escaped);
+          // store<u64>(dstIdx, load<u64>(srcIdx, 2), 4);
+          memory.copy(dstIdx + 4, srcIdx + 2, 6 - laneIdx);
           bs.offset += 2;
         }
         continue;
       }
 
       const code = load<u16>(srcIdx - 1);
+      // console.log("b->" + mask_to_string(block));
+      // console.log("m->" + mask_to_string(mask));
+      // console.log("l->" + laneIdx.toString());
+      // console.log("c->" + code.toString(16));
       if (code < 0xD800 || code > 0xDFFF) continue;
 
-      if (code <= 0xDBFF) {
-        if (srcIdx + 1 <= srcEnd - 2) {
-          const next = load<u16>(srcIdx, 1);
-          if (next >= 0xDC00 && next <= 0xDFFF) {
-            // paired surrogate
-            mask &= ~(0xFF << ((laneIdx + 2) << 3));
-            continue;
-          }
+      if (code <= 0xDBFF && srcIdx + 1 <= srcEnd - 2) {
+        const next = load<u16>(srcIdx, 1);
+        if (next >= 0xDC00 && next <= 0xDFFF) {
+          // paired surrogate
+          mask &= mask - 1;
+          continue;
         }
-
-        // unpaired high surrogate
-        bs.growSize(10);
-        const dstIdx = bs.offset + laneIdx - 1;
-        store<u32>(dstIdx, U_MARKER); // \u
-        store<u64>(dstIdx, load<u64>(changetype<usize>(code.toString(16))), 4);
-        store<u64>(dstIdx, load<u64>(srcIdx, 1), 12);
-        bs.offset += 10;
-        continue;
       }
 
       bs.growSize(10);
-      // unpaired low surrogate
+      // unpaired high/low surrogate
       const dstIdx = bs.offset + laneIdx - 1;
       store<u32>(dstIdx, U_MARKER); // \u
       store<u64>(dstIdx, load<u64>(changetype<usize>(code.toString(16))), 4);
@@ -140,26 +134,20 @@ export function serializeString_SWAR(src: string): void {
       srcStart += 2;
       continue;
     }
-    
-    if (code <= 0xDBFF) {
-      if (srcStart + 2 <= srcEnd - 2) {
-        const next = load<u16>(srcStart, 2);
-        if (next >= 0xDC00 && next <= 0xDFFF) {
-          // valid surrogate pair
-          store<u16>(bs.offset, code);
-          store<u16>(bs.offset + 2, next);
-          bs.offset += 4;
-          srcStart += 4;
-          continue;
-        }
+
+    if (code <= 0xDBFF && srcStart + 2 <= srcEnd - 2) {
+      const next = load<u16>(srcStart, 2);
+      if (next >= 0xDC00 && next <= 0xDFFF) {
+        // valid surrogate pair
+        store<u16>(bs.offset, code);
+        store<u16>(bs.offset + 2, next);
+        bs.offset += 4;
+        srcStart += 4;
+        continue;
       }
-      // unpaired high surrogate
-      write_u_escape(code);
-      srcStart += 2;
-      continue;
     }
 
-    // unpaired low surrogate
+    // unpaired high/low surrogate
     write_u_escape(code);
     srcStart += 2;
     continue;

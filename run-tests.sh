@@ -12,13 +12,13 @@ for file in ./assembly/__tests__/*.spec.ts; do
      [ "$TEST_NAME" = "$basename_no_ext" ] || \
      [ "$TEST_NAME" = "$filename" ]; then
 
-    for mode in swar; do
+    for mode in naive swar simd; do
       output="./build/${basename_no_ext}.${mode}.wasm"
 
       start_time=$(date +%s%3N)
 
       if [ "$mode" = "simd" ]; then
-        npx asc "$file" \
+        JSON_MODE=SIMD npx asc "$file" \
           --transform ./transform \
           -o "$output" \
           --runtime incremental \
@@ -26,8 +26,16 @@ for file in ./assembly/__tests__/*.spec.ts; do
           --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json \
           --debug \
           --disableWarning 226 || { echo "Tests failed ($mode)"; exit 1; }
+      elif [ "$mode" = "naive" ]; then
+        JSON_MODE=NAIVE npx asc "$file" \
+          --transform ./transform \
+          -o "$output" \
+          --runtime incremental \
+          --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json \
+          --debug \
+          --disableWarning 226 || { echo "Tests failed ($mode)"; exit 1; }
       else
-        npx asc "$file" \
+        JSON_MODE=SWAR npx asc "$file" \
           --transform ./transform \
           -o "$output" \
           --runtime incremental \

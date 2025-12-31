@@ -1,59 +1,63 @@
-import { special_mask} from "./serialize/swar/string";
-import { mask_to_string } from "./util/masks";
+import { bs } from "../lib/as-bs";
+import { describe, expect, it } from "./__tests__/lib";
+import { serializeString_SIMD } from "./serialize/simd/string";
+import { serializeString } from "./serialize/simple/string";
+import { serializeString_SWAR } from "./serialize/swar/string";
+function runBoth(input: string): void {
+  serializeString(input);
+  const naive = bs.out<string>();
+  serializeString_SIMD(input);
+  const simd = bs.out<string>();
 
-function testSpecialMask(input: string, expected: string, description: string): void {
-  const ptr = changetype<usize>(input);
-  const block = load<u64>(ptr);
-  const mask = special_mask(block);
-  const mask_str = mask_to_string(mask).trim();
-  if (mask_str != expected) {
-    console.log("Failed: " + description);
-    console.log("  Input:    " + mask_to_string(block));
-    console.log("  Got:      " + mask_str);
-    console.log("  Expected: " + expected.toString());
-    process.exit(1);
-  }
-  console.log("Passed: " + description);
+  expect(simd).toBe(naive);
 }
 
-// ------------------------
-// Simple ASCII
-// ------------------------
-testSpecialMask("abcd", "0x00 00 00 00 00 00 00 00", "Plain ASCII no escape");
+// describe("serializeString_SIMD (ASCII)", () => {
+//   it("plain ascii", () => {
+//     runBoth("hello world");
+//   });
 
-// ------------------------
-// Quote / backslash
-// ------------------------
-testSpecialMask('a"b\\c', "0x00 80 00 00 00 80 00 00", 'Quote and backslash');
+//   it("quotes", () => {
+//     runBoth(`"quoted"`);
+//   });
 
-// ------------------------
-// Control chars
-// ------------------------
-testSpecialMask("\u0000\u0001\u001F", "0x00 80 00 80 00 80 00 80", 'Control chars <0x20');
+//   it("backslashes", () => {
+//     runBoth("a\\b\\c");
+//   });
 
-// ------------------------
-// Surrogate
-// ------------------------
-testSpecialMask("\uD83D\uDE00ab", "0x00 00 00 00 80 00 80 00", 'Paired surrogate (😀)');
+//   it("control characters", () => {
+//     runBoth("line\nbreak\ttab\rreturn");
+//   });
 
-// ------------------------
-// Mixed ASCII + surrogate + escape
-// ------------------------
-testSpecialMask('A\uD83D"B', "0x00 00 00 80 80 00 00 00", 'Mixed ASCII + surrogate + escape');
+//   it("mixed escapes", () => {
+//     runBoth(`"\n\t\\\""`); 
+//   });
 
-// ------------------------
-// BMP non-ASCII (should not trigger mask)
-// ------------------------
-testSpecialMask("©é漢a", "0x00 00 80 00 00 00 00 00", "BMP non-ASCII characters");
+//   it("long string", () => {
+//     runBoth("a".repeat(256));
+//   });
 
-// ------------------------
-// Edge: unpaired high surrogate
-// ------------------------
-testSpecialMask("\uD83Dabc", "0x00 00 00 00 00 00 80 00", "Unpaired high surrogate");
+//   it("edge-aligned escape", () => {
+//     runBoth("1234567\"");
+//   });
 
-// ------------------------
-// Edge: unpaired low surrogate
-// ------------------------
-testSpecialMask("\uDE00abc", "0x00 00 00 00 00 00 80 00", "Unpaired low surrogate");
+//   it("multiple escapes in one block", () => {
+//     runBoth("\"\n\\\t\"");
+//   });
 
-console.log("All special_mask_optimized_magic tests passed!");
+//   it("no escapes across many blocks", () => {
+//     runBoth("abcdefghijklmnopqrstuvwxyz0123456789".repeat(10));
+//   });
+//   it("empty string", () => {
+//     runBoth('string with colon : comma , brace [ ] bracket { } and quote " and other quote \\"');
+//   })
+// });
+
+describe("Should serialize strings - Unicode", () => {
+  console.log("--SWAR--")
+  serializeString_SWAR("hello 世界")
+  expect(bs.out<string>()).toBe('"hello 世界"');
+  console.log("--SIMD--")
+  serializeString_SIMD("hello 世界")
+  expect(bs.out<string>()).toBe('"hello 世界"');
+});
