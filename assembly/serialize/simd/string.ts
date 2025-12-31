@@ -40,7 +40,7 @@ export function serializeString_SIMD(src: string): void {
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
 
-  while (srcStart <= srcEnd16) {
+  while (srcStart < srcEnd16) {
     const block = v128.load(srcStart);
     v128.store(bs.offset, block);
 
@@ -84,15 +84,15 @@ export function serializeString_SIMD(src: string): void {
             const dstIdx = bs.offset + laneIdx;
             store<u64>(dstIdx, U00_MARKER);
             store<u32>(dstIdx, escaped, 8);
-            memory.copy(dstIdx + 12, srcIdx + 2, 14 - laneIdx);
-            // store<v128>(dstIdx, load<v128>(srcIdx, 2), 12); // unsafe. can overflow here
+            // memory.copy(dstIdx + 12, srcIdx + 2, 14 - laneIdx);
+            store<v128>(dstIdx, load<v128>(srcIdx, 2), 12); // unsafe. can overflow here
             bs.offset += 10;
           } else {
             bs.growSize(2);
             const dstIdx = bs.offset + laneIdx;
             store<u32>(dstIdx, escaped);
-            // store<v128>(dstIdx, load<v128>(srcIdx, 2), 4);
-            memory.copy(dstIdx + 4, srcIdx + 2, 14 - laneIdx);
+            store<v128>(dstIdx, load<v128>(srcIdx, 2), 4);
+            // memory.copy(dstIdx + 4, srcIdx + 2, 14 - laneIdx);
             bs.offset += 2;
           }
           continue;
@@ -121,8 +121,8 @@ export function serializeString_SIMD(src: string): void {
         const dstIdx = bs.offset + laneIdx - 1;
         store<u32>(dstIdx, U_MARKER); // \u
         store<u64>(dstIdx, load<u64>(changetype<usize>(code.toString(16))), 4);
-        memory.copy(dstIdx + 12, srcIdx + 1, 15 - laneIdx);
-        // store<v128>(dstIdx, load<v128>(srcIdx, 1), 12);
+        // memory.copy(dstIdx + 12, srcIdx + 1, 15 - laneIdx);
+        store<v128>(dstIdx, load<v128>(srcIdx, 1), 12);
         bs.offset += 10;
       } while (mask !== 0);
     }

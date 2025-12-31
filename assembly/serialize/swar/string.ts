@@ -8,6 +8,22 @@ import { mask_to_string } from "../../util/masks";
 @lazy const U00_MARKER = 13511005048209500;
 // @ts-ignore: decorator allowed
 @lazy const U_MARKER = 7667804;
+// @ts-ignore: decorator allowed
+@lazy const LOW_MASK = 0x00FF_00FF_00FF_00FF;
+// @ts-ignore: decorator allowed
+@lazy @inline const FILTER_0020 = 0x0020_0020_0020_0020;
+// @ts-ignore: decorator allowed
+@lazy @inline const FILTER_0022 = 0x0022_0022_0022_0022;
+// @ts-ignore: decorator allowed
+@lazy @inline const FILTER_005C = 0x005C_005C_005C_005C;
+// @ts-ignore: decorator allowed
+@lazy @inline const FILTER_0001 = 0x0001_0001_0001_0001;
+// @ts-ignore: decorator allowed
+@lazy @inline const FILTER_0080 = 0x0080_0080_0080_0080;
+// @ts-ignore: decorator allowed
+@lazy @inline const FILTER_0100 = 0x0100_0100_0100_0100;
+// @ts-ignore: decorator allowed
+@lazy @inline const FILTER_8000 = 0x8000_8000_8000_8000;
 
 export function serializeString_SWAR(src: string): void {
   let srcStart = changetype<usize>(src);
@@ -31,27 +47,27 @@ export function serializeString_SWAR(src: string): void {
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
 
-  while (srcStart <= srcEnd8) {
+  while (srcStart < srcEnd8) {
     let block = load<u64>(srcStart);
     store<u64>(bs.offset, block);
 
-    const lo = block & 0x00FF_00FF_00FF_00FF;
+    const lo = block & LOW_MASK;
     const ascii_mask = (
-      ((lo - 0x0020_0020_0020_0020) |
-        ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
-        ((lo ^ 0x005C_005C_005C_005C) - 0x0001_0001_0001_0001))
-      & (0x0080_0080_0080_0080 & ~lo)
+      ((lo - FILTER_0020) |
+        ((lo ^ FILTER_0022) - FILTER_0001) |
+        ((lo ^ FILTER_005C) - FILTER_0001))
+      & (FILTER_0080 & ~lo)
     );
-    const hi_mask = ((block - 0x0100010001000100) & ~block & 0x8000800080008000) ^ 0x8000800080008000;
+    const hi_mask = ((block - FILTER_0100) & ~block & FILTER_8000) ^ FILTER_8000;
     let mask = (ascii_mask & (~hi_mask >> 8)) | hi_mask;
 
-    if (mask === 0) {
-      srcStart += 8;
-      bs.offset += 8;
-      continue;
-    }
+    // if (mask === 0) {
+    //   srcStart += 8;
+    //   bs.offset += 8;
+    //   continue;
+    // }
 
-    do {
+    while (mask !== 0) {
       const laneIdx = usize(ctz(mask) >> 3);
       mask &= mask - 1;
       // Even (0 2 4 6) -> Confirmed ASCII Escape
@@ -66,15 +82,15 @@ export function serializeString_SWAR(src: string): void {
           const dstIdx = bs.offset + laneIdx;
           store<u64>(dstIdx, U00_MARKER);
           store<u32>(dstIdx, escaped, 8);
-          memory.copy(dstIdx + 12, srcIdx + 2, 6 - laneIdx);
-          // store<u64>(dstIdx, load<u64>(srcIdx, 2), 12); // unsafe. can overflow here
+          // memory.copy(dstIdx + 12, srcIdx + 2, 6 - laneIdx);
+          store<u64>(dstIdx, load<u64>(srcIdx, 2), 12); // unsafe. can overflow here
           bs.offset += 10;
         } else {
           bs.growSize(2);
           const dstIdx = bs.offset + laneIdx;
           store<u32>(dstIdx, escaped);
-          // store<u64>(dstIdx, load<u64>(srcIdx, 2), 4);
-          memory.copy(dstIdx + 4, srcIdx + 2, 6 - laneIdx);
+          store<u64>(dstIdx, load<u64>(srcIdx, 2), 4);
+          // memory.copy(dstIdx + 4, srcIdx + 2, 6 - laneIdx);
           bs.offset += 2;
         }
         continue;
@@ -87,13 +103,15 @@ export function serializeString_SWAR(src: string): void {
       // console.log("c->" + code.toString(16));
       if (code < 0xD800 || code > 0xDFFF) continue;
 
-      if (code <= 0xDBFF && srcIdx + 1 <= srcEnd - 2) {
+      if (code <= 0xDBFF && srcIdx + 2 < srcEnd) {
+        // if (srcIdx + 3 <= srcEnd) {
         const next = load<u16>(srcIdx, 1);
         if (next >= 0xDC00 && next <= 0xDFFF) {
           // paired surrogate
           mask &= mask - 1;
           continue;
         }
+        // }
       }
 
       bs.growSize(10);
@@ -103,7 +121,7 @@ export function serializeString_SWAR(src: string): void {
       store<u64>(dstIdx, load<u64>(changetype<usize>(code.toString(16))), 4);
       store<u64>(dstIdx, load<u64>(srcIdx, 1), 12);
       bs.offset += 10;
-    } while (mask !== 0);
+    }
 
     srcStart += 8;
     bs.offset += 8;
