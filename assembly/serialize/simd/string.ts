@@ -8,9 +8,12 @@ import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 @lazy const U_MARKER = 7667804;
 // @ts-ignore: decorator allowed
 @lazy const SPLAT_0022 = i16x8.splat(0x0022); // "
+// @ts-ignore: decorator allowed
 @lazy const SPLAT_005C = i16x8.splat(0x005C); // \
+// @ts-ignore: decorator allowed
 @lazy const SPLAT_0020 = i16x8.splat(0x0020); // space and control check
-@lazy const SPLAT_FFD8 = i16x8.splat(i16(0xD8FF));
+// @ts-ignore: decorator allowed
+@lazy const SPLAT_FFD8 = i16x8.splat(i16(0xD7FE));
 
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
@@ -44,7 +47,7 @@ export function serializeString_SIMD(src: string): void {
     const eq22 = i16x8.eq(block, SPLAT_0022);
     const eq5C = i16x8.eq(block, SPLAT_005C);
     const lt20 = i16x8.lt_u(block, SPLAT_0020);
-    const gteD8 = i8x16.ge_u(block, SPLAT_FFD8);
+    const gteD8 = i8x16.gt_u(block, SPLAT_FFD8);
     // console.log("\nblock  : " + mask_to_string_v128(block));
     // console.log("eq22   : " + mask_to_string_v128(eq22) + " -> " + mask_to_string_v128(SPLAT_0022));
     // console.log("eq5C   : " + mask_to_string_v128(eq5C) + " -> " + mask_to_string_v128(SPLAT_005C));
@@ -81,15 +84,15 @@ export function serializeString_SIMD(src: string): void {
             const dstIdx = bs.offset + laneIdx;
             store<u64>(dstIdx, U00_MARKER);
             store<u32>(dstIdx, escaped, 8);
-            // memory.copy(dstIdx + 12, srcIdx + 2, 14 - laneIdx);
-            store<v128>(dstIdx, load<v128>(srcIdx, 2), 12); // unsafe. can overflow here
+            memory.copy(dstIdx + 12, srcIdx + 2, 14 - laneIdx);
+            // store<v128>(dstIdx, load<v128>(srcIdx, 2), 12); // unsafe. can overflow here
             bs.offset += 10;
           } else {
             bs.growSize(2);
             const dstIdx = bs.offset + laneIdx;
             store<u32>(dstIdx, escaped);
-            store<v128>(dstIdx, load<v128>(srcIdx, 2), 4);
-            // memory.copy(dstIdx + 4, srcIdx + 2, 14 - laneIdx);
+            // store<v128>(dstIdx, load<v128>(srcIdx, 2), 4);
+            memory.copy(dstIdx + 4, srcIdx + 2, 14 - laneIdx);
             bs.offset += 2;
           }
           continue;
@@ -118,7 +121,8 @@ export function serializeString_SIMD(src: string): void {
         const dstIdx = bs.offset + laneIdx - 1;
         store<u32>(dstIdx, U_MARKER); // \u
         store<u64>(dstIdx, load<u64>(changetype<usize>(code.toString(16))), 4);
-        store<u64>(dstIdx, load<u64>(srcIdx, 1), 12);
+        memory.copy(dstIdx + 12, srcIdx + 1, 15 - laneIdx);
+        // store<v128>(dstIdx, load<v128>(srcIdx, 1), 12);
         bs.offset += 10;
       } while (mask !== 0);
     }
@@ -129,7 +133,6 @@ export function serializeString_SIMD(src: string): void {
 
   while (srcStart <= srcEnd - 2) {
     const code = load<u16>(srcStart);
-
     if (code == 92 || code == 34 || code < 32) {
       const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
       if ((escaped & 0xffff) != BACK_SLASH) {

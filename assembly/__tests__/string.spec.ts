@@ -66,19 +66,18 @@ describe("Should serialize strings - Unicode", () => {
   expect(JSON.stringify("😀🎉😀🎉")).toBe('"😀🎉😀🎉"');
   expect(JSON.stringify("مرحبا")).toBe('"مرحبا"');
   expect(JSON.stringify("Здравствуйте")).toBe('"Здравствуйте"');
-// });
+});
 
-// // Surrogate tests commented out - deserialization doesn't handle surrogates yet
 describe("Should serialize strings - Surrogates", () => {
   // Valid surrogate pairs
-  expect(JSON.stringify("\uD83D\uDE00\uD83D\uDE00\uD83D\uDE00")).toBe('"😀😀😀"'); // 😀 emoji
-  expect(JSON.stringify("\uD834\uDD1E\uD834\uDD1E\uD834\uDD1E")).toBe('"𝄞𝄞𝄞"'); // Musical symbol
+  expect(JSON.stringify("\uD83D\uDE00\uD83D\uDE00\uD83D\uDE00")).toBe('"😀😀😀"');
+  expect(JSON.stringify("\uD834\uDD1E\uD834\uDD1E\uD834\uDD1E")).toBe('"𝄞𝄞𝄞"');
   
-  // Unpaired surrogates (should be escaped)
-  expect(JSON.stringify("\uD800\uD800\uD800\uD800\uD800")).toBe('"\\ud800\\ud800\\ud800\\ud800\\ud800"'); // Unpaired high surrogate
-  expect(JSON.stringify("\uDC00\uDC00\uDC00\uDC00\uDC00")).toBe('"\\udc00\\udc00\\udc00\\udc00\\udc00"'); // Unpaired low surrogate
-  expect(JSON.stringify("\uD800abc\uD800abc\uD800")).toBe('"\\ud800abc\\ud800abc\\ud800"'); // High surrogate followed by normal chars
-  expect(JSON.stringify("abc\uDC00abc\uDC00\uDC00")).toBe('"abc\\udc00abc\\udc00\\udc00"'); // Normal chars followed by low surrogate
+  // Unpaired surrogates
+  expect(JSON.stringify("\uD800\uD800\uD800\uD800\uD800")).toBe('"\\ud800\\ud800\\ud800\\ud800\\ud800"'); // unpaired high surrogate
+  expect(JSON.stringify("\uDC00\uDC00\uDC00\uDC00\uDC00")).toBe('"\\udc00\\udc00\\udc00\\udc00\\udc00"'); // unpaired low surrogate
+  expect(JSON.stringify("\uD800abc\uD800abc\uD800")).toBe('"\\ud800abc\\ud800abc\\ud800"'); // high surrogate followed by normal chars
+  expect(JSON.stringify("abc\uDC00abc\uDC00\uDC00")).toBe('"abc\\udc00abc\\udc00\\udc00"'); // normal chars followed by low surrogate
 });
 
 describe("Should serialize strings - Long strings", () => {
@@ -141,28 +140,24 @@ describe("Should serialize strings - Escapes at various positions", () => {
   expect(JSON.stringify("abcdefg\n")).toBe('"abcdefg\\n"'); // Newline at end
 });
 
-// // ============================================================================
-// // DESERIALIZATION TESTS
-// // ============================================================================
+describe("Should deserialize strings - Basic", () => {
+  expect(JSON.parse<string>('"abcdefg"')).toBe("abcdefg");
+  expect(JSON.parse<string>('"\\"st\\\\\\"ring\\\\\\" w\\\\\\"\\\\\\"ith quotes\\\\\\"\\""')).toBe('"st\\"ring\\" w\\"\\"ith quotes\\""');
+  expect(JSON.parse<string>('"\\"string \\\\\\"with random spa\\\\nces and \\\\nnewlines\\\\n\\\\n\\\\n\\""')).toBe('"string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"');
+  expect(JSON.parse<string>('"\\"string with colon : comma , brace [ ] bracket { } and quote \\\\\\" and other quote \\\\\\\\\\"\\""')).toBe('"string with colon : comma , brace [ ] bracket { } and quote \\" and other quote \\\\""');
+  expect(JSON.parse<string>('"\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\b\\t\\n\\u000b\\f\\r\\u000e\\u000f\\u000f\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f"')).toBe("\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u0009\u000a\u000b\u000c\u000d\u000e\u000f\u000f\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f");
+  expect(JSON.parse<string>('"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"')).toBe("abcdYZ12345890sdfw\"vie91kfESDFOK12i9i12dsf./?");
+});
 
-// describe("Should deserialize strings - Basic", () => {
-//   expect(JSON.parse<string>('"abcdefg"')).toBe("abcdefg");
-//   expect(JSON.parse<string>('"\\"st\\\\\\"ring\\\\\\" w\\\\\\"\\\\\\"ith quotes\\\\\\"\\""')).toBe('"st\\"ring\\" w\\"\\"ith quotes\\""');
-//   expect(JSON.parse<string>('"\\"string \\\\\\"with random spa\\\\nces and \\\\nnewlines\\\\n\\\\n\\\\n\\""')).toBe('"string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"');
-//   expect(JSON.parse<string>('"\\"string with colon : comma , brace [ ] bracket { } and quote \\\\\\" and other quote \\\\\\\\\\"\\""')).toBe('"string with colon : comma , brace [ ] bracket { } and quote \\" and other quote \\\\""');
-//   expect(JSON.parse<string>('"\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\b\\t\\n\\u000b\\f\\r\\u000e\\u000f\\u000f\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f"')).toBe("\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u0009\u000a\u000b\u000c\u000d\u000e\u000f\u000f\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f");
-//   expect(JSON.parse<string>('"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"')).toBe("abcdYZ12345890sdfw\"vie91kfESDFOK12i9i12dsf./?");
-// });
-
-// describe("Should deserialize strings - Empty and whitespace", () => {
-//   expect(JSON.parse<string>('""')).toBe("");
-//   expect(JSON.parse<string>('" "')).toBe(" ");
-//   expect(JSON.parse<string>('"   "')).toBe("   ");
-//   expect(JSON.parse<string>('"\\t"')).toBe("\t");
-//   expect(JSON.parse<string>('"\\n"')).toBe("\n");
-//   expect(JSON.parse<string>('"\\r"')).toBe("\r");
-//   expect(JSON.parse<string>('"\\r\\n"')).toBe("\r\n");
-// });
+describe("Should deserialize strings - Empty and whitespace", () => {
+  expect(JSON.parse<string>('""')).toBe("");
+  expect(JSON.parse<string>('" "')).toBe(" ");
+  expect(JSON.parse<string>('"   "')).toBe("   ");
+  expect(JSON.parse<string>('"\\t"')).toBe("\t");
+  expect(JSON.parse<string>('"\\n"')).toBe("\n");
+  expect(JSON.parse<string>('"\\r"')).toBe("\r");
+  expect(JSON.parse<string>('"\\r\\n"')).toBe("\r\n");
+});
 
 // describe("Should deserialize strings - Special characters", () => {
 //   expect(JSON.parse<string>('"\\"')).toBe('"');
@@ -239,4 +234,4 @@ describe("Should serialize strings - Escapes at various positions", () => {
 //     const deserialized = JSON.parse<string>(serialized);
 //     expect(deserialized).toBe(original);
 //   }
-});
+// });
