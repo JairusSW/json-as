@@ -141,3 +141,4 @@ const config: ChartConfiguration<"line"> = {
 
 const buffer = canvas.renderToBufferSync(config, "image/png");
 fs.writeFileSync('./build/charts/chart03.png', buffer);
+console.log("> ./build/charts/chart03.png");

@@ -2,11 +2,18 @@
 
 mkdir -p ./build
 
+TEST_NAME="$1"
+
 for file in ./assembly/__tests__/*.spec.ts; do
   filename=$(basename -- "$file")
-  if [ -z "$1" ] || [ "$1" = "$filename" ]; then
-    for mode in swar simd; do
-      output="./build/${filename%.ts}.${mode}.wasm"
+  basename_no_ext="${filename%.spec.ts}"
+
+  if [ -z "$TEST_NAME" ] || \
+     [ "$TEST_NAME" = "$basename_no_ext" ] || \
+     [ "$TEST_NAME" = "$filename" ]; then
+
+    for mode in swar; do
+      output="./build/${basename_no_ext}.${mode}.wasm"
 
       start_time=$(date +%s%3N)
 
@@ -43,8 +50,6 @@ for file in ./assembly/__tests__/*.spec.ts; do
       echo " -> $filename ($mode build in $formatted_time)"
       wasmtime "$output" || { echo "Tests failed ($mode)"; exit 1; }
     done
-  else
-    echo " -> $filename (skipped)"
   fi
 done
 

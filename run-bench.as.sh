@@ -1,13 +1,40 @@
 #!/bin/bash
-RUNTIMES=${RUNTIMES:-"incremental"} # incremental minimal stub
-ENGINES=${ENGINES:-"turbofan"} # liftoff ignition sparkplug turbofan
-mkdir -p ./build/logs/as/swar
-mkdir -p ./build/logs/as/simd
-mkdir -p ./build/logs/as/naive
+set -euo pipefail
+
+RUNTIMES=${RUNTIMES:-"incremental"}
+ENGINES=${ENGINES:-"turbofan"}
+
+mkdir -p ./build/logs/as/{swar,simd,naive}
 mkdir -p ./build/logs/charts
 
-for file in ./assembly/__benches__/*.bench.ts \
-    ./assembly/__benches__/throughput/*.bench.ts; do
+BENCH_NAME="${1:-}"
+FILES=()
+
+if [[ -n "$BENCH_NAME" ]]; then
+  # Allow passing `abc` or `abc.bench.ts`
+  [[ "$BENCH_NAME" != *.bench.ts ]] && BENCH_NAME="$BENCH_NAME.bench.ts"
+
+  CANDIDATES=(
+    "./assembly/__benches__/$BENCH_NAME"
+    "./assembly/__benches__/throughput/$BENCH_NAME"
+  )
+
+  for f in "${CANDIDATES[@]}"; do
+    [[ -f "$f" ]] && FILES+=("$f")
+  done
+
+  if [[ ${#FILES[@]} -eq 0 ]]; then
+    echo "❌ No benchmark found for '$1'"
+    exit 1
+  fi
+else
+  FILES=(
+    ./assembly/__benches__/*.bench.ts
+    ./assembly/__benches__/throughput/*.bench.ts
+  )
+fi
+
+for file in "${FILES[@]}"; do
     filename=$(basename -- "$file")
     for runtime in $RUNTIMES; do
         output="./build/${filename%.ts}.${runtime}"

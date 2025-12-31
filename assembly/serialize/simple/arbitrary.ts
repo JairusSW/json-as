@@ -4,21 +4,13 @@ import { serializeArray } from "./array";
 import { serializeBool } from "./bool";
 import { serializeFloat } from "./float";
 import { serializeInteger } from "./integer";
+import { serializeMap } from "./map";
 import { serializeObject } from "./object";
 import { serializeString } from "./string";
 
 export function serializeArbitrary(src: JSON.Value): void {
-  if (src.type < JSON.Types.Null) {
-    if (src.isNull) {
-      bs.proposeSize(8);
-      store<u64>(bs.offset, 30399761348886638);
-      bs.offset += 8;
-      return;
-    } else src.type = ~src.type + 1;
-  }
-
   switch (src.type) {
-    case JSON.Types.Null: 
+    case JSON.Types.Null:
       bs.proposeSize(8);
       store<u64>(bs.offset, 30399761348886638);
       bs.offset += 8;
@@ -34,6 +26,18 @@ export function serializeArbitrary(src: JSON.Value): void {
       break;
     case JSON.Types.U64:
       serializeInteger<u64>(src.get<u64>());
+      break;
+    case JSON.Types.I8:
+      serializeInteger<i8>(src.get<i8>());
+      break;
+    case JSON.Types.I16:
+      serializeInteger<i16>(src.get<i16>());
+      break;
+    case JSON.Types.I32:
+      serializeInteger<i32>(src.get<i32>());
+      break;
+    case JSON.Types.I64:
+      serializeInteger<i64>(src.get<i64>());
       break;
     case JSON.Types.F32:
       serializeFloat<f32>(src.get<f32>());
@@ -53,6 +57,10 @@ export function serializeArbitrary(src: JSON.Value): void {
     }
     case JSON.Types.Object: {
       serializeObject(src.get<JSON.Obj>());
+      break;
+    }
+    case JSON.Types.Map: {
+      serializeMap(src.get<Map<string, JSON.Value>>());
       break;
     }
     default: {

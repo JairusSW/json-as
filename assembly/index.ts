@@ -219,35 +219,49 @@ export namespace JSON {
     }
   }
 
+  export type Types = u16;
   /**
    * Enum representing the different types supported by JSON.
    */
-  export enum Types {
-    StructNull = -12,
-    ArrayNull = -11,
-    ObjectNull = -10,
-    StringNull = -9,
-    BoolNull = -8,
-    F64Null = -7,
-    F32Null = -6,
-    U64Null = -5,
-    U32Null = -4,
-    U16Null = -3,
-    U8Null = -2,
-    RawNull = -1, // unused
-    Null = 0,
-    Raw = 1,
-    U8 = 2,
-    U16 = 3,
-    U32 = 4,
-    U64 = 5,
-    F32 = 6,
-    F64 = 7,
-    Bool = 8,
-    String = 9,
-    Object = 10,
-    Array = 11,
-    Struct = 12,
+  export namespace Types {
+    // Primitives
+    // @ts-ignore
+    @inline export const Null: u16 = 0;
+    // @ts-ignore
+    @inline export const Raw: u16 = 1;
+    // @ts-ignore
+    @inline export const U8: u16 = 2;
+    // @ts-ignore
+    @inline export const U16: u16 = 3;
+    // @ts-ignore
+    @inline export const U32: u16 = 4;
+    // @ts-ignore
+    @inline export const U64: u16 = 5;
+    // @ts-ignore
+    @inline export const I8: u16 = 6;
+    // @ts-ignore
+    @inline export const I16: u16 = 7;
+    // @ts-ignore
+    @inline export const I32: u16 = 8;
+    // @ts-ignore
+    @inline export const I64: u16 = 9;
+    // @ts-ignore
+    @inline export const F32: u16 = 10;
+    // @ts-ignore
+    @inline export const F64: u16 = 11;
+    // @ts-ignore
+    @inline export const Bool: u16 = 12;
+    // Managed
+    // @ts-ignore
+    @inline export const String: u16 = 13;
+    // @ts-ignore
+    @inline export const Object: u16 = 14;
+    // @ts-ignore
+    @inline export const Array: u16 = 15;
+    // @ts-ignore
+    @inline export const Map: u16 = 16;
+    // @ts-ignore
+    @inline export const Struct: u16 = 17;
   }
 
   export class Raw {
@@ -272,9 +286,7 @@ export namespace JSON {
   @final
   export class Value {
     static METHODS: Map<u32, u32> = new Map<u32, u32>();
-    public type: i32;
-
-    public isNull: bool;
+    public type: u16;
     private storage: u64;
 
     private constructor() {
@@ -295,132 +307,73 @@ export namespace JSON {
      * @returns An instance of JSON.Value.
      */
     @inline static from<T>(value: T): JSON.Value {
-      if (value instanceof JSON.Value) {
-        return value;
-      }
+      if (value instanceof JSON.Value) return value;
       const out = changetype<JSON.Value>(__new(offsetof<JSON.Value>(), idof<JSON.Value>()));
       out.set<T>(value);
       return out;
     }
-    @inline private setPrimitive<T>(value: T): void {
-      if (isBoolean(value)) {
-        this.type = JSON.Types.BoolNull;
-        store<T>(changetype<usize>(this), value, STORAGE);
-      } else if (value instanceof u8 || value instanceof i8) {
-        this.type = JSON.Types.U8Null;
-        store<T>(changetype<usize>(this), value, STORAGE);
-      } else if (value instanceof u16 || value instanceof i16) {
-        this.type = JSON.Types.U16;
-        store<T>(changetype<usize>(this), value, STORAGE);
-      } else if (value instanceof u32 || value instanceof i32) {
-        this.type = JSON.Types.U32Null;
-        store<T>(changetype<usize>(this), value, STORAGE);
-      } else if (value instanceof u64 || value instanceof i64) {
-        this.type = JSON.Types.U64Null;
-        store<T>(changetype<usize>(this), value, STORAGE);
-      } else if (value instanceof f32) {
-        this.type = JSON.Types.F32Null;
-        store<T>(changetype<usize>(this), value, STORAGE);
-      } else if (value instanceof f64) {
-        this.type = JSON.Types.F64Null;
-        store<T>(changetype<usize>(this), value, STORAGE);
-      }
+    
+    /**
+     * Gets the type of a given value as a JSON.Types enum.
+     * @param value - any
+     * @returns JSON.Types
+     */
+    @inline getType<T>(value: T): JSON.Types {
+      if (isNullable<T>() && changetype<usize>(value) === 0) return JSON.Types.Null;
+      if (isBoolean<T>()) return JSON.Types.Bool;
+      if (isInteger<T>() && !isSigned<T>() && changetype<usize>(value) == 0 && nameof<T>() == "usize") return JSON.Types.Null;
+      if (isString<T>()) return JSON.Types.String;
+      if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) return JSON.Types.Array;
+      if (value instanceof JSON.Box) return this.getType(value.value);
+      if (value instanceof u8 || value instanceof i8) return JSON.Types.U8;
+      if (value instanceof u16 || value instanceof i16) return JSON.Types.U16;
+      if (value instanceof u32 || value instanceof i32) return JSON.Types.U32;
+      if (value instanceof u64 || value instanceof i64) return JSON.Types.U64;
+      if (value instanceof i8) return JSON.Types.I8;
+      if (value instanceof i16) return JSON.Types.I16;
+      if (value instanceof i32) return JSON.Types.I32;
+      if (value instanceof i64) return JSON.Types.I64;
+      if (value instanceof f32) return JSON.Types.F32;
+      if (value instanceof f64) return JSON.Types.F64;
+      if (value instanceof Map) return JSON.Types.Map;
+      if (value instanceof JSON.Raw) return JSON.Types.Raw;
+      if (value instanceof JSON.Obj) return JSON.Types.Object;
+
+      // @ts-ignore: supplied by transform
+      if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) return u16(idof<T>()) + JSON.Types.Struct;
+      return JSON.Types.Null;
     }
     /**
      * Sets the value of the JSON.Value instance.
      * @param value - The value to be set.
      */
     @inline set<T>(value: T): void {
-      if (isNullable<T>()) {
-        this.isNull = changetype<usize>(value) === 0;
-        if (value instanceof JSON.Box) {
-          return this.setPrimitive(value.value);
-        } else if (isBoolean<T>()) {
-          this.type = JSON.Types.BoolNull;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (isString<T>()) {
-          this.type = JSON.Types.StringNull;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof JSON.Raw) {
-          this.type = JSON.Types.RawNull;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof Map) {
-          if (idof<T>() !== idof<Map<string, JSON.Value>>()) {
-            abort("Maps must be of type Map<string, JSON.Value>!");
-          }
-          this.type = JSON.Types.StructNull;
-          store<T>(changetype<usize>(this), value, STORAGE);
-          // @ts-ignore: supplied by transform
-        } else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
-          this.type = idof<T>() + JSON.Types.StructNull;
-          // @ts-ignore
-          if (!JSON.Value.METHODS.has(idof<T>())) JSON.Value.METHODS.set(idof<T>(), value.__SERIALIZE.index);
-          // @ts-ignore
-          store<usize>(changetype<usize>(this), changetype<usize>(value), STORAGE);
-        } else if (value instanceof JSON.Obj) {
-          this.type = JSON.Types.ObjectNull;
-          store<T>(changetype<usize>(this), value, STORAGE);
-          // @ts-ignore
-        } else if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) {
-          // @ts-ignore: T satisfies constraints of any[]
-          this.type = JSON.Types.ArrayNull;
-          store<T>(changetype<usize>(this), value, STORAGE);
+      this.type = this.getType<T>(value);
+
+      if (value instanceof JSON.Box) this.set(value.value);
+      else if (isBoolean<T>()) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (isInteger<T>() && !isSigned<T>() && changetype<usize>(value) == 0 && nameof<T>() == "usize") store<usize>(changetype<usize>(this), 0, STORAGE);
+      else if (isInteger<T>() || isFloat<T>()) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (isNullable<T>() && changetype<usize>(value) === 0) store<usize>(changetype<usize>(this), 0, STORAGE);
+      else if (isString<T>()) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof JSON.Raw) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Map) {
+        if (idof<T>() !== idof<Map<string, JSON.Value>>()) {
+          abort("Maps must be of type Map<string, JSON.Value>!");
         }
-      } else {
-        if (value instanceof JSON.Box) {
-          return this.set(value.value);
-        } else if (isBoolean<T>()) {
-          this.type = JSON.Types.Bool;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (isInteger<T>() && !isSigned<T>() && changetype<usize>(value) == 0 && nameof<T>() == "usize") {
-          this.type = JSON.Types.Null;
-          store<usize>(changetype<usize>(this), 0, STORAGE);
-        } else if (value instanceof u8 || value instanceof i8) {
-          this.type = JSON.Types.U8;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof u16 || value instanceof i16) {
-          this.type = JSON.Types.U16;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof u32 || value instanceof i32) {
-          this.type = JSON.Types.U32;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof u64 || value instanceof i64) {
-          this.type = JSON.Types.U64;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof f32) {
-          this.type = JSON.Types.F32;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof f64) {
-          this.type = JSON.Types.F64;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (isString<T>()) {
-          this.type = JSON.Types.String;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof JSON.Raw) {
-          this.type = JSON.Types.Raw;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        } else if (value instanceof Map) {
-          if (idof<T>() !== idof<Map<string, JSON.Value>>()) {
-            abort("Maps must be of type Map<string, JSON.Value>!");
-          }
-          this.type = JSON.Types.Struct;
-          store<T>(changetype<usize>(this), value, STORAGE);
-          // @ts-ignore: supplied by transform
-        } else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
-          this.type = idof<T>() + JSON.Types.Struct;
-          // @ts-ignore
-          if (!JSON.Value.METHODS.has(idof<T>())) JSON.Value.METHODS.set(idof<T>(), value.__SERIALIZE.index);
-          // @ts-ignore
-          store<usize>(changetype<usize>(this), changetype<usize>(value), STORAGE);
-        } else if (value instanceof JSON.Obj) {
-          this.type = JSON.Types.Object;
-          store<T>(changetype<usize>(this), value, STORAGE);
-          // @ts-ignore
-        } else if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) {
-          // @ts-ignore: T satisfies constraints of any[]
-          this.type = JSON.Types.Array;
-          store<T>(changetype<usize>(this), value, STORAGE);
-        }
+        store<T>(changetype<usize>(this), value, STORAGE);
+        // @ts-ignore: supplied by transform
+      } else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
+        // @ts-ignore
+        if (!JSON.Value.METHODS.has(idof<T>())) JSON.Value.METHODS.set(idof<T>(), value.__SERIALIZE.index);
+        // @ts-ignore
+        store<usize>(changetype<usize>(this), changetype<usize>(value), STORAGE);
+      } else if (value instanceof JSON.Obj) {
+        store<T>(changetype<usize>(this), value, STORAGE);
+        // @ts-ignore
+      } else if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) {
+        // @ts-ignore: T satisfies constraints of any[]
+        store<T>(changetype<usize>(this), value, STORAGE);
       }
     }
 
@@ -447,7 +400,7 @@ export namespace JSON {
      * @returns The encapsulated value.
      */
     @inline asBox<T>(): Box<T> | null {
-      if (this.isNull) return null;
+      if (this.type === JSON.Types.Null) return null;
       return changetype<Box<T>>(JSON.Box.fromValue<T>(this));
     }
 
@@ -456,11 +409,6 @@ export namespace JSON {
      * @returns The string representation of the JSON.Value.
      */
     toString(): string {
-      if (this.type < JSON.Types.Null) {
-        if (this.isNull) return "null";
-        else this.type = ~this.type + 1;
-      }
-
       switch (this.type) {
         case JSON.Types.Null:
           return "null";
@@ -509,7 +457,6 @@ export namespace JSON {
         }
       }
     }
-
 
     @unsafe private __visit(cookie: u32): void {
       if (this.type >= JSON.Types.String) {
@@ -605,8 +552,8 @@ export namespace JSON {
      */
     @inline static fromValue<T>(value: JSON.Value): Box<T> | null {
       if (!(value instanceof JSON.Value)) throw new Error("value must be of type JSON.Value");
-      if (value.isNull) return null;
-      const v = value.type === JSON.Types.F64 ?value.get<f64>() : value.get<T>();
+      if (value.type === JSON.Types.Null) return null;
+      const v = value.type === JSON.Types.F64 ? value.get<f64>() : value.get<T>();
       // @ts-ignore
       return new Box(isInteger<T>() || isFloat<T>() ? <T>(v) : v);
     }

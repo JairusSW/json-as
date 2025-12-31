@@ -17,7 +17,6 @@ export function deserializeArbitrary(srcStart: usize, srcEnd: usize, dst: usize)
   } else if (firstChar == 116 || firstChar == 102) return JSON.Value.from(deserializeBoolean(srcStart, srcEnd));
   else if (firstChar == CHAR_N) {
     const value = JSON.Value.from<usize>(0);
-    value.isNull = true;
     return value;
   }
   return unreachable();
