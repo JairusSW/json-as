@@ -1,21 +1,36 @@
 import { bs } from "../../../lib/as-bs";
-import { BACK_SLASH } from "../../custom/chars";
-import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables";
+import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
+import { hex4_to_u16_swar } from "../../util/swar";
 
-// @ts-ignore: decorator allowed
-@lazy const LANE_MASK_HIGH = 0xFF00_FF00_FF00_FF00;
-// @ts-ignore: decorator allowed
-@lazy const LANE_MASK_LOW = 0x00FF_00FF_00FF_00FF;
-// @ts-ignore: decorator allowed
-@lazy const UINT64_H8 = 0x8080808080808080;
-// @ts-ignore: decorator allowed
-@lazy const QUOTE_MASK = 0x0022_0022_0022_0022;
-// @ts-ignore: decorator allowed
-@lazy const BACKSLASH_MASK = 0x005C_005C_005C_005C;
-// @ts-ignore: decorator allowed
-@lazy const CONTROL_MASK = 0x0020_0020_0020_0020;
-// @ts-ignore: decorator allowed
-@lazy const U00_MARKER = 13511005048209500;
+// Overflow Pattern for Unicode Escapes (READ)
+// \u0001     0 \u00|01__   + 4
+// -\u0001    2 -\u0|001_   + 6
+// --\u0001   4 --\u|0001   + 8
+// ---\u0001  6 ---\|u0001  + 10
+// Formula: overflow = lane + 4
+
+// Overflow Pattern for Unicode Escapes (WRITE)
+// * = escape, _ = empty
+// \u0001     0 *___|       - 6
+// -\u0001    2 -*__|       - 4
+// --\u0001   4 --*_|       - 2
+// ---\u0001  6 ---*|       - 0
+// Formula: 6 - lane
+
+// Overflow pattern for Short Escapes (READ)
+// \n--       0 \n--|       + 0
+// -\n        2 -\n-|       + 0
+// --\n       4 --\n|       + 0
+// ---\n      6 ---\|n      + 2
+// Formula: overflow = |lane - 4|
+
+// Overflow pattern for Short Escapes (WRITE)
+// * = escape, _ = empty
+// \n--       0 *--_       - 2
+// -\n-       2 -*-_       - 2
+// --\n       4 --*_       - 2
+// ---\n      6 ---*       - 0
+// Formula: overflow = 
 
 /**
  * Deserializes strings back into into their original form using SIMD operations
@@ -23,106 +38,128 @@ import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables
  * @param dst buffer to write to
  * @returns number of bytes written
  */
-// todo: optimize and stuff. it works, its not pretty. ideally, i'd like this to be (nearly) branchless
-export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): void {
+export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
+  // Strip quotes
   srcStart += 2;
   srcEnd -= 2;
-  bs.proposeSize(u32(srcEnd - srcStart));
+  const srcEnd8 = srcEnd - 8;
+  bs.ensureSize(u32(srcEnd - srcStart));
 
-//   const src_end_15 = srcEnd - 15;
-//   while (srcStart < src_end_15) {
-//     const block = load<u64>(srcStart);
-//     store<u64>(dst_ptr, block);
+  while (srcStart < srcEnd8) {
+    const block = load<u64>(srcStart);
+    store<u64>(bs.offset, block);
+    let mask = backslash_mask_unsafe(block);
 
-//     let mask = v64x4_eq(block, BACKSLASH_MASK);
-
-//     while (mask != 0) {
-//       const lane_index = usize(ctz(mask) >> 3);
-//       const dst_offset = dst_ptr + lane_index;
-//       const src_offset = srcStart + lane_index;
-//       const code = load<u16>(src_offset, 2);
-
-//       mask &= mask - 1;
-//       if (code == 117 && load<u32>(src_offset, 4) == 3145776) {
-//         const block = load<u32>(src_offset, 8);
-//         const codeA = block & 0xffff;
-//         const codeB = (block >> 16) & 0xffff;
-//         const escapedA = load<u8>(ESCAPE_HEX_TABLE + codeA);
-//         const escapedB = load<u8>(ESCAPE_HEX_TABLE + codeB);
-//         const escaped = (escapedA << 4) + escapedB;
-//         // console.log("Escaped:");
-//         // console.log("  a: " + escapedA.toString())
-//         // console.log("  b: " + escapedB.toString());
-//         // console.log("  c: " + escaped.toString());
-//         // console.log("  o: " + (dst_ptr - dst).toString());
-//         // console.log("  d: " + (dst_offset - dst).toString())
-//         // console.log("  l: " + (lane_index).toString())
-//         store<u16>(dst_offset, escaped);
-//         memory.copy(dst_offset + 2, src_offset + 4, (4 - lane_index) << 1);
-//         // v128.store(dst_offset, v128.load(src_offset, 4), 2);
-//         if (lane_index >= 6) {
-//           const bytes_left = lane_index - 4;
-//           srcStart += bytes_left;
-//           dst_ptr += bytes_left;
-//           // console.log("  e: " + (bytes_left).toString())
-//         }
-//         dst_ptr -= 10;
-//       } else {
-//         const escaped = load<u8>(DESERIALIZE_ESCAPE_TABLE + code);
-//         store<u16>(dst_offset, escaped);
-//         memory.copy(dst_offset + 2, src_offset + 4, (4 - lane_index) << 1);
-//         // v128.store(dst_offset, v128.load(src_offset, 4), 2);
-//         // console.log("Escaped:");
-//         if (lane_index == 14) {
-//           srcStart += 2;
-//         } else {
-//           dst_ptr -= 2;
-//         }
-//       }
-//     }
-
-//     srcStart += 16;
-//     dst_ptr += 16;
-
-//     // console.log("src: " + (srcStart - changetype<usize>(src)).toString());
-//     // console.log("dst: " + (dst_ptr - dst).toString());
-//   }
-  while (srcStart < srcEnd) {
-    let code = load<u16>(srcStart);
-    if (code == BACK_SLASH) {
-      code = load<u16>(DESERIALIZE_ESCAPE_TABLE + load<u8>(srcStart, 2));
-      if (code == 117 && load<u32>(srcStart, 4) == 3145776) {
-        const block = load<u32>(srcStart, 8);
-        const codeA = block & 0xffff;
-        const codeB = (block >> 16) & 0xffff;
-        const escapedA = load<u8>(ESCAPE_HEX_TABLE + codeA);
-        const escapedB = load<u8>(ESCAPE_HEX_TABLE + codeB);
-        const escaped = (escapedA << 4) + escapedB;
-        store<u16>(bs.offset, escaped);
-        bs.offset += 2;
-        srcStart += 12;
-      } else {
-        store<u16>(bs.offset, code);
-        bs.offset += 2;
-        srcStart += 4;
-      }
-    } else {
-      store<u16>(bs.offset, code);
-      bs.offset += 2;
-      srcStart += 2;
+    // Early exit
+    if (mask === 0) {
+      srcStart += 8;
+      bs.offset += 8;
+      continue;
     }
+
+    do {
+      const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
+      mask &= mask - 1;
+      const srcIdx = srcStart + laneIdx;
+      const dstIdx = bs.offset + laneIdx;
+      const header = load<u32>(srcIdx);
+      const code = <u16>(header >> 16);
+
+      // Detect false positive (code unit where low byte is 0x5C)
+      if ((header & 0xFFFF) !== 0x5C) continue;
+
+      // Hot path (negative bias)
+      if (code !== 0x75) {
+        // Short escapes (\n \t \" \\)
+        const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
+        mask &= mask - usize(escaped === 0x5C);
+        store<u16>(dstIdx, escaped);
+        store<u32>(dstIdx, load<u32>(srcIdx, 4), 2);
+
+        const l6 = usize(laneIdx === 6);
+        bs.offset -= (1 - l6) << 1;
+        srcStart += l6 << 1;
+        continue;
+      }
+
+      // Unicode escape (\uXXXX)
+      const block = load<u64>(srcIdx, 4); // XXXX
+      const escaped = hex4_to_u16_swar(block);
+      store<u16>(dstIdx, escaped);
+      // store<u64>(dstIdx, load<u32>(srcIdx, 12), 2);
+      srcStart += 4 + laneIdx;
+      bs.offset -= 6 - laneIdx;
+
+    } while (mask !== 0);
+
+    bs.offset += 8;
+    srcStart += 8;
   }
+
+  while (srcStart < srcEnd) {
+    const block = load<u16>(srcStart);
+    store<u16>(bs.offset, block);
+    srcStart += 2;
+
+    // Early exit
+    if (block !== 0x5C) {
+      bs.offset += 2;
+      continue;
+    }
+
+    const code = load<u16>(srcStart);
+    if (code !== 0x75) {
+      // Short escapes (\n \t \" \\)
+      const block = load<u16>(srcStart);
+      const escape = load<u16>(DESERIALIZE_ESCAPE_TABLE + block);
+      store<u16>(bs.offset, escape);
+      srcStart += 2;
+    } else {
+      // Unicode escape (\uXXXX)
+      const block = load<u64>(srcStart, 2); // XXXX
+      const escaped = hex4_to_u16_swar(block);
+      store<u16>(bs.offset, escaped);
+      srcStart += 10;
+    }
+
+    bs.offset += 2;
+  }
+  return bs.out<string>();
 }
 
-// @ts-ignore: decorators allowed
-@inline function v64x4_eq(x: u64, y: u64): u64 {
-  const xored = (x ^ LANE_MASK_HIGH) ^ y;
-  const mask = (((xored >> 1) | UINT64_H8) - xored) & UINT64_H8;
-  return (mask << 1) - (mask >> 7);
+/**
+ * Computes a per-lane mask identifying UTF-16 code units whose **low byte**
+ * is the ASCII backslash (`'\\'`, 0x5C).
+ *
+ * The mask is produced in two stages:
+ * 1. Detects bytes equal to 0x5C using a SWAR equality test.
+ * 2. Clears matches where 0x5C appears in the **high byte** of a UTF-16 code unit,
+ *    ensuring only valid low-byte backslashes are reported.
+ *
+ * Each matching lane sets itself to 0x80.
+ */
+// @ts-ignore: decorator
+@inline function backslash_mask(block: u64): u64 {
+  const b = block ^ 0x005C_005C_005C_005C;
+  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
+  const high_byte_mask =
+    ~(((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000)
+      ^ 0x8000_8000_8000_8000) >> 8;
+  return backslash_mask & high_byte_mask;
 }
 
-// @ts-ignore: decorators allowed
-@inline function v64x4_ltu(a: u64, b: u64): u64 {
-  // Vigna's algorithm - fastest SWAR unsigned less-than
-  return (((a | UINT64_H8) - (b & ~UINT64_H8)) | (a ^ b)) ^ (a | ~b);
+/**
+ * Computes a per-lane mask identifying UTF-16 code units whose **low byte**
+ * is the ASCII backslash (`'\\'`, 0x5C).
+ *
+ * Each matching lane sets itself to 0x80.
+ * 
+ * WARNING: The low byte of a code unit *may* be a backslash, thus triggering false positives!
+ * This is useful for a hot path where it is possible to detect the false positive scalarly.
+ */
+// @ts-ignore: decorator
+@inline function backslash_mask_unsafe(block: u64): u64 {
+  const b = block ^ 0x005C_005C_005C_005C;
+  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
+  return backslash_mask;
 }

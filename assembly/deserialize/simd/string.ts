@@ -1,6 +1,57 @@
 import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables";
+import { hex4_to_u16_swar } from "../../util/swar";
+
+// @ts-ignore: decorator allowed
+@lazy const SPLAT_5C = i16x8.splat(0x5C); // \
+
+// Overflow Pattern for Unicode Escapes (READ)
+// \u0001        0  \u0001__|      + 0
+// -\u0001       2  -\u0001_|      + 0
+// --\u0001      4  --\u0001|      + 0
+// ---\u0001     6  ---\u000|1     + 2
+// ----\u0001    8  ----\u00|01    + 4
+// -----\u0001   10 -----\u0|001   + 6
+// ------\u0001  12 ------\u|0001  + 8
+// -------\u0001 14 -------\|u0001 + 10
+// Formula: overflow = max(0, lane - 4)
+
+// Overflow Pattern for Unicode Escapes (WRITE)
+// * = escape, _ = empty
+// \u0001        0  *_______|      - 14
+// -\u0001       2  -*______|      - 12
+// --\u0001      4  --*_____|      - 10
+// ---\u0001     6  ---*____|      - 8
+// ----\u0001    8  ----*___|      - 6
+// -----\u0001   10 -----*__|      - 4
+// ------\u0001  12 ------*_|      - 2
+// -------\u0001 14 -------*|      + 0
+// Formula: overflow = lane - 14
+
+// Overflow pattern for Short Escapes (READ)
+// \n------       0  \n------|     - 12
+// -\n-----       2  -\n-----|     - 10
+// --\n----       4  --\n----|     - 8
+// ---\n---       6  ---\n---|     - 6
+// ----\n--       8  ----\n--|     - 4
+// -----\n-       10 -----\n-|     - 2
+// ------\n       12 ------\n|     + 0
+// -------\n      14 -------\|n    + 2
+// Formula: overflow = lane - 12
+
+// Overflow pattern for Short Escapes (WRITE)
+// * = escape, _ = empty
+// \n------       0  *_______|     - 14
+// -\n-----       2  -*______|     - 12
+// --\n----       4  --*_____|     - 10
+// ---\n---       6  ---*____|     - 8
+// ----\n--       8  ----*___|     - 6
+// -----\n-       10 -----*__|     - 4
+// ------\n       12 ------*_|     - 2
+// -------\n      14 -------*|     + 0
+// Formula: overflow = lane - 14
+
 
 /**
  * Deserializes strings back into into their original form using SIMD operations
@@ -9,92 +60,137 @@ import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables
  * @returns number of bytes written
  */
 // todo: optimize and stuff. it works, its not pretty. ideally, i'd like this to be (nearly) branchless
-export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): void {
-  const SPLAT_92 = i16x8.splat(92); /* \ */
+export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
+  // Strip quotes
   srcStart += 2;
   srcEnd -= 2;
+  const srcEnd16 = srcEnd - 16;
   bs.ensureSize(u32(srcEnd - srcStart));
-  const src_end_15 = srcEnd - 15;
 
-  // while (srcStart < src_end_15) {
-  //   const block = v128.load(srcStart);
-  //   v128.store(bs.offset, block);
+  while (srcStart < srcEnd16) {
+    const block = load<v128>(srcStart);
+    store<v128>(bs.offset, block);
 
-  //   const backslash_indices = i16x8.eq(block, SPLAT_92);
-  //   let mask = i16x8.bitmask(backslash_indices);
-
-  //   while (mask != 0) {
-  //     const lane_index = ctz(mask) << 1;
-  //     const dst_offset = bs.offset + lane_index;
-  //     const src_offset = srcStart + lane_index;
-  //     const code = load<u16>(src_offset, 2);
-
-  //     mask &= mask - 1;
-  //     if (code == 117 && load<u32>(src_offset, 4) == 3145776) {
-  //       const block = load<u32>(src_offset, 8);
-  //       const codeA = block & 0xffff;
-  //       const codeB = (block >> 16) & 0xffff;
-  //       const escapedA = load<u8>(ESCAPE_HEX_TABLE + codeA);
-  //       const escapedB = load<u8>(ESCAPE_HEX_TABLE + codeB);
-  //       const escaped = (escapedA << 4) + escapedB;
-  //       // console.log("Escaped:");
-  //       console.log("  a: " + escapedA.toString())
-  //       console.log("  b: " + escapedB.toString());
-  //       console.log("  c: " + escaped.toString());
-  //       console.log("  o: " + (bs.offset - dst).toString());
-  //       console.log("  d: " + (dst_offset - dst).toString())
-  //       console.log("  l: " + (lane_index).toString())
-  //       store<u16>(dst_offset, escaped);
-  //       v128.store(dst_offset, v128.load(src_offset, 4), 2);
-  //       if (lane_index >= 6) {
-  //         const bytes_left = lane_index - 4;
-  //         srcStart += bytes_left;
-  //         bs.offset += bytes_left;
-  //         // console.log("  e: " + (bytes_left).toString())
-  //       }
-  //       bs.offset -= 10;
-  //     } else {
-  //       const escaped = load<u8>(DESERIALIZE_ESCAPE_TABLE + code);
-  //       store<u16>(dst_offset, escaped);
-  //       v128.store(dst_offset, v128.load(src_offset, 4), 2);
-  //       // console.log("Escaped:");
-  //       if (lane_index == 14) {
-  //         srcStart += 2;
-  //       } else {
-  //         bs.offset -= 2;
-  //       }
-  //     }
-  //   }
-
-  //   srcStart += 16;
-  //   bs.offset += 16;
-
-  //   // console.log("src: " + (srcStart - changetype<usize>(src)).toString());
-  //   // console.log("dst: " + (dst_ptr - dst).toString());
-  // }
-  while (srcStart < srcEnd) {
-    let code = load<u16>(srcStart);
-    if (code === BACK_SLASH) {
-      code = load<u16>(DESERIALIZE_ESCAPE_TABLE + load<u8>(srcStart, 2));
-      if (code === 117 && load<u32>(srcStart, 4) === 3145776) {
-        const block = load<u32>(srcStart, 8);
-        const codeA = block & 0xffff;
-        const codeB = (block >> 16) & 0xffff;
-        const escapedA = load<u8>(ESCAPE_HEX_TABLE + codeA);
-        const escapedB = load<u8>(ESCAPE_HEX_TABLE + codeB);
-        const escaped = (escapedA << 4) + escapedB;
-        store<u16>(bs.offset, escaped);
-        bs.offset += 2;
-        srcStart += 12;
-      } else {
-        store<u16>(bs.offset, code);
-        bs.offset += 2;
-        srcStart += 4;
-      }
-    } else {
-      store<u16>(bs.offset, code);
-      bs.offset += 2;
-      srcStart += 2;
+    const eq5C = i16x8.eq(load<v128>(srcStart), SPLAT_5C);
+    let mask = i16x8.bitmask(eq5C);
+    // Early exit
+    if (mask === 0) {
+      srcStart += 16;
+      bs.offset += 16;
+      continue;
     }
+
+    let srcChg: usize = 0;
+    let lastLane: usize = 0;
+    do {
+      const laneIdx = usize(ctz(mask) << 1); // 0 2 4 6 8 10 12 14
+      mask &= mask - 1;
+      const srcIdx = srcStart + laneIdx;
+      const code = load<u16>(srcIdx, 2);
+
+      bs.offset += laneIdx - lastLane;
+
+      // Hot path (negative bias)
+      if (code !== 0x75) {
+        // Short escapes (\n \t \" \\)
+        const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
+        mask &= mask - i32(escaped === 0x5C);
+        store<u16>(bs.offset, escaped);
+        store<v128>(bs.offset, load<v128>(srcIdx, 4), 2);
+
+        const l6 = usize(laneIdx === 14);
+        // bs.offset -= (1 - l6) << 1;
+        bs.offset += 2;
+        srcStart += l6 << 1;
+        lastLane = laneIdx + 4;
+        continue;
+      }
+
+      // Unicode escape (\uXXXX)
+      const block = load<u64>(srcIdx, 4); // XXXX
+      const escaped = hex4_to_u16_swar(block);
+
+      store<u16>(bs.offset, escaped);
+      store<u64>(bs.offset, load<u64>(srcIdx, 12), 2);
+
+      bs.offset += 2;
+      if (laneIdx >= 6) {
+        srcStart += laneIdx - 4;
+      }
+      lastLane = laneIdx + 12;
+    } while (mask !== 0);
+
+    if (lastLane < 16) {
+      bs.offset += 16 - lastLane;
+    }
+
+    srcStart += 16 + srcChg;
   }
+
+  while (srcStart < srcEnd) {
+    const block = load<u16>(srcStart);
+    store<u16>(bs.offset, block);
+    srcStart += 2;
+
+    // Early exit
+    if (block !== 0x5C) {
+      bs.offset += 2;
+      continue;
+    }
+
+    const code = load<u16>(srcStart);
+    if (code !== 0x75) {
+      // Short escapes (\n \t \" \\)
+      const block = load<u16>(srcStart);
+      const escape = load<u16>(DESERIALIZE_ESCAPE_TABLE + block);
+      store<u16>(bs.offset, escape);
+      srcStart += 2;
+    } else {
+      // Unicode escape (\uXXXX)
+      const block = load<u64>(srcStart, 2); // XXXX
+      const escaped = hex4_to_u16_swar(block);
+      store<u16>(bs.offset, escaped);
+      srcStart += 10;
+    }
+    bs.offset += 2;
+  }
+
+  return bs.out<string>();
+}
+
+/**
+ * Computes a per-lane mask identifying UTF-16 code units whose **low byte**
+ * is the ASCII backslash (`'\\'`, 0x5C).
+ *
+ * The mask is produced in two stages:
+ * 1. Detects bytes equal to 0x5C using a SWAR equality test.
+ * 2. Clears matches where 0x5C appears in the **high byte** of a UTF-16 code unit,
+ *    ensuring only valid low-byte backslashes are reported.
+ *
+ * Each matching lane sets itself to 0x80.
+ */
+// @ts-ignore: decorator
+@inline function backslash_mask(block: u64): u64 {
+  const b = block ^ 0x005C_005C_005C_005C;
+  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
+  const high_byte_mask =
+    ~(((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000)
+      ^ 0x8000_8000_8000_8000) >> 8;
+  return backslash_mask & high_byte_mask;
+}
+
+/**
+ * Computes a per-lane mask identifying UTF-16 code units whose **low byte**
+ * is the ASCII backslash (`'\\'`, 0x5C).
+ *
+ * Each matching lane sets itself to 0x80.
+ * 
+ * WARNING: The low byte of a code unit *may* be a backslash, thus triggering false positives!
+ * This is useful for a hot path where it is possible to detect the false positive scalarly.
+ */
+// @ts-ignore: decorator
+@inline function backslash_mask_unsafe(block: u64): u64 {
+  const b = block ^ 0x005C_005C_005C_005C;
+  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
+  return backslash_mask;
 }

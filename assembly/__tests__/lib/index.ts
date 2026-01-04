@@ -1,15 +1,21 @@
+import { JSON } from "../..";
+
 let currentDescription: string = "";
+let currentId: u32 = 0;
 export function describe(description: string, routine: () => void): void {
   currentDescription = description;
+  currentId = 0;
   routine();
 }
 
 export function it(description: string, routine: () => void): void {
   currentDescription = description;
+  currentId = 0;
   routine();
 }
 
 export function expect<T>(left: T): Expectation {
+  currentId++;
   // @ts-ignore
   if (!isDefined(left.toString)) throw new Error("Expected left to have a toString method, but it does not.");
   // @ts-ignore
@@ -27,10 +33,10 @@ class Expectation {
     if (!isDefined(right.toString)) throw new Error("Expected right to have a toString method, but it does not.");
     // @ts-ignore
     if (this.left != (isNull(right) ? "null" : right.toString())) {
-      console.log("  " + currentDescription + "\n");
+      console.log("  " + currentDescription + "#" + currentId.toString() + "\n");
       // @ts-ignore
-      console.log("  (expected) -> " + (isNull(right) ? "null" : right.toString()));
-      console.log("  (received) -> " + this.left);
+      console.log("  (expected) -> " + (isNull(right) ? "null" : JSON.stringify(right.toString())));
+      console.log("  (received) -> " + JSON.stringify(this.left));
       unreachable();
     }
   }

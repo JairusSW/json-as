@@ -145,7 +145,7 @@ describe("Should deserialize strings - Basic", () => {
   expect(JSON.parse<string>('"\\"st\\\\\\"ring\\\\\\" w\\\\\\"\\\\\\"ith quotes\\\\\\"\\""')).toBe('"st\\"ring\\" w\\"\\"ith quotes\\""');
   expect(JSON.parse<string>('"\\"string \\\\\\"with random spa\\\\nces and \\\\nnewlines\\\\n\\\\n\\\\n\\""')).toBe('"string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"');
   expect(JSON.parse<string>('"\\"string with colon : comma , brace [ ] bracket { } and quote \\\\\\" and other quote \\\\\\\\\\"\\""')).toBe('"string with colon : comma , brace [ ] bracket { } and quote \\" and other quote \\\\""');
-  expect(JSON.parse<string>('"\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\b\\t\\n\\u000b\\f\\r\\u000e\\u000f\\u000f\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f"')).toBe("\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u0009\u000a\u000b\u000c\u000d\u000e\u000f\u000f\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f");
+  expect(JSON.parse<string>('"a\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\b\\t\\n\\u000b\\f\\r\\u000e\\u000f\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f"')).toBe("a\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u0009\u000a\u000b\u000c\u000d\u000e\u000f\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f");
   expect(JSON.parse<string>('"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"')).toBe("abcdYZ12345890sdfw\"vie91kfESDFOK12i9i12dsf./?");
 });
 
@@ -159,79 +159,78 @@ describe("Should deserialize strings - Empty and whitespace", () => {
   expect(JSON.parse<string>('"\\r\\n"')).toBe("\r\n");
 });
 
-// describe("Should deserialize strings - Special characters", () => {
-//   expect(JSON.parse<string>('"\\"')).toBe('"');
-//   expect(JSON.parse<string>('"\\\\"')).toBe("\\");
-//   expect(JSON.parse<string>('"\\"\\\\"')).toBe('"\\');
-//   expect(JSON.parse<string>('"\\\\\\"')).toBe('\\"');
-//   expect(JSON.parse<string>('"\\/"')).toBe("/");
-//   expect(JSON.parse<string>('"\\b"')).toBe("\b");
-//   expect(JSON.parse<string>('"\\f"')).toBe("\f");
-//   expect(JSON.parse<string>('"\\n"')).toBe("\n");
-//   expect(JSON.parse<string>('"\\r"')).toBe("\r");
-//   expect(JSON.parse<string>('"\\t"')).toBe("\t");
-// });
+describe("Should deserialize strings - Special characters", () => {
+  expect(JSON.parse<string>('"\\"')).toBe('"');
+  expect(JSON.parse<string>('"\\\\"')).toBe("\\");
+  expect(JSON.parse<string>('"\\"\\\\"')).toBe('"\\');
+  expect(JSON.parse<string>('"\\\\\\"')).toBe('\\"');
+  expect(JSON.parse<string>('"/"')).toBe("/");
+  expect(JSON.parse<string>('"\\b"')).toBe("\b");
+  expect(JSON.parse<string>('"\\f"')).toBe("\f");
+  expect(JSON.parse<string>('"\\n"')).toBe("\n");
+  expect(JSON.parse<string>('"\\r"')).toBe("\r");
+  expect(JSON.parse<string>('"\\t"')).toBe("\t");
+});
 
-// describe("Should deserialize strings - Unicode escapes", () => {
-//   expect(JSON.parse<string>('"\\u0000"')).toBe("\u0000");
-//   expect(JSON.parse<string>('"\\u0001"')).toBe("\u0001");
-//   expect(JSON.parse<string>('"\\u001f"')).toBe("\u001f");
-//   expect(JSON.parse<string>('"\\u0041"')).toBe("A");
-//   expect(JSON.parse<string>('"\\u0061"')).toBe("a");
-//   expect(JSON.parse<string>('"\\u00e9"')).toBe("é");
-//   expect(JSON.parse<string>('"\\u4e2d\\u6587"')).toBe("中文");
-// });
+describe("Should deserialize strings - Unicode escapes", () => {
+  expect(JSON.parse<string>('"\\u0000"')).toBe("\u0000");
+  expect(JSON.parse<string>('"\\u0001"')).toBe("\u0001");
+  expect(JSON.parse<string>('"\\u001f"')).toBe("\u001f");
+  expect(JSON.parse<string>('"\\u0041"')).toBe("A");
+  expect(JSON.parse<string>('"\\u0061"')).toBe("a");
+  expect(JSON.parse<string>('"\\u00e9"')).toBe("é");
+  expect(JSON.parse<string>('"\\u4e2d\\u6587"')).toBe("中文");
+});
 
-// describe("Should deserialize strings - Mixed escapes", () => {
-//   expect(JSON.parse<string>('"abc\\"def"')).toBe('abc"def');
-//   expect(JSON.parse<string>('"line1\\nline2"')).toBe("line1\nline2");
-//   expect(JSON.parse<string>('"tab\\there"')).toBe("tab\there");
-//   expect(JSON.parse<string>('"back\\\\slash"')).toBe("back\\slash");
-//   expect(JSON.parse<string>('"\\"\\\\\\/\\b\\f\\n\\r\\t"')).toBe('"\\/\b\f\n\r\t');
-// });
+describe("Should deserialize strings - Mixed escapes", () => {
+  expect(JSON.parse<string>('"abc\\"def"')).toBe('abc"def');
+  expect(JSON.parse<string>('"line1\\nline2"')).toBe("line1\nline2");
+  expect(JSON.parse<string>('"tab\\there"')).toBe("tab\there");
+  expect(JSON.parse<string>('"back\\\\slash"')).toBe("back\\slash");
+  expect(JSON.parse<string>('"\\"\\\\/\\b\\f\\n\\r\\t"')).toBe('"\\/\b\f\n\r\t');
+});
 
-// describe("Should deserialize strings - Unicode characters (non-escaped)", () => {
-//   expect(JSON.parse<string>('"café"')).toBe("café");
-//   expect(JSON.parse<string>('"hello 世界"')).toBe("hello 世界");
-//   expect(JSON.parse<string>('"Здравствуйте"')).toBe("Здравствуйте");
-//   expect(JSON.parse<string>('"مرحبا"')).toBe("مرحبا");
-// });
+describe("Should deserialize strings - Unicode characters (non-escaped)", () => {
+  expect(JSON.parse<string>('"café"')).toBe("café");
+  expect(JSON.parse<string>('"hello 世界"')).toBe("hello 世界");
+  expect(JSON.parse<string>('"Здравствуйте"')).toBe("Здравствуйте");
+  expect(JSON.parse<string>('"مرحبا"')).toBe("مرحبا");
+});
 
-// // Surrogate tests commented out - deserialization doesn't handle surrogates yet
-// // describe("Should deserialize strings - Surrogates", () => {
-// //   expect(JSON.parse<string>('"\\ud83d\\ude00"')).toBe("\uD83D\uDE00"); // 😀
-// //   expect(JSON.parse<string>('"\\ud834\\udd1e"')).toBe("\uD834\uDD1E"); // Musical symbol
-// //   expect(JSON.parse<string>('"\\ud800"')).toBe("\uD800"); // Unpaired high
-// //   expect(JSON.parse<string>('"\\udc00"')).toBe("\uDC00"); // Unpaired low
-// // });
+describe("Should deserialize strings - Surrogates", () => {
+  expect(JSON.parse<string>('"\\ud83d\\ude00"')).toBe("\uD83D\uDE00"); // 😀
+  expect(JSON.parse<string>('"\\ud834\\udd1e"')).toBe("\uD834\uDD1E"); // Musical symbol
+  expect(JSON.parse<string>('"\\ud800"')).toBe("\uD800"); // Unpaired high
+  expect(JSON.parse<string>('"\\udc00"')).toBe("\uDC00"); // Unpaired low
+});
 
-// describe("Should deserialize strings - Long strings", () => {
-//   const long1 = '"' + "a".repeat(1000) + '"';
-//   expect(JSON.parse<string>(long1)).toBe("a".repeat(1000));
+describe("Should deserialize strings - Long strings", () => {
+  const long1 = '"' + "a".repeat(1000) + '"';
+  expect(JSON.parse<string>(long1)).toBe("a".repeat(1000));
   
-//   const long2 = '"' + "abc\\ndef".repeat(100) + '"';
-//   expect(JSON.parse<string>(long2)).toBe("abc\ndef".repeat(100));
-// });
+  const long2 = '"' + "abc\\ndef".repeat(100) + '"';
+  expect(JSON.parse<string>(long2)).toBe("abc\ndef".repeat(100));
+});
 
-// describe("Should deserialize strings - Roundtrip", () => {
-//   const test_strings = [
-//     "",
-//     "hello",
-//     "hello world",
-//     'quotes "inside" string',
-//     "backslash \\ character",
-//     "newline\ncharacter",
-//     "tab\tcharacter",
-//     "all together: \"\\\n\t",
-//     "control chars: \u0000\u0001\u001f",
-//     "unicode: café 世界",
-//     "long string: " + "x".repeat(500)
-//   ];
+describe("Should deserialize strings - Roundtrip", () => {
+  const test_strings = [
+    "",
+    "hello",
+    "hello world",
+    'quotes "inside" string',
+    "backslash \\ character",
+    "newline\ncharacter",
+    "tab\tcharacter",
+    "all together: \"\\\n\t",
+    "control chars: \u0000\u0001\u001f",
+    "unicode: café 世界",
+    "long string: " + "x".repeat(500)
+  ];
   
-//   for (let i = 0; i < test_strings.length; i++) {
-//     const original = test_strings[i];
-//     const serialized = JSON.stringify(original);
-//     const deserialized = JSON.parse<string>(serialized);
-//     expect(deserialized).toBe(original);
-//   }
-// });
+  for (let i = 0; i < test_strings.length; i++) {
+    const original = test_strings[i];
+    const serialized = JSON.stringify(original);
+    const deserialized = JSON.parse<string>(serialized);
+    expect(deserialized).toBe(original);
+  }
+});

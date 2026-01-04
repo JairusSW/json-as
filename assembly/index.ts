@@ -11,7 +11,6 @@ import { deserializeFloat } from "./deserialize/simple/float";
 import { deserializeMap } from "./deserialize/simple/map";
 import { deserializeDate } from "./deserialize/simple/date";
 import { deserializeInteger } from "./deserialize/simple/integer";
-// import { deserializeString } from "./deserialize/simple/string";
 import { serializeArbitrary } from "./serialize/simple/arbitrary";
 
 import { NULL_WORD, QUOTE } from "./custom/chars";
@@ -32,6 +31,7 @@ import { serializeString_SWAR } from "./serialize/swar/string";
 import { deserializeString_SWAR } from "./deserialize/swar/string";
 import { deserializeString } from "./deserialize/simple/string";
 import { serializeString } from "./serialize/simple/string";
+import { deserializeString_SIMD } from "./deserialize/simd/string";
 // import { deserializeString_SIMD } from "./deserialize/simd/string";
 /**
  * Offset of the 'storage' property in the JSON.Value class.
@@ -173,14 +173,16 @@ export namespace JSON {
       // @ts-ignore
       return null;
     } else if (isString<T>()) {
-      if (dataSize < 4) throw new Error("Cannot parse data as string because it was formatted incorrectly!");
-      // if (ASC_FEATURE_SIMD) {
-      //   // @ts-ignore
-      //   return changetype<string>(deserializeString_SIMD(dataPtr, dataPtr + dataSize, __new(dataSize - 4, idof<string>())));
-      // } else {
-
-      // @ts-ignore
-      return deserializeString(dataPtr, dataPtr + dataSize, 0);
+      if (JSON_MODE === JSONMode.NAIVE) {
+        // @ts-ignore: type
+        return deserializeString(dataPtr, dataPtr + dataSize);
+      } else if (JSON_MODE === JSONMode.SWAR) {
+        // @ts-ignore: type
+        return deserializeString_SWAR(dataPtr, dataPtr + dataSize);
+      } else (JSON_MODE === JSONMode.SIMD) {
+        // @ts-ignore: type
+        return deserializeString_SIMD(dataPtr, dataPtr + dataSize);
+      }
       // }
     } else if (isArray<T>()) {
       // @ts-ignore
@@ -312,7 +314,7 @@ export namespace JSON {
       out.set<T>(value);
       return out;
     }
-    
+
     /**
      * Gets the type of a given value as a JSON.Types enum.
      * @param value - any
@@ -660,7 +662,7 @@ export namespace JSON {
       if (srcEnd - srcStart < 4) throw new Error("Cannot parse data as string because it was formatted incorrectly!");
 
       // @ts-ignore: type
-      return deserializeString(srcStart, srcEnd, dst);
+      return deserializeString(srcStart, srcEnd);
     } else if (isNullable<T>() && srcEnd - srcStart == 8 && load<u64>(srcStart) == 30399761348886638) {
       // @ts-ignore
       return null;

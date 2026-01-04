@@ -55,7 +55,7 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
           const code = load<u16>(srcStart);
           if (code == QUOTE && load<u16>(srcStart - 2) !== BACK_SLASH) {
             // console.log("Value (string):-" + deserializeString_SWAR(lastIndex, srcStart + 2, 0) + "-");
-            out.set(ptrToStr(keyStart, keyEnd), deserializeString(lastIndex, srcStart + 2, 0));
+            out.set(ptrToStr(keyStart, keyEnd), deserializeString(lastIndex, srcStart + 2));
             // while (isSpace(load<u16>(srcStart))) srcStart += 2;
             srcStart += 4;
             // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));

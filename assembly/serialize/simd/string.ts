@@ -41,8 +41,8 @@ export function serializeString_SIMD(src: string): void {
   bs.offset += 2;
 
   while (srcStart < srcEnd16) {
-    const block = v128.load(srcStart);
-    v128.store(bs.offset, block);
+    const block = load<v128>(srcStart);
+    store<v128>(bs.offset, block);
 
     const eq22 = i16x8.eq(block, SPLAT_0022);
     const eq5C = i16x8.eq(block, SPLAT_005C);
