@@ -91,7 +91,7 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "String Serialization Throughput vs Payload Size (KB)",
+        text: "String Deserialization Throughput vs Payload Size (KB)",
         font: { size: 20, weight: "bold" },
       },
       legend: {
