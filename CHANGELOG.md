@@ -1,6 +1,11 @@
 # Change Log
 
-## 2025-12-23 - 1.2.2-beta.1
+## 2026-01-03 - 1.2.3
+
+- feat: handle surrogates and code units during string serialization and deserialization
+- perf: add SWAR and SIMD string deserialization implementations
+
+## 2025-12-23 - 1.2.2
 
 - chore: reduce package size to sub 70kb
 
