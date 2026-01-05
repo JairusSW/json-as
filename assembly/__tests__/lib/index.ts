@@ -35,8 +35,8 @@ class Expectation {
     if (this.left != (isNull(right) ? "null" : right.toString())) {
       console.log("  " + currentDescription + "#" + currentId.toString() + "\n");
       // @ts-ignore
-      console.log("  (expected) -> " + (isNull(right) ? "null" : JSON.stringify(right.toString())));
-      console.log("  (received) -> " + JSON.stringify(this.left));
+      console.log("  (expected) -> " + (isNull(right) ? "null" : right.toString()));
+      console.log("  (received) -> " + this.left);
       unreachable();
     }
   }

@@ -1,42 +1,28 @@
 import { mask_to_string } from "./util/masks";
 
-console.log(mask_to_string(changetype<usize>("\"abc")));
-console.log(mask_to_string(backslash_mask_unsafe(0x0000000000005c5c)));
-console.log(mask_to_string(backslash_mask(0x0000000000005c5c)));
+function cc(c: u32): void {
+  console.log("\n0b:   " + c.toString(2));
+  console.log("ctz:      " + ctz(c).toString());
+  console.log("ctz >> 3: " + (ctz(c) >> 3).toString());
 
-/**
- * Computes a per-lane mask identifying UTF-16 code units whose **low byte**
- * is the ASCII backslash (`'\\'`, 0x5C).
- *
- * The mask is produced in two stages:
- * 1. Detects bytes equal to 0x5C using a SWAR equality test.
- * 2. Clears matches where 0x5C appears in the **high byte** of a UTF-16 code unit,
- *    ensuring only valid low-byte backslashes are reported.
- *
- * Each matching lane sets itself to 0x80.
- */
-// @ts-ignore: decorator
-@inline function backslash_mask(block: u64): u64 {
-  const b = block ^ 0x005C_005C_005C_005C;
-  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
-  const high_byte_mask =
-    ~(((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000)
-      ^ 0x8000_8000_8000_8000) >> 8;
-  return backslash_mask & high_byte_mask;
 }
 
-/**
- * Computes a per-lane mask identifying UTF-16 code units whose **low byte**
- * is the ASCII backslash (`'\\'`, 0x5C).
- *
- * Each matching lane sets itself to 0x80.
- * 
- * WARNING: The low byte of a code unit *may* be a backslash, thus triggering false positives!
- * This is useful for a hot path where it is possible to detect the false positive scalarly.
- */
-// @ts-ignore: decorator
-@inline function backslash_mask_unsafe(block: u64): u64 {
-  const b = block ^ 0x005C_005C_005C_005C;
-  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
-  return backslash_mask;
-}
+cc(0b1111111100000000)
+cc(0b1111111000000000)
+cc(0b1111110000000000)
+cc(0b1111100000000000)
+cc(0b1111000000000000)
+cc(0b1110000000000000)
+cc(0b1100000000000000)
+cc(0b1000000000000000)
+console.log("\n\n");
+cc(0b0000000011111111)
+cc(0b0000000011111110)
+cc(0b0000000011111100)
+cc(0b0000000011111000)
+cc(0b0000000011110000)
+cc(0b0000000011100000)
+cc(0b0000000011000000)
+cc(0b0000000010000000)
+
+console.log(mask_to_string((0xFFFF & ~(0xFF << (1 << 3)))))

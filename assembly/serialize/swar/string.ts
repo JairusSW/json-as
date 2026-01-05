@@ -2,6 +2,7 @@ import { bs, sc } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { mask_to_string } from "../../util/masks";
 
 // @ts-ignore: decorator allowed
 @lazy const U00_MARKER = 13511005048209500;
@@ -34,77 +35,64 @@ export function serializeString_SWAR(src: string): void {
     let block = load<u64>(srcStart);
     store<u64>(bs.offset, block);
 
-    const lo = block & 0x00FF_00FF_00FF_00FF;
-    const ascii_mask = (
-      ((lo - 0x0020_0020_0020_0020) |
-        ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
-        ((lo ^ 0x005C_005C_005C_005C) - 0x0001_0001_0001_0001))
-      & (0x0080_0080_0080_0080 & ~lo)
-    );
-    const hi_mask = ((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^ 0x8000_8000_8000_8000;
-    let mask = (ascii_mask & (~hi_mask >> 8)) | hi_mask;
+    let mask = detect_escapable_u64_swar_unsafe(block);
 
-    // if (mask === 0) {
-    //   srcStart += 8;
-    //   bs.offset += 8;
-    //   continue;
-    // }
+    if (mask === 0) {
+      srcStart += 8;
+      bs.offset += 8;
+      continue;
+    }
 
-    while (mask !== 0) {
+    do {
       const laneIdx = usize(ctz(mask) >> 3);
-      mask &= mask - 1;
+      const srcIdx = srcStart + laneIdx;
       // Even (0 2 4 6) -> Confirmed ASCII Escape
       // Odd (1 3 5 7) -> Possibly a Unicode code unit or surrogate
-      const srcIdx = srcStart + laneIdx;
-      if ((laneIdx & 1) === 0) {
+      if ((laneIdx & 1) === 0 && (mask & (0xFF << (laneIdx + 1 << 3))) === 0) {
+      mask &= ~(0xFFFF << (laneIdx << 3));
         const code = load<u16>(srcIdx);
         const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
 
         if ((escaped & 0xffff) != BACK_SLASH) {
           bs.growSize(10);
           const dstIdx = bs.offset + laneIdx;
-          store<u64>(dstIdx, U00_MARKER);
+          store<u64>(dstIdx, load<u64>(changetype<usize>("AHHH")));
           store<u32>(dstIdx, escaped, 8);
-          // memory.copy(dstIdx + 12, srcIdx + 2, 6 - laneIdx);
-          store<u64>(dstIdx, load<u64>(srcIdx, 2), 12); // unsafe. can overflow here
+          store<u64>(dstIdx, load<u64>(srcIdx, 2), 12);
           bs.offset += 10;
         } else {
           bs.growSize(2);
           const dstIdx = bs.offset + laneIdx;
           store<u32>(dstIdx, escaped);
           store<u64>(dstIdx, load<u64>(srcIdx, 2), 4);
-          // memory.copy(dstIdx + 4, srcIdx + 2, 6 - laneIdx);
           bs.offset += 2;
         }
         continue;
       }
+      mask &= ~(0xFFFF << (laneIdx << 3));
 
       const code = load<u16>(srcIdx - 1);
-      // console.log("b->" + mask_to_string(block));
-      // console.log("m->" + mask_to_string(mask));
-      // console.log("l->" + laneIdx.toString());
-      // console.log("c->" + code.toString(16));
       if (code < 0xD800 || code > 0xDFFF) continue;
 
       if (code <= 0xDBFF && srcIdx + 2 < srcEnd) {
-        // if (srcIdx + 3 <= srcEnd) {
         const next = load<u16>(srcIdx, 1);
         if (next >= 0xDC00 && next <= 0xDFFF) {
           // paired surrogate
+          // mask &= ~(0xFF << ((laneIdx+2) << 3));
           mask &= mask - 1;
           continue;
         }
-        // }
       }
 
       bs.growSize(10);
+
       // unpaired high/low surrogate
       const dstIdx = bs.offset + laneIdx - 1;
       store<u32>(dstIdx, U_MARKER); // \u
       store<u64>(dstIdx, load<u64>(changetype<usize>(code.toString(16))), 4);
       store<u64>(dstIdx, load<u64>(srcIdx, 1), 12);
       bs.offset += 10;
-    }
+    } while (mask !== 0);
 
     srcStart += 8;
     bs.offset += 8;
@@ -175,4 +163,30 @@ export function serializeString_SWAR(src: string): void {
 // @ts-ignore: inline
 @inline function hexNibble(n: u16): u16 {
   return n < 10 ? (48 + n) : (87 + n);
+}
+
+// @ts-ignore: inline
+@inline export function detect_escapable_u64_swar(block: u64): u64 {
+  const lo = block & 0x00FF_00FF_00FF_00FF;
+  const ascii_mask = (
+    ((lo - 0x0020_0020_0020_0020) |
+      ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
+      ((lo ^ 0x005C_005C_005C_005C) - 0x0001_0001_0001_0001))
+    & (0x0080_0080_0080_0080 & ~lo)
+  );
+  const hi_mask = ((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^ 0x8000_8000_8000_8000;
+  return (ascii_mask & (~hi_mask >> 8)) | hi_mask;
+}
+
+// @ts-ignore: inline
+@inline export function detect_escapable_u64_swar_unsafe(block: u64): u64 {
+  const lo = block & 0x00FF_00FF_00FF_00FF;
+  const ascii_mask = (
+    ((lo - 0x0020_0020_0020_0020) |
+      ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
+      ((lo ^ 0x005C_005C_005C_005C) - 0x0001_0001_0001_0001))
+    & (0x0080_0080_0080_0080 & ~lo)
+  );
+  const hi = block & 0xFF00_FF00_FF00_FF00;
+  return ascii_mask | hi;
 }
