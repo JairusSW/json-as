@@ -19,11 +19,15 @@ function getBenchData(filePath: string) {
 }
 
 const payloads = ["small-str", "medium-str", "large-str"];
-const engines = ["naive", "swar", "simd"];
+const engines = ["js", "naive", "swar", "simd"];
 const modes = ["deserialize"];
 
 function logPath(payload: string, engine: string, mode: string) {
-  return path.join("./build", "logs", "as", engine, `${payload}.${mode}.as.json`);
+  const language = engine == "js" ? "js" : "as";
+  if (language === "js") {
+    engine = "";
+  }
+  return path.join("./build", "logs", language, engine, `${payload}.${mode}.${language}.json`);
 }
 
 interface ChartPoint { x: number; y: number; }
@@ -49,7 +53,8 @@ const canvas = new ChartJSNodeCanvas({
 });
 
 const colors: Record<string, string> = {
-  "naive": "99,102,241",
+  "js": "99,102,241",
+  "naive": "255,241,49",
   "swar": "34,197,94",
   "simd": "239,68,68"
 };
@@ -91,7 +96,7 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "String Deserialization Throughput vs Payload Size (KB)",
+        text: "String Deserialization Throughput vs Payload Size",
         font: { size: 20, weight: "bold" },
       },
       legend: {
