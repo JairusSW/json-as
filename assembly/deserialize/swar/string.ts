@@ -30,7 +30,7 @@ import { hex4_to_u16_swar } from "../../util/swar";
 // -\n-       2 -*-_       - 2
 // --\n       4 --*_       - 2
 // ---\n      6 ---*       - 0
-// Formula: overflow = 
+// Formula: overflow =
 
 /**
  * Deserializes strings back into into their original form using SIMD operations
@@ -48,7 +48,8 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   while (srcStart < srcEnd8) {
     const block = load<u64>(srcStart);
     store<u64>(bs.offset, block);
-    let mask = backslash_mask_unsafe(block);
+
+    let mask = inline.always(backslash_mask_unsafe(block));
 
     // Early exit
     if (mask === 0) {
@@ -153,7 +154,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
  * is the ASCII backslash (`'\\'`, 0x5C).
  *
  * Each matching lane sets itself to 0x80.
- * 
+ *
  * WARNING: The low byte of a code unit *may* be a backslash, thus triggering false positives!
  * This is useful for a hot path where it is possible to detect the false positive scalarly.
  */

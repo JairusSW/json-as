@@ -57,15 +57,13 @@ export function serializeString_SIMD(src: string): void {
     const sieve = v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8)));
     // console.log("sieve  : " + mask_to_string_v128(sieve));
 
-    if (v128.any_true(sieve)) {
-
-      let mask = i8x16.bitmask(sieve);
-
-      if (mask === 0) {
+    if (!v128.any_true(sieve)) {
         bs.offset += 16;
         srcStart += 16;
         continue;
-      }
+    }
+
+    let mask = i8x16.bitmask(sieve);
 
       do {
         const laneIdx = ctz(mask);
@@ -125,7 +123,6 @@ export function serializeString_SIMD(src: string): void {
         store<v128>(dstIdx, load<v128>(srcIdx, 1), 12);
         bs.offset += 10;
       } while (mask !== 0);
-    }
 
     srcStart += 16;
     bs.offset += 16;

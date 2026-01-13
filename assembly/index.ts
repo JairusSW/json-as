@@ -183,7 +183,6 @@ export namespace JSON {
         // @ts-ignore: type
         return deserializeString_SIMD(dataPtr, dataPtr + dataSize);
       }
-      // }
     } else if (isArray<T>()) {
       // @ts-ignore
       return inline.always(deserializeArray<nonnull<T>>(dataPtr, dataPtr + dataSize, changetype<usize>(instantiate<T>())));
