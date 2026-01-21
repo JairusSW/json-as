@@ -6,6 +6,7 @@
     "type": "git",
     "url": "git+https://github.com/JairusSW/json-as.git"
   },
+  "funding": "https://github.com/sponsors/JairusSW",
   "main": "transform/lib/index.js",
   "devDependencies": {
     "@assemblyscript/wasi-shim": "^0.1.0",
