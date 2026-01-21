@@ -179,7 +179,7 @@ export namespace JSON {
       } else if (JSON_MODE === JSONMode.SWAR) {
         // @ts-ignore: type
         return deserializeString_SWAR(dataPtr, dataPtr + dataSize);
-      } else (JSON_MODE === JSONMode.SIMD) {
+      } else if (JSON_MODE === JSONMode.SIMD) {
         // @ts-ignore: type
         return deserializeString_SIMD(dataPtr, dataPtr + dataSize);
       }
