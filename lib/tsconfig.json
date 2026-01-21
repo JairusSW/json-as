@@ -1,8 +1,0 @@
-{
-  "extends": "assemblyscript/std/assembly.json",
-  "include": ["./**/*.ts"],
-  "compilerOptions": {
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
-  }
-}
