@@ -238,7 +238,7 @@ export namespace sc {
   // @ts-ignore: decorators allowed
   // @inline export const ENTRY_HITS = offsetof<sc.Entry>("hits");
 
-  export const CACHE_SIZE = 4096;
+  export const CACHE_SIZE = isDefined(JSON_CACHE) ? 4096 : 0;
   export const CACHE_MASK = CACHE_SIZE - 1;
 
   export const ARENA_SIZE = 1 << 20;
