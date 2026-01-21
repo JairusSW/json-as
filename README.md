@@ -2,6 +2,38 @@
  ║╚═╗║ ║║║║══╠═╣╚═╗
 ╚╝╚═╝╚═╝╝╚╝  ╩ ╩╚═╝</pre></h1>
 
+<p align="center">
+  <a href="https://impart.security">
+    <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/images/sponsors/impart.svg"
+         height="64"
+         alt="Impart Security Logo" />
+  </a>
+
+  &nbsp;&nbsp;&nbsp;&nbsp;
+
+  <a href="https://hypermode.ai">
+    <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/images/sponsors/hypermode.jpg"
+         height="64"
+         alt="Hypermode Logo" />
+  </a>
+
+  &nbsp;&nbsp;&nbsp;&nbsp;
+
+  <a href="https://steer.finance">
+    <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/images/sponsors/steer.svg"
+         height="64"
+         alt="Steer Protocol Logo" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>
+    <strong>Current Sponsor:</strong> Impart Security •
+    <strong>Past Sponsors:</strong> Hypermode, Steer Protocol
+  </sub>
+</p>
+
+
 <details>
 <summary>Table of Contents</summary>
 
