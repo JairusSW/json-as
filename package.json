@@ -10,15 +10,18 @@
   "main": "transform/lib/index.js",
   "devDependencies": {
     "@assemblyscript/wasi-shim": "^0.1.0",
+    "@eslint/js": "^9.0.0",
     "@types/node": "^25.0.3",
     "as-heap-analyzer": "^1.2.0",
     "assemblyscript": "^0.28.9",
     "assemblyscript-prettier": "^3.0.1",
     "chartjs-node-canvas": "^5.0.0",
     "chartjs-plugin-datalabels": "^2.2.0",
+    "eslint": "^9.0.0",
     "prettier": "^3.7.4",
     "tinybench": "^6.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0"
   },
   "bugs": {
     "url": "https://github.com/JairusSW/json-as/issues"
@@ -68,7 +71,15 @@
     "test:wasmer": "wasmer ./build/test.wasm",
     "build:transform": "tsc -p ./transform",
     "bench:wasmer": "wasmer ./build/bench.wasm --llvm",
-    "format": "prettier -w ."
+    "format": "prettier -w .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p ./transform --noEmit",
+    "clean": "rm -rf build/ transform/lib/",
+    "prebuild": "npm run clean",
+    "build": "npm run build:transform",
+    "pretest": "npm run build:transform",
+    "check": "npm run typecheck && npm run lint"
   },
   "type": "module",
   "types": "assembly/index.ts"

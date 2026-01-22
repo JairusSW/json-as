@@ -6,7 +6,34 @@
     "removeComments": true,
     "types": ["node"],
     "outDir": "./lib",
-    "sourceMap": true
+    "sourceMap": true,
+
+    // Strict type checking
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+
+    // Additional checks
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+
+    // Module resolution
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Declaration files
+    "declaration": true,
+    "declarationMap": true,
   },
-  "include": ["./src/**.ts"]
+  "include": ["./src/**/*.ts"],
+  "exclude": ["./lib", "node_modules"],
 }

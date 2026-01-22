@@ -1,7 +1,6 @@
 /// <reference path="./index.d.ts" />
 
 import { bs } from "../lib/as-bs";
-// import { serializeString } from "./serialize/simple/string";
 import { serializeArray } from "./serialize/simple/array";
 import { serializeMap } from "./serialize/simple/map";
 import { serializeDate } from "./serialize/simple/date";
@@ -13,7 +12,7 @@ import { deserializeDate } from "./deserialize/simple/date";
 import { deserializeInteger } from "./deserialize/simple/integer";
 import { serializeArbitrary } from "./serialize/simple/arbitrary";
 
-import { NULL_WORD, QUOTE } from "./custom/chars";
+import { NULL_WORD, QUOTE, NULL_WORD_U64, TRUE_WORD_U64, FALSE_WORD_U64 } from "./custom/chars";
 import { dtoa_buffered, itoa_buffered } from "util/number";
 import { serializeBool } from "./serialize/simple/bool";
 import { serializeInteger } from "./serialize/simple/integer";
@@ -32,18 +31,29 @@ import { deserializeString_SWAR } from "./deserialize/swar/string";
 import { deserializeString } from "./deserialize/simple/string";
 import { serializeString } from "./serialize/simple/string";
 import { deserializeString_SIMD } from "./deserialize/simd/string";
-// import { deserializeString_SIMD } from "./deserialize/simd/string";
+
 /**
  * Offset of the 'storage' property in the JSON.Value class.
  */
 // @ts-ignore: Decorator valid here
 @inline const STORAGE = offsetof<JSON.Value>("storage");
 
-/**
- * JSON Encoder/Decoder for AssemblyScript
- */
 export namespace JSON {
+  /**
+   * Memory management utilities for the JSON serialization buffer.
+   */
   export namespace Memory {
+    /**
+     * Shrinks the internal serialization buffer to free memory.
+     * Call this after processing large JSON documents to release unused memory.
+     *
+     * @example
+     * ```typescript
+     * const largeJson = JSON.stringify(hugeObject);
+     * // ... process the JSON ...
+     * JSON.Memory.shrink();  // Free the buffer memory
+     * ```
+     */
     export function shrink(): void {
       bs.resize(64);
     }
@@ -62,10 +72,10 @@ export namespace JSON {
       if (out) {
         if (<bool>data == true) {
           out = changetype<string>(__renew(changetype<usize>(out), 8));
-          store<u64>(changetype<usize>(out), 28429475166421108);
+          store<u64>(changetype<usize>(out), TRUE_WORD_U64);
         } else {
           out = changetype<string>(__renew(changetype<usize>(out), 10));
-          store<u64>(changetype<usize>(out), 32370086184550502);
+          store<u64>(changetype<usize>(out), FALSE_WORD_U64);
           store<u16>(changetype<usize>(out), 101, 8);
         }
         return out;
@@ -74,7 +84,7 @@ export namespace JSON {
     } else if (isInteger<T>() && !isSigned<T>() && nameof<T>() == "usize" && data == 0) {
       if (out) {
         out = changetype<string>(__renew(changetype<usize>(out), 8));
-        store<u64>(changetype<usize>(out), 30399761348886638);
+        store<u64>(changetype<usize>(out), NULL_WORD_U64);
         return out;
       }
       return NULL_WORD;
@@ -100,7 +110,7 @@ export namespace JSON {
     } else if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
       if (out) {
         out = changetype<string>(__renew(changetype<usize>(out), 8));
-        store<u64>(changetype<usize>(out), 30399761348886638);
+        store<u64>(changetype<usize>(out), NULL_WORD_U64);
         return out;
       }
       return NULL_WORD;
@@ -147,7 +157,11 @@ export namespace JSON {
     } else if (data instanceof JSON.Box) {
       return JSON.stringify(data.value);
     } else {
-      throw new Error(`Could not serialize data of type ${nameof<T>()}. Make sure to add the correct decorators to classes.`);
+      throw new Error(
+        `Could not serialize data of type '${nameof<T>()}'. ` +
+        `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
+        `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`
+      );
     }
   }
 
@@ -169,7 +183,7 @@ export namespace JSON {
       return deserializeInteger<T>(dataPtr, dataPtr + dataSize);
     } else if (isFloat<T>()) {
       return deserializeFloat<T>(dataPtr, dataPtr + dataSize);
-    } else if (isNullable<T>() && dataSize == 8 && load<u64>(dataPtr) == 30399761348886638) {
+    } else if (isNullable<T>() && dataSize == 8 && load<u64>(dataPtr) == NULL_WORD_U64) {
       // @ts-ignore
       return null;
     } else if (isString<T>()) {
@@ -205,7 +219,6 @@ export namespace JSON {
         // @ts-ignore: type
         return deserializeRaw(dataPtr, dataPtr + dataSize);
       } else if (type instanceof JSON.Value) {
-        // should cut out whitespace here
         // @ts-ignore
         return inline.always(deserializeArbitrary(dataPtr, dataPtr + dataSize, 0));
       } else if (type instanceof JSON.Obj) {
@@ -215,17 +228,28 @@ export namespace JSON {
         // @ts-ignore
         return new JSON.Box(parseBox(data, changetype<nonnull<T>>(0).value));
       } else {
-        throw new Error(`Could not deserialize data ${data} to type ${nameof<T>()}. Make sure to add the correct decorators to classes.`);
+        throw new Error(
+          `Could not deserialize JSON to type '${nameof<T>()}'. ` +
+          `If this is a custom class, ensure it has the @json decorator: @json class ${nameof<T>()} { ... }. ` +
+          `Input: "${data.length > 50 ? data.slice(0, 50) + '...' : data}"`
+        );
       }
     }
   }
 
-  export type Types = u16;
   /**
-   * Enum representing the different types supported by JSON.
+   * Type alias for JSON type identifiers.
+   */
+  export type Types = u16;
+
+  /**
+   * Enum-like namespace representing the different types supported by JSON.Value.
+   *
+   * Used internally to track the runtime type of values stored in JSON.Value instances.
+   * Types 0-17 are reserved for built-in types; custom @json classes use idof<T>() + Struct.
    */
   export namespace Types {
-    // Primitives
+    /** Represents a null value */
     // @ts-ignore
     @inline export const Null: u16 = 0;
     // @ts-ignore
@@ -265,17 +289,52 @@ export namespace JSON {
     @inline export const Struct: u16 = 17;
   }
 
+  /**
+   * Wrapper for pre-formatted JSON strings that should be inserted as-is.
+   *
+   * Use this when you have a string that is already valid JSON and you don't
+   * want it to be re-serialized (which would escape quotes and add extra quotes).
+   *
+   * @example
+   * ```typescript
+   * const map = new Map<string, JSON.Raw>();
+   * map.set("pos", new JSON.Raw('{"x":1.0,"y":2.0}'));
+   * JSON.stringify(map);  // {"pos":{"x":1.0,"y":2.0}}
+   * ```
+   */
   export class Raw {
+    /** The raw JSON string data */
     public data: string;
+
+    /**
+     * Creates a new Raw JSON wrapper.
+     * @param data - A valid JSON string to be inserted as-is
+     */
     constructor(data: string) {
       this.data = data;
     }
+
+    /**
+     * Updates the raw JSON data.
+     * @param data - New JSON string
+     */
     set(data: string): void {
       this.data = data;
     }
+
+    /**
+     * Returns the raw JSON string.
+     * @returns The raw JSON data
+     */
     toString(): string {
       return this.data;
     }
+
+    /**
+     * Creates a new Raw instance from a string.
+     * @param data - A valid JSON string
+     * @returns A new Raw instance
+     */
     // @ts-ignore: inline
     @inline static from(data: string): JSON.Raw {
       return new JSON.Raw(data);
@@ -283,11 +342,34 @@ export namespace JSON {
   }
 
 
+  /**
+   * Dynamic value container that can hold any JSON-compatible type at runtime.
+   *
+   * Use JSON.Value when dealing with JSON data whose structure is unknown at compile time,
+   * or when you need to store values of different types in a single container.
+   *
+   * @example
+   * ```typescript
+   * // Parse unknown JSON structure
+   * const arr = JSON.parse<JSON.Value[]>('["string", 42, true]');
+   * console.log(arr[0].get<string>());  // "string"
+   * console.log(arr[1].get<i32>().toString());  // 42
+   *
+   * // Create dynamic values
+   * const val = JSON.Value.from<i32>(42);
+   * val.set<string>("now a string");
+   * ```
+   */
   // @ts-ignore: decorators allowed here
   @final
   export class Value {
-    static METHODS: Map<u32, u32> = new Map<u32, u32>();
+    /** Map of struct type IDs to their serialization function indices */
+    @lazy static METHODS: Map<u32, u32> = new Map<u32, u32>();
+
+    /** The runtime type identifier (see JSON.Types) */
     public type: u16;
+
+    /** Internal storage for the value (8 bytes, can hold any primitive or pointer) */
     private storage: u64;
 
     private constructor() {
@@ -324,6 +406,7 @@ export namespace JSON {
       if (isBoolean<T>()) return JSON.Types.Bool;
       if (isInteger<T>() && !isSigned<T>() && changetype<usize>(value) == 0 && nameof<T>() == "usize") return JSON.Types.Null;
       if (isString<T>()) return JSON.Types.String;
+      // @ts-expect-error: can assume that T is ArrayLike based on previous condition
       if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) return JSON.Types.Array;
       if (value instanceof JSON.Box) return this.getType(value.value);
       if (value instanceof u8 || value instanceof i8) return JSON.Types.U8;
@@ -466,54 +549,113 @@ export namespace JSON {
     }
   }
 
+  /**
+   * Dynamic JSON object with string keys and JSON.Value values.
+   *
+   * Use JSON.Obj when parsing JSON objects with unknown structure, or when building
+   * dynamic JSON objects at runtime.
+   *
+   * @example
+   * ```typescript
+   * // Parse unknown object
+   * const obj = JSON.parse<JSON.Obj>('{"name":"Alice","age":30}');
+   * console.log(obj.get("name")!.get<string>());  // "Alice"
+   *
+   * // Build dynamic object
+   * const obj = new JSON.Obj();
+   * obj.set("key", "value");
+   * obj.set("count", 42);
+   * console.log(JSON.stringify(obj));  // {"key":"value","count":42}
+   * ```
+   */
   export class Obj {
+    /** Internal storage map */
     // @ts-ignore: type
     storage: Map<string, JSON.Value> = new Map<string, JSON.Value>();
 
     constructor() { }
 
+    /**
+     * Gets the number of key-value pairs in the object.
+     */
     // @ts-ignore: decorator
     @inline get size(): i32 {
       return this.storage.size;
     }
 
+    /**
+     * Sets a key-value pair in the object.
+     * @param key - The string key
+     * @param value - The value (will be wrapped in JSON.Value)
+     */
     // @ts-ignore: decorator
     @inline set<T>(key: string, value: T): void {
-      // if (!this.storage.has(key)) this.stackSize += bytes(key) + 8;
       this.storage.set(key, JSON.Value.from<T>(value));
     }
 
+    /**
+     * Gets a value by key.
+     * @param key - The key to look up
+     * @returns The JSON.Value or null if not found
+     */
     // @ts-ignore: decorator
     @inline get(key: string): JSON.Value | null {
       if (!this.storage.has(key)) return null;
       return this.storage.get(key);
     }
 
+    /**
+     * Checks if a key exists in the object.
+     * @param key - The key to check
+     * @returns true if the key exists
+     */
     // @ts-ignore: decorator
     @inline has(key: string): bool {
       return this.storage.has(key);
     }
 
+    /**
+     * Deletes a key-value pair from the object.
+     * @param key - The key to delete
+     * @returns true if the key was found and deleted
+     */
     // @ts-ignore: decorator
     @inline delete(key: string): bool {
       return this.storage.delete(key);
     }
 
+    /**
+     * Gets all keys in the object.
+     * @returns Array of string keys
+     */
     // @ts-ignore: decorator
     @inline keys(): string[] {
       return this.storage.keys();
     }
 
+    /**
+     * Gets all values in the object.
+     * @returns Array of JSON.Value instances
+     */
     // @ts-ignore: decorator
     @inline values(): JSON.Value[] {
       return this.storage.values();
     }
 
+    /**
+     * Serializes the object to a JSON string.
+     * @returns JSON string representation
+     */
     // @ts-ignore: decorator
     @inline toString(): string {
       return JSON.stringify(this);
     }
 
+    /**
+     * Creates a JSON.Obj from another value.
+     * @param value - The value to convert
+     * @returns A new JSON.Obj instance
+     */
     // @ts-ignore: decorator
     @inline static from<T>(value: T): JSON.Obj {
       if (value instanceof JSON.Obj) return value;
@@ -590,7 +732,7 @@ export namespace JSON {
       serializeBool(data as bool);
     } else if (isInteger<T>() && nameof<T>() == "usize" && data == 0) {
       bs.proposeSize(8);
-      store<u64>(bs.offset, 30399761348886638);
+      store<u64>(bs.offset, NULL_WORD_U64);
       bs.offset += 8;
     } else if (isInteger<T>()) {
       // @ts-ignore
@@ -601,7 +743,7 @@ export namespace JSON {
       // @ts-ignore: Function is generated by transform
     } else if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
       bs.proposeSize(8);
-      store<u64>(bs.offset, 30399761348886638);
+      store<u64>(bs.offset, NULL_WORD_U64);
       bs.offset += 8;
     } else if (isString<nonnull<T>>()) {
       if (JSON_MODE === JSONMode.SIMD) {
@@ -637,7 +779,11 @@ export namespace JSON {
     } else if (data instanceof JSON.Box) {
       __serialize(data.value);
     } else {
-      throw new Error(`Could not serialize provided data. Make sure to add the correct decorators to classes.`);
+      throw new Error(
+        `Could not serialize data of type '${nameof<T>()}'. ` +
+        `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
+        `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`
+      );
     }
   }
 
@@ -662,7 +808,7 @@ export namespace JSON {
 
       // @ts-ignore: type
       return deserializeString(srcStart, srcEnd);
-    } else if (isNullable<T>() && srcEnd - srcStart == 8 && load<u64>(srcStart) == 30399761348886638) {
+    } else if (isNullable<T>() && srcEnd - srcStart == 8 && load<u64>(srcStart) == NULL_WORD_U64) {
       // @ts-ignore
       return null;
     } else if (isArray<T>()) {
@@ -697,7 +843,12 @@ export namespace JSON {
         return new JSON.Box(deserializeBox(srcStart, srcEnd, dst, changetype<nonnull<T>>(0).value));
       }
     }
-    throw new Error(`Could not deserialize data '${ptrToStr(srcStart, srcEnd).slice(0, 100)}' to type. Make sure to add the correct decorators to classes.`);
+    const snippet = ptrToStr(srcStart, srcEnd);
+    throw new Error(
+      `Could not deserialize JSON to type '${nameof<T>()}'. ` +
+      `If this is a custom class, ensure it has the @json decorator: @json class ${nameof<T>()} { ... }. ` +
+      `Input: "${snippet.length > 50 ? snippet.slice(0, 50) + '...' : snippet}"`
+    );
   }
   export namespace Util {
     // @ts-ignore: decorator
@@ -728,10 +879,10 @@ export namespace JSON {
         if (out) {
           if (<bool>data == true) {
             out = changetype<string>(__renew(changetype<usize>(out), 8));
-            store<u64>(changetype<usize>(out), 28429475166421108);
+            store<u64>(changetype<usize>(out), TRUE_WORD_U64);
           } else {
             out = changetype<string>(__renew(changetype<usize>(out), 10));
-            store<u64>(changetype<usize>(out), 32370086184550502);
+            store<u64>(changetype<usize>(out), FALSE_WORD_U64);
             store<u16>(changetype<usize>(out), 101, 8);
           }
           return out;
@@ -740,7 +891,7 @@ export namespace JSON {
       } else if (isInteger<T>() && !isSigned<T>() && nameof<T>() == "usize" && data == 0) {
         if (out) {
           out = changetype<string>(__renew(changetype<usize>(out), 8));
-          store<u64>(changetype<usize>(out), 30399761348886638);
+          store<u64>(changetype<usize>(out), NULL_WORD_U64);
           return out;
         }
         return NULL_WORD;
@@ -766,7 +917,7 @@ export namespace JSON {
       } else if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
         if (out) {
           out = changetype<string>(__renew(changetype<usize>(out), 8));
-          store<u64>(changetype<usize>(out), 30399761348886638);
+          store<u64>(changetype<usize>(out), NULL_WORD_U64);
           return out;
         }
         return NULL_WORD;
@@ -819,7 +970,11 @@ export namespace JSON {
       } else if (data instanceof JSON.Box) {
         return JSON.internal.stringify(data.value);
       } else {
-        throw new Error(`Could not serialize data of type ${nameof<T>()}. Make sure to add the correct decorators to classes.`);
+        throw new Error(
+          `Could not serialize data of type '${nameof<T>()}'. ` +
+          `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
+          `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`
+        );
       }
     }
   }

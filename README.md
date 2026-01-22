@@ -18,6 +18,8 @@
   - [Performance Tuning](#performance-tuning)
   - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [Debugging](#debugging)
+- [Architecture](#architecture)
+- [Contributing](#contributing)
 - [Who uses it?](#who-uses-it)
 - [License](#license)
 - [Contact](#contact)
@@ -476,6 +478,19 @@ or
 `JSON_DEBUG=2` - The above and prints keys/values as they are deserialized
 `JSON_WRITE=path-to-file.ts` - Writes out generated code to `path-to-file.json.ts` for easy inspection
 
+## Architecture
+
+For a deep dive into how json-as works internally, including the transform system, optimization modes (NAIVE, SWAR, SIMD), and buffer management, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines on:
+
+- Setting up your development environment
+- Running tests and benchmarks
+- Code style and commit conventions
+- The pull request process
+
 ## Who uses it?
 
 A few companies and open-source projects use json-as!
@@ -492,7 +507,9 @@ A few companies and open-source projects use json-as!
 
 ## License
 
-This project is distributed under an open source license. You can view the full license using the following link: [License](./LICENSE)
+This project is distributed under an open source license. Work on this project is done by passion, but if you want to support it financially, you can do so by making a donation to the project's [GitHub Sponsors](https://github.com/sponsors/JairusSW) page.
+
+You can view the full license using the following link: [License](./LICENSE)
 
 ## Contact
 
