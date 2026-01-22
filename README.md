@@ -2,7 +2,6 @@
  ║╚═╗║ ║║║║══╠═╣╚═╗
 ╚╝╚═╝╚═╝╝╚╝  ╩ ╩╚═╝</pre></h1>
 
-<details>
 <summary>Table of Contents</summary>
 
 - [Installation](#installation)
@@ -19,6 +18,7 @@
   - [Performance Tuning](#performance-tuning)
   - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [Debugging](#debugging)
+- [Who uses it?](#who-uses-it)
 - [License](#license)
 - [Contact](#contact)
 
@@ -475,6 +475,20 @@ or
 `JSON_DEBUG=1` - Prints out generated code at compile-time
 `JSON_DEBUG=2` - The above and prints keys/values as they are deserialized
 `JSON_WRITE=path-to-file.ts` - Writes out generated code to `path-to-file.json.ts` for easy inspection
+
+## Who uses it?
+
+A few companies and open-source projects use json-as!
+
+| Company/Project | Description |
+|-----------------|-------------|
+| [Impart Security](https://impart.security) | API security platform |
+| [Hypermode](https://hypermode.ai) | AI infrastructure |
+| [Steer Finance](https://steer.finance) | DeFi protocol |
+| [Secretarium](https://secretarium.com) | Confidential computing |
+| [Klave](https://klave.com) | Privacy-first platform |
+| [Bifrost](https://github.com/maximhq/bifrost) | Open source project by Maxim HQ |
+| [Massa Labs](https://github.com/massalabs) | Massa blockchain tooling |
 
 ## License
 
