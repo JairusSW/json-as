@@ -1106,6 +1106,10 @@ export default class Transformer extends Transform {
     }
     afterParse(parser) {
         const transformer = JSONTransform.SN;
+        transformer.schemas = new Map();
+        transformer.sources = new SourceSet();
+        transformer.visitedClasses = new Set();
+        transformer.simdStatements = [];
         const sources = parser.sources
             .filter((source) => {
             const p = source.internalPath;

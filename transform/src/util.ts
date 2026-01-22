@@ -1,5 +1,5 @@
 // Taken from https://github.com/as-pect/visitor-as/blob/master/src/simpleParser.ts
-import { Parser, Tokenizer, Source, SourceKind, Expression, Statement, NamespaceDeclaration, ClassDeclaration, DeclarationStatement, Range, Node, NodeKind } from "assemblyscript/dist/assemblyscript.js";
+import { Parser, Tokenizer, Source, SourceKind, Expression, Statement, NamespaceDeclaration, ClassDeclaration, DeclarationStatement, Range, Node, NodeKind, ExpressionStatement } from "assemblyscript/dist/assemblyscript.js";
 import { ASTBuilder } from "./builder.js";
 import * as path from "path";
 
@@ -70,7 +70,7 @@ export function replaceRef(node: Node, replacement: Node | Node[], ref: Node | N
     }
   } else if (typeof ref === "object") {
     for (const key of Object.keys(ref)) {
-      const current = ref[key] as Node | Node[];
+      const current = (ref as unknown as Record<string, Node | Node[]>)[key];
       if (Array.isArray(current)) {
         for (let i = 0; i < current.length; i++) {
           if (stripExpr(current[i]) === nodeExpr) {
@@ -80,7 +80,7 @@ export function replaceRef(node: Node, replacement: Node | Node[], ref: Node | N
           }
         }
       } else if (stripExpr(current) === nodeExpr) {
-        ref[key] = replacement;
+        (ref as unknown as Record<string, Node | Node[]>)[key] = replacement;
         return;
       }
     }
@@ -101,13 +101,13 @@ export function cloneNode(input: Node | Node[] | null, seen = new WeakMap(), pat
   seen.set(input, clone);
 
   for (const key of Reflect.ownKeys(input)) {
-    const value = input[key];
+    const value = (input as unknown as Record<string | symbol, unknown>)[key];
     const newPath = path ? `${path}.${String(key)}` : String(key);
 
     if (newPath.endsWith(".source")) {
       clone[key] = value;
     } else if (value && typeof value === "object") {
-      clone[key] = cloneNode(value, seen, newPath);
+      clone[key] = cloneNode(value as Node | Node[], seen, newPath);
     } else {
       clone[key] = value;
     }
@@ -118,7 +118,7 @@ export function cloneNode(input: Node | Node[] | null, seen = new WeakMap(), pat
 
 export function stripExpr(node: Node): Node {
   if (!node) return node;
-  if (node.kind == NodeKind.Expression) return node["expression"];
+  if (node.kind == NodeKind.Expression) return (node as ExpressionStatement).expression;
   return node;
 }
 

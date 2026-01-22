@@ -72,6 +72,7 @@ export class Schema {
   get custom(): boolean {
     if (this._custom) return true;
     if (this.parent) return this.parent.custom;
+    return false;
   }
 }
 
@@ -97,9 +98,9 @@ export class SourceSet {
 export class Src {
   public internalPath: string;
   public normalizedPath: string;
-  public schemas: Schema[];
+  public schemas: Schema[] = [];
   public aliases: TypeAlias[];
-  public exports: Schema[];
+  public exports: Schema[] = [];
   public imports: ImportStatement[] = [];
   private nodeMap: Map<Node, NamespaceDeclaration[]> = new Map<Node, NamespaceDeclaration[]>();
   private classes: Record<string, ClassDeclaration> = {};

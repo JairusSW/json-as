@@ -111,7 +111,7 @@ export function stripExpr(node) {
     if (!node)
         return node;
     if (node.kind == 38)
-        return node["expression"];
+        return node.expression;
     return node;
 }
 export function removeExtension(filePath) {

@@ -67,6 +67,7 @@ export class Schema {
             return true;
         if (this.parent)
             return this.parent.custom;
+        return false;
     }
 }
 export class SourceSet {
@@ -84,9 +85,9 @@ export class Src {
     sourceSet;
     internalPath;
     normalizedPath;
-    schemas;
+    schemas = [];
     aliases;
-    exports;
+    exports = [];
     imports = [];
     nodeMap = new Map();
     classes = {};
