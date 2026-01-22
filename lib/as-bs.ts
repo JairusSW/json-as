@@ -305,7 +305,8 @@ export namespace sc {
   @inline export const ENTRY_LEN = offsetof<sc.Entry>("len");
 
   /** Number of cache slots (power of 2 for efficient masking). Set to 0 when caching disabled. */
-  export const CACHE_SIZE = isDefined(JSON_CACHE) ? 4096 : 0;
+  // @ts-expect-error: JSON_CACHE may not be defined. If so, it will default to 0.
+  export const CACHE_SIZE = isDefined(JSON_CACHE) ? 1024 : 0;
   /** Bitmask for fast modulo operation on cache index */
   export const CACHE_MASK = CACHE_SIZE - 1;
 
