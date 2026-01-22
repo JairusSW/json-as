@@ -32,7 +32,7 @@ export class JSONTransform extends Visitor {
   public imports: ImportStatement[] = [];
   public simdStatements: string[] = [];
 
-  private visitedClasses: Set<string> = new Set<string>();
+  public visitedClasses: Set<string> = new Set<string>();
 
   visitClassDeclarationRef(node: ClassDeclaration): void {
     if (
@@ -1281,6 +1281,14 @@ export default class Transformer extends Transform {
 
   afterParse(parser: Parser): void {
     const transformer = JSONTransform.SN;
+
+    // Reset singleton state to prevent pollution across compilations
+    // This is critical for worker pools where the same process handles multiple compilations
+    transformer.schemas = new Map<string, Schema[]>();
+    transformer.sources = new SourceSet();
+    transformer.visitedClasses = new Set<string>();
+    transformer.simdStatements = [];
+
     const sources = parser.sources
       .filter((source) => {
         const p = source.internalPath;
