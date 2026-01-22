@@ -2,6 +2,7 @@
  ║╚═╗║ ║║║║══╠═╣╚═╗
 ╚╝╚═╝╚═╝╝╚╝  ╩ ╩╚═╝</pre></h1>
 
+<details>
 <summary>Table of Contents</summary>
 
 - [Installation](#installation)
