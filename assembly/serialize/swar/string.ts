@@ -56,7 +56,7 @@ export function serializeString_SWAR(src: string): void {
         if ((escaped & 0xffff) != BACK_SLASH) {
           bs.growSize(10);
           const dstIdx = bs.offset + laneIdx;
-          store<u64>(dstIdx, load<u64>(changetype<usize>("AHHH")));
+          store<u64>(dstIdx, U00_MARKER);
           store<u32>(dstIdx, escaped, 8);
           store<u64>(dstIdx, load<u64>(srcIdx, 2), 12);
           bs.offset += 10;
