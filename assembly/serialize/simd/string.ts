@@ -2,17 +2,17 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { bs, sc } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
-// @ts-ignore: decorator allowed
+// @ts-expect-error: @lazy is a valid decorator
 @lazy const U00_MARKER = 13511005048209500;
-// @ts-ignore: decorator allowed
+// @ts-expect-error: @lazy is a valid decorator
 @lazy const U_MARKER = 7667804;
-// @ts-ignore: decorator allowed
+// @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_0022 = i16x8.splat(0x0022); // "
-// @ts-ignore: decorator allowed
+// @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_005C = i16x8.splat(0x005C); // \
-// @ts-ignore: decorator allowed
+// @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_0020 = i16x8.splat(0x0020); // space and control check
-// @ts-ignore: decorator allowed
+// @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_FFD8 = i16x8.splat(i16(0xD7FE));
 
 /**
@@ -177,7 +177,7 @@ export function serializeString_SIMD(src: string): void {
   if (isDefined(JSON_CACHE)) sc.insertCached(changetype<usize>(src), srcStart, srcSize);
 }
 
-// @ts-ignore: inline
+// @ts-expect-error: @inline is a valid decorator
 @inline function write_u_escape(code: u16): void {
   bs.growSize(10);
   store<u32>(bs.offset, U_MARKER); // "\u"
@@ -189,7 +189,7 @@ export function serializeString_SIMD(src: string): void {
   bs.offset += 12;
 }
 
-// @ts-ignore: inline
+// @ts-expect-error: @inline is a valid decorator
 @inline function hexNibble(n: u16): u16 {
   return n < 10 ? (48 + n) : (87 + n);
 }

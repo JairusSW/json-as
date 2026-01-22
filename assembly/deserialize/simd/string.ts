@@ -3,7 +3,7 @@ import { BACK_SLASH } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
 
-// @ts-ignore: decorator allowed
+// @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_5C = i16x8.splat(0x5C); // \
 
 // Overflow Pattern for Unicode Escapes (READ)

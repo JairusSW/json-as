@@ -139,7 +139,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
  *
  * Each matching lane sets itself to 0x80.
  */
-// @ts-ignore: decorator
+// @ts-expect-error: @inline is a valid decorator
 @inline function backslash_mask(block: u64): u64 {
   const b = block ^ 0x005C_005C_005C_005C;
   const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
@@ -158,7 +158,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
  * WARNING: The low byte of a code unit *may* be a backslash, thus triggering false positives!
  * This is useful for a hot path where it is possible to detect the false positive scalarly.
  */
-// @ts-ignore: decorator
+// @ts-expect-error: @inline is a valid decorator
 @inline function backslash_mask_unsafe(block: u64): u64 {
   const b = block ^ 0x005C_005C_005C_005C;
   const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;

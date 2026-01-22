@@ -4,9 +4,9 @@ import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { mask_to_string } from "../../util/masks";
 
-// @ts-ignore: decorator allowed
+// @ts-expect-error: @lazy is a valid decorator
 @lazy const U00_MARKER = 13511005048209500;
-// @ts-ignore: decorator allowed
+// @ts-expect-error: @lazy is a valid decorator
 @lazy const U_MARKER = 7667804;
 
 export function serializeString_SWAR(src: string): void {
@@ -148,7 +148,7 @@ export function serializeString_SWAR(src: string): void {
   if (isDefined(JSON_CACHE)) sc.insertCached(changetype<usize>(src), srcStart, srcSize);
 }
 
-// @ts-ignore: inline
+// @ts-expect-error: @inline is a valid decorator
 @inline function write_u_escape(code: u16): void {
   bs.growSize(10);
   store<u32>(bs.offset, U_MARKER); // "\u"
@@ -160,12 +160,12 @@ export function serializeString_SWAR(src: string): void {
   bs.offset += 12;
 }
 
-// @ts-ignore: inline
+// @ts-expect-error: @inline is a valid decorator
 @inline function hexNibble(n: u16): u16 {
   return n < 10 ? (48 + n) : (87 + n);
 }
 
-// @ts-ignore: inline
+// @ts-expect-error: @inline is a valid decorator
 @inline export function detect_escapable_u64_swar(block: u64): u64 {
   const lo = block & 0x00FF_00FF_00FF_00FF;
   const ascii_mask = (
@@ -178,7 +178,7 @@ export function serializeString_SWAR(src: string): void {
   return (ascii_mask & (~hi_mask >> 8)) | hi_mask;
 }
 
-// @ts-ignore: inline
+// @ts-expect-error: @inline is a valid decorator
 @inline export function detect_escapable_u64_swar_unsafe(block: u64): u64 {
   const lo = block & 0x00FF_00FF_00FF_00FF;
   const ascii_mask = (

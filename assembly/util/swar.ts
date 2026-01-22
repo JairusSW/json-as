@@ -1,5 +1,5 @@
 
-// @ts-ignore: decorator
+// @ts-expect-error: @inline is a valid decorator
 @inline export function hex4_to_u16_swar(block: u64): u16 {
   // (c & 0xF) + 9 * (c >> 6)
   block = (block & 0x0F000F000F000F)

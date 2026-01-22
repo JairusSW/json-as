@@ -39,7 +39,7 @@ export namespace bs {
    * Using bit shifts for efficiency: alpha = 1/8, so (1 - alpha) = 7/8
    * @param newSize - The new size to incorporate into the average
    */
-  // @ts-ignore: decorator
+  // @ts-expect-error: @inline is a valid decorator
   @inline function updateTypicalSize(newSize: usize): void {
     // EMA: typicalSize = (newSize >> 3) + typicalSize - (typicalSize >> 3)
     // Simplified: typicalSize += (newSize - typicalSize) >> 3
@@ -49,7 +49,7 @@ export namespace bs {
   export let cacheOutput: usize = 0;
   export let cacheOutputLen: usize = 0;
 
-  // @ts-ignore: decorators allowed
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function digestArena(): void {
     if (cacheOutput === 0) return;
     proposeSize(cacheOutputLen);
@@ -59,7 +59,7 @@ export namespace bs {
   /**
    * Stores the state of the buffer, allowing further changes to be reset
    */
-  // @ts-ignore: decorator
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function saveState(): void {
     pauseOffset = offset;
     pauseStackSize = stackSize;
@@ -69,7 +69,7 @@ export namespace bs {
    * Resets the buffer to the state it was in when `pause()` was called.
    * This allows for changes made after the pause to be discarded.
    */
-  // @ts-ignore: decorator
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function loadState(): void {
     offset = pauseOffset;
     stackSize = pauseStackSize;
@@ -79,7 +79,7 @@ export namespace bs {
    * Resets the buffer to the state it was in when `pause()` was called.
    * This allows for changes made after the pause to be discarded.
    */
-  // @ts-ignore: decorator
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function resetState(): void {
     offset = pauseOffset;
     stackSize = pauseStackSize;
@@ -91,12 +91,12 @@ export namespace bs {
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to propose.
    */
-  // @ts-ignore: decorator
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function ensureSize(size: u32): void {
     if (offset + usize(size) > bufferSize + changetype<usize>(buffer)) {
       const deltaBytes = usize(size) + MIN_BUFFER_SIZE;
       bufferSize += deltaBytes;
-      // @ts-ignore: exists
+      // @ts-expect-error: __renew is a runtime builtin
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
       offset = offset + changetype<usize>(newPtr) - changetype<usize>(buffer);
       buffer = newPtr;
@@ -108,12 +108,12 @@ export namespace bs {
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to propose.
    */
-  // @ts-ignore: decorator
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function proposeSize(size: u32): void {
     if ((stackSize += size) > bufferSize) {
       const deltaBytes = size;
       bufferSize += deltaBytes;
-      // @ts-ignore: exists
+      // @ts-expect-error: __renew is a runtime builtin
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
       offset = offset + changetype<usize>(newPtr) - changetype<usize>(buffer);
       buffer = newPtr;
@@ -125,12 +125,12 @@ export namespace bs {
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to grow by.
    */
-  // @ts-ignore: decorator
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function growSize(size: u32): void {
     if ((stackSize += size) > bufferSize) {
       const deltaBytes = usize(size) + MIN_BUFFER_SIZE;
       bufferSize += deltaBytes;
-      // @ts-ignore
+      // @ts-expect-error: __renew is a runtime builtin
       const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
       offset = offset + changetype<usize>(newPtr) - changetype<usize>(buffer);
       buffer = newPtr;
@@ -141,9 +141,9 @@ export namespace bs {
    * Resizes the buffer to the specified size.
    * @param newSize - The new buffer size.
    */
-  // @ts-ignore: Decorator valid here
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function resize(newSize: u32): void {
-    // @ts-ignore: exists
+    // @ts-expect-error: __renew is a runtime builtin
     const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), newSize));
     bufferSize = newSize;
     offset = changetype<usize>(newPtr);
@@ -155,17 +155,17 @@ export namespace bs {
    * Copies the buffer's content to a new object of a specified type. Does not shrink the buffer.
    * @returns The new object containing the buffer's content.
    */
-  // @ts-ignore: Decorator valid here
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function cpyOut<T>(): T {
     if (pauseOffset == 0) {
       const len = offset - changetype<usize>(buffer);
-      // @ts-ignore: exists
+      // @ts-expect-error: __new is a runtime builtin
       const _out = __new(len, idof<T>());
       memory.copy(_out, changetype<usize>(buffer), len);
       return changetype<T>(_out);
     } else {
       const len = offset - pauseOffset;
-      // @ts-ignore: exists
+      // @ts-expect-error: __new is a runtime builtin
       const _out = __new(len, idof<T>());
       memory.copy(_out, pauseOffset, len);
       bs.loadState();
@@ -179,12 +179,12 @@ export namespace bs {
    * adaptive buffer management - shrinks buffer when consistently oversized.
    * @returns The new object containing the buffer's content.
    */
-  // @ts-ignore: Decorator valid here
-  export function out<T>(): T {
+  // @ts-expect-error: @inline is a valid decorator
+  @inline export function out<T>(): T {
     let out: usize;
     if (cacheOutput === 0) {
       const len = offset - changetype<usize>(buffer);
-      // @ts-ignore: exists
+      // @ts-expect-error: __new is a runtime builtin
       out = __new(len, idof<T>());
       memory.copy(out, changetype<usize>(buffer), len);
 
@@ -198,7 +198,7 @@ export namespace bs {
       }
     } else {
       // zero-copy path
-      // @ts-ignore: exists
+      // @ts-expect-error: __new is a runtime builtin
       out = __new(cacheOutputLen, idof<T>());
       memory.copy(out, cacheOutput, cacheOutputLen);
       // reset arena flag
@@ -215,10 +215,10 @@ export namespace bs {
    * Copies the buffer's content to a new object of a specified type.
    * @returns The new object containing the buffer's content.
    */
-  // @ts-ignore: Decorator valid here
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function view<T>(): T {
     const len = offset - changetype<usize>(buffer);
-    // @ts-ignore: exists
+    // @ts-expect-error: __new is a runtime builtin
     const _out = __new(len, idof<T>());
     memory.copy(_out, changetype<usize>(buffer), len);
     return changetype<T>(_out);
@@ -230,10 +230,10 @@ export namespace bs {
    * @param dst - The destination pointer.
    * @returns The destination pointer cast to the specified type.
    */
-  // @ts-ignore: Decorator valid here
+  // @ts-expect-error: @inline is a valid decorator
   @inline export function outTo<T>(dst: usize): T {
     const len = offset - changetype<usize>(buffer);
-    // @ts-ignore: exists
+    // @ts-expect-error: __renew is a runtime builtin
     if (len != changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize) __renew(len, idof<T>());
     memory.copy(dst, changetype<usize>(buffer), len);
 
@@ -297,11 +297,11 @@ export namespace bs {
  * avoiding re-serialization of previously seen strings.
  */
 export namespace sc {
-  // @ts-ignore: decorators allowed
+  // @ts-expect-error: @inline is a valid decorator
   @inline export const ENTRY_KEY = offsetof<sc.Entry>("key");
-  // @ts-ignore: decorators allowed
+  // @ts-expect-error: @inline is a valid decorator
   @inline export const ENTRY_PTR = offsetof<sc.Entry>("ptr");
-  // @ts-ignore: decorators allowed
+  // @ts-expect-error: @inline is a valid decorator
   @inline export const ENTRY_LEN = offsetof<sc.Entry>("len");
 
   /** Number of cache slots (power of 2 for efficient masking). Set to 0 when caching disabled. */
@@ -340,7 +340,7 @@ export namespace sc {
    * Uses pointer address shifted right by 4 bits (aligned to 16-byte boundaries)
    * masked to fit within cache size.
    */
-  // @ts-ignore: decorators allowed
+  // @ts-expect-error: @inline is a valid decorator
   @inline
   export function indexFor(ptr: usize): usize {
     return (ptr >> 4) & CACHE_MASK;
@@ -352,7 +352,7 @@ export namespace sc {
    * @param key - The string pointer to look up
    * @returns true if cache hit, false if cache miss
    */
-  // @ts-ignore: decorators allowed
+  // @ts-expect-error: @inline is a valid decorator
   @inline
   export function tryEmitCached(key: usize): bool {
     const e = unchecked(entries[indexFor(key)]);
