@@ -6,7 +6,7 @@ class ImportGetter extends Visitor {
 
   private imports: ImportStatement[] = [];
 
-  visitImportStatement(node: ImportStatement, ref?: Node | null): void {
+  visitImportStatement(node: ImportStatement, _ref?: Node | null): void {
     this.imports.push(node);
   }
 

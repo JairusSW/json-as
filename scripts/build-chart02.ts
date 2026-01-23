@@ -2,7 +2,8 @@ import {
   getBenchResults,
   createBarChart,
   generateChart,
-  type BenchKind
+  type BenchKind,
+  BenchResult
 } from "./lib/bench-utils";
 
 const PAYLOADS: Record<string, string> = {
@@ -19,7 +20,7 @@ const OUTPUT_FILE = "./build/charts/chart02.svg";
 
 const allResults = getBenchResults(Object.keys(PAYLOADS));
 
-const chartData: Record<string, any> = {};
+const chartData: Record<string, BenchResult[]> = {};
 
 for (const payload of Object.keys(PAYLOADS)) {
   chartData[payload] = allResults[payload][KIND];

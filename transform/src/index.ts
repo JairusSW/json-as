@@ -1,13 +1,12 @@
-import { ClassDeclaration, FieldDeclaration, IdentifierExpression, Parser, Source, NodeKind, CommonFlags, ImportStatement, Node, SourceKind, NamedTypeNode, Range, FunctionExpression, MethodDeclaration, Program, Feature, DeclaredElement, Type } from "assemblyscript/dist/assemblyscript.js";
+import { ClassDeclaration, CommonFlags, Feature, FieldDeclaration, FloatLiteralExpression, FunctionExpression, IdentifierExpression, ImportStatement, IntegerLiteralExpression, LiteralExpression, LiteralKind, MethodDeclaration, NamedTypeNode, Node, NodeKind, Parser, Program, Range, Source, SourceKind, StringLiteralExpression, Type } from "assemblyscript/dist/assemblyscript.js";
 import { Transform } from "assemblyscript/dist/transform.js";
-import { Visitor } from "./visitor.js";
-import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
+import { readFileSync, writeFileSync } from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { Property, PropertyFlags, Schema, Src, SourceSet } from "./types.js";
-import { readFileSync, writeFileSync } from "fs";
 import { CustomTransform } from "./linkers/custom.js";
-import binaryen from "binaryen";
+import { Property, PropertyFlags, Schema, SourceSet, Src } from "./types.js";
+import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
+import { Visitor } from "./visitor.js";
 
 let indent = "  ";
 
@@ -321,13 +320,18 @@ export class JSONTransform extends Visitor {
           switch (decoratorName) {
             case "alias": {
               const arg = decorator.args[0];
-              if (!arg || arg.kind != NodeKind.Literal) throwError("@alias must have an argument of type string or number", member.range);
-              // @ts-ignore: exists
-              mem.alias = arg.value.toString();
+              if (
+                !arg ||
+                arg.kind != NodeKind.Literal ||
+                (arg as LiteralExpression).literalKind != LiteralKind.String ||
+                (arg as LiteralExpression).literalKind !== LiteralKind.Integer ||
+                (arg as LiteralExpression).literalKind != LiteralKind.Float
+              ) throwError("@alias must have an argument of type string or number", member.range);
+              mem.alias = (arg as StringLiteralExpression | IntegerLiteralExpression | FloatLiteralExpression).value.toString();
               break;
             }
             case "omitif": {
-              let arg = decorator.args[0];
+              const arg = decorator.args[0];
               if (!decorator.args?.length) throwError("@omitif must have an argument or callback that resolves to type bool", member.range);
               mem.flags.set(PropertyFlags.OmitIf, arg);
               this.schema.static = false;
@@ -363,7 +367,7 @@ export class JSONTransform extends Visitor {
       SERIALIZE += indent + "bs.offset += 2;\n";
     }
 
-    let isPure = this.schema.static;
+    const isPure = this.schema.static;
     let isRegular = isPure;
     let isFirst = true;
 
@@ -433,9 +437,8 @@ export class JSONTransform extends Visitor {
         } else if (member.flags.has(PropertyFlags.OmitIf)) {
           if (member.flags.get(PropertyFlags.OmitIf).kind == NodeKind.Function) {
             const arg = member.flags.get(PropertyFlags.OmitIf) as FunctionExpression;
-            // @ts-ignore: type
             arg.declaration.signature.parameters[0].type = Node.createNamedType(Node.createSimpleTypeName("this", node.range), null, false, node.range);
-            // @ts-ignore: type
+            // @ts-expect-error: Type should be guaranteed
             arg.declaration.signature.returnType.name = Node.createSimpleTypeName("boolean", arg.declaration.signature.returnType.name.range);
             SERIALIZE += indent + `if (!(${toString(member.flags.get(PropertyFlags.OmitIf))})(this)) {\n`;
           } else {
@@ -1096,9 +1099,9 @@ export class JSONTransform extends Visitor {
     return this.schemas.get(this.schema.node.range.source.internalPath).find((s) => s.name == name) || null;
   }
   generateEmptyMethods(node: ClassDeclaration): void {
-    let SERIALIZE_EMPTY = "@inline __SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
-    let INITIALIZE_EMPTY = "@inline __INITIALIZE(): this {\n  return this;\n}";
-    let DESERIALIZE_EMPTY = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n  return out;\n}";
+    const SERIALIZE_EMPTY = "@inline __SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
+    const INITIALIZE_EMPTY = "@inline __INITIALIZE(): this {\n  return this;\n}";
+    const DESERIALIZE_EMPTY = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n  return out;\n}";
 
     if (DEBUG > 0) {
       console.log(SERIALIZE_EMPTY);
@@ -1209,8 +1212,8 @@ export class JSONTransform extends Visitor {
     for (const [size, num] of sizes) {
       if (size == "v128" && simd) {
         // This could be put in its own file
-        let index = this.simdStatements.findIndex((v) => v.includes(num));
-        let name = "SIMD_" + (index == -1 ? this.simdStatements.length : index);
+        const index = this.simdStatements.findIndex((v) => v.includes(num));
+        const name = "SIMD_" + (index == -1 ? this.simdStatements.length : index);
         if (index && !this.simdStatements.includes(`const ${name} = ${num};`)) this.simdStatements.push(`const ${name} = ${num};`);
         out.push("store<v128>(bs.offset, " + name + ", " + offset + "); // " + data.slice(offset >> 1, (offset >> 1) + 8));
         offset += 16;
@@ -1252,7 +1255,6 @@ enum JSONMode {
 }
 
 let MODE: JSONMode = JSONMode.SWAR;
-let CACHE: number = 0;
 export default class Transformer extends Transform {
   afterInitialize(program: Program): void | Promise<void> {
     if (program.options.hasFeature(Feature.Simd)) MODE = JSONMode.SIMD;
@@ -1306,7 +1308,7 @@ export default class Transformer extends Transform {
           return 0;
         }
       })
-      .sort((a, b) => {
+      .sort((a) => {
         if (a.sourceKind === SourceKind.UserEntry) {
           return 1;
         } else {

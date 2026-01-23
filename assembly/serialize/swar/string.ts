@@ -2,7 +2,6 @@ import { bs, sc } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
-import { mask_to_string } from "../../util/masks";
 
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const U00_MARKER = 13511005048209500;

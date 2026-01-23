@@ -9,7 +9,6 @@ export class Visitor {
         this._visit(n, ref);
       }
     } else {
-      // @ts-ignore
       this._visit(node, ref);
     }
   }

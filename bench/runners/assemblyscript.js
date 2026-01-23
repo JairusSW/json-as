@@ -1,4 +1,7 @@
+// @ts-expect-error: readbuffer is defined in d8
+// @eslint-disable-next-line
 const bytes = readbuffer("./build/" + arguments[0]);
+
 const module = new WebAssembly.Module(bytes);
 let memory = null;
 const { exports } = new WebAssembly.Instance(module, {
@@ -11,11 +14,11 @@ const { exports } = new WebAssembly.Instance(module, {
     },
     "Date.now": () => Date.now(),
     "performance.now": () => performance.now(),
-    "writeFile": (fileName, data) => {
-      fileName = __liftString(fileName)
+    writeFile: (fileName, data) => {
+      fileName = __liftString(fileName);
       data = __liftString(data);
       writeFile(fileName, data);
-    }
+    },
   },
 });
 

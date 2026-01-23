@@ -106,7 +106,7 @@ export namespace bs {
   /**
    * Proposes that the buffer size is should be greater than or equal to the proposed size.
    * If necessary, reallocates the buffer to the exact new size.
-   * @param size - The size to propose.
+   * @param size - The size to propose.w
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function proposeSize(size: u32): void {
@@ -143,12 +143,12 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function resize(newSize: u32): void {
-    // @ts-expect-error: __renew is a runtime builtin
-    const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), newSize));
-    bufferSize = newSize;
-    offset = changetype<usize>(newPtr);
-    buffer = newPtr;
-    stackSize = 0;
+          // @ts-expect-error: __renew is a runtime builtin
+          const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), newSize));
+          bufferSize = newSize;
+          offset = changetype<usize>(newPtr);
+          buffer = newPtr;
+          stackSize = 0;
   }
 
   /**

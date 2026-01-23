@@ -110,7 +110,7 @@ const config: ChartConfiguration<"line"> = {
         anchor: "end",
         align: "top",
         font: { size: 12, weight: "bold" },
-        formatter: (value: any) => value.y.toFixed(0) + " MB/s",
+        formatter: (value) => value.y.toFixed(0) + " MB/s",
       },
       subtitle: {
         display: true,

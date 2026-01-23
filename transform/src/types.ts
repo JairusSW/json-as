@@ -122,21 +122,25 @@ export class Src {
    * @param path The current path of namespace declarations leading to the nodes.
    */
   private traverse(nodes: Node[], path: NamespaceDeclaration[]) {
-    for (let node of nodes) {
+    for (const node of nodes) {
       switch (node.kind) {
         case NodeKind.NamespaceDeclaration:
+          // eslint-disable-next-line no-case-declarations
           const namespaceDeclaration = node as NamespaceDeclaration;
           this.traverse(namespaceDeclaration.members, [...path, namespaceDeclaration]);
           break;
         case NodeKind.ClassDeclaration:
+        // eslint-disable-next-line no-case-declarations
           const classDeclaration = node as ClassDeclaration;
           this.classes[this.qualifiedName(classDeclaration, path)] = classDeclaration;
           break;
         case NodeKind.EnumDeclaration:
+        // eslint-disable-next-line no-case-declarations
           const enumDeclaration = node as EnumDeclaration;
           this.enums[this.qualifiedName(enumDeclaration, path)] = enumDeclaration;
           break;
         case NodeKind.Import:
+        // eslint-disable-next-line no-case-declarations
           const importStatement = node as ImportStatement;
           this.imports.push(importStatement);
           break;
@@ -240,7 +244,7 @@ export class Src {
     // of type name.
     for (let i = parents.length - 1; i >= 0; i--) {
       const parent = parents[i];
-      for (let node of parent.members) {
+      for (const node of parent.members) {
         if (name == this.getNamespaceOrClassName(node)) {
           // Add namespace path to the extendsName.
           return (
@@ -291,7 +295,7 @@ export class Src {
    * @returns Full name
    */
   private getIdentifier(typeName: TypeName): string {
-    let names = [];
+    const names = [];
     while (typeName) {
       names.push(typeName.identifier.text);
       typeName = typeName.next;

@@ -1,22 +1,14 @@
 import js from "@eslint/js";
+import { defineConfig, globalIgnores } from "eslint/config";
 import tseslint from "typescript-eslint";
+import globals from "globals";
 
-export default tseslint.config(
-  {
-    ignores: [
-      "**/node_modules/**",
-      "**/build/**",
-      "**/lib/**",
-      "**/dist/**",
-      "**/*.wasm",
-      "**/*.wat",
-      "assembly/**",
-    ],
-  },
+export default defineConfig(
+  globalIgnores(["**/node_modules/**", "**/build/**", "**/lib/**", "**/dist/**", "**/*.wasm", "**/*.wat", "assembly/**"]),
 
   js.configs.recommended,
 
-  ...tseslint.configs.recommended,
+  tseslint.configs.recommended,
 
   {
     files: ["transform/src/**/*.ts"],
@@ -45,6 +37,11 @@ export default tseslint.config(
 
   {
     files: ["**/*.js", "**/*.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
     rules: {
       "no-unused-vars": [
         "error",
@@ -53,6 +50,21 @@ export default tseslint.config(
           varsIgnorePattern: "^_",
         },
       ],
+    },
+  },
+
+  {
+    files: ["bench/runners/**/*.js"],
+    languageOptions: {
+      globals: {
+        readbuffer: "readonly",
+        writeFile: "readonly",
+        arguments: "readonly",
+        ...globals.browser,
+      },
+    },
+    rules: {
+      "no-console": "off",
     },
   },
 
