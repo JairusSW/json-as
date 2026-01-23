@@ -483,7 +483,8 @@ export class JSONTransform extends Visitor {
                     sortedMembers.number.push(member);
                 else if (isArray(type))
                     sortedMembers.array.push(member);
-                sortedMembers.object.push(member);
+                else
+                    sortedMembers.object.push(member);
             }
         }
         indent = "";
@@ -1306,7 +1307,7 @@ function isString(type) {
     return stripNull(type) == "string" || stripNull(type) == "String";
 }
 function isArray(type) {
-    return type.startsWith("Array<");
+    return type.startsWith("Array<") || type.startsWith("Set<") || type.startsWith("StaticArray<");
 }
 function isEnum(type, source, parser) {
     return source.getEnum(type) != null || source.getImportedEnum(type, parser) != null;

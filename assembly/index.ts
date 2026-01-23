@@ -835,14 +835,14 @@ export namespace JSON {
     } else if (isNullable<T>() && srcEnd - srcStart == 8 && load<u64>(srcStart) == NULL_WORD_U64) {
       // @ts-expect-error
       return null;
-    } else if (isArray<T>()) {
-      // @ts-expect-error: type
-      return deserializeArray<T>(srcStart, srcEnd, dst);
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
       if (type instanceof StaticArray) {
         // @ts-expect-error: type
         return deserializeStaticArray<T>(srcStart, srcEnd, dst);
+      } else if (type instanceof Array) {
+        // @ts-expect-error: type
+        return deserializeArray<T>(srcStart, srcEnd, dst);
       } else if (type instanceof Set) {
         // @ts-expect-error: type
         return deserializeSet<T>(srcStart, srcEnd, dst);
