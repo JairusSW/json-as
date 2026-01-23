@@ -1,5 +1,10 @@
 # Change Log
 
+## 2026-01-23 - 1.2.4
+
+- fix: `Set<T>` and `StaticArray<T>` members in classes were not deserializing correctly
+- fix: Fully reset state of transformer between builds
+
 ## 2026-01-03 - 1.2.3
 
 - feat: handle surrogates and code units during string serialization and deserialization
