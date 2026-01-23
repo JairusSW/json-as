@@ -166,6 +166,10 @@ export class JSONTransform extends Visitor {
       type = this.resolveType(type, source);
       if (type.startsWith("Array<")) {
         return getUnknownTypes(type.slice(6, -1));
+      } else if (type.startsWith("StaticArray<")) {
+        return getUnknownTypes(type.slice(12, -1));
+      } else if (type.startsWith("Set<")) {
+        return getUnknownTypes(type.slice(4, -1));
       } else if (type.startsWith("Map<")) {
         const parts = type.slice(4, -1).split(",");
         return getUnknownTypes(parts[0]) || getUnknownTypes(parts[1]);
@@ -322,10 +326,10 @@ export class JSONTransform extends Visitor {
               const arg = decorator.args[0];
               if (
                 !arg ||
-                arg.kind != NodeKind.Literal ||
-                (arg as LiteralExpression).literalKind != LiteralKind.String ||
-                (arg as LiteralExpression).literalKind !== LiteralKind.Integer ||
-                (arg as LiteralExpression).literalKind != LiteralKind.Float
+                arg.kind != NodeKind.Literal &&
+                  (arg as LiteralExpression).literalKind != LiteralKind.String &&
+                  (arg as LiteralExpression).literalKind != LiteralKind.Integer &&
+                  (arg as LiteralExpression).literalKind != LiteralKind.Float
               ) throwError("@alias must have an argument of type string or number", member.range);
               mem.alias = (arg as StringLiteralExpression | IntegerLiteralExpression | FloatLiteralExpression).value.toString();
               break;
@@ -391,6 +395,11 @@ export class JSONTransform extends Visitor {
           INITIALIZE += `  store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
         } else if (member.type.startsWith("Array<") || member.type.startsWith("Map<")) {
           INITIALIZE += `  store<${member.type}>(changetype<usize>(this), [], offsetof<this>(${JSON.stringify(member.name)}));\n`;
+        } else if (member.type.startsWith("Set<")) {
+          INITIALIZE += `  store<${member.type}>(changetype<usize>(this), new ${member.type}(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+        } else if (member.type.startsWith("StaticArray<")) {
+          // StaticArray needs special handling - we can't pre-initialize it without knowing the size
+          // Leave it uninitialized, it will be set during deserialization
         } else if (member.type == "string" || member.type == "String") {
           INITIALIZE += `  store<${member.type}>(changetype<usize>(this), "", offsetof<this>(${JSON.stringify(member.name)}));\n`;
         }
@@ -1235,7 +1244,7 @@ export class JSONTransform extends Visitor {
   isValidType(type: string, node: ClassDeclaration): boolean {
     const validTypes = ["string", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64", "bool", "boolean", "Date", "JSON.Value", "JSON.Obj", "JSON.Raw", "Value", "Obj", "Raw", ...this.schemas.get(this.schema.node.range.source.internalPath).map((v) => v.name)];
 
-    const baseTypes = ["Array", "Map", "Set", "JSON.Box", "Box"];
+    const baseTypes = ["Array", "StaticArray", "Map", "Set", "JSON.Box", "Box"];
 
     if (node && node.isGeneric && node.typeParameters) validTypes.push(...node.typeParameters.map((v) => v.name.text));
     if (type.endsWith("| null")) {

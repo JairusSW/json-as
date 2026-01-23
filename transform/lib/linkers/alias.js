@@ -1,7 +1,7 @@
 import { Visitor } from "../visitor.js";
 import { toString } from "../util.js";
 class AliasFinder extends Visitor {
-    visitTypeDeclaration(node, ref) {
+    visitTypeDeclaration(node, _ref) {
         TypeAlias.add(node.name.text, node.type);
     }
 }

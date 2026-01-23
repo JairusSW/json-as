@@ -100,7 +100,7 @@ export class Src {
         this.traverse(source.statements, []);
     }
     traverse(nodes, path) {
-        for (let node of nodes) {
+        for (const node of nodes) {
             switch (node.kind) {
                 case 59:
                     const namespaceDeclaration = node;
@@ -169,7 +169,7 @@ export class Src {
         const extendsName = this.getIdentifier(classDeclaration.extendsType.name);
         for (let i = parents.length - 1; i >= 0; i--) {
             const parent = parents[i];
-            for (let node of parent.members) {
+            for (const node of parent.members) {
                 if (name == this.getNamespaceOrClassName(node)) {
                     return (parents
                         .slice(0, i + 1)
@@ -195,7 +195,7 @@ export class Src {
         return "";
     }
     getIdentifier(typeName) {
-        let names = [];
+        const names = [];
         while (typeName) {
             names.push(typeName.identifier.text);
             typeName = typeName.next;

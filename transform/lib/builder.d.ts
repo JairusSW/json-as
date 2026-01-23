@@ -1,6 +1,6 @@
-import { TypeNode, Node, Source, NamedTypeNode, FunctionTypeNode, TypeParameterNode, IdentifierExpression, CallExpression, ClassExpression, ElementAccessExpression, FunctionExpression, InstanceOfExpression, LiteralExpression, NewExpression, ParenthesizedExpression, PropertyAccessExpression, TernaryExpression, UnaryPostfixExpression, UnaryPrefixExpression, BlockStatement, BreakStatement, ContinueStatement, DoStatement, EmptyStatement, ExportStatement, ExportDefaultStatement, ExportImportStatement, ExpressionStatement, ForStatement, IfStatement, ImportStatement, ReturnStatement, SwitchStatement, ThrowStatement, TryStatement, VariableStatement, WhileStatement, ClassDeclaration, EnumDeclaration, EnumValueDeclaration, FieldDeclaration, FunctionDeclaration, ImportDeclaration, InterfaceDeclaration, MethodDeclaration, NamespaceDeclaration, TypeDeclaration, VariableDeclaration, DecoratorNode, ExportMember, ParameterNode, SwitchCase, TypeName, ArrayLiteralExpression, Expression, ObjectLiteralExpression, FloatLiteralExpression, StringLiteralExpression, RegexpLiteralExpression, UnaryExpression, DeclarationStatement, AssertionExpression, BinaryExpression, CommaExpression, IntegerLiteralExpression, ForOfStatement, IndexSignatureNode, TemplateLiteralExpression, FalseExpression, NullExpression, TrueExpression } from "assemblyscript/dist/assemblyscript.js";
-import { Visitor } from "./visitor.js";
+import { ArrayLiteralExpression, AssertionExpression, BinaryExpression, BlockStatement, BreakStatement, CallExpression, ClassDeclaration, ClassExpression, CommaExpression, ContinueStatement, DeclarationStatement, DecoratorNode, DoStatement, ElementAccessExpression, EmptyStatement, EnumDeclaration, EnumValueDeclaration, ExportDefaultStatement, ExportImportStatement, ExportMember, ExportStatement, Expression, ExpressionStatement, FalseExpression, FieldDeclaration, FloatLiteralExpression, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionTypeNode, IdentifierExpression, IfStatement, ImportDeclaration, ImportStatement, IndexSignatureNode, InstanceOfExpression, IntegerLiteralExpression, InterfaceDeclaration, LiteralExpression, MethodDeclaration, NamedTypeNode, NamespaceDeclaration, NewExpression, Node, NullExpression, ObjectLiteralExpression, ParameterNode, ParenthesizedExpression, PropertyAccessExpression, RegexpLiteralExpression, ReturnStatement, Source, StringLiteralExpression, SwitchCase, SwitchStatement, TemplateLiteralExpression, TernaryExpression, ThrowStatement, TrueExpression, TryStatement, TypeDeclaration, TypeName, TypeNode, TypeParameterNode, UnaryExpression, UnaryPostfixExpression, UnaryPrefixExpression, VariableDeclaration, VariableStatement, WhileStatement } from "assemblyscript/dist/assemblyscript.js";
 import { ThisExpression } from "types:assemblyscript/src/ast";
+import { Visitor } from "./visitor.js";
 export declare class ASTBuilder extends Visitor {
     static build(node: Node): string;
     private sb;
@@ -8,7 +8,7 @@ export declare class ASTBuilder extends Visitor {
     visitNode(node: Node): void;
     visitSource(source: Source): void;
     visitTypeNode(node: TypeNode): void;
-    visitThisExpression(node: ThisExpression, ref?: Node | null): void;
+    visitThisExpression(_node: ThisExpression, _ref?: Node | null): void;
     visitTypeName(node: TypeName): void;
     visitNamedTypeNode(node: NamedTypeNode): void;
     visitFunctionTypeNode(node: FunctionTypeNode): void;
@@ -46,7 +46,7 @@ export declare class ASTBuilder extends Visitor {
     visitContinueStatement(node: ContinueStatement): void;
     visitClassDeclaration(node: ClassDeclaration, isDefault?: boolean): void;
     visitDoStatement(node: DoStatement): void;
-    visitEmptyStatement(node: EmptyStatement): void;
+    visitEmptyStatement(_node: EmptyStatement): void;
     visitEnumDeclaration(node: EnumDeclaration, isDefault?: boolean): void;
     visitEnumValueDeclaration(node: EnumValueDeclaration): void;
     visitExportImportStatement(node: ExportImportStatement): void;
@@ -67,9 +67,9 @@ export declare class ASTBuilder extends Visitor {
     visitMethodDeclaration(node: MethodDeclaration): void;
     visitNamespaceDeclaration(node: NamespaceDeclaration, isDefault?: boolean): void;
     visitReturnStatement(node: ReturnStatement): void;
-    visitTrueExpression(node: TrueExpression): void;
-    visitFalseExpression(node: FalseExpression): void;
-    visitNullExpression(node: NullExpression): void;
+    visitTrueExpression(_node: TrueExpression): void;
+    visitFalseExpression(_node: FalseExpression): void;
+    visitNullExpression(_node: NullExpression): void;
     visitSwitchCase(node: SwitchCase): void;
     visitSwitchStatement(node: SwitchStatement): void;
     visitThrowStatement(node: ThrowStatement): void;

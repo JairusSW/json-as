@@ -2,7 +2,7 @@ import { Visitor } from "../visitor.js";
 class ImportGetter extends Visitor {
     static SN = new ImportGetter();
     imports = [];
-    visitImportStatement(node, ref) {
+    visitImportStatement(node, _ref) {
         this.imports.push(node);
     }
     static getImports(source) {

@@ -1,7 +1,7 @@
-import { ClassDeclaration, Parser, Source, ImportStatement, Program } from "assemblyscript/dist/assemblyscript.js";
+import { ClassDeclaration, ImportStatement, Parser, Program, Source } from "assemblyscript/dist/assemblyscript.js";
 import { Transform } from "assemblyscript/dist/transform.js";
+import { Schema, SourceSet, Src } from "./types.js";
 import { Visitor } from "./visitor.js";
-import { Schema, Src, SourceSet } from "./types.js";
 export declare class JSONTransform extends Visitor {
     static SN: JSONTransform;
     program: Program;

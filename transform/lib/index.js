@@ -1,12 +1,12 @@
 import { Node, Type } from "assemblyscript/dist/assemblyscript.js";
 import { Transform } from "assemblyscript/dist/transform.js";
-import { Visitor } from "./visitor.js";
-import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
+import { readFileSync, writeFileSync } from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { Property, PropertyFlags, Schema, SourceSet } from "./types.js";
-import { readFileSync, writeFileSync } from "fs";
 import { CustomTransform } from "./linkers/custom.js";
+import { Property, PropertyFlags, Schema, SourceSet } from "./types.js";
+import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
+import { Visitor } from "./visitor.js";
 let indent = "  ";
 let id = 0;
 const WRITE = process.env["JSON_WRITE"]?.trim();
@@ -147,6 +147,12 @@ export class JSONTransform extends Visitor {
             type = this.resolveType(type, source);
             if (type.startsWith("Array<")) {
                 return getUnknownTypes(type.slice(6, -1));
+            }
+            else if (type.startsWith("StaticArray<")) {
+                return getUnknownTypes(type.slice(12, -1));
+            }
+            else if (type.startsWith("Set<")) {
+                return getUnknownTypes(type.slice(4, -1));
             }
             else if (type.startsWith("Map<")) {
                 const parts = type.slice(4, -1).split(",");
@@ -302,13 +308,17 @@ export class JSONTransform extends Visitor {
                     switch (decoratorName) {
                         case "alias": {
                             const arg = decorator.args[0];
-                            if (!arg || arg.kind != 16)
+                            if (!arg ||
+                                arg.kind != 16 &&
+                                    arg.literalKind != 2 &&
+                                    arg.literalKind != 1 &&
+                                    arg.literalKind != 0)
                                 throwError("@alias must have an argument of type string or number", member.range);
                             mem.alias = arg.value.toString();
                             break;
                         }
                         case "omitif": {
-                            let arg = decorator.args[0];
+                            const arg = decorator.args[0];
                             if (!decorator.args?.length)
                                 throwError("@omitif must have an argument or callback that resolves to type bool", member.range);
                             mem.flags.set(PropertyFlags.OmitIf, arg);
@@ -342,7 +352,7 @@ export class JSONTransform extends Visitor {
             SERIALIZE += indent + "store<u16>(bs.offset, 123, 0); // {\n";
             SERIALIZE += indent + "bs.offset += 2;\n";
         }
-        let isPure = this.schema.static;
+        const isPure = this.schema.static;
         let isRegular = isPure;
         let isFirst = true;
         for (let i = 0; i < this.schema.members.length; i++) {
@@ -367,6 +377,11 @@ export class JSONTransform extends Visitor {
                 }
                 else if (member.type.startsWith("Array<") || member.type.startsWith("Map<")) {
                     INITIALIZE += `  store<${member.type}>(changetype<usize>(this), [], offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                }
+                else if (member.type.startsWith("Set<")) {
+                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), new ${member.type}(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                }
+                else if (member.type.startsWith("StaticArray<")) {
                 }
                 else if (member.type == "string" || member.type == "String") {
                     INITIALIZE += `  store<${member.type}>(changetype<usize>(this), "", offsetof<this>(${JSON.stringify(member.name)}));\n`;
@@ -962,9 +977,9 @@ export class JSONTransform extends Visitor {
         return this.schemas.get(this.schema.node.range.source.internalPath).find((s) => s.name == name) || null;
     }
     generateEmptyMethods(node) {
-        let SERIALIZE_EMPTY = "@inline __SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
-        let INITIALIZE_EMPTY = "@inline __INITIALIZE(): this {\n  return this;\n}";
-        let DESERIALIZE_EMPTY = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n  return out;\n}";
+        const SERIALIZE_EMPTY = "@inline __SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
+        const INITIALIZE_EMPTY = "@inline __INITIALIZE(): this {\n  return this;\n}";
+        const DESERIALIZE_EMPTY = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n  return out;\n}";
         if (DEBUG > 0) {
             console.log(SERIALIZE_EMPTY);
             console.log(INITIALIZE_EMPTY);
@@ -1030,8 +1045,8 @@ export class JSONTransform extends Visitor {
         let offset = 0;
         for (const [size, num] of sizes) {
             if (size == "v128" && simd) {
-                let index = this.simdStatements.findIndex((v) => v.includes(num));
-                let name = "SIMD_" + (index == -1 ? this.simdStatements.length : index);
+                const index = this.simdStatements.findIndex((v) => v.includes(num));
+                const name = "SIMD_" + (index == -1 ? this.simdStatements.length : index);
                 if (index && !this.simdStatements.includes(`const ${name} = ${num};`))
                     this.simdStatements.push(`const ${name} = ${num};`);
                 out.push("store<v128>(bs.offset, " + name + ", " + offset + "); // " + data.slice(offset >> 1, (offset >> 1) + 8));
@@ -1055,7 +1070,7 @@ export class JSONTransform extends Visitor {
     }
     isValidType(type, node) {
         const validTypes = ["string", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64", "bool", "boolean", "Date", "JSON.Value", "JSON.Obj", "JSON.Raw", "Value", "Obj", "Raw", ...this.schemas.get(this.schema.node.range.source.internalPath).map((v) => v.name)];
-        const baseTypes = ["Array", "Map", "Set", "JSON.Box", "Box"];
+        const baseTypes = ["Array", "StaticArray", "Map", "Set", "JSON.Box", "Box"];
         if (node && node.isGeneric && node.typeParameters)
             validTypes.push(...node.typeParameters.map((v) => v.name.text));
         if (type.endsWith("| null")) {
@@ -1077,7 +1092,6 @@ var JSONMode;
     JSONMode[JSONMode["NAIVE"] = 2] = "NAIVE";
 })(JSONMode || (JSONMode = {}));
 let MODE = JSONMode.SWAR;
-let CACHE = 0;
 export default class Transformer extends Transform {
     afterInitialize(program) {
         if (program.options.hasFeature(16))
@@ -1129,7 +1143,7 @@ export default class Transformer extends Transform {
                 return 0;
             }
         })
-            .sort((a, b) => {
+            .sort((a) => {
             if (a.sourceKind === 1) {
                 return 1;
             }
