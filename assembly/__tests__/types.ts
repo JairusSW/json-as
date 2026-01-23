@@ -51,10 +51,10 @@ export class DerivedObject extends BaseObject {
 
 @json
 export class Map4 {
-  a: string;
-  b: string;
-  c: string;
-  d: string;
+  a!: string;
+  b!: string;
+  c!: string;
+  d!: string;
 }
 
 
@@ -70,12 +70,12 @@ export class Vec3 {
 
 @json
 export class Player {
-  firstName: string;
-  lastName: string;
-  lastActive: i32[];
-  age: i32;
-  pos: Vec3 | null;
-  isVerified: boolean;
+  firstName!: string;
+  lastName!: string;
+  lastActive!: i32[];
+  age!: i32;
+  pos!: Vec3 | null;
+  isVerified!: boolean;
 }
 
 export class Nullable {}
