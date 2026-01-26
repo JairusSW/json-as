@@ -393,8 +393,10 @@ export class JSONTransform extends Visitor {
       } else if (!member.node.type.isNullable) {
         if (this.getSchema(member.type)) {
           INITIALIZE += `  store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
-        } else if (member.type.startsWith("Array<") || member.type.startsWith("Map<")) {
+        } else if (member.type.startsWith("Array<")) {
           INITIALIZE += `  store<${member.type}>(changetype<usize>(this), [], offsetof<this>(${JSON.stringify(member.name)}));\n`;
+        }else if (member.type.startsWith("Map<")) {
+          INITIALIZE += `  store<${member.type}>(changetype<usize>(this), new ${member.type}(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
         } else if (member.type.startsWith("Set<")) {
           INITIALIZE += `  store<${member.type}>(changetype<usize>(this), new ${member.type}(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
         } else if (member.type.startsWith("StaticArray<")) {
