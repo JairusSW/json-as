@@ -4,6 +4,7 @@ import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 
 // @ts-expect-error: @lazy is a valid decorator
+// @ts-nocheck
 @lazy const U00_MARKER = 13511005048209500;
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const U_MARKER = 7667804;
@@ -12,7 +13,7 @@ export function serializeString_SWAR(src: string): void {
   let srcStart = changetype<usize>(src);
 
   if (isDefined(JSON_CACHE)) {
-    const e = unchecked(sc.entries[(srcStart >> 4) & sc.CACHE_MASK]);
+    const e = unchecked(sc.entries[i32((srcStart >> 4) & sc.CACHE_MASK)]);
     if (e.key == srcStart) {
       bs.offset += e.len;
       bs.stackSize += e.len;
@@ -181,11 +182,11 @@ export function serializeString_SWAR(src: string): void {
 @inline export function detect_escapable_u64_swar_unsafe(block: u64): u64 {
   const lo = block & 0x00FF_00FF_00FF_00FF;
   const ascii_mask = (
-    ((lo - 0x0020_0020_0020_0020) |
-      ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
-      ((lo ^ 0x005C_005C_005C_005C) - 0x0001_0001_0001_0001))
-    & (0x0080_0080_0080_0080 & ~lo)
+    ((lo - 0x0020_0020_0020_0020) |                               // lt 0x20
+      ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |    // eq 0x22
+      ((lo ^ 0x005C_005C_005C_005C) - 0x0001_0001_0001_0001))     // eq 0x5C
+    & (0x0080_0080_0080_0080 & ~lo)                               // replace each lane with 0x80
   );
-  const hi = block & 0xFF00_FF00_FF00_FF00;
+  const hi = block & 0xFF00_FF00_FF00_FF00;                       // add possible non-ascii code units
   return ascii_mask | hi;
 }

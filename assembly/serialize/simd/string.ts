@@ -22,7 +22,7 @@ export function serializeString_SIMD(src: string): void {
   let srcStart = changetype<usize>(src);
   if (isDefined(JSON_CACHE)) {
     // check cache
-    const e = unchecked(sc.entries[(srcStart >> 4) & sc.CACHE_MASK]);
+    const e = unchecked(sc.entries[i32((srcStart >> 4) & sc.CACHE_MASK)]);
     if (e.key == srcStart) {
       // bs.offset += e.len;
       // bs.stackSize += e.len;

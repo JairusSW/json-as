@@ -385,7 +385,7 @@ export namespace sc {
 
     memory.copy(arenaPtr, start, len);
 
-    const e = unchecked(entries[(str >> 4) & CACHE_MASK]);
+    const e = unchecked(entries[i32((str >> 4) & CACHE_MASK)]);
     e.key = str;
     e.ptr = arenaPtr;
     e.len = len;
