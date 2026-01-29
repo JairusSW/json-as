@@ -8,7 +8,6 @@
     "outDir": "./lib",
     "sourceMap": true,
 
-    // Strict type checking
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": false,
@@ -18,22 +17,19 @@
     "noImplicitThis": true,
     "alwaysStrict": true,
 
-    // Additional checks
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": false,
 
-    // Module resolution
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
 
-    // Declaration files
     "declaration": true,
-    "declarationMap": true,
+    "declarationMap": true
   },
   "include": ["./src/**/*.ts"],
-  "exclude": ["./lib", "node_modules"],
+  "exclude": ["./lib", "node_modules"]
 }

@@ -35,7 +35,7 @@ export function serializeString_SWAR(src: string): void {
     let block = load<u64>(srcStart);
     store<u64>(bs.offset, block);
 
-    let mask = detect_escapable_u64_swar_unsafe(block);
+    let mask = detect_escapable_u64_swar_safe(block);
 
     if (mask === 0) {
       srcStart += 8;
@@ -48,8 +48,8 @@ export function serializeString_SWAR(src: string): void {
       const srcIdx = srcStart + laneIdx;
       // Even (0 2 4 6) -> Confirmed ASCII Escape
       // Odd (1 3 5 7) -> Possibly a Unicode code unit or surrogate
-      if ((laneIdx & 1) === 0 && (mask & (0xFF << (laneIdx + 1 << 3))) === 0) {
-      mask &= ~(0xFFFF << (laneIdx << 3));
+      if ((laneIdx & 1) === 0) {
+       mask &= ~(0xFFFF << (laneIdx << 3));
         const code = load<u16>(srcIdx);
         const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
 
@@ -166,7 +166,7 @@ export function serializeString_SWAR(src: string): void {
 }
 
 // @ts-expect-error: @inline is a valid decorator
-@inline export function detect_escapable_u64_swar(block: u64): u64 {
+@inline export function detect_escapable_u64_swar_safe(block: u64): u64 {
   const lo = block & 0x00FF_00FF_00FF_00FF;
   const ascii_mask = (
     ((lo - 0x0020_0020_0020_0020) |
