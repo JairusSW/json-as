@@ -70,8 +70,8 @@ export function deserializeArbitraryArray(srcStart: usize, srcEnd: usize, dst: u
         if (code == BRACE_RIGHT) {
           if (--depth == 0) {
             // @ts-ignore: type
-            out.push(JSON.__deserialize<JSON.Value>(lastIndex, srcStart));
-            // console.log("Value (object): " + ptrToStr(lastIndex, srcStart));
+            out.push(JSON.__deserialize<JSON.Value>(lastIndex, srcStart + 2));
+            // console.log("Value (object): " + ptrToStr(lastIndex, srcStart + 2));
             while (isSpace(load<u16>((srcStart += 2)))) {
               /* empty */
             }
@@ -89,8 +89,8 @@ export function deserializeArbitraryArray(srcStart: usize, srcEnd: usize, dst: u
         if (code == BRACKET_RIGHT) {
           if (--depth == 0) {
             // @ts-ignore: type
-            out.push(JSON.__deserialize<JSON.Value>(lastIndex, srcStart));
-            // console.log("Value (array): " + ptrToStr(lastIndex, srcStart));
+            out.push(JSON.__deserialize<JSON.Value>(lastIndex, srcStart + 2));
+            // console.log("Value (array): " + ptrToStr(lastIndex, srcStart + 2));
             while (isSpace(load<u16>((srcStart += 2)))) {
               /* empty */
             }
