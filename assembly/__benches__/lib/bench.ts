@@ -81,17 +81,16 @@ function JSON_MODE_TO_STRING(mode: JSONMode): string {
 }
 
 export function dumpToFile(suite: string, type: string): void {
-  if (isDefined(ASC_WASI))
-    writeFile(
-      "./build/logs/as/" +
-        JSON_MODE_TO_STRING(JSON_MODE) +
-        "/" +
-        suite +
-        "." +
-        type +
-        ".as.json",
-      JSON.stringify(result),
-    );
+  writeFile(
+    "./build/logs/as/" +
+      JSON_MODE_TO_STRING(JSON_MODE) +
+      "/" +
+      suite +
+      "." +
+      type +
+      ".as.json",
+    JSON.stringify(result),
+  );
 }
 
 function formatNumber(n: u64): string {

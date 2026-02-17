@@ -420,6 +420,8 @@ The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaS
 
 > Note: I have focused on extensively optimizing serialization. I used to have deserialization be highly unsafe and extremely fast, but I've since doubled down on safety for deserialization which has negatively affected performance. I will be optimizing soon.
 
+> Note on Token: I am currently working on optimizing the token deserialization process. This reflects the *future* performance of this library.
+
 ### Performance Tuning
 
 Instead of using flags for setting options, `json-as` is configured by environmental variables.
