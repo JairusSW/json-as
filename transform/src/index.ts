@@ -808,7 +808,7 @@ export class JSONTransform extends Visitor {
             arg.declaration.signature.returnType.name =
               Node.createSimpleTypeName(
                 "boolean",
-                arg.declaration.signature.returnType.name.range,
+                (arg.declaration.signature.returnType as NamedTypeNode).name.range,
               );
             SERIALIZE +=
               indent +
