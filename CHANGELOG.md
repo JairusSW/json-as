@@ -1,5 +1,11 @@
 # Change Log
 
+## 2026-02-17 - 1.2.5
+
+- fix: stabilize ESLint for this repo by excluding AssemblyScript sources from standard TypeScript lint parsing
+- fix: allow underscore-prefixed intentionally-unused TypeScript variables in transformer sources
+- fix: add d8 globals for benchmark runner linting and make `bench/lib/bench.js` parseable by ESLint
+
 ## 2026-01-23 - 1.2.4
 
 - fix: `Set<T>` and `StaticArray<T>` members in classes were not deserializing correctly
