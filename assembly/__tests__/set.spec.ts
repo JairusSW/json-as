@@ -104,6 +104,7 @@ describe("Should serialize object sets", () => {
   expect(result).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]');
 });
 
+
 @json
 class Vec3 {
   x: f64 = 0.0;

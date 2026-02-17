@@ -22,7 +22,8 @@ class Point {
   @deserializer
   deserializer(data: string): Point {
     const dataSize = bytes(data);
-    if (dataSize <= 2) throw new Error("Could not deserialize provided data as type Point");
+    if (dataSize <= 2)
+      throw new Error("Could not deserialize provided data as type Point");
 
     const c = data.indexOf(",");
     const x = data.slice(1, c);
@@ -52,5 +53,7 @@ describe("Should deserialize using custom deserializers", () => {
 });
 
 describe("Should serialize and deserialize using nested custom serializers", () => {
-  expect(JSON.stringify<ObjectWithCustom>(new ObjectWithCustom(new Point(1, 2)))).toBe(`{"value":(1.0,2.0)}`);
+  expect(
+    JSON.stringify<ObjectWithCustom>(new ObjectWithCustom(new Point(1, 2))),
+  ).toBe(`{"value":(1.0,2.0)}`);
 });

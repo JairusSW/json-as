@@ -29,29 +29,30 @@ import { bench, blackbox, dumpToFile } from "./lib/bench";
 class ObjLarge {
   lorum: u32 = U32.MAX_VALUE;
   ipsum: boolean = true;
-  dolor: Array<i32> = [1,2,3,4,5];
-  sit: string = "abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
+  dolor: Array<i32> = [1, 2, 3, 4, 5];
+  sit: string =
+    "abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
   consectetur: i32 = 123456;
   adipiscing: boolean = false;
-  elit: Array<i32> = [6,7,8,9,10];
+  elit: Array<i32> = [6, 7, 8, 9, 10];
   sed: f64 = F64.MAX_VALUE;
   eiusmod: string = "abcdYZ12345890./?abcdYZ12345890./?abcdYZ12340./?";
   tempor: i32 = 999999;
   incididunt: boolean = true;
-  ut: Array<i32> = [16,17,18,19,20];
+  ut: Array<i32> = [16, 17, 18, 19, 20];
   labore: f64 = 3.1415926535;
   et: string = "xyzXYZ09876!@#";
   dolore: i32 = -123456;
   magna: boolean = false;
-  aliqua: Array<i32> = [21,22,23,24,25];
-  argw: string = "abcdYZ12345890sdfw\"vie91kfESDFOK12i9i12dsf./?";
+  aliqua: Array<i32> = [21, 22, 23, 24, 25];
+  argw: string = 'abcdYZ12345890sdfw"vie91kfESDFOK12i9i12dsf./?';
 }
 
 const obj = new ObjLarge();
 
 const arrSmall = new Array<i32>(25_600).fill(0);
 const arrMedium = new Array<i32>(128_000).fill(0);
-const arrLarge = new Array<i32>(256_000).fill(0); 
+const arrLarge = new Array<i32>(256_000).fill(0);
 
 const strSmall = "a".repeat(100 * 1024);
 const strMedium = "a".repeat(500 * 1024);

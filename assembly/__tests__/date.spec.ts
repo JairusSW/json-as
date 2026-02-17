@@ -3,7 +3,9 @@ import { describe, expect } from "./lib";
 
 describe("Should serialize Date", () => {
   expect(JSON.stringify<Date>(new Date(0))).toBe('"1970-01-01T00:00:00.000Z"');
-  expect(JSON.stringify<Date>(new Date(1738618120525))).toBe('"2025-02-03T21:28:40.525Z"');
+  expect(JSON.stringify<Date>(new Date(1738618120525))).toBe(
+    '"2025-02-03T21:28:40.525Z"',
+  );
 });
 
 describe("Should deserialize booleans", () => {

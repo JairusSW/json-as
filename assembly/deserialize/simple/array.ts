@@ -12,7 +12,11 @@ import { deserializeBoxArray } from "./array/box";
 import { deserializeRawArray } from "./array/raw";
 
 // @ts-ignore: Decorator valid here
-export function deserializeArray<T extends unknown[]>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeArray<T extends unknown[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
   if (isString<valueof<T>>()) {
     return <T>deserializeStringArray(srcStart, srcEnd, dst);
   } else if (isBoolean<valueof<T>>()) {

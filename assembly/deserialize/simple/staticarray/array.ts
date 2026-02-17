@@ -1,7 +1,11 @@
 import { BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON } from "../../../";
 
-export function deserializeStaticArrayArray<T extends StaticArray<any>>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeStaticArrayArray<T extends StaticArray<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
   let count: i32 = 0;
   let depth: u32 = 0;
   let ptr = srcStart + 2;
@@ -15,7 +19,7 @@ export function deserializeStaticArrayArray<T extends StaticArray<any>>(srcStart
     ptr += 2;
   }
 
-  const outSize = <usize>count << alignof<valueof<T>>();
+  const outSize = (<usize>count) << alignof<valueof<T>>();
   const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
 
   // Second pass: populate values
@@ -28,7 +32,12 @@ export function deserializeStaticArrayArray<T extends StaticArray<any>>(srcStart
     if (code == BRACKET_LEFT && depth++ == 0) {
       lastIndex = srcStart;
     } else if (code == BRACKET_RIGHT && --depth == 0) {
-      unchecked((out[index++] = JSON.__deserialize<valueof<T>>(lastIndex, srcStart + 2)));
+      unchecked(
+        (out[index++] = JSON.__deserialize<valueof<T>>(
+          lastIndex,
+          srcStart + 2,
+        )),
+      );
     }
     srcStart += 2;
   }

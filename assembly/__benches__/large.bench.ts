@@ -2,6 +2,7 @@ import { JSON } from "..";
 import { expect } from "../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
+
 @json
 class RepoOwner {
   public login!: string;
@@ -25,6 +26,7 @@ class RepoOwner {
   public site_admin!: boolean;
 }
 
+
 @json
 class RepoLicense {
   public key!: string;
@@ -33,6 +35,7 @@ class RepoLicense {
   public url!: string | null;
   public node_id!: string;
 }
+
 
 @json
 class Repo {
@@ -129,14 +132,17 @@ owner.gravatar_id = "";
 owner.url = "https://api.github.com/users/octocat";
 owner.html_url = "https://github.com/octocat";
 owner.followers_url = "https://api.github.com/users/octocat/followers";
-owner.following_url = "https://api.github.com/users/octocat/following{/other_user}";
+owner.following_url =
+  "https://api.github.com/users/octocat/following{/other_user}";
 owner.gists_url = "https://api.github.com/users/octocat/gists{/gist_id}";
-owner.starred_url = "https://api.github.com/users/octocat/starred{/owner}{/repo}";
+owner.starred_url =
+  "https://api.github.com/users/octocat/starred{/owner}{/repo}";
 owner.subscriptions_url = "https://api.github.com/users/octocat/subscriptions";
 owner.organizations_url = "https://api.github.com/users/octocat/orgs";
 owner.repos_url = "https://api.github.com/users/octocat/repos";
 owner.events_url = "https://api.github.com/users/octocat/events{/privacy}";
-owner.received_events_url = "https://api.github.com/users/octocat/received_events";
+owner.received_events_url =
+  "https://api.github.com/users/octocat/received_events";
 owner.type = "User";
 owner.user_view_type = "public";
 owner.site_admin = false;
@@ -153,41 +159,73 @@ v1.description = "Testing";
 v1.fork = true;
 v1.url = "https://api.github.com/repos/octocat/boysenberry-repo-1";
 v1.forks_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/forks";
-v1.keys_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/keys{/key_id}";
-v1.collaborators_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/collaborators{/collaborator}";
+v1.keys_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/keys{/key_id}";
+v1.collaborators_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/collaborators{/collaborator}";
 v1.teams_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/teams";
 v1.hooks_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/hooks";
-v1.issue_events_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/issues/events{/number}";
-v1.events_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/events";
-v1.assignees_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/assignees{/user}";
-v1.branches_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/branches{/branch}";
+v1.issue_events_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/issues/events{/number}";
+v1.events_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/events";
+v1.assignees_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/assignees{/user}";
+v1.branches_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/branches{/branch}";
 v1.tags_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/tags";
-v1.blobs_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/git/blobs{/sha}";
-v1.git_tags_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/git/tags{/sha}";
-v1.git_refs_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/git/refs{/sha}";
-v1.trees_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/git/trees{/sha}";
-v1.statuses_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/statuses/{sha}";
-v1.languages_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/languages";
-v1.stargazers_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/stargazers";
-v1.contributors_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/contributors";
-v1.subscribers_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/subscribers";
-v1.subscription_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/subscription";
-v1.commits_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/commits{/sha}";
-v1.git_commits_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/git/commits{/sha}";
-v1.comments_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/comments{/number}";
-v1.issue_comment_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/issues/comments{/number}";
-v1.contents_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/contents/{+path}";
-v1.compare_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/compare/{base}...{head}";
-v1.merges_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/merges";
-v1.archive_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/{archive_format}{/ref}";
-v1.downloads_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/downloads";
-v1.issues_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/issues{/number}";
-v1.pulls_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/pulls{/number}";
-v1.milestones_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/milestones{/number}";
-v1.notifications_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/notifications{?since,all,participating}";
-v1.labels_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/labels{/name}";
-v1.releases_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/releases{/id}";
-v1.deployments_url = "https://api.github.com/repos/octocat/boysenberry-repo-1/deployments";
+v1.blobs_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/git/blobs{/sha}";
+v1.git_tags_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/git/tags{/sha}";
+v1.git_refs_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/git/refs{/sha}";
+v1.trees_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/git/trees{/sha}";
+v1.statuses_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/statuses/{sha}";
+v1.languages_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/languages";
+v1.stargazers_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/stargazers";
+v1.contributors_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/contributors";
+v1.subscribers_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/subscribers";
+v1.subscription_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/subscription";
+v1.commits_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/commits{/sha}";
+v1.git_commits_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/git/commits{/sha}";
+v1.comments_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/comments{/number}";
+v1.issue_comment_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/issues/comments{/number}";
+v1.contents_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/contents/{+path}";
+v1.compare_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/compare/{base}...{head}";
+v1.merges_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/merges";
+v1.archive_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/{archive_format}{/ref}";
+v1.downloads_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/downloads";
+v1.issues_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/issues{/number}";
+v1.pulls_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/pulls{/number}";
+v1.milestones_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/milestones{/number}";
+v1.notifications_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/notifications{?since,all,participating}";
+v1.labels_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/labels{/name}";
+v1.releases_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/releases{/id}";
+v1.deployments_url =
+  "https://api.github.com/repos/octocat/boysenberry-repo-1/deployments";
 v1.created_at = "2018-05-10T17:51:29Z";
 v1.updated_at = "2025-05-24T02:01:19Z";
 v1.pushed_at = "2024-05-26T07:02:05Z";
@@ -227,12 +265,22 @@ const v2 = `{"id":132935648,"node_id":"MDEwOlJlcG9zaXRvcnkxMzI5MzU2NDg=","name":
 expect(JSON.stringify(v1)).toBe(v2);
 expect(JSON.stringify(JSON.parse<Repo>(v2))).toBe(v2);
 
-bench("Serialize Large API Response", () => {
-  blackbox(inline.always(JSON.stringify(v1)));
-}, 10_000, 10502);
-dumpToFile("large", "serialize")
+bench(
+  "Serialize Large API Response",
+  () => {
+    blackbox(inline.always(JSON.stringify(v1)));
+  },
+  10_000,
+  10502,
+);
+dumpToFile("large", "serialize");
 
-bench("Deserialize Large API Response", () => {
-  blackbox(inline.always(JSON.parse<Repo>(v2)));
-}, 10_000, 10502);
-dumpToFile("large", "deserialize")
+bench(
+  "Deserialize Large API Response",
+  () => {
+    blackbox(inline.always(JSON.parse<Repo>(v2)));
+  },
+  10_000,
+  10502,
+);
+dumpToFile("large", "deserialize");

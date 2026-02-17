@@ -1,10 +1,13 @@
 import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
-import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables";
+import {
+  DESERIALIZE_ESCAPE_TABLE,
+  ESCAPE_HEX_TABLE,
+} from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
 
 // @ts-expect-error: @lazy is a valid decorator
-@lazy const SPLAT_5C = i16x8.splat(0x5C); // \
+@lazy const SPLAT_5C = i16x8.splat(0x5c); // \
 
 // Overflow Pattern for Unicode Escapes (READ)
 // \u0001        0  \u0001__|      + 0
@@ -52,7 +55,6 @@ import { hex4_to_u16_swar } from "../../util/swar";
 // -------\n      14 -------*|     + 0
 // Formula: overflow = lane - 14
 
-
 /**
  * Deserializes strings back into into their original form using SIMD operations
  * @param src string to deserialize
@@ -96,7 +98,7 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
       if (code !== 0x75) {
         // Short escapes (\n \t \" \\)
         const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-        mask &= mask - i32(escaped === 0x5C);
+        mask &= mask - i32(escaped === 0x5c);
         store<u16>(bs.offset, escaped);
         store<v128>(bs.offset, load<v128>(srcIdx, 4), 2);
 
@@ -135,7 +137,7 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
     srcStart += 2;
 
     // Early exit
-    if (block !== 0x5C) {
+    if (block !== 0x5c) {
       bs.offset += 2;
       continue;
     }

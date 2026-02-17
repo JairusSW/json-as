@@ -11,9 +11,10 @@ console.log("Serialized: " + serialized);
 const deserialized = JSON.parse<Set<string>>(serialized);
 console.log("Deserialized: " + JSON.stringify(deserialized));
 
+
 @json
 class SetClass {
-    constructor(public items: Set<string>) {}
+  constructor(public items: Set<string>) {}
 }
 
 const setClass = new SetClass(s);

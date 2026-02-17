@@ -6,13 +6,19 @@ describe("Should serialize integer static arrays", () => {
 
   expect(JSON.stringify<StaticArray<u64>>([0, 100, 101])).toBe("[0,100,101]");
 
-  expect(JSON.stringify<StaticArray<i32>>([0, 100, 101, -100, -101])).toBe("[0,100,101,-100,-101]");
+  expect(JSON.stringify<StaticArray<i32>>([0, 100, 101, -100, -101])).toBe(
+    "[0,100,101,-100,-101]",
+  );
 
-  expect(JSON.stringify<StaticArray<i64>>([0, 100, 101, -100, -101])).toBe("[0,100,101,-100,-101]");
+  expect(JSON.stringify<StaticArray<i64>>([0, 100, 101, -100, -101])).toBe(
+    "[0,100,101,-100,-101]",
+  );
 });
 
 describe("Should serialize float static arrays", () => {
-  expect(JSON.stringify<StaticArray<f64>>([7.23, 1000.0, 0.0])).toBe("[7.23,1000.0,0.0]");
+  expect(JSON.stringify<StaticArray<f64>>([7.23, 1000.0, 0.0])).toBe(
+    "[7.23,1000.0,0.0]",
+  );
 });
 
 describe("Should serialize boolean static arrays", () => {
@@ -20,7 +26,9 @@ describe("Should serialize boolean static arrays", () => {
 });
 
 describe("Should serialize string static arrays", () => {
-  expect(JSON.stringify<StaticArray<string>>(["hello", "world"])).toBe('["hello","world"]');
+  expect(JSON.stringify<StaticArray<string>>(["hello", "world"])).toBe(
+    '["hello","world"]',
+  );
 });
 
 describe("Should serialize empty static arrays", () => {
@@ -80,7 +88,10 @@ describe("Should round-trip static arrays", () => {
 });
 
 describe("Should serialize nested static arrays", () => {
-  const nested: StaticArray<StaticArray<i32>> = [[1, 2], [3, 4]];
+  const nested: StaticArray<StaticArray<i32>> = [
+    [1, 2],
+    [3, 4],
+  ];
   expect(JSON.stringify(nested)).toBe("[[1,2],[3,4]]");
 });
 
@@ -95,12 +106,19 @@ describe("Should deserialize nested static arrays", () => {
 });
 
 describe("Should serialize object static arrays", () => {
-  const arr: StaticArray<Vec3> = [{ x: 1.0, y: 2.0, z: 3.0 }, { x: 4.0, y: 5.0, z: 6.0 }];
-  expect(JSON.stringify(arr)).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]');
+  const arr: StaticArray<Vec3> = [
+    { x: 1.0, y: 2.0, z: 3.0 },
+    { x: 4.0, y: 5.0, z: 6.0 },
+  ];
+  expect(JSON.stringify(arr)).toBe(
+    '[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]',
+  );
 });
 
 describe("Should deserialize object static arrays", () => {
-  const arr = JSON.parse<StaticArray<Vec3>>('[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]');
+  const arr = JSON.parse<StaticArray<Vec3>>(
+    '[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]',
+  );
   expect(arr.length).toBe(2);
   expect(arr[0].x).toBe(1.0);
   expect(arr[0].y).toBe(2.0);
@@ -109,6 +127,7 @@ describe("Should deserialize object static arrays", () => {
   expect(arr[1].y).toBe(5.0);
   expect(arr[1].z).toBe(6.0);
 });
+
 
 @json
 class Vec3 {

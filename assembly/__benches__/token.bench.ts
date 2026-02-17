@@ -10,22 +10,30 @@ import { expect } from "../__tests__/lib";
   return (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
 }
 
+
 @json
 class Token {
   uid: u32 = 256;
   token: string = "dewf32df@#G43g3Gs!@3sdfDS#2";
 
-  __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
+  __DESERIALIZE<__JSON_T>(
+    srcStart: usize,
+    srcEnd: usize,
+    out: __JSON_T,
+  ): __JSON_T {
     do {
       // Minimum size: {"uid":0,"token":""} = 20 chars = 40 bytes
       if (srcEnd - srcStart <= 40) break;
 
       // --- Field 0: validate {"uid": at srcStart (7 chars = 14 bytes) ---
-      if (!(
-        load<u64>(srcStart, 0) == 0x6900750022007b &&  // {"ui
-        load<u32>(srcStart, 8) == 0x220064 &&           // d"
-        load<u16>(srcStart, 12) == 58                   // :
-      )) break;
+      if (
+        !(
+          load<u64>(srcStart, 0) == 0x6900750022007b && // {"ui
+          load<u32>(srcStart, 8) == 0x220064 && // d"
+          load<u16>(srcStart, 12) == 58 // :
+        )
+      )
+        break;
       srcStart += 14;
 
       // Parse uid (u32) inline: scan digits until non-digit
@@ -40,17 +48,20 @@ class Token {
       }
 
       // --- Field 1: validate ,"token": at srcStart (9 chars = 18 bytes) ---
-      if (!(
-        load<u64>(srcStart, 0) == 0x6f00740022002c &&   // ,"to
-        load<u64>(srcStart, 8) == 0x22006e0065006b &&    // ken"
-        load<u16>(srcStart, 16) == 58                    // :
-      )) break;
+      if (
+        !(
+          load<u64>(srcStart, 0) == 0x6f00740022002c && // ,"to
+          load<u64>(srcStart, 8) == 0x22006e0065006b && // ken"
+          load<u16>(srcStart, 16) == 58 // :
+        )
+      )
+        break;
       srcStart += 18;
 
       // Parse string value inline: skip opening ", find closing " via SWAR, then memory.copy
       {
         if (load<u16>(srcStart) != 34) break; // expect opening "
-        
+
         const strStart = srcStart + 2; // past opening "
         srcStart += 2;
 
@@ -71,9 +82,15 @@ class Token {
         srcStart += 2; // skip closing "
 
         // Reuse existing string if same byte length, otherwise allocate
-        let existing = load<usize>(changetype<usize>(out), offsetof<this>("token"));
+        let existing = load<usize>(
+          changetype<usize>(out),
+          offsetof<this>("token"),
+        );
         let strPtr: usize;
-        if (existing != 0 && changetype<OBJECT>(existing - TOTAL_OVERHEAD).rtSize == strLen) {
+        if (
+          existing != 0 &&
+          changetype<OBJECT>(existing - TOTAL_OVERHEAD).rtSize == strLen
+        ) {
           strPtr = existing;
         } else {
           strPtr = __new(strLen, idof<string>());
@@ -98,9 +115,14 @@ expect(JSON.stringify(JSON.parse<Token>(objStr))).toBe(objStr);
 
 const objStrEnd = changetype<usize>(objStr) + (objStr.length << 1);
 
-bench("Deserialize Token Object", () => {
+bench(
+  "Deserialize Token Object",
+  () => {
     blackbox<Token>(JSON.parse<Token>(objStr));
     // @ts-ignore
     // tok.__DESERIALIZE<Token>(changetype<usize>(objStr), objStrEnd, tok);
-}, 10_000_000, objStr.length << 1);
+  },
+  10_000_000,
+  objStr.length << 1,
+);
 dumpToFile("token", "deserialize");

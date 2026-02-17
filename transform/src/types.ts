@@ -1,4 +1,18 @@
-import { ClassDeclaration, Expression, FieldDeclaration, Source, NodeKind, Node, NamespaceDeclaration, DeclarationStatement, TypeName, Parser, ImportStatement, CommonFlags, EnumDeclaration } from "assemblyscript/dist/assemblyscript.js";
+import {
+  ClassDeclaration,
+  Expression,
+  FieldDeclaration,
+  Source,
+  NodeKind,
+  Node,
+  NamespaceDeclaration,
+  DeclarationStatement,
+  TypeName,
+  Parser,
+  ImportStatement,
+  CommonFlags,
+  EnumDeclaration,
+} from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
 import { stripNull } from "./index.js";
 
@@ -14,7 +28,10 @@ export class Property {
   public alias: string | null = null;
   public type: string = "";
   public value: string | null = null;
-  public flags: Map<PropertyFlags, Expression | null> = new Map<PropertyFlags, Expression | null>();
+  public flags: Map<PropertyFlags, Expression | null> = new Map<
+    PropertyFlags,
+    Expression | null
+  >();
   public node!: FieldDeclaration;
   public byteSize: number = 0;
   public _generic: boolean = false;
@@ -25,7 +42,10 @@ export class Property {
   }
   get custom(): boolean {
     if (this._custom) return true;
-    if (this.parent.node.isGeneric && this.parent.node.typeParameters.some((p) => p.name.text == this.type)) {
+    if (
+      this.parent.node.isGeneric &&
+      this.parent.node.typeParameters.some((p) => p.name.text == this.type)
+    ) {
       // console.log("Custom (Generic): " + this.name);
       // this._generic = true;
       this._custom = true;
@@ -46,7 +66,12 @@ export class Property {
   }
   get generic(): boolean {
     if (this._generic) return true;
-    if (this.parent.node.isGeneric && this.parent.node.typeParameters.some((p) => p.name.text == stripNull(this.type))) {
+    if (
+      this.parent.node.isGeneric &&
+      this.parent.node.typeParameters.some(
+        (p) => p.name.text == stripNull(this.type),
+      )
+    ) {
       // console.log("Generic: " + this.name);
       this._generic = true;
       return true;
@@ -102,7 +127,10 @@ export class Src {
   public aliases: TypeAlias[];
   public exports: Schema[] = [];
   public imports: ImportStatement[] = [];
-  private nodeMap: Map<Node, NamespaceDeclaration[]> = new Map<Node, NamespaceDeclaration[]>();
+  private nodeMap: Map<Node, NamespaceDeclaration[]> = new Map<
+    Node,
+    NamespaceDeclaration[]
+  >();
   private classes: Record<string, ClassDeclaration> = {};
   private enums: Record<string, EnumDeclaration> = {};
 
@@ -127,20 +155,25 @@ export class Src {
         case NodeKind.NamespaceDeclaration:
           // eslint-disable-next-line no-case-declarations
           const namespaceDeclaration = node as NamespaceDeclaration;
-          this.traverse(namespaceDeclaration.members, [...path, namespaceDeclaration]);
+          this.traverse(namespaceDeclaration.members, [
+            ...path,
+            namespaceDeclaration,
+          ]);
           break;
         case NodeKind.ClassDeclaration:
-        // eslint-disable-next-line no-case-declarations
+          // eslint-disable-next-line no-case-declarations
           const classDeclaration = node as ClassDeclaration;
-          this.classes[this.qualifiedName(classDeclaration, path)] = classDeclaration;
+          this.classes[this.qualifiedName(classDeclaration, path)] =
+            classDeclaration;
           break;
         case NodeKind.EnumDeclaration:
-        // eslint-disable-next-line no-case-declarations
+          // eslint-disable-next-line no-case-declarations
           const enumDeclaration = node as EnumDeclaration;
-          this.enums[this.qualifiedName(enumDeclaration, path)] = enumDeclaration;
+          this.enums[this.qualifiedName(enumDeclaration, path)] =
+            enumDeclaration;
           break;
         case NodeKind.Import:
-        // eslint-disable-next-line no-case-declarations
+          // eslint-disable-next-line no-case-declarations
           const importStatement = node as ImportStatement;
           this.imports.push(importStatement);
           break;
@@ -182,9 +215,14 @@ export class Src {
    * @param parser AssemblyScript parser.
    * @returns Class declaration or null if not found.
    */
-  getImportedClass(qualifiedName: string, parser: Parser): ClassDeclaration | null {
+  getImportedClass(
+    qualifiedName: string,
+    parser: Parser,
+  ): ClassDeclaration | null {
     for (const stmt of this.imports) {
-      const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
+      const externalSource = parser.sources
+        .filter((src) => src.internalPath != this.internalPath)
+        .find((src) => src.internalPath == stmt.internalPath);
       if (!externalSource) continue;
 
       const source = this.sourceSet.get(externalSource);
@@ -202,9 +240,14 @@ export class Src {
    * @param parser AssemblyScript parser.
    * @returns Enum declaration or null if not found.
    */
-  getImportedEnum(qualifiedName: string, parser: Parser): EnumDeclaration | null {
+  getImportedEnum(
+    qualifiedName: string,
+    parser: Parser,
+  ): EnumDeclaration | null {
     for (const stmt of this.imports) {
-      const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
+      const externalSource = parser.sources
+        .filter((src) => src.internalPath != this.internalPath)
+        .find((src) => src.internalPath == stmt.internalPath);
       if (!externalSource) continue;
 
       const source = this.sourceSet.get(externalSource);
@@ -268,8 +311,13 @@ export class Src {
    * @param parents Array of namespace parents.
    * @returns Qualified name
    */
-  private qualifiedName(node: DeclarationStatement, parents: NamespaceDeclaration[]): string {
-    return parents?.length ? parents.map((p) => p.name.text).join(".") + "." + node.name.text : node.name.text;
+  private qualifiedName(
+    node: DeclarationStatement,
+    parents: NamespaceDeclaration[],
+  ): string {
+    return parents?.length
+      ? parents.map((p) => p.name.text).join(".") + "." + node.name.text
+      : node.name.text;
   }
 
   /**

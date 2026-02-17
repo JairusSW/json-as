@@ -47,7 +47,9 @@ class Bar {
 }
 
 describe("Should resolve imported schemas", () => {
-  expect(JSON.stringify(player)).toBe('{"age":18,"pos":{"x":3.4,"y":1.2,"z":8.3},"first name":"Jairus","lastName":"Tanaka","lastActive":[3,9,2025],"isVerified":true}');
+  expect(JSON.stringify(player)).toBe(
+    '{"age":18,"pos":{"x":3.4,"y":1.2,"z":8.3},"first name":"Jairus","lastName":"Tanaka","lastActive":[3,9,2025],"isVerified":true}',
+  );
 });
 
 describe("Should resolve local schemas", () => {

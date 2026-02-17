@@ -11,6 +11,10 @@ import { bytes } from "../../util";
 @inline export function serializeRaw(data: JSON.Raw): void {
   const dataSize = bytes(data.data);
   bs.proposeSize(dataSize);
-  memory.copy(changetype<usize>(bs.offset), changetype<usize>(data.data), dataSize);
+  memory.copy(
+    changetype<usize>(bs.offset),
+    changetype<usize>(data.data),
+    dataSize,
+  );
   bs.offset += dataSize;
 }

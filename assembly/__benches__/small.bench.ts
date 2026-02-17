@@ -2,6 +2,7 @@ import { JSON } from "..";
 import { expect } from "../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
+
 @json
 class SessionStatusResponse {
   authenticated!: boolean;
@@ -31,9 +32,9 @@ bench(
     blackbox(inline.always(JSON.stringify<SessionStatusResponse>(v1)));
   },
   5_000_000,
-  byteLength
+  byteLength,
 );
-dumpToFile("small", "serialize")
+dumpToFile("small", "serialize");
 
 bench(
   "Deserialize Small API Response",
@@ -41,6 +42,6 @@ bench(
     blackbox(inline.always(JSON.parse<SessionStatusResponse>(v2)));
   },
   5_000_000,
-  byteLength
+  byteLength,
 );
-dumpToFile("small", "deserialize")
+dumpToFile("small", "deserialize");

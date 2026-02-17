@@ -3,7 +3,7 @@ import {
   createBarChart,
   generateChart,
   type BenchKind,
-  BenchResult
+  BenchResult,
 } from "./lib/bench-utils";
 
 const PAYLOADS: Record<string, string> = {
@@ -12,7 +12,7 @@ const PAYLOADS: Record<string, string> = {
   vec3: "3D Vector\n     (38b)",
   small: "Small Payload\n       (216b)",
   medium: "Medium Payload\n        (2.1kb)",
-  large: "Large Payload\n      (10.5kb)"
+  large: "Large Payload\n      (10.5kb)",
 };
 
 const KIND: BenchKind = "serialize";
@@ -34,8 +34,8 @@ const config = createBarChart(chartData, PAYLOADS, {
     "Built-in JSON (JS)",
     "JSON-AS (NAIVE)",
     "JSON-AS (SWAR)",
-    "JSON-AS (SIMD)"
-  ]
+    "JSON-AS (SIMD)",
+  ],
 });
 
 generateChart(config, OUTPUT_FILE);

@@ -2,8 +2,14 @@ import { isSpace } from "../../../util";
 import { COMMA, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON } from "../../..";
 
-export function deserializeBoxArray<T extends JSON.Box<any>[]>(srcStart: usize, srcEnd: usize, dst: usize): T {
-  const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
+export function deserializeBoxArray<T extends JSON.Box<any>[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
+  const out = changetype<nonnull<T>>(
+    dst || changetype<usize>(instantiate<T>()),
+  );
   if (isBoolean<valueof<T>>()) {
     srcStart += 2; // skip [
     while (srcStart < srcEnd) {

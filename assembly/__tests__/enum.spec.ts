@@ -20,7 +20,9 @@ class DataWithEnum {
 describe("Should serialize enums", () => {
   expect(JSON.stringify<Enum1>(Enum1.One)).toBe("1");
   expect(JSON.stringify<Enum1>(Enum1.Zero)).toBe("0");
-  expect(JSON.stringify<DataWithEnum>(new DataWithEnum(Enum1.Two))).toBe('{"v":2}');
+  expect(JSON.stringify<DataWithEnum>(new DataWithEnum(Enum1.Two))).toBe(
+    '{"v":2}',
+  );
 });
 
 describe("Should deserialize enums", () => {

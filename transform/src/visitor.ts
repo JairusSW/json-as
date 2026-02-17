@@ -1,4 +1,85 @@
-import { ArrayLiteralExpression, AssertionExpression, BinaryExpression, CallExpression, ElementAccessExpression, FloatLiteralExpression, FunctionTypeNode, IdentifierExpression, NamedTypeNode, Node, ObjectLiteralExpression, Source, TypeParameterNode, BlockStatement, BreakStatement, ClassDeclaration, ClassExpression, CommaExpression, ContinueStatement, DecoratorNode, DoStatement, EmptyStatement, EnumDeclaration, EnumValueDeclaration, ExportDefaultStatement, ExportImportStatement, ExportMember, ExportStatement, ExpressionStatement, FieldDeclaration, ForStatement, FunctionDeclaration, FunctionExpression, IfStatement, ImportDeclaration, ImportStatement, IndexSignatureNode, InstanceOfExpression, IntegerLiteralExpression, InterfaceDeclaration, LiteralExpression, MethodDeclaration, NamespaceDeclaration, NewExpression, ParameterNode, ParenthesizedExpression, PropertyAccessExpression, RegexpLiteralExpression, ReturnStatement, StringLiteralExpression, SwitchCase, SwitchStatement, TemplateLiteralExpression, TernaryExpression, ThrowStatement, TryStatement, TypeDeclaration, TypeName, UnaryPostfixExpression, UnaryPrefixExpression, VariableDeclaration, VariableStatement, WhileStatement, NodeKind, TypeNode, LiteralKind, UnaryExpression, SuperExpression, FalseExpression, TrueExpression, ThisExpression, NullExpression, ConstructorExpression, Statement, VoidStatement, CompiledExpression, CommentNode, OmittedExpression, ForOfStatement, ModuleDeclaration } from "assemblyscript/dist/assemblyscript.js";
+import {
+  ArrayLiteralExpression,
+  AssertionExpression,
+  BinaryExpression,
+  CallExpression,
+  ElementAccessExpression,
+  FloatLiteralExpression,
+  FunctionTypeNode,
+  IdentifierExpression,
+  NamedTypeNode,
+  Node,
+  ObjectLiteralExpression,
+  Source,
+  TypeParameterNode,
+  BlockStatement,
+  BreakStatement,
+  ClassDeclaration,
+  ClassExpression,
+  CommaExpression,
+  ContinueStatement,
+  DecoratorNode,
+  DoStatement,
+  EmptyStatement,
+  EnumDeclaration,
+  EnumValueDeclaration,
+  ExportDefaultStatement,
+  ExportImportStatement,
+  ExportMember,
+  ExportStatement,
+  ExpressionStatement,
+  FieldDeclaration,
+  ForStatement,
+  FunctionDeclaration,
+  FunctionExpression,
+  IfStatement,
+  ImportDeclaration,
+  ImportStatement,
+  IndexSignatureNode,
+  InstanceOfExpression,
+  IntegerLiteralExpression,
+  InterfaceDeclaration,
+  LiteralExpression,
+  MethodDeclaration,
+  NamespaceDeclaration,
+  NewExpression,
+  ParameterNode,
+  ParenthesizedExpression,
+  PropertyAccessExpression,
+  RegexpLiteralExpression,
+  ReturnStatement,
+  StringLiteralExpression,
+  SwitchCase,
+  SwitchStatement,
+  TemplateLiteralExpression,
+  TernaryExpression,
+  ThrowStatement,
+  TryStatement,
+  TypeDeclaration,
+  TypeName,
+  UnaryPostfixExpression,
+  UnaryPrefixExpression,
+  VariableDeclaration,
+  VariableStatement,
+  WhileStatement,
+  NodeKind,
+  TypeNode,
+  LiteralKind,
+  UnaryExpression,
+  SuperExpression,
+  FalseExpression,
+  TrueExpression,
+  ThisExpression,
+  NullExpression,
+  ConstructorExpression,
+  Statement,
+  VoidStatement,
+  CompiledExpression,
+  CommentNode,
+  OmittedExpression,
+  ForOfStatement,
+  ModuleDeclaration,
+} from "assemblyscript/dist/assemblyscript.js";
 
 export class Visitor {
   public currentSource: Source | null = null;
@@ -66,7 +147,10 @@ export class Visitor {
         this.visitParenthesizedExpression(node as ParenthesizedExpression, ref);
         break;
       case NodeKind.PropertyAccess:
-        this.visitPropertyAccessExpression(node as PropertyAccessExpression, ref);
+        this.visitPropertyAccessExpression(
+          node as PropertyAccessExpression,
+          ref,
+        );
         break;
       case NodeKind.Ternary:
         this.visitTernaryExpression(node as TernaryExpression, ref);
@@ -150,13 +234,21 @@ export class Visitor {
         this.visitImportDeclaration(node as ImportDeclaration, ref);
         break;
       case NodeKind.InterfaceDeclaration:
-        this.visitInterfaceDeclaration(node as InterfaceDeclaration, false, ref);
+        this.visitInterfaceDeclaration(
+          node as InterfaceDeclaration,
+          false,
+          ref,
+        );
         break;
       case NodeKind.MethodDeclaration:
         this.visitMethodDeclaration(node as MethodDeclaration, ref);
         break;
       case NodeKind.NamespaceDeclaration:
-        this.visitNamespaceDeclaration(node as NamespaceDeclaration, false, ref);
+        this.visitNamespaceDeclaration(
+          node as NamespaceDeclaration,
+          false,
+          ref,
+        );
         break;
       case NodeKind.TypeDeclaration:
         this.visitTypeDeclaration(node as TypeDeclaration, ref);
@@ -245,7 +337,10 @@ export class Visitor {
     this.visit(node.name, node);
     this.visit(node.typeArguments, node);
   }
-  visitFunctionTypeNode(node: FunctionTypeNode, _ref: Node | null = null): void {
+  visitFunctionTypeNode(
+    node: FunctionTypeNode,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.parameters, node);
     this.visit(node.returnType, node);
     this.visit(node.explicitThisType, node);
@@ -255,19 +350,34 @@ export class Visitor {
     this.visit(node.extendsType, node);
     this.visit(node.defaultType, node);
   }
-  visitIdentifierExpression(_node: IdentifierExpression, _ref: Node | null = null): void {}
-  visitArrayLiteralExpression(node: ArrayLiteralExpression, _ref: Node | null = null): void {
+  visitIdentifierExpression(
+    _node: IdentifierExpression,
+    _ref: Node | null = null,
+  ): void {}
+  visitArrayLiteralExpression(
+    node: ArrayLiteralExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.elementExpressions, node);
   }
-  visitObjectLiteralExpression(node: ObjectLiteralExpression, _ref: Node | null = null): void {
+  visitObjectLiteralExpression(
+    node: ObjectLiteralExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.names, node);
     this.visit(node.values, node);
   }
-  visitAssertionExpression(node: AssertionExpression, _ref: Node | null = null): void {
+  visitAssertionExpression(
+    node: AssertionExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.toType, node);
     this.visit(node.expression, node);
   }
-  visitBinaryExpression(node: BinaryExpression, _ref: Node | null = null): void {
+  visitBinaryExpression(
+    node: BinaryExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.left, node);
     this.visit(node.right, node);
   }
@@ -282,14 +392,23 @@ export class Visitor {
   visitCommaExpression(node: CommaExpression, _ref: Node | null = null): void {
     this.visit(node.expressions, node);
   }
-  visitElementAccessExpression(node: ElementAccessExpression, _ref: Node | null = null): void {
+  visitElementAccessExpression(
+    node: ElementAccessExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.elementExpression, node);
     this.visit(node.expression, node);
   }
-  visitFunctionExpression(node: FunctionExpression, _ref: Node | null = null): void {
+  visitFunctionExpression(
+    node: FunctionExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.declaration, node);
   }
-  visitLiteralExpression(node: LiteralExpression, _ref: Node | null = null): void {
+  visitLiteralExpression(
+    node: LiteralExpression,
+    _ref: Node | null = null,
+  ): void {
     switch (node.literalKind) {
       case LiteralKind.Float:
         this.visitFloatLiteralExpression(node as FloatLiteralExpression);
@@ -313,31 +432,61 @@ export class Visitor {
         this.visitObjectLiteralExpression(node as ObjectLiteralExpression);
         break;
       default:
-        throw new Error("Invalid LiteralKind at visitLiteralExpression(): " + node.literalKind);
+        throw new Error(
+          "Invalid LiteralKind at visitLiteralExpression(): " +
+            node.literalKind,
+        );
     }
   }
-  visitFloatLiteralExpression(_node: FloatLiteralExpression, _ref: Node | null = null): void {}
-  visitInstanceOfExpression(node: InstanceOfExpression, _ref: Node | null = null): void {
+  visitFloatLiteralExpression(
+    _node: FloatLiteralExpression,
+    _ref: Node | null = null,
+  ): void {}
+  visitInstanceOfExpression(
+    node: InstanceOfExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.expression, node);
     this.visit(node.isType, node);
   }
-  visitIntegerLiteralExpression(_node: IntegerLiteralExpression, _ref: Node | null = null): void {}
-  visitStringLiteralExpression(_node: StringLiteralExpression, _ref: Node | null = null): void {}
-  visitTemplateLiteralExpression(_node: TemplateLiteralExpression, _ref: Node | null = null): void {}
-  visitRegexpLiteralExpression(_node: RegexpLiteralExpression, _ref: Node | null = null): void {}
+  visitIntegerLiteralExpression(
+    _node: IntegerLiteralExpression,
+    _ref: Node | null = null,
+  ): void {}
+  visitStringLiteralExpression(
+    _node: StringLiteralExpression,
+    _ref: Node | null = null,
+  ): void {}
+  visitTemplateLiteralExpression(
+    _node: TemplateLiteralExpression,
+    _ref: Node | null = null,
+  ): void {}
+  visitRegexpLiteralExpression(
+    _node: RegexpLiteralExpression,
+    _ref: Node | null = null,
+  ): void {}
   visitNewExpression(node: NewExpression, _ref: Node | null = null): void {
     this.visit(node.typeName, node);
     this.visit(node.typeArguments, node);
     this.visit(node.args, node);
   }
-  visitParenthesizedExpression(node: ParenthesizedExpression, _ref: Node | null = null): void {
+  visitParenthesizedExpression(
+    node: ParenthesizedExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.expression, node);
   }
-  visitPropertyAccessExpression(node: PropertyAccessExpression, _ref: Node | null = null): void {
+  visitPropertyAccessExpression(
+    node: PropertyAccessExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.property, node);
     this.visit(node.expression, node);
   }
-  visitTernaryExpression(node: TernaryExpression, _ref: Node | null = null): void {
+  visitTernaryExpression(
+    node: TernaryExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.condition, node);
     this.visit(node.ifThen, node);
     this.visit(node.ifElse, node);
@@ -345,38 +494,67 @@ export class Visitor {
   visitUnaryExpression(node: UnaryExpression, _ref: Node | null = null): void {
     this.visit(node.operand, node);
   }
-  visitUnaryPostfixExpression(node: UnaryPostfixExpression, _ref: Node | null = null): void {
+  visitUnaryPostfixExpression(
+    node: UnaryPostfixExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.operand, node);
   }
-  visitUnaryPrefixExpression(node: UnaryPrefixExpression, _ref: Node | null = null): void {
+  visitUnaryPrefixExpression(
+    node: UnaryPrefixExpression,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.operand, node);
   }
-  visitSuperExpression(_node: SuperExpression, _ref: Node | null = null): void {}
-  visitFalseExpression(_node: FalseExpression, _ref: Node | null = null): void {}
+  visitSuperExpression(
+    _node: SuperExpression,
+    _ref: Node | null = null,
+  ): void {}
+  visitFalseExpression(
+    _node: FalseExpression,
+    _ref: Node | null = null,
+  ): void {}
   visitTrueExpression(_node: TrueExpression, _ref: Node | null = null): void {}
   visitThisExpression(_node: ThisExpression, _ref: Node | null = null): void {}
   visitNullExpression(_node: NullExpression, _ref: Node | null = null): void {}
-  visitConstructorExpression(_node: ConstructorExpression, _ref: Node | null = null): void {}
-  visitNodeAndTerminate(_statement: Statement, _ref: Node | null = null): void {}
+  visitConstructorExpression(
+    _node: ConstructorExpression,
+    _ref: Node | null = null,
+  ): void {}
+  visitNodeAndTerminate(
+    _statement: Statement,
+    _ref: Node | null = null,
+  ): void {}
   visitBlockStatement(node: BlockStatement, _ref: Node | null = null): void {
     this.visit(node.statements, node);
   }
   visitBreakStatement(node: BreakStatement, _ref: Node | null = null): void {
     this.visit(node.label, node);
   }
-  visitContinueStatement(node: ContinueStatement, _ref: Node | null = null): void {
+  visitContinueStatement(
+    node: ContinueStatement,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.label, node);
   }
-  visitClassDeclaration(node: ClassDeclaration, _isDefault: boolean = false, _ref: Node | null = null): void {
+  visitClassDeclaration(
+    node: ClassDeclaration,
+    _isDefault: boolean = false,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.name, node);
     this.visit(node.decorators, node);
-    if (node.isGeneric ? node.typeParameters != null : node.typeParameters == null) {
+    if (
+      node.isGeneric ? node.typeParameters != null : node.typeParameters == null
+    ) {
       this.visit(node.typeParameters, node);
       this.visit(node.extendsType, node);
       this.visit(node.implementsTypes, node);
       this.visit(node.members, node);
     } else {
-      throw new Error("Expected to type parameters to match class declaration, but found type mismatch instead!");
+      throw new Error(
+        "Expected to type parameters to match class declaration, but found type mismatch instead!",
+      );
     }
   }
   visitDoStatement(node: DoStatement, _ref: Node | null = null): void {
@@ -384,16 +562,26 @@ export class Visitor {
     this.visit(node.body, node);
   }
   visitEmptyStatement(_node: EmptyStatement, _ref: Node | null = null): void {}
-  visitEnumDeclaration(node: EnumDeclaration, _isDefault: boolean = false, _ref: Node | null = null): void {
+  visitEnumDeclaration(
+    node: EnumDeclaration,
+    _isDefault: boolean = false,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.name, node);
     this.visit(node.decorators, node);
     this.visit(node.values, node);
   }
-  visitEnumValueDeclaration(node: EnumValueDeclaration, _ref: Node | null = null): void {
+  visitEnumValueDeclaration(
+    node: EnumValueDeclaration,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.name, node);
     this.visit(node.initializer, node);
   }
-  visitExportImportStatement(node: ExportImportStatement, _ref: Node | null = null): void {
+  visitExportImportStatement(
+    node: ExportImportStatement,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.name, node);
     this.visit(node.externalName, node);
   }
@@ -405,13 +593,22 @@ export class Visitor {
     this.visit(node.path, node);
     this.visit(node.members, node);
   }
-  visitExportDefaultStatement(node: ExportDefaultStatement, _ref: Node | null = null): void {
+  visitExportDefaultStatement(
+    node: ExportDefaultStatement,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.declaration, node);
   }
-  visitExpressionStatement(node: ExpressionStatement, ref: Node | null = null): void {
+  visitExpressionStatement(
+    node: ExpressionStatement,
+    ref: Node | null = null,
+  ): void {
     this.visit(node.expression, ref);
   }
-  visitFieldDeclaration(node: FieldDeclaration, _ref: Node | null = null): void {
+  visitFieldDeclaration(
+    node: FieldDeclaration,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.name, node);
     this.visit(node.type, node);
     this.visit(node.initializer, node);
@@ -423,7 +620,11 @@ export class Visitor {
     this.visit(node.incrementor, node);
     this.visit(node.body, node);
   }
-  visitFunctionDeclaration(node: FunctionDeclaration, _isDefault: boolean = false, _ref: Node | null = null): void {
+  visitFunctionDeclaration(
+    node: FunctionDeclaration,
+    _isDefault: boolean = false,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.name, node);
     this.visit(node.decorators, node);
     this.visit(node.typeParameters, node);
@@ -435,7 +636,10 @@ export class Visitor {
     this.visit(node.ifTrue, node);
     this.visit(node.ifFalse, node);
   }
-  visitImportDeclaration(node: ImportDeclaration, _ref: Node | null = null): void {
+  visitImportDeclaration(
+    node: ImportDeclaration,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.foreignName, node);
     this.visit(node.name, node);
     this.visit(node.decorators, node);
@@ -444,25 +648,39 @@ export class Visitor {
     this.visit(node.namespaceName, node);
     this.visit(node.declarations, node);
   }
-  visitIndexSignature(node: IndexSignatureNode, _ref: Node | null = null): void {
+  visitIndexSignature(
+    node: IndexSignatureNode,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.keyType, node);
     this.visit(node.valueType, node);
   }
-  visitInterfaceDeclaration(node: InterfaceDeclaration, _isDefault: boolean = false, _ref: Node | null = null): void {
+  visitInterfaceDeclaration(
+    node: InterfaceDeclaration,
+    _isDefault: boolean = false,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.name, node);
     this.visit(node.typeParameters, node);
     this.visit(node.implementsTypes, node);
     this.visit(node.extendsType, node);
     this.visit(node.members, node);
   }
-  visitMethodDeclaration(node: MethodDeclaration, _ref: Node | null = null): void {
+  visitMethodDeclaration(
+    node: MethodDeclaration,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.name, node);
     this.visit(node.typeParameters, node);
     this.visit(node.signature, node);
     this.visit(node.decorators, node);
     this.visit(node.body, node);
   }
-  visitNamespaceDeclaration(node: NamespaceDeclaration, _isDefault: boolean = false, _ref: Node | null = null): void {
+  visitNamespaceDeclaration(
+    node: NamespaceDeclaration,
+    _isDefault: boolean = false,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.name, node);
     this.visit(node.decorators, node);
     this.visit(node.members, node);
@@ -493,12 +711,18 @@ export class Visitor {
     this.visit(node.type, node);
     this.visit(node.typeParameters, node);
   }
-  visitVariableDeclaration(node: VariableDeclaration, _ref: Node | null = null): void {
+  visitVariableDeclaration(
+    node: VariableDeclaration,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.name, node);
     this.visit(node.type, node);
     this.visit(node.initializer, node);
   }
-  visitVariableStatement(node: VariableStatement, _ref: Node | null = null): void {
+  visitVariableStatement(
+    node: VariableStatement,
+    _ref: Node | null = null,
+  ): void {
     this.visit(node.decorators, node);
     this.visit(node.declarations, node);
   }
@@ -518,12 +742,21 @@ export class Visitor {
     this.visit(node.initializer, node);
     this.visit(node.type, node);
   }
-  visitCompiledExpression(_node: CompiledExpression, _ref: Node | null = null): void {}
+  visitCompiledExpression(
+    _node: CompiledExpression,
+    _ref: Node | null = null,
+  ): void {}
   visitForOfStatement(node: ForOfStatement, _ref: Node | null = null): void {
     this.visit(node.body, node);
     this.visit(node.variable, node);
     this.visit(node.iterable, node);
   }
-  visitModuleDeclaration(_node: ModuleDeclaration, _ref: Node | null = null): void {}
-  visitOmittedExpression(_node: OmittedExpression, _ref: Node | null = null): void {}
+  visitModuleDeclaration(
+    _node: ModuleDeclaration,
+    _ref: Node | null = null,
+  ): void {}
+  visitOmittedExpression(
+    _node: OmittedExpression,
+    _ref: Node | null = null,
+  ): void {}
 }

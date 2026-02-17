@@ -15,7 +15,11 @@
  * @param str - Any number. Can include scientific notation.
  */
 // @ts-ignore: Decorator
-@inline export function snip_fast<T extends number>(str: string, len: u32 = 0, offset: u32 = 0): T {
+@inline export function snip_fast<T extends number>(
+  str: string,
+  len: u32 = 0,
+  offset: u32 = 0,
+): T {
   if (isSigned<T>()) {
     const firstChar: u32 = load<u16>(changetype<usize>(str));
     if (firstChar == 48) return 0 as T;
@@ -35,19 +39,31 @@
             // The first char (f) is E or e
             // We push the offset up by two and apply the notation.
             if (load<u16>(changetype<usize>(str) + <usize>offset + 2) == 45) {
-              return -(val / 10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
+              return -(
+                val /
+                10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)
+              ) as T;
             } else {
               // Inlined this operation instead of using a loop
-              return -(val * 10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)) as T;
+              return -(
+                val *
+                10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)
+              ) as T;
             }
           } else if (high > 57) {
             // The first char (f) is E or e
             // We push the offset up by two and apply the notation.
             if (load<u16>(changetype<usize>(str) + <usize>offset + 4) == 45) {
-              return -(val / 10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
+              return -(
+                val /
+                10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)
+              ) as T;
             } else {
               // Inlined this operation instead of using a loop
-              return -(val * 10 ** (__atoi_fast<u32>(str, offset + 4, offset + 6) + 1)) as T;
+              return -(
+                val *
+                10 ** (__atoi_fast<u32>(str, offset + 4, offset + 6) + 1)
+              ) as T;
             }
           } else {
             val = (val * 100 + (low - 48) * 10 + (high - 48)) as T;
@@ -62,10 +78,16 @@
           // The first char (f) is E or e
           // We push the offset up by two and apply the notation.
           if (load<u16>(changetype<usize>(str) + <usize>offset + 2) == 45) {
-            return -(val / 10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
+            return -(
+              val /
+              10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)
+            ) as T;
           } else {
             // Inlined this operation instead of using a loop
-            return -(val * 10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)) as T;
+            return -(
+              val *
+              10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)
+            ) as T;
           }
         } else {
           val = (val * 10 + (ch - 48)) as T;
@@ -84,17 +106,21 @@
             // The first char (f) is E or e
             // We push the offset up by two and apply the notation.
             if (load<u16>(changetype<usize>(str) + <usize>offset + 2) == 45) {
-              return (val / 10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
+              return (val /
+                10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
             } else {
               // Inlined this operation instead of using a loop
-              return (val * 10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)) as T;
+              return (val *
+                10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)) as T;
             }
           } else if (high > 57) {
             if (load<u16>(changetype<usize>(str) + <usize>offset + 4) == 45) {
-              return (val / 10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
+              return (val /
+                10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
             } else {
               // Inlined this operation instead of using a loop
-              return (val * 10 ** (__atoi_fast<u32>(str, offset + 4, offset + 6) + 1)) as T;
+              return (val *
+                10 ** (__atoi_fast<u32>(str, offset + 4, offset + 6) + 1)) as T;
             }
           } else {
             // Optimized with multiplications and shifts.
@@ -109,10 +135,12 @@
         // e is 101 and E is 69.
         if (ch > 57) {
           if (load<u16>(changetype<usize>(str) + <usize>offset + 2) == 45) {
-            val = (val / 10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
+            val = (val /
+              10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
           } else {
             // Inlined this operation instead of using a loop
-            val = (val * 10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)) as T;
+            val = (val *
+              10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)) as T;
           }
           return val as T;
         } else {
@@ -137,17 +165,21 @@
           // The first char (f) is E or e
           // We push the offset up by two and apply the notation.
           if (load<u16>(changetype<usize>(str) + <usize>offset + 2) == 45) {
-            return (val / 10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
+            return (val /
+              10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
           } else {
             // Inlined this operation instead of using a loop
-            return (val * 10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)) as T;
+            return (val *
+              10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)) as T;
           }
         } else if (high > 57) {
           if (load<u16>(changetype<usize>(str) + <usize>offset + 4) == 45) {
-            return (val / 10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
+            return (val /
+              10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
           } else {
             // Inlined this operation instead of using a loop
-            return (val * 10 ** (__atoi_fast<u32>(str, offset + 4, offset + 6) + 1)) as T;
+            return (val *
+              10 ** (__atoi_fast<u32>(str, offset + 4, offset + 6) + 1)) as T;
           }
         } else {
           // Optimized with multiplications and shifts.
@@ -162,10 +194,12 @@
       // e is 101 and E is 69.
       if (ch > 57) {
         if (load<u16>(changetype<usize>(str) + <usize>offset + 2) == 45) {
-          return (val / 10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
+          return (val /
+            10 ** (__atoi_fast<u32>(str, offset + 6, offset + 8) - 1)) as T;
         } else {
           // Inlined this operation instead of using a loop
-          return (val * 10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)) as T;
+          return (val *
+            10 ** (__atoi_fast<u32>(str, offset + 2, offset + 4) + 1)) as T;
         }
       } else {
         val = (val * 10 + (ch - 48)) as T;
@@ -180,7 +214,11 @@
  */
 
 // @ts-ignore
-@inline export function __atoi_fast<T extends number>(str: string, start: u32 = 0, end: u32 = 0): T {
+@inline export function __atoi_fast<T extends number>(
+  str: string,
+  start: u32 = 0,
+  end: u32 = 0,
+): T {
   // @ts-ignore
   let val: T = 0;
   if (!end) end = start + u32(str.length << 1);
@@ -189,18 +227,21 @@
     if (load<u16>(changetype<usize>(str) + <usize>start) == 45) {
       start += 2;
       for (; start < end; start += 2) {
-        val = (val * 10 + (load<u16>(changetype<usize>(str) + <usize>start) - 48)) as T;
+        val = (val * 10 +
+          (load<u16>(changetype<usize>(str) + <usize>start) - 48)) as T;
       }
       return -val as T;
     } else {
       for (; start < end; start += 2) {
-        val = (val * 10 + (load<u16>(changetype<usize>(str) + <usize>start) - 48)) as T;
+        val = (val * 10 +
+          (load<u16>(changetype<usize>(str) + <usize>start) - 48)) as T;
       }
       return val as T;
     }
   } else {
     for (; start < end; start += 2) {
-      val = (val * 10 + (load<u16>(changetype<usize>(str) + <usize>start) - 48)) as T;
+      val = (val * 10 +
+        (load<u16>(changetype<usize>(str) + <usize>start) - 48)) as T;
     }
     return val as T;
   }
@@ -267,7 +308,12 @@
 }
 
 // @ts-ignore
-@inline export function containsCodePoint(str: string, code: u32, start: i32, end: i32): bool {
+@inline export function containsCodePoint(
+  str: string,
+  code: u32,
+  start: i32,
+  end: i32,
+): bool {
   for (let i = start; i <= end; i++) {
     if (unsafeCharCodeAt(str, i) == code) return true;
   }

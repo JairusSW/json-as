@@ -7,6 +7,7 @@ export class ObjWithString {
 
 @json
 export class ObjWithStrangeKey<T> {
+
   @alias('a\\\t"\x02b`c')
   data!: T;
 }

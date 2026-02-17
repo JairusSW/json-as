@@ -67,13 +67,13 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
       const code = <u16>(header >> 16);
 
       // Detect false positive (code unit where low byte is 0x5C)
-      if ((header & 0xFFFF) !== 0x5C) continue;
+      if ((header & 0xffff) !== 0x5c) continue;
 
       // Hot path (negative bias)
       if (code !== 0x75) {
         // Short escapes (\n \t \" \\)
         const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-        mask &= mask - usize(escaped === 0x5C);
+        mask &= mask - usize(escaped === 0x5c);
         store<u16>(dstIdx, escaped);
         store<u32>(dstIdx, load<u32>(srcIdx, 4), 2);
 
@@ -90,7 +90,6 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
       // store<u64>(dstIdx, load<u32>(srcIdx, 12), 2);
       srcStart += 4 + laneIdx;
       bs.offset -= 6 - laneIdx;
-
     } while (mask !== 0);
 
     bs.offset += 8;
@@ -103,7 +102,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
     srcStart += 2;
 
     // Early exit
-    if (block !== 0x5C) {
+    if (block !== 0x5c) {
       bs.offset += 2;
       continue;
     }
@@ -141,11 +140,14 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
  */
 // @ts-expect-error: @inline is a valid decorator
 @inline function backslash_mask(block: u64): u64 {
-  const b = block ^ 0x005C_005C_005C_005C;
-  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
+  const b = block ^ 0x005c_005c_005c_005c;
+  const backslash_mask =
+    (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
   const high_byte_mask =
-    ~(((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000)
-      ^ 0x8000_8000_8000_8000) >> 8;
+    ~(
+      ((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^
+      0x8000_8000_8000_8000
+    ) >> 8;
   return backslash_mask & high_byte_mask;
 }
 
@@ -160,7 +162,8 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
  */
 // @ts-expect-error: @inline is a valid decorator
 @inline function backslash_mask_unsafe(block: u64): u64 {
-  const b = block ^ 0x005C_005C_005C_005C;
-  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
+  const b = block ^ 0x005c_005c_005c_005c;
+  const backslash_mask =
+    (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
   return backslash_mask;
 }

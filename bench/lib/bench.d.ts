@@ -10,7 +10,7 @@ export function bench(
   description: string,
   routine: () => void,
   ops?: number,
-  bytesPerOp?: number
+  bytesPerOp?: number,
 ): void;
 
 /**
