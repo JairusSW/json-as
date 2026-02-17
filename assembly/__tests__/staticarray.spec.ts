@@ -135,3 +135,38 @@ class Vec3 {
   y: f64 = 0.0;
   z: f64 = 0.0;
 }
+
+describe("Additional regression coverage - primitives and arrays", () => {
+  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe('"regression"');
+  expect(JSON.stringify(JSON.parse<i32>("-42"))).toBe("-42");
+  expect(JSON.stringify(JSON.parse<bool>("false"))).toBe("false");
+  expect(JSON.stringify(JSON.parse<f64>("3.5"))).toBe("3.5");
+  expect(JSON.stringify(JSON.parse<i32[]>("[1,2,3,4]"))).toBe("[1,2,3,4]");
+  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe(
+    '["a","b","c"]',
+  );
+});
+
+describe("Should support additional staticarray boundaries", () => {
+  const arr = JSON.parse<StaticArray<i32>>("[-1,0,1,2,3]");
+  expect(arr.length).toBe(5);
+  expect(arr[0]).toBe(-1);
+  expect(arr[4]).toBe(3);
+});
+
+describe("Should round-trip nested empty static arrays", () => {
+  const arr: StaticArray<StaticArray<i32>> = [[], [1], []];
+  const out = JSON.stringify(arr);
+  expect(out).toBe("[[],[1],[]]");
+  expect(JSON.stringify(JSON.parse<StaticArray<StaticArray<i32>>>(out))).toBe(
+    "[[],[1],[]]",
+  );
+});
+
+describe("Extended regression coverage - nested and escaped payloads", () => {
+  expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
+  expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
+  expect(JSON.stringify(JSON.parse<f64>("-0.125"))).toBe("-0.125");
+  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe("[[1],[2,3],[]]");
+  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
+});

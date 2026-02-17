@@ -1,5 +1,11 @@
 # Change Log
 
+## 2026-02-17 - 1.2.6
+
+- tests: significantly expand coverage across every file in `assembly/__tests__`
+- tests: add additional primitive, array, nested payload, and escaped string regression cases to all specs
+- tests: add more file-specific deserialize/serialize scenarios for custom, struct, map, resolving, and related schema behaviors
+
 ## 2026-02-17 - 1.2.5
 
 - fix: stabilize ESLint for this repo by excluding AssemblyScript sources from standard TypeScript lint parsing

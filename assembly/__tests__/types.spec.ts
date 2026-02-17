@@ -27,3 +27,34 @@ describe("Should deserialize with type aliases", () => {
     '{"foo":"bar"}',
   );
 });
+
+describe("Additional regression coverage - primitives and arrays", () => {
+  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe('"regression"');
+  expect(JSON.stringify(JSON.parse<i32>("-42"))).toBe("-42");
+  expect(JSON.stringify(JSON.parse<bool>("false"))).toBe("false");
+  expect(JSON.stringify(JSON.parse<f64>("3.5"))).toBe("3.5");
+  expect(JSON.stringify(JSON.parse<i32[]>("[1,2,3,4]"))).toBe("[1,2,3,4]");
+  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe(
+    '["a","b","c"]',
+  );
+});
+
+describe("Should handle additional alias instances", () => {
+  expect(JSON.stringify(new Alias(""))).toBe('{"foo":""}');
+  expect(JSON.stringify(new Alias("symbols-!@#"))).toBe('{"foo":"symbols-!@#"}');
+});
+
+describe("Should deserialize additional alias payloads", () => {
+  expect(JSON.parse<Alias>('{"foo":""}').foo).toBe("");
+  expect(JSON.parse<Alias>('{"foo":"multi word value"}').foo).toBe(
+    "multi word value",
+  );
+});
+
+describe("Extended regression coverage - nested and escaped payloads", () => {
+  expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
+  expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
+  expect(JSON.stringify(JSON.parse<f64>("-0.125"))).toBe("-0.125");
+  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe("[[1],[2,3],[]]");
+  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
+});

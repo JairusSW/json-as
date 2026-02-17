@@ -193,3 +193,44 @@ class NullableArrayObj {
 class Bar {
   value: string = "";
 }
+
+describe("Additional regression coverage - primitives and arrays", () => {
+  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe(
+    '"regression"',
+  );
+  expect(JSON.stringify(JSON.parse<i32>("-42"))).toBe("-42");
+  expect(JSON.stringify(JSON.parse<bool>("false"))).toBe("false");
+  expect(JSON.stringify(JSON.parse<f64>("3.5"))).toBe("3.5");
+  expect(JSON.stringify(JSON.parse<i32[]>("[1,2,3,4]"))).toBe("[1,2,3,4]");
+  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe(
+    '["a","b","c"]',
+  );
+});
+
+describe("Should deserialize player structs with null nested object", () => {
+  const p = JSON.parse<Player>(
+    '{"firstName":"A","lastName":"B","lastActive":[1,2,3],"age":10,"pos":null,"isVerified":false}',
+  );
+  expect(p.firstName).toBe("A");
+  expect((p.pos == null).toString()).toBe("true");
+  expect(p.isVerified.toString()).toBe("false");
+});
+
+describe("Should apply omitif and omitnull behavior across values", () => {
+  const a = new OmitIf();
+  a.y = -1;
+  expect(JSON.stringify(a)).toBe('{"y":-1,"x":1,"z":1}');
+
+  const b = new OmitIf();
+  b.y = 7;
+  b.foo = "ok";
+  expect(JSON.stringify(b)).toBe('{"y":7,"foo":"ok","x":1,"z":1}');
+});
+
+describe("Extended regression coverage - nested and escaped payloads", () => {
+  expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
+  expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
+  expect(JSON.stringify(JSON.parse<f64>("-0.125"))).toBe("-0.125");
+  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe("[[1],[2,3],[]]");
+  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
+});
