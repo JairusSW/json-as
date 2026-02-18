@@ -1,10 +1,27 @@
-import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, CHAR_F, CHAR_N, CHAR_T, COMMA, QUOTE } from "../../../custom/chars";
+import {
+  BACK_SLASH,
+  BRACE_LEFT,
+  BRACE_RIGHT,
+  BRACKET_LEFT,
+  BRACKET_RIGHT,
+  CHAR_F,
+  CHAR_N,
+  CHAR_T,
+  COMMA,
+  QUOTE,
+} from "../../../custom/chars";
 import { JSON } from "../../../";
 import { isSpace } from "util/string";
 import { ptrToStr } from "../../../util/ptrToStr";
 
-export function deserializeArbitraryArray(srcStart: usize, srcEnd: usize, dst: usize): JSON.Value[] {
-  const out = changetype<JSON.Value[]>(dst || changetype<usize>(instantiate<JSON.Value[]>()));
+export function deserializeArbitraryArray(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): JSON.Value[] {
+  const out = changetype<JSON.Value[]>(
+    dst || changetype<usize>(instantiate<JSON.Value[]>()),
+  );
   let lastIndex: usize = 0;
   let depth: u32 = 0;
   // if (load<u16>(srcStart) != BRACKET_LEFT)

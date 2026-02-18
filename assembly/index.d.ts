@@ -24,7 +24,9 @@ declare function omit(..._): void;
 /**
  * Property decorator that allows a field to be omitted when equal to an Expression.
  */
-declare function omitif(condition: string | ((value: any) => boolean)): Function;
+declare function omitif(
+  condition: string | ((value: any) => boolean),
+): Function;
 
 /**
  * Property decorator that allows a field to be omitted when a property is null.
@@ -47,7 +49,7 @@ declare function deserializer(..._): any;
 declare enum JSONMode {
   SWAR = 0,
   SIMD = 1,
-  NAIVE = 2
+  NAIVE = 2,
 }
 
 declare const JSON_MODE: JSONMode;

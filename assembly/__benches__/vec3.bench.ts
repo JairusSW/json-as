@@ -22,9 +22,9 @@ bench(
     blackbox(inline.always(JSON.stringify(v1)));
   },
   12_800_000,
-  v2.length << 1
+  v2.length << 1,
 );
-dumpToFile("vec3", "serialize")
+dumpToFile("vec3", "serialize");
 
 bench(
   "Deserialize Vec3",
@@ -32,6 +32,6 @@ bench(
     blackbox(inline.always(JSON.parse<Vec3>(v2)));
   },
   12_800_000,
-  v2.length << 1
+  v2.length << 1,
 );
-dumpToFile("vec3", "deserialize")
+dumpToFile("vec3", "deserialize");

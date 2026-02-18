@@ -1,7 +1,11 @@
 import { atoi, isSpace } from "../../../util";
 import { COMMA, BRACKET_RIGHT } from "../../../custom/chars";
 
-export function deserializeStaticArrayInteger<T extends StaticArray<any>>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeStaticArrayInteger<T extends StaticArray<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
   let count: i32 = 0;
   let ptr = srcStart;
   while (ptr < srcEnd) {
@@ -18,7 +22,7 @@ export function deserializeStaticArrayInteger<T extends StaticArray<any>>(srcSta
     ptr += 2;
   }
 
-  const outSize = <usize>count << alignof<valueof<T>>();
+  const outSize = (<usize>count) << alignof<valueof<T>>();
   const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
 
   // Second pass: populate values

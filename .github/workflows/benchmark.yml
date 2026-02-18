@@ -43,12 +43,7 @@ jobs:
         continue-on-error: true
 
       - name: Build Charts
-        run: |
-          mkdir -p ./build/charts
-          bun ./scripts/build-chart01.ts || true
-          bun ./scripts/build-chart02.ts || true
-          bun ./scripts/build-chart03.ts || true
-          bun ./scripts/build-chart04.ts || true
+        run: ./build-charts.sh || true
         continue-on-error: true
 
       - name: Commit Charts to docs branch

@@ -2,7 +2,11 @@ import { isSpace } from "../../../util";
 import { COMMA, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON } from "../../..";
 
-export function deserializeStaticArrayFloat<T extends StaticArray<any>>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeStaticArrayFloat<T extends StaticArray<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
   let count: i32 = 0;
   let ptr = srcStart;
   while (ptr < srcEnd) {
@@ -19,7 +23,7 @@ export function deserializeStaticArrayFloat<T extends StaticArray<any>>(srcStart
     ptr += 2;
   }
 
-  const outSize = <usize>count << alignof<valueof<T>>();
+  const outSize = (<usize>count) << alignof<valueof<T>>();
   const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
 
   let index = 0;
@@ -31,7 +35,12 @@ export function deserializeStaticArrayFloat<T extends StaticArray<any>>(srcStart
       while (srcStart < srcEnd) {
         const code = load<u16>(srcStart);
         if (code == COMMA || code == BRACKET_RIGHT || isSpace(code)) {
-          unchecked((out[index++] = JSON.__deserialize<valueof<T>>(lastIndex, srcStart)));
+          unchecked(
+            (out[index++] = JSON.__deserialize<valueof<T>>(
+              lastIndex,
+              srcStart,
+            )),
+          );
           break;
         }
         srcStart += 2;

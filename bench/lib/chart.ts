@@ -26,7 +26,7 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   if (!args.length) {
     console.error(
-      "Usage:\n bun ./chartplot.ts <bench1.json> <bench2.json> [...] [-o output.svg]"
+      "Usage:\n bun ./chartplot.ts <bench1.json> <bench2.json> [...] [-o output.svg]",
     );
     process.exit(1);
   }
@@ -42,7 +42,7 @@ if (import.meta.main) {
       }
       outputFile = args[++i];
     } else {
-      inputFiles.push("./build/logs/" +args[i]);
+      inputFiles.push("./build/logs/" + args[i]);
     }
   }
 
@@ -69,11 +69,11 @@ function generateBarChartFromFiles(files: string[], outputFile: string) {
 
   // Group by payload and sort payloads logically
   const payloadOrder = ["abc", "vec3", "small", "medium", "large"];
-  const uniquePayloads = [...new Set(results.map(r => r.payload))].sort(
-    (a, b) => payloadOrder.indexOf(a) - payloadOrder.indexOf(b)
+  const uniquePayloads = [...new Set(results.map((r) => r.payload))].sort(
+    (a, b) => payloadOrder.indexOf(a) - payloadOrder.indexOf(b),
   );
 
-  const uniqueLibraries = [...new Set(results.map(r => r.library))];
+  const uniqueLibraries = [...new Set(results.map((r) => r.library))];
   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
   const chart: ChartData = {
@@ -108,7 +108,7 @@ function inferPayload(file: string): string {
 function generateGroupedBarSVG(
   data: ChartData,
   libraries: string[],
-  colors: string[]
+  colors: string[],
 ): string {
   const width = 900;
   const height = 550;
@@ -118,9 +118,9 @@ function generateGroupedBarSVG(
 
   const barPadding = 0.1; // space between groups
   const groupWidth = chartWidth / data.payloads.length;
-  const barWidth = groupWidth / libraries.length * (1 - barPadding);
+  const barWidth = (groupWidth / libraries.length) * (1 - barPadding);
 
-  const allValues = data.results.map(r => r.gbPerSec);
+  const allValues = data.results.map((r) => r.gbPerSec);
   const yMax = Math.max(...allValues, 0.1) * 1.1;
 
   const yScale = (v: number) =>
@@ -185,7 +185,9 @@ Throughput (GB/s)
     const groupX = padding.left + groupWidth * payloadIdx;
 
     libraries.forEach((lib, libIdx) => {
-      const result = data.results.find(r => r.payload === payload && r.library === lib);
+      const result = data.results.find(
+        (r) => r.payload === payload && r.library === lib,
+      );
       if (!result) return;
 
       const x = groupX + (libIdx + 0.1) * (groupWidth / libraries.length);

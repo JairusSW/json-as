@@ -21,7 +21,8 @@ class MediumAPIResponse {
   full_name: string = "Jairus Tanaka";
   email: string = "me@jairus.dev";
   avatar_url: string = "https://avatars.githubusercontent.com/u/123456?v=4";
-  bio: string = "I like compilers, elegant algorithms, bare metal, simd, and wasm.";
+  bio: string =
+    "I like compilers, elegant algorithms, bare metal, simd, and wasm.";
   website: string = "https://jairus.dev/";
   location: string = "Seattle, WA";
   joined_at: string = "2020-01-15T08:30:00Z";
@@ -32,14 +33,41 @@ class MediumAPIResponse {
 
   preferences: UserPreferences = new UserPreferences();
 
-  tags: string[] = ["typescript", "webassembly", "performance", "rust", "assemblyscript", "json"];
+  tags: string[] = [
+    "typescript",
+    "webassembly",
+    "performance",
+    "rust",
+    "assemblyscript",
+    "json",
+  ];
 
   recent_activity: RecentActivity[] = [
-    { action: "starred", timestamp: "2025-12-22T10:15:00Z", target: "assemblyscript/json-as" },
-    { action: "commented", timestamp: "2025-12-22T09:42:00Z", target: "issue #142" },
-    { action: "pushed", timestamp: "2025-12-21T23:58:00Z", target: "main branch" },
-    { action: "forked", timestamp: "2025-12-21T18:20:00Z", target: "fast-json-wasm" },
-    { action: "created", timestamp: "2025-12-21T14:10:00Z", target: "new benchmark suite" },
+    {
+      action: "starred",
+      timestamp: "2025-12-22T10:15:00Z",
+      target: "assemblyscript/json-as",
+    },
+    {
+      action: "commented",
+      timestamp: "2025-12-22T09:42:00Z",
+      target: "issue #142",
+    },
+    {
+      action: "pushed",
+      timestamp: "2025-12-21T23:58:00Z",
+      target: "main branch",
+    },
+    {
+      action: "forked",
+      timestamp: "2025-12-21T18:20:00Z",
+      target: "fast-json-wasm",
+    },
+    {
+      action: "created",
+      timestamp: "2025-12-21T14:10:00Z",
+      target: "new benchmark suite",
+    },
   ];
 }
 
@@ -53,9 +81,9 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   500_000,
-  v2.length << 1
+  v2.length << 1,
 );
-dumpToFile("medium", "serialize")
+dumpToFile("medium", "serialize");
 
 bench(
   "Deserialize Medium API Response",
@@ -63,6 +91,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   500_000,
-  v2.length << 1
+  v2.length << 1,
 );
-dumpToFile("medium", "deserialize")
+dumpToFile("medium", "deserialize");

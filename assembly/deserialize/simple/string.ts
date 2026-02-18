@@ -1,9 +1,15 @@
 import { bs } from "../../../lib/as-bs";
-import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables";
+import {
+  DESERIALIZE_ESCAPE_TABLE,
+  ESCAPE_HEX_TABLE,
+} from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
 
 // @ts-ignore: inline
-@inline export function deserializeString(srcStart: usize, srcEnd: usize): string {
+@inline export function deserializeString(
+  srcStart: usize,
+  srcEnd: usize,
+): string {
   // Strip quotes
   srcStart += 2;
   srcEnd -= 2;
@@ -15,7 +21,7 @@ import { hex4_to_u16_swar } from "../../util/swar";
     srcStart += 2;
 
     // Early exit
-    if (block !== 0x5C) {
+    if (block !== 0x5c) {
       bs.offset += 2;
       continue;
     }

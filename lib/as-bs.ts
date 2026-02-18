@@ -97,7 +97,9 @@ export namespace bs {
       const deltaBytes = usize(size) + MIN_BUFFER_SIZE;
       bufferSize += deltaBytes;
       // @ts-expect-error: __renew is a runtime builtin
-      const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
+      const newPtr = changetype<ArrayBuffer>(
+        __renew(changetype<usize>(buffer), bufferSize),
+      );
       offset = offset + changetype<usize>(newPtr) - changetype<usize>(buffer);
       buffer = newPtr;
     }
@@ -114,7 +116,9 @@ export namespace bs {
       const deltaBytes = size;
       bufferSize += deltaBytes;
       // @ts-expect-error: __renew is a runtime builtin
-      const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
+      const newPtr = changetype<ArrayBuffer>(
+        __renew(changetype<usize>(buffer), bufferSize),
+      );
       offset = offset + changetype<usize>(newPtr) - changetype<usize>(buffer);
       buffer = newPtr;
     }
@@ -131,7 +135,9 @@ export namespace bs {
       const deltaBytes = usize(size) + MIN_BUFFER_SIZE;
       bufferSize += deltaBytes;
       // @ts-expect-error: __renew is a runtime builtin
-      const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
+      const newPtr = changetype<ArrayBuffer>(
+        __renew(changetype<usize>(buffer), bufferSize),
+      );
       offset = offset + changetype<usize>(newPtr) - changetype<usize>(buffer);
       buffer = newPtr;
     }
@@ -143,12 +149,14 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function resize(newSize: u32): void {
-          // @ts-expect-error: __renew is a runtime builtin
-          const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), newSize));
-          bufferSize = newSize;
-          offset = changetype<usize>(newPtr);
-          buffer = newPtr;
-          stackSize = 0;
+    // @ts-expect-error: __renew is a runtime builtin
+    const newPtr = changetype<ArrayBuffer>(
+      __renew(changetype<usize>(buffer), newSize),
+    );
+    bufferSize = newSize;
+    offset = changetype<usize>(newPtr);
+    buffer = newPtr;
+    stackSize = 0;
   }
 
   /**
@@ -193,7 +201,7 @@ export namespace bs {
       updateTypicalSize(len);
       if (counter >= SHRINK_EVERY_N) {
         // Shrink if buffer is 4x larger than typical, resize to 2x typical
-        if (bufferSize > (typicalSize << 2)) resize(u32(typicalSize << 1));
+        if (bufferSize > typicalSize << 2) resize(u32(typicalSize << 1));
         counter = 0;
       }
     } else {
@@ -209,7 +217,6 @@ export namespace bs {
     stackSize = 0;
     return changetype<T>(out);
   }
-
 
   /**
    * Copies the buffer's content to a new object of a specified type.
@@ -234,7 +241,8 @@ export namespace bs {
   @inline export function outTo<T>(dst: usize): T {
     const len = offset - changetype<usize>(buffer);
     // @ts-expect-error: __renew is a runtime builtin
-    if (len != changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize) __renew(len, idof<T>());
+    if (len != changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize)
+      __renew(len, idof<T>());
     memory.copy(dst, changetype<usize>(buffer), len);
 
     counter++;
@@ -243,7 +251,7 @@ export namespace bs {
 
     if (counter >= SHRINK_EVERY_N) {
       // Shrink if buffer is 4x larger than typical, resize to 2x typical
-      if (bufferSize > (typicalSize << 2)) {
+      if (bufferSize > typicalSize << 2) {
         resize(typicalSize << 1);
       }
       counter = 0;
@@ -372,11 +380,7 @@ export namespace sc {
    * @param start - Start of serialized output to cache
    * @param len - Length of serialized output
    */
-  export function insertCached(
-    str: usize,
-    start: usize,
-    len: usize
-  ): void {
+  export function insertCached(str: usize, start: usize, len: usize): void {
     if (len < MIN_CACHE_LEN) return;
     if (arenaPtr + len > arenaEnd) {
       // Wrap around to beginning of arena (circular buffer)

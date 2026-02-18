@@ -32,7 +32,10 @@ export function bench(description, routine, ops = 1_000_000, bytesPerOp = 0) {
   console.log(log + "\n");
 }
 export function dumpToFile(suite, type) {
-  writeFile("./build/logs/js/" + suite + "." + type + ".js.json", JSON.stringify(result));
+  writeFile(
+    "./build/logs/js/" + suite + "." + type + ".js.json",
+    JSON.stringify(result),
+  );
 }
 function formatNumber(n) {
   let str = n.toString();
@@ -47,6 +50,10 @@ function formatNumber(n) {
 }
 
 export function blackbox(x) {
-  %PerformMicrotaskCheckpoint();
+  try {
+    (0, eval)("%PerformMicrotaskCheckpoint();");
+  } catch {
+    // Not running in d8 with natives syntax enabled.
+  }
   return x;
 }

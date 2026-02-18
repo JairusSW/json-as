@@ -12,7 +12,7 @@ bench(
   24_000_00,
   v1.length << 1,
 );
-dumpToFile("abc", "serialize")
+dumpToFile("abc", "serialize");
 
 bench(
   "Deserialize Alphabet",
@@ -22,4 +22,4 @@ bench(
   24_000_00,
   v2.length << 1,
 );
-dumpToFile("abc", "deserialize")
+dumpToFile("abc", "deserialize");

@@ -12,7 +12,7 @@ bench(
   25_000_000,
   v1.length << 1,
 );
-dumpToFile("uuidv4", "serialize")
+dumpToFile("uuidv4", "serialize");
 
 bench(
   "Deserialize UUIDv4",
@@ -22,4 +22,4 @@ bench(
   25_000_000,
   v2.length << 1,
 );
-dumpToFile("uuidv4", "deserialize")
+dumpToFile("uuidv4", "deserialize");

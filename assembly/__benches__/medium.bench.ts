@@ -2,6 +2,7 @@ import { JSON } from "..";
 import { expect } from "../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
+
 @json
 class UserPreferences {
   theme!: string;
@@ -12,12 +13,14 @@ class UserPreferences {
   two_factor_enabled!: boolean;
 }
 
+
 @json
 class RecentActivity {
   action!: string;
   timestamp!: string;
   target!: string;
 }
+
 
 @json
 class MediumAPIResponse {
@@ -67,7 +70,14 @@ v1.following_count = 39;
 
 v1.preferences = prefs;
 
-v1.tags = ["typescript", "webassembly", "performance", "rust", "assemblyscript", "json"];
+v1.tags = [
+  "typescript",
+  "webassembly",
+  "performance",
+  "rust",
+  "assemblyscript",
+  "json",
+];
 
 v1.recent_activity = new Array<RecentActivity>(5);
 
@@ -113,9 +123,9 @@ bench(
     blackbox(inline.always(JSON.stringify<MediumAPIResponse>(v1)));
   },
   500_000,
-  byteLength
+  byteLength,
 );
-dumpToFile("medium", "serialize")
+dumpToFile("medium", "serialize");
 
 bench(
   "Deserialize Medium API Response",
@@ -123,6 +133,6 @@ bench(
     blackbox(inline.always(JSON.parse<MediumAPIResponse>(v2)));
   },
   500_000,
-  byteLength
+  byteLength,
 );
-dumpToFile("medium", "deserialize")
+dumpToFile("medium", "deserialize");

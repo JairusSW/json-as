@@ -49,12 +49,12 @@ import { serializeStruct } from "./struct";
       continue;
     }
     // srcPtr += 2;
-    if (code < 0xD800 || code > 0xDFFF) continue;
+    if (code < 0xd800 || code > 0xdfff) continue;
 
-    if (code <= 0xDBFF) {
+    if (code <= 0xdbff) {
       if (srcPtr <= srcEnd - 2) {
         const next = load<u16>(srcPtr);
-        if (next >= 0xDC00 && next <= 0xDFFF) {
+        if (next >= 0xdc00 && next <= 0xdfff) {
           srcPtr += 2;
           continue;
         }
@@ -72,7 +72,6 @@ import { serializeStruct } from "./struct";
     bs.offset += 12;
     lastPtr = srcPtr;
     continue;
-
   }
   const remBytes = srcEnd - lastPtr;
   memory.copy(bs.offset, lastPtr, remBytes);
@@ -86,14 +85,14 @@ import { serializeStruct } from "./struct";
   bs.growSize(10);
   store<u32>(bs.offset, U_MARKER); // "\u"
   // write hex digits (lowercase, matches tests)
-  store<u16>(bs.offset + 4, hexNibble((code >> 12) & 0xF));
-  store<u16>(bs.offset + 6, hexNibble((code >> 8) & 0xF));
-  store<u16>(bs.offset + 8, hexNibble((code >> 4) & 0xF));
-  store<u16>(bs.offset + 10, hexNibble(code & 0xF));
+  store<u16>(bs.offset + 4, hexNibble((code >> 12) & 0xf));
+  store<u16>(bs.offset + 6, hexNibble((code >> 8) & 0xf));
+  store<u16>(bs.offset + 8, hexNibble((code >> 4) & 0xf));
+  store<u16>(bs.offset + 10, hexNibble(code & 0xf));
   bs.offset += 12;
 }
 
 // @ts-ignore: inline
 @inline function hexNibble(n: u16): u16 {
-  return n < 10 ? (48 + n) : (87 + n);
+  return n < 10 ? 48 + n : 87 + n;
 }

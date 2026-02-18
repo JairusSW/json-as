@@ -23,19 +23,27 @@ describe("Should serialize structs", () => {
       },
       isVerified: true,
     }),
-  ).toBe('{"firstName":"Emmet","lastName":"West","lastActive":[8,27,2022],"age":23,"pos":{"x":3.4,"y":1.2,"z":8.3},"isVerified":true}');
+  ).toBe(
+    '{"firstName":"Emmet","lastName":"West","lastActive":[8,27,2022],"age":23,"pos":{"x":3.4,"y":1.2,"z":8.3},"isVerified":true}',
+  );
 
   expect(JSON.stringify<ObjectWithFloat>({ f: 7.23 })).toBe('{"f":7.23}');
 
-  expect(JSON.stringify<ObjectWithFloat>({ f: 0.000001 })).toBe('{"f":0.000001}');
+  expect(JSON.stringify<ObjectWithFloat>({ f: 0.000001 })).toBe(
+    '{"f":0.000001}',
+  );
 
   expect(JSON.stringify<ObjectWithFloat>({ f: 1e-7 })).toBe('{"f":1e-7}');
 
-  expect(JSON.stringify<ObjectWithFloat>({ f: 1e20 })).toBe('{"f":100000000000000000000.0}');
+  expect(JSON.stringify<ObjectWithFloat>({ f: 1e20 })).toBe(
+    '{"f":100000000000000000000.0}',
+  );
 
   expect(JSON.stringify<ObjectWithFloat>({ f: 1e21 })).toBe('{"f":1e+21}');
 
-  expect(JSON.stringify<ObjWithStrangeKey<string>>({ data: "foo" })).toBe('{"a\\\\\\t\\"\\u0002b`c":"foo"}');
+  expect(JSON.stringify<ObjWithStrangeKey<string>>({ data: "foo" })).toBe(
+    '{"a\\\\\\t\\"\\u0002b`c":"foo"}',
+  );
 });
 
 describe("Should serialize structs with inheritance", () => {
@@ -53,25 +61,49 @@ describe("Should ignore properties decorated with @omit", () => {
 });
 
 describe("Should deserialize structs", () => {
-  expect(JSON.stringify(JSON.parse<Vec3>('{"x":3.4,"y":1.2,"z":8.3}'))).toBe('{"x":3.4,"y":1.2,"z":8.3}');
-  expect(JSON.stringify(JSON.parse<Vec3>('{"x":3.4,"a":1.3,"y":1.2,"z":8.3}'))).toBe('{"x":3.4,"y":1.2,"z":8.3}');
-  expect(JSON.stringify(JSON.parse<Vec3>('{"x":3.4,"a":1.3,"y":123,"asdf":3453204,"boink":[],"y":1.2,"z":8.3}'))).toBe('{"x":3.4,"y":1.2,"z":8.3}');
+  expect(JSON.stringify(JSON.parse<Vec3>('{"x":3.4,"y":1.2,"z":8.3}'))).toBe(
+    '{"x":3.4,"y":1.2,"z":8.3}',
+  );
+  expect(
+    JSON.stringify(JSON.parse<Vec3>('{"x":3.4,"a":1.3,"y":1.2,"z":8.3}')),
+  ).toBe('{"x":3.4,"y":1.2,"z":8.3}');
+  expect(
+    JSON.stringify(
+      JSON.parse<Vec3>(
+        '{"x":3.4,"a":1.3,"y":123,"asdf":3453204,"boink":[],"y":1.2,"z":8.3}',
+      ),
+    ),
+  ).toBe('{"x":3.4,"y":1.2,"z":8.3}');
 });
 
 describe("Should deserialize structs with whitespace", () => {
-  expect(JSON.stringify(JSON.parse<Vec3>('    {  "x"  :  3.4  ,  "y"  :  1.2    ,  "z"   :  8.3   }   '))).toBe('{"x":3.4,"y":1.2,"z":8.3}');
+  expect(
+    JSON.stringify(
+      JSON.parse<Vec3>(
+        '    {  "x"  :  3.4  ,  "y"  :  1.2    ,  "z"   :  8.3   }   ',
+      ),
+    ),
+  ).toBe('{"x":3.4,"y":1.2,"z":8.3}');
 });
 
 describe("Should deserialize structs with nullable properties", () => {
-  expect(JSON.stringify(JSON.parse<NullableObj>('{"bar":{"value":"test"}}'))).toBe('{"bar":{"value":"test"}}');
+  expect(
+    JSON.stringify(JSON.parse<NullableObj>('{"bar":{"value":"test"}}')),
+  ).toBe('{"bar":{"value":"test"}}');
 
-  expect(JSON.stringify(JSON.parse<NullableObj>('{"bar":null}'))).toBe('{"bar":null}');
+  expect(JSON.stringify(JSON.parse<NullableObj>('{"bar":null}'))).toBe(
+    '{"bar":null}',
+  );
 });
 
 describe("Should deserialize structs with nullable arrays in properties", () => {
-  expect(JSON.stringify(JSON.parse<NullableArrayObj>('{"bars":[{"value":"test"}]}'))).toBe('{"bars":[{"value":"test"}]}');
+  expect(
+    JSON.stringify(JSON.parse<NullableArrayObj>('{"bars":[{"value":"test"}]}')),
+  ).toBe('{"bars":[{"value":"test"}]}');
 
-  expect(JSON.stringify(JSON.parse<NullableArrayObj>('{"bars":null}'))).toBe('{"bars":null}');
+  expect(JSON.stringify(JSON.parse<NullableArrayObj>('{"bars":null}'))).toBe(
+    '{"bars":null}',
+  );
 });
 
 // describe("Should serialize Suite struct", () => {
@@ -161,3 +193,44 @@ class NullableArrayObj {
 class Bar {
   value: string = "";
 }
+
+describe("Additional regression coverage - primitives and arrays", () => {
+  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe(
+    '"regression"',
+  );
+  expect(JSON.stringify(JSON.parse<i32>("-42"))).toBe("-42");
+  expect(JSON.stringify(JSON.parse<bool>("false"))).toBe("false");
+  expect(JSON.stringify(JSON.parse<f64>("3.5"))).toBe("3.5");
+  expect(JSON.stringify(JSON.parse<i32[]>("[1,2,3,4]"))).toBe("[1,2,3,4]");
+  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe(
+    '["a","b","c"]',
+  );
+});
+
+describe("Should deserialize player structs with null nested object", () => {
+  const p = JSON.parse<Player>(
+    '{"firstName":"A","lastName":"B","lastActive":[1,2,3],"age":10,"pos":null,"isVerified":false}',
+  );
+  expect(p.firstName).toBe("A");
+  expect((p.pos == null).toString()).toBe("true");
+  expect(p.isVerified.toString()).toBe("false");
+});
+
+describe("Should apply omitif and omitnull behavior across values", () => {
+  const a = new OmitIf();
+  a.y = -1;
+  expect(JSON.stringify(a)).toBe('{"y":-1,"x":1,"z":1}');
+
+  const b = new OmitIf();
+  b.y = 7;
+  b.foo = "ok";
+  expect(JSON.stringify(b)).toBe('{"y":7,"foo":"ok","x":1,"z":1}');
+});
+
+describe("Extended regression coverage - nested and escaped payloads", () => {
+  expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
+  expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
+  expect(JSON.stringify(JSON.parse<f64>("-0.125"))).toBe("-0.125");
+  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe("[[1],[2,3],[]]");
+  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
+});

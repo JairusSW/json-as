@@ -19,9 +19,9 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   5_000_000,
-  v2.length << 1
+  v2.length << 1,
 );
-dumpToFile("small", "serialize")
+dumpToFile("small", "serialize");
 
 bench(
   "Deserialize Small Object",
@@ -29,6 +29,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   5_000_000,
-  v2.length << 1
+  v2.length << 1,
 );
-dumpToFile("small", "deserialize")
+dumpToFile("small", "deserialize");

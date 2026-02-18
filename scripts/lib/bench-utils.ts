@@ -39,7 +39,9 @@ const VERSION =
 let V8_VERSION = execSync("v8").toString().trim().slice(11);
 V8_VERSION = V8_VERSION.slice(0, V8_VERSION.indexOf("\n")).trim();
 const GIT_HASH = execSync("git rev-parse --short HEAD").toString().trim();
-const GIT_BRANCH = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
+const GIT_BRANCH = execSync("git rev-parse --abbrev-ref HEAD")
+  .toString()
+  .trim();
 
 export function subtitle() {
   return `${new Date().toDateString()} • ${VERSION} • v8 ${V8_VERSION} • ${GIT_HASH} • ${GIT_BRANCH}`;
@@ -53,12 +55,17 @@ function benchPath(
   kind: "js" | "as",
   payload: string,
   type: BenchKind,
-  engine?: "swar" | "simd" | "naive"
+  engine?: "swar" | "simd" | "naive",
 ): string {
   if (kind === "js") {
     return path.join(LOGS_DIR, "js", `${payload}.${type}.js.json`);
   }
-  return path.join(LOGS_DIR, "as", engine!.toLowerCase(), `${payload}.${type}.as.json`);
+  return path.join(
+    LOGS_DIR,
+    "as",
+    engine!.toLowerCase(),
+    `${payload}.${type}.as.json`,
+  );
 }
 
 export function getBenchResults(payloads: string[]): BenchResults {
@@ -88,20 +95,22 @@ export function createBarChart(
     yLabel?: string;
     xLabel?: string;
     datasetLabels?: string[];
-  }
+  },
 ): ChartConfiguration<"bar"> {
   const payloadKeys = Object.keys(data);
-  const labels = payloadKeys.map(k => payloadLabels[k] ?? k);
+  const labels = payloadKeys.map((k) => payloadLabels[k] ?? k);
 
   const maxMBps = Math.max(
-    ...Object.values(data).flat().map(r => r.mbps)
+    ...Object.values(data)
+      .flat()
+      .map((r) => r.mbps),
   );
 
   const datasetNames = options.datasetLabels ?? [
     "Built-in JSON (JS)",
     "JSON-AS (NAIVE)",
     "JSON-AS (SWAR)",
-    "JSON-AS (SIMD)"
+    "JSON-AS (SIMD)",
   ];
 
   return {
@@ -111,33 +120,33 @@ export function createBarChart(
       datasets: [
         {
           label: datasetNames[0],
-          data: payloadKeys.map(k => data[k][0].mbps),
+          data: payloadKeys.map((k) => data[k][0].mbps),
           backgroundColor: "rgba(99,102,241,0.85)",
           borderColor: "#6366f1",
-          borderWidth: 1
+          borderWidth: 1,
         },
         {
           label: datasetNames[1],
-          data: payloadKeys.map(k => data[k][1].mbps),
+          data: payloadKeys.map((k) => data[k][1].mbps),
           backgroundColor: "rgba(255, 241, 49, 0.85)", // vibrant purple
           borderColor: "rgb(255, 241, 49)",
-          borderWidth: 1
+          borderWidth: 1,
         },
         {
           label: datasetNames[2],
-          data: payloadKeys.map(k => data[k][2].mbps),
+          data: payloadKeys.map((k) => data[k][2].mbps),
           backgroundColor: "rgba(34,197,94,0.85)",
           borderColor: "#22c55e",
-          borderWidth: 1
+          borderWidth: 1,
         },
         {
           label: datasetNames[3],
-          data: payloadKeys.map(k => data[k][3].mbps),
+          data: payloadKeys.map((k) => data[k][3].mbps),
           backgroundColor: "rgba(239,68,68,0.9)",
           borderColor: "#ef4444",
-          borderWidth: 2
-        }
-      ]
+          borderWidth: 2,
+        },
+      ],
     },
     options: {
       responsive: true,
@@ -145,20 +154,20 @@ export function createBarChart(
         title: {
           display: !!options.title,
           text: options.title,
-          font: { size: 20, weight: "bold" }
+          font: { size: 20, weight: "bold" },
         },
         legend: {
           position: "top",
           labels: {
             font: { size: 16, weight: "bold" },
-            padding: 20
-          }
+            padding: 20,
+          },
         },
         datalabels: {
           anchor: "end",
           align: "end",
           font: { weight: "bold", size: 12 },
-          formatter: (v: number) => v.toFixed(0)
+          formatter: (v: number) => v.toFixed(0),
         },
         subtitle: {
           display: true,
@@ -166,8 +175,8 @@ export function createBarChart(
           font: { size: 14, weight: "bold" },
           color: "#6b7280",
           padding: 16,
-          position: "right"
-        }
+          position: "right",
+        },
       },
       scales: {
         y: {
@@ -176,28 +185,28 @@ export function createBarChart(
           title: {
             display: true,
             text: options.yLabel ?? "Throughput (MB/s)",
-            font: { size: 16, weight: "bold" }
+            font: { size: 16, weight: "bold" },
           },
           ticks: {
             stepSize: 500,
-            font: { size: 14, weight: "bold" }
-          }
+            font: { size: 14, weight: "bold" },
+          },
         },
         x: {
           title: {
             display: true,
             text: options.xLabel ?? "Payload",
-            font: { size: 16, weight: "bold" }
+            font: { size: 16, weight: "bold" },
           },
           ticks: {
             maxRotation: 0,
             minRotation: 0,
-            font: { size: 14, weight: "bold" }
-          }
-        }
-      }
+            font: { size: 14, weight: "bold" },
+          },
+        },
+      },
     },
-    plugins: [ChartDataLabels]
+    plugins: [ChartDataLabels],
   };
 }
 
@@ -209,21 +218,21 @@ export function createLineChart(
     xLabel: string;
     yLabel: string;
     logX?: boolean;
-  }
+  },
 ): ChartConfiguration<"line"> {
   return {
     type: "line",
     data: {
       labels,
-      datasets: series.map(s => ({
+      datasets: series.map((s) => ({
         label: s.label,
         data: s.data,
         borderColor: s.borderColor,
         backgroundColor: s.backgroundColor ?? s.borderColor,
         borderWidth: 3,
         tension: 0.25,
-        pointRadius: 4
-      }))
+        pointRadius: 4,
+      })),
     },
     options: {
       responsive: true,
@@ -231,21 +240,21 @@ export function createLineChart(
         title: {
           display: true,
           text: options.title,
-          font: { size: 20, weight: "bold" }
+          font: { size: 20, weight: "bold" },
         },
         legend: {
           position: "top",
           labels: {
-            font: { size: 16, weight: "bold" }
-          }
+            font: { size: 16, weight: "bold" },
+          },
         },
         subtitle: {
           display: true,
           text: subtitle(),
           font: { size: 14, weight: "bold" },
           color: "#6b7280",
-          padding: { bottom: 16 }
-        }
+          padding: { bottom: 16 },
+        },
       },
       scales: {
         x: {
@@ -253,36 +262,33 @@ export function createLineChart(
           title: {
             display: true,
             text: options.xLabel,
-            font: { size: 16, weight: "bold" }
-          }
+            font: { size: 16, weight: "bold" },
+          },
         },
         y: {
           beginAtZero: true,
           title: {
             display: true,
             text: options.yLabel,
-            font: { size: 16, weight: "bold" }
-          }
-        }
-      }
-    }
+            font: { size: 16, weight: "bold" },
+          },
+        },
+      },
+    },
   };
 }
 
-export function generateChart(
-  config: ChartConfiguration,
-  outfile: string
-) {
+export function generateChart(config: ChartConfiguration, outfile: string) {
   const canvas = new ChartJSNodeCanvas({
     width: 1000,
     height: 600,
     type: outfile.endsWith(".svg") ? "svg" : "png",
-    chartCallback: ChartJS => ChartJS.register(ChartDataLabels)
+    chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
   });
 
   const buffer = canvas.renderToBufferSync(
     config,
-    outfile.endsWith(".svg") ? "image/svg+xml" : "image/png"
+    outfile.endsWith(".svg") ? "image/svg+xml" : "image/png",
   );
 
   fs.writeFileSync(outfile, buffer);

@@ -1,15 +1,33 @@
-import { BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
+import {
+  BRACE_LEFT,
+  BRACE_RIGHT,
+  BRACKET_LEFT,
+  BRACKET_RIGHT,
+} from "../../../custom/chars";
 import { JSON } from "../../..";
 import { isSpace } from "util/string";
 
-export function deserializeStaticArrayStruct<T extends StaticArray<any>>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeStaticArrayStruct<T extends StaticArray<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
-  if (srcStart - srcEnd == 0) throw new Error("Input string had zero length or was all whitespace");
+  if (srcStart - srcEnd == 0)
+    throw new Error("Input string had zero length or was all whitespace");
 
-  if (load<u16>(srcStart) != BRACKET_LEFT) throw new Error("Expected '[' at start of object at position " + (srcEnd - srcStart).toString());
-  if (load<u16>(srcEnd - 2) != BRACKET_RIGHT) throw new Error("Expected ']' at end of object at position " + (srcEnd - srcStart).toString());
+  if (load<u16>(srcStart) != BRACKET_LEFT)
+    throw new Error(
+      "Expected '[' at start of object at position " +
+        (srcEnd - srcStart).toString(),
+    );
+  if (load<u16>(srcEnd - 2) != BRACKET_RIGHT)
+    throw new Error(
+      "Expected ']' at end of object at position " +
+        (srcEnd - srcStart).toString(),
+    );
 
   // First pass: count elements using same logic as Array deserializer
   let count: i32 = 0;
@@ -26,7 +44,7 @@ export function deserializeStaticArrayStruct<T extends StaticArray<any>>(srcStar
   }
 
   // Allocate StaticArray with correct size
-  const outSize = <usize>count << alignof<valueof<T>>();
+  const outSize = (<usize>count) << alignof<valueof<T>>();
   const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
 
   // Second pass: populate values
@@ -38,7 +56,12 @@ export function deserializeStaticArrayStruct<T extends StaticArray<any>>(srcStar
     if (code == BRACE_LEFT && depth++ == 0) {
       lastIndex = srcStart;
     } else if (code == BRACE_RIGHT && --depth == 0) {
-      unchecked((out[index++] = JSON.__deserialize<valueof<T>>(lastIndex, (srcStart += 2))));
+      unchecked(
+        (out[index++] = JSON.__deserialize<valueof<T>>(
+          lastIndex,
+          (srcStart += 2),
+        )),
+      );
     }
     srcStart += 2;
   }

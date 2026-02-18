@@ -1,4 +1,8 @@
-export function deserializeStaticArrayBoolean<T extends StaticArray<any>>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeStaticArrayBoolean<T extends StaticArray<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
   // First pass: count elements using same logic as Array deserializer
   let count: i32 = 0;
   let ptr = srcStart + 2; // skip [
@@ -16,7 +20,7 @@ export function deserializeStaticArrayBoolean<T extends StaticArray<any>>(srcSta
   }
 
   // Allocate StaticArray with correct size
-  const outSize = <usize>count << alignof<valueof<T>>();
+  const outSize = (<usize>count) << alignof<valueof<T>>();
   const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
 
   // Second pass: populate values

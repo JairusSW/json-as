@@ -17,9 +17,14 @@ export function it(description: string, routine: () => void): void {
 export function expect<T>(left: T): Expectation {
   currentId++;
   // @ts-ignore
-  if (!isDefined(left.toString)) throw new Error("Expected left to have a toString method, but it does not.");
+  if (!isDefined(left.toString))
+    throw new Error(
+      "Expected left to have a toString method, but it does not.",
+    );
   // @ts-ignore
-  return new Expectation(isNull(left) ? "null" : changetype<nonnull<T>>(left).toString());
+  return new Expectation(
+    isNull(left) ? "null" : changetype<nonnull<T>>(left).toString(),
+  );
 }
 
 class Expectation {
@@ -30,12 +35,19 @@ class Expectation {
   }
   toBe<T>(right: T): void {
     // @ts-ignore
-    if (!isDefined(right.toString)) throw new Error("Expected right to have a toString method, but it does not.");
+    if (!isDefined(right.toString))
+      throw new Error(
+        "Expected right to have a toString method, but it does not.",
+      );
     // @ts-ignore
     if (this.left != (isNull(right) ? "null" : right.toString())) {
-      console.log("  " + currentDescription + "#" + currentId.toString() + "\n");
+      console.log(
+        "  " + currentDescription + "#" + currentId.toString() + "\n",
+      );
       // @ts-ignore
-      console.log("  (expected) -> " + (isNull(right) ? "null" : right.toString()));
+      console.log(
+        "  (expected) -> " + (isNull(right) ? "null" : right.toString()),
+      );
       console.log("  (received) -> " + this.left);
       unreachable();
     }
@@ -43,5 +55,11 @@ class Expectation {
 }
 
 function isNull<T>(value: T): bool {
-  return (isInteger<T>() && !isSigned<T>() && nameof<T>() == "usize" && value == 0) || (isNullable<T>() && changetype<usize>(value) == <usize>0);
+  return (
+    (isInteger<T>() &&
+      !isSigned<T>() &&
+      nameof<T>() == "usize" &&
+      value == 0) ||
+    (isNullable<T>() && changetype<usize>(value) == <usize>0)
+  );
 }

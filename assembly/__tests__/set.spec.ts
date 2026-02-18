@@ -104,9 +104,43 @@ describe("Should serialize object sets", () => {
   expect(result).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]');
 });
 
+
 @json
 class Vec3 {
   x: f64 = 0.0;
   y: f64 = 0.0;
   z: f64 = 0.0;
 }
+
+describe("Additional regression coverage - primitives and arrays", () => {
+  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe('"regression"');
+  expect(JSON.stringify(JSON.parse<i32>("-42"))).toBe("-42");
+  expect(JSON.stringify(JSON.parse<bool>("false"))).toBe("false");
+  expect(JSON.stringify(JSON.parse<f64>("3.5"))).toBe("3.5");
+  expect(JSON.stringify(JSON.parse<i32[]>("[1,2,3,4]"))).toBe("[1,2,3,4]");
+  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe(
+    '["a","b","c"]',
+  );
+});
+
+describe("Should deduplicate repeated set values", () => {
+  const set1 = JSON.parse<Set<i32>>("[1,1,2,2,3,3]");
+  expect(set1.size).toBe(3);
+  expect(set1.has(1)).toBe(true);
+  expect(set1.has(2)).toBe(true);
+  expect(set1.has(3)).toBe(true);
+});
+
+describe("Should deserialize and reserialize string sets", () => {
+  const set1 = JSON.parse<Set<string>>('["a","b","a"]');
+  expect(set1.size).toBe(2);
+  expect(JSON.stringify(set1)).toBe('["a","b"]');
+});
+
+describe("Extended regression coverage - nested and escaped payloads", () => {
+  expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
+  expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
+  expect(JSON.stringify(JSON.parse<f64>("-0.125"))).toBe("-0.125");
+  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe("[[1],[2,3],[]]");
+  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
+});

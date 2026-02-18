@@ -1,77 +1,60 @@
-import js from "@eslint/js";
-import { defineConfig, globalIgnores } from "eslint/config";
+// @ts-check
+
+import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
-import globals from "globals";
 
-export default defineConfig(
-  globalIgnores(["**/node_modules/**", "**/build/**", "**/lib/**", "**/dist/**", "**/*.wasm", "**/*.wat", "assembly/**"]),
-
-  js.configs.recommended,
-
-  tseslint.configs.recommended,
-
+export default tseslint.config(
   {
-    files: ["transform/src/**/*.ts"],
+    ignores: [
+      "bin/**",
+      "templates/**",
+      "tests/**/*.js",
+      "transform/lib/**",
+      "build/**",
+      "assembly/**/*.ts",
+      "lib/as-bs.ts",
+    ],
+  },
+  eslint.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ["**/*.{js,mjs,cjs,ts}"],
     languageOptions: {
-      parserOptions: {
-        project: "./transform/tsconfig.json",
+      globals: {
+        Buffer: "readonly",
+        WebAssembly: "readonly",
+        console: "readonly",
+        process: "readonly",
       },
     },
+  },
+  {
+    files: ["**/*.ts"],
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "error",
-        {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-        },
-      ],
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-non-null-assertion": "off",
-
-      "no-console": "off",
-      "prefer-const": "error",
-      "no-var": "error",
-    },
-  },
-
-  {
-    files: ["**/*.js", "**/*.mjs"],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-      },
-    },
-    rules: {
-      "no-unused-vars": [
-        "error",
-        {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-        },
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
     },
   },
-
   {
-    files: ["bench/runners/**/*.js"],
+    files: ["bench/runners/assemblyscript.js"],
     languageOptions: {
       globals: {
+        arguments: "readonly",
+        performance: "readonly",
         readbuffer: "readonly",
         writeFile: "readonly",
-        arguments: "readonly",
-        ...globals.browser,
       },
     },
-    rules: {
-      "no-console": "off",
-    },
   },
-
   {
-    files: ["bench/**/*.js"],
-    rules: {
-      "no-console": "off",
+    files: ["bench/lib/bench.js"],
+    languageOptions: {
+      globals: {
+        performance: "readonly",
+        writeFile: "readonly",
+      },
     },
   },
 );
