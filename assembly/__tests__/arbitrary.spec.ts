@@ -94,31 +94,31 @@ describe("Should deserialize arbitrary types", () => {
 describe("Should deserialize nested arbitrary arrays with element access", () => {
   const parsed = JSON.parse<JSON.Value>("[[1,2],[3,4]]");
   const outer = parsed.get<JSON.Value[]>();
-  
+
   expect(outer.length).toBe(2);
-  
+
   const inner0 = outer[0].get<JSON.Value[]>();
   const inner1 = outer[1].get<JSON.Value[]>();
 
   expect(inner0.length).toBe(2);
   expect(inner1.length).toBe(2);
-  
+
   expect(inner0[0].get<f64>()).toBe(1.0);
   expect(inner0[1].get<f64>()).toBe(2.0);
-  
+
   expect(inner1[0].get<f64>()).toBe(3.0);
   expect(inner1[1].get<f64>()).toBe(4.0);
-  
+
   expect(JSON.stringify(parsed)).toBe("[[1.0,2.0],[3.0,4.0]]");
 });
 
 describe("Should deserialize nested arrays in mixed arbitrary arrays", () => {
   const parsed = JSON.parse<JSON.Value[]>('["string",true,[1,2,3,4]]');
-  
+
   expect(parsed.length).toBe(3);
   expect(parsed[0].get<string>()).toBe("string");
   expect(parsed[1].toString()).toBe("true");
-  
+
   const nestedArr = parsed[2].get<JSON.Value[]>();
   expect(nestedArr.length).toBe(4);
   expect(nestedArr[0].get<f64>()).toBe(1.0);
@@ -132,12 +132,12 @@ describe("Should deserialize nested arrays in mixed arbitrary arrays", () => {
 describe("Should deserialize deeply nested arbitrary arrays", () => {
   const parsed = JSON.parse<JSON.Value>("[[[1,2]],[[3,4]]]");
   const outerArray = parsed.get<JSON.Value[]>();
-  
+
   expect(outerArray.length).toBe(2);
-  
+
   const firstMiddleArray = outerArray[0].get<JSON.Value[]>();
   expect(firstMiddleArray.length).toBe(1);
-  
+
   const firstInnerArray = firstMiddleArray[0].get<JSON.Value[]>();
   expect(firstInnerArray.length).toBe(2);
   expect(firstInnerArray[0].get<f64>()).toBe(1.0);
@@ -148,8 +148,8 @@ describe("Should deserialize deeply nested arbitrary arrays", () => {
   const secondInnerArray = secondMiddleArray[0].get<JSON.Value[]>();
   expect(secondInnerArray.length).toBe(2);
   expect(secondInnerArray[0].get<f64>()).toBe(3.0);
-  expect(secondInnerArray[1].get<f64>()).toBe(4.0);  
-  
+  expect(secondInnerArray[1].get<f64>()).toBe(4.0);
+
   expect(JSON.stringify(parsed)).toBe("[[[1.0,2.0]],[[3.0,4.0]]]");
 });
 
@@ -157,14 +157,14 @@ describe("Should deserialize nested arrays in JSON obj", () => {
   const parsed = JSON.parse<JSON.Value>('{"data":[[1,2],[3,4]]}');
   const obj = parsed.get<JSON.Obj>();
   const data = obj.get("data")!.get<JSON.Value[]>();
-  
+
   expect(data.length).toBe(2);
   const inner0 = data[0].get<JSON.Value[]>();
   const inner1 = data[1].get<JSON.Value[]>();
 
   expect(inner0.length).toBe(2);
   expect(inner1.length).toBe(2);
-  
+
   expect(inner0[0].get<f64>()).toBe(1.0);
   expect(inner0[1].get<f64>()).toBe(2.0);
 
@@ -177,14 +177,14 @@ describe("Should deserialize nested arrays in JSON obj", () => {
 describe("Should deserialize nested objects in arbitrary arrays", () => {
   const parsed = JSON.parse<JSON.Value>('[{"a":1,"b":2},{"c":3,"d":4}]');
   const arr = parsed.get<JSON.Value[]>();
-  
+
   expect(arr.length).toBe(2);
-  
+
   const obj0 = arr[0].get<JSON.Obj>();
   expect(obj0.keys().length).toBe(2);
   expect(obj0.get("a")!.get<f64>()).toBe(1.0);
   expect(obj0.get("b")!.get<f64>()).toBe(2.0);
-  
+
   const obj1 = arr[1].get<JSON.Obj>();
   expect(obj1.keys().length).toBe(2);
   expect(obj1.get("c")!.get<f64>()).toBe(3.0);
@@ -194,7 +194,9 @@ describe("Should deserialize nested objects in arbitrary arrays", () => {
 });
 
 describe("Additional regression coverage - primitives and arrays", () => {
-  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe('"regression"');
+  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe(
+    '"regression"',
+  );
   expect(JSON.stringify(JSON.parse<i32>("-42"))).toBe("-42");
   expect(JSON.stringify(JSON.parse<bool>("false"))).toBe("false");
   expect(JSON.stringify(JSON.parse<f64>("3.5"))).toBe("3.5");
@@ -221,13 +223,19 @@ describe("Should parse additional arbitrary values", () => {
     JSON.Types.Null.toString(),
   );
   expect(JSON.parse<JSON.Value>("123").toString()).toBe("123.0");
-  expect(JSON.stringify(JSON.parse<JSON.Value>("[1,2,3]"))).toBe("[1.0,2.0,3.0]");
+  expect(JSON.stringify(JSON.parse<JSON.Value>("[1,2,3]"))).toBe(
+    "[1.0,2.0,3.0]",
+  );
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
   expect(JSON.stringify(JSON.parse<f64>("-0.125"))).toBe("-0.125");
-  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe("[[1],[2,3],[]]");
-  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
+  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe(
+    "[[1],[2,3],[]]",
+  );
+  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe(
+    '"line\\nbreak"',
+  );
 });

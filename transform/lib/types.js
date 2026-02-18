@@ -24,7 +24,8 @@ export class Property {
     get custom() {
         if (this._custom)
             return true;
-        if (this.parent.node.isGeneric && this.parent.node.typeParameters.some((p) => p.name.text == this.type)) {
+        if (this.parent.node.isGeneric &&
+            this.parent.node.typeParameters.some((p) => p.name.text == this.type)) {
             this._custom = true;
             return true;
         }
@@ -42,7 +43,8 @@ export class Property {
     get generic() {
         if (this._generic)
             return true;
-        if (this.parent.node.isGeneric && this.parent.node.typeParameters.some((p) => p.name.text == stripNull(this.type))) {
+        if (this.parent.node.isGeneric &&
+            this.parent.node.typeParameters.some((p) => p.name.text == stripNull(this.type))) {
             this._generic = true;
             return true;
         }
@@ -104,15 +106,20 @@ export class Src {
             switch (node.kind) {
                 case 59:
                     const namespaceDeclaration = node;
-                    this.traverse(namespaceDeclaration.members, [...path, namespaceDeclaration]);
+                    this.traverse(namespaceDeclaration.members, [
+                        ...path,
+                        namespaceDeclaration,
+                    ]);
                     break;
                 case 51:
                     const classDeclaration = node;
-                    this.classes[this.qualifiedName(classDeclaration, path)] = classDeclaration;
+                    this.classes[this.qualifiedName(classDeclaration, path)] =
+                        classDeclaration;
                     break;
                 case 52:
                     const enumDeclaration = node;
-                    this.enums[this.qualifiedName(enumDeclaration, path)] = enumDeclaration;
+                    this.enums[this.qualifiedName(enumDeclaration, path)] =
+                        enumDeclaration;
                     break;
                 case 42:
                     const importStatement = node;
@@ -133,7 +140,9 @@ export class Src {
     }
     getImportedClass(qualifiedName, parser) {
         for (const stmt of this.imports) {
-            const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
+            const externalSource = parser.sources
+                .filter((src) => src.internalPath != this.internalPath)
+                .find((src) => src.internalPath == stmt.internalPath);
             if (!externalSource)
                 continue;
             const source = this.sourceSet.get(externalSource);
@@ -146,7 +155,9 @@ export class Src {
     }
     getImportedEnum(qualifiedName, parser) {
         for (const stmt of this.imports) {
-            const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
+            const externalSource = parser.sources
+                .filter((src) => src.internalPath != this.internalPath)
+                .find((src) => src.internalPath == stmt.internalPath);
             if (!externalSource)
                 continue;
             const source = this.sourceSet.get(externalSource);
@@ -183,7 +194,9 @@ export class Src {
         return extendsName;
     }
     qualifiedName(node, parents) {
-        return parents?.length ? parents.map((p) => p.name.text).join(".") + "." + node.name.text : node.name.text;
+        return parents?.length
+            ? parents.map((p) => p.name.text).join(".") + "." + node.name.text
+            : node.name.text;
     }
     getNamespaceOrClassName(node) {
         switch (node.kind) {
