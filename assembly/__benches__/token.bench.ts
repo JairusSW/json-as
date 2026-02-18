@@ -668,24 +668,19 @@ class Token {
     const tokenPtr = ptr + offsetof<this>("token");
     const uid = load<u32>(uidPtr);
     const token = load<string>(tokenPtr);
-
-    bs.proposeSize(14);
+    bs.proposeSize(54); // {"uid": + max u32 digits + ,"token": + }
     store<u64>(bs.offset, 0x6900750022007b); // {"ui
     store<u32>(bs.offset, 0x220064, 8); // d"
     store<u16>(bs.offset, 58, 12); // :
     bs.offset += 14;
 
-    serializeU32_FAST(uid);
-
-    bs.proposeSize(18);
+    bs.offset += <usize>(itoa_buffered(bs.offset, uid) << 1);
     store<u64>(bs.offset, 0x6f00740022002c); // ,"to
     store<u64>(bs.offset, 0x22006e0065006b, 8); // ken"
     store<u16>(bs.offset, 58, 16); // :
     bs.offset += 18;
 
     if (!serializeString_NAIVE_FAST(token)) serializeString(token);
-
-    bs.proposeSize(2);
     store<u16>(bs.offset, BRACE_RIGHT);
     bs.offset += 2;
   }
@@ -697,24 +692,19 @@ class Token {
     const tokenPtr = ptr + offsetof<this>("token");
     const uid = load<u32>(uidPtr);
     const token = load<string>(tokenPtr);
-
-    bs.proposeSize(14);
+    bs.proposeSize(54); // {"uid": + max u32 digits + ,"token": + }
     store<u64>(bs.offset, 0x6900750022007b); // {"ui
     store<u32>(bs.offset, 0x220064, 8); // d"
     store<u16>(bs.offset, 58, 12); // :
     bs.offset += 14;
 
-    serializeU32_FAST(uid);
-
-    bs.proposeSize(18);
+    bs.offset += <usize>(itoa_buffered(bs.offset, uid) << 1);
     store<u64>(bs.offset, 0x6f00740022002c); // ,"to
     store<u64>(bs.offset, 0x22006e0065006b, 8); // ken"
     store<u16>(bs.offset, 58, 16); // :
     bs.offset += 18;
 
     if (!serializeString_SWAR_FAST(token)) serializeString_SWAR(token);
-
-    bs.proposeSize(2);
     store<u16>(bs.offset, BRACE_RIGHT);
     bs.offset += 2;
   }
@@ -726,24 +716,19 @@ class Token {
     const tokenPtr = ptr + offsetof<this>("token");
     const uid = load<u32>(uidPtr);
     const token = load<string>(tokenPtr);
-
-    bs.proposeSize(14);
+    bs.proposeSize(54); // {"uid": + max u32 digits + ,"token": + }
     store<u64>(bs.offset, 0x6900750022007b); // {"ui
     store<u32>(bs.offset, 0x220064, 8); // d"
     store<u16>(bs.offset, 58, 12); // :
     bs.offset += 14;
 
-    serializeU32_FAST(uid);
-
-    bs.proposeSize(18);
+    bs.offset += <usize>(itoa_buffered(bs.offset, uid) << 1);
     store<u64>(bs.offset, 0x6f00740022002c); // ,"to
     store<u64>(bs.offset, 0x22006e0065006b, 8); // ken"
     store<u16>(bs.offset, 58, 16); // :
     bs.offset += 18;
 
     if (!serializeString_SIMD_FAST(token)) serializeString_SIMD(token);
-
-    bs.proposeSize(2);
     store<u16>(bs.offset, BRACE_RIGHT);
     bs.offset += 2;
   }
@@ -778,7 +763,7 @@ class Token {
     const originalSrcStart = srcStart;
 
     do {
-      if (srcEnd - srcStart < 40) break;
+      // if (srcEnd - srcStart < 40) break;
 
       if (
         load<u64>(srcStart) != 0x6900750022007b ||
@@ -809,8 +794,8 @@ class Token {
       srcStart += 18;
 
       const quoteEnd = srcEnd - 4;
-      if (quoteEnd <= srcStart) break;
-      if (load<u16>(quoteEnd) != QUOTE || load<u16>(srcEnd - 2) != BRACE_RIGHT)
+      // if (quoteEnd <= srcStart) break;
+      if (load<u16>(quoteEnd) != QUOTE || load<u16>(quoteEnd, 2) != BRACE_RIGHT)
         break;
 
       // first quote and final quote are validated above
@@ -826,24 +811,17 @@ class Token {
       const quoteEnd8 = quoteEnd - 8;
 
       while (scanPtr <= quoteEnd8) {
-        if (backslash_mask_unsafe(load<u64>(scanPtr)) != 0) {
-          if (load<u16>(scanPtr) == BACK_SLASH) {
-            firstEscape = scanPtr;
-            break;
-          }
-          if (load<u16>(scanPtr, 2) == BACK_SLASH) {
-            firstEscape = scanPtr + 2;
-            break;
-          }
-          if (load<u16>(scanPtr, 4) == BACK_SLASH) {
-            firstEscape = scanPtr + 4;
-            break;
-          }
-          if (load<u16>(scanPtr, 6) == BACK_SLASH) {
-            firstEscape = scanPtr + 6;
+        let mask =
+          backslash_mask_unsafe(load<u64>(scanPtr)) & 0x0080_0080_0080_0080;
+        while (mask != 0) {
+          const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
+          mask &= mask - 1;
+          if (load<u16>(scanPtr + laneIdx) == BACK_SLASH) {
+            firstEscape = scanPtr + laneIdx;
             break;
           }
         }
+        if (firstEscape != quoteEnd) break;
         scanPtr += 8;
       }
 

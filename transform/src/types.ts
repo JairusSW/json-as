@@ -14,13 +14,19 @@ import {
   EnumDeclaration,
 } from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
-import { stripNull } from "./index.js";
+import { stripNull } from "./codegen/common.js";
 
 export enum PropertyFlags {
   OmitNull,
   OmitIf,
   Raw,
   Custom,
+}
+
+export enum StringHintMode {
+  Default,
+  NoEscape,
+  Raw,
 }
 
 export class Property {
@@ -34,6 +40,7 @@ export class Property {
   >();
   public node!: FieldDeclaration;
   public byteSize: number = 0;
+  public stringHint: StringHintMode = StringHintMode.Default;
   public _generic: boolean = false;
   public _custom: boolean = false;
   public parent: Schema;
