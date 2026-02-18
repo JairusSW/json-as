@@ -1,5 +1,14 @@
 # Change Log
 
+## 2026-02-17 - 1.2.7
+
+- perf: generate mode-specific class deserializers (`__DESERIALIZE_NAIVE`, `__DESERIALIZE_SWAR`, `__DESERIALIZE_SIMD`) with `JSON_MODE` dispatch
+- perf: add fast no-escape string deserialization path for generated class fields with SWAR/SIMD/naive specializations
+- feat: add field-level string hints via decorators (`@stringmode("...")`, `@stringnoescape`, `@stringascii`, `@stringfast`, `@stringraw`)
+- perf: add serializer fast paths for hinted string fields (`noescape` scan + fallback, `raw` straight quoted copy)
+- refactor: extract shared transform codegen helpers into `transform/src/codegen/common.ts` and decouple `types.ts` from `index.ts`
+- tests: add `assembly/__tests__/string-hints.spec.ts` for new string-hint behavior
+
 ## 2026-02-17 - 1.2.6
 
 - tests: significantly expand coverage across every file in `assembly/__tests__`

@@ -6,6 +6,11 @@ export declare enum PropertyFlags {
     Raw = 2,
     Custom = 3
 }
+export declare enum StringHintMode {
+    Default = 0,
+    NoEscape = 1,
+    Raw = 2
+}
 export declare class Property {
     name: string;
     alias: string | null;
@@ -14,6 +19,7 @@ export declare class Property {
     flags: Map<PropertyFlags, Expression | null>;
     node: FieldDeclaration;
     byteSize: number;
+    stringHint: StringHintMode;
     _generic: boolean;
     _custom: boolean;
     parent: Schema;

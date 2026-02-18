@@ -1,16 +1,21 @@
-import { Node } from "assemblyscript/dist/assemblyscript.js";
+import { Node, } from "assemblyscript/dist/assemblyscript.js";
 import { Visitor } from "../visitor.js";
 export class CustomTransform extends Visitor {
     static SN = new CustomTransform();
     modify = false;
     visitCallExpression(node) {
         super.visit(node.args, node);
-        if (node.expression.kind != 21 || node.expression.property.text != "stringify")
+        if (node.expression.kind != 21 ||
+            node.expression.property.text != "stringify")
             return;
-        if (node.expression.expression.kind != 6 || node.expression.expression.text != "JSON")
+        if (node.expression.expression.kind !=
+            6 ||
+            node.expression
+                .expression.text != "JSON")
             return;
         if (this.modify) {
-            node.expression.expression = Node.createPropertyAccessExpression(Node.createIdentifierExpression("JSON", node.expression.range), Node.createIdentifierExpression("internal", node.expression.range), node.expression.range);
+            node.expression.expression =
+                Node.createPropertyAccessExpression(Node.createIdentifierExpression("JSON", node.expression.range), Node.createIdentifierExpression("internal", node.expression.range), node.expression.range);
         }
         this.modify = true;
     }

@@ -172,6 +172,41 @@ console.log(JSON.stringify(obj)); // { "name": "Jairus", "age": 99 }
 
 If age were higher than 18, it would be included in the serialization.
 
+### String Hints
+
+For high-throughput schemas dominated by strings, you can provide field hints so generated code uses faster paths.
+
+**@stringmode("default" | "noescape" | "ascii" | "raw")**
+
+- `default` (or omitted): standard escaping/unescaping behavior
+- `noescape` / `ascii`: optimized path that assumes content has no escapes; serialization falls back to safe escaping if needed
+- `raw`: straight quoted copy path (no escape/unescape work), intended for trusted payloads
+
+Shorthand decorators are also available:
+
+- `@stringnoescape`
+- `@stringascii`
+- `@stringfast` (alias of noescape)
+- `@stringraw` (alias of raw)
+
+```typescript
+@json
+class LogEnvelope {
+  @stringmode("noescape")
+  source!: string;
+
+  @stringraw
+  payload!: string;
+
+  message!: string; // default behavior
+}
+```
+
+Notes:
+
+- Hints are designed for performance-sensitive fields where you control input shape.
+- `raw` and `noescape` deserialization preserve payload bytes as-is for that field (they do not decode escape sequences).
+
 ### Using nullable primitives
 
 AssemblyScript doesn't support using nullable primitive types, so instead, json-as offers the `JSON.Box` class to remedy it.

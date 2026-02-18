@@ -28,5 +28,4 @@ export default class Transformer extends Transform {
     afterInitialize(program: Program): void | Promise<void>;
     afterParse(parser: Parser): void;
 }
-export declare function stripNull(type: string): string;
 //# sourceMappingURL=index.d.ts.map

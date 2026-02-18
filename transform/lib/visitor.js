@@ -313,7 +313,8 @@ export class Visitor {
                 this.visitObjectLiteralExpression(node);
                 break;
             default:
-                throw new Error("Invalid LiteralKind at visitLiteralExpression(): " + node.literalKind);
+                throw new Error("Invalid LiteralKind at visitLiteralExpression(): " +
+                    node.literalKind);
         }
     }
     visitFloatLiteralExpression(_node, _ref = null) { }
