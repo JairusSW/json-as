@@ -191,6 +191,8 @@ describe("Should deserialize nested objects in arbitrary arrays", () => {
   expect(obj1.get("d")!.get<f64>()).toBe(4.0);
 
   expect(JSON.stringify(parsed)).toBe('[{"a":1.0,"b":2.0},{"c":3.0,"d":4.0}]');
+});
+
 describe("Additional regression coverage - primitives and arrays", () => {
   expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe('"regression"');
   expect(JSON.stringify(JSON.parse<i32>("-42"))).toBe("-42");
