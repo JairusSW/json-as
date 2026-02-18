@@ -37,7 +37,8 @@
     "Matt Johnson-Pint",
     "Tomáš Hromada",
     "Loredana Cirstea",
-    "Accipiter Nisus"
+    "Accipiter Nisus",
+    "Deon Groenewald"
   ],
   "description": "The only JSON library you'll need for AssemblyScript with SIMD and SWAR",
   "homepage": "https://github.com/JairusSW/json-as#readme",
