@@ -1,12 +1,9 @@
 # Change Log
 
-## 2026-02-18 - 1.2.7
+## 2026-02-18 - 1.2.6
 
 - fix: support arbitrary nested arrays and objects [#176](https://github.com/JairusSW/json-as/pull/176)
 - chore: add contributor from [#176](https://github.com/JairusSW/json-as/pull/176)
-
-## 2026-02-17 - 1.2.6
-
 - tests: significantly expand coverage across every file in `assembly/__tests__`
 - tests: add additional primitive, array, nested payload, and escaped string regression cases to all specs
 - tests: add more file-specific deserialize/serialize scenarios for custom, struct, map, resolving, and related schema behaviors
