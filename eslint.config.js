@@ -2,6 +2,7 @@
 
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
+import aseslint from "./tools/assemblyscript-eslint-local.js";
 
 export default tseslint.config(
   {
@@ -11,12 +12,12 @@ export default tseslint.config(
       "tests/**/*.js",
       "transform/lib/**",
       "build/**",
-      "assembly/**/*.ts",
-      "lib/as-bs.ts",
+      "assembly/**/*.tmp.ts"
     ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  aseslint.config,
   {
     files: ["**/*.{js,mjs,cjs,ts}"],
     languageOptions: {
