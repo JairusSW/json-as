@@ -9,8 +9,7 @@ class ObjLarge {
   lorum: u32 = U32.MAX_VALUE;
   ipsum: boolean = true;
   dolor: Array<i32> = [1, 2, 3, 4, 5];
-  sit: string =
-    "abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
+  sit: string = "abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
   consectetur: i32 = 123456;
   adipiscing: boolean = false;
   elit: Array<i32> = [6, 7, 8, 9, 10];

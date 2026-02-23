@@ -3,29 +3,11 @@ import { describe, expect } from "./lib";
 
 describe("Should serialize strings - Basic", () => {
   expect(JSON.stringify("abcdefg")).toBe('"abcdefg"');
-  expect(JSON.stringify('st"ring" w""ith quotes"')).toBe(
-    '"st\\"ring\\" w\\"\\"ith quotes\\""',
-  );
-  expect(
-    JSON.stringify('string "with random spa\nces and \nnewlines\n\n\n'),
-  ).toBe('"string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"');
-  expect(
-    JSON.stringify(
-      'string with colon : comma , brace [ ] bracket { } and quote " and other quote \\"',
-    ),
-  ).toBe(
-    '"string with colon : comma , brace [ ] bracket { } and quote \\" and other quote \\\\\\""',
-  );
-  expect(
-    JSON.stringify(
-      "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u0009\u000a\u000b\u000c\u000d\u000e\u000f\u000f\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f",
-    ),
-  ).toBe(
-    '"\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\b\\t\\n\\u000b\\f\\r\\u000e\\u000f\\u000f\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f"',
-  );
-  expect(JSON.stringify('abcdYZ12345890sdfw"vie91kfESDFOK12i9i12dsf./?')).toBe(
-    '"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"',
-  );
+  expect(JSON.stringify('st"ring" w""ith quotes"')).toBe('"st\\"ring\\" w\\"\\"ith quotes\\""');
+  expect(JSON.stringify('string "with random spa\nces and \nnewlines\n\n\n')).toBe('"string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"');
+  expect(JSON.stringify('string with colon : comma , brace [ ] bracket { } and quote " and other quote \\"')).toBe('"string with colon : comma , brace [ ] bracket { } and quote \\" and other quote \\\\\\""');
+  expect(JSON.stringify("\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u0009\u000a\u000b\u000c\u000d\u000e\u000f\u000f\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f")).toBe('"\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\b\\t\\n\\u000b\\f\\r\\u000e\\u000f\\u000f\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f"');
+  expect(JSON.stringify('abcdYZ12345890sdfw"vie91kfESDFOK12i9i12dsf./?')).toBe('"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"');
 });
 
 describe("Should serialize strings - Empty and whitespace", () => {
@@ -88,24 +70,14 @@ describe("Should serialize strings - Unicode", () => {
 
 describe("Should serialize strings - Surrogates", () => {
   // Valid surrogate pairs
-  expect(JSON.stringify("\uD83D\uDE00\uD83D\uDE00\uD83D\uDE00")).toBe(
-    '"😀😀😀"',
-  );
+  expect(JSON.stringify("\uD83D\uDE00\uD83D\uDE00\uD83D\uDE00")).toBe('"😀😀😀"');
   expect(JSON.stringify("\uD834\uDD1E\uD834\uDD1E\uD834\uDD1E")).toBe('"𝄞𝄞𝄞"');
 
   // Unpaired surrogates
-  expect(JSON.stringify("\uD800\uD800\uD800\uD800\uD800")).toBe(
-    '"\\ud800\\ud800\\ud800\\ud800\\ud800"',
-  ); // unpaired high surrogate
-  expect(JSON.stringify("\uDC00\uDC00\uDC00\uDC00\uDC00")).toBe(
-    '"\\udc00\\udc00\\udc00\\udc00\\udc00"',
-  ); // unpaired low surrogate
-  expect(JSON.stringify("\uD800abc\uD800abc\uD800")).toBe(
-    '"\\ud800abc\\ud800abc\\ud800"',
-  ); // high surrogate followed by normal chars
-  expect(JSON.stringify("abc\uDC00abc\uDC00\uDC00")).toBe(
-    '"abc\\udc00abc\\udc00\\udc00"',
-  ); // normal chars followed by low surrogate
+  expect(JSON.stringify("\uD800\uD800\uD800\uD800\uD800")).toBe('"\\ud800\\ud800\\ud800\\ud800\\ud800"'); // unpaired high surrogate
+  expect(JSON.stringify("\uDC00\uDC00\uDC00\uDC00\uDC00")).toBe('"\\udc00\\udc00\\udc00\\udc00\\udc00"'); // unpaired low surrogate
+  expect(JSON.stringify("\uD800abc\uD800abc\uD800")).toBe('"\\ud800abc\\ud800abc\\ud800"'); // high surrogate followed by normal chars
+  expect(JSON.stringify("abc\uDC00abc\uDC00\uDC00")).toBe('"abc\\udc00abc\\udc00\\udc00"'); // normal chars followed by low surrogate
 });
 
 describe("Should serialize strings - Long strings", () => {
@@ -123,9 +95,7 @@ describe("Should serialize strings - Long strings", () => {
 
 describe("Should serialize strings - Edge cases with multiple escapes", () => {
   expect(JSON.stringify('""""""""')).toBe('"\\"\\"\\"\\"\\"\\"\\"\\""');
-  expect(JSON.stringify("\\\\\\\\\\\\\\")).toBe(
-    '"\\\\\\\\\\\\\\\\\\\\\\\\\\\\"',
-  );
+  expect(JSON.stringify("\\\\\\\\\\\\\\")).toBe('"\\\\\\\\\\\\\\\\\\\\\\\\\\\\"');
   expect(JSON.stringify("\n\n\n\n\n")).toBe('"\\n\\n\\n\\n\\n"');
   expect(JSON.stringify("\t\t\t\t\t")).toBe('"\\t\\t\\t\\t\\t"');
   expect(JSON.stringify("\b\f\n\r\t")).toBe('"\\b\\f\\n\\r\\t"');
@@ -136,9 +106,7 @@ describe("Should serialize strings - Strings with numbers and symbols", () => {
   expect(JSON.stringify("!@#$%^&*()")).toBe('"!@#$%^&*()"');
   expect(JSON.stringify("-_=+[{]};:',<.>/?")).toBe('"-_=+[{]};:\',<.>/?"');
   expect(JSON.stringify("test@example.com")).toBe('"test@example.com"');
-  expect(JSON.stringify("http://example.com/path?query=value")).toBe(
-    '"http://example.com/path?query=value"',
-  );
+  expect(JSON.stringify("http://example.com/path?query=value")).toBe('"http://example.com/path?query=value"');
 });
 
 describe("Should serialize strings - All control characters", () => {
@@ -174,33 +142,11 @@ describe("Should serialize strings - Escapes at various positions", () => {
 
 describe("Should deserialize strings - Basic", () => {
   expect(JSON.parse<string>('"abcdefg"')).toBe("abcdefg");
-  expect(
-    JSON.parse<string>(
-      '"\\"st\\\\\\"ring\\\\\\" w\\\\\\"\\\\\\"ith quotes\\\\\\"\\""',
-    ),
-  ).toBe('"st\\"ring\\" w\\"\\"ith quotes\\""');
-  expect(
-    JSON.parse<string>(
-      '"\\"string \\\\\\"with random spa\\\\nces and \\\\nnewlines\\\\n\\\\n\\\\n\\""',
-    ),
-  ).toBe('"string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"');
-  expect(
-    JSON.parse<string>(
-      '"\\"string with colon : comma , brace [ ] bracket { } and quote \\\\\\" and other quote \\\\\\\\\\"\\""',
-    ),
-  ).toBe(
-    '"string with colon : comma , brace [ ] bracket { } and quote \\" and other quote \\\\""',
-  );
-  expect(
-    JSON.parse<string>(
-      '"a\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\b\\t\\n\\u000b\\f\\r\\u000e\\u000f\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f"',
-    ),
-  ).toBe(
-    "a\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u0009\u000a\u000b\u000c\u000d\u000e\u000f\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f",
-  );
-  expect(
-    JSON.parse<string>('"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"'),
-  ).toBe('abcdYZ12345890sdfw"vie91kfESDFOK12i9i12dsf./?');
+  expect(JSON.parse<string>('"\\"st\\\\\\"ring\\\\\\" w\\\\\\"\\\\\\"ith quotes\\\\\\"\\""')).toBe('"st\\"ring\\" w\\"\\"ith quotes\\""');
+  expect(JSON.parse<string>('"\\"string \\\\\\"with random spa\\\\nces and \\\\nnewlines\\\\n\\\\n\\\\n\\""')).toBe('"string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"');
+  expect(JSON.parse<string>('"\\"string with colon : comma , brace [ ] bracket { } and quote \\\\\\" and other quote \\\\\\\\\\"\\""')).toBe('"string with colon : comma , brace [ ] bracket { } and quote \\" and other quote \\\\""');
+  expect(JSON.parse<string>('"a\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\b\\t\\n\\u000b\\f\\r\\u000e\\u000f\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f"')).toBe("a\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u0009\u000a\u000b\u000c\u000d\u000e\u000f\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f");
+  expect(JSON.parse<string>('"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"')).toBe('abcdYZ12345890sdfw"vie91kfESDFOK12i9i12dsf./?');
 });
 
 describe("Should deserialize strings - Empty and whitespace", () => {
@@ -241,9 +187,7 @@ describe("Should deserialize strings - Mixed escapes", () => {
   expect(JSON.parse<string>('"line1\\nline2"')).toBe("line1\nline2");
   expect(JSON.parse<string>('"tab\\there"')).toBe("tab\there");
   expect(JSON.parse<string>('"back\\\\slash"')).toBe("back\\slash");
-  expect(JSON.parse<string>('"\\"\\\\/\\b\\f\\n\\r\\t"')).toBe(
-    '"\\/\b\f\n\r\t',
-  );
+  expect(JSON.parse<string>('"\\"\\\\/\\b\\f\\n\\r\\t"')).toBe('"\\/\b\f\n\r\t');
 });
 
 describe("Should deserialize strings - Unicode characters (non-escaped)", () => {
@@ -269,19 +213,7 @@ describe("Should deserialize strings - Long strings", () => {
 });
 
 describe("Should deserialize strings - Roundtrip", () => {
-  const test_strings = [
-    "",
-    "hello",
-    "hello world",
-    'quotes "inside" string',
-    "backslash \\ character",
-    "newline\ncharacter",
-    "tab\tcharacter",
-    'all together: "\\\n\t',
-    "control chars: \u0000\u0001\u001f",
-    "unicode: café 世界",
-    "long string: " + "x".repeat(500),
-  ];
+  const test_strings = ["", "hello", "hello world", 'quotes "inside" string', "backslash \\ character", "newline\ncharacter", "tab\tcharacter", 'all together: "\\\n\t', "control chars: \u0000\u0001\u001f", "unicode: café 世界", "long string: " + "x".repeat(500)];
 
   for (let i = 0; i < test_strings.length; i++) {
     const original = test_strings[i];
@@ -292,23 +224,17 @@ describe("Should deserialize strings - Roundtrip", () => {
 });
 
 describe("Additional regression coverage - primitives and arrays", () => {
-  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe(
-    '"regression"',
-  );
+  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe('"regression"');
   expect(JSON.stringify(JSON.parse<i32>("-42"))).toBe("-42");
   expect(JSON.stringify(JSON.parse<bool>("false"))).toBe("false");
   expect(JSON.stringify(JSON.parse<f64>("3.5"))).toBe("3.5");
   expect(JSON.stringify(JSON.parse<i32[]>("[1,2,3,4]"))).toBe("[1,2,3,4]");
-  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe(
-    '["a","b","c"]',
-  );
+  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe('["a","b","c"]');
 });
 
 describe("Should serialize additional unicode and escaped mixes", () => {
   expect(JSON.stringify("A😀B😀C")).toBe('"A😀B😀C"');
-  expect(JSON.stringify("tabs\tand\nlines\rhere")).toBe(
-    '"tabs\\tand\\nlines\\rhere"',
-  );
+  expect(JSON.stringify("tabs\tand\nlines\rhere")).toBe('"tabs\\tand\\nlines\\rhere"');
   expect(JSON.stringify('\\"\\"\\"')).toBe('"\\\\\\"\\\\\\"\\\\\\""');
 });
 
@@ -322,10 +248,6 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
   expect(JSON.stringify(JSON.parse<f64>("-0.125"))).toBe("-0.125");
-  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe(
-    "[[1],[2,3],[]]",
-  );
-  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe(
-    '"line\\nbreak"',
-  );
+  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe("[[1],[2,3],[]]");
+  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
 });

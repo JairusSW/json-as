@@ -1,9 +1,4 @@
-import {
-  Node,
-  Source,
-  TypeDeclaration,
-  TypeNode,
-} from "assemblyscript/dist/assemblyscript.js";
+import { Node, Source, TypeDeclaration, TypeNode } from "assemblyscript/dist/assemblyscript.js";
 import { Visitor } from "../visitor.js";
 import { toString } from "../util.js";
 
@@ -36,9 +31,7 @@ export class TypeAlias {
     } else {
       const existingType = TypeAlias.foundAliases.get(name);
       if (existingType !== toString(type)) {
-        throw new Error(
-          `Type alias conflict for ${name}: "${existingType}" vs "${toString(type)}"`,
-        );
+        throw new Error(`Type alias conflict for ${name}: "${existingType}" vs "${toString(type)}"`);
       }
     }
   }

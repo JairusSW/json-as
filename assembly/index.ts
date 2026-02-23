@@ -16,13 +16,7 @@ import { deserializeSet } from "./deserialize/simple/set";
 import { serializeStaticArray } from "./serialize/simple/staticarray";
 import { deserializeStaticArray } from "./deserialize/simple/staticarray";
 
-import {
-  NULL_WORD,
-  QUOTE,
-  NULL_WORD_U64,
-  TRUE_WORD_U64,
-  FALSE_WORD_U64,
-} from "./custom/chars";
+import { NULL_WORD, QUOTE, NULL_WORD_U64, TRUE_WORD_U64, FALSE_WORD_U64 } from "./custom/chars";
 import { dtoa_buffered, itoa_buffered } from "util/number";
 import { serializeBool } from "./serialize/simple/bool";
 import { serializeInteger } from "./serialize/simple/integer";
@@ -45,7 +39,6 @@ import { deserializeString_SIMD } from "./deserialize/simd/string";
 /**
  * Offset of the 'storage' property in the JSON.Value class.
  */
-// @ts-expect-error: Decorator valid here
 @inline const STORAGE = offsetof<JSON.Value>("storage");
 
 export namespace JSON {
@@ -77,10 +70,7 @@ export namespace JSON {
    * @returns string
    */
   // @ts-expect-error: inline
-  @inline export function stringify<T>(
-    data: T,
-    out: string | null = null,
-  ): string {
+  @inline export function stringify<T>(data: T, out: string | null = null): string {
     if (isBoolean<T>()) {
       if (out) {
         if (<bool>data == true) {
@@ -94,12 +84,7 @@ export namespace JSON {
         return out;
       }
       return data ? "true" : "false";
-    } else if (
-      isInteger<T>() &&
-      !isSigned<T>() &&
-      nameof<T>() == "usize" &&
-      data == 0
-    ) {
+    } else if (isInteger<T>() && !isSigned<T>() && nameof<T>() == "usize" && data == 0) {
       if (out) {
         out = changetype<string>(__renew(changetype<usize>(out), 8));
         store<u64>(changetype<usize>(out), NULL_WORD_U64);
@@ -108,14 +93,10 @@ export namespace JSON {
       return NULL_WORD;
     } else if (isInteger<T>(data)) {
       if (out) {
-        out = changetype<string>(
-          __renew(changetype<usize>(out), sizeof<T>() << 3),
-        );
+        out = changetype<string>(__renew(changetype<usize>(out), sizeof<T>() << 3));
 
         const bytes = itoa_buffered(changetype<usize>(out), data) << 1;
-        return (out = changetype<string>(
-          __renew(changetype<usize>(out), bytes),
-        ));
+        return (out = changetype<string>(__renew(changetype<usize>(out), bytes)));
       }
       return data.toString();
     } else if (isFloat<T>(data)) {
@@ -123,9 +104,7 @@ export namespace JSON {
         out = changetype<string>(__renew(changetype<usize>(out), 64));
 
         const bytes = dtoa_buffered(changetype<usize>(out), data) << 1;
-        return (out = changetype<string>(
-          __renew(changetype<usize>(out), bytes),
-        ));
+        return (out = changetype<string>(__renew(changetype<usize>(out), bytes)));
       }
       return data.toString();
     } else if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
@@ -150,16 +129,10 @@ export namespace JSON {
       inline.always(data.__SERIALIZE(changetype<usize>(data)));
       return bs.out<string>();
     } else if (data instanceof Date) {
-      out = out
-        ? changetype<string>(__renew(changetype<usize>(out), 52))
-        : changetype<string>(__new(52, idof<string>()));
+      out = out ? changetype<string>(__renew(changetype<usize>(out), 52)) : changetype<string>(__new(52, idof<string>()));
 
       store<u16>(changetype<usize>(out), QUOTE);
-      memory.copy(
-        changetype<usize>(out) + 2,
-        changetype<usize>(data.toISOString()),
-        48,
-      );
+      memory.copy(changetype<usize>(out) + 2, changetype<usize>(data.toISOString()), 48);
       store<u16>(changetype<usize>(out), QUOTE, 50);
       return changetype<string>(out);
     } else if (data instanceof Array) {
@@ -190,11 +163,7 @@ export namespace JSON {
     } else if (data instanceof JSON.Box) {
       return JSON.stringify(data.value);
     } else {
-      throw new Error(
-        `Could not serialize data of type '${nameof<T>()}'. ` +
-          `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
-          `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`,
-      );
+      throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`);
     }
   }
 
@@ -216,11 +185,7 @@ export namespace JSON {
       return deserializeInteger<T>(dataPtr, dataPtr + dataSize);
     } else if (isFloat<T>()) {
       return deserializeFloat<T>(dataPtr, dataPtr + dataSize);
-    } else if (
-      isNullable<T>() &&
-      dataSize == 8 &&
-      load<u64>(dataPtr) == NULL_WORD_U64
-    ) {
+    } else if (isNullable<T>() && dataSize == 8 && load<u64>(dataPtr) == NULL_WORD_U64) {
       return null;
     } else if (isString<T>()) {
       if (JSON_MODE === JSONMode.NAIVE) {
@@ -237,37 +202,23 @@ export namespace JSON {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
       if (type instanceof StaticArray) {
         // @ts-expect-error
-        return inline.always(
-          deserializeStaticArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0),
-        );
+        return inline.always(deserializeStaticArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0));
       } else if (type instanceof Array) {
         // @ts-expect-error
-        return inline.always(
-          deserializeArray<nonnull<T>>(
-            dataPtr,
-            dataPtr + dataSize,
-            changetype<usize>(instantiate<T>()),
-          ),
-        );
+        return inline.always(deserializeArray<nonnull<T>>(dataPtr, dataPtr + dataSize, changetype<usize>(instantiate<T>())));
       } else if (type instanceof Set) {
         // @ts-expect-error
-        return inline.always(
-          deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0),
-        );
+        return inline.always(deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0));
         // @ts-expect-error: Defined by transform
       } else if (isDefined(type.__DESERIALIZE)) {
-        const out = changetype<nonnull<T>>(
-          __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
-        );
+        const out = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error
         return out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
       } else if (type instanceof Map) {
         // @ts-expect-error
-        return inline.always(
-          deserializeMap<nonnull<T>>(dataPtr, dataPtr + dataSize, 0),
-        );
+        return inline.always(deserializeMap<nonnull<T>>(dataPtr, dataPtr + dataSize, 0));
       } else if (type instanceof Date) {
         // @ts-expect-error
         return deserializeDate(dataPtr, dataPtr + dataSize);
@@ -276,9 +227,7 @@ export namespace JSON {
         return deserializeRaw(dataPtr, dataPtr + dataSize);
       } else if (type instanceof JSON.Value) {
         // @ts-expect-error
-        return inline.always(
-          deserializeArbitrary(dataPtr, dataPtr + dataSize, 0),
-        );
+        return inline.always(deserializeArbitrary(dataPtr, dataPtr + dataSize, 0));
       } else if (type instanceof JSON.Obj) {
         // @ts-expect-error
         return inline.always(deserializeObject(dataPtr, dataPtr + dataSize, 0));
@@ -286,11 +235,7 @@ export namespace JSON {
         // @ts-expect-error
         return new JSON.Box(parseBox(data, changetype<nonnull<T>>(0).value));
       } else {
-        throw new Error(
-          `Could not deserialize JSON to type '${nameof<T>()}'. ` +
-            `If this is a custom class, ensure it has the @json decorator: @json class ${nameof<T>()} { ... }. ` +
-            `Input: "${data.length > 50 ? data.slice(0, 50) + "..." : data}"`,
-        );
+        throw new Error(`Could not deserialize JSON to type '${nameof<T>()}'. ` + `If this is a custom class, ensure it has the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Input: "${data.length > 50 ? data.slice(0, 50) + "..." : data}"`);
       }
     }
   }
@@ -437,9 +382,7 @@ export namespace JSON {
      * @returns An instance of JSON.Value.
      */
     @inline static empty(): JSON.Value {
-      return changetype<JSON.Value>(
-        __new(offsetof<JSON.Value>(), idof<JSON.Value>()),
-      );
+      return changetype<JSON.Value>(__new(offsetof<JSON.Value>(), idof<JSON.Value>()));
     }
 
     /**
@@ -449,9 +392,7 @@ export namespace JSON {
      */
     @inline static from<T>(value: T): JSON.Value {
       if (value instanceof JSON.Value) return value;
-      const out = changetype<JSON.Value>(
-        __new(offsetof<JSON.Value>(), idof<JSON.Value>()),
-      );
+      const out = changetype<JSON.Value>(__new(offsetof<JSON.Value>(), idof<JSON.Value>()));
       out.set<T>(value);
       return out;
     }
@@ -462,20 +403,12 @@ export namespace JSON {
      * @returns JSON.Types
      */
     @inline getType<T>(value: T): JSON.Types {
-      if (isNullable<T>() && changetype<usize>(value) === 0)
-        return JSON.Types.Null;
+      if (isNullable<T>() && changetype<usize>(value) === 0) return JSON.Types.Null;
       if (isBoolean<T>()) return JSON.Types.Bool;
-      if (
-        isInteger<T>() &&
-        !isSigned<T>() &&
-        changetype<usize>(value) == 0 &&
-        nameof<T>() == "usize"
-      )
-        return JSON.Types.Null;
+      if (isInteger<T>() && !isSigned<T>() && changetype<usize>(value) == 0 && nameof<T>() == "usize") return JSON.Types.Null;
       if (isString<T>()) return JSON.Types.String;
       // @ts-expect-error: can assume that T is ArrayLike based on previous condition
-      if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>())
-        return JSON.Types.Array;
+      if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) return JSON.Types.Array;
       if (value instanceof JSON.Box) return this.getType(value.value);
       if (value instanceof u8 || value instanceof i8) return JSON.Types.U8;
       if (value instanceof u16 || value instanceof i16) return JSON.Types.U16;
@@ -492,8 +425,7 @@ export namespace JSON {
       if (value instanceof JSON.Obj) return JSON.Types.Object;
 
       // @ts-expect-error: supplied by transform
-      if (isDefined(value.__SERIALIZE) && isManaged<T>(value))
-        return u16(idof<T>()) + JSON.Types.Struct;
+      if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) return u16(idof<T>()) + JSON.Types.Struct;
       return JSON.Types.Null;
     }
     /**
@@ -504,22 +436,12 @@ export namespace JSON {
       this.type = this.getType<T>(value);
 
       if (value instanceof JSON.Box) this.set(value.value);
-      else if (isBoolean<T>())
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (
-        isInteger<T>() &&
-        !isSigned<T>() &&
-        changetype<usize>(value) == 0 &&
-        nameof<T>() == "usize"
-      )
-        store<usize>(changetype<usize>(this), 0, STORAGE);
-      else if (isInteger<T>() || isFloat<T>())
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (isNullable<T>() && changetype<usize>(value) === 0)
-        store<usize>(changetype<usize>(this), 0, STORAGE);
+      else if (isBoolean<T>()) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (isInteger<T>() && !isSigned<T>() && changetype<usize>(value) == 0 && nameof<T>() == "usize") store<usize>(changetype<usize>(this), 0, STORAGE);
+      else if (isInteger<T>() || isFloat<T>()) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (isNullable<T>() && changetype<usize>(value) === 0) store<usize>(changetype<usize>(this), 0, STORAGE);
       else if (isString<T>()) store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof JSON.Raw)
-        store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof JSON.Raw) store<T>(changetype<usize>(this), value, STORAGE);
       else if (value instanceof Map) {
         if (idof<T>() !== idof<Map<string, JSON.Value>>()) {
           abort("Maps must be of type Map<string, JSON.Value>!");
@@ -528,13 +450,8 @@ export namespace JSON {
         // @ts-expect-error: supplied by transform
       } else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
         // @ts-expect-error
-        if (!JSON.Value.METHODS.has(idof<T>()))
-          JSON.Value.METHODS.set(idof<T>(), value.__SERIALIZE.index);
-        store<usize>(
-          changetype<usize>(this),
-          changetype<usize>(value),
-          STORAGE,
-        );
+        if (!JSON.Value.METHODS.has(idof<T>())) JSON.Value.METHODS.set(idof<T>(), value.__SERIALIZE.index);
+        store<usize>(changetype<usize>(this), changetype<usize>(value), STORAGE);
       } else if (value instanceof JSON.Obj) {
         store<T>(changetype<usize>(this), value, STORAGE);
         // @ts-expect-error
@@ -744,8 +661,7 @@ export namespace JSON {
    */
   export class Box<T> {
     constructor(public value: T) {
-      if (!isInteger<T>() && !isFloat<T>())
-        ERROR("JSON.Box should only hold primitive types!");
+      if (!isInteger<T>() && !isFloat<T>()) ERROR("JSON.Box should only hold primitive types!");
     }
     /**
      * Set the internal value of Box to new value
@@ -768,11 +684,9 @@ export namespace JSON {
      * @returns Box<T> | null
      */
     @inline static fromValue<T>(value: JSON.Value): Box<T> | null {
-      if (!(value instanceof JSON.Value))
-        throw new Error("value must be of type JSON.Value");
+      if (!(value instanceof JSON.Value)) throw new Error("value must be of type JSON.Value");
       if (value.type === JSON.Types.Null) return null;
-      const v =
-        value.type === JSON.Types.F64 ? value.get<f64>() : value.get<T>();
+      const v = value.type === JSON.Types.F64 ? value.get<f64>() : value.get<T>();
       // @ts-expect-error
       return new Box(isInteger<T>() || isFloat<T>() ? <T>v : v);
     }
@@ -860,11 +774,7 @@ export namespace JSON {
     } else if (data instanceof JSON.Box) {
       __serialize(data.value);
     } else {
-      throw new Error(
-        `Could not serialize data of type '${nameof<T>()}'. ` +
-          `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
-          `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`,
-      );
+      throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`);
     }
   }
 
@@ -876,11 +786,7 @@ export namespace JSON {
    * @param dst - usize
    * @returns void
    */
-  export function __deserialize<T>(
-    srcStart: usize,
-    srcEnd: usize,
-    dst: usize = 0,
-  ): T {
+  export function __deserialize<T>(srcStart: usize, srcEnd: usize, dst: usize = 0): T {
     if (isBoolean<T>()) {
       // @ts-expect-error: type
       return deserializeBoolean(srcStart, srcEnd);
@@ -889,18 +795,11 @@ export namespace JSON {
     } else if (isFloat<T>()) {
       return deserializeFloat<T>(srcStart, srcEnd);
     } else if (isString<T>()) {
-      if (srcEnd - srcStart < 4)
-        throw new Error(
-          "Cannot parse data as string because it was formatted incorrectly!",
-        );
+      if (srcEnd - srcStart < 4) throw new Error("Cannot parse data as string because it was formatted incorrectly!");
 
       // @ts-expect-error: type
       return deserializeString(srcStart, srcEnd);
-    } else if (
-      isNullable<T>() &&
-      srcEnd - srcStart == 8 &&
-      load<u64>(srcStart) == NULL_WORD_U64
-    ) {
+    } else if (isNullable<T>() && srcEnd - srcStart == 8 && load<u64>(srcStart) == NULL_WORD_U64) {
       return null;
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
@@ -915,9 +814,7 @@ export namespace JSON {
         return deserializeSet<T>(srcStart, srcEnd, dst);
         // @ts-expect-error: Defined by transform
       } else if (isDefined(type.__DESERIALIZE)) {
-        const out = changetype<nonnull<T>>(
-          dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
-        );
+        const out = changetype<nonnull<T>>(dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
@@ -939,22 +836,11 @@ export namespace JSON {
         return deserializeObject(srcStart, srcEnd, 0);
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error: type
-        return new JSON.Box(
-          deserializeBox(
-            srcStart,
-            srcEnd,
-            dst,
-            changetype<nonnull<T>>(0).value,
-          ),
-        );
+        return new JSON.Box(deserializeBox(srcStart, srcEnd, dst, changetype<nonnull<T>>(0).value));
       }
     }
     const snippet = ptrToStr(srcStart, srcEnd);
-    throw new Error(
-      `Could not deserialize JSON to type '${nameof<T>()}'. ` +
-        `If this is a custom class, ensure it has the @json decorator: @json class ${nameof<T>()} { ... }. ` +
-        `Input: "${snippet.length > 50 ? snippet.slice(0, 50) + "..." : snippet}"`,
-    );
+    throw new Error(`Could not deserialize JSON to type '${nameof<T>()}'. ` + `If this is a custom class, ensure it has the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Input: "${snippet.length > 50 ? snippet.slice(0, 50) + "..." : snippet}"`);
   }
   export namespace Util {
     // @ts-expect-error: decorator
@@ -980,10 +866,7 @@ export namespace JSON {
      * @returns - string
      */
     // @ts-expect-error: inline
-    @inline export function stringify<T>(
-      data: T,
-      out: string | null = null,
-    ): string {
+    @inline export function stringify<T>(data: T, out: string | null = null): string {
       if (isBoolean<T>()) {
         if (out) {
           if (<bool>data == true) {
@@ -997,12 +880,7 @@ export namespace JSON {
           return out;
         }
         return data ? "true" : "false";
-      } else if (
-        isInteger<T>() &&
-        !isSigned<T>() &&
-        nameof<T>() == "usize" &&
-        data == 0
-      ) {
+      } else if (isInteger<T>() && !isSigned<T>() && nameof<T>() == "usize" && data == 0) {
         if (out) {
           out = changetype<string>(__renew(changetype<usize>(out), 8));
           store<u64>(changetype<usize>(out), NULL_WORD_U64);
@@ -1011,14 +889,10 @@ export namespace JSON {
         return NULL_WORD;
       } else if (isInteger<T>(data)) {
         if (out) {
-          out = changetype<string>(
-            __renew(changetype<usize>(out), sizeof<T>() << 3),
-          );
+          out = changetype<string>(__renew(changetype<usize>(out), sizeof<T>() << 3));
 
           const bytes = itoa_buffered(changetype<usize>(out), data) << 1;
-          return (out = changetype<string>(
-            __renew(changetype<usize>(out), bytes),
-          ));
+          return (out = changetype<string>(__renew(changetype<usize>(out), bytes)));
         }
         return data.toString();
       } else if (isFloat<T>(data)) {
@@ -1026,9 +900,7 @@ export namespace JSON {
           out = changetype<string>(__renew(changetype<usize>(out), 64));
 
           const bytes = dtoa_buffered(changetype<usize>(out), data) << 1;
-          return (out = changetype<string>(
-            __renew(changetype<usize>(out), bytes),
-          ));
+          return (out = changetype<string>(__renew(changetype<usize>(out), bytes)));
         }
         return data.toString();
       } else if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
@@ -1054,16 +926,10 @@ export namespace JSON {
         inline.always(data.__SERIALIZE(changetype<usize>(data)));
         return bs.cpyOut<string>();
       } else if (data instanceof Date) {
-        out = out
-          ? changetype<string>(__renew(changetype<usize>(out), 52))
-          : changetype<string>(__new(52, idof<string>()));
+        out = out ? changetype<string>(__renew(changetype<usize>(out), 52)) : changetype<string>(__new(52, idof<string>()));
 
         store<u16>(changetype<usize>(out), QUOTE);
-        memory.copy(
-          changetype<usize>(out) + 2,
-          changetype<usize>(data.toISOString()),
-          48,
-        );
+        memory.copy(changetype<usize>(out) + 2, changetype<usize>(data.toISOString()), 48);
         store<u16>(changetype<usize>(out), QUOTE, 50);
         return changetype<string>(out);
       } else if (data instanceof Array) {
@@ -1101,11 +967,7 @@ export namespace JSON {
       } else if (data instanceof JSON.Box) {
         return JSON.internal.stringify(data.value);
       } else {
-        throw new Error(
-          `Could not serialize data of type '${nameof<T>()}'. ` +
-            `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
-            `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`,
-        );
+        throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`);
       }
     }
   }
@@ -1122,12 +984,7 @@ export enum JSONMode {
   return JSON.parse<T>(data);
 }
 // @ts-expect-error: inline
-@inline function deserializeBox<T>(
-  srcStart: usize,
-  srcEnd: usize,
-  dst: usize,
-  ty: T,
-): T {
+@inline function deserializeBox<T>(srcStart: usize, srcEnd: usize, dst: usize, ty: T): T {
   return JSON.__deserialize<T>(srcStart, srcEnd, dst);
 }
 

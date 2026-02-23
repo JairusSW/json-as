@@ -174,8 +174,7 @@ export function serializeString_SIMD(src: string): void {
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
 
-  if (isDefined(JSON_CACHE))
-    sc.insertCached(changetype<usize>(src), srcStart, srcSize);
+  if (isDefined(JSON_CACHE)) sc.insertCached(changetype<usize>(src), srcStart, srcSize);
 }
 
 // @ts-expect-error: @inline is a valid decorator

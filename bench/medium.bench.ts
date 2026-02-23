@@ -21,8 +21,7 @@ class MediumAPIResponse {
   full_name: string = "Jairus Tanaka";
   email: string = "me@jairus.dev";
   avatar_url: string = "https://avatars.githubusercontent.com/u/123456?v=4";
-  bio: string =
-    "I like compilers, elegant algorithms, bare metal, simd, and wasm.";
+  bio: string = "I like compilers, elegant algorithms, bare metal, simd, and wasm.";
   website: string = "https://jairus.dev/";
   location: string = "Seattle, WA";
   joined_at: string = "2020-01-15T08:30:00Z";
@@ -33,14 +32,7 @@ class MediumAPIResponse {
 
   preferences: UserPreferences = new UserPreferences();
 
-  tags: string[] = [
-    "typescript",
-    "webassembly",
-    "performance",
-    "rust",
-    "assemblyscript",
-    "json",
-  ];
+  tags: string[] = ["typescript", "webassembly", "performance", "rust", "assemblyscript", "json"];
 
   recent_activity: RecentActivity[] = [
     {

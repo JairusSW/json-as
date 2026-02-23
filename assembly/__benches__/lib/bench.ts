@@ -17,12 +17,7 @@ class BenchResult {
 }
 
 let result: BenchResult | null = null;
-export function bench(
-  description: string,
-  routine: () => void,
-  ops: u64 = 1_000_000,
-  bytesPerOp: u64 = 0,
-): void {
+export function bench(description: string, routine: () => void, ops: u64 = 1_000_000, bytesPerOp: u64 = 0): void {
   console.log(" - Benchmarking " + description);
   const memory_log_stride = ops / 10;
   let warmup = ops / 10;
@@ -81,16 +76,7 @@ function JSON_MODE_TO_STRING(mode: JSONMode): string {
 }
 
 export function dumpToFile(suite: string, type: string): void {
-  writeFile(
-    "./build/logs/as/" +
-      JSON_MODE_TO_STRING(JSON_MODE) +
-      "/" +
-      suite +
-      "." +
-      type +
-      ".as.json",
-    JSON.stringify(result),
-  );
+  writeFile("./build/logs/as/" + JSON_MODE_TO_STRING(JSON_MODE) + "/" + suite + "." + type + ".as.json", JSON.stringify(result));
 }
 
 function formatNumber(n: u64): string {

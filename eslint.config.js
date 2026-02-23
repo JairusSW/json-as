@@ -6,14 +6,7 @@ import aseslint from "./tools/assemblyscript-eslint-local.js";
 
 export default tseslint.config(
   {
-    ignores: [
-      "bin/**",
-      "templates/**",
-      "tests/**/*.js",
-      "transform/lib/**",
-      "build/**",
-      "assembly/**/*.tmp.ts"
-    ],
+    ignores: ["bin/**", "templates/**", "tests/**/*.js", "transform/lib/**", "build/**", "assembly/**/*.tmp.ts"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -32,10 +25,24 @@ export default tseslint.config(
   {
     files: ["**/*.ts"],
     rules: {
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
-      ],
+      "@typescript-eslint/no-namespace": "off",
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    },
+  },
+  {
+    files: ["assembly/**/*.ts", "lib/**/*.ts"],
+    rules: {
+      "@typescript-eslint/ban-ts-comment": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unsafe-function-type": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/triple-slash-reference": "off",
+      "no-constant-condition": "off",
+      "no-empty": "off",
+      "no-dupe-else-if": "off",
+      "no-loss-of-precision": "off",
+      "no-useless-escape": "off",
+      "prefer-const": "off",
     },
   },
   {

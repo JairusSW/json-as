@@ -25,9 +25,7 @@ type ChartData = {
 if (import.meta.main) {
   const args = process.argv.slice(2);
   if (!args.length) {
-    console.error(
-      "Usage:\n bun ./chartplot.ts <bench1.json> <bench2.json> [...] [-o output.svg]",
-    );
+    console.error("Usage:\n bun ./chartplot.ts <bench1.json> <bench2.json> [...] [-o output.svg]");
     process.exit(1);
   }
 
@@ -69,9 +67,7 @@ function generateBarChartFromFiles(files: string[], outputFile: string) {
 
   // Group by payload and sort payloads logically
   const payloadOrder = ["abc", "vec3", "small", "medium", "large"];
-  const uniquePayloads = [...new Set(results.map((r) => r.payload))].sort(
-    (a, b) => payloadOrder.indexOf(a) - payloadOrder.indexOf(b),
-  );
+  const uniquePayloads = [...new Set(results.map((r) => r.payload))].sort((a, b) => payloadOrder.indexOf(a) - payloadOrder.indexOf(b));
 
   const uniqueLibraries = [...new Set(results.map((r) => r.library))];
   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
@@ -105,11 +101,7 @@ function inferPayload(file: string): string {
   return "unknown";
 }
 
-function generateGroupedBarSVG(
-  data: ChartData,
-  libraries: string[],
-  colors: string[],
-): string {
+function generateGroupedBarSVG(data: ChartData, libraries: string[], colors: string[]): string {
   const width = 900;
   const height = 550;
   const padding = { top: 80, right: 200, bottom: 80, left: 80 };
@@ -123,8 +115,7 @@ function generateGroupedBarSVG(
   const allValues = data.results.map((r) => r.gbPerSec);
   const yMax = Math.max(...allValues, 0.1) * 1.1;
 
-  const yScale = (v: number) =>
-    padding.top + chartHeight - (v / yMax) * chartHeight;
+  const yScale = (v: number) => padding.top + chartHeight - (v / yMax) * chartHeight;
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
@@ -185,9 +176,7 @@ Throughput (GB/s)
     const groupX = padding.left + groupWidth * payloadIdx;
 
     libraries.forEach((lib, libIdx) => {
-      const result = data.results.find(
-        (r) => r.payload === payload && r.library === lib,
-      );
+      const result = data.results.find((r) => r.payload === payload && r.library === lib);
       if (!result) return;
 
       const x = groupX + (libIdx + 0.1) * (groupWidth / libraries.length);

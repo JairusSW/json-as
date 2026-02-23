@@ -27,13 +27,7 @@ function logPath(payload: string, engine: string, mode: string) {
   if (language === "js") {
     engine = "";
   }
-  return path.join(
-    "./build",
-    "logs",
-    language,
-    engine,
-    `${payload}.${mode}.${language}.json`,
-  );
+  return path.join("./build", "logs", language, engine, `${payload}.${mode}.${language}.json`);
 }
 
 interface ChartPoint {
@@ -72,9 +66,7 @@ const datasets = [];
 
 for (const mode of modes) {
   for (const engine of engines) {
-    const data: ChartPoint[] = payloads.map(
-      (p) => chartData[`${p}-${engine}-${mode}`][0],
-    );
+    const data: ChartPoint[] = payloads.map((p) => chartData[`${p}-${engine}-${mode}`][0]);
     datasets.push({
       label: `${engine.toUpperCase()}`,
       data,

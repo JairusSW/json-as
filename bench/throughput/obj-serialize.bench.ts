@@ -4,8 +4,7 @@ class ObjLarge {
   lorum: number = 4294967296;
   ipsum: boolean = true;
   dolor: Array<number> = [1, 2, 3, 4, 5];
-  sit: string =
-    "abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
+  sit: string = "abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
   consectetur: number = 123456;
   adipiscing: boolean = false;
   elit: Array<number> = [6, 7, 8, 9, 10];

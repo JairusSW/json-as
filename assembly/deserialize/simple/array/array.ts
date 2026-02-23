@@ -1,14 +1,8 @@
 import { BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON } from "../../../";
 
-export function deserializeArrayArray<T extends unknown[][]>(
-  srcStart: usize,
-  srcEnd: usize,
-  dst: usize,
-): T {
-  const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
-  );
+export function deserializeArrayArray<T extends unknown[][]>(srcStart: usize, srcEnd: usize, dst: usize): T {
+  const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
   let lastIndex: usize = 0;
   let depth: u32 = 0;
   srcStart += 2;

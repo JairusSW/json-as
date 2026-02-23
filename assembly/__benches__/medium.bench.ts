@@ -70,14 +70,7 @@ v1.following_count = 39;
 
 v1.preferences = prefs;
 
-v1.tags = [
-  "typescript",
-  "webassembly",
-  "performance",
-  "rust",
-  "assemblyscript",
-  "json",
-];
+v1.tags = ["typescript", "webassembly", "performance", "rust", "assemblyscript", "json"];
 
 v1.recent_activity = new Array<RecentActivity>(5);
 

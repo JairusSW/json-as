@@ -6,12 +6,7 @@
  * @param ops Number of operations to execute (default: 1,000,000)
  * @param bytesPerOp Bytes processed per operation (used for MB/s reporting)
  */
-export function bench(
-  description: string,
-  routine: () => void,
-  ops?: number,
-  bytesPerOp?: number,
-): void;
+export function bench(description: string, routine: () => void, ops?: number, bytesPerOp?: number): void;
 
 /**
  * Prevents V8 from optimizing away a value.

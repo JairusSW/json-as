@@ -20,7 +20,7 @@ export function deserializeStaticArrayBoolean<T extends StaticArray<any>>(
   }
 
   // Allocate StaticArray with correct size
-  const outSize = (<usize>count) << alignof<valueof<T>>();
+  const outSize = count << (alignof<valueof<T>>());
   const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
 
   // Second pass: populate values

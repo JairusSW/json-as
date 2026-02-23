@@ -2,14 +2,8 @@ import { isSpace } from "../../../util";
 import { COMMA, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON } from "../../..";
 
-export function deserializeFloatArray<T extends number[]>(
-  srcStart: usize,
-  srcEnd: usize,
-  dst: usize,
-): T {
-  const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
-  );
+export function deserializeFloatArray<T extends number[]>(srcStart: usize, srcEnd: usize, dst: usize): T {
+  const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
   let lastIndex: usize = 0;
   while (srcStart < srcEnd) {
     const code = load<u16>(srcStart);

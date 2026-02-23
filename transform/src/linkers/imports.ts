@@ -1,8 +1,4 @@
-import {
-  ImportStatement,
-  Node,
-  Source,
-} from "assemblyscript/dist/assemblyscript.js";
+import { ImportStatement, Node, Source } from "assemblyscript/dist/assemblyscript.js";
 import { Visitor } from "../visitor.js";
 
 class ImportGetter extends Visitor {

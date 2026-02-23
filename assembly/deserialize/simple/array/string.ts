@@ -1,14 +1,8 @@
 import { JSON } from "../../..";
 import { BACK_SLASH, QUOTE } from "../../../custom/chars";
 
-export function deserializeStringArray(
-  srcStart: usize,
-  srcEnd: usize,
-  dst: usize,
-): string[] {
-  const out = changetype<string[]>(
-    dst || changetype<usize>(instantiate<string[]>()),
-  );
+export function deserializeStringArray(srcStart: usize, srcEnd: usize, dst: usize): string[] {
+  const out = changetype<string[]>(dst || changetype<usize>(instantiate<string[]>()));
   let lastPos: usize = 2;
   let inString = false;
   while (srcStart < srcEnd) {

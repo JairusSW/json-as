@@ -1,19 +1,5 @@
 // Taken from https://github.com/as-pect/visitor-as/blob/master/src/simpleParser.ts
-import {
-  Parser,
-  Tokenizer,
-  Source,
-  SourceKind,
-  Expression,
-  Statement,
-  NamespaceDeclaration,
-  ClassDeclaration,
-  DeclarationStatement,
-  Range,
-  Node,
-  NodeKind,
-  ExpressionStatement,
-} from "assemblyscript/dist/assemblyscript.js";
+import { Parser, Tokenizer, Source, SourceKind, Expression, Statement, NamespaceDeclaration, ClassDeclaration, DeclarationStatement, Range, Node, NodeKind, ExpressionStatement } from "assemblyscript/dist/assemblyscript.js";
 import { ASTBuilder } from "./builder.js";
 import * as path from "path";
 
@@ -42,28 +28,16 @@ export class SimpleParser {
     return res;
   }
 
-  static parseTopLevelStatement(
-    s: string,
-    namespace?: NamespaceDeclaration | null,
-  ): Statement {
-    const res = this.parser.parseTopLevelStatement(
-      this.getTokenizer(s),
-      namespace,
-    );
+  static parseTopLevelStatement(s: string, namespace?: NamespaceDeclaration | null): Statement {
+    const res = this.parser.parseTopLevelStatement(this.getTokenizer(s), namespace);
     if (res == null) {
       throw new Error("Failed to parse the top level statement: '" + s + "'");
     }
     return res;
   }
 
-  static parseClassMember(
-    s: string,
-    _class: ClassDeclaration,
-  ): DeclarationStatement {
-    const res = this.parser.parseClassMember(
-      this.getTokenizer(s, _class.range.source.normalizedPath),
-      _class,
-    );
+  static parseClassMember(s: string, _class: ClassDeclaration): DeclarationStatement {
+    const res = this.parser.parseClassMember(this.getTokenizer(s, _class.range.source.normalizedPath), _class);
     if (res == null) {
       throw new Error("Failed to parse the class member: '" + s + "'");
     }
@@ -71,8 +45,7 @@ export class SimpleParser {
   }
 }
 
-const isStdlibRegex =
-  /~lib\/(?:array|arraybuffer|atomics|builtins|crypto|console|compat|dataview|date|diagnostics|error|function|iterator|map|math|number|object|process|reference|regexp|set|staticarray|string|symbol|table|typedarray|vector|rt\/?|bindings\/|shared\/typeinfo)|util\/|uri|polyfills|memory/;
+const isStdlibRegex = /~lib\/(?:array|arraybuffer|atomics|builtins|crypto|console|compat|dataview|date|diagnostics|error|function|iterator|map|math|number|object|process|reference|regexp|set|staticarray|string|symbol|table|typedarray|vector|rt\/?|bindings\/|shared\/typeinfo)|util\/|uri|polyfills|memory/;
 
 export function isStdlib(s: Source | { range: Range }): boolean {
   const source = s instanceof Source ? s : s.range.source;
@@ -83,11 +56,7 @@ export function toString(node: Node): string {
   return ASTBuilder.build(node);
 }
 
-export function replaceRef(
-  node: Node,
-  replacement: Node | Node[],
-  ref: Node | Node[] | null,
-): void {
+export function replaceRef(node: Node, replacement: Node | Node[], ref: Node | Node[] | null): void {
   if (!node || !ref) return;
   const nodeExpr = stripExpr(node);
 
@@ -105,8 +74,7 @@ export function replaceRef(
       if (Array.isArray(current)) {
         for (let i = 0; i < current.length; i++) {
           if (stripExpr(current[i]) === nodeExpr) {
-            if (Array.isArray(replacement))
-              current.splice(i, 1, ...replacement);
+            if (Array.isArray(replacement)) current.splice(i, 1, ...replacement);
             else current.splice(i, 1, replacement);
             return;
           }
@@ -119,17 +87,11 @@ export function replaceRef(
   }
 }
 
-export function cloneNode(
-  input: Node | Node[] | null,
-  seen = new WeakMap(),
-  path = "",
-): Node | Node[] | null {
+export function cloneNode(input: Node | Node[] | null, seen = new WeakMap(), path = ""): Node | Node[] | null {
   if (input === null || typeof input !== "object") return input;
 
   if (Array.isArray(input)) {
-    return input.map((item, index) =>
-      cloneNode(item, seen, `${path}[${index}]`),
-    ) as Node | Node[] | null;
+    return input.map((item, index) => cloneNode(item, seen, `${path}[${index}]`)) as Node | Node[] | null;
   }
 
   if (seen.has(input)) return seen.get(input);
@@ -156,8 +118,7 @@ export function cloneNode(
 
 export function stripExpr(node: Node): Node {
   if (!node) return node;
-  if (node.kind == NodeKind.Expression)
-    return (node as ExpressionStatement).expression;
+  if (node.kind == NodeKind.Expression) return (node as ExpressionStatement).expression;
   return node;
 }
 

@@ -3,10 +3,7 @@ import { deserializeString } from "../deserialize/simple/string";
 import { deserializeString_SWAR } from "../deserialize/swar/string";
 import { deserializeString_SIMD } from "../deserialize/simd/string";
 import { serializeString } from "../serialize/simple/string";
-import {
-  detect_escapable_u64_swar_safe,
-  serializeString_SWAR,
-} from "../serialize/swar/string";
+import { detect_escapable_u64_swar_safe, serializeString_SWAR } from "../serialize/swar/string";
 import { serializeString_SIMD } from "../serialize/simd/string";
 import { bs } from "../../lib/as-bs";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
@@ -48,18 +45,12 @@ const SURROGATE_MAX: u16 = 0xdfff;
 // @ts-ignore: decorator
 @inline function serializeString_NAIVE_FAST(src: string): bool {
   const srcStart = changetype<usize>(src);
-  const srcEnd =
-    srcStart + changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
+  const srcEnd = srcStart + changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
   let ptr = srcStart;
 
   while (ptr < srcEnd) {
     const code = load<u16>(ptr);
-    if (
-      code == QUOTE ||
-      code == BACK_SLASH ||
-      code < CTRL_0x20 ||
-      (code >= SURROGATE_MIN && code <= SURROGATE_MAX)
-    ) {
+    if (code == QUOTE || code == BACK_SLASH || code < CTRL_0x20 || (code >= SURROGATE_MIN && code <= SURROGATE_MAX)) {
       return false;
     }
     ptr += 2;
@@ -72,8 +63,7 @@ const SURROGATE_MAX: u16 = 0xdfff;
 // @ts-ignore: decorator
 @inline function serializeString_SWAR_FAST(src: string): bool {
   const srcStart = changetype<usize>(src);
-  const srcEnd =
-    srcStart + changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
+  const srcEnd = srcStart + changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
   let ptr = srcStart;
   const srcEnd8 = srcEnd - 8;
 
@@ -84,12 +74,7 @@ const SURROGATE_MAX: u16 = 0xdfff;
 
   while (ptr < srcEnd) {
     const code = load<u16>(ptr);
-    if (
-      code == QUOTE ||
-      code == BACK_SLASH ||
-      code < CTRL_0x20 ||
-      (code >= SURROGATE_MIN && code <= SURROGATE_MAX)
-    ) {
+    if (code == QUOTE || code == BACK_SLASH || code < CTRL_0x20 || (code >= SURROGATE_MIN && code <= SURROGATE_MAX)) {
       return false;
     }
     ptr += 2;
@@ -102,8 +87,7 @@ const SURROGATE_MAX: u16 = 0xdfff;
 // @ts-ignore: decorator
 @inline function serializeString_SIMD_FAST(src: string): bool {
   const srcStart = changetype<usize>(src);
-  const srcEnd =
-    srcStart + changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
+  const srcEnd = srcStart + changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
   let ptr = srcStart;
   const srcEnd16 = srcEnd - 16;
 
@@ -120,12 +104,7 @@ const SURROGATE_MAX: u16 = 0xdfff;
 
   while (ptr < srcEnd) {
     const code = load<u16>(ptr);
-    if (
-      code == QUOTE ||
-      code == BACK_SLASH ||
-      code < CTRL_0x20 ||
-      (code >= SURROGATE_MIN && code <= SURROGATE_MAX)
-    ) {
+    if (code == QUOTE || code == BACK_SLASH || code < CTRL_0x20 || (code >= SURROGATE_MIN && code <= SURROGATE_MAX)) {
       return false;
     }
     ptr += 2;
@@ -142,17 +121,10 @@ const SURROGATE_MAX: u16 = 0xdfff;
 }
 
 // @ts-ignore: decorator
-@inline function copyStringToField(
-  dstFieldPtr: usize,
-  srcStart: usize,
-  byteLength: u32,
-): void {
+@inline function copyStringToField(dstFieldPtr: usize, srcStart: usize, byteLength: u32): void {
   let current = load<usize>(dstFieldPtr);
   let outPtr: usize;
-  if (
-    current != 0 &&
-    changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength
-  ) {
+  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
     outPtr = current;
   } else {
     outPtr = __new(byteLength, idof<string>());
@@ -162,11 +134,7 @@ const SURROGATE_MAX: u16 = 0xdfff;
 }
 
 // @ts-ignore: decorator
-@inline function deserializeString_NAIVE_FAST(
-  srcStart: usize,
-  quoteEnd: usize,
-  dstFieldPtr: usize,
-): bool {
+@inline function deserializeString_NAIVE_FAST(srcStart: usize, quoteEnd: usize, dstFieldPtr: usize): bool {
   if (load<u16>(srcStart) != QUOTE) return false;
   const payloadStart = srcStart + 2;
   let ptr = payloadStart;
@@ -182,11 +150,7 @@ const SURROGATE_MAX: u16 = 0xdfff;
 }
 
 // @ts-ignore: decorator
-@inline function deserializeString_SWAR_FAST(
-  srcStart: usize,
-  quoteEnd: usize,
-  dstFieldPtr: usize,
-): bool {
+@inline function deserializeString_SWAR_FAST(srcStart: usize, quoteEnd: usize, dstFieldPtr: usize): bool {
   if (load<u16>(srcStart) != QUOTE) return false;
   const payloadStart = srcStart + 2;
   let ptr = payloadStart;
@@ -203,10 +167,7 @@ const SURROGATE_MAX: u16 = 0xdfff;
 
   while (ptr < quoteEnd) {
     if (load<u16>(ptr) == BACK_SLASH) {
-      store<string>(
-        dstFieldPtr,
-        deserializeString_SWAR(srcStart, quoteEnd + 2),
-      );
+      store<string>(dstFieldPtr, deserializeString_SWAR(srcStart, quoteEnd + 2));
       return true;
     }
     ptr += 2;
@@ -219,11 +180,7 @@ const SURROGATE_MAX: u16 = 0xdfff;
 @lazy const SPLAT_BACK_SLASH = i16x8.splat(BACK_SLASH);
 
 // @ts-ignore: decorator
-@inline function deserializeString_SIMD_FAST(
-  srcStart: usize,
-  quoteEnd: usize,
-  dstFieldPtr: usize,
-): bool {
+@inline function deserializeString_SIMD_FAST(srcStart: usize, quoteEnd: usize, dstFieldPtr: usize): bool {
   if (load<u16>(srcStart) != QUOTE) return false;
   const payloadStart = srcStart + 2;
   let ptr = payloadStart;
@@ -242,10 +199,7 @@ const SURROGATE_MAX: u16 = 0xdfff;
 
   while (ptr < quoteEnd) {
     if (load<u16>(ptr) == BACK_SLASH) {
-      store<string>(
-        dstFieldPtr,
-        deserializeString_SIMD(srcStart, quoteEnd + 2),
-      );
+      store<string>(dstFieldPtr, deserializeString_SIMD(srcStart, quoteEnd + 2));
       return true;
     }
     ptr += 2;
@@ -361,11 +315,7 @@ class Token {
 
 
   @inline
-  __DESERIALIZE<__JSON_T>(
-    srcStart: usize,
-    srcEnd: usize,
-    out: __JSON_T,
-  ): __JSON_T {
+  __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
     if (JSON_MODE === JSONMode.SIMD) {
       return this.__DESERIALIZE_SIMD(srcStart, srcEnd, out);
     } else if (JSON_MODE === JSONMode.SWAR) {
@@ -377,11 +327,7 @@ class Token {
 
 
   @inline
-  __DESERIALIZE_NAIVE<__JSON_T>(
-    srcStart: usize,
-    srcEnd: usize,
-    out: __JSON_T,
-  ): __JSON_T {
+  __DESERIALIZE_NAIVE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
     const dst = changetype<usize>(out);
     const uidPtr = dst + offsetof<this>("uid");
     const tokenPtr = dst + offsetof<this>("token");
@@ -428,11 +374,7 @@ class Token {
 
 
   @inline
-  __DESERIALIZE_SWAR<__JSON_T>(
-    srcStart: usize,
-    srcEnd: usize,
-    out: __JSON_T,
-  ): __JSON_T {
+  __DESERIALIZE_SWAR<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
     const dst = changetype<usize>(out);
     const uidPtr = dst + offsetof<this>("uid");
     const tokenPtr = dst + offsetof<this>("token");
@@ -479,11 +421,7 @@ class Token {
 
 
   @inline
-  __DESERIALIZE_SIMD<__JSON_T>(
-    srcStart: usize,
-    srcEnd: usize,
-    out: __JSON_T,
-  ): __JSON_T {
+  __DESERIALIZE_SIMD<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
     const dst = changetype<usize>(out);
     const uidPtr = dst + offsetof<this>("uid");
     const tokenPtr = dst + offsetof<this>("token");

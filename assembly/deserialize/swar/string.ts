@@ -141,13 +141,8 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
 // @ts-expect-error: @inline is a valid decorator
 @inline function backslash_mask(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
-  const backslash_mask =
-    (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
-  const high_byte_mask =
-    ~(
-      ((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^
-      0x8000_8000_8000_8000
-    ) >> 8;
+  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
+  const high_byte_mask = ~(((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^ 0x8000_8000_8000_8000) >> 8;
   return backslash_mask & high_byte_mask;
 }
 
@@ -163,7 +158,6 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
 // @ts-expect-error: @inline is a valid decorator
 @inline function backslash_mask_unsafe(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
-  const backslash_mask =
-    (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
+  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
   return backslash_mask;
 }

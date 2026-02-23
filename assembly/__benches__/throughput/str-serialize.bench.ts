@@ -2,8 +2,7 @@ import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "../lib/bench";
 function makeUtf16String(targetBytes: i32): string {
-  const BASE =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`~!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?";
+  const BASE = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`~!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?";
   const BYTES_PER_REPEAT = BASE.length << 1;
 
   const repeats = i32(Math.ceil(targetBytes / BYTES_PER_REPEAT));
@@ -27,26 +26,11 @@ expect(JSON.stringify(strLarge)).toBe(strLargeStr);
 // expect(JSON.stringify(JSON.parse<string>(strMediumStr))).toBe(strMediumStr);
 // expect(JSON.stringify(JSON.parse<string>(strMediumStr))).toBe(strMediumStr);
 
-bench(
-  "Serialize Small String (1kb)",
-  () => blackbox(JSON.stringify(strSmall)),
-  3_000_000,
-  strSmallStr.length << 1,
-);
+bench("Serialize Small String (1kb)", () => blackbox(JSON.stringify(strSmall)), 3_000_000, strSmallStr.length << 1);
 dumpToFile("small-str", "serialize");
 
-bench(
-  "Serialize Medium String (500kb)",
-  () => blackbox(JSON.stringify(strMedium)),
-  8_500,
-  strMediumStr.length << 1,
-);
+bench("Serialize Medium String (500kb)", () => blackbox(JSON.stringify(strMedium)), 8_500, strMediumStr.length << 1);
 dumpToFile("medium-str", "serialize");
 
-bench(
-  "Serialize Large String (1000kb)",
-  () => blackbox(JSON.stringify(strLarge)),
-  3_000,
-  strLargeStr.length << 1,
-);
+bench("Serialize Large String (1000kb)", () => blackbox(JSON.stringify(strLarge)), 3_000, strLargeStr.length << 1);
 dumpToFile("large-str", "serialize");

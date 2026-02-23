@@ -1,11 +1,5 @@
-export function deserializeBooleanArray<T extends boolean[]>(
-  srcStart: usize,
-  srcEnd: usize,
-  dst: usize,
-): T {
-  const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
-  );
+export function deserializeBooleanArray<T extends boolean[]>(srcStart: usize, srcEnd: usize, dst: usize): T {
+  const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
   srcStart += 2; // skip [
   while (srcStart < srcEnd) {
     const block = load<u64>(srcStart);

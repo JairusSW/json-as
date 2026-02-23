@@ -4,6 +4,11 @@ transform/lib
 
 # Tables
 assembly/globals/tables.ts
+assembly/deserialize/simple/staticarray/array.ts
+assembly/deserialize/simple/staticarray/bool.ts
+assembly/deserialize/simple/staticarray/float.ts
+assembly/deserialize/simple/staticarray/integer.ts
+assembly/deserialize/simple/staticarray/struct.ts
 
 # Markdown
 *.md

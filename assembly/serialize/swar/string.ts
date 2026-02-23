@@ -145,8 +145,7 @@ export function serializeString_SWAR(src: string): void {
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
 
-  if (isDefined(JSON_CACHE))
-    sc.insertCached(changetype<usize>(src), srcStart, srcSize);
+  if (isDefined(JSON_CACHE)) sc.insertCached(changetype<usize>(src), srcStart, srcSize);
 }
 
 // @ts-expect-error: @inline is a valid decorator
@@ -169,14 +168,8 @@ export function serializeString_SWAR(src: string): void {
 // @ts-expect-error: @inline is a valid decorator
 @inline export function detect_escapable_u64_swar_safe(block: u64): u64 {
   const lo = block & 0x00ff_00ff_00ff_00ff;
-  const ascii_mask =
-    ((lo - 0x0020_0020_0020_0020) |
-      ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
-      ((lo ^ 0x005c_005c_005c_005c) - 0x0001_0001_0001_0001)) &
-    (0x0080_0080_0080_0080 & ~lo);
-  const hi_mask =
-    ((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^
-    0x8000_8000_8000_8000;
+  const ascii_mask = ((lo - 0x0020_0020_0020_0020) | ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) | ((lo ^ 0x005c_005c_005c_005c) - 0x0001_0001_0001_0001)) & (0x0080_0080_0080_0080 & ~lo);
+  const hi_mask = ((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^ 0x8000_8000_8000_8000;
   return (ascii_mask & (~hi_mask >> 8)) | hi_mask;
 }
 

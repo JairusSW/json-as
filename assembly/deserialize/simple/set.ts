@@ -1,36 +1,16 @@
 import { JSON } from "../..";
-import {
-  BACK_SLASH,
-  BRACKET_LEFT,
-  BRACKET_RIGHT,
-  BRACE_LEFT,
-  BRACE_RIGHT,
-  CHAR_F,
-  CHAR_N,
-  CHAR_T,
-  COMMA,
-  QUOTE,
-} from "../../custom/chars";
+import { BACK_SLASH, BRACKET_LEFT, BRACKET_RIGHT, BRACE_LEFT, BRACE_RIGHT, CHAR_F, CHAR_N, CHAR_T, COMMA, QUOTE } from "../../custom/chars";
 import { isSpace, atoi } from "../../util";
 
-export function deserializeSet<T extends Set<any>>(
-  srcStart: usize,
-  srcEnd: usize,
-  dst: usize,
-): T {
-  const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
-  );
+export function deserializeSet<T extends Set<any>>(srcStart: usize, srcEnd: usize, dst: usize): T {
+  const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
 
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
-  if (srcStart >= srcEnd)
-    throw new Error("Input string had zero length or was all whitespace");
-  if (load<u16>(srcStart) != BRACKET_LEFT)
-    throw new Error("Expected '[' at start of set");
-  if (load<u16>(srcEnd - 2) != BRACKET_RIGHT)
-    throw new Error("Expected ']' at end of set");
+  if (srcStart >= srcEnd) throw new Error("Input string had zero length or was all whitespace");
+  if (load<u16>(srcStart) != BRACKET_LEFT) throw new Error("Expected '[' at start of set");
+  if (load<u16>(srcEnd - 2) != BRACKET_RIGHT) throw new Error("Expected ']' at end of set");
 
   srcStart += 2;
 
@@ -108,13 +88,7 @@ export function deserializeSet<T extends Set<any>>(
           const c = load<u16>(srcStart);
           if (c == QUOTE) {
             srcStart += 2;
-            while (
-              !(
-                load<u16>(srcStart) == QUOTE &&
-                load<u16>(srcStart - 2) != BACK_SLASH
-              )
-            )
-              srcStart += 2;
+            while (!(load<u16>(srcStart) == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH)) srcStart += 2;
           } else if (c == BRACE_RIGHT) {
             if (--depth == 0) {
               srcStart += 2;

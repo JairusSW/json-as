@@ -1,9 +1,6 @@
 import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
-import {
-  DESERIALIZE_ESCAPE_TABLE,
-  ESCAPE_HEX_TABLE,
-} from "../../globals/tables";
+import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
 
 // @ts-expect-error: @lazy is a valid decorator
