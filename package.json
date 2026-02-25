@@ -10,7 +10,7 @@
   "main": "transform/lib/index.js",
   "devDependencies": {
     "@assemblyscript/wasi-shim": "^0.1.0",
-    "@eslint/js": "^9.0.0",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.0.10",
     "assemblyscript": "^0.28.9",
     "assemblyscript-prettier": "^3.0.1",
