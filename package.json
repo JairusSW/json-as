@@ -61,7 +61,9 @@
   },
   "scripts": {
     "ci": "act",
-    "test": "bash ./run-tests.sh",
+    "test": "ast test --disable coverage",
+    "test:ci": "ast test --disable coverage --clean",
+    "test:coverage": "ast test --enable coverage",
     "bench:as": "bash ./run-bench.as.sh",
     "bench:js": "bash ./run-bench.js.sh",
     "build:test": "JSON_DEBUG=0 JSON_WRITE=assembly/test.ts asc assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --enable simd --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
@@ -82,5 +84,8 @@
     "check": "npm run typecheck && npm run lint"
   },
   "type": "module",
-  "types": "assembly/index.ts"
+  "types": "assembly/index.ts",
+  "dependencies": {
+    "as-test": "0.5.3"
+  }
 }

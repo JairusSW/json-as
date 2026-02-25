@@ -87,31 +87,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Publish to npm
-  publish-npm:
-    runs-on: ubuntu-latest
-    needs: release
-    steps:
-      - name: Checkout the repository
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "20"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Build Transform
-        run: npm run build:transform
-
-      - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
   # Publish to GitHub Packages
   publish-gpr:
     runs-on: ubuntu-latest

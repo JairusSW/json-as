@@ -1,5 +1,5 @@
 import { JSON } from "..";
-import { describe, expect } from "./lib";
+import { describe, expect } from "as-test";
 
 type StringAlias = string;
 type StringAlias1 = StringAlias;

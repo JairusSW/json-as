@@ -1,5 +1,5 @@
 import { JSON } from "..";
-import { describe, expect } from "./lib";
+import { describe, expect } from "as-test";
 
 describe("Should serialize integer static arrays", () => {
   expect(JSON.stringify<StaticArray<u32>>([0, 100, 101])).toBe("[0,100,101]");

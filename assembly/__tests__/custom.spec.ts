@@ -1,5 +1,5 @@
 import { JSON } from "..";
-import { describe, expect } from "./lib";
+import { describe, expect } from "as-test";
 import { bytes } from "../util";
 
 

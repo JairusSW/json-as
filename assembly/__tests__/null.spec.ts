@@ -1,5 +1,5 @@
 import { JSON } from "..";
-import { describe, expect } from "./lib";
+import { describe, expect } from "as-test";
 
 describe("Should serialize null", () => {
   expect(JSON.stringify(null)).toBe("null");

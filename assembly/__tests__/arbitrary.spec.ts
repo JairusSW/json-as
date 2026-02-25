@@ -1,5 +1,5 @@
 import { JSON } from "..";
-import { describe, expect } from "./lib";
+import { describe, expect } from "as-test";
 import { Vec3 } from "./types";
 
 describe("Should serialize arbitrary types", () => {

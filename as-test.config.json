@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/as-test/as-test.config.schema.json",
+  "input": ["./assembly/__tests__/*.spec.ts"],
+  "outDir": "./.as-test/build",
+  "logs": "./.as-test/logs",
+  "coverageDir": "./.as-test/coverage",
+  "snapshotDir": "./.as-test/snapshots",
+  "config": "none",
+  "coverage": true,
+  "buildOptions": {
+    "args": ["--transform ./transform", "--debug"],
+    "target": "wasi"
+  },
+  "runOptions": {
+    "runtime": {
+      "cmd": "node ./.as-test/runners/default.wasi.js <file>"
+    },
+    "reporter": "default"
+  },
+  "modes": {
+    "naive": {
+      "env": {
+        "JSON_MODE": "NAIVE"
+      }
+    },
+    "swar": {
+      "env": {
+        "JSON_MODE": "SWAR"
+      }
+    },
+    "simd": {
+      "env": {
+        "JSON_MODE": "SIMD"
+      },
+      "buildOptions": {
+        "args": ["--enable simd"]
+      }
+    }
+  }
+}

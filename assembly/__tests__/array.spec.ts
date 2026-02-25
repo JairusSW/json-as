@@ -1,5 +1,5 @@
 import { JSON } from "..";
-import { describe, expect } from "./lib";
+import { describe, expect } from "as-test";
 
 describe("Should serialize integer arrays", () => {
   expect(JSON.stringify<u32[]>([0, 100, 101])).toBe("[0,100,101]");
@@ -98,42 +98,42 @@ describe("Should deserialize object arrays", () => {
 
 describe("Should deserialize raw arrays", () => {
   const r1 = JSON.parse<JSON.Raw[]>('[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]');
-  expect(r1[0].toString()).toBe('{"x":3.4,"y":1.2,"z":8.3}');
-  expect(r1[1].toString()).toBe('{"x":3.4,"y":-2.1,"z":9.3}');
+  expect<string>(r1[0].toString()).toBe('{"x":3.4,"y":1.2,"z":8.3}');
+  expect<string>(r1[1].toString()).toBe('{"x":3.4,"y":-2.1,"z":9.3}');
 
   const r2 = JSON.parse<JSON.Raw[][]>('[[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}],[{"x":0.1,"y":-7.3,"z":4.5}]]');
-  expect(r2[0][0].toString()).toBe('{"x":3.4,"y":1.2,"z":8.3}');
-  expect(r2[0][1].toString()).toBe('{"x":3.4,"y":-2.1,"z":9.3}');
-  expect(r2[1][0].toString()).toBe('{"x":0.1,"y":-7.3,"z":4.5}');
+  expect<string>(r2[0][0].toString()).toBe('{"x":3.4,"y":1.2,"z":8.3}');
+  expect<string>(r2[0][1].toString()).toBe('{"x":3.4,"y":-2.1,"z":9.3}');
+  expect<string>(r2[1][0].toString()).toBe('{"x":0.1,"y":-7.3,"z":4.5}');
 
   const r3 = JSON.parse<JSON.Raw[]>("[1,2,3,4,5]");
-  expect(r3[0]).toBe(1);
-  expect(r3[1]).toBe(2);
-  expect(r3[2]).toBe(3);
-  expect(r3[3]).toBe(4);
-  expect(r3[4]).toBe(5);
+  expect<string>(r3[0].toString()).toBe("1");
+  expect<string>(r3[1].toString()).toBe("2");
+  expect<string>(r3[2].toString()).toBe("3");
+  expect<string>(r3[3].toString()).toBe("4");
+  expect<string>(r3[4].toString()).toBe("5");
 
   const r4 = JSON.parse<JSON.Raw[][]>("[[1,2,3,4,5],[6,7,8,9,10]]");
-  expect(r4[0][0]).toBe(1);
-  expect(r4[0][1]).toBe(2);
-  expect(r4[0][2]).toBe(3);
-  expect(r4[0][3]).toBe(4);
-  expect(r4[0][4]).toBe(5);
+  expect<string>(r4[0][0].toString()).toBe("1");
+  expect<string>(r4[0][1].toString()).toBe("2");
+  expect<string>(r4[0][2].toString()).toBe("3");
+  expect<string>(r4[0][3].toString()).toBe("4");
+  expect<string>(r4[0][4].toString()).toBe("5");
 
-  expect(r4[1][0]).toBe(6);
-  expect(r4[1][1]).toBe(7);
-  expect(r4[1][2]).toBe(8);
-  expect(r4[1][3]).toBe(9);
-  expect(r4[1][4]).toBe(10);
+  expect<string>(r4[1][0].toString()).toBe("6");
+  expect<string>(r4[1][1].toString()).toBe("7");
+  expect<string>(r4[1][2].toString()).toBe("8");
+  expect<string>(r4[1][3].toString()).toBe("9");
+  expect<string>(r4[1][4].toString()).toBe("10");
 
   const r5 = JSON.parse<JSON.Raw[]>('[{"x":3.4,"y":1.2,"z":8.3},[1,2,3,4,5],"12345",true,false,null,[[]]]');
-  expect(r5[0].toString()).toBe('{"x":3.4,"y":1.2,"z":8.3}');
-  expect(r5[1].toString()).toBe("[1,2,3,4,5]");
-  expect(r5[2]).toBe('"12345"');
-  expect(r5[3]).toBe(true);
-  expect(r5[4]).toBe(false);
-  expect(r5[5]).toBe(null);
-  expect(r5[6].toString()).toBe("[[]]");
+  expect<string>(r5[0].toString()).toBe('{"x":3.4,"y":1.2,"z":8.3}');
+  expect<string>(r5[1].toString()).toBe("[1,2,3,4,5]");
+  expect<string>(r5[2].toString()).toBe('"12345"');
+  expect<string>(r5[3].toString()).toBe("true");
+  expect<string>(r5[4].toString()).toBe("false");
+  expect<string>(r5[5].toString()).toBe("null");
+  expect<string>(r5[6].toString()).toBe("[[]]");
 });
 
 

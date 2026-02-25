@@ -1,5 +1,5 @@
 import { JSON } from "..";
-import { describe, expect } from "./lib";
+import { describe, expect } from "as-test";
 
 describe("Should serialize Date", () => {
   expect(JSON.stringify<Date>(new Date(0))).toBe('"1970-01-01T00:00:00.000Z"');

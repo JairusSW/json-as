@@ -1,5 +1,5 @@
 import { JSON } from "..";
-import { describe, expect } from "./lib";
+import { describe, expect } from "as-test";
 
 describe("Should serialize JSON.Raw", () => {
   expect(JSON.stringify<JSON.Raw>(JSON.Raw.from('{"x":1.0,"y":2.0,"z":3.0}'))).toBe('{"x":1.0,"y":2.0,"z":3.0}');

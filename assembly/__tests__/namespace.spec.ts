@@ -1,5 +1,5 @@
 import { JSON } from "..";
-import { describe, expect } from "./lib";
+import { describe, expect } from "as-test";
 
 describe("Should serialize namespaced derived structs", () => {
   const obj: Namespace.DerivedObject = { a: "foo", b: "bar" };

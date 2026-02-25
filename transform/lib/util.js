@@ -1,4 +1,4 @@
-import { Parser, Tokenizer, Source, } from "assemblyscript/dist/assemblyscript.js";
+import { Parser, Tokenizer, Source } from "assemblyscript/dist/assemblyscript.js";
 import { ASTBuilder } from "./builder.js";
 import * as path from "path";
 export class SimpleParser {

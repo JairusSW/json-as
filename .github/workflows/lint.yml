@@ -1,0 +1,23 @@
+name: Lint
+
+on: [push, pull_request]
+
+jobs:
+  # Type checking and linting
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: TypeScript Type Check
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint

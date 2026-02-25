@@ -1,0 +1,5084 @@
+{
+  "enabled": true,
+  "showPoints": false,
+  "total": 578,
+  "covered": 296,
+  "uncovered": 282,
+  "percent": 51.21107266435986,
+  "files": [
+    {
+      "file": "assembly/__tests__/types.ts",
+      "total": 29,
+      "covered": 13,
+      "uncovered": 16,
+      "percent": 44.827586206896555,
+      "points": [
+        {
+          "hash": "e9acbca",
+          "file": "assembly/__tests__/types.ts",
+          "line": 1,
+          "column": 30,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "e9acbe9",
+          "file": "assembly/__tests__/types.ts",
+          "line": 1,
+          "column": 31,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "e9adecd",
+          "file": "assembly/__tests__/types.ts",
+          "line": 1,
+          "column": 82,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "e9b4b8b",
+          "file": "assembly/__tests__/types.ts",
+          "line": 2,
+          "column": 61,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "e9c2d23",
+          "file": "assembly/__tests__/types.ts",
+          "line": 4,
+          "column": 44,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "e9d0e41",
+          "file": "assembly/__tests__/types.ts",
+          "line": 6,
+          "column": 23,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "e9df2e0",
+          "file": "assembly/__tests__/types.ts",
+          "line": 8,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "e9e673f",
+          "file": "assembly/__tests__/types.ts",
+          "line": 9,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "33b42a452",
+          "file": "assembly/__tests__/types.ts",
+          "line": 10,
+          "column": 31,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33b422f77",
+          "file": "assembly/__tests__/types.ts",
+          "line": 11,
+          "column": 35,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33b41bada",
+          "file": "assembly/__tests__/types.ts",
+          "line": 12,
+          "column": 37,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33b413b94",
+          "file": "assembly/__tests__/types.ts",
+          "line": 13,
+          "column": 64,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33b40613f",
+          "file": "assembly/__tests__/types.ts",
+          "line": 15,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33b3f04bd",
+          "file": "assembly/__tests__/types.ts",
+          "line": 18,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33b3e947d",
+          "file": "assembly/__tests__/types.ts",
+          "line": 19,
+          "column": 11,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "33b3e84be",
+          "file": "assembly/__tests__/types.ts",
+          "line": 19,
+          "column": 57,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33b3490b0",
+          "file": "assembly/__tests__/types.ts",
+          "line": 20,
+          "column": 20,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33b332052",
+          "file": "assembly/__tests__/types.ts",
+          "line": 23,
+          "column": 74,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33b32be3d",
+          "file": "assembly/__tests__/types.ts",
+          "line": 24,
+          "column": 28,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33b31d97d",
+          "file": "assembly/__tests__/types.ts",
+          "line": 26,
+          "column": 16,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33b2593f4",
+          "file": "assembly/__tests__/types.ts",
+          "line": 32,
+          "column": 12,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33b2349dc",
+          "file": "assembly/__tests__/types.ts",
+          "line": 37,
+          "column": 26,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "e9c3502",
+          "file": "assembly/__tests__/types.ts",
+          "line": 46,
+          "column": 7,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "33b15a2da",
+          "file": "assembly/__tests__/types.ts",
+          "line": 46,
+          "column": 37,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "e9d19ff",
+          "file": "assembly/__tests__/types.ts",
+          "line": 65,
+          "column": 7,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "e9d1dc0",
+          "file": "assembly/__tests__/types.ts",
+          "line": 66,
+          "column": 7,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "e9d7b99",
+          "file": "assembly/__tests__/types.ts",
+          "line": 70,
+          "column": 7,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "e9deff8",
+          "file": "assembly/__tests__/types.ts",
+          "line": 80,
+          "column": 7,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "e9df3b9",
+          "file": "assembly/__tests__/types.ts",
+          "line": 81,
+          "column": 7,
+          "type": "Expression",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "assembly/custom/util.ts",
+      "total": 73,
+      "covered": 0,
+      "uncovered": 73,
+      "percent": 0,
+      "points": [
+        {
+          "hash": "27e90c79",
+          "file": "assembly/custom/util.ts",
+          "line": 18,
+          "column": 77,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "27e9139e",
+          "file": "assembly/custom/util.ts",
+          "line": 18,
+          "column": 94,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32aca51c7",
+          "file": "assembly/custom/util.ts",
+          "line": 18,
+          "column": 100,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "27e96d79",
+          "file": "assembly/custom/util.ts",
+          "line": 19,
+          "column": 22,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "27f3e27d",
+          "file": "assembly/custom/util.ts",
+          "line": 21,
+          "column": 26,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "27f53c36",
+          "file": "assembly/custom/util.ts",
+          "line": 24,
+          "column": 19,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "27f5b35f",
+          "file": "assembly/custom/util.ts",
+          "line": 25,
+          "column": 21,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "27f69c1d",
+          "file": "assembly/custom/util.ts",
+          "line": 27,
+          "column": 21,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "27f78d17",
+          "file": "assembly/custom/util.ts",
+          "line": 29,
+          "column": 47,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "2810f6ba",
+          "file": "assembly/custom/util.ts",
+          "line": 43,
+          "column": 18,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "28215e81",
+          "file": "assembly/custom/util.ts",
+          "line": 58,
+          "column": 41,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "282c4006",
+          "file": "assembly/custom/util.ts",
+          "line": 61,
+          "column": 22,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "282db064",
+          "file": "assembly/custom/util.ts",
+          "line": 64,
+          "column": 76,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "282e82da",
+          "file": "assembly/custom/util.ts",
+          "line": 66,
+          "column": 18,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "2839dfe3",
+          "file": "assembly/custom/util.ts",
+          "line": 70,
+          "column": 16,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "283c2542",
+          "file": "assembly/custom/util.ts",
+          "line": 75,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "283c9d43",
+          "file": "assembly/custom/util.ts",
+          "line": 76,
+          "column": 21,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "283d8e3d",
+          "file": "assembly/custom/util.ts",
+          "line": 78,
+          "column": 47,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "2856f7e0",
+          "file": "assembly/custom/util.ts",
+          "line": 92,
+          "column": 18,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32b38b8d1",
+          "file": "assembly/custom/util.ts",
+          "line": 106,
+          "column": 41,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b2d62ed",
+          "file": "assembly/custom/util.ts",
+          "line": 110,
+          "column": 22,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b2cdb4d",
+          "file": "assembly/custom/util.ts",
+          "line": 111,
+          "column": 76,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b2c08d7",
+          "file": "assembly/custom/util.ts",
+          "line": 113,
+          "column": 18,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b29c33a",
+          "file": "assembly/custom/util.ts",
+          "line": 118,
+          "column": 16,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b1d7def",
+          "file": "assembly/custom/util.ts",
+          "line": 124,
+          "column": 10,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b1c90b7",
+          "file": "assembly/custom/util.ts",
+          "line": 126,
+          "column": 26,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32b1bab5d",
+          "file": "assembly/custom/util.ts",
+          "line": 128,
+          "column": 19,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32b1b36fd",
+          "file": "assembly/custom/util.ts",
+          "line": 129,
+          "column": 19,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b10b7ad",
+          "file": "assembly/custom/util.ts",
+          "line": 131,
+          "column": 45,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b00d9d5",
+          "file": "assembly/custom/util.ts",
+          "line": 145,
+          "column": 16,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32af0e8f8",
+          "file": "assembly/custom/util.ts",
+          "line": 159,
+          "column": 39,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32ae59089",
+          "file": "assembly/custom/util.ts",
+          "line": 163,
+          "column": 20,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32ae508e9",
+          "file": "assembly/custom/util.ts",
+          "line": 164,
+          "column": 74,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32ae43673",
+          "file": "assembly/custom/util.ts",
+          "line": 166,
+          "column": 16,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32ad8d96a",
+          "file": "assembly/custom/util.ts",
+          "line": 170,
+          "column": 14,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32ac94ae3",
+          "file": "assembly/custom/util.ts",
+          "line": 183,
+          "column": 81,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32ac946a6",
+          "file": "assembly/custom/util.ts",
+          "line": 183,
+          "column": 95,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32e6343a5",
+          "file": "assembly/custom/util.ts",
+          "line": 183,
+          "column": 101,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32ac807cf",
+          "file": "assembly/custom/util.ts",
+          "line": 186,
+          "column": 13,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32ac78fcd",
+          "file": "assembly/custom/util.ts",
+          "line": 187,
+          "column": 22,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32ac697ae",
+          "file": "assembly/custom/util.ts",
+          "line": 189,
+          "column": 65,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32abc2dec",
+          "file": "assembly/custom/util.ts",
+          "line": 191,
+          "column": 39,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32aba64cb",
+          "file": "assembly/custom/util.ts",
+          "line": 195,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32ab9e811",
+          "file": "assembly/custom/util.ts",
+          "line": 196,
+          "column": 39,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32986316f",
+          "file": "assembly/custom/util.ts",
+          "line": 201,
+          "column": 10,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32985b4b5",
+          "file": "assembly/custom/util.ts",
+          "line": 202,
+          "column": 37,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32974d434",
+          "file": "assembly/custom/util.ts",
+          "line": 218,
+          "column": 75,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "329691572",
+          "file": "assembly/custom/util.ts",
+          "line": 223,
+          "column": 24,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32967b038",
+          "file": "assembly/custom/util.ts",
+          "line": 226,
+          "column": 49,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "27f46dbf",
+          "file": "assembly/custom/util.ts",
+          "line": 228,
+          "column": 9,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32966cb98",
+          "file": "assembly/custom/util.ts",
+          "line": 228,
+          "column": 36,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3295c5b2d",
+          "file": "assembly/custom/util.ts",
+          "line": 230,
+          "column": 23,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3295a18f4",
+          "file": "assembly/custom/util.ts",
+          "line": 235,
+          "column": 14,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3294b8953",
+          "file": "assembly/custom/util.ts",
+          "line": 246,
+          "column": 24,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3293ec38d",
+          "file": "assembly/custom/util.ts",
+          "line": 253,
+          "column": 55,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3293d7555",
+          "file": "assembly/custom/util.ts",
+          "line": 256,
+          "column": 16,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3293cf64e",
+          "file": "assembly/custom/util.ts",
+          "line": 257,
+          "column": 41,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3293218c8",
+          "file": "assembly/custom/util.ts",
+          "line": 260,
+          "column": 10,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "329319907",
+          "file": "assembly/custom/util.ts",
+          "line": 261,
+          "column": 41,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32923e2a4",
+          "file": "assembly/custom/util.ts",
+          "line": 270,
+          "column": 95,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32923846e",
+          "file": "assembly/custom/util.ts",
+          "line": 271,
+          "column": 38,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "329230cea",
+          "file": "assembly/custom/util.ts",
+          "line": 272,
+          "column": 43,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "3292051f5",
+          "file": "assembly/custom/util.ts",
+          "line": 278,
+          "column": 49,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3291fe917",
+          "file": "assembly/custom/util.ts",
+          "line": 279,
+          "column": 17,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "329150108",
+          "file": "assembly/custom/util.ts",
+          "line": 282,
+          "column": 10,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32911c634",
+          "file": "assembly/custom/util.ts",
+          "line": 289,
+          "column": 48,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32906e8ae",
+          "file": "assembly/custom/util.ts",
+          "line": 292,
+          "column": 17,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "329067167",
+          "file": "assembly/custom/util.ts",
+          "line": 293,
+          "column": 20,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "329058c2c",
+          "file": "assembly/custom/util.ts",
+          "line": 295,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "329042f4d",
+          "file": "assembly/custom/util.ts",
+          "line": 298,
+          "column": 10,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32903b72d",
+          "file": "assembly/custom/util.ts",
+          "line": 299,
+          "column": 20,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "327d15892",
+          "file": "assembly/custom/util.ts",
+          "line": 301,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "327ce1b14",
+          "file": "assembly/custom/util.ts",
+          "line": 308,
+          "column": 51,
+          "type": "Block",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simd/string.ts",
+      "total": 11,
+      "covered": 11,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "37053d6d0",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 62,
+          "column": 80,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "37050badd",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 69,
+          "column": 31,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "370440079",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 76,
+          "column": 31,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3563348fa",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 86,
+          "column": 8,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3702848fc",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 95,
+          "column": 26,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "5d42b245",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 118,
+          "column": 25,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "5d4ef82b",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 124,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "5d5bb32a",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 131,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "5d5e6ce8",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 137,
+          "column": 25,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "5d6ab2ce",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 143,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "5d6d6909",
+          "file": "assembly/deserialize/simd/string.ts",
+          "line": 149,
+          "column": 12,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/arbitrary.ts",
+      "total": 2,
+      "covered": 2,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "35400e5de",
+          "file": "assembly/deserialize/simple/arbitrary.ts",
+          "line": 9,
+          "column": 94,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32c8f5774",
+          "file": "assembly/deserialize/simple/arbitrary.ts",
+          "line": 13,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array.ts",
+      "total": 2,
+      "covered": 2,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "4270fc40",
+          "file": "assembly/deserialize/simple/array.ts",
+          "line": 15,
+          "column": 102,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32f6658b2",
+          "file": "assembly/deserialize/simple/array.ts",
+          "line": 18,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/arbitrary.ts",
+      "total": 3,
+      "covered": 3,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "2296b63c",
+          "file": "assembly/deserialize/simple/array/arbitrary.ts",
+          "line": 6,
+          "column": 101,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "2250bd90",
+          "file": "assembly/deserialize/simple/array/arbitrary.ts",
+          "line": 12,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "226c7398",
+          "file": "assembly/deserialize/simple/array/arbitrary.ts",
+          "line": 31,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/array.ts",
+      "total": 3,
+      "covered": 3,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "1fdd1619",
+          "file": "assembly/deserialize/simple/array/array.ts",
+          "line": 4,
+          "column": 109,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3738a114",
+          "file": "assembly/deserialize/simple/array/array.ts",
+          "line": 9,
+          "column": 33,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "1fb3bb3b",
+          "file": "assembly/deserialize/simple/array/array.ts",
+          "line": 13,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/bool.ts",
+      "total": 3,
+      "covered": 3,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "3397f293b",
+          "file": "assembly/deserialize/simple/array/bool.ts",
+          "line": 1,
+          "column": 109,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3546e1305",
+          "file": "assembly/deserialize/simple/array/bool.ts",
+          "line": 4,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3546bd1c5",
+          "file": "assembly/deserialize/simple/array/bool.ts",
+          "line": 9,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/box.ts",
+      "total": 11,
+      "covered": 0,
+      "uncovered": 11,
+      "percent": 0,
+      "points": [
+        {
+          "hash": "2b453e15",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 5,
+          "column": 111,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "53faea1d",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 7,
+          "column": 32,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "53fbd2bc",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 9,
+          "column": 31,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "2b0e3d8a",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 14,
+          "column": 14,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "2b1b6bd2",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 22,
+          "column": 10,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "2b1c5c31",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 24,
+          "column": 31,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "2b1d3d6c",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 26,
+          "column": 11,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "2b1d48b0",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 26,
+          "column": 41,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "2b1ea288",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 29,
+          "column": 35,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "2b290f8e",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 31,
+          "column": 15,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "2b2925b8",
+          "file": "assembly/deserialize/simple/array/box.ts",
+          "line": 31,
+          "column": 72,
+          "type": "Block",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/float.ts",
+      "total": 7,
+      "covered": 7,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "39b3d5c0",
+          "file": "assembly/deserialize/simple/array/float.ts",
+          "line": 5,
+          "column": 106,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3425f41dd",
+          "file": "assembly/deserialize/simple/array/float.ts",
+          "line": 8,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3426277f9",
+          "file": "assembly/deserialize/simple/array/float.ts",
+          "line": 10,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "39ec9c83",
+          "file": "assembly/deserialize/simple/array/float.ts",
+          "line": 10,
+          "column": 39,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "39eb4020",
+          "file": "assembly/deserialize/simple/array/float.ts",
+          "line": 13,
+          "column": 33,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "39ea5ee5",
+          "file": "assembly/deserialize/simple/array/float.ts",
+          "line": 15,
+          "column": 13,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "39ea48bb",
+          "file": "assembly/deserialize/simple/array/float.ts",
+          "line": 15,
+          "column": 70,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/integer.ts",
+      "total": 7,
+      "covered": 7,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "65fceb9f",
+          "file": "assembly/deserialize/simple/array/integer.ts",
+          "line": 4,
+          "column": 108,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "35fcd2b1e",
+          "file": "assembly/deserialize/simple/array/integer.ts",
+          "line": 7,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "78c7dda3",
+          "file": "assembly/deserialize/simple/array/integer.ts",
+          "line": 9,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "35fcc3e9f",
+          "file": "assembly/deserialize/simple/array/integer.ts",
+          "line": 9,
+          "column": 39,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "65d32423",
+          "file": "assembly/deserialize/simple/array/integer.ts",
+          "line": 12,
+          "column": 33,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "65d4055e",
+          "file": "assembly/deserialize/simple/array/integer.ts",
+          "line": 14,
+          "column": 13,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "65d41b88",
+          "file": "assembly/deserialize/simple/array/integer.ts",
+          "line": 14,
+          "column": 70,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/map.ts",
+      "total": 8,
+      "covered": 0,
+      "uncovered": 8,
+      "percent": 0,
+      "points": [
+        {
+          "hash": "36d0ebb5a",
+          "file": "assembly/deserialize/simple/array/map.ts",
+          "line": 5,
+          "column": 111,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "36d478ddd",
+          "file": "assembly/deserialize/simple/array/map.ts",
+          "line": 10,
+          "column": 10,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "36d47197e",
+          "file": "assembly/deserialize/simple/array/map.ts",
+          "line": 11,
+          "column": 10,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "36d46291f",
+          "file": "assembly/deserialize/simple/array/map.ts",
+          "line": 13,
+          "column": 31,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "36d453c43",
+          "file": "assembly/deserialize/simple/array/map.ts",
+          "line": 15,
+          "column": 44,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "36d44c787",
+          "file": "assembly/deserialize/simple/array/map.ts",
+          "line": 16,
+          "column": 47,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "36d43e60c",
+          "file": "assembly/deserialize/simple/array/map.ts",
+          "line": 18,
+          "column": 29,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "36d388d60",
+          "file": "assembly/deserialize/simple/array/map.ts",
+          "line": 22,
+          "column": 12,
+          "type": "Expression",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/object.ts",
+      "total": 8,
+      "covered": 0,
+      "uncovered": 8,
+      "percent": 0,
+      "points": [
+        {
+          "hash": "2930843f",
+          "file": "assembly/deserialize/simple/array/object.ts",
+          "line": 5,
+          "column": 108,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "28f7b4a4",
+          "file": "assembly/deserialize/simple/array/object.ts",
+          "line": 10,
+          "column": 10,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "28f82903",
+          "file": "assembly/deserialize/simple/array/object.ts",
+          "line": 11,
+          "column": 10,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "28f91962",
+          "file": "assembly/deserialize/simple/array/object.ts",
+          "line": 13,
+          "column": 31,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "28fa063e",
+          "file": "assembly/deserialize/simple/array/object.ts",
+          "line": 15,
+          "column": 44,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "28fa7afa",
+          "file": "assembly/deserialize/simple/array/object.ts",
+          "line": 16,
+          "column": 47,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "28fb5c75",
+          "file": "assembly/deserialize/simple/array/object.ts",
+          "line": 18,
+          "column": 29,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "2906b521",
+          "file": "assembly/deserialize/simple/array/object.ts",
+          "line": 22,
+          "column": 12,
+          "type": "Expression",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/raw.ts",
+      "total": 3,
+      "covered": 3,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "14f25f66",
+          "file": "assembly/deserialize/simple/array/raw.ts",
+          "line": 6,
+          "column": 93,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "376f0197a",
+          "file": "assembly/deserialize/simple/array/raw.ts",
+          "line": 12,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "376d4d7d1",
+          "file": "assembly/deserialize/simple/array/raw.ts",
+          "line": 30,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/string.ts",
+      "total": 4,
+      "covered": 4,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "318d17ca0",
+          "file": "assembly/deserialize/simple/array/string.ts",
+          "line": 4,
+          "column": 94,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "318cfc4d0",
+          "file": "assembly/deserialize/simple/array/string.ts",
+          "line": 8,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "318c7c4c",
+          "file": "assembly/deserialize/simple/array/string.ts",
+          "line": 10,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "318aae92",
+          "file": "assembly/deserialize/simple/array/string.ts",
+          "line": 14,
+          "column": 14,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/array/struct.ts",
+      "total": 8,
+      "covered": 5,
+      "uncovered": 3,
+      "percent": 62.5,
+      "points": [
+        {
+          "hash": "1b676d5",
+          "file": "assembly/deserialize/simple/array/struct.ts",
+          "line": 5,
+          "column": 108,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "17da73a",
+          "file": "assembly/deserialize/simple/array/struct.ts",
+          "line": 10,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "17e1b99",
+          "file": "assembly/deserialize/simple/array/struct.ts",
+          "line": 11,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "17f0bf8",
+          "file": "assembly/deserialize/simple/array/struct.ts",
+          "line": 13,
+          "column": 31,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "17ff8d4",
+          "file": "assembly/deserialize/simple/array/struct.ts",
+          "line": 15,
+          "column": 44,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "1806d90",
+          "file": "assembly/deserialize/simple/array/struct.ts",
+          "line": 16,
+          "column": 47,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "1814f0b",
+          "file": "assembly/deserialize/simple/array/struct.ts",
+          "line": 18,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "18ca7b7",
+          "file": "assembly/deserialize/simple/array/struct.ts",
+          "line": 22,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/bool.ts",
+      "total": 3,
+      "covered": 3,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "3650819c3",
+          "file": "assembly/deserialize/simple/bool.ts",
+          "line": 2,
+          "column": 85,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3650743cb",
+          "file": "assembly/deserialize/simple/bool.ts",
+          "line": 4,
+          "column": 35,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "3342482c",
+          "file": "assembly/deserialize/simple/bool.ts",
+          "line": 5,
+          "column": 8,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/date.ts",
+      "total": 1,
+      "covered": 1,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "76ebf272",
+          "file": "assembly/deserialize/simple/date.ts",
+          "line": 4,
+          "column": 79,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/float.ts",
+      "total": 2,
+      "covered": 2,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "344ee4b20",
+          "file": "assembly/deserialize/simple/float.ts",
+          "line": 4,
+          "column": 80,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "344ec8f33",
+          "file": "assembly/deserialize/simple/float.ts",
+          "line": 8,
+          "column": 28,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/integer.ts",
+      "total": 1,
+      "covered": 1,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "bc2b5bc",
+          "file": "assembly/deserialize/simple/integer.ts",
+          "line": 4,
+          "column": 82,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/map.ts",
+      "total": 19,
+      "covered": 13,
+      "uncovered": 6,
+      "percent": 68.42105263157895,
+      "points": [
+        {
+          "hash": "6f8fc216",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 6,
+          "column": 66,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "6f9026f4",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 7,
+          "column": 22,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "33e2962e9",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 11,
+          "column": 104,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "37dded56a",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 14,
+          "column": 86,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "37dd1c1a8",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 22,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "37dd14d49",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 23,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "37dd05cea",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 25,
+          "column": 31,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "37dcfe4ab",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 26,
+          "column": 42,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "37dcf6fef",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 27,
+          "column": 45,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "37dc48e0c",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 30,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "37dc3a5e9",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 32,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "37dc335a9",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 33,
+          "column": 11,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "37dc3220a",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 33,
+          "column": 68,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "37dc2bda7",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 34,
+          "column": 20,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "37dc0684c",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 39,
+          "column": 64,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "37db673c3",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 40,
+          "column": 31,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "37db591eb",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 42,
+          "column": 16,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "37da863a4",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 50,
+          "column": 12,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "37d96a8ee",
+          "file": "assembly/deserialize/simple/map.ts",
+          "line": 68,
+          "column": 14,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/object.ts",
+      "total": 16,
+      "covered": 11,
+      "uncovered": 5,
+      "percent": 68.75,
+      "points": [
+        {
+          "hash": "36b75aa96",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 13,
+          "column": 89,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "36b6822d3",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 22,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "36b67ae74",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 23,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "36b66be15",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 25,
+          "column": 31,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "36b6645d6",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 26,
+          "column": 42,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "36b65d11a",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 27,
+          "column": 45,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "36b5aef37",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 30,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "36b5a0714",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 32,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "36b5996d4",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 33,
+          "column": 11,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "36b598335",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 33,
+          "column": 68,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "36b591ed2",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 34,
+          "column": 20,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "36b56c977",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 39,
+          "column": 64,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "36b4cd4ee",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 40,
+          "column": 31,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "36b4bf316",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 42,
+          "column": 16,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "36b3ec4cf",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 50,
+          "column": 12,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "36b2d7e78",
+          "file": "assembly/deserialize/simple/object.ts",
+          "line": 67,
+          "column": 14,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/raw.ts",
+      "total": 1,
+      "covered": 1,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "c26c471",
+          "file": "assembly/deserialize/simple/raw.ts",
+          "line": 5,
+          "column": 82,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/set.ts",
+      "total": 8,
+      "covered": 5,
+      "uncovered": 3,
+      "percent": 62.5,
+      "points": [
+        {
+          "hash": "19de6f91",
+          "file": "assembly/deserialize/simple/set.ts",
+          "line": 5,
+          "column": 99,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "19dfad8e",
+          "file": "assembly/deserialize/simple/set.ts",
+          "line": 8,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "19e021ed",
+          "file": "assembly/deserialize/simple/set.ts",
+          "line": 9,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "21b36818",
+          "file": "assembly/deserialize/simple/set.ts",
+          "line": 11,
+          "column": 27,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "21b3e39c",
+          "file": "assembly/deserialize/simple/set.ts",
+          "line": 12,
+          "column": 44,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "21b45858",
+          "file": "assembly/deserialize/simple/set.ts",
+          "line": 13,
+          "column": 47,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "21b62598",
+          "file": "assembly/deserialize/simple/set.ts",
+          "line": 17,
+          "column": 33,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "21d2c157",
+          "file": "assembly/deserialize/simple/set.ts",
+          "line": 38,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/staticarray.ts",
+      "total": 2,
+      "covered": 2,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "33ae9db16",
+          "file": "assembly/deserialize/simple/staticarray.ts",
+          "line": 8,
+          "column": 115,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33b4c8039",
+          "file": "assembly/deserialize/simple/staticarray.ts",
+          "line": 11,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/staticarray/array.ts",
+      "total": 6,
+      "covered": 6,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "43140cb3",
+          "file": "assembly/deserialize/simple/staticarray/array.ts",
+          "line": 8,
+          "column": 6,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33220c316",
+          "file": "assembly/deserialize/simple/staticarray/array.ts",
+          "line": 12,
+          "column": 28,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3321ef616",
+          "file": "assembly/deserialize/simple/staticarray/array.ts",
+          "line": 16,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "332123376",
+          "file": "assembly/deserialize/simple/staticarray/array.ts",
+          "line": 23,
+          "column": 38,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "3320579ac",
+          "file": "assembly/deserialize/simple/staticarray/array.ts",
+          "line": 30,
+          "column": 33,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33203afd2",
+          "file": "assembly/deserialize/simple/staticarray/array.ts",
+          "line": 34,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/staticarray/bool.ts",
+      "total": 6,
+      "covered": 6,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "33c7d5e05",
+          "file": "assembly/deserialize/simple/staticarray/bool.ts",
+          "line": 5,
+          "column": 6,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3532c9fb3",
+          "file": "assembly/deserialize/simple/staticarray/bool.ts",
+          "line": 9,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "312d73509",
+          "file": "assembly/deserialize/simple/staticarray/bool.ts",
+          "line": 14,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "312c9154c",
+          "file": "assembly/deserialize/simple/staticarray/bool.ts",
+          "line": 24,
+          "column": 38,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "312c6d312",
+          "file": "assembly/deserialize/simple/staticarray/bool.ts",
+          "line": 29,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "312bb0607",
+          "file": "assembly/deserialize/simple/staticarray/bool.ts",
+          "line": 34,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/staticarray/float.ts",
+      "total": 13,
+      "covered": 13,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "353798dc9",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 9,
+          "column": 6,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "35bbfc68f",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 12,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "31bbbd4c7",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 14,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "35bbed975",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 14,
+          "column": 39,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "35bbd8038",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 17,
+          "column": 28,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "35bbc85ae",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 19,
+          "column": 70,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "35baf64f7",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 27,
+          "column": 38,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "35ba47fb0",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 30,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "31bbaf38b",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 32,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "35ba39331",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 32,
+          "column": 39,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "35ba236ce",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 35,
+          "column": 33,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "35ba15593",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 37,
+          "column": 13,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "35ba13f69",
+          "file": "assembly/deserialize/simple/staticarray/float.ts",
+          "line": 37,
+          "column": 70,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/staticarray/integer.ts",
+      "total": 13,
+      "covered": 13,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "26f3cb18",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 8,
+          "column": 6,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "38c88134",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 11,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3487da0ea",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 13,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "38c96e4e",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 13,
+          "column": 39,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "38cac78b",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 16,
+          "column": 28,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "38cbc215",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 18,
+          "column": 70,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "38d8e2cc",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 26,
+          "column": 38,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "38e43c72",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 30,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3487cbbed",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 32,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "38e528f1",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 32,
+          "column": 39,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "38e68554",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 35,
+          "column": 33,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "38e7668f",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 37,
+          "column": 13,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "38e77cb9",
+          "file": "assembly/deserialize/simple/staticarray/integer.ts",
+          "line": 37,
+          "column": 70,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/staticarray/string.ts",
+      "total": 8,
+      "covered": 8,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "15f07b26",
+          "file": "assembly/deserialize/simple/staticarray/string.ts",
+          "line": 4,
+          "column": 111,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "36aa35f7a",
+          "file": "assembly/deserialize/simple/staticarray/string.ts",
+          "line": 9,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "15c638c1",
+          "file": "assembly/deserialize/simple/staticarray/string.ts",
+          "line": 11,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "15c7921c",
+          "file": "assembly/deserialize/simple/staticarray/string.ts",
+          "line": 14,
+          "column": 14,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "15d5b53d",
+          "file": "assembly/deserialize/simple/staticarray/string.ts",
+          "line": 24,
+          "column": 47,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "15e1f3ff",
+          "file": "assembly/deserialize/simple/staticarray/string.ts",
+          "line": 30,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "15e2dc22",
+          "file": "assembly/deserialize/simple/staticarray/string.ts",
+          "line": 32,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "15e4a9dc",
+          "file": "assembly/deserialize/simple/staticarray/string.ts",
+          "line": 36,
+          "column": 14,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/staticarray/struct.ts",
+      "total": 11,
+      "covered": 8,
+      "uncovered": 3,
+      "percent": 72.72727272727273,
+      "points": [
+        {
+          "hash": "3fb72af6",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 14,
+          "column": 6,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "18d22dc3",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 15,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "18d2a222",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 16,
+          "column": 10,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "3fb71851",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 19,
+          "column": 5,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "3fb6be39",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 22,
+          "column": 5,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "3fb6ab74",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 27,
+          "column": 5,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "18eed562",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 36,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "18fa2ea9",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 40,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "18fdd9dd",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 48,
+          "column": 38,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "190a1c41",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 54,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "190be922",
+          "file": "assembly/deserialize/simple/staticarray/struct.ts",
+          "line": 58,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/simple/string.ts",
+      "total": 5,
+      "covered": 4,
+      "uncovered": 1,
+      "percent": 80,
+      "points": [
+        {
+          "hash": "367ecf14c",
+          "file": "assembly/deserialize/simple/string.ts",
+          "line": 6,
+          "column": 83,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "6a059557",
+          "file": "assembly/deserialize/simple/string.ts",
+          "line": 12,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "6a084f15",
+          "file": "assembly/deserialize/simple/string.ts",
+          "line": 18,
+          "column": 25,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "6a1494fb",
+          "file": "assembly/deserialize/simple/string.ts",
+          "line": 24,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "6a20d701",
+          "file": "assembly/deserialize/simple/string.ts",
+          "line": 30,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "assembly/deserialize/swar/string.ts",
+      "total": 12,
+      "covered": 0,
+      "uncovered": 12,
+      "percent": 0,
+      "points": [
+        {
+          "hash": "322726259",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 41,
+          "column": 80,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3226f4685",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 48,
+          "column": 30,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "322628fc3",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 55,
+          "column": 21,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "6a3f48ab",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 61,
+          "column": 8,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32248a1e4",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 70,
+          "column": 39,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "3224748e4",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 73,
+          "column": 26,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "322285f4b",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 99,
+          "column": 29,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33107df31",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 105,
+          "column": 25,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "330fb994b",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 111,
+          "column": 24,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "330f8e310",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 117,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "330d0d3a2",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 142,
+          "column": 50,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "330bf8caf",
+          "file": "assembly/deserialize/swar/string.ts",
+          "line": 159,
+          "column": 57,
+          "type": "Block",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "assembly/index.ts",
+      "total": 109,
+      "covered": 56,
+      "uncovered": 53,
+      "percent": 51.37614678899082,
+      "points": [
+        {
+          "hash": "36480b82a",
+          "file": "assembly/index.ts",
+          "line": 60,
+          "column": 36,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "364713543",
+          "file": "assembly/index.ts",
+          "line": 73,
+          "column": 70,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "364713105",
+          "file": "assembly/index.ts",
+          "line": 73,
+          "column": 84,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "36461628e",
+          "file": "assembly/index.ts",
+          "line": 87,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "333b92ce0",
+          "file": "assembly/index.ts",
+          "line": 179,
+          "column": 53,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "333ad6a5e",
+          "file": "assembly/index.ts",
+          "line": 184,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "330a56d85",
+          "file": "assembly/index.ts",
+          "line": 316,
+          "column": 31,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33098418b",
+          "file": "assembly/index.ts",
+          "line": 324,
+          "column": 29,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3308b1363",
+          "file": "assembly/index.ts",
+          "line": 332,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3307d6824",
+          "file": "assembly/index.ts",
+          "line": 341,
+          "column": 49,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33050e386",
+          "file": "assembly/index.ts",
+          "line": 376,
+          "column": 27,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33043ae1a",
+          "file": "assembly/index.ts",
+          "line": 384,
+          "column": 40,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "330360737",
+          "file": "assembly/index.ts",
+          "line": 393,
+          "column": 50,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33035969a",
+          "file": "assembly/index.ts",
+          "line": 394,
+          "column": 40,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32eff1c6a",
+          "file": "assembly/index.ts",
+          "line": 405,
+          "column": 46,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32efea106",
+          "file": "assembly/index.ts",
+          "line": 406,
+          "column": 62,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32efe3b10",
+          "file": "assembly/index.ts",
+          "line": 407,
+          "column": 27,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "4f446279",
+          "file": "assembly/index.ts",
+          "line": 408,
+          "column": 104,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32efd5271",
+          "file": "assembly/index.ts",
+          "line": 409,
+          "column": 26,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32ef2ce87",
+          "file": "assembly/index.ts",
+          "line": 411,
+          "column": 69,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32ef2658a",
+          "file": "assembly/index.ts",
+          "line": 412,
+          "column": 38,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32ef1ea06",
+          "file": "assembly/index.ts",
+          "line": 413,
+          "column": 55,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32ef17569",
+          "file": "assembly/index.ts",
+          "line": 414,
+          "column": 57,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32ef1010a",
+          "file": "assembly/index.ts",
+          "line": 415,
+          "column": 57,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32ef08cab",
+          "file": "assembly/index.ts",
+          "line": 416,
+          "column": 57,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32ef02069",
+          "file": "assembly/index.ts",
+          "line": 417,
+          "column": 32,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32eefabeb",
+          "file": "assembly/index.ts",
+          "line": 418,
+          "column": 33,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32eef378c",
+          "file": "assembly/index.ts",
+          "line": 419,
+          "column": 33,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32ee53762",
+          "file": "assembly/index.ts",
+          "line": 420,
+          "column": 33,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32ee4c303",
+          "file": "assembly/index.ts",
+          "line": 421,
+          "column": 33,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32ee44ea4",
+          "file": "assembly/index.ts",
+          "line": 422,
+          "column": 33,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32ee3da45",
+          "file": "assembly/index.ts",
+          "line": 423,
+          "column": 33,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32ee3654b",
+          "file": "assembly/index.ts",
+          "line": 424,
+          "column": 38,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32ee2f0ec",
+          "file": "assembly/index.ts",
+          "line": 425,
+          "column": 38,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32ee18908",
+          "file": "assembly/index.ts",
+          "line": 428,
+          "column": 64,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32ed4d9a8",
+          "file": "assembly/index.ts",
+          "line": 435,
+          "column": 36,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32ed37c4e",
+          "file": "assembly/index.ts",
+          "line": 438,
+          "column": 38,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32ed3102b",
+          "file": "assembly/index.ts",
+          "line": 439,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32ea9ae47",
+          "file": "assembly/index.ts",
+          "line": 467,
+          "column": 25,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32e9c0b44",
+          "file": "assembly/index.ts",
+          "line": 476,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32e8e63c6",
+          "file": "assembly/index.ts",
+          "line": 485,
+          "column": 39,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32e8dec80",
+          "file": "assembly/index.ts",
+          "line": 486,
+          "column": 42,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32e80c500",
+          "file": "assembly/index.ts",
+          "line": 494,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32e805063",
+          "file": "assembly/index.ts",
+          "line": 495,
+          "column": 26,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32e7f67e3",
+          "file": "assembly/index.ts",
+          "line": 497,
+          "column": 24,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32e7e77c2",
+          "file": "assembly/index.ts",
+          "line": 499,
+          "column": 43,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d4c1585",
+          "file": "assembly/index.ts",
+          "line": 501,
+          "column": 44,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32d4b2cc7",
+          "file": "assembly/index.ts",
+          "line": 503,
+          "column": 44,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d4a4409",
+          "file": "assembly/index.ts",
+          "line": 505,
+          "column": 44,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d495b4b",
+          "file": "assembly/index.ts",
+          "line": 507,
+          "column": 44,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32d48728d",
+          "file": "assembly/index.ts",
+          "line": 509,
+          "column": 44,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d3dfd88",
+          "file": "assembly/index.ts",
+          "line": 511,
+          "column": 48,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32d3d15c3",
+          "file": "assembly/index.ts",
+          "line": 513,
+          "column": 40,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32d3d14ac",
+          "file": "assembly/index.ts",
+          "line": 513,
+          "column": 49,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32d3d1147",
+          "file": "assembly/index.ts",
+          "line": 513,
+          "column": 56,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d3ca524",
+          "file": "assembly/index.ts",
+          "line": 514,
+          "column": 30,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3648e4fac",
+          "file": "assembly/index.ts",
+          "line": 516,
+          "column": 9,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d3b47c9",
+          "file": "assembly/index.ts",
+          "line": 517,
+          "column": 32,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d3a6213",
+          "file": "assembly/index.ts",
+          "line": 519,
+          "column": 28,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32d2f7281",
+          "file": "assembly/index.ts",
+          "line": 522,
+          "column": 41,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3648d79b3",
+          "file": "assembly/index.ts",
+          "line": 531,
+          "column": 9,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d215e83",
+          "file": "assembly/index.ts",
+          "line": 532,
+          "column": 33,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3648d6e70",
+          "file": "assembly/index.ts",
+          "line": 534,
+          "column": 9,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d20084d",
+          "file": "assembly/index.ts",
+          "line": 535,
+          "column": 18,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d11e589",
+          "file": "assembly/index.ts",
+          "line": 545,
+          "column": 48,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32d1171c5",
+          "file": "assembly/index.ts",
+          "line": 546,
+          "column": 43,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32ce7aa2a",
+          "file": "assembly/index.ts",
+          "line": 575,
+          "column": 19,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32cdbd4c3",
+          "file": "assembly/index.ts",
+          "line": 580,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32cd7b5ea",
+          "file": "assembly/index.ts",
+          "line": 589,
+          "column": 49,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32cca12c8",
+          "file": "assembly/index.ts",
+          "line": 598,
+          "column": 49,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32cc9a2a7",
+          "file": "assembly/index.ts",
+          "line": 599,
+          "column": 35,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32b9411d0",
+          "file": "assembly/index.ts",
+          "line": 608,
+          "column": 36,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32b866e51",
+          "file": "assembly/index.ts",
+          "line": 617,
+          "column": 39,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32b7940a5",
+          "file": "assembly/index.ts",
+          "line": 625,
+          "column": 30,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32b6c1128",
+          "file": "assembly/index.ts",
+          "line": 633,
+          "column": 36,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32b5ee2e1",
+          "file": "assembly/index.ts",
+          "line": 641,
+          "column": 32,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32b513b44",
+          "file": "assembly/index.ts",
+          "line": 650,
+          "column": 48,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b50caa7",
+          "file": "assembly/index.ts",
+          "line": 651,
+          "column": 38,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32b4f6e24",
+          "file": "assembly/index.ts",
+          "line": 654,
+          "column": 33,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b41cae3",
+          "file": "assembly/index.ts",
+          "line": 663,
+          "column": 34,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32b4152a5",
+          "file": "assembly/index.ts",
+          "line": 664,
+          "column": 45,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32b349c01",
+          "file": "assembly/index.ts",
+          "line": 671,
+          "column": 35,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b243324",
+          "file": "assembly/index.ts",
+          "line": 686,
+          "column": 67,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32b23c6c4",
+          "file": "assembly/index.ts",
+          "line": 687,
+          "column": 43,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32b235265",
+          "file": "assembly/index.ts",
+          "line": 688,
+          "column": 43,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32b22dd4c",
+          "file": "assembly/index.ts",
+          "line": 689,
+          "column": 49,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32b22d5e9",
+          "file": "assembly/index.ts",
+          "line": 689,
+          "column": 68,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "32b18657e",
+          "file": "assembly/index.ts",
+          "line": 691,
+          "column": 55,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "32b18621a",
+          "file": "assembly/index.ts",
+          "line": 691,
+          "column": 62,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "329e17b4b",
+          "file": "assembly/index.ts",
+          "line": 703,
+          "column": 46,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "329e025ee",
+          "file": "assembly/index.ts",
+          "line": 706,
+          "column": 24,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "329dfa24e",
+          "file": "assembly/index.ts",
+          "line": 707,
+          "column": 66,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "329dec16f",
+          "file": "assembly/index.ts",
+          "line": 709,
+          "column": 43,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "329c6a909",
+          "file": "assembly/index.ts",
+          "line": 720,
+          "column": 49,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "329c55809",
+          "file": "assembly/index.ts",
+          "line": 723,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "3296df6a1",
+          "file": "assembly/index.ts",
+          "line": 789,
+          "column": 81,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "3296df5e6",
+          "file": "assembly/index.ts",
+          "line": 789,
+          "column": 87,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32962b382",
+          "file": "assembly/index.ts",
+          "line": 793,
+          "column": 12,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "327f26f4c",
+          "file": "assembly/index.ts",
+          "line": 847,
+          "column": 57,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "327f20a4f",
+          "file": "assembly/index.ts",
+          "line": 848,
+          "column": 14,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "327e70b1e",
+          "file": "assembly/index.ts",
+          "line": 851,
+          "column": 72,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "327d550a6",
+          "file": "assembly/index.ts",
+          "line": 869,
+          "column": 72,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "327d54c68",
+          "file": "assembly/index.ts",
+          "line": 869,
+          "column": 86,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "327bbf226",
+          "file": "assembly/index.ts",
+          "line": 883,
+          "column": 14,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "326070a82",
+          "file": "assembly/index.ts",
+          "line": 983,
+          "column": 54,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "326052a7e",
+          "file": "assembly/index.ts",
+          "line": 987,
+          "column": 90,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "325f96741",
+          "file": "assembly/index.ts",
+          "line": 992,
+          "column": 55,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "325f79587",
+          "file": "assembly/index.ts",
+          "line": 996,
+          "column": 57,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "34fdef84e",
+          "file": "assembly/index.ts",
+          "line": 1001,
+          "column": 56,
+          "type": "Block",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simd/string.ts",
+      "total": 30,
+      "covered": 25,
+      "uncovered": 5,
+      "percent": 83.33333333333333,
+      "points": [
+        {
+          "hash": "7e9ea444",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 21,
+          "column": 57,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7e9f84a7",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 23,
+          "column": 30,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7ea0defb",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 26,
+          "column": 28,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7ebbb3c8",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 43,
+          "column": 31,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7ed685cc",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 60,
+          "column": 32,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "342a8237",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 68,
+          "column": 8,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7ee75787",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 76,
+          "column": 32,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7ef2b92a",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 80,
+          "column": 47,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7ef650c0",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 88,
+          "column": 16,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "53735d88",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 106,
+          "column": 43,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "53743ac5",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 108,
+          "column": 11,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "53744a46",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 108,
+          "column": 55,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "537eaf8c",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 110,
+          "column": 13,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "537ebb4c",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 110,
+          "column": 47,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "539b5a8f",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 131,
+          "column": 34,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7e916e3c",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 133,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "539c478a",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 133,
+          "column": 48,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "539d2feb",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 135,
+          "column": 45,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "53a8f62f",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 140,
+          "column": 14,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7e91f921",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 149,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "53ad186c",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 149,
+          "column": 41,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7e92623d",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 156,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "53b9d70d",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 156,
+          "column": 55,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "53bab04a",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 158,
+          "column": 11,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "53babc0a",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 158,
+          "column": 45,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "53d67250",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 177,
+          "column": 30,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "53e1d71a",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 181,
+          "column": 50,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "53f0d3b7",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 193,
+          "column": 41,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "53f13dca",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 194,
+          "column": 19,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "53f1416c",
+          "file": "assembly/serialize/simd/string.ts",
+          "line": 194,
+          "column": 28,
+          "type": "Expression",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/arbitrary.ts",
+      "total": 22,
+      "covered": 12,
+      "uncovered": 10,
+      "percent": 54.54545454545455,
+      "points": [
+        {
+          "hash": "3634ac357",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 11,
+          "column": 59,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3634a5b33",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 12,
+          "column": 21,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3634818fa",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 17,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3633d3012",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 20,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3633bd2f5",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 23,
+          "column": 12,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3633a75d8",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 26,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3633918bb",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 29,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3632e2fd3",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 32,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3632cd2b6",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 35,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3632b7599",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 38,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "363208cb1",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 41,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3631f2f94",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 44,
+          "column": 12,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3631dd277",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 47,
+          "column": 12,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "36312e98f",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 50,
+          "column": 12,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "363118c72",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 53,
+          "column": 12,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "363111398",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 54,
+          "column": 28,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "31bf83f5c",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 57,
+          "column": 5,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3630f41fd",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 58,
+          "column": 29,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "31bf7e183",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 61,
+          "column": 5,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "36303e513",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 62,
+          "column": 26,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "31bf7d27f",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 65,
+          "column": 5,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "363021796",
+          "file": "assembly/serialize/simple/arbitrary.ts",
+          "line": 66,
+          "column": 14,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/array.ts",
+      "total": 3,
+      "covered": 3,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "31a9c5ca2",
+          "file": "assembly/serialize/simple/array.ts",
+          "line": 5,
+          "column": 63,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "31a9a9d50",
+          "file": "assembly/serialize/simple/array.ts",
+          "line": 9,
+          "column": 18,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3391c3ed2",
+          "file": "assembly/serialize/simple/array.ts",
+          "line": 20,
+          "column": 19,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/bool.ts",
+      "total": 3,
+      "covered": 3,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "312fc3a71",
+          "file": "assembly/serialize/simple/bool.ts",
+          "line": 7,
+          "column": 49,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "312fbce6d",
+          "file": "assembly/serialize/simple/bool.ts",
+          "line": 8,
+          "column": 22,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "34ce0a787",
+          "file": "assembly/serialize/simple/bool.ts",
+          "line": 12,
+          "column": 10,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/date.ts",
+      "total": 1,
+      "covered": 0,
+      "uncovered": 1,
+      "percent": 0,
+      "points": [
+        {
+          "hash": "33709fc92",
+          "file": "assembly/serialize/simple/date.ts",
+          "line": 5,
+          "column": 48,
+          "type": "Block",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/float.ts",
+      "total": 1,
+      "covered": 1,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "355c28244",
+          "file": "assembly/serialize/simple/float.ts",
+          "line": 5,
+          "column": 73,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/integer.ts",
+      "total": 1,
+      "covered": 1,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "32287f5a8",
+          "file": "assembly/serialize/simple/integer.ts",
+          "line": 5,
+          "column": 75,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/map.ts",
+      "total": 7,
+      "covered": 4,
+      "uncovered": 3,
+      "percent": 57.142857142857146,
+      "points": [
+        {
+          "hash": "35c3ed5cb",
+          "file": "assembly/serialize/simple/map.ts",
+          "line": 5,
+          "column": 69,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "35c3d144b",
+          "file": "assembly/serialize/simple/map.ts",
+          "line": 9,
+          "column": 21,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32bc728ae",
+          "file": "assembly/serialize/simple/map.ts",
+          "line": 24,
+          "column": 36,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32bc6402e",
+          "file": "assembly/serialize/simple/map.ts",
+          "line": 26,
+          "column": 34,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32bb9192b",
+          "file": "assembly/serialize/simple/map.ts",
+          "line": 34,
+          "column": 12,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32ba99d0b",
+          "file": "assembly/serialize/simple/map.ts",
+          "line": 47,
+          "column": 32,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "32b9c7608",
+          "file": "assembly/serialize/simple/map.ts",
+          "line": 55,
+          "column": 10,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/object.ts",
+      "total": 3,
+      "covered": 2,
+      "uncovered": 1,
+      "percent": 66.66666666666667,
+      "points": [
+        {
+          "hash": "3470376c0",
+          "file": "assembly/serialize/simple/object.ts",
+          "line": 7,
+          "column": 54,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "663e38cf",
+          "file": "assembly/serialize/simple/object.ts",
+          "line": 11,
+          "column": 21,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "664e2628",
+          "file": "assembly/serialize/simple/object.ts",
+          "line": 25,
+          "column": 36,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/raw.ts",
+      "total": 1,
+      "covered": 1,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "335800bf7",
+          "file": "assembly/serialize/simple/raw.ts",
+          "line": 11,
+          "column": 60,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/set.ts",
+      "total": 3,
+      "covered": 3,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "4e103fd4",
+          "file": "assembly/serialize/simple/set.ts",
+          "line": 5,
+          "column": 64,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "4e118d90",
+          "file": "assembly/serialize/simple/set.ts",
+          "line": 8,
+          "column": 21,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "73cab67f",
+          "file": "assembly/serialize/simple/set.ts",
+          "line": 20,
+          "column": 33,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/staticarray.ts",
+      "total": 3,
+      "covered": 3,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "32ee2b38f",
+          "file": "assembly/serialize/simple/staticarray.ts",
+          "line": 5,
+          "column": 80,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "32ee0fb62",
+          "file": "assembly/serialize/simple/staticarray.ts",
+          "line": 9,
+          "column": 18,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "5253e877",
+          "file": "assembly/serialize/simple/staticarray.ts",
+          "line": 18,
+          "column": 19,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/string.ts",
+      "total": 15,
+      "covered": 4,
+      "uncovered": 11,
+      "percent": 26.666666666666668,
+      "points": [
+        {
+          "hash": "3bbdb57e",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 19,
+          "column": 60,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3bcbbed4",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 29,
+          "column": 27,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "371aebc36",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 33,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "3bd723bc",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 33,
+          "column": 48,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3bd9693a",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 38,
+          "column": 45,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3be52f7e",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 43,
+          "column": 14,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3bf2dd85",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 52,
+          "column": 41,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "3bf3bf3e",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 54,
+          "column": 25,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3bf43720",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 55,
+          "column": 33,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3bf5185b",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 57,
+          "column": 13,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "3bf5241b",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 57,
+          "column": 47,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3c1e1069",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 84,
+          "column": 50,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3c2d0d06",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 96,
+          "column": 41,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3c2d7719",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 97,
+          "column": 19,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "3c2d7abb",
+          "file": "assembly/serialize/simple/string.ts",
+          "line": 97,
+          "column": 28,
+          "type": "Expression",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/simple/struct.ts",
+      "total": 1,
+      "covered": 1,
+      "uncovered": 0,
+      "percent": 100,
+      "points": [
+        {
+          "hash": "316bdf4d6",
+          "file": "assembly/serialize/simple/struct.ts",
+          "line": 5,
+          "column": 78,
+          "type": "Block",
+          "executed": true
+        }
+      ]
+    },
+    {
+      "file": "assembly/serialize/swar/string.ts",
+      "total": 32,
+      "covered": 7,
+      "uncovered": 25,
+      "percent": 21.875,
+      "points": [
+        {
+          "hash": "33370e706",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 12,
+          "column": 57,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "3336f9244",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 15,
+          "column": 30,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3336eac4f",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 17,
+          "column": 28,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33353d7a1",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 34,
+          "column": 30,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33347953e",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 40,
+          "column": 21,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "343b7e54f",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 46,
+          "column": 8,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33339057e",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 51,
+          "column": 32,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33336bb47",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 56,
+          "column": 47,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3332a0c45",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 63,
+          "column": 16,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "3331b0121",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 75,
+          "column": 43,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "3331a23e4",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 77,
+          "column": 11,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "3331a14fe",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 77,
+          "column": 50,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "333193ae8",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 79,
+          "column": 13,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "333192f28",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 79,
+          "column": 47,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33aca08cc",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 101,
+          "column": 34,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33371d348",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 104,
+          "column": 9,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "33ac8a772",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 104,
+          "column": 48,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33ac7bf11",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 106,
+          "column": 45,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33abbf8cd",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 111,
+          "column": 14,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33370f98e",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 120,
+          "column": 9,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33aae4ac5",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 120,
+          "column": 41,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33370df47",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 127,
+          "column": 9,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33aab17ef",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 127,
+          "column": 55,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33aaa3eb2",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 129,
+          "column": 11,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33aaa32f2",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 129,
+          "column": 45,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33a8e7cac",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 148,
+          "column": 30,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33a8317e2",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 152,
+          "column": 50,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33a741b45",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 164,
+          "column": 41,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33a73b132",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 165,
+          "column": 19,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33a73ad90",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 165,
+          "column": 28,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33a71c9e9",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 169,
+          "column": 73,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33a649ae8",
+          "file": "assembly/serialize/swar/string.ts",
+          "line": 177,
+          "column": 75,
+          "type": "Block",
+          "executed": false
+        }
+      ]
+    },
+    {
+      "file": "lib/as-bs.ts",
+      "total": 34,
+      "covered": 10,
+      "uncovered": 24,
+      "percent": 29.41176470588235,
+      "points": [
+        {
+          "hash": "33de959d7",
+          "file": "lib/as-bs.ts",
+          "line": 43,
+          "column": 60,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33ddb48ff",
+          "file": "lib/as-bs.ts",
+          "line": 53,
+          "column": 47,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33ddadc04",
+          "file": "lib/as-bs.ts",
+          "line": 54,
+          "column": 28,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "33dcd31bc",
+          "file": "lib/as-bs.ts",
+          "line": 63,
+          "column": 45,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33dbf1a3b",
+          "file": "lib/as-bs.ts",
+          "line": 73,
+          "column": 45,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33db1029b",
+          "file": "lib/as-bs.ts",
+          "line": 83,
+          "column": 46,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "33da1feba",
+          "file": "lib/as-bs.ts",
+          "line": 95,
+          "column": 55,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "33da18336",
+          "file": "lib/as-bs.ts",
+          "line": 96,
+          "column": 72,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7b81a80f",
+          "file": "lib/as-bs.ts",
+          "line": 112,
+          "column": 56,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7b821850",
+          "file": "lib/as-bs.ts",
+          "line": 113,
+          "column": 43,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7b92edcc",
+          "file": "lib/as-bs.ts",
+          "line": 129,
+          "column": 53,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7b9cea35",
+          "file": "lib/as-bs.ts",
+          "line": 130,
+          "column": 43,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7bad4b71",
+          "file": "lib/as-bs.ts",
+          "line": 145,
+          "column": 54,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7bbd306f",
+          "file": "lib/as-bs.ts",
+          "line": 159,
+          "column": 42,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7bc729b2",
+          "file": "lib/as-bs.ts",
+          "line": 160,
+          "column": 27,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7bc9df90",
+          "file": "lib/as-bs.ts",
+          "line": 166,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7be4b9d0",
+          "file": "lib/as-bs.ts",
+          "line": 183,
+          "column": 39,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7be59eae",
+          "file": "lib/as-bs.ts",
+          "line": 185,
+          "column": 28,
+          "type": "Block",
+          "executed": true
+        },
+        {
+          "hash": "7bf34591",
+          "file": "lib/as-bs.ts",
+          "line": 194,
+          "column": 38,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7bf43193",
+          "file": "lib/as-bs.ts",
+          "line": 196,
+          "column": 44,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "7bf58330",
+          "file": "lib/as-bs.ts",
+          "line": 199,
+          "column": 12,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7d39366d",
+          "file": "lib/as-bs.ts",
+          "line": 218,
+          "column": 40,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7d532374",
+          "file": "lib/as-bs.ts",
+          "line": 233,
+          "column": 51,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7d5484cd",
+          "file": "lib/as-bs.ts",
+          "line": 236,
+          "column": 65,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "7d61340e",
+          "file": "lib/as-bs.ts",
+          "line": 243,
+          "column": 36,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7d622011",
+          "file": "lib/as-bs.ts",
+          "line": 245,
+          "column": 42,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7edffba8",
+          "file": "lib/as-bs.ts",
+          "line": 308,
+          "column": 53,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "7edfff0c",
+          "file": "lib/as-bs.ts",
+          "line": 308,
+          "column": 60,
+          "type": "Expression",
+          "executed": true
+        },
+        {
+          "hash": "7f1684ec",
+          "file": "lib/as-bs.ts",
+          "line": 344,
+          "column": 47,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7f258832",
+          "file": "lib/as-bs.ts",
+          "line": 356,
+          "column": 51,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7f2665eb",
+          "file": "lib/as-bs.ts",
+          "line": 358,
+          "column": 23,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7f40d693",
+          "file": "lib/as-bs.ts",
+          "line": 374,
+          "column": 76,
+          "type": "Block",
+          "executed": false
+        },
+        {
+          "hash": "7f413b33",
+          "file": "lib/as-bs.ts",
+          "line": 375,
+          "column": 30,
+          "type": "Expression",
+          "executed": false
+        },
+        {
+          "hash": "7f41b04d",
+          "file": "lib/as-bs.ts",
+          "line": 376,
+          "column": 36,
+          "type": "Block",
+          "executed": false
+        }
+      ]
+    }
+  ]
+}
