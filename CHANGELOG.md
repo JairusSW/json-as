@@ -1,5 +1,9 @@
 # Change Log
 
+## UNRELEASED
+
+- compat: add compatability between json-as and try-as by ignoring methods prefixed by __try
+
 ## 2026-02-18 - 1.2.6
 
 - fix: support arbitrary nested arrays and objects [#176](https://github.com/JairusSW/json-as/pull/176)
