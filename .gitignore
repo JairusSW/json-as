@@ -9,5 +9,8 @@ as-tral
 .vscode/
 build/
 *.tmp.ts
+.as-test/build/
+.as-test/coverage/
+.as-test/logs/
 !.as-test/runners/
 !.as-test/snapshots/

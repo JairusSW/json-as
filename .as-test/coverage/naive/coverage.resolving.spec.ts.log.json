@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "showPoints": false,
+  "showPoints": true,
   "total": 578,
   "covered": 73,
   "uncovered": 505,
