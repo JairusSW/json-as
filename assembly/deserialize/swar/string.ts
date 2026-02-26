@@ -127,6 +127,92 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   return bs.out<string>();
 }
 
+// this function should deserialize the string until it finds an unescaped quote which
+export function deserializeStringScan_SWAR(srcStart: usize): usize {
+  const realStart: usize = srcStart;
+  let lastPtr: usize = srcStart;
+  while (true) {
+    const block = load<u64>(srcStart);
+    let mask = inline.always(backslash_mask_unsafe(block));
+
+    // Early exit
+    if (mask === 0) {
+      srcStart += 8;
+      continue;
+    }
+
+    // Worst-case scenario here would be something like "\\u0000\\u0000\\u0000\\u0000" which has a length of 48
+    bs.ensureSize(srcStart - realStart + 48);
+    memory.copy(bs.offset, lastPtr, srcStart - realStart + 8);
+
+    do {
+      const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
+      mask &= mask - 1;
+      const srcIdx = srcStart + laneIdx;
+      const dstIdx = bs.offset + laneIdx;
+      const header = load<u32>(srcIdx);
+      const code = <u16>(header >> 16);
+
+      // Detect false positive (code unit where low byte is 0x5C)
+      if ((header & 0xffff) !== 0x5c) continue;
+
+      // Hot path (negative bias)
+      if (code !== 0x75) {
+        // Short escapes (\n \t \" \\)
+        const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
+        mask &= mask - usize(escaped === 0x5c);
+        store<u16>(dstIdx, escaped);
+        store<u32>(dstIdx, load<u32>(srcIdx, 4), 2);
+
+        const l6 = usize(laneIdx === 6);
+        bs.offset -= (1 - l6) << 1;
+        srcStart += l6 << 1;
+        continue;
+      }
+
+      // Unicode escape (\uXXXX)
+      const block = load<u64>(srcIdx, 4); // XXXX
+      const escaped = hex4_to_u16_swar(block);
+      store<u16>(dstIdx, escaped);
+      // store<u64>(dstIdx, load<u32>(srcIdx, 12), 2);
+      srcStart += 4 + laneIdx;
+      bs.offset -= 6 - laneIdx;
+    } while (mask !== 0);
+
+    bs.offset += 8;
+    srcStart += 8;
+  }
+
+  while (srcStart < srcEnd) {
+    const block = load<u16>(srcStart);
+    store<u16>(bs.offset, block);
+    srcStart += 2;
+
+    // Early exit
+    if (block !== 0x5c) {
+      bs.offset += 2;
+      continue;
+    }
+
+    const code = load<u16>(srcStart);
+    if (code !== 0x75) {
+      // Short escapes (\n \t \" \\)
+      const block = load<u16>(srcStart);
+      const escape = load<u16>(DESERIALIZE_ESCAPE_TABLE + block);
+      store<u16>(bs.offset, escape);
+      srcStart += 2;
+    } else {
+      // Unicode escape (\uXXXX)
+      const block = load<u64>(srcStart, 2); // XXXX
+      const escaped = hex4_to_u16_swar(block);
+      store<u16>(bs.offset, escaped);
+      srcStart += 10;
+    }
+
+    bs.offset += 2;
+  }
+  return bs.out<string>();
+}
 /**
  * Computes a per-lane mask identifying UTF-16 code units whose **low byte**
  * is the ASCII backslash (`'\\'`, 0x5C).

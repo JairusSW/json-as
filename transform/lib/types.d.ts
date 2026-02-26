@@ -34,6 +34,10 @@ export declare class Schema {
     private _custom;
     set custom(value: boolean);
     get custom(): boolean;
+    getMinLength(visited?: Set<string>): number;
+    private getTypeMinChars;
+    private getNonNullableTypeMinChars;
+    private static isNumericType;
 }
 export declare class SourceSet {
     private sources;

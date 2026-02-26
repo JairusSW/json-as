@@ -242,6 +242,7 @@ export class JSONTransform extends Visitor {
     let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
     let INITIALIZE = "@inline __INITIALIZE(): this {\n";
     let DESERIALIZE = "__DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
+    let DESERIALIZE_FAST = "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
     let DESERIALIZE_CUSTOM = "";
     let SERIALIZE_CUSTOM = "";
 
@@ -505,6 +506,51 @@ export class JSONTransform extends Visitor {
 
     indent = "";
 
+    DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
+    DESERIALIZE_FAST += this.schema.members.map((m) => indent + `const ${m.name}Ptr = dst + offsetof<this>(${JSON.stringify(m.name)});`).join("\n") + "\n\n";
+    DESERIALIZE_FAST += indent + "do {\n";
+    indent += "  ";
+
+    DESERIALIZE_FAST += indent + `if (srcEnd - srcStart < ${this.schema.getMinLength()}) break;\n\n`;
+
+    let _isFirst = true;
+    for (const member of this.schema.members) {
+      // key comparision
+      const key = JSON.stringify(member.alias || member.name);
+      if (key.length <= 2) throw new Error("Key cannot be empty!");
+
+      const getComparisions = (data: string, ptr: string, operator: string): string[] => {
+        const dataBytes = data.length << 1;
+        let offset = 0;
+        let output: string[] = [];
+        while (offset < dataBytes) {
+          const rem = dataBytes - offset;
+          if (rem >= 8) {
+            output.push(`load<u64>(${ptr}, ${offset}) ${operator} 0x${toU64(data, offset >> 1).toString(16)}`);
+            offset += 8;
+            continue;
+          }
+          if (rem >= 4) {
+            output.push(`load<u32>(${ptr}, ${offset}) ${operator} 0x${toU32(data, offset >> 1).toString(16)}`);
+            offset += 4;
+            continue;
+          }
+          if (rem >= 2) {
+            output.push(`load<u16>(${ptr}, ${offset}) ${operator} 0x${data.charCodeAt(offset >> 1).toString(16)}`);
+            offset += 2;
+            continue;
+          }
+        }
+        return output;
+      };
+
+      const keySection = (_isFirst ? "{" : ",") + key + ":";
+      _isFirst = false;
+      DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "&& ")}\n${(indent = indent.slice(-2))}) break;\n`;
+      DESERIALIZE_FAST += indent + `srcStart += ${keySection.length << 1};\n\n`;
+      // separate into optimized code generators for each type
+    }
+    console.log(DESERIALIZE_FAST);
     DESERIALIZE += indent + "  let keyStart: usize = 0;\n";
     DESERIALIZE += indent + "  let keyEnd: usize = 0;\n";
     DESERIALIZE += indent + "  let isKey = false;\n";
@@ -1358,20 +1404,20 @@ function sortMembers(members: Property[]): Property[] {
   });
 }
 
-function toU16(data: string, offset: number = 0): string {
-  return data.charCodeAt(offset + 0).toString();
+function toU16(data: string, offset: number = 0): number {
+  return data.charCodeAt(offset + 0);
 }
 
-function toU32(data: string, offset: number = 0): string {
-  return ((data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0)).toString();
+function toU32(data: string, offset: number = 0): number {
+  return (data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0);
 }
 
-function toU48(data: string, offset: number = 0): string {
-  return ((BigInt(data.charCodeAt(offset + 2)) << 32n) | (BigInt(data.charCodeAt(offset + 1)) << 16n) | BigInt(data.charCodeAt(offset + 0))).toString();
+function toU48(data: string, offset: number = 0): BigInt {
+  return (BigInt(data.charCodeAt(offset + 2)) << 32n) | (BigInt(data.charCodeAt(offset + 1)) << 16n) | BigInt(data.charCodeAt(offset + 0));
 }
 
-function toU64(data: string, offset: number = 0): string {
-  return ((BigInt(data.charCodeAt(offset + 3)) << 48n) | (BigInt(data.charCodeAt(offset + 2)) << 32n) | (BigInt(data.charCodeAt(offset + 1)) << 16n) | BigInt(data.charCodeAt(offset + 0))).toString();
+function toU64(data: string, offset: number = 0): BigInt {
+  return (BigInt(data.charCodeAt(offset + 3)) << 48n) | (BigInt(data.charCodeAt(offset + 2)) << 32n) | (BigInt(data.charCodeAt(offset + 1)) << 16n) | BigInt(data.charCodeAt(offset + 0));
 }
 
 function toMemCDecl(n: number, indent: string): string {

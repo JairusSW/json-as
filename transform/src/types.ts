@@ -74,6 +74,70 @@ export class Schema {
     if (this.parent) return this.parent.custom;
     return false;
   }
+
+  getMinLength(visited: Set<string> = new Set<string>()): number {
+    if (visited.has(this.name)) return 4;
+    visited.add(this.name);
+
+    const requiredMembers = this.members.filter((member) => !member.flags.has(PropertyFlags.OmitIf) && !member.flags.has(PropertyFlags.OmitNull));
+    if (!requiredMembers.length) return 4;
+
+    let minChars = 2; // {}
+
+    for (let i = 0; i < requiredMembers.length; i++) {
+      const member = requiredMembers[i];
+      const key = member.alias || member.name;
+
+      if (i > 0) minChars += 1; // ,
+      minChars += key.length + 3; // "key":
+      minChars += this.getTypeMinChars(member.type, visited);
+    }
+
+    return minChars << 1;
+  }
+
+  private getTypeMinChars(type: string, visited: Set<string>): number {
+    const trimmed = type.trim();
+    const baseType = stripNull(trimmed);
+    const nullable = trimmed !== baseType;
+
+    let min = this.getNonNullableTypeMinChars(baseType, visited);
+    if (nullable) min = Math.min(min, 4); // null
+    return min;
+  }
+
+  private getNonNullableTypeMinChars(type: string, visited: Set<string>): number {
+    if (type.startsWith("JSON.Box<") || type.startsWith("Box<")) {
+      const genericStart = type.indexOf("<");
+      const genericEnd = type.lastIndexOf(">");
+      if (genericStart !== -1 && genericEnd !== -1 && genericEnd > genericStart) {
+        return this.getTypeMinChars(type.slice(genericStart + 1, genericEnd), visited);
+      }
+    }
+
+    if (type.startsWith("Array<") || type.startsWith("StaticArray<") || type.startsWith("Set<")) return 2; // []
+    if (type.startsWith("Map<")) return 2; // {}
+
+    if (type == "string" || type == "String" || type == "JSON.Raw" || type == "Raw") return 2; // ""
+    if (type == "Date") return 26; // "1970-01-01T00:00:00.000Z"
+    if (type == "bool" || type == "boolean") return 4; // true
+    if (Schema.isNumericType(type)) return 1; // 0
+    if (type == "JSON.Obj" || type == "Obj") return 2; // {}
+    if (type == "JSON.Value" || type == "Value") return 1; // 0
+
+    const dep = this.deps.find((schema) => schema.name === type || schema.name.endsWith("." + type));
+    if (dep) return dep.getMinLength(visited) >> 1;
+
+    if (this.parent && (this.parent.name === type || this.parent.name.endsWith("." + type))) {
+      return this.parent.getMinLength(visited) >> 1;
+    }
+
+    return 1;
+  }
+
+  private static isNumericType(type: string): boolean {
+    return ["u8", "u16", "u32", "u64", "usize", "i8", "i16", "i32", "i64", "isize", "f32", "f64"].includes(type);
+  }
 }
 
 export class SourceSet {

@@ -2,6 +2,7 @@
 import { Parser, Tokenizer, Source, SourceKind, Expression, Statement, NamespaceDeclaration, ClassDeclaration, DeclarationStatement, Range, Node, NodeKind, ExpressionStatement } from "assemblyscript/dist/assemblyscript.js";
 import { ASTBuilder } from "./builder.js";
 import * as path from "path";
+import { Schema } from "./types.js";
 
 export class SimpleParser {
   private static get parser(): Parser {
