@@ -61,7 +61,7 @@
   },
   "scripts": {
     "ci": "act",
-    "test": "ast test --disable coverage",
+    "test": "ast test --disable coverage --disable try-as",
     "test:ci": "ast test --disable coverage --clean",
     "test:coverage": "ast test --enable coverage",
     "bench:as": "bash ./run-bench.as.sh",
