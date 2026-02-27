@@ -1,6 +1,6 @@
 import { JSON, JSONMode } from "../";
 import { deserializeString } from "../deserialize/simple/string";
-import { deserializeString_SWAR } from "../deserialize/swar/string";
+import { deserializeString_SWAR, deserializeStringScan_SWAR } from "../deserialize/swar/string";
 import { deserializeString_SIMD } from "../deserialize/simd/string";
 import { serializeString } from "../serialize/simple/string";
 import { detect_escapable_u64_swar_safe, serializeString_SWAR } from "../serialize/swar/string";
@@ -10,6 +10,7 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { itoa_buffered } from "util/number";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 import { expect } from "../__tests__/lib";
+import { deserializeUintScan } from "../deserialize/helpers/uint";
 
 const QUOTE: u16 = 0x22;
 const BACK_SLASH: u16 = 0x5c;
@@ -214,16 +215,48 @@ class Token {
   uid: u32 = 256;
   token: string = "dewf32df@#G43g3Gs!@3sdfDS#2";
 
-
+  // @inline
+  // __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
+  //   if (JSON_MODE === JSONMode.SIMD) {
+  //     return this.__DESERIALIZE_SIMD(srcStart, srcEnd, out);
+  //   } else if (JSON_MODE === JSONMode.SWAR) {
+  //     return this.__DESERIALIZE_SWAR(srcStart, srcEnd, out);
+  //   } else {
+  //     return this.__DESERIALIZE_NAIVE(srcStart, srcEnd, out);
+  //   }
+  // }
   @inline
   __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
-    if (JSON_MODE === JSONMode.SIMD) {
-      return this.__DESERIALIZE_SIMD(srcStart, srcEnd, out);
-    } else if (JSON_MODE === JSONMode.SWAR) {
-      return this.__DESERIALIZE_SWAR(srcStart, srcEnd, out);
-    } else {
-      return this.__DESERIALIZE_NAIVE(srcStart, srcEnd, out);
-    }
+    const dst = changetype<usize>(out);
+
+    do {
+      if (srcEnd - srcStart < 40) break;
+
+      if (
+        // {"uid":
+        load<u64>(srcStart, 0) != 0x6900750022007b &&
+        load<u32>(srcStart, 8) != 0x220064 &&
+        load<u16>(srcStart, 12) != 0x3a
+      )
+        break;
+      srcStart += 14;
+
+      srcStart = deserializeUintScan<u32>(srcStart, dst + offsetof<this>("uid"));
+
+      if (
+        // ,"token":
+        load<u64>(srcStart, 0) != 0x6f00740022002c &&
+        load<u64>(srcStart, 8) != 0x22006e0065006b &&
+        load<u16>(srcStart, 16) != 0x3a
+      )
+        break;
+      srcStart += 18;
+
+      srcStart = deserializeStringScan_SWAR(srcStart, srcEnd, dst + offsetof<this>("token"));
+      return out;
+    } while (false);
+
+    throw new Error("Failed to parse JSON!");
   }
 
 

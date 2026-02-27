@@ -487,46 +487,64 @@ export class JSONTransform extends Visitor {
                     sortedMembers.object.push(member);
             }
         }
-        indent = "";
+        const getComparisions = (data, ptr, operator) => {
+            const dataBytes = data.length << 1;
+            let offset = 0;
+            let output = [];
+            while (offset < dataBytes) {
+                const rem = dataBytes - offset;
+                if (rem >= 8) {
+                    output.push(`load<u64>(${ptr}, ${offset}) ${operator} 0x${toU64(data, offset >> 1).toString(16)}`);
+                    offset += 8;
+                    continue;
+                }
+                if (rem >= 4) {
+                    output.push(`load<u32>(${ptr}, ${offset}) ${operator} 0x${toU32(data, offset >> 1).toString(16)}`);
+                    offset += 4;
+                    continue;
+                }
+                if (rem >= 2) {
+                    output.push(`load<u16>(${ptr}, ${offset}) ${operator} 0x${data.charCodeAt(offset >> 1).toString(16)}`);
+                    offset += 2;
+                    continue;
+                }
+            }
+            return output;
+        };
+        const getDeserializer = (type, srcPtr, outPtr, member, position) => {
+            const out = [];
+            if (["u8", "u16", "u32", "u64"].includes(type)) {
+                out.push(`${srcPtr} = deserializeUintScan<${type}>(${srcPtr}, ${outPtr} + offsetof<this>(${JSON.stringify(member.name)}));`);
+            }
+            else if (["string", "String"].includes(type)) {
+                out.push(`${srcPtr} = deserializeStringScan_SWAR(${srcPtr}, srcEnd, ${outPtr} + offsetof<this>(${JSON.stringify(member.name)}));`);
+            }
+            return out;
+        };
+        indent = "  ";
         DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
         DESERIALIZE_FAST += this.schema.members.map((m) => indent + `const ${m.name}Ptr = dst + offsetof<this>(${JSON.stringify(m.name)});`).join("\n") + "\n\n";
         DESERIALIZE_FAST += indent + "do {\n";
         indent += "  ";
         DESERIALIZE_FAST += indent + `if (srcEnd - srcStart < ${this.schema.getMinLength()}) break;\n\n`;
-        let _isFirst = true;
-        for (const member of this.schema.members) {
+        for (let i = 0; i < this.schema.members.length; i++) {
+            const member = this.schema.members[i];
             const key = JSON.stringify(member.alias || member.name);
             if (key.length <= 2)
                 throw new Error("Key cannot be empty!");
-            const getComparisions = (data, ptr, operator) => {
-                const dataBytes = data.length << 1;
-                let offset = 0;
-                let output = [];
-                while (offset < dataBytes) {
-                    const rem = dataBytes - offset;
-                    if (rem >= 8) {
-                        output.push(`load<u64>(${ptr}, ${offset}) ${operator} 0x${toU64(data, offset >> 1).toString(16)}`);
-                        offset += 8;
-                        continue;
-                    }
-                    if (rem >= 4) {
-                        output.push(`load<u32>(${ptr}, ${offset}) ${operator} 0x${toU32(data, offset >> 1).toString(16)}`);
-                        offset += 4;
-                        continue;
-                    }
-                    if (rem >= 2) {
-                        output.push(`load<u16>(${ptr}, ${offset}) ${operator} 0x${data.charCodeAt(offset >> 1).toString(16)}`);
-                        offset += 2;
-                        continue;
-                    }
-                }
-                return output;
-            };
-            const keySection = (_isFirst ? "{" : ",") + key + ":";
-            _isFirst = false;
-            DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "&& ")}\n${(indent = indent.slice(-2))}) break;\n`;
+            const keySection = (i == 0 ? "{" : ",") + key + ":";
+            DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "&& ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
             DESERIALIZE_FAST += indent + `srcStart += ${keySection.length << 1};\n\n`;
+            const deserializer = getDeserializer(member.type, "srcStart", "dst", member, "first");
+            DESERIALIZE_FAST += indent + deserializer.join("\n" + indent) + "\n\n";
         }
+        DESERIALIZE_FAST += indent + "return out;\n";
+        indent = indent.slice(0, -2);
+        DESERIALIZE_FAST += indent + "} while (false);\n\n";
+        DESERIALIZE_FAST += indent + 'abort("Failed to parse JSON!");\n';
+        indent = indent.slice(0, -2);
+        DESERIALIZE_FAST += indent + "}";
+        console.log(DESERIALIZE_FAST);
         console.log(DESERIALIZE_FAST);
         DESERIALIZE += indent + "  let keyStart: usize = 0;\n";
         DESERIALIZE += indent + "  let keyEnd: usize = 0;\n";

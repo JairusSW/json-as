@@ -1,4 +1,6 @@
 import { bs } from "../../../lib/as-bs";
+import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { BACK_SLASH, QUOTE } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
 
@@ -127,91 +129,200 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   return bs.out<string>();
 }
 
-// this function should deserialize the string until it finds an unescaped quote which
-export function deserializeStringScan_SWAR(srcStart: usize): usize {
-  const realStart: usize = srcStart;
-  let lastPtr: usize = srcStart;
-  while (true) {
-    const block = load<u64>(srcStart);
-    let mask = inline.always(backslash_mask_unsafe(block));
+// @ts-expect-error: @inline is a valid decorator
+@inline function copyStringToField(dstFieldPtr: usize, srcPtr: usize, byteLength: u32): void {
+  const current = load<usize>(dstFieldPtr);
+  let outPtr: usize;
+  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+    outPtr = current;
+  } else {
+    // @ts-expect-error: __new is a runtime builtin
+    outPtr = __new(byteLength, idof<string>());
+    store<usize>(dstFieldPtr, outPtr);
+  }
+  memory.copy(outPtr, srcPtr, byteLength);
+}
 
-    // Early exit
+// @ts-expect-error: @inline is a valid decorator
+@inline function quote_or_backslash_mask_unsafe(block: u64): u64 {
+  const b = block ^ 0x005c_005c_005c_005c;
+  const q = block ^ 0x0022_0022_0022_0022;
+  return ((b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080) | ((q - 0x0001_0001_0001_0001) & ~q & 0x0080_0080_0080_0080);
+}
+
+// @ts-expect-error: @inline is a valid decorator
+@inline function deserializeStringScanEscaped_SWAR(payloadStart: usize, srcStart: usize, srcEnd: usize, dstFieldPtr: usize, bsStart: usize): usize {
+  const prefixLen = srcStart - payloadStart;
+  bs.ensureSize(<u32>(prefixLen + 48));
+  if (prefixLen > 0) {
+    memory.copy(bs.offset, payloadStart, prefixLen);
+    bs.offset += prefixLen;
+  }
+
+  let lastPtr = srcStart;
+  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
+
+  while (srcStart <= srcEnd8) {
+    const block = load<u64>(srcStart);
+    let mask = inline.always(quote_or_backslash_mask_unsafe(block));
     if (mask === 0) {
       srcStart += 8;
       continue;
     }
 
-    // Worst-case scenario here would be something like "\\u0000\\u0000\\u0000\\u0000" which has a length of 48
-    bs.ensureSize(srcStart - realStart + 48);
-    memory.copy(bs.offset, lastPtr, srcStart - realStart + 8);
+    let handled = false;
+    do {
+      const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
+      mask &= mask - 1;
+      const ptr = srcStart + laneIdx;
+      const char = load<u16>(ptr);
+
+      // Detect false positives where low byte match came from UTF-16 high byte
+      if (char != BACK_SLASH && char != QUOTE) continue;
+
+      const runLen = ptr - lastPtr;
+      bs.ensureSize(<u32>(runLen + 12));
+      if (runLen > 0) {
+        memory.copy(bs.offset, lastPtr, runLen);
+        bs.offset += runLen;
+      }
+
+      if (char == QUOTE) {
+        copyStringToField(dstFieldPtr, bsStart, <u32>(bs.offset - bsStart));
+        bs.offset = bsStart;
+        return ptr + 2;
+      }
+
+      const code = load<u16>(ptr, 2);
+      if (code != 0x75) {
+        // Short escapes (\n \t \" \\ \/ \b \f \r)
+        const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
+        if (escaped == 0 && code != BACK_SLASH) abort("Invalid string escape");
+        store<u16>(bs.offset, escaped);
+        bs.offset += 2;
+        lastPtr = ptr + 4;
+      } else {
+        // Unicode escape (\uXXXX)
+        if (ptr + 12 > srcEnd) abort("Invalid unicode escape");
+        const hex = load<u64>(ptr, 4); // XXXX
+        store<u16>(bs.offset, hex4_to_u16_swar(hex));
+        bs.offset += 2;
+        lastPtr = ptr + 12;
+      }
+
+      srcStart = lastPtr;
+      handled = true;
+      break;
+    } while (mask !== 0);
+
+    if (!handled) srcStart += 8;
+  }
+
+  while (srcStart < srcEnd) {
+    const char = load<u16>(srcStart);
+    if (char != BACK_SLASH && char != QUOTE) {
+      srcStart += 2;
+      continue;
+    }
+
+    const runLen = srcStart - lastPtr;
+    bs.ensureSize(<u32>(runLen + 12));
+    if (runLen > 0) {
+      memory.copy(bs.offset, lastPtr, runLen);
+      bs.offset += runLen;
+    }
+
+    if (char == QUOTE) {
+      copyStringToField(dstFieldPtr, bsStart, <u32>(bs.offset - bsStart));
+      bs.offset = bsStart;
+      return srcStart + 2;
+    }
+
+    const code = load<u16>(srcStart, 2);
+    if (code != 0x75) {
+      const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
+      if (escaped == 0 && code != BACK_SLASH) abort("Invalid string escape");
+      store<u16>(bs.offset, escaped);
+      bs.offset += 2;
+      srcStart += 4;
+    } else {
+      if (srcStart + 12 > srcEnd) abort("Invalid unicode escape");
+      const hex = load<u64>(srcStart, 4); // XXXX
+      store<u16>(bs.offset, hex4_to_u16_swar(hex));
+      bs.offset += 2;
+      srcStart += 12;
+    }
+
+    lastPtr = srcStart;
+  }
+
+  abort("Unterminated string literal");
+  return srcStart;
+}
+
+// Scans a quoted string value, writes into the destination field, and returns the next unread src pointer.
+export function deserializeStringScan_SWAR(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+
+  const payloadStart = srcStart + 2;
+  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
+  const bsStart = bs.offset;
+  srcStart = payloadStart;
+
+  while (srcStart <= srcEnd8) {
+    const block = load<u64>(srcStart);
+    let mask = inline.always(quote_or_backslash_mask_unsafe(block));
+    if (mask === 0) {
+      srcStart += 8;
+      continue;
+    }
 
     do {
       const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
       mask &= mask - 1;
-      const srcIdx = srcStart + laneIdx;
-      const dstIdx = bs.offset + laneIdx;
-      const header = load<u32>(srcIdx);
-      const code = <u16>(header >> 16);
+      const ptr = srcStart + laneIdx;
+      const char = load<u16>(ptr);
+      if (char != BACK_SLASH && char != QUOTE) continue;
 
-      // Detect false positive (code unit where low byte is 0x5C)
-      if ((header & 0xffff) !== 0x5c) continue;
-
-      // Hot path (negative bias)
-      if (code !== 0x75) {
-        // Short escapes (\n \t \" \\)
-        const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-        mask &= mask - usize(escaped === 0x5c);
-        store<u16>(dstIdx, escaped);
-        store<u32>(dstIdx, load<u32>(srcIdx, 4), 2);
-
-        const l6 = usize(laneIdx === 6);
-        bs.offset -= (1 - l6) << 1;
-        srcStart += l6 << 1;
-        continue;
+      if (char == QUOTE) {
+        const len = <u32>(ptr - payloadStart);
+        if (len > 0) {
+          bs.ensureSize(len);
+          memory.copy(bs.offset, payloadStart, len);
+          bs.offset += len;
+        }
+        copyStringToField(dstFieldPtr, bsStart, len);
+        bs.offset = bsStart;
+        return ptr + 2;
       }
 
-      // Unicode escape (\uXXXX)
-      const block = load<u64>(srcIdx, 4); // XXXX
-      const escaped = hex4_to_u16_swar(block);
-      store<u16>(dstIdx, escaped);
-      // store<u64>(dstIdx, load<u32>(srcIdx, 12), 2);
-      srcStart += 4 + laneIdx;
-      bs.offset -= 6 - laneIdx;
+      return deserializeStringScanEscaped_SWAR(payloadStart, ptr, srcEnd, dstFieldPtr, bsStart);
     } while (mask !== 0);
 
-    bs.offset += 8;
     srcStart += 8;
   }
 
   while (srcStart < srcEnd) {
-    const block = load<u16>(srcStart);
-    store<u16>(bs.offset, block);
+    const char = load<u16>(srcStart);
+    if (char == QUOTE) {
+      const len = <u32>(srcStart - payloadStart);
+      if (len > 0) {
+        bs.ensureSize(len);
+        memory.copy(bs.offset, payloadStart, len);
+        bs.offset += len;
+      }
+      copyStringToField(dstFieldPtr, bsStart, len);
+      bs.offset = bsStart;
+      return srcStart + 2;
+    }
+    if (char == BACK_SLASH) {
+      return deserializeStringScanEscaped_SWAR(payloadStart, srcStart, srcEnd, dstFieldPtr, bsStart);
+    }
     srcStart += 2;
-
-    // Early exit
-    if (block !== 0x5c) {
-      bs.offset += 2;
-      continue;
-    }
-
-    const code = load<u16>(srcStart);
-    if (code !== 0x75) {
-      // Short escapes (\n \t \" \\)
-      const block = load<u16>(srcStart);
-      const escape = load<u16>(DESERIALIZE_ESCAPE_TABLE + block);
-      store<u16>(bs.offset, escape);
-      srcStart += 2;
-    } else {
-      // Unicode escape (\uXXXX)
-      const block = load<u64>(srcStart, 2); // XXXX
-      const escaped = hex4_to_u16_swar(block);
-      store<u16>(bs.offset, escaped);
-      srcStart += 10;
-    }
-
-    bs.offset += 2;
   }
-  return bs.out<string>();
+
+  abort("Unterminated string literal");
+  return srcStart;
 }
 /**
  * Computes a per-lane mask identifying UTF-16 code units whose **low byte**
