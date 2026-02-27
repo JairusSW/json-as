@@ -1,7 +1,8 @@
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { heap } from "memory";
 
 // Buffer management constants
-const SHRINK_EVERY_N: usize = 200;
+const SHRINK_EVERY_N_MASK: usize = 255; // check every 256 outputs
 const MIN_BUFFER_SIZE: usize = 128;
 
 // Exponential moving average smoothing factor (0.0 to 1.0)
@@ -13,11 +14,11 @@ const EMA_ALPHA_SHIFT: usize = 3; // 1/8 = 0.125
  * Central buffer namespace for managing memory operations.
  */
 export namespace bs {
-  /** Current buffer pointer. */
-  export let buffer: ArrayBuffer = new ArrayBuffer(i32(MIN_BUFFER_SIZE));
+  /** Current unmanaged backing store pointer. */
+  export let buffer: usize = heap.alloc(MIN_BUFFER_SIZE);
 
   /** Current offset within the buffer. */
-  export let offset: usize = changetype<usize>(buffer);
+  export let offset: usize = buffer;
 
   /** Byte length of the buffer. */
   let bufferSize: usize = MIN_BUFFER_SIZE;
@@ -46,15 +47,50 @@ export namespace bs {
     typicalSize += (newSize - typicalSize) >> EMA_ALPHA_SHIFT;
   }
 
+  // @ts-expect-error: @inline is a valid decorator
+  @inline function renewBuffer(newSize: usize): void {
+    const oldPtr = buffer;
+    const newPtr = heap.realloc(oldPtr, newSize);
+    const delta = newPtr - oldPtr;
+    offset += delta;
+    if (pauseOffset != 0) pauseOffset += delta;
+    buffer = newPtr;
+    bufferSize = newSize;
+  }
+
+  // @ts-expect-error: @inline is a valid decorator
+  @inline function reserve(requiredSize: usize, extra: usize): void {
+    if (requiredSize <= bufferSize) return;
+    // Grow aggressively (2x) to minimize realloc frequency in hot serialization paths.
+    let next = bufferSize << 1;
+    const minNext = requiredSize + extra;
+    if (next < minNext) next = minNext;
+    renewBuffer(next);
+  }
+
+  // @ts-expect-error: @inline is a valid decorator
+  @inline function finalizeDynamicOutput(len: usize): void {
+    counter += 1;
+    updateTypicalSize(len);
+    if ((counter & SHRINK_EVERY_N_MASK) == 0 && bufferSize > typicalSize << 2) {
+      resize(u32(typicalSize << 1));
+    }
+    offset = buffer;
+    stackSize = 0;
+  }
+
   export let cacheOutput: usize = 0;
   export let cacheOutputLen: usize = 0;
 
   // @ts-expect-error: @inline is a valid decorator
   @inline export function digestArena(): void {
     if (cacheOutput === 0) return;
-    proposeSize(cacheOutputLen);
-    memory.copy(bs.offset, cacheOutput, cacheOutputLen);
+    const len = cacheOutputLen;
+    proposeSize(<u32>len);
+    memory.copy(offset, cacheOutput, len);
+    offset += len;
     bs.cacheOutput = 0;
+    bs.cacheOutputLen = 0;
   }
   /**
    * Stores the state of the buffer, allowing further changes to be reset
@@ -93,14 +129,7 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function ensureSize(size: u32): void {
-    if (offset + usize(size) > bufferSize + changetype<usize>(buffer)) {
-      const deltaBytes = usize(size) + MIN_BUFFER_SIZE;
-      bufferSize += deltaBytes;
-      // @ts-expect-error: __renew is a runtime builtin
-      const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
-      offset = offset + changetype<usize>(newPtr) - changetype<usize>(buffer);
-      buffer = newPtr;
-    }
+    reserve(offset - buffer + usize(size), MIN_BUFFER_SIZE);
   }
 
   /**
@@ -110,14 +139,8 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function proposeSize(size: u32): void {
-    if ((stackSize += size) > bufferSize) {
-      const deltaBytes = size;
-      bufferSize += deltaBytes;
-      // @ts-expect-error: __renew is a runtime builtin
-      const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
-      offset = offset + changetype<usize>(newPtr) - changetype<usize>(buffer);
-      buffer = newPtr;
-    }
+    stackSize += size;
+    reserve(stackSize, 0);
   }
 
   /**
@@ -127,14 +150,8 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function growSize(size: u32): void {
-    if ((stackSize += size) > bufferSize) {
-      const deltaBytes = usize(size) + MIN_BUFFER_SIZE;
-      bufferSize += deltaBytes;
-      // @ts-expect-error: __renew is a runtime builtin
-      const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), bufferSize));
-      offset = offset + changetype<usize>(newPtr) - changetype<usize>(buffer);
-      buffer = newPtr;
-    }
+    stackSize += size;
+    reserve(stackSize, MIN_BUFFER_SIZE);
   }
 
   /**
@@ -143,11 +160,13 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function resize(newSize: u32): void {
-    // @ts-expect-error: __renew is a runtime builtin
-    const newPtr = changetype<ArrayBuffer>(__renew(changetype<usize>(buffer), newSize));
-    bufferSize = newSize;
-    offset = changetype<usize>(newPtr);
+    const oldPtr = buffer;
+    const newPtr = heap.realloc(buffer, newSize);
+    const delta = newPtr - oldPtr;
+    if (pauseOffset != 0) pauseOffset += delta;
     buffer = newPtr;
+    bufferSize = newSize;
+    offset = buffer;
     stackSize = 0;
   }
 
@@ -158,10 +177,10 @@ export namespace bs {
   // @ts-expect-error: @inline is a valid decorator
   @inline export function cpyOut<T>(): T {
     if (pauseOffset == 0) {
-      const len = offset - changetype<usize>(buffer);
+      const len = offset - buffer;
       // @ts-expect-error: __new is a runtime builtin
       const _out = __new(len, idof<T>());
-      memory.copy(_out, changetype<usize>(buffer), len);
+      memory.copy(_out, buffer, len);
       return changetype<T>(_out);
     } else {
       const len = offset - pauseOffset;
@@ -183,19 +202,11 @@ export namespace bs {
   @inline export function out<T>(): T {
     let out: usize;
     if (cacheOutput === 0) {
-      const len = offset - changetype<usize>(buffer);
+      const len = offset - buffer;
       // @ts-expect-error: __new is a runtime builtin
       out = __new(len, idof<T>());
-      memory.copy(out, changetype<usize>(buffer), len);
-
-      counter++;
-      // Use exponential moving average for smoother size tracking
-      updateTypicalSize(len);
-      if (counter >= SHRINK_EVERY_N) {
-        // Shrink if buffer is 4x larger than typical, resize to 2x typical
-        if (bufferSize > typicalSize << 2) resize(u32(typicalSize << 1));
-        counter = 0;
-      }
+      memory.copy(out, buffer, len);
+      finalizeDynamicOutput(len);
     } else {
       // zero-copy path
       // @ts-expect-error: __new is a runtime builtin
@@ -203,10 +214,10 @@ export namespace bs {
       memory.copy(out, cacheOutput, cacheOutputLen);
       // reset arena flag
       cacheOutput = 0;
+      cacheOutputLen = 0;
+      offset = buffer;
+      stackSize = 0;
     }
-
-    offset = changetype<usize>(buffer);
-    stackSize = 0;
     return changetype<T>(out);
   }
 
@@ -216,10 +227,10 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function view<T>(): T {
-    const len = offset - changetype<usize>(buffer);
+    const len = offset - buffer;
     // @ts-expect-error: __new is a runtime builtin
     const _out = __new(len, idof<T>());
-    memory.copy(_out, changetype<usize>(buffer), len);
+    memory.copy(_out, buffer, len);
     return changetype<T>(_out);
   }
 
@@ -231,25 +242,14 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function outTo<T>(dst: usize): T {
-    const len = offset - changetype<usize>(buffer);
+    const len = offset - buffer;
     // @ts-expect-error: __renew is a runtime builtin
-    if (len != changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize) __renew(len, idof<T>());
-    memory.copy(dst, changetype<usize>(buffer), len);
-
-    counter++;
-    // Use exponential moving average for smoother size tracking
-    updateTypicalSize(len);
-
-    if (counter >= SHRINK_EVERY_N) {
-      // Shrink if buffer is 4x larger than typical, resize to 2x typical
-      if (bufferSize > typicalSize << 2) {
-        resize(typicalSize << 1);
-      }
-      counter = 0;
+    if (len != changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize) {
+      dst = __renew(dst, len);
     }
+    memory.copy(dst, buffer, len);
 
-    offset = changetype<usize>(buffer);
-    stackSize = 0;
+    finalizeDynamicOutput(len);
     return changetype<T>(dst);
   }
 }
