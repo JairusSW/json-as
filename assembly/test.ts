@@ -8,40 +8,52 @@ import { bytes } from "./util";
 class Token {
   uid: u32 = 256;
   token: string = "dewf32df@#G43g3Gs!@3sdfDS#2";
-  __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
-    const dst = changetype<usize>(out);
-    const uidPtr = dst + offsetof<this>("uid");
-    const tokenPtr = dst + offsetof<this>("token");
+  foo: string = "dewf32df@#G43g3Gs!@3sdfDS#2";
+  ttl: u32 = 3600;
+  // __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
+  //   const dst = changetype<usize>(out);
 
-    do {
-      if (srcEnd - srcStart < 40) break;
+  //   do {
+  //     if (srcEnd - srcStart < 56) break;
 
-      if (
-        // {"uid":
-        load<u64>(srcStart, 0) != 0x6900750022007b &&
-        load<u32>(srcStart, 8) != 0x220064 &&
-        load<u16>(srcStart, 12) != 0x3a
-      )
-        break;
-      srcStart += 14;
+  //     if (
+  //       // {"uid":
+  //       load<u64>(srcStart, 0) != 0x6900750022007b &&
+  //       load<u32>(srcStart, 8) != 0x220064 &&
+  //       load<u16>(srcStart, 12) != 0x3a
+  //     )
+  //       break;
+  //     srcStart += 14;
 
-      srcStart = deserializeUintScan<u32>(srcStart, dst + offsetof<this>("uid"));
+  //     srcStart = deserializeUintScan<u32>(srcStart, dst + offsetof<this>("uid"));
 
-      if (
-        // ,"token":
-        load<u64>(srcStart, 0) != 0x6f00740022002c &&
-        load<u64>(srcStart, 8) != 0x22006e0065006b &&
-        load<u16>(srcStart, 16) != 0x3a
-      )
-        break;
-      srcStart += 18;
+  //     if (
+  //       // ,"token":
+  //       load<u64>(srcStart, 0) != 0x6f00740022002c &&
+  //       load<u64>(srcStart, 8) != 0x22006e0065006b &&
+  //       load<u16>(srcStart, 16) != 0x3a
+  //     )
+  //       break;
+  //     srcStart += 18;
 
-      srcStart = deserializeStringScan_SWAR(srcStart, srcEnd, dst + offsetof<this>("token"));
-      return out;
-    } while (false);
+  //     srcStart = deserializeStringScan_SWAR(srcStart, srcEnd, dst + offsetof<this>("token"));
 
-    throw new Error("Failed to parse JSON!");
-  }
+  //     if (
+  //       // ,"ttl":
+  //       load<u64>(srcStart, 0) != 0x7400740022002c &&
+  //       load<u32>(srcStart, 8) != 0x22006c &&
+  //       load<u16>(srcStart, 12) != 0x3a
+  //     )
+  //       break;
+  //     srcStart += 14;
+
+  //     srcStart = deserializeUintScan<u32>(srcStart, dst + offsetof<this>("ttl"));
+  //     if (load<u16>(srcStart) != 0x7d) break;
+  //     return out;
+  //   } while (false);
+
+  //   throw new Error("Failed to parse JSON!");
+  // }
 }
 
 const tok = new Token();

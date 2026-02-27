@@ -18,6 +18,7 @@ const rawValue = process.env["JSON_DEBUG"]?.trim();
 const DEBUG = rawValue === "true" ? 1 : rawValue === "false" || rawValue === "" ? 0 : isNaN(Number(rawValue)) ? 0 : Number(rawValue);
 
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
+const STRING_SCAN_SUFFIX_BOUND_LIMIT = process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"] ? parseInt(process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"]) : 1024;
 
 export class JSONTransform extends Visitor {
   static SN: JSONTransform = new JSONTransform();
@@ -529,12 +530,26 @@ export class JSONTransform extends Visitor {
       return output;
     };
 
-    const getDeserializer = (type: string, srcPtr: string, outPtr: string, member: Property, position: "first" | "last" | "middle"): string[] => {
+    const remainingStringScanBytes = this.schema.members.map((_, i) => {
+      // Keep room for trailing fixed object syntax after this value:
+      // - every remaining key section `,"key":`
+      // - final closing brace `}`
+      let total = 2; // `}`
+      for (let j = i + 1; j < this.schema.members.length; j++) {
+        const key = JSON.stringify(this.schema.members[j].alias || this.schema.members[j].name);
+        total += ("," + key + ":").length << 1;
+      }
+      return total;
+    });
+
+    const getDeserializer = (type: string, srcPtr: string, outPtr: string, member: Property, index: number): string[] => {
       const out: string[] = [];
       if (["u8", "u16", "u32", "u64"].includes(type)) {
         out.push(`${srcPtr} = deserializeUintScan<${type}>(${srcPtr}, ${outPtr} + offsetof<this>(${JSON.stringify(member.name)}));`);
       } else if (["string", "String"].includes(type)) {
-        out.push(`${srcPtr} = deserializeStringScan_SWAR(${srcPtr}, srcEnd, ${outPtr} + offsetof<this>(${JSON.stringify(member.name)}));`);
+        const remaining = remainingStringScanBytes[index];
+        const endExpr = remaining <= STRING_SCAN_SUFFIX_BOUND_LIMIT ? `(srcEnd - ${remaining})` : "srcEnd";
+        out.push(`${srcPtr} = deserializeStringScan_SWAR(${srcPtr}, ${endExpr}, ${outPtr} + offsetof<this>(${JSON.stringify(member.name)}));`);
       }
       return out;
     };
@@ -542,7 +557,7 @@ export class JSONTransform extends Visitor {
     indent = "  ";
 
     DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
-    DESERIALIZE_FAST += this.schema.members.map((m) => indent + `const ${m.name}Ptr = dst + offsetof<this>(${JSON.stringify(m.name)});`).join("\n") + "\n\n";
+    // DESERIALIZE_FAST += this.schema.members.map((m) => indent + `const ${m.name}Ptr = dst + offsetof<this>(${JSON.stringify(m.name)});`).join("\n") + "\n\n";
     DESERIALIZE_FAST += indent + "do {\n";
     indent += "  ";
 
@@ -558,15 +573,17 @@ export class JSONTransform extends Visitor {
       DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "&& ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
       DESERIALIZE_FAST += indent + `srcStart += ${keySection.length << 1};\n\n`;
       // separate into optimized code generators for each type
-      const deserializer = getDeserializer(member.type, "srcStart", "dst", member, "first");
+      const deserializer = getDeserializer(member.type, "srcStart", "dst", member, i);
       DESERIALIZE_FAST += indent + deserializer.join("\n" + indent) + "\n\n";
     }
 
+    DESERIALIZE_FAST += indent + "if (load<u16>(srcStart) !== 0x7d) break; // }\n";
     DESERIALIZE_FAST += indent + "return out;\n";
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "} while (false);\n\n";
 
     DESERIALIZE_FAST += indent + 'abort("Failed to parse JSON!");\n';
+    DESERIALIZE_FAST += indent + "return out;\n";
 
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "}";
@@ -1161,10 +1178,12 @@ export class JSONTransform extends Visitor {
     const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
     const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
     const DESERIALIZE_METHOD = SimpleParser.parseClassMember(DESERIALIZE_CUSTOM || DESERIALIZE, node);
+    const DESERIALIZE_FAST_METHOD = SimpleParser.parseClassMember(DESERIALIZE_FAST, node);
 
     if (!node.members.find((v) => v.name.text == "__SERIALIZE")) node.members.push(SERIALIZE_METHOD);
     if (!node.members.find((v) => v.name.text == "__INITIALIZE")) node.members.push(INITIALIZE_METHOD);
     if (!node.members.find((v) => v.name.text == "__DESERIALIZE")) node.members.push(DESERIALIZE_METHOD);
+    if (!node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")) node.members.push(DESERIALIZE_FAST_METHOD);
     super.visitClassDeclaration(node);
   }
   getSchema(name: string): Schema | null {
