@@ -18,7 +18,7 @@ const rawValue = process.env["JSON_DEBUG"]?.trim();
 const DEBUG = rawValue === "true" ? 1 : rawValue === "false" || rawValue === "" ? 0 : isNaN(Number(rawValue)) ? 0 : Number(rawValue);
 
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
-const STRING_SCAN_SUFFIX_BOUND_LIMIT = process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"] ? parseInt(process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"]) : 1024;
+// const STRING_SCAN_SUFFIX_BOUND_LIMIT = process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"] ? parseInt(process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"]) : 1024;
 
 export class JSONTransform extends Visitor {
   static SN: JSONTransform = new JSONTransform();
@@ -508,7 +508,7 @@ export class JSONTransform extends Visitor {
     const getComparisions = (data: string, ptr: string, operator: string): string[] => {
       const dataBytes = data.length << 1;
       let offset = 0;
-      let output: string[] = [];
+      const output: string[] = [];
       while (offset < dataBytes) {
         const rem = dataBytes - offset;
         if (rem >= 8) {
@@ -542,7 +542,7 @@ export class JSONTransform extends Visitor {
       return null;
     };
 
-    const getDeserializer = (type: string, srcPtr: string, outPtr: string, member: Property, index: number): string[] => {
+    const getDeserializer = (type: string, srcPtr: string, outPtr: string, member: Property): string[] => {
       const out: string[] = [];
       const resolvedType = stripNull(type);
       const fieldPtr = `${outPtr} + offsetof<this>(${JSON.stringify(member.name)})`;
@@ -1544,11 +1544,11 @@ function toU32(data: string, offset: number = 0): number {
   return (data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0);
 }
 
-function toU48(data: string, offset: number = 0): BigInt {
+function toU48(data: string, offset: number = 0): bigint {
   return (BigInt(data.charCodeAt(offset + 2)) << 32n) | (BigInt(data.charCodeAt(offset + 1)) << 16n) | BigInt(data.charCodeAt(offset + 0));
 }
 
-function toU64(data: string, offset: number = 0): BigInt {
+function toU64(data: string, offset: number = 0): bigint {
   return (BigInt(data.charCodeAt(offset + 3)) << 48n) | (BigInt(data.charCodeAt(offset + 2)) << 32n) | (BigInt(data.charCodeAt(offset + 1)) << 16n) | BigInt(data.charCodeAt(offset + 0));
 }
 
