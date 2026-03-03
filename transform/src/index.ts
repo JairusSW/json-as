@@ -242,8 +242,8 @@ export class JSONTransform extends Visitor {
 
     let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
     let INITIALIZE = "@inline __INITIALIZE(): this {\n";
-    let DESERIALIZE = "__DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
-    let DESERIALIZE_FAST = "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
+    let DESERIALIZE = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
+    let DESERIALIZE_FAST = "@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
     let DESERIALIZE_CUSTOM = "";
     let SERIALIZE_CUSTOM = "";
 
@@ -530,32 +530,121 @@ export class JSONTransform extends Visitor {
       return output;
     };
 
-    const remainingStringScanBytes = this.schema.members.map((_, i) => {
-      // Keep room for trailing fixed object syntax after this value:
-      // - every remaining key section `,"key":`
-      // - final closing brace `}`
-      let total = 2; // `}`
-      for (let j = i + 1; j < this.schema.members.length; j++) {
-        const key = JSON.stringify(this.schema.members[j].alias || this.schema.members[j].name);
-        total += ("," + key + ":").length << 1;
+    const UNSIGNED_INTEGER_TYPES = ["u8", "u16", "u32", "u64", "usize"];
+    const SIGNED_INTEGER_TYPES = ["i8", "i16", "i32", "i64", "isize"];
+    const FLOAT_TYPES = ["f32", "f64"];
+    const INTEGER_TYPES = [...UNSIGNED_INTEGER_TYPES, ...SIGNED_INTEGER_TYPES];
+
+    const getArrayValueType = (type: string): string | null => {
+      if (type.startsWith("Array<") || type.startsWith("StaticArray<")) {
+        return stripNull(type.slice(type.indexOf("<") + 1, -1).trim());
       }
-      return total;
-    });
+      return null;
+    };
 
     const getDeserializer = (type: string, srcPtr: string, outPtr: string, member: Property, index: number): string[] => {
       const out: string[] = [];
-      if (["u8", "u16", "u32", "u64"].includes(type)) {
-        out.push(`${srcPtr} = deserializeUintScan<${type}>(${srcPtr}, ${outPtr} + offsetof<this>(${JSON.stringify(member.name)}));`);
-      } else if (["string", "String"].includes(type)) {
-        const remaining = remainingStringScanBytes[index];
-        const endExpr = remaining <= STRING_SCAN_SUFFIX_BOUND_LIMIT ? `(srcEnd - ${remaining})` : "srcEnd";
-        out.push(`${srcPtr} = deserializeStringScan_SWAR(${srcPtr}, ${endExpr}, ${outPtr} + offsetof<this>(${JSON.stringify(member.name)}));`);
+      const resolvedType = stripNull(type);
+      const fieldPtr = `${outPtr} + offsetof<this>(${JSON.stringify(member.name)})`;
+
+      if (UNSIGNED_INTEGER_TYPES.includes(resolvedType)) {
+        out.push("{");
+        out.push(`  let digit = <u32>load<u16>(${srcPtr}) - 48;`);
+        out.push("  if (digit > 9) break;");
+        out.push("  let value: u64 = <u64>digit;");
+        out.push(`  ${srcPtr} += 2;`);
+        out.push(`  while (${srcPtr} < srcEnd && (digit = <u32>load<u16>(${srcPtr}) - 48) < 10) {`);
+        out.push("    value = value * 10 + <u64>digit;");
+        out.push(`    ${srcPtr} += 2;`);
+        out.push("  }");
+        out.push(`  store<${resolvedType}>(${fieldPtr}, <${resolvedType}>value);`);
+        out.push("}");
+      } else if (["string", "String"].includes(resolvedType)) {
+        out.push("{");
+        out.push(`  const valueStart = ${srcPtr};`);
+        out.push(`  if (load<u16>(${srcPtr}) != 0x22) break;`);
+        out.push(`  ${srcPtr} += 2;`);
+        out.push(`  while (${srcPtr} < srcEnd) {`);
+        out.push(`    const code = load<u16>(${srcPtr});`);
+        out.push(`    if (code == 0x22 && load<u16>(${srcPtr} - 2) != 0x5c) {`);
+        out.push(`      ${srcPtr} += 2;`);
+        out.push(`      break;`);
+        out.push("    }");
+        out.push(`    ${srcPtr} += 2;`);
+        out.push("  }");
+        out.push(`  if (${srcPtr} > srcEnd || load<u16>(${srcPtr} - 2) != 0x22) break;`);
+        out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
+        out.push("}");
+      } else if (isBoolean(resolvedType)) {
+        out.push(`if (load<u64>(${srcPtr}) == 0x${toU64("true").toString(16)}) {`);
+        out.push(`  store<${resolvedType}>(${fieldPtr}, true);`);
+        out.push(`  ${srcPtr} += 8;`);
+        out.push("} else if (load<u64>(" + srcPtr + ") == 0x" + toU64("fals").toString(16) + " && load<u16>(" + srcPtr + ", 8) == 0x65) {");
+        out.push(`  store<${resolvedType}>(${fieldPtr}, false);`);
+        out.push(`  ${srcPtr} += 10;`);
+        out.push("} else break;");
+      } else if (SIGNED_INTEGER_TYPES.includes(resolvedType)) {
+        out.push("{");
+        out.push(`  let code = load<u16>(${srcPtr});`);
+        out.push("  let negative = false;");
+        out.push("  if (code == 0x2d) {");
+        out.push("    negative = true;");
+        out.push(`    ${srcPtr} += 2;`);
+        out.push(`    if (${srcPtr} >= srcEnd) break;`);
+        out.push(`    code = load<u16>(${srcPtr});`);
+        out.push("  }");
+        out.push("  let digit = <u32>code - 48;");
+        out.push("  if (digit > 9) break;");
+        out.push("  let value: i64 = <i64>digit;");
+        out.push(`  ${srcPtr} += 2;`);
+        out.push(`  while (${srcPtr} < srcEnd && (digit = <u32>load<u16>(${srcPtr}) - 48) < 10) {`);
+        out.push("    value = value * 10 + <i64>digit;");
+        out.push(`    ${srcPtr} += 2;`);
+        out.push("  }");
+        out.push("  if (negative) value = -value;");
+        out.push(`  store<${resolvedType}>(${fieldPtr}, <${resolvedType}>value);`);
+        out.push("}");
+      } else if (FLOAT_TYPES.includes(resolvedType)) {
+        out.push("{");
+        out.push(`  const valueStart = ${srcPtr};`);
+        out.push(`  if (${srcPtr} >= srcEnd) break;`);
+        out.push(`  if (load<u16>(${srcPtr}) == 0x2d) {`);
+        out.push(`    ${srcPtr} += 2;`);
+        out.push(`    if (${srcPtr} >= srcEnd) break;`);
+        out.push("  }");
+        out.push("  let seenDigit = false;");
+        out.push(`  while (${srcPtr} < srcEnd) {`);
+        out.push(`    const code = load<u16>(${srcPtr});`);
+        out.push("    if (<u32>code - 48 < 10 || code == 0x2e || code == 0x65 || code == 0x45 || code == 0x2d || code == 0x2b) {");
+        out.push("      if (<u32>code - 48 < 10) seenDigit = true;");
+        out.push(`      ${srcPtr} += 2;`);
+        out.push("      continue;");
+        out.push("    }");
+        out.push("    break;");
+        out.push("  }");
+        out.push("  if (!seenDigit) break;");
+        out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
+        out.push("}");
+      } else {
+        const arrayValueType = getArrayValueType(resolvedType);
+        if (arrayValueType && INTEGER_TYPES.includes(arrayValueType)) {
+          out.push("{");
+          out.push(`  const valueStart = ${srcPtr};`);
+          out.push(`  if (load<u16>(${srcPtr}) != 0x5b) break; // [`);
+          out.push(`  ${srcPtr} += 2;`);
+          out.push(`  while (${srcPtr} < srcEnd && load<u16>(${srcPtr}) != 0x5d) ${srcPtr} += 2;`);
+          out.push(`  if (${srcPtr} >= srcEnd) break;`);
+          out.push(`  ${srcPtr} += 2;`);
+          out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
+          out.push("}");
+        }
       }
       return out;
     };
 
     indent = "  ";
 
+    DESERIALIZE_FAST += indent + "const srcStartHead = srcStart;\n";
     DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
     // DESERIALIZE_FAST += this.schema.members.map((m) => indent + `const ${m.name}Ptr = dst + offsetof<this>(${JSON.stringify(m.name)});`).join("\n") + "\n\n";
     DESERIALIZE_FAST += indent + "do {\n";
@@ -570,10 +659,14 @@ export class JSONTransform extends Visitor {
       if (key.length <= 2) throw new Error("Key cannot be empty!");
 
       const keySection = (i == 0 ? "{" : ",") + key + ":";
-      DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "&& ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
+      DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
       DESERIALIZE_FAST += indent + `srcStart += ${keySection.length << 1};\n\n`;
       // separate into optimized code generators for each type
       const deserializer = getDeserializer(member.type, "srcStart", "dst", member, i);
+      if (!deserializer.length) {
+        DESERIALIZE_FAST += indent + "break;\n\n";
+        continue;
+      }
       DESERIALIZE_FAST += indent + deserializer.join("\n" + indent) + "\n\n";
     }
 
@@ -581,15 +674,10 @@ export class JSONTransform extends Visitor {
     DESERIALIZE_FAST += indent + "return out;\n";
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "} while (false);\n\n";
-
-    DESERIALIZE_FAST += indent + 'abort("Failed to parse JSON!");\n';
-    DESERIALIZE_FAST += indent + "return out;\n";
+    DESERIALIZE_FAST += indent + "return inline.always(this.__DESERIALIZE_SLOW<__JSON_T>(srcStartHead, srcEnd, out));\n";
 
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "}";
-    console.log(DESERIALIZE_FAST);
-
-    console.log(DESERIALIZE_FAST);
     DESERIALIZE += indent + "  let keyStart: usize = 0;\n";
     DESERIALIZE += indent + "  let keyEnd: usize = 0;\n";
     DESERIALIZE += indent + "  let isKey = false;\n";
@@ -1175,15 +1263,18 @@ export class JSONTransform extends Visitor {
       console.log(DESERIALIZE_CUSTOM || DESERIALIZE);
     }
 
+    const DESERIALIZE_WRAPPER = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n  return inline.always(this.__DESERIALIZE_FAST<__JSON_T>(srcStart, srcEnd, out));\n}";
     const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
     const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
-    const DESERIALIZE_METHOD = SimpleParser.parseClassMember(DESERIALIZE_CUSTOM || DESERIALIZE, node);
+    const DESERIALIZE_METHOD = SimpleParser.parseClassMember(DESERIALIZE_CUSTOM || DESERIALIZE_WRAPPER, node);
+    const DESERIALIZE_SLOW_METHOD = SimpleParser.parseClassMember(DESERIALIZE, node);
     const DESERIALIZE_FAST_METHOD = SimpleParser.parseClassMember(DESERIALIZE_FAST, node);
 
     if (!node.members.find((v) => v.name.text == "__SERIALIZE")) node.members.push(SERIALIZE_METHOD);
     if (!node.members.find((v) => v.name.text == "__INITIALIZE")) node.members.push(INITIALIZE_METHOD);
     if (!node.members.find((v) => v.name.text == "__DESERIALIZE")) node.members.push(DESERIALIZE_METHOD);
-    if (!node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")) node.members.push(DESERIALIZE_FAST_METHOD);
+    if (!DESERIALIZE_CUSTOM && !node.members.find((v) => v.name.text == "__DESERIALIZE_SLOW")) node.members.push(DESERIALIZE_SLOW_METHOD);
+    if (!DESERIALIZE_CUSTOM && !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")) node.members.push(DESERIALIZE_FAST_METHOD);
     super.visitClassDeclaration(node);
   }
   getSchema(name: string): Schema | null {
