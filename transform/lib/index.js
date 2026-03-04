@@ -13,7 +13,6 @@ const WRITE = process.env["JSON_WRITE"]?.trim();
 const rawValue = process.env["JSON_DEBUG"]?.trim();
 const DEBUG = rawValue === "true" ? 1 : rawValue === "false" || rawValue === "" ? 0 : isNaN(Number(rawValue)) ? 0 : Number(rawValue);
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
-const STRING_SCAN_SUFFIX_BOUND_LIMIT = process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"] ? parseInt(process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"]) : 1024;
 export class JSONTransform extends Visitor {
     static SN = new JSONTransform();
     program;
@@ -491,7 +490,7 @@ export class JSONTransform extends Visitor {
         const getComparisions = (data, ptr, operator) => {
             const dataBytes = data.length << 1;
             let offset = 0;
-            let output = [];
+            const output = [];
             while (offset < dataBytes) {
                 const rem = dataBytes - offset;
                 if (rem >= 8) {
@@ -512,6 +511,13 @@ export class JSONTransform extends Visitor {
             }
             return output;
         };
+        const variables = new Set();
+        const getVariable = (initializer, name, value, type = null) => {
+            if (variables.has(name))
+                return name + " = " + value;
+            variables.add(name);
+            return initializer + " " + name + " = " + value;
+        };
         const UNSIGNED_INTEGER_TYPES = ["u8", "u16", "u32", "u64", "usize"];
         const SIGNED_INTEGER_TYPES = ["i8", "i16", "i32", "i64", "isize"];
         const FLOAT_TYPES = ["f32", "f64"];
@@ -522,7 +528,8 @@ export class JSONTransform extends Visitor {
             }
             return null;
         };
-        const getDeserializer = (type, srcPtr, outPtr, member, index) => {
+        const getDeserializer = (type, srcPtr, outPtr, member) => {
+            const isLast = this.schema.members.indexOf(member) == this.schema.members.length - 1;
             const out = [];
             const resolvedType = stripNull(type);
             const fieldPtr = `${outPtr} + offsetof<this>(${JSON.stringify(member.name)})`;
@@ -540,21 +547,20 @@ export class JSONTransform extends Visitor {
                 out.push("}");
             }
             else if (["string", "String"].includes(resolvedType)) {
-                out.push("{");
-                out.push(`  const valueStart = ${srcPtr};`);
-                out.push(`  if (load<u16>(${srcPtr}) != 0x22) break;`);
-                out.push(`  ${srcPtr} += 2;`);
-                out.push(`  while (${srcPtr} < srcEnd) {`);
-                out.push(`    const code = load<u16>(${srcPtr});`);
-                out.push(`    if (code == 0x22 && load<u16>(${srcPtr} - 2) != 0x5c) {`);
-                out.push(`      ${srcPtr} += 2;`);
-                out.push(`      break;`);
-                out.push("    }");
-                out.push(`    ${srcPtr} += 2;`);
-                out.push("  }");
-                out.push(`  if (${srcPtr} > srcEnd || load<u16>(${srcPtr} - 2) != 0x22) break;`);
-                out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
-                out.push("}");
+                if (isLast) {
+                    out.push("{");
+                    out.push("  const quoteEnd = srcEnd - 4;");
+                    out.push("  if (quoteEnd <= srcStart) break;");
+                    out.push('  if ( // "}');
+                    out.push(`    load<u32>(quoteEnd) != ${toU32('"}')}`);
+                    out.push(`   ) break;`);
+                    out.push(`  srcStart = deserializeString_SWAR_TO(srcStart, quoteEnd, load<usize>(dst + offsetof<this>(${JSON.stringify(member.name)})));`);
+                    out.push("}");
+                }
+                else {
+                    out.push(`  `);
+                    out.push(`  srcStart = deserializeStringScan_SWAR(srcStart, srcEnd, dst + offsetof<this>(${JSON.stringify(member.name)}));`);
+                }
             }
             else if (isBoolean(resolvedType)) {
                 out.push(`if (load<u64>(${srcPtr}) == 0x${toU64("true").toString(16)}) {`);
@@ -639,7 +645,7 @@ export class JSONTransform extends Visitor {
             const keySection = (i == 0 ? "{" : ",") + key + ":";
             DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
             DESERIALIZE_FAST += indent + `srcStart += ${keySection.length << 1};\n\n`;
-            const deserializer = getDeserializer(member.type, "srcStart", "dst", member, i);
+            const deserializer = getDeserializer(member.type, "srcStart", "dst", member);
             if (!deserializer.length) {
                 DESERIALIZE_FAST += indent + "break;\n\n";
                 continue;
@@ -650,7 +656,7 @@ export class JSONTransform extends Visitor {
         DESERIALIZE_FAST += indent + "return out;\n";
         indent = indent.slice(0, -2);
         DESERIALIZE_FAST += indent + "} while (false);\n\n";
-        DESERIALIZE_FAST += indent + "return inline.always(this.__DESERIALIZE_SLOW<__JSON_T>(srcStartHead, srcEnd, out));\n";
+        DESERIALIZE_FAST += indent + 'throw new Error("Failed to parse JSON");';
         indent = indent.slice(0, -2);
         DESERIALIZE_FAST += indent + "}";
         DESERIALIZE += indent + "  let keyStart: usize = 0;\n";

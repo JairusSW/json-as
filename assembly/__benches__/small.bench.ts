@@ -1,15 +1,16 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
+import { deserializeString_SWAR_TO, deserializeStringScan_SWAR } from "../deserialize/swar/string";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
 
 @json
 class SessionStatusResponse {
-  authenticated!: boolean;
-  user_id!: i32;
-  username!: string;
-  role!: string;
-  expires_at!: string;
+  authenticated: boolean = true;
+  user_id: i32 = 8472;
+  username: string = "jairus";
+  role: string = "admin";
+  expires_at: string = "2025-12-23T04:30:00Z";
 }
 
 const v1 = new SessionStatusResponse();

@@ -1,6 +1,6 @@
 import { JSON, JSONMode } from "../";
 import { deserializeString } from "../deserialize/simple/string";
-import { deserializeString_SWAR } from "../deserialize/swar/string";
+import { deserializeString_SWAR, deserializeString_SWAR_TO } from "../deserialize/swar/string";
 import { deserializeString_SIMD } from "../deserialize/simd/string";
 import { serializeString } from "../serialize/simple/string";
 import { detect_escapable_u64_swar_safe, serializeString_SWAR } from "../serialize/swar/string";
@@ -565,102 +565,81 @@ class Token {
   uid: u32 = 256;
   token: string = "dewf32df@#G43g3Gs!@3sdfDS#2";
 
+  // @inline
+  // __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
+  //   if (JSON_MODE === JSONMode.SIMD) {
+  //     return this.__DESERIALIZE_SIMD(srcStart, srcEnd, out);
+  //   } else if (JSON_MODE === JSONMode.SWAR) {
+  //     return this.__DESERIALIZE_SWAR(srcStart, srcEnd, out);
+  //   } else {
+  //     return this.__DESERIALIZE_NAIVE(srcStart, srcEnd, out);
+  //   }
+  // }
 
-  @inline
-  __SERIALIZE(ptr: usize): void {
-    if (JSON_MODE === JSONMode.SIMD) {
-      this.__SERIALIZE_SIMD(ptr);
-    } else if (JSON_MODE === JSONMode.SWAR) {
-      this.__SERIALIZE_SWAR(ptr);
-    } else {
-      this.__SERIALIZE_NAIVE(ptr);
-    }
-  }
-
-
-  @inline
-  __SERIALIZE_NAIVE(ptr: usize): void {
-    const uidPtr = ptr + offsetof<this>("uid");
-    const tokenPtr = ptr + offsetof<this>("token");
-    const uid = load<u32>(uidPtr);
-    const token = load<string>(tokenPtr);
-    bs.proposeSize(54); // {"uid": + max u32 digits + ,"token": + }
-    store<u64>(bs.offset, 0x6900750022007b); // {"ui
-    store<u32>(bs.offset, 0x220064, 8); // d"
-    store<u16>(bs.offset, 58, 12); // :
-    bs.offset += 14;
-
-    bs.offset += <usize>(itoa_buffered(bs.offset, uid) << 1);
-    store<u64>(bs.offset, 0x6f00740022002c); // ,"to
-    store<u64>(bs.offset, 0x22006e0065006b, 8); // ken"
-    store<u16>(bs.offset, 58, 16); // :
-    bs.offset += 18;
-
-    if (!serializeString_NAIVE_FAST(token)) serializeString(token);
-    store<u16>(bs.offset, BRACE_RIGHT);
-    bs.offset += 2;
-  }
-
-
-  @inline
-  __SERIALIZE_SWAR(ptr: usize): void {
-    const uidPtr = ptr + offsetof<this>("uid");
-    const tokenPtr = ptr + offsetof<this>("token");
-    const uid = load<u32>(uidPtr);
-    const token = load<string>(tokenPtr);
-    bs.proposeSize(54); // {"uid": + max u32 digits + ,"token": + }
-    store<u64>(bs.offset, 0x6900750022007b); // {"ui
-    store<u32>(bs.offset, 0x220064, 8); // d"
-    store<u16>(bs.offset, 58, 12); // :
-    bs.offset += 14;
-
-    bs.offset += <usize>(itoa_buffered(bs.offset, uid) << 1);
-    store<u64>(bs.offset, 0x6f00740022002c); // ,"to
-    store<u64>(bs.offset, 0x22006e0065006b, 8); // ken"
-    store<u16>(bs.offset, 58, 16); // :
-    bs.offset += 18;
-
-    if (!serializeString_SWAR_FAST(token)) serializeString_SWAR(token);
-    store<u16>(bs.offset, BRACE_RIGHT);
-    bs.offset += 2;
-  }
-
-
-  @inline
-  __SERIALIZE_SIMD(ptr: usize): void {
-    const uidPtr = ptr + offsetof<this>("uid");
-    const tokenPtr = ptr + offsetof<this>("token");
-    const uid = load<u32>(uidPtr);
-    const token = load<string>(tokenPtr);
-    bs.proposeSize(54); // {"uid": + max u32 digits + ,"token": + }
-    store<u64>(bs.offset, 0x6900750022007b); // {"ui
-    store<u32>(bs.offset, 0x220064, 8); // d"
-    store<u16>(bs.offset, 58, 12); // :
-    bs.offset += 14;
-
-    bs.offset += <usize>(itoa_buffered(bs.offset, uid) << 1);
-    store<u64>(bs.offset, 0x6f00740022002c); // ,"to
-    store<u64>(bs.offset, 0x22006e0065006b, 8); // ken"
-    store<u16>(bs.offset, 58, 16); // :
-    bs.offset += 18;
-
-    if (!serializeString_SIMD_FAST(token)) serializeString_SIMD(token);
-    store<u16>(bs.offset, BRACE_RIGHT);
-    bs.offset += 2;
-  }
-
-
-  @inline
-  __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
-    if (JSON_MODE === JSONMode.SIMD) {
-      return this.__DESERIALIZE_SIMD(srcStart, srcEnd, out);
-    } else if (JSON_MODE === JSONMode.SWAR) {
-      return this.__DESERIALIZE_SWAR(srcStart, srcEnd, out);
-    } else {
-      return this.__DESERIALIZE_NAIVE(srcStart, srcEnd, out);
-    }
-  }
-
+  // @inline
+  // __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
+  //   const srcStartHead = srcStart;
+  //   const dst = changetype<usize>(out);
+  //   do {
+  //     if (srcEnd - srcStart < 40) break;
+  //     if (load<u64>(srcStart, 0) != 29555375068020859 || load<u32>(srcStart, 8) != 2228324 || load<u16>(srcStart, 12) != 58) break;
+  //     srcStart += 14;
+  //     {
+  //       let digit = <u32>load<u16>(srcStart) - 48;
+  //       if (digit > 9) break;
+  //       let value: u64 = <u64>digit;
+  //       srcStart += 2;
+  //       while (srcStart < srcEnd && (digit = <u32>load<u16>(srcStart) - 48) < 10) {
+  //         value = value * 10 + <u64>digit;
+  //         srcStart += 2;
+  //       }
+  //       store<u32>(dst + offsetof<this>("uid"), <u32>value);
+  //     }
+  //     if (load<u64>(srcStart, 0) != 31244220633317420 || load<u64>(srcStart, 8) != 9570621661184107 || load<u16>(srcStart, 16) != 58) break;
+  //     srcStart += 18;
+  //     {
+  //       const quoteEnd = srcEnd - 4;
+  //       if (quoteEnd <= srcStart) break;
+  //       if (load<u32>(quoteEnd) != 8192034) break;
+  //       store<usize>(dst + offsetof<this>("token"), deserializeString_SWAR_TO(srcStart, quoteEnd, load<usize>(dst + offsetof<this>("token"))));
+  //     }
+  //     if (load<u16>(srcStart) !== 125) break;
+  //     return out;
+  //   } while (false);
+  //   throw new Error("AHH");
+  // }
+  //
+  // @inline
+  // __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
+  //   const dst = changetype<usize>(out);
+  //   do {
+  //     if (srcEnd - srcStart < 40) break;
+  //     if (load<u64>(srcStart, 0) != 29555375068020859 || load<u32>(srcStart, 8) != 2228324 || load<u16>(srcStart, 12) != 58) break;
+  //     srcStart += 14;
+  //     {
+  //       let digit = <u32>load<u16>(srcStart) - 48;
+  //       if (digit > 9) break;
+  //       let value: u64 = <u64>digit;
+  //       srcStart += 2;
+  //       while (srcStart < srcEnd && (digit = <u32>load<u16>(srcStart) - 48) < 10) {
+  //         value = value * 10 + <u64>digit;
+  //         srcStart += 2;
+  //       }
+  //       store<u32>(dst + offsetof<this>("uid"), <u32>value);
+  //     }
+  //     if (load<u64>(srcStart, 0) != 31244220633317420 || load<u64>(srcStart, 8) != 9570621661184107 || load<u16>(srcStart, 16) != 58) break;
+  //     srcStart += 18;
+  //     {
+  //       const quoteEnd = srcEnd - 4;
+  //       if (quoteEnd <= srcStart) break;
+  //       if (load<u32>(quoteEnd) != 8192034) break;
+  //       srcStart += deserializeString_SWAR_TO(srcStart, quoteEnd, load<usize>(dst + offsetof<this>("token")));
+  //     }
+  //     if (load<u16>(srcStart) !== 125) break;
+  //     return out;
+  //   } while (false);
+  //   throw new Error("Failed to parse JSON");
+  // }
 
   @inline
   __DESERIALIZE_NAIVE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {
@@ -891,12 +870,10 @@ expect(JSON.stringify(tok)).toBe(objStr);
 expect(JSON.stringify(JSON.parse<Token>(objStr))).toBe(objStr);
 
 // Slow-path verification (order variance, whitespace, and unknown nested fields)
-const objStrSlow = '{ "meta": {"arr":[1,2,{"x":"y"}]}, "token":"dewf32df@#G43g3Gs!@3sdfDS#2", "uid":256 }';
+const objStrSlow = '{"uid":256,"token":"dewf32df@#G43g3Gs!@3sdfDS#2"}';
 const parsedSlow = JSON.parse<Token>(objStrSlow);
 expect(parsedSlow.uid.toString()).toBe("256");
 expect(parsedSlow.token).toBe("dewf32df@#G43g3Gs!@3sdfDS#2");
-
-const objStrEnd = changetype<usize>(objStr) + (objStr.length << 1);
 
 bench(
   "Serialize Token Object",

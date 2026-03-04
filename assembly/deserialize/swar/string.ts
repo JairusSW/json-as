@@ -129,149 +129,120 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   return bs.out<string>();
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function copyStringToField(dstFieldPtr: usize, srcPtr: usize, byteLength: u32): void {
-  const current = load<usize>(dstFieldPtr);
-  let outPtr: usize;
-  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
-    outPtr = current;
-  } else {
-    // @ts-expect-error: __new is a runtime builtin
-    outPtr = __new(byteLength, idof<string>());
-    store<usize>(dstFieldPtr, outPtr);
+/**
+ * Deserializes a quoted JSON string into a reused/renewed destination string buffer.
+ * @param srcStart pointer to opening quote
+ * @param srcEnd pointer to closing quote
+ * @param outPtr existing destination string pointer (or 0)
+ * @returns next unread source pointer
+ */
+export function deserializeString_SWAR_TO(srcStart: usize, srcEnd: usize, outPtr: usize): usize {
+  srcStart += 2;
+  let dst = outPtr;
+  const srcEnd8 = srcEnd - 8;
+  const byteSize = srcEnd - srcStart;
+  if (!dst) {
+    dst = __new(byteSize, idof<string>());
+  } else if (changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize < <u32>byteSize) {
+    dst = __renew(dst, byteSize);
   }
-  memory.copy(outPtr, srcPtr, byteLength);
-}
+  let offset = dst;
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function quote_or_backslash_mask_unsafe(block: u64): u64 {
-  const b = block ^ 0x005c_005c_005c_005c;
-  const q = block ^ 0x0022_0022_0022_0022;
-  return ((b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080) | ((q - 0x0001_0001_0001_0001) & ~q & 0x0080_0080_0080_0080);
-}
-
-// @ts-expect-error: @inline is a valid decorator
-@inline function deserializeStringScanEscaped_SWAR(payloadStart: usize, srcStart: usize, srcEnd: usize, dstFieldPtr: usize, bsStart: usize): usize {
-  const prefixLen = srcStart - payloadStart;
-  bs.ensureSize(<u32>(prefixLen + 48));
-  if (prefixLen > 0) {
-    memory.copy(bs.offset, payloadStart, prefixLen);
-    bs.offset += prefixLen;
-  }
-
-  let lastPtr = srcStart;
-  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
-
-  while (srcStart <= srcEnd8) {
+  while (srcStart < srcEnd8) {
     const block = load<u64>(srcStart);
-    let mask = inline.always(quote_or_backslash_mask_unsafe(block));
+    store<u64>(offset, block);
+
+    let mask = inline.always(backslash_mask_unsafe(block));
+
     if (mask === 0) {
       srcStart += 8;
+      offset += 8;
       continue;
     }
 
-    let handled = false;
     do {
       const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
       mask &= mask - 1;
-      const ptr = srcStart + laneIdx;
-      const char = load<u16>(ptr);
+      const srcIdx = srcStart + laneIdx;
+      const dstIdx = offset + laneIdx;
+      const header = load<u32>(srcIdx);
+      const code = <u16>(header >> 16);
 
-      // Detect false positives where low byte match came from UTF-16 high byte
-      if (char != BACK_SLASH && char != QUOTE) continue;
+      if ((header & 0xffff) !== 0x5c) continue;
 
-      const runLen = ptr - lastPtr;
-      bs.ensureSize(<u32>(runLen + 12));
-      if (runLen > 0) {
-        memory.copy(bs.offset, lastPtr, runLen);
-        bs.offset += runLen;
-      }
-
-      if (char == QUOTE) {
-        copyStringToField(dstFieldPtr, bsStart, <u32>(bs.offset - bsStart));
-        bs.offset = bsStart;
-        return ptr + 2;
-      }
-
-      const code = load<u16>(ptr, 2);
-      if (code != 0x75) {
-        // Short escapes (\n \t \" \\ \/ \b \f \r)
+      if (code !== 0x75) {
         const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-        if (escaped == 0 && code != BACK_SLASH) abort("Invalid string escape");
-        store<u16>(bs.offset, escaped);
-        bs.offset += 2;
-        lastPtr = ptr + 4;
-      } else {
-        // Unicode escape (\uXXXX)
-        if (ptr + 12 > srcEnd) abort("Invalid unicode escape");
-        const hex = load<u64>(ptr, 4); // XXXX
-        store<u16>(bs.offset, hex4_to_u16_swar(hex));
-        bs.offset += 2;
-        lastPtr = ptr + 12;
+        mask &= mask - usize(escaped === 0x5c);
+        store<u16>(dstIdx, escaped);
+        const copyStart = srcIdx + 4;
+        if (copyStart < srcEnd) {
+          const copyBytes = min<usize>(4, srcEnd - copyStart);
+          memory.copy(dstIdx + 2, copyStart, copyBytes);
+        }
+
+        const l6 = usize(laneIdx === 6);
+        offset -= (1 - l6) << 1;
+        srcStart += l6 << 1;
+        continue;
       }
 
-      srcStart = lastPtr;
-      handled = true;
-      break;
+      const block = load<u64>(srcIdx, 4); // XXXX
+      const escaped = hex4_to_u16_swar(block);
+      store<u16>(dstIdx, escaped);
+      srcStart += 4 + laneIdx;
+      offset -= 6 - laneIdx;
     } while (mask !== 0);
 
-    if (!handled) srcStart += 8;
+    offset += 8;
+    srcStart += 8;
   }
 
   while (srcStart < srcEnd) {
-    const char = load<u16>(srcStart);
-    if (char != BACK_SLASH && char != QUOTE) {
-      srcStart += 2;
+    const block = load<u16>(srcStart);
+    store<u16>(offset, block);
+    srcStart += 2;
+
+    if (block !== 0x5c) {
+      offset += 2;
       continue;
     }
 
-    const runLen = srcStart - lastPtr;
-    bs.ensureSize(<u32>(runLen + 12));
-    if (runLen > 0) {
-      memory.copy(bs.offset, lastPtr, runLen);
-      bs.offset += runLen;
-    }
-
-    if (char == QUOTE) {
-      copyStringToField(dstFieldPtr, bsStart, <u32>(bs.offset - bsStart));
-      bs.offset = bsStart;
-      return srcStart + 2;
-    }
-
-    const code = load<u16>(srcStart, 2);
-    if (code != 0x75) {
-      const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-      if (escaped == 0 && code != BACK_SLASH) abort("Invalid string escape");
-      store<u16>(bs.offset, escaped);
-      bs.offset += 2;
-      srcStart += 4;
+    const code = load<u16>(srcStart);
+    if (code !== 0x75) {
+      const block = load<u16>(srcStart);
+      const escape = load<u16>(DESERIALIZE_ESCAPE_TABLE + block);
+      store<u16>(offset, escape);
+      srcStart += 2;
     } else {
-      if (srcStart + 12 > srcEnd) abort("Invalid unicode escape");
-      const hex = load<u64>(srcStart, 4); // XXXX
-      store<u16>(bs.offset, hex4_to_u16_swar(hex));
-      bs.offset += 2;
-      srcStart += 12;
+      const block = load<u64>(srcStart, 2); // XXXX
+      const escaped = hex4_to_u16_swar(block);
+      store<u16>(offset, escaped);
+      srcStart += 10;
     }
 
-    lastPtr = srcStart;
+    offset += 2;
   }
-
-  abort("Unterminated string literal");
-  return srcStart;
+  if (offset - dst != byteSize) {
+    dst = __renew(dst, offset - dst);
+  }
+  return srcEnd + 2;
 }
 
-// Scans a quoted string value, writes into the destination field, and returns the next unread src pointer.
+// Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
 export function deserializeStringScan_SWAR(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
   const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
   const bsStart = bs.offset;
+  let escapeStart: usize = 0;
   srcStart = payloadStart;
 
   while (srcStart <= srcEnd8) {
     const block = load<u64>(srcStart);
-    let mask = inline.always(quote_or_backslash_mask_unsafe(block));
+    const b = block ^ 0x005c_005c_005c_005c;
+    const q = block ^ 0x0022_0022_0022_0022;
+    let mask = inline.always(((b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080) | ((q - 0x0001_0001_0001_0001) & ~q & 0x0080_0080_0080_0080));
     if (mask === 0) {
       srcStart += 8;
       continue;
@@ -291,34 +262,182 @@ export function deserializeStringScan_SWAR(srcStart: usize, srcEnd: usize, dstFi
           memory.copy(bs.offset, payloadStart, len);
           bs.offset += len;
         }
-        copyStringToField(dstFieldPtr, bsStart, len);
+        const current = load<usize>(dstFieldPtr);
+        let outPtr: usize;
+        if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == len) {
+          outPtr = current;
+        } else {
+          // @ts-expect-error: __new is a runtime builtin
+          outPtr = __new(len, idof<string>());
+          store<usize>(dstFieldPtr, outPtr);
+        }
+        memory.copy(outPtr, bsStart, len);
         bs.offset = bsStart;
         return ptr + 2;
       }
 
-      return deserializeStringScanEscaped_SWAR(payloadStart, ptr, srcEnd, dstFieldPtr, bsStart);
+      escapeStart = ptr;
+      break;
     } while (mask !== 0);
 
+    if (escapeStart != 0) break;
     srcStart += 8;
   }
 
-  while (srcStart < srcEnd) {
-    const char = load<u16>(srcStart);
-    if (char == QUOTE) {
-      const len = <u32>(srcStart - payloadStart);
-      if (len > 0) {
-        bs.ensureSize(len);
-        memory.copy(bs.offset, payloadStart, len);
-        bs.offset += len;
+  if (escapeStart == 0) {
+    while (srcStart < srcEnd) {
+      const char = load<u16>(srcStart);
+      if (char == QUOTE) {
+        const len = <u32>(srcStart - payloadStart);
+        if (len > 0) {
+          bs.ensureSize(len);
+          memory.copy(bs.offset, payloadStart, len);
+          bs.offset += len;
+        }
+        const current = load<usize>(dstFieldPtr);
+        let outPtr: usize;
+        if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == len) {
+          outPtr = current;
+        } else {
+          // @ts-expect-error: __new is a runtime builtin
+          outPtr = __new(len, idof<string>());
+          store<usize>(dstFieldPtr, outPtr);
+        }
+        memory.copy(outPtr, bsStart, len);
+        bs.offset = bsStart;
+        return srcStart + 2;
       }
-      copyStringToField(dstFieldPtr, bsStart, len);
-      bs.offset = bsStart;
-      return srcStart + 2;
+      if (char == BACK_SLASH) {
+        escapeStart = srcStart;
+        break;
+      }
+      srcStart += 2;
     }
-    if (char == BACK_SLASH) {
-      return deserializeStringScanEscaped_SWAR(payloadStart, srcStart, srcEnd, dstFieldPtr, bsStart);
+  }
+
+  if (escapeStart != 0) {
+    srcStart = escapeStart;
+    const prefixLen = srcStart - payloadStart;
+    bs.ensureSize(<u32>(prefixLen + 48));
+    if (prefixLen > 0) {
+      memory.copy(bs.offset, payloadStart, prefixLen);
+      bs.offset += prefixLen;
     }
-    srcStart += 2;
+
+    let lastPtr = srcStart;
+    const escapedEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
+
+    while (srcStart <= escapedEnd8) {
+      const block = load<u64>(srcStart);
+      const b = block ^ 0x005c_005c_005c_005c;
+      const q = block ^ 0x0022_0022_0022_0022;
+      let mask = inline.always(((b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080) | ((q - 0x0001_0001_0001_0001) & ~q & 0x0080_0080_0080_0080));
+      if (mask === 0) {
+        srcStart += 8;
+        continue;
+      }
+
+      let handled = false;
+      do {
+        const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
+        mask &= mask - 1;
+        const ptr = srcStart + laneIdx;
+        const char = load<u16>(ptr);
+        if (char != BACK_SLASH && char != QUOTE) continue;
+
+        const runLen = ptr - lastPtr;
+        bs.ensureSize(<u32>(runLen + 12));
+        if (runLen > 0) {
+          memory.copy(bs.offset, lastPtr, runLen);
+          bs.offset += runLen;
+        }
+
+        if (char == QUOTE) {
+          const len = <u32>(bs.offset - bsStart);
+          const current = load<usize>(dstFieldPtr);
+          let outPtr: usize;
+          if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == len) {
+            outPtr = current;
+          } else {
+            // @ts-expect-error: __new is a runtime builtin
+            outPtr = __new(len, idof<string>());
+            store<usize>(dstFieldPtr, outPtr);
+          }
+          memory.copy(outPtr, bsStart, len);
+          bs.offset = bsStart;
+          return ptr + 2;
+        }
+
+        const code = load<u16>(ptr, 2);
+        if (code != 0x75) {
+          const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
+          if (escaped == 0 && code != BACK_SLASH) abort("Invalid string escape");
+          store<u16>(bs.offset, escaped);
+          bs.offset += 2;
+          lastPtr = ptr + 4;
+        } else {
+          if (ptr + 12 > srcEnd) abort("Invalid unicode escape");
+          const hex = load<u64>(ptr, 4); // XXXX
+          store<u16>(bs.offset, hex4_to_u16_swar(hex));
+          bs.offset += 2;
+          lastPtr = ptr + 12;
+        }
+
+        srcStart = lastPtr;
+        handled = true;
+        break;
+      } while (mask !== 0);
+
+      if (!handled) srcStart += 8;
+    }
+
+    while (srcStart < srcEnd) {
+      const char = load<u16>(srcStart);
+      if (char != BACK_SLASH && char != QUOTE) {
+        srcStart += 2;
+        continue;
+      }
+
+      const runLen = srcStart - lastPtr;
+      bs.ensureSize(<u32>(runLen + 12));
+      if (runLen > 0) {
+        memory.copy(bs.offset, lastPtr, runLen);
+        bs.offset += runLen;
+      }
+
+      if (char == QUOTE) {
+        const len = <u32>(bs.offset - bsStart);
+        const current = load<usize>(dstFieldPtr);
+        let outPtr: usize;
+        if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == len) {
+          outPtr = current;
+        } else {
+          // @ts-expect-error: __new is a runtime builtin
+          outPtr = __new(len, idof<string>());
+          store<usize>(dstFieldPtr, outPtr);
+        }
+        memory.copy(outPtr, bsStart, len);
+        bs.offset = bsStart;
+        return srcStart + 2;
+      }
+
+      const code = load<u16>(srcStart, 2);
+      if (code != 0x75) {
+        const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
+        if (escaped == 0 && code != BACK_SLASH) abort("Invalid string escape");
+        store<u16>(bs.offset, escaped);
+        bs.offset += 2;
+        srcStart += 4;
+      } else {
+        if (srcStart + 12 > srcEnd) abort("Invalid unicode escape");
+        const hex = load<u64>(srcStart, 4); // XXXX
+        store<u16>(bs.offset, hex4_to_u16_swar(hex));
+        bs.offset += 2;
+        srcStart += 12;
+      }
+
+      lastPtr = srcStart;
+    }
   }
 
   abort("Unterminated string literal");
