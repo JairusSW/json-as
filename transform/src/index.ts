@@ -243,7 +243,7 @@ export class JSONTransform extends Visitor {
     let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
     let INITIALIZE = "@inline __INITIALIZE(): this {\n";
     let DESERIALIZE = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
-    let DESERIALIZE_FAST = "@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
+    let DESERIALIZE_FAST = "@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
     let DESERIALIZE_CUSTOM = "";
     let SERIALIZE_CUSTOM = "";
 
@@ -569,39 +569,44 @@ export class JSONTransform extends Visitor {
         out.push(`  store<${resolvedType}>(${fieldPtr}, <${resolvedType}>value);`);
         out.push("}");
       } else if (["string", "String"].includes(resolvedType)) {
-        if (isLast) {
-          out.push("{");
-          out.push("  const quoteEnd = srcEnd - 4;");
-          out.push("  if (quoteEnd <= srcStart) break;");
-          out.push('  if ( // "}');
-          out.push(`    load<u32>(quoteEnd) != ${toU32('"}')}`);
-          out.push(`   ) break;`);
-          out.push(`  srcStart = deserializeString_SWAR_TO(srcStart, quoteEnd, load<usize>(dst + offsetof<this>(${JSON.stringify(member.name)})));`);
-          out.push("}");
-        } else {
-          out.push(`  `);
-          // out.push(`  if (load<u16>(${srcPtr}) != 0x22) break;`);
-          // out.push(`  ${srcPtr} += 2;`);
-          out.push(`  srcStart = deserializeStringScan_SWAR(srcStart, srcEnd, dst + offsetof<this>(${JSON.stringify(member.name)}));`);
-          // out.push(`  while (${srcPtr} < srcEnd) {`);
-          // out.push(`    const code = load<u16>(${srcPtr});`);
-          // out.push(`    if (code == 0x22 && load<u16>(${srcPtr} - 2) != 0x5c) {`);
-          // out.push(`      ${srcPtr} += 2;`);
-          // out.push(`      break;`);
-          // out.push("    }");
-          // out.push(`    ${srcPtr} += 2;`);
-          // out.push("  }");
-          // out.push(`  if (${srcPtr} > srcEnd || load<u16>(${srcPtr} - 2) != 0x22) break;`);
-          // out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
-        }
+        // if (isLast) {
+        //   out.push("{");
+        //   out.push("  const quoteEnd = srcEnd - 4;");
+        //   out.push("  if (quoteEnd <= srcStart) break;");
+        //   out.push('  if ( // "}');
+        //   out.push(`    load<u32>(quoteEnd) != ${toU32('"}')}`);
+        //   out.push(`   ) break;`);
+        //   out.push(`  srcStart = deserializeString_SWAR_TO(srcStart, quoteEnd, load<usize>(dst + offsetof<this>(${JSON.stringify(member.name)})));`);
+        //   out.push("}");
+        // } else {
+        // out.push(`  `);
+        // out.push(`  if (load<u16>(${srcPtr}) != 0x22) break;`);
+        // out.push(`  ${srcPtr} += 2;`);
+        out.push(`  srcStart = deserializeStringScan_SWAR<${member.type}>(srcStart, srcEnd, dst + offsetof<this>(${JSON.stringify(member.name)}));`);
+        // out.push(`  while (${srcPtr} < srcEnd) {`);
+        // out.push(`    const code = load<u16>(${srcPtr});`);
+        // out.push(`    if (code == 0x22 && load<u16>(${srcPtr} - 2) != 0x5c) {`);
+        // out.push(`      ${srcPtr} += 2;`);
+        // out.push(`      break;`);
+        // out.push("    }");
+        // out.push(`    ${srcPtr} += 2;`);
+        // out.push("  }");
+        // out.push(`  if (${srcPtr} > srcEnd || load<u16>(${srcPtr} - 2) != 0x22) break;`);
+        // out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
+        // }
       } else if (isBoolean(resolvedType)) {
-        out.push(`if (load<u64>(${srcPtr}) == 0x${toU64("true").toString(16)}) {`);
-        out.push(`  store<${resolvedType}>(${fieldPtr}, true);`);
-        out.push(`  ${srcPtr} += 8;`);
-        out.push("} else if (load<u64>(" + srcPtr + ") == 0x" + toU64("fals").toString(16) + " && load<u16>(" + srcPtr + ", 8) == 0x65) {");
-        out.push(`  store<${resolvedType}>(${fieldPtr}, false);`);
-        out.push(`  ${srcPtr} += 10;`);
-        out.push("} else break;");
+        out.push("{");
+        out.push(`  const value = load<u64>(${srcPtr}) == 28429475166421108;`);
+        out.push(`  store<${resolvedType}>(${fieldPtr}, value);`);
+        out.push(`  ${srcPtr} += 10 - (usize(value) << 1);`);
+        out.push("}");
+        // out.push(`if (load<u64>(${srcPtr}) == 0x${toU64("true").toString(16)}) {`);
+        // out.push(`  store<${resolvedType}>(${fieldPtr}, true);`);
+        // out.push(`  ${srcPtr} += 8;`);
+        // out.push("} else if (load<u64>(" + srcPtr + ") == 0x" + toU64("fals").toString(16) + " && load<u16>(" + srcPtr + ", 8) == 0x65) {");
+        // out.push(`  store<${resolvedType}>(${fieldPtr}, false);`);
+        // out.push(`  ${srcPtr} += 10;`);
+        // out.push("} else break;");
       } else if (SIGNED_INTEGER_TYPES.includes(resolvedType)) {
         out.push("{");
         out.push(`  let code = load<u16>(${srcPtr});`);
@@ -644,19 +649,61 @@ export class JSONTransform extends Visitor {
         out.push("  if (!seenDigit) break;");
         out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
         out.push("}");
-      } else {
-        const arrayValueType = getArrayValueType(resolvedType);
-        if (arrayValueType && INTEGER_TYPES.includes(arrayValueType)) {
-          out.push("{");
-          out.push(`  const valueStart = ${srcPtr};`);
-          out.push(`  if (load<u16>(${srcPtr}) != 0x5b) break; // [`);
-          out.push(`  ${srcPtr} += 2;`);
-          out.push(`  while (${srcPtr} < srcEnd && load<u16>(${srcPtr}) != 0x5d) ${srcPtr} += 2;`);
-          out.push(`  if (${srcPtr} >= srcEnd) break;`);
-          out.push(`  ${srcPtr} += 2;`);
-          out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
-          out.push("}");
+      } else if (this.getSchema(resolvedType)) {
+        out.push("{");
+        if (member.node.type.isNullable) {
+          out.push(`  if (load<u64>(${srcPtr}) == 30399761348886638) {`);
+          out.push(`    store<${resolvedType}>(${fieldPtr}, changetype<${resolvedType}>(0));`);
+          out.push(`    ${srcPtr} += 8;`);
+          out.push("  } else {");
         }
+        out.push(`  let value = changetype<${resolvedType}>(load<usize>(${fieldPtr}) || __new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
+        // out.push("  if (changetype<usize>(value) == 0) {");
+        // out.push(`    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
+        // out.push(`    if (isDefined(changetype<nonnull<${resolvedType}>>(value).__INITIALIZE)) changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`);
+        // out.push(`    store<${resolvedType}>(${fieldPtr}, value);`);
+        // out.push("  }");
+        out.push(`  ${srcPtr} += changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${srcPtr}, srcEnd, value);`);
+        if (member.node.type.isNullable) {
+          out.push("  }");
+        }
+        out.push("}");
+      } else {
+        // Generic value scanner for complex members (objects, arrays, maps, sets, custom classes).
+        // It captures a complete JSON value slice and delegates typed parsing to JSON.__deserialize<T>.
+        out.push("{");
+        out.push(`  const valueStart = ${srcPtr};`);
+        out.push("  let depth: i32 = 0;");
+        out.push("  let inString = false;");
+        out.push(`  while (${srcPtr} < srcEnd) {`);
+        out.push(`    const code = load<u16>(${srcPtr});`);
+        out.push("    if (inString) {");
+        out.push(`      if (code == 0x22 && load<u16>(${srcPtr} - 2) != 0x5c) inString = false;`);
+        out.push(`      ${srcPtr} += 2;`);
+        out.push("      continue;");
+        out.push("    }");
+        out.push("    if (code == 0x22) {");
+        out.push("      inString = true;");
+        out.push(`      ${srcPtr} += 2;`);
+        out.push("      continue;");
+        out.push("    }");
+        out.push("    if (code == 0x7b || code == 0x5b) {");
+        out.push("      depth++;");
+        out.push(`      ${srcPtr} += 2;`);
+        out.push("      continue;");
+        out.push("    }");
+        out.push("    if (code == 0x7d || code == 0x5d) {");
+        out.push("      if (depth == 0) break;");
+        out.push("      depth--;");
+        out.push(`      ${srcPtr} += 2;`);
+        out.push("      continue;");
+        out.push("    }");
+        out.push("    if (code == 0x2c && depth == 0) break;");
+        out.push(`    ${srcPtr} += 2;`);
+        out.push("  }");
+        out.push(`  if (inString || depth != 0 || ${srcPtr} <= valueStart) break;`);
+        out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
+        out.push("}");
       }
       return out;
     };
@@ -690,11 +737,11 @@ export class JSONTransform extends Visitor {
     }
 
     DESERIALIZE_FAST += indent + "if (load<u16>(srcStart) !== 0x7d) break; // }\n";
-    DESERIALIZE_FAST += indent + "return out;\n";
+    DESERIALIZE_FAST += indent + "srcStart += 2;\n";
+    DESERIALIZE_FAST += indent + "return srcStart - srcStartHead;\n";
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "} while (false);\n\n";
-    DESERIALIZE_FAST += indent + 'throw new Error("Failed to parse JSON");';
-    // DESERIALIZE_FAST += indent + "return inline.always(this.__DESERIALIZE_SLOW<__JSON_T>(srcStartHead, srcEnd, out));\n";
+    DESERIALIZE_FAST += indent + 'throw new Error("Failed to parse JSON ");';
 
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "}";
@@ -1284,7 +1331,7 @@ export class JSONTransform extends Visitor {
       console.log(DESERIALIZE_CUSTOM || DESERIALIZE);
     }
 
-    const DESERIALIZE_WRAPPER = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n  return inline.always(this.__DESERIALIZE_FAST<__JSON_T>(srcStart, srcEnd, out));\n}";
+    const DESERIALIZE_WRAPPER = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n" + "  inline.always(this.__DESERIALIZE_FAST<__JSON_T>(srcStart, srcEnd, out));\n" + "  return out;\n" + "}";
     const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
     const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
     const DESERIALIZE_METHOD = SimpleParser.parseClassMember(DESERIALIZE_CUSTOM || DESERIALIZE_WRAPPER, node);

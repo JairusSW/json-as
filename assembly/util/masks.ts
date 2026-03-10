@@ -11,6 +11,17 @@ export function mask_to_string(mask: u64): string {
   return result;
 }
 
+export function block_to_string(block: u64): string {
+  let result = "     ";
+  const buf = changetype<usize>(new ArrayBuffer(8));
+  store<u64>(buf, block);
+  result += String.fromCharCode(load<u16>(buf, 6)) + "     ";
+  result += String.fromCharCode(load<u16>(buf, 4)) + "     ";
+  result += String.fromCharCode(load<u16>(buf, 2)) + "     ";
+  result += String.fromCharCode(load<u16>(buf, 0)) + "     ";
+  return result;
+}
+
 export function mask_to_string_v128(vec: v128): string {
   let result = "0x";
 

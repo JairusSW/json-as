@@ -1,5 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
+import { deserializeString_SWAR_TO, deserializeStringScan_SWAR } from "../deserialize/swar/string";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
 
@@ -106,26 +107,27 @@ v1.recent_activity[4] = act4;
 
 const v2: string = JSON.stringify<MediumAPIResponse>(v1);
 const byteLength: usize = v2.length << 1;
+const v2Ptr: usize = changetype<usize>(v2);
 
 expect(JSON.stringify(v1)).toBe(v2);
 expect(JSON.stringify(JSON.parse<MediumAPIResponse>(v2))).toBe(v2);
 
-bench(
-  "Serialize Medium API Response",
-  () => {
-    blackbox(inline.always(JSON.stringify<MediumAPIResponse>(v1)));
-  },
-  500_000,
-  byteLength,
-);
-dumpToFile("medium", "serialize");
+// bench(
+//   "Serialize Medium API Response",
+//   () => {
+//     blackbox(inline.always(JSON.stringify<MediumAPIResponse>(v1)));
+//   },
+//   500_000,
+//   byteLength,
+// );
+// dumpToFile("medium", "serialize");
 
 bench(
   "Deserialize Medium API Response",
   () => {
-    blackbox(inline.always(JSON.parse<MediumAPIResponse>(v2)));
+    inline.always(JSON.parse<MediumAPIResponse>(v2));
   },
-  500_000,
+  1000,
   byteLength,
 );
 dumpToFile("medium", "deserialize");

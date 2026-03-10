@@ -39,7 +39,7 @@ for file in "${FILES[@]}"; do
     for runtime in $RUNTIMES; do
         output="./build/${filename%.ts}.${runtime}"
 
-        JSON_MODE=NAIVE npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start || {
+        JSON_WRITE=$file JSON_MODE=NAIVE npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start || {
             echo "Build failed"
             exit 1
         }
@@ -47,7 +47,7 @@ for file in "${FILES[@]}"; do
         wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4 "${output}.tmp" -o "${output}.naive.wasm"
         rm "${output}.tmp"
 
-        JSON_MODE=SWAR npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start || {
+        JSON_WRITE=$file JSON_MODE=SWAR npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start || {
             echo "Build failed"
             exit 1
         }

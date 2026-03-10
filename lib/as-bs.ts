@@ -243,8 +243,8 @@ export namespace bs {
   // @ts-expect-error: @inline is a valid decorator
   @inline export function outTo<T>(dst: usize): T {
     const len = offset - buffer;
-    // @ts-expect-error: __renew is a runtime builtin
     if (len != changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize) {
+      // @ts-expect-error: __renew is a runtime builtin
       dst = __renew(dst, len);
     }
     memory.copy(dst, buffer, len);

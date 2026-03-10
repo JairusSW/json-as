@@ -228,216 +228,168 @@ export function deserializeString_SWAR_TO(srcStart: usize, srcEnd: usize, outPtr
   return srcEnd + 2;
 }
 
-// Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
-export function deserializeStringScan_SWAR(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+// @ts-expect-error: @inline is a valid decorator
+@inline function writeStringToField(dstFieldPtr: usize, srcStart: usize, byteLength: u32): void {
+  if (byteLength == 0) {
+    store<usize>(dstFieldPtr, changetype<usize>(""));
+    return;
+  }
 
-  const payloadStart = srcStart + 2;
-  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
+  const current = load<usize>(dstFieldPtr);
+  let outPtr: usize;
+  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+    outPtr = current;
+  } else {
+    outPtr = __new(byteLength, idof<string>());
+    store<usize>(dstFieldPtr, outPtr);
+  }
+  memory.copy(outPtr, srcStart, byteLength);
+}
+
+// @ts-expect-error: @inline is a valid decorator
+@inline function deserializeEscapedStringScan_SWAR(payloadStart: usize, escapeStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   const bsStart = bs.offset;
-  let escapeStart: usize = 0;
-  srcStart = payloadStart;
+  const prefixLen = <u32>(escapeStart - payloadStart);
+  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
+  bs.ensureSize(<u32>(srcEnd - payloadStart));
+  if (prefixLen != 0) {
+    memory.copy(bs.offset, payloadStart, prefixLen);
+    bs.offset += prefixLen;
+  }
+
+  let lastPtr = escapeStart;
+  let srcStart = escapeStart;
 
   while (srcStart <= srcEnd8) {
-    const block = load<u64>(srcStart);
-    const b = block ^ 0x005c_005c_005c_005c;
-    const q = block ^ 0x0022_0022_0022_0022;
-    let mask = inline.always(((b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080) | ((q - 0x0001_0001_0001_0001) & ~q & 0x0080_0080_0080_0080));
+    const blockStart = srcStart;
+    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
     if (mask === 0) {
       srcStart += 8;
       continue;
     }
 
     do {
-      const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
+      const laneIdx = usize(ctz(mask) >> 3);
       mask &= mask - 1;
-      const ptr = srcStart + laneIdx;
-      const char = load<u16>(ptr);
-      if (char != BACK_SLASH && char != QUOTE) continue;
-
-      if (char == QUOTE) {
-        const len = <u32>(ptr - payloadStart);
-        if (len > 0) {
-          bs.ensureSize(len);
-          memory.copy(bs.offset, payloadStart, len);
-          bs.offset += len;
-        }
-        const current = load<usize>(dstFieldPtr);
-        let outPtr: usize;
-        if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == len) {
-          outPtr = current;
-        } else {
-          // @ts-expect-error: __new is a runtime builtin
-          outPtr = __new(len, idof<string>());
-          store<usize>(dstFieldPtr, outPtr);
-        }
-        memory.copy(outPtr, bsStart, len);
-        bs.offset = bsStart;
-        return ptr + 2;
-      }
-
-      escapeStart = ptr;
-      break;
-    } while (mask !== 0);
-
-    if (escapeStart != 0) break;
-    srcStart += 8;
-  }
-
-  if (escapeStart == 0) {
-    while (srcStart < srcEnd) {
-      const char = load<u16>(srcStart);
-      if (char == QUOTE) {
-        const len = <u32>(srcStart - payloadStart);
-        if (len > 0) {
-          bs.ensureSize(len);
-          memory.copy(bs.offset, payloadStart, len);
-          bs.offset += len;
-        }
-        const current = load<usize>(dstFieldPtr);
-        let outPtr: usize;
-        if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == len) {
-          outPtr = current;
-        } else {
-          // @ts-expect-error: __new is a runtime builtin
-          outPtr = __new(len, idof<string>());
-          store<usize>(dstFieldPtr, outPtr);
-        }
-        memory.copy(outPtr, bsStart, len);
-        bs.offset = bsStart;
-        return srcStart + 2;
-      }
-      if (char == BACK_SLASH) {
-        escapeStart = srcStart;
-        break;
-      }
-      srcStart += 2;
-    }
-  }
-
-  if (escapeStart != 0) {
-    srcStart = escapeStart;
-    const prefixLen = srcStart - payloadStart;
-    bs.ensureSize(<u32>(prefixLen + 48));
-    if (prefixLen > 0) {
-      memory.copy(bs.offset, payloadStart, prefixLen);
-      bs.offset += prefixLen;
-    }
-
-    let lastPtr = srcStart;
-    const escapedEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
-
-    while (srcStart <= escapedEnd8) {
-      const block = load<u64>(srcStart);
-      const b = block ^ 0x005c_005c_005c_005c;
-      const q = block ^ 0x0022_0022_0022_0022;
-      let mask = inline.always(((b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080) | ((q - 0x0001_0001_0001_0001) & ~q & 0x0080_0080_0080_0080));
-      if (mask === 0) {
-        srcStart += 8;
-        continue;
-      }
-
-      let handled = false;
-      do {
-        const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
-        mask &= mask - 1;
-        const ptr = srcStart + laneIdx;
-        const char = load<u16>(ptr);
-        if (char != BACK_SLASH && char != QUOTE) continue;
-
-        const runLen = ptr - lastPtr;
-        bs.ensureSize(<u32>(runLen + 12));
-        if (runLen > 0) {
+      const srcIdx = srcStart + laneIdx;
+      const char = load<u16>(srcIdx);
+      if (char != BACK_SLASH) {
+        if (char != QUOTE) continue;
+        const runLen = <u32>(srcIdx - lastPtr);
+        if (runLen != 0) {
           memory.copy(bs.offset, lastPtr, runLen);
           bs.offset += runLen;
         }
-
-        if (char == QUOTE) {
-          const len = <u32>(bs.offset - bsStart);
-          const current = load<usize>(dstFieldPtr);
-          let outPtr: usize;
-          if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == len) {
-            outPtr = current;
-          } else {
-            // @ts-expect-error: __new is a runtime builtin
-            outPtr = __new(len, idof<string>());
-            store<usize>(dstFieldPtr, outPtr);
-          }
-          memory.copy(outPtr, bsStart, len);
-          bs.offset = bsStart;
-          return ptr + 2;
-        }
-
-        const code = load<u16>(ptr, 2);
-        if (code != 0x75) {
-          const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-          if (escaped == 0 && code != BACK_SLASH) abort("Invalid string escape");
-          store<u16>(bs.offset, escaped);
-          bs.offset += 2;
-          lastPtr = ptr + 4;
-        } else {
-          if (ptr + 12 > srcEnd) abort("Invalid unicode escape");
-          const hex = load<u64>(ptr, 4); // XXXX
-          store<u16>(bs.offset, hex4_to_u16_swar(hex));
-          bs.offset += 2;
-          lastPtr = ptr + 12;
-        }
-
-        srcStart = lastPtr;
-        handled = true;
-        break;
-      } while (mask !== 0);
-
-      if (!handled) srcStart += 8;
-    }
-
-    while (srcStart < srcEnd) {
-      const char = load<u16>(srcStart);
-      if (char != BACK_SLASH && char != QUOTE) {
-        srcStart += 2;
-        continue;
+        writeStringToField(dstFieldPtr, bsStart, <u32>(bs.offset - bsStart));
+        bs.offset = bsStart;
+        return srcIdx + 2;
       }
 
-      const runLen = srcStart - lastPtr;
-      bs.ensureSize(<u32>(runLen + 12));
-      if (runLen > 0) {
+      const runLen = <u32>(srcIdx - lastPtr);
+      if (runLen != 0) {
         memory.copy(bs.offset, lastPtr, runLen);
         bs.offset += runLen;
       }
 
-      if (char == QUOTE) {
-        const len = <u32>(bs.offset - bsStart);
-        const current = load<usize>(dstFieldPtr);
-        let outPtr: usize;
-        if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == len) {
-          outPtr = current;
-        } else {
-          // @ts-expect-error: __new is a runtime builtin
-          outPtr = __new(len, idof<string>());
-          store<usize>(dstFieldPtr, outPtr);
-        }
-        memory.copy(outPtr, bsStart, len);
-        bs.offset = bsStart;
-        return srcStart + 2;
+      const chunk = load<u32>(srcIdx);
+      const code = <u16>(chunk >> 16);
+      if (code !== 0x75) {
+        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+        bs.offset += 2;
+        lastPtr = srcIdx + 4;
+        srcStart = lastPtr;
+        break;
       }
 
-      const code = load<u16>(srcStart, 2);
-      if (code != 0x75) {
-        const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-        if (escaped == 0 && code != BACK_SLASH) abort("Invalid string escape");
-        store<u16>(bs.offset, escaped);
-        bs.offset += 2;
-        srcStart += 4;
-      } else {
-        if (srcStart + 12 > srcEnd) abort("Invalid unicode escape");
-        const hex = load<u64>(srcStart, 4); // XXXX
-        store<u16>(bs.offset, hex4_to_u16_swar(hex));
-        bs.offset += 2;
-        srcStart += 12;
-      }
+      store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
+      bs.offset += 2;
+      lastPtr = srcIdx + 12;
+      srcStart = lastPtr;
+      break;
+    } while (mask !== 0);
+    if (srcStart == blockStart) srcStart += 8;
+  }
 
-      lastPtr = srcStart;
+  while (srcStart < srcEnd) {
+    const char = load<u16>(srcStart);
+    if (char != BACK_SLASH && char != QUOTE) {
+      srcStart += 2;
+      continue;
     }
+
+    const runLen = <u32>(srcStart - lastPtr);
+    if (runLen != 0) {
+      memory.copy(bs.offset, lastPtr, runLen);
+      bs.offset += runLen;
+    }
+
+    if (char != BACK_SLASH) {
+      writeStringToField(dstFieldPtr, bsStart, <u32>(bs.offset - bsStart));
+      bs.offset = bsStart;
+      return srcStart + 2;
+    }
+
+    const code = load<u16>(srcStart, 2);
+    if (code !== 0x75) {
+      store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+      bs.offset += 2;
+      srcStart += 4;
+    } else {
+      store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
+      bs.offset += 2;
+      srcStart += 12;
+    }
+
+    lastPtr = srcStart;
+  }
+
+  bs.offset = bsStart;
+  abort("Unterminated string literal");
+  return srcStart;
+}
+
+// Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
+export function deserializeStringScan_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+
+  const payloadStart = srcStart + 2;
+  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
+  srcStart = payloadStart;
+
+  while (srcStart <= srcEnd8) {
+    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
+    if (mask === 0) {
+      srcStart += 8;
+      continue;
+    }
+
+    do {
+      const laneIdx = usize(ctz(mask) >> 3);
+      mask &= mask - 1;
+      const srcIdx = srcStart + laneIdx;
+      const char = load<u16>(srcIdx);
+      if (char != BACK_SLASH) {
+        if (char != QUOTE) continue;
+        writeStringToField(dstFieldPtr, payloadStart, <u32>(srcIdx - payloadStart));
+        return srcIdx + 2;
+      }
+
+      return deserializeEscapedStringScan_SWAR(payloadStart, srcIdx, srcEnd, dstFieldPtr);
+    } while (mask !== 0);
+
+    srcStart += 8;
+  }
+
+  while (srcStart < srcEnd) {
+    const char = load<u16>(srcStart);
+    if (char == QUOTE) {
+      writeStringToField(dstFieldPtr, payloadStart, <u32>(srcStart - payloadStart));
+      return srcStart + 2;
+    }
+    if (char == BACK_SLASH) {
+      return deserializeEscapedStringScan_SWAR(payloadStart, srcStart, srcEnd, dstFieldPtr);
+    }
+    srcStart += 2;
   }
 
   abort("Unterminated string literal");
@@ -476,4 +428,18 @@ export function deserializeStringScan_SWAR(srcStart: usize, srcEnd: usize, dstFi
   const b = block ^ 0x005c_005c_005c_005c;
   const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
   return backslash_mask;
+}
+
+/**
+ * Computes a per-byte mask identifying ASCII backslash or quote bytes.
+ *
+ * WARNING: Matches in the high byte of a UTF-16 code unit are not filtered,
+ * so callers must confirm the hit scalarly.
+ * Each matching lane sets itself to 0x80.
+ */
+// @ts-expect-error: @inline is a valid decorator
+@inline function backslash_or_quote_mask(block: u64): u64 {
+  const b = block ^ 0x005c_005c_005c_005c;
+  const q = block ^ 0x0022_0022_0022_0022;
+  return (((q - 0x0001_0001_0001_0001) & ~q) | ((b - 0x0001_0001_0001_0001) & ~b)) & 0x0080_0080_0080_0080;
 }

@@ -34,3 +34,21 @@ dumpToFile("medium-str", "deserialize");
 
 bench("Deserialize Large String (1000kb)", () => blackbox(JSON.parse<string>(strLargeStr)), 3_000, strLargeStr.length << 1);
 dumpToFile("large-str", "deserialize");
+
+bench("Deserialize Small String Scan (1kb)", () => blackbox(JSON.parse<string>(strSmallStr)), 3_000_000, strSmallStr.length << 1);
+dumpToFile("small-str-scan", "deserialize");
+
+bench("Deserialize Medium String Scan (500kb)", () => blackbox(JSON.parse<string>(strMediumStr)), 8_500, strMediumStr.length << 1);
+dumpToFile("medium-str-scan", "deserialize");
+
+bench("Deserialize Large String Scan (1000kb)", () => blackbox(JSON.parse<string>(strLargeStr)), 3_000, strLargeStr.length << 1);
+dumpToFile("large-str-scan", "deserialize");
+
+bench("Deserialize Small String Memcpy (1kb)", () => blackbox(JSON.parse<string>(strSmallStr)), 3_000_000, strSmallStr.length << 1);
+dumpToFile("small-str-scan", "deserialize");
+
+bench("Deserialize Medium String Memcpy (500kb)", () => blackbox(JSON.parse<string>(strMediumStr)), 8_500, strMediumStr.length << 1);
+dumpToFile("medium-str-scan", "deserialize");
+
+bench("Deserialize Large String Memcpy (1000kb)", () => blackbox(JSON.parse<string>(strLargeStr)), 3_000, strLargeStr.length << 1);
+dumpToFile("large-str-scan", "deserialize");
