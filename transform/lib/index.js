@@ -516,13 +516,6 @@ export class JSONTransform extends Visitor {
             }
             return output;
         };
-        const variables = new Set();
-        const getVariable = (initializer, name, value, type = null) => {
-            if (variables.has(name))
-                return name + " = " + value;
-            variables.add(name);
-            return initializer + " " + name + " = " + value;
-        };
         const UNSIGNED_INTEGER_TYPES = ["u8", "u16", "u32", "u64", "usize"];
         const SIGNED_INTEGER_TYPES = ["i8", "i16", "i32", "i64", "isize"];
         const FLOAT_TYPES = ["f32", "f64"];
@@ -533,11 +526,11 @@ export class JSONTransform extends Visitor {
             }
             return null;
         };
-        const getDeserializer = (type, srcPtr, outPtr, member) => {
-            const isLast = this.schema.members.indexOf(member) == this.schema.members.length - 1;
+        const getDeserializer = (type, srcPtr, outPtr, member, keyOffset = 0) => {
             const out = [];
             const resolvedType = stripNull(type);
             const fieldPtr = `${outPtr} + offsetof<this>(${JSON.stringify(member.name)})`;
+            const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
             if (INTEGER_TYPES.includes(resolvedType)) {
                 out.push("{");
                 out.push(`  const valueStart = ${srcPtr};`);
@@ -563,12 +556,12 @@ export class JSONTransform extends Visitor {
             else if (["string", "String"].includes(resolvedType)) {
                 out.push("{");
                 if (member.node.type.isNullable) {
-                    out.push(`  if (load<u64>(${srcPtr}) == 30399761348886638) {`);
+                    out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
                     out.push(`    store<${member.type}>(${fieldPtr}, changetype<${member.type}>(0));`);
-                    out.push(`    ${srcPtr} += 8;`);
+                    out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
                     out.push("  } else {");
                 }
-                out.push(`  ${srcPtr} = deserializeStringToField_SWAR<${member.type}>(${srcPtr}, srcEnd, dst + offsetof<this>(${JSON.stringify(member.name)}));`);
+                out.push(`  ${srcPtr} = deserializeStringToField_SWAR<${member.type}>(${valuePtr}, srcEnd, ${fieldPtr});`);
                 if (member.node.type.isNullable) {
                     out.push("  }");
                 }
@@ -784,8 +777,13 @@ export class JSONTransform extends Visitor {
                 throw new Error("Key cannot be empty!");
             const keySection = (i == 0 ? "{" : ",") + key + ":";
             DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
-            DESERIALIZE_FAST += indent + `srcStart += ${keySection.length << 1};\n\n`;
-            const deserializer = getDeserializer(member.type, "srcStart", "dst", member);
+            const keyOffset = keySection.length << 1;
+            const resolvedType = stripNull(member.type);
+            const inlineStringValue = ["string", "String"].includes(resolvedType);
+            if (!inlineStringValue) {
+                DESERIALIZE_FAST += indent + `srcStart += ${keyOffset};\n\n`;
+            }
+            const deserializer = getDeserializer(member.type, "srcStart", "dst", member, inlineStringValue ? keyOffset : 0);
             if (!deserializer.length) {
                 DESERIALIZE_FAST += indent + "break;\n\n";
                 continue;

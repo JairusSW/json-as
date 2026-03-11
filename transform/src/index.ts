@@ -555,11 +555,12 @@ export class JSONTransform extends Visitor {
       return null;
     };
 
-    const getDeserializer = (type: string, srcPtr: string, outPtr: string, member: Property): string[] => {
+    const getDeserializer = (type: string, srcPtr: string, outPtr: string, member: Property, keyOffset: number = 0): string[] => {
       // const isLast = this.schema.members.indexOf(member) == this.schema.members.length - 1;
       const out: string[] = [];
       const resolvedType = stripNull(type);
       const fieldPtr = `${outPtr} + offsetof<this>(${JSON.stringify(member.name)})`;
+      const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
 
       if (INTEGER_TYPES.includes(resolvedType)) {
         out.push("{");
@@ -585,12 +586,12 @@ export class JSONTransform extends Visitor {
       } else if (["string", "String"].includes(resolvedType)) {
         out.push("{");
         if (member.node.type.isNullable) {
-          out.push(`  if (load<u64>(${srcPtr}) == 30399761348886638) {`);
+          out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
           out.push(`    store<${member.type}>(${fieldPtr}, changetype<${member.type}>(0));`);
-          out.push(`    ${srcPtr} += 8;`);
+          out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
           out.push("  } else {");
         }
-        out.push(`  ${srcPtr} = deserializeStringToField_SWAR<${member.type}>(${srcPtr}, srcEnd, dst + offsetof<this>(${JSON.stringify(member.name)}));`);
+        out.push(`  ${srcPtr} = deserializeStringToField_SWAR<${member.type}>(${valuePtr}, srcEnd, ${fieldPtr});`);
         if (member.node.type.isNullable) {
           out.push("  }");
         }
@@ -808,9 +809,14 @@ export class JSONTransform extends Visitor {
 
       const keySection = (i == 0 ? "{" : ",") + key + ":";
       DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
-      DESERIALIZE_FAST += indent + `srcStart += ${keySection.length << 1};\n\n`;
+      const keyOffset = keySection.length << 1;
+      const resolvedType = stripNull(member.type);
+      const inlineStringValue = ["string", "String"].includes(resolvedType);
+      if (!inlineStringValue) {
+        DESERIALIZE_FAST += indent + `srcStart += ${keyOffset};\n\n`;
+      }
       // separate into optimized code generators for each type
-      const deserializer = getDeserializer(member.type, "srcStart", "dst", member);
+      const deserializer = getDeserializer(member.type, "srcStart", "dst", member, inlineStringValue ? keyOffset : 0);
       if (!deserializer.length) {
         DESERIALIZE_FAST += indent + "break;\n\n";
         continue;
