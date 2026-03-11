@@ -18,6 +18,7 @@ const rawValue = process.env["JSON_DEBUG"]?.trim();
 const DEBUG = rawValue === "true" ? 1 : rawValue === "false" || rawValue === "" ? 0 : isNaN(Number(rawValue)) ? 0 : Number(rawValue);
 
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
+const USE_FAST_PATH = process.env["JSON_USE_FAST_PATH"]?.trim() === "1";
 // const STRING_SCAN_SUFFIX_BOUND_LIMIT = process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"] ? parseInt(process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"]) : 1024;
 
 export class JSONTransform extends Visitor {
@@ -242,7 +243,7 @@ export class JSONTransform extends Visitor {
 
     let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
     let INITIALIZE = "@inline __INITIALIZE(): this {\n";
-    let DESERIALIZE = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
+    let DESERIALIZE = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
     let DESERIALIZE_FAST = "@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
     let DESERIALIZE_CUSTOM = "";
     let SERIALIZE_CUSTOM = "";
@@ -288,8 +289,10 @@ export class JSONTransform extends Visitor {
         deserializer.decorators.push(Node.createDecorator(Node.createIdentifierExpression("inline", deserializer.range), null, deserializer.range));
       }
 
-      DESERIALIZE_CUSTOM += "  __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n";
-      DESERIALIZE_CUSTOM += "    return inline.always(this." + deserializer.name.text + "(JSON.Util.ptrToStr(srcStart, srcEnd)));\n";
+      DESERIALIZE_CUSTOM += "  __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
+      DESERIALIZE_CUSTOM += "    const data = inline.always(this." + deserializer.name.text + "(JSON.Util.ptrToStr(srcStart, srcEnd)));\n";
+      DESERIALIZE_CUSTOM += "    memory.copy(changetype<usize>(out), changetype<usize>(data), offsetof<nonnull<__JSON_T>>());\n";
+      DESERIALIZE_CUSTOM += "    return srcEnd;\n";
       DESERIALIZE_CUSTOM += "  }\n";
     }
 
@@ -582,7 +585,7 @@ export class JSONTransform extends Visitor {
         // out.push(`  `);
         // out.push(`  if (load<u16>(${srcPtr}) != 0x22) break;`);
         // out.push(`  ${srcPtr} += 2;`);
-        out.push(`  srcStart = deserializeStringScan_SWAR<${member.type}>(srcStart, srcEnd, dst + offsetof<this>(${JSON.stringify(member.name)}));`);
+        out.push(`  srcStart = deserializeStringToField_SWAR<${member.type}>(srcStart, srcEnd, dst + offsetof<this>(${JSON.stringify(member.name)}));`);
         // out.push(`  while (${srcPtr} < srcEnd) {`);
         // out.push(`    const code = load<u16>(${srcPtr});`);
         // out.push(`    if (code == 0x22 && load<u16>(${srcPtr} - 2) != 0x5c) {`);
@@ -663,7 +666,7 @@ export class JSONTransform extends Visitor {
         // out.push(`    if (isDefined(changetype<nonnull<${resolvedType}>>(value).__INITIALIZE)) changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`);
         // out.push(`    store<${resolvedType}>(${fieldPtr}, value);`);
         // out.push("  }");
-        out.push(`  ${srcPtr} += changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${srcPtr}, srcEnd, value);`);
+        out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE<${resolvedType}>(${srcPtr}, srcEnd, value);`);
         if (member.node.type.isNullable) {
           out.push("  }");
         }
@@ -716,7 +719,7 @@ export class JSONTransform extends Visitor {
     DESERIALIZE_FAST += indent + "do {\n";
     indent += "  ";
 
-    DESERIALIZE_FAST += indent + `if (srcEnd - srcStart < ${this.schema.getMinLength()}) break;\n\n`;
+    // DESERIALIZE_FAST += indent + `if (srcEnd - srcStart < ${this.schema.getMinLength()}) break;\n\n`;
 
     for (let i = 0; i < this.schema.members.length; i++) {
       const member = this.schema.members[i];
@@ -738,7 +741,7 @@ export class JSONTransform extends Visitor {
 
     DESERIALIZE_FAST += indent + "if (load<u16>(srcStart) !== 0x7d) break; // }\n";
     DESERIALIZE_FAST += indent + "srcStart += 2;\n";
-    DESERIALIZE_FAST += indent + "return srcStart - srcStartHead;\n";
+    DESERIALIZE_FAST += indent + "return srcStart;\n";
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "} while (false);\n\n";
     DESERIALIZE_FAST += indent + 'throw new Error("Failed to parse JSON ");';
@@ -1308,7 +1311,7 @@ export class JSONTransform extends Visitor {
     indentDec();
     DESERIALIZE += `  }\n`; // Close while loop
     indentDec();
-    DESERIALIZE += `  return out;\n}\n`; // Close function
+    DESERIALIZE += `  return srcStart;\n}\n`; // Close function
 
     indent = "  ";
 
@@ -1331,18 +1334,16 @@ export class JSONTransform extends Visitor {
       console.log(DESERIALIZE_CUSTOM || DESERIALIZE);
     }
 
-    const DESERIALIZE_WRAPPER = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n" + "  inline.always(this.__DESERIALIZE_FAST<__JSON_T>(srcStart, srcEnd, out));\n" + "  return out;\n" + "}";
+    const DESERIALIZE_DIRECT = USE_FAST_PATH ? DESERIALIZE_FAST.replace("@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {", "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {") : DESERIALIZE.replace("__DESERIALIZE_SLOW<__JSON_T>", "__DESERIALIZE<__JSON_T>");
     const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
     const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
-    const DESERIALIZE_METHOD = SimpleParser.parseClassMember(DESERIALIZE_CUSTOM || DESERIALIZE_WRAPPER, node);
-    const DESERIALIZE_SLOW_METHOD = SimpleParser.parseClassMember(DESERIALIZE, node);
-    const DESERIALIZE_FAST_METHOD = SimpleParser.parseClassMember(DESERIALIZE_FAST, node);
+    const DESERIALIZE_METHOD = SimpleParser.parseClassMember(DESERIALIZE_CUSTOM || DESERIALIZE_DIRECT, node);
+    const DESERIALIZE_FAST_METHOD = USE_FAST_PATH ? SimpleParser.parseClassMember(DESERIALIZE_FAST, node) : null;
 
     if (!node.members.find((v) => v.name.text == "__SERIALIZE")) node.members.push(SERIALIZE_METHOD);
     if (!node.members.find((v) => v.name.text == "__INITIALIZE")) node.members.push(INITIALIZE_METHOD);
     if (!node.members.find((v) => v.name.text == "__DESERIALIZE")) node.members.push(DESERIALIZE_METHOD);
-    if (!DESERIALIZE_CUSTOM && !node.members.find((v) => v.name.text == "__DESERIALIZE_SLOW")) node.members.push(DESERIALIZE_SLOW_METHOD);
-    if (!DESERIALIZE_CUSTOM && !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")) node.members.push(DESERIALIZE_FAST_METHOD);
+    if (!DESERIALIZE_CUSTOM && USE_FAST_PATH && DESERIALIZE_FAST_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")) node.members.push(DESERIALIZE_FAST_METHOD);
     super.visitClassDeclaration(node);
   }
   getSchema(name: string): Schema | null {
@@ -1352,7 +1353,7 @@ export class JSONTransform extends Visitor {
   generateEmptyMethods(node: ClassDeclaration): void {
     const SERIALIZE_EMPTY = "@inline __SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
     const INITIALIZE_EMPTY = "@inline __INITIALIZE(): this {\n  return this;\n}";
-    const DESERIALIZE_EMPTY = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): __JSON_T {\n  return out;\n}";
+    const DESERIALIZE_EMPTY = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n  return srcEnd;\n}";
 
     if (DEBUG > 0) {
       console.log(SERIALIZE_EMPTY);

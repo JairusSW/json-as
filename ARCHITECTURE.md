@@ -58,9 +58,9 @@ The transform (`transform/src/`) is an AssemblyScript compiler plugin that runs 
    - Decorator metadata (@alias, @omit, @omitnull, @omitif)
    - Inheritance relationships
    - Type dependencies
-3. **Code Generation**: Generates two methods for each class:
+3. **Code Generation**: Generates methods for each class:
    - `__SERIALIZE(ptr: usize): void` - Writes JSON to the buffer
-   - `__DESERIALIZE<T>(srcStart, srcEnd, out): T` - Parses JSON into object
+   - `__DESERIALIZE<T>(srcStart, srcEnd, out): usize` - Parses JSON into `out` and returns the advanced source pointer
 
 ### Key Files
 
@@ -91,9 +91,10 @@ __SERIALIZE(ptr: usize): void {
   bs.offset += 2;
 }
 
-__DESERIALIZE<T>(srcStart: usize, srcEnd: usize, out: T): T {
+__DESERIALIZE<T>(srcStart: usize, srcEnd: usize, out: T): usize {
   // Key matching and value parsing logic
   // Uses switch statements on key length for efficiency
+  return srcStart;
 }
 ```
 
@@ -286,12 +287,14 @@ For `@json` decorated classes, the generated `__DESERIALIZE` method:
 4. Compares key bytes directly (often as `u32` or `u64` for short keys)
 5. Deserializes value to appropriate type
 6. Stores in output object at correct offset
+7. Returns the updated source pointer after the parsed value
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `JSON_MODE` | SWAR | Optimization mode: NAIVE, SWAR, SIMD |
+| `JSON_USE_FAST_PATH` | 0 | When set to `1`, emit the fast struct `__DESERIALIZE` body and helper; otherwise emit only the slow path |
 | `JSON_DEBUG` | 0 | Debug level 0-3 (prints generated code) |
 | `JSON_WRITE` | "" | Comma-separated files to output after transform |
 | `JSON_CACHE` | 0 | Enable string caching (set to 1) |

@@ -215,7 +215,8 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error
-        return out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
+        out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
+        return out;
       } else if (type instanceof Map) {
         // @ts-expect-error
         return inline.always(deserializeMap<nonnull<T>>(dataPtr, dataPtr + dataSize, 0));
@@ -818,7 +819,8 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
-        return out.__DESERIALIZE(srcStart, srcEnd, out);
+        out.__DESERIALIZE(srcStart, srcEnd, out);
+        return out;
       } else if (type instanceof Map) {
         // @ts-expect-error: type
         return deserializeMap<T>(srcStart, srcEnd, dst);

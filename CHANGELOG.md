@@ -3,6 +3,8 @@
 ## UNRELEASED
 
 - compat: add compatability between json-as and try-as by ignoring methods prefixed by __try
+- feat: gate generated fast struct deserialization behind `JSON_USE_FAST_PATH=1`
+- refactor: make generated struct `__DESERIALIZE` methods return the advanced source pointer
 
 ## 2026-02-18 - 1.2.6
 
