@@ -12,6 +12,7 @@
     "@assemblyscript/wasi-shim": "^0.1.0",
     "@eslint/js": "^9.0.0",
     "@types/node": "^25.0.10",
+    "as-test": "^1.0.1",
     "assemblyscript": "^0.28.9",
     "assemblyscript-prettier": "^3.0.1",
     "chartjs-node-canvas": "^5.0.0",
@@ -84,8 +85,5 @@
     "check": "npm run typecheck && npm run lint"
   },
   "type": "module",
-  "types": "assembly/index.ts",
-  "dependencies": {
-    "as-test": "0.5.3"
-  }
+  "types": "assembly/index.ts"
 }
