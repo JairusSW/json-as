@@ -402,7 +402,7 @@ bench(
     inline.always(reusable.__DESERIALIZE<MediumAPIResponse>(v2Ptr, v2End, reusable));
     blackbox(reusable);
   },
-  10_000,
+  500_000,
   byteLength,
 );
 dumpToFile("medium", "deserialize");
