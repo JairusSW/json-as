@@ -64,31 +64,31 @@ v1.tags = ["typescript", "webassembly", "performance", "rust", "assemblyscript",
 
 v1.recent_activity = new Array<RecentActivity>(5);
 
-let act0 = new RecentActivity();
+const act0 = new RecentActivity();
 act0.action = "starred";
 act0.timestamp = "2025-12-22T10:15:00Z";
 act0.target = "assemblyscript/json-as";
 v1.recent_activity[0] = act0;
 
-let act1 = new RecentActivity();
+const act1 = new RecentActivity();
 act1.action = "commented";
 act1.timestamp = "2025-12-22T09:42:00Z";
 act1.target = "issue #142";
 v1.recent_activity[1] = act1;
 
-let act2 = new RecentActivity();
+const act2 = new RecentActivity();
 act2.action = "pushed";
 act2.timestamp = "2025-12-21T23:58:00Z";
 act2.target = "main branch";
 v1.recent_activity[2] = act2;
 
-let act3 = new RecentActivity();
+const act3 = new RecentActivity();
 act3.action = "forked";
 act3.timestamp = "2025-12-21T18:20:00Z";
 act3.target = "fast-json-wasm";
 v1.recent_activity[3] = act3;
 
-let act4 = new RecentActivity();
+const act4 = new RecentActivity();
 act4.action = "created";
 act4.timestamp = "2025-12-21T14:10:00Z";
 act4.target = "new benchmark suite";
