@@ -349,7 +349,7 @@ export function deserializeString_SWAR_TO(srcStart: usize, srcEnd: usize, outPtr
 }
 
 // Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
-export function deserializeStringScan_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+export function deserializeStringToField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
@@ -374,7 +374,7 @@ export function deserializeStringScan_SWAR<T extends string | null>(srcStart: us
         return srcIdx + 2;
       }
 
-      return deserializeEscapedStringScan_SWAR(payloadStart, srcIdx, srcEnd, dstFieldPtr);
+      return inline.always(deserializeEscapedStringScan_SWAR(payloadStart, srcIdx, srcEnd, dstFieldPtr));
     } while (mask !== 0);
 
     srcStart += 8;

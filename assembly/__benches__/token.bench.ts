@@ -1,6 +1,6 @@
 import { JSON, JSONMode } from "../";
 import { deserializeString } from "../deserialize/simple/string";
-import { deserializeString_SWAR, deserializeString_SWAR_TO, deserializeStringScan_SWAR } from "../deserialize/swar/string";
+import { deserializeString_SWAR, deserializeString_SWAR_TO, deserializeStringToField_SWAR } from "../deserialize/swar/string";
 import { deserializeString_SIMD } from "../deserialize/simd/string";
 import { serializeString } from "../serialize/simple/string";
 import { detect_escapable_u64_swar_safe, serializeString_SWAR } from "../serialize/swar/string";
@@ -858,6 +858,33 @@ class Token {
 
   //   throw new Error("Failed to parse JSON");
   // }
+  @inline
+  __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {
+    const srcStartHead = srcStart;
+    const dst = changetype<usize>(out);
+    do {
+      if (load<u64>(srcStart, 0) != 29555375068020859 || load<u32>(srcStart, 8) != 2228324 || load<u16>(srcStart, 12) != 58) break;
+      srcStart += 14;
+
+      let digit = <u32>load<u16>(srcStart) - 48;
+      if (digit > 9) break;
+      let val = digit;
+      srcStart += 2;
+      while ((digit = <u32>load<u16>(srcStart) - 48) < 10) {
+        val = val * 10 + digit;
+        srcStart += 2;
+      }
+      store<u32>(dst, val, offsetof<this>("uid"));
+
+      if (load<u64>(srcStart, 0) != 31244220633317420 || load<u64>(srcStart, 8) != 9570621661184107 || load<u16>(srcStart, 16) != 58) break;
+      srcStart += 18;
+      srcStart = inline.always(deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("token")));
+      if (load<u16>(srcStart) !== 125) break;
+      srcStart += 2;
+      return srcStart - srcStartHead;
+    } while (false);
+    throw new Error("Failed to parse JSON ");
+  }
 }
 
 const tok = new Token();
