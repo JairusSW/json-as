@@ -1,9 +1,11 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
 import { deserializeStringToField_SWAR } from "../deserialize/swar/string";
+import { atoi } from "../util/atoi";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
 const TRUE_WORD: u64 = 28429475166421108;
+const FALSE_WORD: u64 = 32370086184550502;
 
 
 @inline
@@ -14,34 +16,41 @@ function failParse(): void {
 
 @inline
 function parseBoolField(srcStart: usize, dstFieldPtr: usize): usize {
-  const value = load<u64>(srcStart) == TRUE_WORD;
-  store<bool>(dstFieldPtr, value);
-  return srcStart + 10 - (usize(value) << 1);
+  if (load<u64>(srcStart) == TRUE_WORD) {
+    store<bool>(dstFieldPtr, true);
+    return srcStart + 8;
+  }
+
+  if (load<u64>(srcStart) == FALSE_WORD && load<u16>(srcStart, 8) == 101) {
+    store<bool>(dstFieldPtr, false);
+    return srcStart + 10;
+  }
+
+  failParse();
+  return srcStart;
 }
 
 
 @inline
-function parseI32Field(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
-  let code = load<u16>(srcStart);
-  const negative = code == 45;
-  if (negative) {
-    srcStart += 2;
-    code = load<u16>(srcStart);
+function deserializeIntegerField<T extends number>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
+  let valueEnd = srcStart;
+  if (load<u16>(valueEnd) == 45) {
+    valueEnd += 2;
+    if (valueEnd >= srcEnd) failParse();
   }
 
-  let digit = <u32>code - 48;
-  let value = <i32>digit;
-  srcStart += 2;
+  let digit = <u32>load<u16>(valueEnd) - 48;
+  if (digit > 9) failParse();
+  valueEnd += 2;
 
-  while (srcStart < srcEnd) {
-    digit = <u32>load<u16>(srcStart) - 48;
+  while (valueEnd < srcEnd) {
+    digit = <u32>load<u16>(valueEnd) - 48;
     if (digit > 9) break;
-    value = value * 10 + <i32>digit;
-    srcStart += 2;
+    valueEnd += 2;
   }
 
-  store<i32>(dstFieldPtr, negative ? -value : value);
-  return srcStart;
+  store<T>(fieldPtr, atoi<T>(srcStart, valueEnd));
+  return valueEnd;
 }
 
 
@@ -114,6 +123,7 @@ class UserPreferences {
     srcStart += 44;
     srcStart = parseBoolField(srcStart, dst + offsetof<this>("two_factor_enabled"));
 
+    if (load<u16>(srcStart) != 125) failParse();
     return srcStart + 2;
   }
 }
@@ -142,6 +152,7 @@ class RecentActivity {
     srcStart += 20;
     srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("target"));
 
+    if (load<u16>(srcStart) != 125) failParse();
     return srcStart + 2;
   }
 }
@@ -218,7 +229,7 @@ class MediumAPIResponse {
 
     if (load<u64>(srcStart, 0) != 28147948644860027 || load<u32>(srcStart, 8) != 3801122) failParse();
     srcStart += 12;
-    srcStart = parseI32Field(srcStart, srcEnd, dst + offsetof<this>("id"));
+    srcStart = deserializeIntegerField<i32>(srcStart, srcEnd, dst + offsetof<this>("id"));
 
     if (load<u64>(srcStart, 0) != 32370124835127340 || load<u64>(srcStart, 8) != 27303545194807397 || load<u64>(srcStart, 16) != 16325694684725357) failParse();
     srcStart += 24;
@@ -262,11 +273,11 @@ class MediumAPIResponse {
 
     if (load<u64>(srcStart, 0) != 31244160503775276 || load<u64>(srcStart, 8) != 33495998977015916 || load<u64>(srcStart, 16) != 27866430723719269 || load<u64>(srcStart, 24) != 32651569752506479 || load<u32>(srcStart, 32) != 3801122) failParse();
     srcStart += 36;
-    srcStart = parseI32Field(srcStart, srcEnd, dst + offsetof<this>("follower_count"));
+    srcStart = deserializeIntegerField<i32>(srcStart, srcEnd, dst + offsetof<this>("follower_count"));
 
     if (load<u64>(srcStart, 0) != 31244160503775276 || load<u64>(srcStart, 8) != 33495998977015916 || load<u64>(srcStart, 16) != 26740565176352873 || load<u64>(srcStart, 24) != 30962749956620387 || load<u32>(srcStart, 32) != 2228340 || load<u16>(srcStart, 36) != 58) failParse();
     srcStart += 38;
-    srcStart = parseI32Field(srcStart, srcEnd, dst + offsetof<this>("following_count"));
+    srcStart = deserializeIntegerField<i32>(srcStart, srcEnd, dst + offsetof<this>("following_count"));
 
     if (load<u64>(srcStart, 0) != 32088628383580204 || load<u64>(srcStart, 8) != 32088581143396453 || load<u64>(srcStart, 16) != 28429397856747621 || load<u32>(srcStart, 24) != 2228339 || load<u16>(srcStart, 28) != 58) failParse();
     srcStart += 30;
@@ -295,6 +306,7 @@ class MediumAPIResponse {
     }
     srcStart = parseRecentActivityArray(srcStart, srcEnd, recentActivity);
 
+    if (load<u16>(srcStart) != 125) failParse();
     return srcStart + 2;
   }
 }
