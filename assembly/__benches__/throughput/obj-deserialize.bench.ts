@@ -1,5 +1,6 @@
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
+import { deserializeStringField_SWAR } from "../../deserialize/swar/string";
 import { bench, dumpToFile } from "../lib/bench";
 
 

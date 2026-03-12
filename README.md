@@ -418,6 +418,10 @@ The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaS
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart04.png" alt="Performance Chart 4">
 
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart05.png" alt="Performance Chart 5">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart06.png" alt="Performance Chart 6">
+
 > Note: I have focused on extensively optimizing serialization. I used to have deserialization be highly unsafe and extremely fast, but I've since doubled down on safety for deserialization which has negatively affected performance. I will be optimizing soon.
 
 > Note on Token: I am currently working on optimizing the token deserialization process. This reflects the *future* performance of this library.
