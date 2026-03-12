@@ -5,6 +5,10 @@
 - compat: add compatability between json-as and try-as by ignoring methods prefixed by __try
 - feat: gate generated fast struct deserialization behind `JSON_USE_FAST_PATH=1`
 - refactor: make generated struct `__DESERIALIZE` methods return the advanced source pointer
+- perf: merge SWAR string field deserialization into a single fast path and delay scratch-buffer setup until the first escape
+- perf: simplify generated fast integer field parsing to reuse `srcStart` and offset-based stores
+- perf: hand-tune `small.bench.ts` and refresh benchmark runner turbofan flag configuration
+- tests: add escaped-quote SWAR deserialization regressions around block boundaries
 
 ## 2026-02-18 - 1.2.6
 

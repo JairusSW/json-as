@@ -633,8 +633,8 @@ bench(
   () => {
     blackbox(inline.always(JSON.stringify(v1)));
   },
-  10_000,
-  10502,
+  100_000,
+  v2.length << 1,
 );
 dumpToFile("large", "serialize");
 
@@ -643,7 +643,7 @@ bench(
   () => {
     blackbox(inline.always(JSON.parse<Repo>(v2)));
   },
-  10_000,
-  10502,
+  100_000,
+  v2.length << 1,
 );
 dumpToFile("large", "deserialize");

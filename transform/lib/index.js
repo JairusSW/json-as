@@ -529,28 +529,27 @@ export class JSONTransform extends Visitor {
         const getDeserializer = (type, srcPtr, outPtr, member, keyOffset = 0) => {
             const out = [];
             const resolvedType = stripNull(type);
+            const fieldOffset = `offsetof<this>(${JSON.stringify(member.name)})`;
             const fieldPtr = `${outPtr} + offsetof<this>(${JSON.stringify(member.name)})`;
             const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
             if (INTEGER_TYPES.includes(resolvedType)) {
                 out.push("{");
                 out.push(`  const valueStart = ${srcPtr};`);
-                out.push(`  let valueEnd = ${srcPtr};`);
                 if (SIGNED_INTEGER_TYPES.includes(resolvedType)) {
-                    out.push(`  if (load<u16>(valueEnd) == 0x2d) {`);
-                    out.push("    valueEnd += 2;");
-                    out.push("    if (valueEnd >= srcEnd) break;");
+                    out.push(`  if (load<u16>(${srcPtr}) == 0x2d) {`);
+                    out.push(`    ${srcPtr} += 2;`);
+                    out.push(`    if (${srcPtr} >= srcEnd) break;`);
                     out.push("  }");
                 }
-                out.push("  let digit = <u32>load<u16>(valueEnd) - 48;");
+                out.push(`  let digit = <u32>load<u16>(${srcPtr}) - 48;`);
                 out.push("  if (digit > 9) break;");
-                out.push("  valueEnd += 2;");
-                out.push("  while (valueEnd < srcEnd) {");
-                out.push("    digit = <u32>load<u16>(valueEnd) - 48;");
+                out.push(`  ${srcPtr} += 2;`);
+                out.push(`  while (${srcPtr} < srcEnd) {`);
+                out.push(`    digit = <u32>load<u16>(${srcPtr}) - 48;`);
                 out.push("    if (digit > 9) break;");
-                out.push("    valueEnd += 2;");
+                out.push(`    ${srcPtr} += 2;`);
                 out.push("  }");
-                out.push(`  store<${resolvedType}>(${fieldPtr}, atoi<${resolvedType}>(valueStart, valueEnd));`);
-                out.push(`  ${srcPtr} = valueEnd;`);
+                out.push(`  store<${resolvedType}>(${outPtr}, atoi<${resolvedType}>(valueStart, ${srcPtr}), ${fieldOffset});`);
                 out.push("}");
             }
             else if (["string", "String"].includes(resolvedType)) {

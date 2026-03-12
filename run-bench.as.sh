@@ -4,6 +4,9 @@ set -euo pipefail
 RUNTIMES=${RUNTIMES:-"incremental"}
 ENGINES=${ENGINES:-"turbofan"}
 MODE_FILTER=${JSON_MODE:-""}
+TURBOFAN_FLAGS=${TURBOFAN_FLAGS:-"--no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize"}
+# Deserialize-biased alternative to try manually:
+# TURBOFAN_FLAGS="--no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize --minor-ms --minor-ms-concurrent-marking-trigger=30 --turboshaft-wasm-load-elimination"
 BENCH_NAME=""
 ARGS=()
 
@@ -154,15 +157,15 @@ for file in "${FILES[@]}"; do
             if [[ "$engine" == "turbofan" ]]; then
                 if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE" ]]; then
                     echo -e "$filename (asc/$runtime/$engine/naive)\n"
-                    v8 --no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize --wasm-simd-ssse3-codegen --module ./bench/runners/assemblyscript.js -- $argNaive
+                    v8 $TURBOFAN_FLAGS --module ./bench/runners/assemblyscript.js -- $argNaive
                 fi
                 if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR" ]]; then
                     echo -e "$filename (asc/$runtime/$engine/swar)\n"
-                    v8 --no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize --wasm-simd-ssse3-codegen --module ./bench/runners/assemblyscript.js -- $argSwar
+                    v8 $TURBOFAN_FLAGS --module ./bench/runners/assemblyscript.js -- $argSwar
                 fi
                 if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD" ]]; then
                     echo -e "$filename (asc/$runtime/$engine/simd)\n"
-                    v8 --no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize --wasm-simd-ssse3-codegen --module ./bench/runners/assemblyscript.js -- $argSimd
+                    v8 $TURBOFAN_FLAGS --module ./bench/runners/assemblyscript.js -- $argSimd
                 fi
             fi
         done

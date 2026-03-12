@@ -190,6 +190,13 @@ describe("Should deserialize strings - Mixed escapes", () => {
   expect(JSON.parse<string>('"\\"\\\\/\\b\\f\\n\\r\\t"')).toBe('"\\/\b\f\n\r\t');
 });
 
+describe("Should deserialize strings - Escaped quotes around SWAR boundaries", () => {
+  expect(JSON.parse<string>('"1234567\\\\\\"abc"')).toBe('1234567\\"abc');
+  expect(JSON.parse<string>('"12345678\\\\\\"abc"')).toBe('12345678\\"abc');
+  expect(JSON.parse<string>('"ab\\\\\\"cd\\\\\\"ef"')).toBe('ab\\"cd\\"ef');
+  expect(JSON.parse<string>('"\\\\\\"lead and trail\\\\\\""')).toBe('\\"lead and trail\\"');
+});
+
 describe("Should deserialize strings - Unicode characters (non-escaped)", () => {
   expect(JSON.parse<string>('"café"')).toBe("café");
   expect(JSON.parse<string>('"hello 世界"')).toBe("hello 世界");

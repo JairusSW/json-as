@@ -1,6 +1,6 @@
 import { JSON, JSONMode } from "../";
 import { deserializeString } from "../deserialize/simple/string";
-import { deserializeString_SWAR, deserializeString_SWAR_TO, deserializeStringToField_SWAR } from "../deserialize/swar/string";
+import { deserializeString_SWAR, deserializeStringToField_SWAR } from "../deserialize/swar/string";
 import { deserializeString_SIMD } from "../deserialize/simd/string";
 import { serializeString } from "../serialize/simple/string";
 import { detect_escapable_u64_swar_safe, serializeString_SWAR } from "../serialize/swar/string";
