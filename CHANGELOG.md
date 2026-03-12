@@ -19,3 +19,7 @@
 - Replaced linear power-of-ten loops in the handwritten float deserializers with a bitwise power-of-ten path and batched fractional parsing.
 - Switched `deserializeFloat` from `f64.parse(ptrToStr(...))` to the handwritten parser path.
 - Improved object fast-path throughput substantially on payloads with exponent-form float fields.
+
+### fix: avoid pulling SIMD code into non-SIMD bench builds
+- Removed unconditional SIMD imports from generic string and array dispatchers so naive and SWAR builds do not emit SIMD ops.
+- Made benchmark temp-file cleanup tolerant of missing temporary outputs after `asc --converge`.

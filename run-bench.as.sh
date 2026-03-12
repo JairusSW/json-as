@@ -82,7 +82,7 @@ for file in "${FILES[@]}"; do
             }
 
             wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4 "${output}.tmp" -o "${output}.naive.wasm"
-            rm "${output}.tmp"
+            rm -f "${output}.tmp"
         fi
 
         if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR" ]]; then
@@ -92,7 +92,7 @@ for file in "${FILES[@]}"; do
             }
 
             wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4 "${output}.tmp" -o "${output}.swar.wasm"
-            rm "${output}.tmp"
+            rm -f "${output}.tmp"
         fi
 
         if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD" ]]; then
@@ -102,7 +102,7 @@ for file in "${FILES[@]}"; do
             }
 
             wasm-opt --enable-bulk-memory --enable-simd --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4 "${output}.tmp" -o "${output}.simd.wasm"
-            rm "${output}.tmp"
+            rm -f "${output}.tmp"
         fi
 
         for engine in $ENGINES; do
