@@ -400,15 +400,13 @@ This allows custom serialization while maintaining a generic interface for the l
 
 The `json-as` library is engineered for **multi-GB/s processing speeds**, leveraging SIMD and SWAR optimizations along with highly efficient transformations. The charts below highlight key performance metrics such as build time, operations-per-second, and throughput.
 
-You can **re-run the benchmarks** at any time by clicking the button below. After the workflow completes, refresh this page to view updated results.  
-
-[![Run Benchmarks](https://img.shields.io/badge/Run_Benchmark-blue)](https://github.com/JairusSW/json-as/actions/workflows/benchmark.yml)
-
 ### Comparison to JavaScript
 
-The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaScript's native `JSON` implementation. Benchmarks were conducted in a GitHub Actions environment. On modern hardware, you may see even higher throughput.
+The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaScript's native `JSON` implementation. The published charts are generated locally and pushed to the `docs` branch.
 
 > Note: Benchmarks reflect the **latest version**. Older versions may show different performance.
+>
+> Current local benchmark machine: AMD Ryzen 7 7800X3D (8 cores, 8 threads), 96 MB L3 cache, 32 GB RAM.
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart01.svg" alt="Performance Chart 1">
 
@@ -441,44 +439,59 @@ Here's a short list:
 
 **JSON_WRITE** (default: "") - Select a series of files to output after transform and optimization passes have completed for easy inspection. Usage: `JSON_WRITE=.path-to-file-a.ts,./path-to-file-b.ts`
 
-### Running benchmarks locally
+### Running Benchmarks Locally
 
-Benchmarks are run directly on top of v8 for more tailored control
+Benchmarks are run directly on top of `v8` for tighter control over the engine configuration.
 
-1. Download JSVU off of npm
+1. Install the local benchmark prerequisites:
 
 ```bash
-npm install jsvu -g
+npm install -g jsvu
+jsvu --engines=v8
 ```
 
-2. Modify your dotfiles to add `~/.jsvu/bin` to `PATH`
+2. Add `~/.jsvu/bin` to your `PATH` and make sure `wasm-opt` is installed:
 
 ```bash
 export PATH="${HOME}/.jsvu/bin:${PATH}"
+sudo apt-get install -y binaryen
 ```
 
-3. Clone the repository
+3. Install project dependencies:
 
 ```bash
-git clone https://github.com/JairusSW/json-as
+npm install
 ```
 
-4. Install dependencies
-
-```bash
-npm i
-```
-
-5. Run benchmarks for either AssemblyScript or JavaScript
+4. Run either benchmark suite directly:
 
 ```bash
 ./run-bench.as.sh
+./run-bench.js.sh
 ```
 
-or
+5. Build charts from the latest local logs:
 
 ```bash
-./run-bench.js.sh
+./build-charts.sh
+```
+
+6. Publish benchmark charts to the `docs` branch:
+
+```bash
+./publish-benchmarks.sh
+```
+
+If you already have fresh logs and only want to rebuild charts and push them:
+
+```bash
+./publish-benchmarks.sh --no-run
+```
+
+Or run the full local publish flow in one step:
+
+```bash
+npm run bench:publish
 ```
 
 ## Debugging
