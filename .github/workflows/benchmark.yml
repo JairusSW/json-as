@@ -36,13 +36,19 @@ jobs:
         run: ./run-bench.js.sh || true
 
       - name: Build Charts
-        run: ./build-charts.sh || true
+        run: |
+          set -e
+          ./build-charts.sh
+          test -d build/charts
+          compgen -G "build/charts/*" > /dev/null
 
       - name: Commit Charts to docs branch
         run: |
           set -e
           git config user.name "github-actions"
           git config user.email "actions@github.com"
+          TMP_CHARTS_DIR="$(mktemp -d)"
+          cp -R build/charts/. "${TMP_CHARTS_DIR}/"
 
           # Ensure the docs branch exists locally
           git fetch origin docs || true
@@ -52,9 +58,10 @@ jobs:
           git checkout -b docs origin/docs || git checkout --orphan docs || true
 
           # Copy generated charts
+          rm -rf charts
           mkdir -p charts
-          cp build/charts/* charts/ || true
+          cp -R "${TMP_CHARTS_DIR}/." charts/
 
-          git add charts/ || true
+          git add charts/
           git commit -m "Update benchmark charts [skip ci]" || echo "No changes to commit"
           git push origin docs --force || true
