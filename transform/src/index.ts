@@ -241,6 +241,9 @@ export class JSONTransform extends Visitor {
     this.schema = schema;
     this.visitedClasses.add(fullClassPath);
 
+    const codegenMode = getCodegenMode(this.program);
+    const useFastPath = USE_FAST_PATH && codegenMode !== JSONMode.NAIVE;
+
     let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
     let INITIALIZE = "@inline __INITIALIZE(): this {\n";
     let DESERIALIZE = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
@@ -380,7 +383,7 @@ export class JSONTransform extends Visitor {
       const realName = member.name;
       const isLast = i == this.schema.members.length - 1;
 
-      if (!USE_FAST_PATH) {
+      if (!useFastPath) {
         if (member.value) {
           if (member.value != "null" && member.value != "0" && member.value != "0.0" && member.value != "false") {
             INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
@@ -547,6 +550,7 @@ export class JSONTransform extends Visitor {
     const SIGNED_INTEGER_TYPES = ["i8", "i16", "i32", "i64", "isize"];
     const FLOAT_TYPES = ["f32", "f64"];
     const INTEGER_TYPES = [...UNSIGNED_INTEGER_TYPES, ...SIGNED_INTEGER_TYPES];
+    const STRING_FIELD_DESERIALIZER = codegenMode === JSONMode.SIMD ? "deserializeStringField_SIMD" : "deserializeStringField_SWAR";
 
     const getArrayValueType = (type: string): string | null => {
       if (type.startsWith("Array<") || type.startsWith("StaticArray<")) {
@@ -574,7 +578,7 @@ export class JSONTransform extends Visitor {
           out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
           out.push("  } else {");
         }
-        out.push(`  ${srcPtr} = deserializeStringField_SWAR<${member.type}>(${valuePtr}, srcEnd, ${fieldPtr});`);
+        out.push(`  ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${member.type}>(${valuePtr}, srcEnd, ${fieldPtr});`);
         if (member.node.type.isNullable) {
           out.push("  }");
         }
@@ -626,7 +630,7 @@ export class JSONTransform extends Visitor {
           out.push(`    ${srcPtr} += 2;`);
           out.push("  } else while (true) {");
           out.push('    if (index >= value.length) value.push("");');
-          out.push(`    ${srcPtr} = deserializeStringField_SWAR<${valueType}>(${srcPtr}, srcEnd, value.dataStart + ((<usize>index) << alignof<${valueType}>()));`);
+          out.push(`    ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${valueType}>(${srcPtr}, srcEnd, value.dataStart + ((<usize>index) << alignof<${valueType}>()));`);
           out.push("    index++;");
           out.push(`    const code = load<u16>(${srcPtr});`);
           out.push("    if (code == 0x2c) {");
@@ -682,39 +686,8 @@ export class JSONTransform extends Visitor {
           out.push("  }");
           out.push("}");
         } else {
-          out.push("{");
-          out.push(`  const valueStart = ${srcPtr};`);
-          out.push("  let depth: i32 = 0;");
-          out.push("  let inString = false;");
-          out.push(`  while (${srcPtr} < srcEnd) {`);
-          out.push(`    const code = load<u16>(${srcPtr});`);
-          out.push("    if (inString) {");
-          out.push(`      if (code == 0x22 && load<u16>(${srcPtr} - 2) != 0x5c) inString = false;`);
-          out.push(`      ${srcPtr} += 2;`);
-          out.push("      continue;");
-          out.push("    }");
-          out.push("    if (code == 0x22) {");
-          out.push("      inString = true;");
-          out.push(`      ${srcPtr} += 2;`);
-          out.push("      continue;");
-          out.push("    }");
-          out.push("    if (code == 0x7b || code == 0x5b) {");
-          out.push("      depth++;");
-          out.push(`      ${srcPtr} += 2;`);
-          out.push("      continue;");
-          out.push("    }");
-          out.push("    if (code == 0x7d || code == 0x5d) {");
-          out.push("      if (depth == 0) break;");
-          out.push("      depth--;");
-          out.push(`      ${srcPtr} += 2;`);
-          out.push("      continue;");
-          out.push("    }");
-          out.push("    if (code == 0x2c && depth == 0) break;");
-          out.push(`    ${srcPtr} += 2;`);
-          out.push("  }");
-          out.push(`  if (inString || depth != 0 || ${srcPtr} <= valueStart) break;`);
-          out.push(`  store<${resolvedType}>(${outPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}), ${fieldOffset});`);
-          out.push("}");
+          out.push(`${srcPtr} = deserializeArrayField_SWAR<${resolvedType}>(${srcPtr}, srcEnd, ${fieldPtr});`);
+          out.push(`if (!${srcPtr}) break;`);
         }
       } else {
         // Generic value scanner for complex members (objects, arrays, maps, sets, custom classes).
@@ -1247,7 +1220,7 @@ export class JSONTransform extends Visitor {
       // FALSE
       DESERIALIZE += mbElse + "if (code == 102) {\n";
 
-      DESERIALIZE += "        if (load<u64>(srcStart, 2) == 28429466576093281) {\n";
+      DESERIALIZE += "        {\n";
       DESERIALIZE += "          srcStart += 10;\n";
       if (DEBUG > 1) DESERIALIZE += '              console.log("Value (bool, ' + ++id + '): " + JSON.Util.ptrToStr(lastIndex, srcStart - 10));';
       generateGroups(
@@ -1290,10 +1263,7 @@ export class JSONTransform extends Visitor {
         "boolean",
       );
 
-      DESERIALIZE += "        }"; // Close first char check
-      DESERIALIZE += " else {\n";
-      DESERIALIZE += "          throw new Error(\"Expected to find 'false' but found '\" + JSON.Util.ptrToStr(lastIndex, srcStart) + \"' instead at position \" + (srcEnd - srcStart).toString());\n";
-      DESERIALIZE += "        }"; // Close error check
+      DESERIALIZE += "        }"; // Close false branch
       DESERIALIZE += "\n      }"; // Close first char check
 
       mbElse = " else ";
@@ -1371,7 +1341,7 @@ export class JSONTransform extends Visitor {
 
     SERIALIZE = SERIALIZE.slice(0, 32) + indent + "bs.proposeSize(" + this.schema.byteSize + ");\n" + SERIALIZE.slice(32);
 
-    if (!USE_FAST_PATH) {
+    if (!useFastPath) {
       INITIALIZE += "  return this;\n";
       INITIALIZE += "}";
     }
@@ -1381,20 +1351,20 @@ export class JSONTransform extends Visitor {
     // }
     if (DEBUG > 0) {
       console.log(SERIALIZE_CUSTOM || SERIALIZE);
-      if (!USE_FAST_PATH) console.log(INITIALIZE);
+      if (!useFastPath) console.log(INITIALIZE);
       console.log(DESERIALIZE_CUSTOM || DESERIALIZE);
     }
 
-    const DESERIALIZE_DIRECT = USE_FAST_PATH ? DESERIALIZE_FAST.replace("@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {", "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {") : DESERIALIZE.replace("__DESERIALIZE_SLOW<__JSON_T>", "__DESERIALIZE<__JSON_T>");
+    const DESERIALIZE_DIRECT = useFastPath ? DESERIALIZE_FAST.replace("@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {", "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {") : DESERIALIZE.replace("__DESERIALIZE_SLOW<__JSON_T>", "__DESERIALIZE<__JSON_T>");
     const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
-    const INITIALIZE_METHOD = !USE_FAST_PATH ? SimpleParser.parseClassMember(INITIALIZE, node) : null;
+    const INITIALIZE_METHOD = !useFastPath ? SimpleParser.parseClassMember(INITIALIZE, node) : null;
     const DESERIALIZE_METHOD = SimpleParser.parseClassMember(DESERIALIZE_CUSTOM || DESERIALIZE_DIRECT, node);
-    const DESERIALIZE_FAST_METHOD = USE_FAST_PATH ? SimpleParser.parseClassMember(DESERIALIZE_FAST, node) : null;
+    const DESERIALIZE_FAST_METHOD = useFastPath ? SimpleParser.parseClassMember(DESERIALIZE_FAST, node) : null;
 
     if (!node.members.find((v) => v.name.text == "__SERIALIZE")) node.members.push(SERIALIZE_METHOD);
-    if (!USE_FAST_PATH && INITIALIZE_METHOD && !node.members.find((v) => v.name.text == "__INITIALIZE")) node.members.push(INITIALIZE_METHOD);
+    if (!useFastPath && INITIALIZE_METHOD && !node.members.find((v) => v.name.text == "__INITIALIZE")) node.members.push(INITIALIZE_METHOD);
     if (!node.members.find((v) => v.name.text == "__DESERIALIZE")) node.members.push(DESERIALIZE_METHOD);
-    if (!DESERIALIZE_CUSTOM && USE_FAST_PATH && DESERIALIZE_FAST_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")) node.members.push(DESERIALIZE_FAST_METHOD);
+    if (!DESERIALIZE_CUSTOM && useFastPath && DESERIALIZE_FAST_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")) node.members.push(DESERIALIZE_FAST_METHOD);
     super.visitClassDeclaration(node);
   }
   getSchema(name: string): Schema | null {
@@ -1405,19 +1375,20 @@ export class JSONTransform extends Visitor {
     const SERIALIZE_EMPTY = "@inline __SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
     const INITIALIZE_EMPTY = "@inline __INITIALIZE(): this {\n  return this;\n}";
     const DESERIALIZE_EMPTY = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n  return srcEnd;\n}";
+    const useFastPath = USE_FAST_PATH && getCodegenMode(this.program) !== JSONMode.NAIVE;
 
     if (DEBUG > 0) {
       console.log(SERIALIZE_EMPTY);
-      if (!USE_FAST_PATH) console.log(INITIALIZE_EMPTY);
+      if (!useFastPath) console.log(INITIALIZE_EMPTY);
       console.log(DESERIALIZE_EMPTY);
     }
 
     const SERIALIZE_METHOD_EMPTY = SimpleParser.parseClassMember(SERIALIZE_EMPTY, node);
-    const INITIALIZE_METHOD_EMPTY = !USE_FAST_PATH ? SimpleParser.parseClassMember(INITIALIZE_EMPTY, node) : null;
+    const INITIALIZE_METHOD_EMPTY = !useFastPath ? SimpleParser.parseClassMember(INITIALIZE_EMPTY, node) : null;
     const DESERIALIZE_METHOD_EMPTY = SimpleParser.parseClassMember(DESERIALIZE_EMPTY, node);
 
     if (!node.members.find((v) => v.name.text == "__SERIALIZE")) node.members.push(SERIALIZE_METHOD_EMPTY);
-    if (!USE_FAST_PATH && INITIALIZE_METHOD_EMPTY && !node.members.find((v) => v.name.text == "__INITIALIZE")) node.members.push(INITIALIZE_METHOD_EMPTY);
+    if (!useFastPath && INITIALIZE_METHOD_EMPTY && !node.members.find((v) => v.name.text == "__INITIALIZE")) node.members.push(INITIALIZE_METHOD_EMPTY);
     if (!node.members.find((v) => v.name.text == "__DESERIALIZE")) node.members.push(DESERIALIZE_METHOD_EMPTY);
   }
   // visitCallExpression(node: CallExpression, ref: Node): void {
@@ -1484,10 +1455,16 @@ export class JSONTransform extends Visitor {
     const deserializeIntegerFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeIntegerField" || d.name.text == "deserializeIntegerField"));
     const deserializeUnsignedFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeUnsignedField" || d.name.text == "deserializeUnsignedField"));
     const deserializeFloatFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeFloatField" || d.name.text == "deserializeFloatField"));
+    const deserializeArrayField_SWARImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeArrayField_SWAR" || d.name.text == "deserializeArrayField_SWAR"));
+    const deserializeStringFieldSWARImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeStringField_SWAR" || d.name.text == "deserializeStringField_SWAR"));
+    const deserializeStringFieldSIMDImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeStringField_SIMD" || d.name.text == "deserializeStringField_SIMD"));
     const sourceText = readFileSync(fromPath).toString();
     const hasLocalDeserializeIntegerField = /\bdeserializeIntegerField\b/.test(sourceText);
     const hasLocalDeserializeUnsignedField = /\bdeserializeUnsignedField\b/.test(sourceText);
     const hasLocalDeserializeFloatField = /\bdeserializeFloatField\b/.test(sourceText);
+    const hasLocaldeserializeArrayField_SWAR = /\bdeserializeArrayField_SWAR\b/.test(sourceText);
+    const hasLocalDeserializeStringFieldSWAR = /\bdeserializeStringField_SWAR\b/.test(sourceText);
+    const hasLocalDeserializeStringFieldSIMD = /\bdeserializeStringField_SIMD\b/.test(sourceText);
 
     let baseRel = path.posix.join(...path.relative(path.dirname(fromPath), path.join(baseDir)).split(path.sep));
 
@@ -1538,6 +1515,26 @@ export class JSONTransform extends Visitor {
       node.range.source.statements.unshift(replaceNode);
       if (DEBUG > 0) console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
     }
+
+    if (!deserializeArrayField_SWARImport && !hasLocaldeserializeArrayField_SWAR) {
+      const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("deserializeArrayField_SWAR", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "simple", "array"), node.range), node.range);
+      node.range.source.statements.unshift(replaceNode);
+      if (DEBUG > 0) console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
+    }
+
+    const codegenMode = getCodegenMode(this.program);
+
+    if (codegenMode !== JSONMode.SIMD && !deserializeStringFieldSWARImport && !hasLocalDeserializeStringFieldSWAR) {
+      const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("deserializeStringField_SWAR", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "swar", "string"), node.range), node.range);
+      node.range.source.statements.unshift(replaceNode);
+      if (DEBUG > 0) console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
+    }
+
+    if (codegenMode === JSONMode.SIMD && !deserializeStringFieldSIMDImport && !hasLocalDeserializeStringFieldSIMD) {
+      const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("deserializeStringField_SIMD", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "simd", "string"), node.range), node.range);
+      node.range.source.statements.unshift(replaceNode);
+      if (DEBUG > 0) console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
+    }
   }
 
   getStores(data: string, simd: boolean = false): string[] {
@@ -1546,10 +1543,9 @@ export class JSONTransform extends Visitor {
     let offset = 0;
     for (const [size, num] of sizes) {
       if (size == "v128" && simd) {
-        // This could be put in its own file
         const index = this.simdStatements.findIndex((v) => v.includes(num));
         const name = "SIMD_" + (index == -1 ? this.simdStatements.length : index);
-        if (index && !this.simdStatements.includes(`const ${name} = ${num};`)) this.simdStatements.push(`const ${name} = ${num};`);
+        if (index == -1) this.simdStatements.push(`const ${name} = ${num};`);
         out.push("store<v128>(bs.offset, " + name + ", " + offset + "); // " + data.slice(offset >> 1, (offset >> 1) + 8));
         offset += 16;
       }
@@ -1590,6 +1586,25 @@ enum JSONMode {
 }
 
 let MODE: JSONMode = JSONMode.SWAR;
+
+function getCodegenMode(program: Program): JSONMode {
+  let mode = program.options.hasFeature(Feature.Simd) ? JSONMode.SIMD : JSONMode.SWAR;
+  if (process.env["JSON_MODE"]) {
+    switch (process.env["JSON_MODE"].toLowerCase().trim()) {
+      case "simd":
+        mode = JSONMode.SIMD;
+        break;
+      case "swar":
+        mode = JSONMode.SWAR;
+        break;
+      case "naive":
+        mode = JSONMode.NAIVE;
+        break;
+    }
+  }
+  return mode;
+}
+
 export default class Transformer extends Transform {
   afterInitialize(program: Program): void | Promise<void> {
     if (program.options.hasFeature(Feature.Simd)) MODE = JSONMode.SIMD;

@@ -10,6 +10,7 @@ import { deserializeStringArray } from "./array/string";
 import { deserializeObjectArray } from "./array/object";
 import { deserializeBoxArray } from "./array/box";
 import { deserializeRawArray } from "./array/raw";
+export { deserializeArrayField, deserializeArrayField as deserializeArrayField_SWAR } from "../swar/array";
 
 // @ts-ignore: Decorator valid here
 export function deserializeArray<T extends unknown[]>(srcStart: usize, srcEnd: usize, dst: usize): T {

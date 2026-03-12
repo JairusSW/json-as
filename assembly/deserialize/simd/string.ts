@@ -1,10 +1,15 @@
 import { bs } from "../../../lib/as-bs";
+import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { QUOTE } from "../../custom/chars";
 import { BACK_SLASH } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
+import { deserializeStringField_SWAR } from "../swar/string";
 
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_5C = i16x8.splat(0x5c); // \
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const SPLAT_22 = i16x8.splat(0x22); // "
 
 // Overflow Pattern for Unicode Escapes (READ)
 // \u0001        0  \u0001__|      + 0
@@ -65,6 +70,27 @@ import { hex4_to_u16_swar } from "../../util/swar";
   const out = __new(byteLength, idof<string>());
   memory.copy(out, srcStart, byteLength);
   return changetype<string>(out);
+}
+
+// @ts-expect-error: @inline is a valid decorator
+@inline function writeStringToField_SIMD(dstFieldPtr: usize, srcStart: usize, byteLength: u32): void {
+  if (byteLength == 0) {
+    store<usize>(dstFieldPtr, changetype<usize>(""));
+    return;
+  }
+
+  const current = load<usize>(dstFieldPtr);
+  let stringPtr: usize;
+  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+    stringPtr = current;
+  } else if (current != 0 && current != changetype<usize>("")) {
+    stringPtr = __renew(current, byteLength);
+    store<usize>(dstFieldPtr, stringPtr);
+  } else {
+    stringPtr = __new(byteLength, idof<string>());
+    store<usize>(dstFieldPtr, stringPtr);
+  }
+  memory.copy(stringPtr, srcStart, byteLength);
 }
 
 // todo: optimize and stuff. it works, its not pretty. ideally, i'd like this to be (nearly) branchless
@@ -200,4 +226,57 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
   }
 
   return copyStringFromSource_SIMD(payloadStart, srcEnd - payloadStart);
+}
+
+// @ts-expect-error: @inline is a valid decorator
+@inline export function deserializeStringField_SIMD<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+
+  const quotedStart = srcStart;
+  const payloadStart = srcStart + 2;
+  const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
+  srcStart = payloadStart;
+
+  while (srcStart <= srcEnd16) {
+    const block = load<v128>(srcStart);
+    let mask = i16x8.bitmask(v128.or(i16x8.eq(block, SPLAT_5C), i16x8.eq(block, SPLAT_22)));
+
+    if (mask == 0) {
+      srcStart += 16;
+      continue;
+    }
+
+    do {
+      const laneIdx = usize(ctz(mask) << 1);
+      mask &= mask - 1;
+      const srcIdx = srcStart + laneIdx;
+      const char = load<u16>(srcIdx);
+
+      if (char == QUOTE) {
+        writeStringToField_SIMD(dstFieldPtr, payloadStart, <u32>(srcIdx - payloadStart));
+        return srcIdx + 2;
+      }
+
+      if (char == BACK_SLASH) {
+        return deserializeStringField_SWAR<T>(quotedStart, srcEnd, dstFieldPtr);
+      }
+    } while (mask != 0);
+
+    srcStart += 16;
+  }
+
+  while (srcStart < srcEnd) {
+    const char = load<u16>(srcStart);
+    if (char == QUOTE) {
+      writeStringToField_SIMD(dstFieldPtr, payloadStart, <u32>(srcStart - payloadStart));
+      return srcStart + 2;
+    }
+    if (char == BACK_SLASH) {
+      return deserializeStringField_SWAR<T>(quotedStart, srcEnd, dstFieldPtr);
+    }
+    srcStart += 2;
+  }
+
+  abort("Unterminated string literal");
+  return srcStart;
 }
