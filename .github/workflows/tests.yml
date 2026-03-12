@@ -12,25 +12,8 @@ jobs:
 
       - name: Install Wasmtime
         run: |
-          set -euo pipefail
-          WASMTIME_URL="$(node -e '
-            fetch(\"https://api.github.com/repos/bytecodealliance/wasmtime/releases/latest\")
-              .then((r) => r.json())
-              .then((release) => {
-                const asset = release.assets.find((a) => a.name.endsWith(\"x86_64-linux.tar.xz\"));
-                if (!asset) throw new Error(\"Could not find Linux wasmtime asset\");
-                console.log(asset.browser_download_url);
-              });
-          ')"
-          WASMTIME_ARCHIVE="$(basename "${WASMTIME_URL}")"
-          WASMTIME_DIR="${WASMTIME_ARCHIVE%.tar.xz}"
-          curl -L --fail "${WASMTIME_URL}" -o /tmp/wasmtime.tar.xz
-          mkdir -p "$HOME/.wasmtime"
-          tar -xJf /tmp/wasmtime.tar.xz -C /tmp
-          cp "/tmp/${WASMTIME_DIR}/wasmtime" "$HOME/.wasmtime/wasmtime"
-          chmod +x "$HOME/.wasmtime/wasmtime"
-          echo "$HOME/.wasmtime" >> "$GITHUB_PATH"
-          wasmtime --version
+          curl https://wasmtime.dev/install.sh -sSf | bash
+          echo "$HOME/.wasmtime/bin" >> $GITHUB_PATH
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
