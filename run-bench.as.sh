@@ -70,12 +70,26 @@ fi
 
 for file in "${FILES[@]}"; do
     filename=$(basename -- "$file")
+    filename_lower="${filename,,}"
+    file_mode=""
+    if [[ "$filename_lower" == *-simd.bench.ts ]]; then
+        file_mode="SIMD"
+    elif [[ "$filename_lower" == *-swar.bench.ts ]]; then
+        file_mode="SWAR"
+    elif [[ "$filename_lower" == *-naive.bench.ts ]]; then
+        file_mode="NAIVE"
+    fi
+
+    if [[ -n "$file_mode" && -n "$MODE_FILTER" && "$file_mode" != "$MODE_FILTER" ]]; then
+        continue
+    fi
+
     write_target="${file#./}"
     tmp_ts="${write_target%.ts}.tmp.ts"
     for runtime in $RUNTIMES; do
         output="./build/${filename%.ts}.${runtime}"
 
-        if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE" ]]; then
+        if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE") && (-z "$file_mode" || "$file_mode" == "NAIVE") ]]; then
             JSON_WRITE="$write_target" JSON_MODE=NAIVE npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start || {
                 echo "Build failed"
                 exit 1
@@ -85,7 +99,7 @@ for file in "${FILES[@]}"; do
             rm -f "${output}.tmp"
         fi
 
-        if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR" ]]; then
+        if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR") && (-z "$file_mode" || "$file_mode" == "SWAR") ]]; then
             JSON_WRITE="$write_target" JSON_MODE=SWAR npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start || {
                 echo "Build failed"
                 exit 1
@@ -95,7 +109,7 @@ for file in "${FILES[@]}"; do
             rm -f "${output}.tmp"
         fi
 
-        if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD" ]]; then
+        if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD") && (-z "$file_mode" || "$file_mode" == "SIMD") ]]; then
             JSON_WRITE="$write_target" JSON_MODE=SIMD npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --enable simd --exportStart start || {
                 echo "Build failed"
                 exit 1
