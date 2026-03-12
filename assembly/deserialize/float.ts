@@ -1,6 +1,21 @@
 import { ptrToStr } from "../util/ptrToStr";
 
 // @ts-ignore: inline
+@inline function pow10Fast(exponent: u32): f64 {
+  let result = 1.0;
+  if (exponent & 1) result *= 1e1;
+  if (exponent & 2) result *= 1e2;
+  if (exponent & 4) result *= 1e4;
+  if (exponent & 8) result *= 1e8;
+  if (exponent & 16) result *= 1e16;
+  if (exponent & 32) result *= 1e32;
+  if (exponent & 64) result *= 1e64;
+  if (exponent & 128) result *= 1e128;
+  if (exponent & 256) result *= 1e256;
+  return result;
+}
+
+// @ts-ignore: inline
 @inline export function deserializeFloat<T>(srcStart: usize, srcEnd: usize): T {
   // @ts-ignore
   const type: T = 0;
@@ -33,16 +48,18 @@ import { ptrToStr } from "../util/ptrToStr";
 
   if (srcStart < srcEnd && load<u16>(srcStart) == 46) {
     srcStart += 2;
-    let scale = 0.1;
+    let fraction: u64 = 0;
+    let digits: u32 = 0;
     while (srcStart < srcEnd) {
       const code = load<u16>(srcStart);
       const digit = <u32>code - 48;
       if (digit > 9) break;
-      value += <f64>digit * scale;
-      scale *= 0.1;
+      fraction = fraction * 10 + digit;
+      digits += 1;
       seenDigit = true;
       srcStart += 2;
     }
+    if (digits != 0) value += <f64>fraction / pow10Fast(digits);
   }
 
   if (!seenDigit) unreachable();
@@ -73,11 +90,7 @@ import { ptrToStr } from "../util/ptrToStr";
         srcStart += 2;
       }
 
-      let power = 1.0;
-      while (exponent != 0) {
-        power *= 10.0;
-        exponent -= 1;
-      }
+      const power = pow10Fast(exponent);
       value = exponentNegative ? value / power : value * power;
     }
   }

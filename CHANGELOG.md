@@ -14,3 +14,7 @@
 ### refactor: add serialize/deserialize index dispatchers
 - Added `assembly/serialize/index/*` and `assembly/deserialize/index/*` entrypoints to centralize mode selection.
 - Routed the public API through the new index dispatch layer and added top-level barrel exports for both serialize and deserialize.
+
+### perf: speed up float field deserialization
+- Replaced linear power-of-ten loops in `deserializeFloatField` with a bitwise power-of-ten path and batched fractional parsing.
+- Improved object fast-path throughput substantially on payloads with exponent-form float fields.
