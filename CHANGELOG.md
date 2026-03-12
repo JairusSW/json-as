@@ -10,3 +10,7 @@
 ### perf: optimize direct integer array deserialization
 - Added direct SWAR and SIMD integer-array deserializers with reusable-storage fast paths and shared whitespace-correct slow fallback.
 - Split SWAR array field deserializers by element kind and added dedicated direct array throughput benches for SWAR and SIMD.
+
+### refactor: add serialize/deserialize index dispatchers
+- Added `assembly/serialize/index/*` and `assembly/deserialize/index/*` entrypoints to centralize mode selection.
+- Routed the public API through the new index dispatch layer and added top-level barrel exports for both serialize and deserialize.

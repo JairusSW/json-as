@@ -1,45 +1,42 @@
 /// <reference path="./index.d.ts" />
 
 import { bs } from "../lib/as-bs";
-import { serializeArray } from "./serialize/simple/array";
-import { serializeMap } from "./serialize/simple/map";
-import { serializeDate } from "./serialize/simple/date";
-import { deserializeBoolean } from "./deserialize/simple/bool";
-import { deserializeArray } from "./deserialize/simple/array";
-import { deserializeFloat } from "./deserialize/float";
-import { deserializeMap } from "./deserialize/simple/map";
-import { deserializeDate } from "./deserialize/simple/date";
-import { deserializeInteger } from "./deserialize/integer";
-import { deserializeUnsigned } from "./deserialize/unsigned";
-import { serializeArbitrary } from "./serialize/simple/arbitrary";
-import { serializeSet } from "./serialize/simple/set";
-import { deserializeSet } from "./deserialize/simple/set";
-import { serializeStaticArray } from "./serialize/simple/staticarray";
-import { deserializeStaticArray } from "./deserialize/simple/staticarray";
+import { serializeArray } from "./serialize/index/array";
+import { serializeMap } from "./serialize/index/map";
+import { serializeDate } from "./serialize/index/date";
+import { deserializeBoolean } from "./deserialize/index/bool";
+import { deserializeArray } from "./deserialize/index/array";
+import { deserializeFloat } from "./deserialize/index/float";
+import { deserializeMap } from "./deserialize/index/map";
+import { deserializeDate } from "./deserialize/index/date";
+import { deserializeInteger } from "./deserialize/index/integer";
+import { deserializeUnsigned } from "./deserialize/index/unsigned";
+import { serializeArbitrary } from "./serialize/index/arbitrary";
+import { serializeSet } from "./serialize/index/set";
+import { deserializeSet } from "./deserialize/index/set";
+import { serializeStaticArray } from "./serialize/index/staticarray";
+import { deserializeStaticArray } from "./deserialize/index/staticarray";
 
 import { NULL_WORD, QUOTE, NULL_WORD_U64, TRUE_WORD_U64, FALSE_WORD_U64 } from "./custom/chars";
 import { dtoa_buffered, itoa_buffered } from "util/number";
-import { serializeBool } from "./serialize/simple/bool";
-import { serializeInteger } from "./serialize/simple/integer";
-import { serializeFloat } from "./serialize/simple/float";
-import { serializeStruct } from "./serialize/simple/struct";
+import { serializeBool } from "./serialize/index/bool";
+import { serializeInteger } from "./serialize/index/integer";
+import { serializeFloat } from "./serialize/index/float";
+import { serializeStruct } from "./serialize/index/struct";
 import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes } from "./util";
-import { deserializeArbitrary } from "./deserialize/simple/arbitrary";
-import { serializeObject } from "./serialize/simple/object";
-import { deserializeObject } from "./deserialize/simple/object";
-import { serializeRaw } from "./serialize/simple/raw";
-import { deserializeRaw } from "./deserialize/simple/raw";
-import { serializeString_SIMD } from "./serialize/simd/string";
-import { serializeString_SWAR } from "./serialize/swar/string";
-import { deserializeString_SWAR } from "./deserialize/swar/string";
-import { deserializeString } from "./deserialize/simple/string";
-import { serializeString } from "./serialize/simple/string";
-import { deserializeString_SIMD } from "./deserialize/simd/string";
+import { deserializeArbitrary } from "./deserialize/index/arbitrary";
+import { serializeObject } from "./serialize/index/object";
+import { deserializeObject } from "./deserialize/index/object";
+import { serializeRaw } from "./serialize/index/raw";
+import { deserializeRaw } from "./deserialize/index/raw";
+import { deserializeString } from "./deserialize/index/string";
+import { serializeString } from "./serialize/index/string";
 
 /**
  * Offset of the 'storage' property in the JSON.Value class.
  */
+// @ts-expect-error: Decorator valid here
 @inline const STORAGE = offsetof<JSON.Value>("storage");
 
 export namespace JSON {
@@ -116,13 +113,7 @@ export namespace JSON {
       }
       return NULL_WORD;
     } else if (isString<nonnull<T>>()) {
-      if (JSON_MODE === JSONMode.SIMD) {
-        serializeString_SIMD(data as string);
-      } else if (JSON_MODE === JSONMode.SWAR) {
-        serializeString_SWAR(data as string);
-      } else {
-        serializeString(data as string);
-      }
+      serializeString(data as string);
       return bs.out<string>();
       // @ts-expect-error: Supplied by transform
     } else if (isDefined(data.__SERIALIZE)) {
@@ -189,16 +180,7 @@ export namespace JSON {
     } else if (isNullable<T>() && dataSize == 8 && load<u64>(dataPtr) == NULL_WORD_U64) {
       return null;
     } else if (isString<T>()) {
-      if (JSON_MODE === JSONMode.NAIVE) {
-        // @ts-expect-error: type
-        return deserializeString(dataPtr, dataPtr + dataSize);
-      } else if (JSON_MODE === JSONMode.SWAR) {
-        // @ts-expect-error: type
-        return deserializeString_SWAR(dataPtr, dataPtr + dataSize);
-      } else if (JSON_MODE === JSONMode.SIMD) {
-        // @ts-expect-error: type
-        return deserializeString_SIMD(dataPtr, dataPtr + dataSize);
-      }
+      return deserializeString(dataPtr, dataPtr + dataSize) as T;
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
       if (type instanceof StaticArray) {
@@ -737,13 +719,7 @@ export namespace JSON {
       store<u64>(bs.offset, NULL_WORD_U64);
       bs.offset += 8;
     } else if (isString<nonnull<T>>()) {
-      if (JSON_MODE === JSONMode.SIMD) {
-        serializeString_SIMD(data as string);
-      } else if (JSON_MODE === JSONMode.SWAR) {
-        serializeString_SWAR(data as string);
-      } else {
-        serializeString(data as string);
-      }
+      serializeString(data as string);
       // @ts-expect-error: Supplied by transform
     } else if (isDefined(data.__SERIALIZE_CUSTOM)) {
       // @ts-expect-error
@@ -799,8 +775,7 @@ export namespace JSON {
     } else if (isString<T>()) {
       if (srcEnd - srcStart < 4) throw new Error("Cannot parse data as string because it was formatted incorrectly!");
 
-      // @ts-expect-error: type
-      return deserializeString(srcStart, srcEnd);
+      return deserializeString(srcStart, srcEnd) as T;
     } else if (isNullable<T>() && srcEnd - srcStart == 8 && load<u64>(srcStart) == NULL_WORD_U64) {
       return null;
     } else {
@@ -914,13 +889,7 @@ export namespace JSON {
         }
         return NULL_WORD;
       } else if (isString<nonnull<T>>()) {
-        if (JSON_MODE === JSONMode.SIMD) {
-          serializeString_SIMD(data as string);
-        } else if (JSON_MODE === JSONMode.SWAR) {
-          serializeString_SWAR(data as string);
-        } else {
-          serializeString(data as string);
-        }
+        serializeString(data as string);
         return bs.cpyOut<string>();
         // @ts-expect-error: Supplied by transform
       } else if (isDefined(data.__SERIALIZE)) {

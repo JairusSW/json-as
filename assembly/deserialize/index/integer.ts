@@ -1,0 +1,1 @@
+export { deserializeInteger } from "../integer";
