@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { deserializeStringToField_SWAR } from "../deserialize/swar/string";
+import { deserializeStringField_SWAR } from "../deserialize/swar/string";
 import { atoi } from "../util/atoi";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
@@ -68,7 +68,7 @@ function parseStringArray_FAST(srcStart: usize, srcEnd: usize, out: Array<string
 
   while (true) {
     if (index >= out.length) out.push("");
-    srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, out.dataStart + ((<usize>index) << alignof<string>()));
+    srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, out.dataStart + ((<usize>index) << alignof<string>()));
     index++;
 
     const code = load<u16>(srcStart);
@@ -100,7 +100,7 @@ class UserPreferences {
 
   //   if (load<u64>(srcStart, 0) != 29273895796342907 || load<u64>(srcStart, 8) != 9570583007002725 || load<u16>(srcStart, 16) != 58) failParse();
   //   srcStart += 18;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("theme"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("theme"));
 
   //   if (load<u64>(srcStart, 0) != 31244194863513644 || load<u64>(srcStart, 8) != 29555310648164468 || load<u64>(srcStart, 16) != 29555370777182307 || load<u64>(srcStart, 24) != 9570643136610415 || load<u16>(srcStart, 32) != 58) failParse();
   //   srcStart += 34;
@@ -108,15 +108,15 @@ class UserPreferences {
 
   //   if (load<u64>(srcStart, 0) != 27303536599629868 || load<u64>(srcStart, 8) != 27303575258857582 || load<u64>(srcStart, 16) != 16325694684725351) failParse();
   //   srcStart += 24;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("language"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("language"));
 
   //   if (load<u64>(srcStart, 0) != 29555370773053484 || load<u64>(srcStart, 8) != 31244246407512173 || load<u64>(srcStart, 16) != 16325694684725358) failParse();
   //   srcStart += 24;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("timezone"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("timezone"));
 
   //   if (load<u64>(srcStart, 0) != 32088628383580204 || load<u64>(srcStart, 8) != 27866439313916009 || load<u64>(srcStart, 16) != 28429436510470265 || load<u64>(srcStart, 24) != 9570613071249526 || load<u16>(srcStart, 32) != 58) failParse();
   //   srcStart += 34;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("privacy_level"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("privacy_level"));
 
   //   if (load<u64>(srcStart, 0) != 33496020447002668 || load<u64>(srcStart, 8) != 27303510833823855 || load<u64>(srcStart, 16) != 32088624093986915 || load<u64>(srcStart, 24) != 27303545193955423 || load<u64>(srcStart, 32) != 28147931469840482 || load<u32>(srcStart, 40) != 3801122) failParse();
   //   srcStart += 44;
@@ -140,15 +140,15 @@ class RecentActivity {
 
   //   if (load<u64>(srcStart, 0) != 27866439308411003 || load<u64>(srcStart, 8) != 30962724186423412 || load<u32>(srcStart, 16) != 3801122) failParse();
   //   srcStart += 20;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("action"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("action"));
 
   //   if (load<u64>(srcStart, 0) != 29555370773053484 || load<u64>(srcStart, 8) != 32651591226294381 || load<u64>(srcStart, 16) != 9570630251642977 || load<u16>(srcStart, 24) != 58) failParse();
   //   srcStart += 26;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("timestamp"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("timestamp"));
 
   //   if (load<u64>(srcStart, 0) != 27303570959368236 || load<u64>(srcStart, 8) != 32651531096883314 || load<u32>(srcStart, 16) != 3801122) failParse();
   //   srcStart += 20;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("target"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("target"));
 
   //   if (load<u16>(srcStart) != 125) failParse();
   //   return srcStart + 2;
@@ -230,35 +230,35 @@ class MediumAPIResponse {
 
   //   if (load<u64>(srcStart, 0) != 32370124835127340 || load<u64>(srcStart, 8) != 27303545194807397 || load<u64>(srcStart, 16) != 16325694684725357) failParse();
   //   srcStart += 24;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("username"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("username"));
 
   //   if (load<u64>(srcStart, 0) != 32933010364039212 || load<u64>(srcStart, 8) != 30962655467143276 || load<u64>(srcStart, 16) != 9570583007002721 || load<u16>(srcStart, 24) != 58) failParse();
   //   srcStart += 26;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("full_name"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("full_name"));
 
   //   if (load<u64>(srcStart, 0) != 30681206255386668 || load<u64>(srcStart, 8) != 9570613071511649 || load<u16>(srcStart, 16) != 58) failParse();
   //   srcStart += 18;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("email"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("email"));
 
   //   if (load<u64>(srcStart, 0) != 33214463865913388 || load<u64>(srcStart, 8) != 32088563964444769 || load<u64>(srcStart, 16) != 30399787118690399 || load<u32>(srcStart, 24) != 3801122) failParse();
   //   srcStart += 28;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("avatar_url"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("avatar_url"));
 
   //   if (load<u64>(srcStart, 0) != 29555293463642156 || load<u32>(srcStart, 8) != 2228335 || load<u16>(srcStart, 12) != 58) failParse();
   //   srcStart += 14;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("bio"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("bio"));
 
   //   if (load<u64>(srcStart, 0) != 28429483751112748 || load<u64>(srcStart, 8) != 32651548277538914 || load<u32>(srcStart, 16) != 2228325 || load<u16>(srcStart, 20) != 58) failParse();
   //   srcStart += 22;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("website"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("website"));
 
   //   if (load<u64>(srcStart, 0) != 31244186273579052 || load<u64>(srcStart, 8) != 29555370777182307 || load<u64>(srcStart, 16) != 16325694685315183) failParse();
   //   srcStart += 24;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("location"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("location"));
 
   //   if (load<u64>(srcStart, 0) != 31244177683644460 || load<u64>(srcStart, 8) != 28147931469971561 || load<u64>(srcStart, 16) != 9570647430725727 || load<u16>(srcStart, 24) != 58) failParse();
   //   srcStart += 26;
-  //   srcStart = deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("joined_at"));
+  //   srcStart = deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("joined_at"));
 
   //   if (load<u64>(srcStart, 0) != 32370073295519788 || load<u64>(srcStart, 8) != 32088581144445023 || load<u64>(srcStart, 16) != 28429423626027113 || load<u32>(srcStart, 24) != 2228324 || load<u16>(srcStart, 28) != 58) failParse();
   //   srcStart += 30;

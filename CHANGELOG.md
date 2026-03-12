@@ -8,8 +8,11 @@
 - perf: tune SWAR and SIMD string deserialization to return plain strings directly and only allocate scratch space after the first escape
 - perf: streamline split SWAR string field deserialization and string-buffer reuse on the fast path
 - perf: simplify generated fast integer field parsing to reuse `srcStart` and offset-based stores
+- perf: parse generated numeric fields in a single pass with typed integer, unsigned, and float field helpers
 - perf: hand-tune `small.bench.ts` and refresh benchmark runner turbofan flag configuration
 - bench: add a string deserialization head-to-head benchmark and simplify throughput/chart comparisons back to the final JS/NAIVE/SWAR/SIMD view
+- fix: keep the fast generated path opt-in by default and restore the `large` benchmark slow-path behavior
+- refactor: split numeric deserializers into dedicated `assembly/deserialize/{integer,unsigned,float}` modules
 - tooling: expand benchmark chart metadata parsing for custom string benchmark series
 - tests: add escaped-quote SWAR deserialization regressions around block boundaries
 

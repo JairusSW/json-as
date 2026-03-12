@@ -1,6 +1,6 @@
 import { JSON, JSONMode } from "../";
 import { deserializeString } from "../deserialize/simple/string";
-import { deserializeString_SWAR, deserializeStringToField_SWAR } from "../deserialize/swar/string";
+import { deserializeString_SWAR, deserializeStringField_SWAR } from "../deserialize/swar/string";
 import { deserializeString_SIMD } from "../deserialize/simd/string";
 import { serializeString } from "../serialize/simple/string";
 import { detect_escapable_u64_swar_safe, serializeString_SWAR } from "../serialize/swar/string";
@@ -878,7 +878,7 @@ class Token {
 
       if (load<u64>(srcStart, 0) != 31244220633317420 || load<u64>(srcStart, 8) != 9570621661184107 || load<u16>(srcStart, 16) != 58) break;
       srcStart += 18;
-      srcStart = inline.always(deserializeStringToField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("token")));
+      srcStart = inline.always(deserializeStringField_SWAR<string>(srcStart, srcEnd, dst + offsetof<this>("token")));
       if (load<u16>(srcStart) !== 125) break;
       srcStart += 2;
       return srcStart - srcStartHead;

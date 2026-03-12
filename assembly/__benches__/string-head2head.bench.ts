@@ -1,6 +1,6 @@
 import { bs } from "../../lib/as-bs";
 import { expect } from "../__tests__/lib";
-import { deserializeString_SWAR, deserializeStringToField_SWAR as deserializeStringToField_SWAR_Split } from "../deserialize/swar/string";
+import { deserializeString_SWAR, deserializeStringField_SWAR as deserializeStringField_SWAR_Split } from "../deserialize/swar/string";
 import { BACK_SLASH, QUOTE } from "../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE } from "../globals/tables";
 import { hex4_to_u16_swar } from "../util/swar";
@@ -229,7 +229,7 @@ function deserializeString_SWAR_Original(srcStart: usize, srcEnd: usize): string
   return srcStart;
 }
 
-function deserializeStringToField_SWAR_SplitTuned(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+function deserializeStringField_SWAR_SplitTuned(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
@@ -275,7 +275,7 @@ function deserializeStringToField_SWAR_SplitTuned(srcStart: usize, srcEnd: usize
   return srcStart;
 }
 
-function deserializeStringToField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
@@ -659,7 +659,7 @@ function deserializeStringToField_SWAR_Merged(srcStart: usize, srcEnd: usize, ds
   return srcStart;
 }
 
-function deserializeStringToField_SWAR_MergedTuned(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+function deserializeStringField_SWAR_MergedTuned(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
@@ -767,13 +767,13 @@ function runCorpus(values: string[], out: Array<string>, variant: i32): void {
     const end = ptr + (value.length << 1);
     const slot = out.dataStart + ((<usize>i) << alignof<string>());
     if (variant == VARIANT_MERGED) {
-      blackbox(deserializeStringToField_SWAR_Merged(ptr, end, slot));
+      blackbox(deserializeStringField_SWAR_Merged(ptr, end, slot));
     } else if (variant == VARIANT_TUNED_MERGED) {
-      blackbox(deserializeStringToField_SWAR_MergedTuned(ptr, end, slot));
+      blackbox(deserializeStringField_SWAR_MergedTuned(ptr, end, slot));
     } else if (variant == VARIANT_TUNED_SPLIT) {
-      blackbox(deserializeStringToField_SWAR_SplitTuned(ptr, end, slot));
+      blackbox(deserializeStringField_SWAR_SplitTuned(ptr, end, slot));
     } else {
-      blackbox(deserializeStringToField_SWAR_Split<string>(ptr, end, slot));
+      blackbox(deserializeStringField_SWAR_Split<string>(ptr, end, slot));
     }
   }
   blackbox(out);

@@ -6,10 +6,11 @@ import { serializeMap } from "./serialize/simple/map";
 import { serializeDate } from "./serialize/simple/date";
 import { deserializeBoolean } from "./deserialize/simple/bool";
 import { deserializeArray } from "./deserialize/simple/array";
-import { deserializeFloat } from "./deserialize/simple/float";
+import { deserializeFloat } from "./deserialize/float";
 import { deserializeMap } from "./deserialize/simple/map";
 import { deserializeDate } from "./deserialize/simple/date";
-import { deserializeInteger } from "./deserialize/simple/integer";
+import { deserializeInteger } from "./deserialize/integer";
+import { deserializeUnsigned } from "./deserialize/unsigned";
 import { serializeArbitrary } from "./serialize/simple/arbitrary";
 import { serializeSet } from "./serialize/simple/set";
 import { deserializeSet } from "./deserialize/simple/set";
@@ -182,7 +183,7 @@ export namespace JSON {
     if (isBoolean<T>()) {
       return deserializeBoolean(dataPtr, dataPtr + dataSize) as T;
     } else if (isInteger<T>()) {
-      return deserializeInteger<T>(dataPtr, dataPtr + dataSize);
+      return isSigned<T>() ? deserializeInteger<T>(dataPtr, dataPtr + dataSize) : deserializeUnsigned<T>(dataPtr, dataPtr + dataSize);
     } else if (isFloat<T>()) {
       return deserializeFloat<T>(dataPtr, dataPtr + dataSize);
     } else if (isNullable<T>() && dataSize == 8 && load<u64>(dataPtr) == NULL_WORD_U64) {
@@ -792,7 +793,7 @@ export namespace JSON {
       // @ts-expect-error: type
       return deserializeBoolean(srcStart, srcEnd);
     } else if (isInteger<T>()) {
-      return atoi<T>(srcStart, srcEnd);
+      return isSigned<T>() ? deserializeInteger<T>(srcStart, srcEnd) : deserializeUnsigned<T>(srcStart, srcEnd);
     } else if (isFloat<T>()) {
       return deserializeFloat<T>(srcStart, srcEnd);
     } else if (isString<T>()) {

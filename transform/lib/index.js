@@ -533,34 +533,18 @@ export class JSONTransform extends Visitor {
             const fieldPtr = `${outPtr} + offsetof<this>(${JSON.stringify(member.name)})`;
             const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
             if (INTEGER_TYPES.includes(resolvedType)) {
-                out.push("{");
-                out.push(`  const valueStart = ${srcPtr};`);
-                if (SIGNED_INTEGER_TYPES.includes(resolvedType)) {
-                    out.push(`  if (load<u16>(${srcPtr}) == 0x2d) {`);
-                    out.push(`    ${srcPtr} += 2;`);
-                    out.push(`    if (${srcPtr} >= srcEnd) break;`);
-                    out.push("  }");
-                }
-                out.push(`  let digit = <u32>load<u16>(${srcPtr}) - 48;`);
-                out.push("  if (digit > 9) break;");
-                out.push(`  ${srcPtr} += 2;`);
-                out.push(`  while (${srcPtr} < srcEnd) {`);
-                out.push(`    digit = <u32>load<u16>(${srcPtr}) - 48;`);
-                out.push("    if (digit > 9) break;");
-                out.push(`    ${srcPtr} += 2;`);
-                out.push("  }");
-                out.push(`  store<${resolvedType}>(${outPtr}, atoi<${resolvedType}>(valueStart, ${srcPtr}), ${fieldOffset});`);
-                out.push("}");
+                const helper = SIGNED_INTEGER_TYPES.includes(resolvedType) ? "deserializeIntegerField" : "deserializeUnsignedField";
+                out.push(`${srcPtr} = ${helper}<${resolvedType}>(${valuePtr}, srcEnd, ${fieldPtr});`);
             }
             else if (["string", "String"].includes(resolvedType)) {
                 out.push("{");
                 if (member.node.type.isNullable) {
                     out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
-                    out.push(`    store<${member.type}>(${fieldPtr}, changetype<${member.type}>(0));`);
+                    out.push(`    store<${member.type}>(${outPtr}, changetype<${member.type}>(0), ${fieldOffset});`);
                     out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
                     out.push("  } else {");
                 }
-                out.push(`  ${srcPtr} = deserializeStringToField_SWAR<${member.type}>(${valuePtr}, srcEnd, ${fieldPtr});`);
+                out.push(`  ${srcPtr} = deserializeStringField_SWAR<${member.type}>(${valuePtr}, srcEnd, ${fieldPtr});`);
                 if (member.node.type.isNullable) {
                     out.push("  }");
                 }
@@ -569,48 +553,29 @@ export class JSONTransform extends Visitor {
             else if (isBoolean(resolvedType)) {
                 out.push("{");
                 out.push(`  if (load<u64>(${srcPtr}) == 28429475166421108) {`);
-                out.push(`    store<${resolvedType}>(${fieldPtr}, true);`);
+                out.push(`    store<${resolvedType}>(${outPtr}, true, ${fieldOffset});`);
                 out.push(`    ${srcPtr} += 8;`);
                 out.push("  } else if (load<u64>(" + srcPtr + ") == 32370086184550502 && load<u16>(" + srcPtr + ", 8) == 101) {");
-                out.push(`    store<${resolvedType}>(${fieldPtr}, false);`);
+                out.push(`    store<${resolvedType}>(${outPtr}, false, ${fieldOffset});`);
                 out.push(`    ${srcPtr} += 10;`);
                 out.push("  } else break;");
                 out.push("}");
             }
             else if (FLOAT_TYPES.includes(resolvedType)) {
-                out.push("{");
-                out.push(`  const valueStart = ${srcPtr};`);
-                out.push(`  if (${srcPtr} >= srcEnd) break;`);
-                out.push(`  if (load<u16>(${srcPtr}) == 0x2d) {`);
-                out.push(`    ${srcPtr} += 2;`);
-                out.push(`    if (${srcPtr} >= srcEnd) break;`);
-                out.push("  }");
-                out.push("  let seenDigit = false;");
-                out.push(`  while (${srcPtr} < srcEnd) {`);
-                out.push(`    const code = load<u16>(${srcPtr});`);
-                out.push("    if (<u32>code - 48 < 10 || code == 0x2e || code == 0x65 || code == 0x45 || code == 0x2d || code == 0x2b) {");
-                out.push("      if (<u32>code - 48 < 10) seenDigit = true;");
-                out.push(`      ${srcPtr} += 2;`);
-                out.push("      continue;");
-                out.push("    }");
-                out.push("    break;");
-                out.push("  }");
-                out.push("  if (!seenDigit) break;");
-                out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
-                out.push("}");
+                out.push(`${srcPtr} = deserializeFloatField<${resolvedType}>(${valuePtr}, srcEnd, ${fieldPtr});`);
             }
             else if (this.getSchema(resolvedType)) {
                 out.push("{");
                 if (member.node.type.isNullable) {
                     out.push(`  if (load<u64>(${srcPtr}) == 30399761348886638) {`);
-                    out.push(`    store<${resolvedType}>(${fieldPtr}, changetype<${resolvedType}>(0));`);
+                    out.push(`    store<${resolvedType}>(${outPtr}, changetype<${resolvedType}>(0), ${fieldOffset});`);
                     out.push(`    ${srcPtr} += 8;`);
                     out.push("  } else {");
                 }
-                out.push(`  let value = load<${resolvedType}>(${fieldPtr});`);
+                out.push(`  let value = load<${resolvedType}>(${outPtr}, ${fieldOffset});`);
                 out.push("  if (changetype<usize>(value) == 0) {");
                 out.push(`    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
-                out.push(`    store<${resolvedType}>(${fieldPtr}, value);`);
+                out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                 out.push("  }");
                 out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE<${resolvedType}>(${srcPtr}, srcEnd, value);`);
                 if (member.node.type.isNullable) {
@@ -623,10 +588,10 @@ export class JSONTransform extends Visitor {
                 if (valueType && ["string", "String"].includes(valueType)) {
                     out.push("{");
                     out.push(`  if (load<u16>(${srcPtr}) != 0x5b) break;`);
-                    out.push(`  let value = load<${resolvedType}>(${fieldPtr});`);
+                    out.push(`  let value = load<${resolvedType}>(${outPtr}, ${fieldOffset});`);
                     out.push("  if (changetype<usize>(value) == 0) {");
                     out.push(`    value = [];`);
-                    out.push(`    store<${resolvedType}>(${fieldPtr}, value);`);
+                    out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push("  }");
                     out.push("  let index = 0;");
                     out.push(`  ${srcPtr} += 2;`);
@@ -635,7 +600,7 @@ export class JSONTransform extends Visitor {
                     out.push(`    ${srcPtr} += 2;`);
                     out.push("  } else while (true) {");
                     out.push('    if (index >= value.length) value.push("");');
-                    out.push(`    ${srcPtr} = deserializeStringToField_SWAR<${valueType}>(${srcPtr}, srcEnd, value.dataStart + ((<usize>index) << alignof<${valueType}>()));`);
+                    out.push(`    ${srcPtr} = deserializeStringField_SWAR<${valueType}>(${srcPtr}, srcEnd, value.dataStart + ((<usize>index) << alignof<${valueType}>()));`);
                     out.push("    index++;");
                     out.push(`    const code = load<u16>(${srcPtr});`);
                     out.push("    if (code == 0x2c) {");
@@ -654,10 +619,10 @@ export class JSONTransform extends Visitor {
                 else if (valueType && this.getSchema(valueType)) {
                     out.push("{");
                     out.push(`  if (load<u16>(${srcPtr}) != 0x5b) break;`);
-                    out.push(`  let value = load<${resolvedType}>(${fieldPtr});`);
+                    out.push(`  let value = load<${resolvedType}>(${outPtr}, ${fieldOffset});`);
                     out.push("  if (changetype<usize>(value) == 0) {");
                     out.push(`    value = [];`);
-                    out.push(`    store<${resolvedType}>(${fieldPtr}, value);`);
+                    out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push("  }");
                     out.push("  let index = 0;");
                     out.push(`  ${srcPtr} += 2;`);
@@ -724,7 +689,7 @@ export class JSONTransform extends Visitor {
                     out.push(`    ${srcPtr} += 2;`);
                     out.push("  }");
                     out.push(`  if (inString || depth != 0 || ${srcPtr} <= valueStart) break;`);
-                    out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
+                    out.push(`  store<${resolvedType}>(${outPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}), ${fieldOffset});`);
                     out.push("}");
                 }
             }
@@ -760,7 +725,7 @@ export class JSONTransform extends Visitor {
                 out.push(`    ${srcPtr} += 2;`);
                 out.push("  }");
                 out.push(`  if (inString || depth != 0 || ${srcPtr} <= valueStart) break;`);
-                out.push(`  store<${resolvedType}>(${fieldPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}));`);
+                out.push(`  store<${resolvedType}>(${outPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}), ${fieldOffset});`);
                 out.push("}");
             }
             return out;
@@ -1338,6 +1303,13 @@ export class JSONTransform extends Visitor {
         const bsImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "bs" || d.name.text == "bs"));
         const jsonImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "JSON" || d.name.text == "JSON"));
         const atoiImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "atoi" || d.name.text == "atoi"));
+        const deserializeIntegerFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeIntegerField" || d.name.text == "deserializeIntegerField"));
+        const deserializeUnsignedFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeUnsignedField" || d.name.text == "deserializeUnsignedField"));
+        const deserializeFloatFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeFloatField" || d.name.text == "deserializeFloatField"));
+        const sourceText = readFileSync(fromPath).toString();
+        const hasLocalDeserializeIntegerField = /\bdeserializeIntegerField\b/.test(sourceText);
+        const hasLocalDeserializeUnsignedField = /\bdeserializeUnsignedField\b/.test(sourceText);
+        const hasLocalDeserializeFloatField = /\bdeserializeFloatField\b/.test(sourceText);
         let baseRel = path.posix.join(...path.relative(path.dirname(fromPath), path.join(baseDir)).split(path.sep));
         if (baseRel.endsWith("json-as")) {
             baseRel = "json-as" + baseRel.slice(baseRel.indexOf("json-as") + 7);
@@ -1359,6 +1331,24 @@ export class JSONTransform extends Visitor {
         }
         if (!atoiImport) {
             const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("atoi", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "util", "atoi"), node.range), node.range);
+            node.range.source.statements.unshift(replaceNode);
+            if (DEBUG > 0)
+                console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
+        }
+        if (!deserializeIntegerFieldImport && !hasLocalDeserializeIntegerField) {
+            const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("deserializeIntegerField", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "integer"), node.range), node.range);
+            node.range.source.statements.unshift(replaceNode);
+            if (DEBUG > 0)
+                console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
+        }
+        if (!deserializeUnsignedFieldImport && !hasLocalDeserializeUnsignedField) {
+            const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("deserializeUnsignedField", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "unsigned"), node.range), node.range);
+            node.range.source.statements.unshift(replaceNode);
+            if (DEBUG > 0)
+                console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
+        }
+        if (!deserializeFloatFieldImport && !hasLocalDeserializeFloatField) {
+            const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("deserializeFloatField", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "float"), node.range), node.range);
             node.range.source.statements.unshift(replaceNode);
             if (DEBUG > 0)
                 console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");

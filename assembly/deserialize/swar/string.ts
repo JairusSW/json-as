@@ -287,22 +287,27 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
 // Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
 // @ts-expect-error: @inline is a valid decorator
 @inline function writeStringToField(dstFieldPtr: usize, srcStart: usize, byteLength: u32): void {
-  const current = load<usize>(dstFieldPtr);
-  let outPtr: usize;
-  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
-    outPtr = current;
-  } else if (current != 0 && current != changetype<usize>("")) {
-    outPtr = __renew(current, byteLength);
-    store<usize>(dstFieldPtr, outPtr);
-  } else {
-    outPtr = __new(byteLength, idof<string>());
-    store<usize>(dstFieldPtr, outPtr);
+  if (byteLength == 0) {
+    store<usize>(dstFieldPtr, changetype<usize>(""));
+    return;
   }
-  memory.copy(outPtr, srcStart, byteLength);
+
+  const current = load<usize>(dstFieldPtr);
+  let stringPtr: usize;
+  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+    stringPtr = current;
+  } else if (current != 0 && current != changetype<usize>("")) {
+    stringPtr = __renew(current, byteLength);
+    store<usize>(dstFieldPtr, stringPtr);
+  } else {
+    stringPtr = __new(byteLength, idof<string>());
+    store<usize>(dstFieldPtr, stringPtr);
+  }
+  memory.copy(stringPtr, srcStart, byteLength);
 }
 
 /*
-export function deserializeStringToField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+export function deserializeStringField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
@@ -704,7 +709,7 @@ export function deserializeStringToField_SWAR<T extends string | null>(srcStart:
 }
 
 // Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
-export function deserializeStringToField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+export function deserializeStringField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;

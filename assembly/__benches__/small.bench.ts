@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { deserializeStringToField_SWAR } from "../deserialize/swar/string";
+import { deserializeStringField_SWAR } from "../deserialize/swar/string";
 import { atoi } from "../util/atoi";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
@@ -55,13 +55,13 @@ class SessionStatusResponse {
       }
 
       if (load<u64>(srcStart, 0) != 32370124835127340 || load<u64>(srcStart, 8) != 27303545194807397 || load<u64>(srcStart, 16) != 16325694684725357) break;
-      srcStart = deserializeStringToField_SWAR<string>(srcStart + 24, srcEnd, dst + offsetof<this>("username"));
+      srcStart = deserializeStringField_SWAR<string>(srcStart + 24, srcEnd, dst + offsetof<this>("username"));
 
       if (load<u64>(srcStart, 0) != 31244212043382828 || load<u64>(srcStart, 8) != 16325694684725356) break;
-      srcStart = deserializeStringToField_SWAR<string>(srcStart + 16, srcEnd, dst + offsetof<this>("role"));
+      srcStart = deserializeStringField_SWAR<string>(srcStart + 16, srcEnd, dst + offsetof<this>("role"));
 
       if (load<u64>(srcStart, 0) != 33777430999203884 || load<u64>(srcStart, 8) != 28429462280929392 || load<u64>(srcStart, 16) != 32651513916489843 || load<u32>(srcStart, 24) != 3801122) break;
-      srcStart = deserializeStringToField_SWAR<string>(srcStart + 28, srcEnd, dst + offsetof<this>("expires_at"));
+      srcStart = deserializeStringField_SWAR<string>(srcStart + 28, srcEnd, dst + offsetof<this>("expires_at"));
 
       if (load<u16>(srcStart) != 125) break;
       return srcStart + 2;
