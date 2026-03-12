@@ -10,6 +10,7 @@ import { deserializeObjectArray } from "../simple/array/object";
 import { deserializeRawArray } from "../simple/array/raw";
 import { deserializeStringArray } from "../simple/array/string";
 import { deserializeStructArray } from "../simple/array/struct";
+import { deserializeIntegerArray_SIMD } from "../simd/array/integer";
 import { deserializeIntegerArray_SWAR } from "../swar/array/integer";
 
 export { deserializeArrayField, deserializeArrayField as deserializeArrayField_SWAR } from "../swar/array";
@@ -20,7 +21,10 @@ export function deserializeArray<T extends unknown[]>(srcStart: usize, srcEnd: u
   } else if (isBoolean<valueof<T>>()) {
     return deserializeBooleanArray<T>(srcStart, srcEnd, dst);
   } else if (isInteger<valueof<T>>()) {
-    if (JSON_MODE == JSONMode.SIMD || JSON_MODE == JSONMode.SWAR) {
+    if (JSON_MODE == JSONMode.SIMD) {
+      // @ts-ignore: integer array branch
+      return deserializeIntegerArray_SIMD<T>(srcStart, srcEnd, dst);
+    } else if (JSON_MODE == JSONMode.SWAR) {
       // @ts-ignore: integer array branch
       return deserializeIntegerArray_SWAR<T>(srcStart, srcEnd, dst);
     } else {
