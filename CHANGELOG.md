@@ -16,5 +16,6 @@
 - Routed the public API through the new index dispatch layer and added top-level barrel exports for both serialize and deserialize.
 
 ### perf: speed up float field deserialization
-- Replaced linear power-of-ten loops in `deserializeFloatField` with a bitwise power-of-ten path and batched fractional parsing.
+- Replaced linear power-of-ten loops in the handwritten float deserializers with a bitwise power-of-ten path and batched fractional parsing.
+- Switched `deserializeFloat` from `f64.parse(ptrToStr(...))` to the handwritten parser path.
 - Improved object fast-path throughput substantially on payloads with exponent-form float fields.
