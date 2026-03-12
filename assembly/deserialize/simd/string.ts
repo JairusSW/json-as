@@ -58,13 +58,27 @@ import { hex4_to_u16_swar } from "../../util/swar";
  * @param dst buffer to write to
  * @returns number of bytes written
  */
+// @ts-expect-error: @inline is a valid decorator
+@inline function copyStringFromSource_SIMD(srcStart: usize, byteLength: usize): string {
+  if (byteLength == 0) return changetype<string>("");
+  // @ts-expect-error: __new is a runtime builtin
+  const out = __new(byteLength, idof<string>());
+  memory.copy(out, srcStart, byteLength);
+  return changetype<string>(out);
+}
+
 // todo: optimize and stuff. it works, its not pretty. ideally, i'd like this to be (nearly) branchless
-export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
-  // Strip quotes
-  srcStart += 2;
-  srcEnd -= 2;
+// @ts-expect-error: @inline is a valid decorator
+@inline function deserializeEscapedString_SIMD(payloadStart: usize, escapeStart: usize, srcEnd: usize): string {
+  const prefixLen = <u32>(escapeStart - payloadStart);
+  let srcStart = escapeStart;
   const srcEnd16 = srcEnd - 16;
   bs.ensureSize(u32(srcEnd - srcStart));
+  bs.offset = bs.buffer;
+  if (prefixLen != 0) {
+    memory.copy(bs.buffer, payloadStart, prefixLen);
+    bs.offset += prefixLen;
+  }
 
   while (srcStart < srcEnd16) {
     const block = load<v128>(srcStart);
@@ -142,8 +156,7 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
     const code = load<u16>(srcStart);
     if (code !== 0x75) {
       // Short escapes (\n \t \" \\)
-      const block = load<u16>(srcStart);
-      const escape = load<u16>(DESERIALIZE_ESCAPE_TABLE + block);
+      const escape = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
       store<u16>(bs.offset, escape);
       srcStart += 2;
     } else {
@@ -157,4 +170,34 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
   }
 
   return bs.out<string>();
+}
+
+export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
+  // Strip quotes
+  srcStart += 2;
+  srcEnd -= 2;
+  const payloadStart = srcStart;
+  const srcEnd16 = srcEnd - 16;
+
+  while (srcStart < srcEnd16) {
+    const block = load<v128>(srcStart);
+    const eq5C = i16x8.eq(block, SPLAT_5C);
+
+    if (!v128.any_true(eq5C)) {
+      srcStart += 16;
+      continue;
+    }
+
+    const laneIdx = usize(ctz(i16x8.bitmask(eq5C)) << 1);
+    return inline.always(deserializeEscapedString_SIMD(payloadStart, srcStart + laneIdx, srcEnd));
+  }
+
+  while (srcStart < srcEnd) {
+    if (load<u16>(srcStart) == BACK_SLASH) {
+      return inline.always(deserializeEscapedString_SIMD(payloadStart, srcStart, srcEnd));
+    }
+    srcStart += 2;
+  }
+
+  return copyStringFromSource_SIMD(payloadStart, srcEnd - payloadStart);
 }

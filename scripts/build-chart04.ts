@@ -19,15 +19,26 @@ function getBenchData(filePath: string) {
 }
 
 const payloads = ["small-str", "medium-str", "large-str"];
-const engines = ["js", "naive", "swar", "simd"];
 const modes = ["deserialize"];
 
-function logPath(payload: string, engine: string, mode: string) {
-  const language = engine == "js" ? "js" : "as";
-  if (language === "js") {
-    engine = "";
-  }
-  return path.join("./build", "logs", language, engine, `${payload}.${mode}.${language}.json`);
+type SeriesSpec = {
+  key: string;
+  label: string;
+  language: "js" | "as";
+  engine: string;
+  payloadTransform?: (payload: string) => string;
+};
+
+const series: SeriesSpec[] = [
+  { key: "js", label: "JS", language: "js", engine: "" },
+  { key: "naive", label: "NAIVE", language: "as", engine: "naive" },
+  { key: "swar", label: "SWAR", language: "as", engine: "swar" },
+  { key: "simd", label: "SIMD", language: "as", engine: "simd" },
+];
+
+function logPath(payload: string, spec: SeriesSpec, mode: string) {
+  const transformedPayload = spec.payloadTransform ? spec.payloadTransform(payload) : payload;
+  return path.join("./build", "logs", spec.language, spec.engine, `${transformedPayload}.${mode}.${spec.language}.json`);
 }
 
 interface ChartPoint {
@@ -37,10 +48,10 @@ interface ChartPoint {
 const chartData: Record<string, ChartPoint[]> = {};
 
 for (const payload of payloads) {
-  for (const engine of engines) {
+  for (const spec of series) {
     for (const mode of modes) {
-      const key = `${payload}-${engine}-${mode}`;
-      const data = getBenchData(logPath(payload, engine, mode));
+      const key = `${payload}-${spec.key}-${mode}`;
+      const data = getBenchData(logPath(payload, spec, mode));
       const sizeKB = data.bytes / 1024;
 
       if (!chartData[key]) chartData[key] = [];
@@ -65,13 +76,13 @@ const colors: Record<string, string> = {
 const datasets = [];
 
 for (const mode of modes) {
-  for (const engine of engines) {
-    const data: ChartPoint[] = payloads.map((p) => chartData[`${p}-${engine}-${mode}`][0]);
+  for (const spec of series) {
+    const data: ChartPoint[] = payloads.map((p) => chartData[`${p}-${spec.key}-${mode}`][0]);
     datasets.push({
-      label: `${engine.toUpperCase()}`,
+      label: spec.label,
       data,
-      borderColor: `rgba(${colors[engine + "-" + mode] || colors[engine]},0.9)`,
-      backgroundColor: `rgba(${colors[engine + "-" + mode] || colors[engine]},0.3)`,
+      borderColor: `rgba(${colors[spec.key + "-" + mode] || colors[spec.key]},0.9)`,
+      backgroundColor: `rgba(${colors[spec.key + "-" + mode] || colors[spec.key]},0.3)`,
       fill: false,
       tension: 0.2,
       pointStyle: mode === "serialize" ? "circle" : "rect",

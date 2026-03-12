@@ -57,20 +57,18 @@ function generateBarChartFromFiles(files: string[], outputFile: string) {
 
   for (const file of files) {
     const raw: RawBench = JSON.parse(readFileSync(file, "utf-8"));
-    const impl = inferImplementation(file);
-    const payload = inferPayload(file);
+    const { implementation, payload } = inferBenchmarkMeta(file);
 
     const gbPerSec = (raw.bytes * raw.operations) / (raw.elapsed * 1e6);
 
-    results.push({ library: impl, payload, gbPerSec });
+    results.push({ library: implementation, payload, gbPerSec });
   }
 
   // Group by payload and sort payloads logically
-  const payloadOrder = ["abc", "vec3", "small", "medium", "large"];
-  const uniquePayloads = [...new Set(results.map((r) => r.payload))].sort((a, b) => payloadOrder.indexOf(a) - payloadOrder.indexOf(b));
+  const uniquePayloads = [...new Set(results.map((r) => r.payload))].sort(comparePayloads);
 
   const uniqueLibraries = [...new Set(results.map((r) => r.library))];
-  const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+  const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#84cc16", "#f97316", "#ec4899", "#6366f1"];
 
   const chart: ChartData = {
     title: "JSON Throughput by Payload Size",
@@ -83,22 +81,54 @@ function generateBarChartFromFiles(files: string[], outputFile: string) {
   console.log(`✅ Bar chart written to ${outputFile}`);
 }
 
-function inferImplementation(file: string): string {
-  return basename(file)
-    .replace(".log.json", "")
-    .replace(/\.bench\./g, " ")
-    .replace(/\./g, " ")
-    .trim();
+function inferBenchmarkMeta(file: string): { implementation: string; payload: string } {
+  const normalized = file.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  const logsIndex = parts.lastIndexOf("logs");
+
+  const language = logsIndex >= 0 ? parts[logsIndex + 1] || "" : "";
+  const maybeEngine = logsIndex >= 0 ? parts[logsIndex + 2] || "" : "";
+  const fileName = basename(file);
+  const stem = fileName.replace(/\.(serialize|deserialize)\.(as|js)\.json$/, "");
+
+  let implementationBase = "";
+  if (language === "js") {
+    implementationBase = "js";
+  } else if (language === "as") {
+    implementationBase = maybeEngine ? `as ${maybeEngine}` : "as";
+  } else {
+    implementationBase = "unknown";
+  }
+
+  if (stem.startsWith("string-head2head-")) {
+    const payload = stem.endsWith("-plain") ? "plain" : stem.endsWith("-escaped") ? "escaped" : "string-head2head";
+    const variant = stem
+      .replace(/^string-head2head-/, "")
+      .replace(/-(plain|escaped)$/, "")
+      .replace(/-/g, " ")
+      .trim();
+    return {
+      implementation: `${implementationBase} ${variant}`.trim(),
+      payload,
+    };
+  }
+
+  return {
+    implementation: implementationBase,
+    payload: stem,
+  };
 }
 
-function inferPayload(file: string): string {
-  const name = basename(file);
-  if (name.includes("abc.bench")) return "abc";
-  if (name.includes("vec3.bench")) return "vec3";
-  if (name.includes("small.bench")) return "small";
-  if (name.includes("medium.bench")) return "medium";
-  if (name.includes("large.bench")) return "large";
-  return "unknown";
+function comparePayloads(a: string, b: string): number {
+  const payloadOrder = ["abc", "vec3", "small", "small-str", "small-str-scan", "medium", "medium-str", "medium-str-scan", "large", "large-str", "large-str-scan", "plain", "escaped"];
+
+  const aIndex = payloadOrder.indexOf(a);
+  const bIndex = payloadOrder.indexOf(b);
+
+  if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+  if (aIndex !== -1) return -1;
+  if (bIndex !== -1) return 1;
+  return a.localeCompare(b);
 }
 
 function generateGroupedBarSVG(data: ChartData, libraries: string[], colors: string[]): string {
