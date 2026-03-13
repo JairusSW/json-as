@@ -1,6 +1,7 @@
 /// <reference path="./index.d.ts" />
 
 import { bs } from "../lib/as-bs";
+import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { serializeArray } from "./serialize/index/array";
 import { serializeMap } from "./serialize/index/map";
 import { serializeDate } from "./serialize/index/date";
@@ -32,6 +33,8 @@ import { serializeRaw } from "./serialize/index/raw";
 import { deserializeRaw } from "./deserialize/index/raw";
 import { deserializeString } from "./deserialize/index/string";
 import { serializeString } from "./serialize/index/string";
+import { deserializeArrayBuffer, deserializeTypedArray } from "./deserialize/index/typedarray";
+import { serializeArrayBufferUnsafe, serializeTypedArray } from "./serialize/index/typedarray";
 
 /**
  * Offset of the 'storage' property in the JSON.Value class.
@@ -135,6 +138,39 @@ export namespace JSON {
       // @ts-expect-error
       inline.always(serializeStaticArray(changetype<nonnull<T>>(data)));
       return bs.out<string>();
+    } else if (data instanceof Int8Array) {
+      inline.always(serializeTypedArray<Int8Array>(data));
+      return bs.out<string>();
+    } else if (data instanceof Uint8Array) {
+      inline.always(serializeTypedArray<Uint8Array>(data));
+      return bs.out<string>();
+    } else if (data instanceof Uint8ClampedArray) {
+      inline.always(serializeTypedArray<Uint8ClampedArray>(data));
+      return bs.out<string>();
+    } else if (data instanceof Int16Array) {
+      inline.always(serializeTypedArray<Int16Array>(data));
+      return bs.out<string>();
+    } else if (data instanceof Uint16Array) {
+      inline.always(serializeTypedArray<Uint16Array>(data));
+      return bs.out<string>();
+    } else if (data instanceof Int32Array) {
+      inline.always(serializeTypedArray<Int32Array>(data));
+      return bs.out<string>();
+    } else if (data instanceof Uint32Array) {
+      inline.always(serializeTypedArray<Uint32Array>(data));
+      return bs.out<string>();
+    } else if (data instanceof Int64Array) {
+      inline.always(serializeTypedArray<Int64Array>(data));
+      return bs.out<string>();
+    } else if (data instanceof Uint64Array) {
+      inline.always(serializeTypedArray<Uint64Array>(data));
+      return bs.out<string>();
+    } else if (data instanceof Float32Array) {
+      inline.always(serializeTypedArray<Float32Array>(data));
+      return bs.out<string>();
+    } else if (data instanceof Float64Array) {
+      inline.always(serializeTypedArray<Float64Array>(data));
+      return bs.out<string>();
     } else if (data instanceof Set) {
       // @ts-expect-error
       inline.always(serializeSet(changetype<nonnull<T>>(data)));
@@ -155,8 +191,14 @@ export namespace JSON {
     } else if (data instanceof JSON.Box) {
       return JSON.stringify(data.value);
     } else {
-      throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`);
+      throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, StaticArray, TypedArray, Map, Date, and @json decorated classes. ` + `For ArrayBuffer, use JSON.stringifyArrayBuffer(changetype<usize>(...)).`);
     }
+  }
+
+
+  @inline export function stringifyArrayBuffer(dataStart: usize): string {
+    serializeArrayBufferUnsafe(dataStart, changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize);
+    return bs.out<string>();
   }
 
   /**
@@ -189,6 +231,30 @@ export namespace JSON {
       } else if (type instanceof Array) {
         // @ts-expect-error
         return inline.always(deserializeArray<nonnull<T>>(dataPtr, dataPtr + dataSize, changetype<usize>(instantiate<T>())));
+      } else if (type instanceof Int8Array) {
+        return deserializeTypedArray<Int8Array>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof Uint8Array) {
+        return deserializeTypedArray<Uint8Array>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof Uint8ClampedArray) {
+        return deserializeTypedArray<Uint8ClampedArray>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof Int16Array) {
+        return deserializeTypedArray<Int16Array>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof Uint16Array) {
+        return deserializeTypedArray<Uint16Array>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof Int32Array) {
+        return deserializeTypedArray<Int32Array>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof Uint32Array) {
+        return deserializeTypedArray<Uint32Array>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof Int64Array) {
+        return deserializeTypedArray<Int64Array>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof Uint64Array) {
+        return deserializeTypedArray<Uint64Array>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof Float32Array) {
+        return deserializeTypedArray<Float32Array>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof Float64Array) {
+        return deserializeTypedArray<Float64Array>(dataPtr, dataPtr + dataSize, 0) as T;
+      } else if (type instanceof ArrayBuffer) {
+        return deserializeArrayBuffer(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Set) {
         // @ts-expect-error
         return inline.always(deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0));
@@ -759,6 +825,28 @@ export namespace JSON {
     } else if (data instanceof StaticArray) {
       // @ts-expect-error
       serializeStaticArray(changetype<nonnull<T>>(data));
+    } else if (data instanceof Int8Array) {
+      serializeTypedArray<Int8Array>(data);
+    } else if (data instanceof Uint8Array) {
+      serializeTypedArray<Uint8Array>(data);
+    } else if (data instanceof Uint8ClampedArray) {
+      serializeTypedArray<Uint8ClampedArray>(data);
+    } else if (data instanceof Int16Array) {
+      serializeTypedArray<Int16Array>(data);
+    } else if (data instanceof Uint16Array) {
+      serializeTypedArray<Uint16Array>(data);
+    } else if (data instanceof Int32Array) {
+      serializeTypedArray<Int32Array>(data);
+    } else if (data instanceof Uint32Array) {
+      serializeTypedArray<Uint32Array>(data);
+    } else if (data instanceof Int64Array) {
+      serializeTypedArray<Int64Array>(data);
+    } else if (data instanceof Uint64Array) {
+      serializeTypedArray<Uint64Array>(data);
+    } else if (data instanceof Float32Array) {
+      serializeTypedArray<Float32Array>(data);
+    } else if (data instanceof Float64Array) {
+      serializeTypedArray<Float64Array>(data);
     } else if (data instanceof Set) {
       // @ts-expect-error
       serializeSet(changetype<nonnull<T>>(data));
@@ -774,8 +862,31 @@ export namespace JSON {
     } else if (data instanceof JSON.Box) {
       __serialize(data.value);
     } else {
-      throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`);
+      throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, StaticArray, TypedArray, Map, Date, and @json decorated classes. ` + `For ArrayBuffer, use JSON.stringifyArrayBuffer(changetype<usize>(...)).`);
     }
+  }
+
+
+  @inline export function __serializeArrayBufferUnsafe(dataStart: usize): void {
+    serializeArrayBufferUnsafe(dataStart, changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize);
+  }
+
+
+  @inline export function __serializeArrayBuffer(data: ArrayBuffer): void {
+    const dataStart = changetype<usize>(data);
+    serializeArrayBufferUnsafe(dataStart, changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize);
+  }
+
+
+  @inline export function parseArrayBuffer(data: string): ArrayBuffer {
+    const dataSize = bytes(data);
+    const dataPtr = changetype<usize>(data);
+    return deserializeArrayBuffer(dataPtr, dataPtr + dataSize, 0);
+  }
+
+
+  @inline export function __deserializeArrayBuffer(srcStart: usize, srcEnd: usize, dst: usize = 0): ArrayBuffer {
+    return deserializeArrayBuffer(srcStart, srcEnd, dst);
   }
 
   /**
@@ -808,6 +919,30 @@ export namespace JSON {
       } else if (type instanceof Array) {
         // @ts-expect-error: type
         return deserializeArray<T>(srcStart, srcEnd, dst);
+      } else if (type instanceof Int8Array) {
+        return deserializeTypedArray<Int8Array>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof Uint8Array) {
+        return deserializeTypedArray<Uint8Array>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof Uint8ClampedArray) {
+        return deserializeTypedArray<Uint8ClampedArray>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof Int16Array) {
+        return deserializeTypedArray<Int16Array>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof Uint16Array) {
+        return deserializeTypedArray<Uint16Array>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof Int32Array) {
+        return deserializeTypedArray<Int32Array>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof Uint32Array) {
+        return deserializeTypedArray<Uint32Array>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof Int64Array) {
+        return deserializeTypedArray<Int64Array>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof Uint64Array) {
+        return deserializeTypedArray<Uint64Array>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof Float32Array) {
+        return deserializeTypedArray<Float32Array>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof Float64Array) {
+        return deserializeTypedArray<Float64Array>(srcStart, srcEnd, dst) as T;
+      } else if (type instanceof ArrayBuffer) {
+        return deserializeArrayBuffer(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Set) {
         // @ts-expect-error: type
         return deserializeSet<T>(srcStart, srcEnd, dst);

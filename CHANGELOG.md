@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### fix: add built-in typed array support
+- Added default serialization and deserialization support for all built-in typed arrays.
+- Added dedicated `ArrayBuffer` parse/serialize helpers and routed transform-generated `ArrayBuffer` field serialization through a dedicated buffer path inside `@json` classes.
+- Added regression coverage for direct typed-array round-trips, explicit `ArrayBuffer` helpers, field-initialized `@json` classes with `ArrayBuffer`, constructor-assigned typed-array fields, and nested `@json` class payloads.
+
 ### fix: finish subtype-aware StaticArray deserialization
 - Reworked `StaticArray` deserialization to dispatch by element subtype, mirroring the existing `Array<subtype>` deserializer matrix instead of relying on a generic fallback.
 - Materialized complex deserialized array results into fixed `StaticArray` storage for nested arrays, nested static arrays, maps, `JSON.Value`, `JSON.Box`, `JSON.Obj`, `JSON.Raw`, and transform-backed structs.

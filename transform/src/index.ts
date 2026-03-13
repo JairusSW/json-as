@@ -21,6 +21,18 @@ const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true
 const USE_FAST_PATH = process.env["JSON_USE_FAST_PATH"]?.trim() === "1";
 // const STRING_SCAN_SUFFIX_BOUND_LIMIT = process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"] ? parseInt(process.env["STRING_SCAN_SUFFIX_BOUND_LIMIT"]) : 1024;
 
+function needsReferenceLoad(type: string): boolean {
+  return type == "ArrayBuffer" || type == "Int8Array" || type == "Uint8Array" || type == "Uint8ClampedArray" || type == "Int16Array" || type == "Uint16Array" || type == "Int32Array" || type == "Uint32Array" || type == "Int64Array" || type == "Uint64Array" || type == "Float32Array" || type == "Float64Array";
+}
+
+function getSerializeCall(type: string, realName: string): string {
+  if (type == "ArrayBuffer") {
+    return `JSON.__serializeArrayBuffer(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+  }
+
+  return needsReferenceLoad(type) ? `JSON.__serialize<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n` : `JSON.__serialize<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+}
+
 export class JSONTransform extends Visitor {
   static SN: JSONTransform = new JSONTransform();
 
@@ -419,7 +431,7 @@ export class JSONTransform extends Visitor {
         SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
           .map((v) => indent + v + "\n")
           .join("");
-        SERIALIZE += indent + `JSON.__serialize<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+        SERIALIZE += indent + getSerializeCall(member.type, realName);
         if (isFirst) isFirst = false;
       } else if (isRegular && !isPure) {
         const keyPart = (isFirst ? "" : ",") + aliasName + ":";
@@ -427,7 +439,7 @@ export class JSONTransform extends Visitor {
         SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
           .map((v) => indent + v + "\n")
           .join("");
-        SERIALIZE += indent + `JSON.__serialize<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+        SERIALIZE += indent + getSerializeCall(member.type, realName);
         if (isFirst) isFirst = false;
       } else {
         if (member.flags.has(PropertyFlags.OmitNull)) {
@@ -438,7 +450,7 @@ export class JSONTransform extends Visitor {
           SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
             .map((v) => indent + v + "\n")
             .join("");
-          SERIALIZE += indent + `JSON.__serialize<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+          SERIALIZE += indent + getSerializeCall(member.type, realName);
 
           if (!isLast) {
             this.schema.byteSize += 2;
@@ -465,7 +477,7 @@ export class JSONTransform extends Visitor {
           SERIALIZE += this.getStores(aliasName + ":", SIMD_ENABLED)
             .map((v) => indent + v + "\n")
             .join("");
-          SERIALIZE += indent + `JSON.__serialize<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+          SERIALIZE += indent + getSerializeCall(member.type, realName);
 
           if (!isLast) {
             this.schema.byteSize += 2;
