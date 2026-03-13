@@ -30,3 +30,13 @@ describe("Should deserialize structs with aggressive whitespace", () => {
   expect((parsed.pos as Vec3).z.toString()).toBe("6.5");
   expect(JSON.stringify(parsed)).toBe('{"title":"demo","count":7,"enabled":true,"values":[1.5,2.5,3.5],"pos":{"x":4.5,"y":5.5,"z":6.5}}');
 });
+
+describe("Should preserve escaped backslashes and quotes inside nested values", () => {
+  const parsedObject = JSON.parse<Map<string, string>>('{ "msg" : "path \\\\\\\\ and quote \\\\\\"" }');
+  const parsedArray = JSON.parse<string[]>('[ "path \\\\\\\\ and quote \\\\\\"" ]');
+
+  expect(parsedObject.get("msg")).toBe('path \\\\ and quote \\"');
+  expect(parsedArray[0]).toBe('path \\\\ and quote \\"');
+  expect(JSON.stringify(parsedObject)).toBe('{"msg":"path \\\\\\\\ and quote \\\\\\""}');
+  expect(JSON.stringify(parsedArray)).toBe('["path \\\\\\\\ and quote \\\\\\""]');
+});

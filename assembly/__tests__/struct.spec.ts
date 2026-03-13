@@ -181,7 +181,7 @@ describe("Should deserialize player structs with null nested object", () => {
 describe("Should apply omitif and omitnull behavior across values", () => {
   const a = new OmitIf();
   a.y = -1;
-  expect(JSON.stringify(a)).toBe('{"y":-1,"x":1,"z":1}');
+  expect(JSON.stringify(a)).toBe('{"x":1,"z":1}');
 
   const b = new OmitIf();
   b.y = 7;

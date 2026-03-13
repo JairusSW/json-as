@@ -394,14 +394,14 @@ export namespace JSON {
       // @ts-expect-error: can assume that T is ArrayLike based on previous condition
       if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) return JSON.Types.Array;
       if (value instanceof JSON.Box) return this.getType(value.value);
-      if (value instanceof u8 || value instanceof i8) return JSON.Types.U8;
-      if (value instanceof u16 || value instanceof i16) return JSON.Types.U16;
-      if (value instanceof u32 || value instanceof i32) return JSON.Types.U32;
-      if (value instanceof u64 || value instanceof i64) return JSON.Types.U64;
       if (value instanceof i8) return JSON.Types.I8;
       if (value instanceof i16) return JSON.Types.I16;
       if (value instanceof i32) return JSON.Types.I32;
       if (value instanceof i64) return JSON.Types.I64;
+      if (value instanceof u8) return JSON.Types.U8;
+      if (value instanceof u16) return JSON.Types.U16;
+      if (value instanceof u32) return JSON.Types.U32;
+      if (value instanceof u64) return JSON.Types.U64;
       if (value instanceof f32) return JSON.Types.F32;
       if (value instanceof f64) return JSON.Types.F64;
       if (value instanceof Map) return JSON.Types.Map;
@@ -487,6 +487,14 @@ export namespace JSON {
           return this.get<u32>().toString();
         case JSON.Types.U64:
           return this.get<u64>().toString();
+        case JSON.Types.I8:
+          return this.get<i8>().toString();
+        case JSON.Types.I16:
+          return this.get<i16>().toString();
+        case JSON.Types.I32:
+          return this.get<i32>().toString();
+        case JSON.Types.I64:
+          return this.get<i64>().toString();
         case JSON.Types.F32:
           return this.get<f32>().toString();
         case JSON.Types.F64:
@@ -633,11 +641,25 @@ export namespace JSON {
      */
     @inline static from<T>(value: T): JSON.Obj {
       if (value instanceof JSON.Obj) return value;
-      const out = new JSON.Obj();
-
       if (value instanceof Map) {
+        const out = new JSON.Obj();
+        if (!isString<indexof<T>>()) {
+          throw new Error("JSON.Obj.from only supports maps with string keys");
+        }
+
+        const keys = value.keys();
+        const values = value.values();
+        for (let i = 0; i < keys.length; i++) {
+          out.set(unchecked(keys[i]), unchecked(values[i]));
+        }
+        return out;
       }
-      return out;
+
+      const parsed = JSON.parse<JSON.Value>(JSON.stringify(value));
+      if (parsed.type != JSON.Types.Object) {
+        throw new Error("JSON.Obj.from expects a value that serializes to a JSON object");
+      }
+      return parsed.get<JSON.Obj>();
     }
   }
   /**
@@ -645,7 +667,7 @@ export namespace JSON {
    */
   export class Box<T> {
     constructor(public value: T) {
-      if (!isInteger<T>() && !isFloat<T>()) ERROR("JSON.Box should only hold primitive types!");
+      if (!isInteger<T>() && !isFloat<T>() && !isBoolean<T>()) ERROR("JSON.Box should only hold primitive types!");
     }
     /**
      * Set the internal value of Box to new value

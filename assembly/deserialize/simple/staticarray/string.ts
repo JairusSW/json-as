@@ -1,5 +1,6 @@
 import { JSON } from "../../..";
-import { BACK_SLASH, QUOTE } from "../../../custom/chars";
+import { QUOTE } from "../../../custom/chars";
+import { isUnescapedQuote } from "../../../util";
 
 export function deserializeStaticArrayString(srcStart: usize, srcEnd: usize, dst: usize): StaticArray<string> {
   // First pass: count elements using same logic as Array deserializer
@@ -11,7 +12,7 @@ export function deserializeStaticArrayString(srcStart: usize, srcEnd: usize, dst
     if (code == QUOTE) {
       if (!inString) {
         inString = true;
-      } else if (load<u16>(ptr - 2) != BACK_SLASH) {
+      } else if (isUnescapedQuote(ptr)) {
         count++;
         inString = false;
       }
@@ -33,7 +34,7 @@ export function deserializeStaticArrayString(srcStart: usize, srcEnd: usize, dst
       if (!inString) {
         inString = true;
         lastPos = srcStart;
-      } else if (load<u16>(srcStart - 2) != BACK_SLASH) {
+      } else if (isUnescapedQuote(srcStart)) {
         unchecked((out[index++] = JSON.__deserialize<string>(lastPos, srcStart + 2)));
         inString = false;
       }

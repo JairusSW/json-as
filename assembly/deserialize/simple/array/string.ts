@@ -1,5 +1,6 @@
 import { JSON } from "../../..";
-import { BACK_SLASH, QUOTE } from "../../../custom/chars";
+import { QUOTE } from "../../../custom/chars";
+import { isUnescapedQuote } from "../../../util";
 
 export function deserializeStringArray(srcStart: usize, srcEnd: usize, dst: usize): string[] {
   const out = changetype<string[]>(dst || changetype<usize>(instantiate<string[]>()));
@@ -11,7 +12,7 @@ export function deserializeStringArray(srcStart: usize, srcEnd: usize, dst: usiz
       if (!inString) {
         inString = true;
         lastPos = srcStart;
-      } else if (load<u16>(srcStart - 2) != BACK_SLASH) {
+      } else if (isUnescapedQuote(srcStart)) {
         out.push(JSON.__deserialize<string>(lastPos, srcStart + 2));
         inString = false;
       }

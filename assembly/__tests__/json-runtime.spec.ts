@@ -14,6 +14,17 @@ describe("Should cover JSON.Value type creation broadly", () => {
   expect(values[6].toString()).toBe('{"x":1.0,"y":2.0,"z":3.0}');
 });
 
+describe("Should preserve signed integer tags in JSON.Value", () => {
+  const negative = JSON.Value.from<i32>(-42);
+  const obj = new JSON.Obj();
+  obj.set("n", -42);
+
+  expect(negative.type.toString()).toBe(JSON.Types.I32.toString());
+  expect(negative.toString()).toBe("-42");
+  expect(JSON.stringify(negative)).toBe("-42");
+  expect(JSON.stringify(obj)).toBe('{"n":-42}');
+});
+
 describe("Should mutate JSON.Obj instances deeply", () => {
   const root = new JSON.Obj();
   const inner = new JSON.Obj();
@@ -37,6 +48,17 @@ describe("Should mutate JSON.Obj instances deeply", () => {
   root.delete("count");
   expect(root.has("count").toString()).toBe("false");
   expect(JSON.stringify(root)).toBe('{"name":"json-as","enabled":true,"meta":{"inner":{"a":1,"b":2}}}');
+});
+
+describe("Should build JSON.Obj values from serializable objects", () => {
+  const typed = new Vec3();
+  const fromStruct = JSON.Obj.from(typed);
+  const fromMap = JSON.Obj.from(new Map<string, i32>().set("x", 7).set("y", 9));
+
+  expect(fromStruct.get("x")!.toString()).toBe("1.0");
+  expect(fromStruct.get("z")!.toString()).toBe("3.0");
+  expect(fromMap.get("x")!.toString()).toBe("7");
+  expect(fromMap.get("y")!.toString()).toBe("9");
 });
 
 describe("Should cover JSON.Box conversions through JSON.Value", () => {

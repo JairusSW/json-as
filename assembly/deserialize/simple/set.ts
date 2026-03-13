@@ -1,6 +1,6 @@
 import { JSON } from "../..";
 import { BACK_SLASH, BRACKET_LEFT, BRACKET_RIGHT, BRACE_LEFT, BRACE_RIGHT, CHAR_F, CHAR_N, CHAR_T, COMMA, QUOTE } from "../../custom/chars";
-import { isSpace, atoi } from "../../util";
+import { isSpace, atoi, isUnescapedQuote, scanStringEnd } from "../../util";
 
 export function deserializeSet<T extends Set<any>>(srcStart: usize, srcEnd: usize, dst: usize): T {
   const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
@@ -25,7 +25,7 @@ export function deserializeSet<T extends Set<any>>(srcStart: usize, srcEnd: usiz
         srcStart += 2;
         while (srcStart < srcEnd) {
           const c = load<u16>(srcStart);
-          if (c == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH) {
+          if (c == QUOTE && isUnescapedQuote(srcStart)) {
             // @ts-ignore: type
             out.add(JSON.__deserialize<indexof<T>>(lastIndex, srcStart + 2));
             srcStart += 2;
@@ -87,8 +87,8 @@ export function deserializeSet<T extends Set<any>>(srcStart: usize, srcEnd: usiz
         while (srcStart < srcEnd) {
           const c = load<u16>(srcStart);
           if (c == QUOTE) {
-            srcStart += 2;
-            while (!(load<u16>(srcStart) == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH)) srcStart += 2;
+            srcStart = scanStringEnd(srcStart, srcEnd);
+            if (srcStart >= srcEnd) throw new Error("Unterminated string in JSON set");
           } else if (c == BRACE_RIGHT) {
             if (--depth == 0) {
               srcStart += 2;
@@ -127,7 +127,7 @@ export function deserializeSet<T extends Set<any>>(srcStart: usize, srcEnd: usiz
           srcStart += 2;
           while (srcStart < srcEnd) {
             const c = load<u16>(srcStart);
-            if (c == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH) {
+            if (c == QUOTE && isUnescapedQuote(srcStart)) {
               // @ts-ignore: type
               out.add(JSON.__deserialize<indexof<T>>(lastIndex, srcStart + 2));
               srcStart += 2;

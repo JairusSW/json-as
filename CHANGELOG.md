@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### fix: tighten default-path runtime correctness
+- Fixed `JSON.Value` signed integer tagging and stringification so negative integer values no longer serialize as unsigned.
+- Fixed `@omitif("...")` to use the same omit semantics as the callback form during transform-generated serialization.
+- Hardened the default deserializers for objects, structs, maps, sets, and raw/string arrays so escaped backslashes and quotes are scanned correctly.
+- Implemented `JSON.Obj.from(...)` for serializable object-shaped inputs and aligned `JSON.Box<bool>` with the runtime behavior already exercised by the test suite.
+- Added regression coverage for signed `JSON.Value`, decorator omission behavior, escaped nested strings, and raw-array string handling.
+
 ### perf: SIMD string fast path for object deserialization
 - Added a SIMD string-field deserializer for fast-path object deserialization.
 - Updated transform codegen to emit mode-specific string field helpers and route generic array fields through the shared array-field helper.

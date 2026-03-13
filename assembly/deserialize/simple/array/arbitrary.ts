@@ -1,6 +1,6 @@
 import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, CHAR_F, CHAR_N, CHAR_T, COMMA, QUOTE } from "../../../custom/chars";
 import { JSON } from "../../../";
-import { isSpace } from "util/string";
+import { isSpace, scanStringEnd } from "../../../util";
 import { ptrToStr } from "../../../util/ptrToStr";
 
 export function deserializeArbitraryArray(srcStart: usize, srcEnd: usize, dst: usize): JSON.Value[] {
@@ -30,21 +30,11 @@ export function deserializeArbitraryArray(srcStart: usize, srcEnd: usize, dst: u
       }
     } else if (code == QUOTE) {
       lastIndex = srcStart;
+      srcStart = scanStringEnd(srcStart, srcEnd);
+      if (srcStart >= srcEnd) throw new Error("Unterminated string in JSON array");
+      // @ts-ignore: exists
+      out.push(JSON.__deserialize<JSON.Value>(lastIndex, srcStart + 2));
       srcStart += 2;
-      while (srcStart < srcEnd) {
-        const code = load<u16>(srcStart);
-        if (code == QUOTE && load<u16>(srcStart - 2) !== BACK_SLASH) {
-          // while (isSpace(load<u16>((srcStart += 2)))) {
-          //   /* empty */
-          // }
-          // console.log("Value (string): " + ptrToStr(lastIndex, srcStart + 2));
-          // @ts-ignore: exists
-          out.push(JSON.__deserialize<JSON.Value>(lastIndex, srcStart + 2));
-          srcStart += 2;
-          break;
-        }
-        srcStart += 2;
-      }
       // console.log("next: " + String.fromCharCode(load<u16>(srcStart)));
     } else if (code - 48 <= 9 || code == 45) {
       // console.log("trigger int")
@@ -86,7 +76,10 @@ export function deserializeArbitraryArray(srcStart: usize, srcEnd: usize, dst: u
       srcStart += 2;
       while (srcStart < srcEnd) {
         const code = load<u16>(srcStart);
-        if (code == BRACKET_RIGHT) {
+        if (code == QUOTE) {
+          srcStart = scanStringEnd(srcStart, srcEnd);
+          if (srcStart >= srcEnd) throw new Error("Unterminated string in JSON array");
+        } else if (code == BRACKET_RIGHT) {
           if (--depth == 0) {
             // @ts-ignore: type
             out.push(JSON.__deserialize<JSON.Value>(lastIndex, srcStart + 2));

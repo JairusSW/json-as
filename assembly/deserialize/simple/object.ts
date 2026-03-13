@@ -1,7 +1,7 @@
 import { JSON } from "../..";
 import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH, COMMA, CHAR_F, BRACE_LEFT, BRACKET_LEFT, CHAR_N, QUOTE, BRACE_RIGHT, BRACKET_RIGHT, CHAR_T, COLON } from "../../custom/chars";
-import { isSpace } from "../../util";
+import { isSpace, isUnescapedQuote, scanStringEnd } from "../../util";
 import { ptrToStr } from "../../util/ptrToStr";
 import { deserializeString_SWAR } from "../swar/string";
 import { deserializeArbitrary } from "./arbitrary";
@@ -30,7 +30,7 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
   while (srcStart < srcEnd) {
     let code = load<u16>(srcStart); // while (isSpace(code)) code = load<u16>(srcStart += 2);
     if (keyStart == 0) {
-      if (code == QUOTE && load<u16>(srcStart - 2) !== BACK_SLASH) {
+      if (code == QUOTE && isUnescapedQuote(srcStart)) {
         if (isKey) {
           keyStart = lastIndex;
           keyEnd = srcStart;
@@ -50,20 +50,12 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
     } else {
       if (code == QUOTE) {
         lastIndex = srcStart;
+        srcStart = scanStringEnd(srcStart, srcEnd);
+        if (srcStart >= srcEnd) throw new Error("Unterminated string in JSON object");
+        out.set(ptrToStr(keyStart, keyEnd), deserializeString(lastIndex, srcStart + 2));
         srcStart += 2;
-        while (srcStart < srcEnd) {
-          const code = load<u16>(srcStart);
-          if (code == QUOTE && load<u16>(srcStart - 2) !== BACK_SLASH) {
-            // console.log("Value (string):-" + deserializeString_SWAR(lastIndex, srcStart + 2, 0) + "-");
-            out.set(ptrToStr(keyStart, keyEnd), deserializeString(lastIndex, srcStart + 2));
-            // while (isSpace(load<u16>(srcStart))) srcStart += 2;
-            srcStart += 4;
-            // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
-            keyStart = 0;
-            break;
-          }
-          srcStart += 2;
-        }
+        keyStart = 0;
+        continue;
       } else if (code - 48 <= 9 || code == 45) {
         lastIndex = srcStart;
         srcStart += 2;
@@ -89,8 +81,8 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
         while (srcStart < srcEnd) {
           const code = load<u16>(srcStart);
           if (code == QUOTE) {
-            srcStart += 2;
-            while (!(load<u16>(srcStart) == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH)) srcStart += 2;
+            srcStart = scanStringEnd(srcStart, srcEnd);
+            if (srcStart >= srcEnd) throw new Error("Unterminated string in JSON object");
           } else if (code == BRACE_RIGHT) {
             if (--depth == 0) {
               // console.log("Value (object): " + ptrToStr(lastIndex, srcStart + 2));
@@ -111,7 +103,10 @@ export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): J
         srcStart += 2;
         while (srcStart < srcEnd) {
           const code = load<u16>(srcStart);
-          if (code == BRACKET_RIGHT) {
+          if (code == QUOTE) {
+            srcStart = scanStringEnd(srcStart, srcEnd);
+            if (srcStart >= srcEnd) throw new Error("Unterminated string in JSON object");
+          } else if (code == BRACKET_RIGHT) {
             if (--depth == 0) {
               // console.log("Value (array): " + ptrToStr(lastIndex, srcStart + 2));
               out.set(ptrToStr(keyStart, keyEnd), deserializeArray<JSON.Value[]>(lastIndex, (srcStart += 2), 0));

@@ -444,7 +444,9 @@ export class JSONTransform extends Visitor {
                         SERIALIZE += indent + `if (!(${toString(member.flags.get(PropertyFlags.OmitIf))})(this)) {\n`;
                     }
                     else {
-                        SERIALIZE += indent + `if (${toString(member.flags.get(PropertyFlags.OmitIf))}) {\n`;
+                        const expression = member.flags.get(PropertyFlags.OmitIf);
+                        const rendered = expression.kind == 16 && expression.literalKind == 2 ? JSON.stringify(expression.value).slice(1, -1) : toString(expression);
+                        SERIALIZE += indent + `if (!(${rendered})) {\n`;
                     }
                     indentInc();
                     SERIALIZE += this.getStores(aliasName + ":", SIMD_ENABLED)

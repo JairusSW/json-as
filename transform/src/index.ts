@@ -457,7 +457,9 @@ export class JSONTransform extends Visitor {
             arg.declaration.signature.returnType.name = Node.createSimpleTypeName("boolean", (arg.declaration.signature.returnType as NamedTypeNode).name.range);
             SERIALIZE += indent + `if (!(${toString(member.flags.get(PropertyFlags.OmitIf))})(this)) {\n`;
           } else {
-            SERIALIZE += indent + `if (${toString(member.flags.get(PropertyFlags.OmitIf))}) {\n`;
+            const expression = member.flags.get(PropertyFlags.OmitIf);
+            const rendered = expression.kind == NodeKind.Literal && (expression as LiteralExpression).literalKind == LiteralKind.String ? JSON.stringify((expression as StringLiteralExpression).value).slice(1, -1) : toString(expression);
+            SERIALIZE += indent + `if (!(${rendered})) {\n`;
           }
           indentInc();
           SERIALIZE += this.getStores(aliasName + ":", SIMD_ENABLED)

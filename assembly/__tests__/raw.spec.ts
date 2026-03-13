@@ -32,10 +32,10 @@ describe("Additional regression coverage - primitives and arrays", () => {
 });
 
 describe("Should handle additional JSON.Raw round trips", () => {
-  const rawArray = JSON.parse<JSON.Raw[]>('[{"x":1},[1,2,3],"abc",false]');
-  expect(rawArray[0].toString()).toBe('{"x":1}');
+  const rawArray = JSON.parse<JSON.Raw[]>('[{"x":"brace } and quote \\\\\\" ok"},[1,2,3],"abc def",false]');
+  expect(rawArray[0].toString()).toBe('{"x":"brace } and quote \\\\\\" ok"}');
   expect(rawArray[1].toString()).toBe("[1,2,3]");
-  expect(rawArray[2].toString()).toBe('"abc"');
+  expect(rawArray[2].toString()).toBe('"abc def"');
   expect(rawArray[3].toString()).toBe("false");
 });
 

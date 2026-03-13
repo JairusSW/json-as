@@ -1,4 +1,4 @@
-import { isSpace } from "../../../util";
+import { isSpace, isUnescapedQuote, scanStringEnd } from "../../../util";
 import { COMMA, BRACKET_RIGHT, QUOTE, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BACK_SLASH, CHAR_T, CHAR_F, CHAR_N } from "../../../custom/chars";
 import { JSON } from "../../..";
 import { ptrToStr } from "../../../util/ptrToStr";
@@ -11,22 +11,15 @@ export function deserializeRawArray(srcStart: usize, srcEnd: usize, dst: usize):
   srcStart += 2;
   while (srcStart < srcEnd) {
     let code = load<u16>(srcStart);
-    if (code == QUOTE) {
-      lastIndex = srcStart;
+    if (code == COMMA || isSpace(code)) {
       srcStart += 2;
-      while (srcStart < srcEnd) {
-        code = load<u16>(srcStart);
-        if (code == QUOTE || isSpace(code)) {
-          // console.log("Value (string): " + ptrToStr(lastIndex, srcStart));
-          out.push(JSON.Raw.from(ptrToStr(lastIndex, srcStart + 2)));
-          // while (isSpace(load<u16>((srcStart += 2)))) {
-          //   /* empty */
-          // }
-          srcStart += 4;
-          break;
-        }
-        srcStart += 2;
-      }
+      continue;
+    } else if (code == QUOTE) {
+      lastIndex = srcStart;
+      srcStart = scanStringEnd(srcStart, srcEnd);
+      if (srcStart >= srcEnd) throw new Error("Unterminated string in JSON array");
+      out.push(JSON.Raw.from(ptrToStr(lastIndex, srcStart + 2)));
+      srcStart += 2;
     } else if (code - 48 <= 9 || code == 45) {
       lastIndex = srcStart;
       srcStart += 2;
@@ -47,8 +40,8 @@ export function deserializeRawArray(srcStart: usize, srcEnd: usize, dst: usize):
       while (srcStart < srcEnd) {
         const code = load<u16>(srcStart);
         if (code == QUOTE) {
-          srcStart += 2;
-          while (!(load<u16>(srcStart) == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH)) srcStart += 2;
+          srcStart = scanStringEnd(srcStart, srcEnd);
+          if (srcStart >= srcEnd) throw new Error("Unterminated string in JSON array");
         } else if (code == BRACE_RIGHT) {
           if (--depth == 0) {
             // console.log("Value (object): " + ptrToStr(lastIndex, srcStart + 2));
@@ -66,8 +59,8 @@ export function deserializeRawArray(srcStart: usize, srcEnd: usize, dst: usize):
       while (srcStart < srcEnd) {
         const code = load<u16>(srcStart);
         if (code == QUOTE) {
-          srcStart += 2;
-          while (!(load<u16>(srcStart) == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH)) srcStart += 2;
+          srcStart = scanStringEnd(srcStart, srcEnd);
+          if (srcStart >= srcEnd) throw new Error("Unterminated string in JSON array");
         } else if (code == BRACKET_RIGHT) {
           if (--depth == 0) {
             // console.log("Value (array): " + ptrToStr(lastIndex, srcStart + 2));
@@ -96,8 +89,6 @@ export function deserializeRawArray(srcStart: usize, srcEnd: usize, dst: usize):
         out.push(JSON.Raw.from("null"));
         srcStart += 10;
       }
-    } else if (isSpace(code)) {
-      srcStart += 2;
     } else {
       throw new Error("Unexpected character in JSON object '" + String.fromCharCode(code) + "' at position " + (srcEnd - srcStart).toString() + " " + ptrToStr(lastIndex, srcStart + 10));
     }

@@ -48,10 +48,10 @@ describe("Should preserve strange aliased keys across types", () => {
 
 describe("Should apply omitnull on nullable fields", () => {
   const a = new OmitIf();
-  expect(JSON.stringify(a)).toBe('{"y":-1,"x":1,"z":1}');
+  expect(JSON.stringify(a)).toBe('{"x":1,"z":1}');
 
   a.foo = "set";
-  expect(JSON.stringify(a)).toBe('{"y":-1,"foo":"set","x":1,"z":1}');
+  expect(JSON.stringify(a)).toBe('{"foo":"set","x":1,"z":1}');
 });
 
 describe("Should apply decorator combinations on imported player type", () => {
