@@ -46,6 +46,12 @@ class Bar {
   baz: string = "buz";
 }
 
+
+@json
+class Team {
+  players: Player[] = [];
+}
+
 describe("Should resolve imported schemas", () => {
   expect(JSON.stringify(player)).toBe('{"age":18,"pos":{"x":3.4,"y":1.2,"z":8.3},"first name":"Jairus","lastName":"Tanaka","lastActive":[3,9,2025],"isVerified":true}');
 });
@@ -73,6 +79,20 @@ describe("Should deserialize resolved imported schemas", () => {
 describe("Should deserialize resolved local schemas", () => {
   const parsed = JSON.parse<Foo>('{"bar":{"baz":"xyz"}}');
   expect(parsed.bar.baz).toBe("xyz");
+});
+
+describe("Should resolve imported schemas inside arrays", () => {
+  const parsed = JSON.parse<Team>('{"players":[{"age":18,"pos":{"x":3.4,"y":1.2,"z":8.3},"first name":"Jairus","lastName":"Tanaka","lastActive":[3,9,2025],"isVerified":true},{"age":19,"pos":null,"first name":"A","lastName":"B","lastActive":[1,2,3],"isVerified":false}]}');
+  expect(parsed.players.length.toString()).toBe("2");
+  expect(parsed.players[0].firstName).toBe("Jairus");
+  expect(parsed.players[1].age.toString()).toBe("19");
+  expect((parsed.players[1].pos == null).toString()).toBe("true");
+});
+
+describe("Should resolve local nested schemas repeatedly", () => {
+  const parsed = JSON.parse<Foo>('{"bar":{"baz":"buz"}}');
+  expect(parsed.bar.baz).toBe("buz");
+  expect(JSON.stringify(parsed)).toBe('{"bar":{"baz":"buz"}}');
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {

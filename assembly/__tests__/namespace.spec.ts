@@ -88,6 +88,23 @@ describe("Should deserialize namespaced alias property", () => {
   expect(x.value.toString()).toBe("42");
 });
 
+describe("Should round-trip namespaced arrays and nested objects", () => {
+  expect(JSON.stringify(JSON.parse<Namespace.DerivedObject[]>('[{"a":"x","b":"y"},{"a":"m","b":"n"}]'))).toBe('[{"a":"x","b":"y"},{"a":"m","b":"n"}]');
+
+  const nested = JSON.parse<Namespace.DerivedObjectWithNestedObject>('{"a":"root","b":"branch","c":{"value":"leaf"}}');
+  expect(nested.a).toBe("root");
+  expect(nested.b).toBe("branch");
+  expect(nested.c.value).toBe("leaf");
+});
+
+describe("Should preserve namespaced base fields with reordered payloads", () => {
+  const parsed = JSON.parse<Namespace.DerivedObjectWithNestedObject>('{"c":{"value":"v"},"b":"bar","a":"foo"}');
+  expect(parsed.a).toBe("foo");
+  expect(parsed.b).toBe("bar");
+  expect(parsed.c.value).toBe("v");
+  expect(JSON.stringify(parsed)).toBe('{"a":"foo","b":"bar","c":{"value":"v"}}');
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");

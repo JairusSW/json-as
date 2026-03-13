@@ -76,6 +76,17 @@ describe("Should deserialize custom points with zero and negative values", () =>
   expect(parsed.y.toString()).toBe("-3.0");
 });
 
+describe("Should round-trip a broader custom point matrix", () => {
+  expect(JSON.stringify(JSON.parse<Point>("(12.5,0.25)"))).toBe("(12.5,0.25)");
+  expect(JSON.stringify(JSON.parse<Point>("(-0.5,-0.25)"))).toBe("(-0.5,-0.25)");
+  expect(JSON.stringify(JSON.parse<Point>("(1000.0,-999.75)"))).toBe("(1000.0,-999.75)");
+});
+
+describe("Should serialize and deserialize nested custom containers repeatedly", () => {
+  const obj = new ObjectWithCustom(new Point(-3.25, 19.75));
+  expect(JSON.stringify(obj)).toBe('{"value":(-3.25,19.75)}');
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");

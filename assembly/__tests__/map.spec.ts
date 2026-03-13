@@ -1,6 +1,13 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+
+@json
+class MapValue {
+  id: i32 = 0;
+  name: string = "";
+}
+
 describe("Should deserialize complex objects", () => {
   const input = '{"a":{"b":{"c":[{"d":"random value 1"},{"e":["value 2","value 3"]}],"f":{"g":{"h":[1,2,3],"i":{"j":"nested value"}}}},"k":"simple value"},"l":[{"m":"another value","n":{"o":"deep nested","p":[{"q":"even deeper"},"final value"]}}],"r":null}';
   expect(JSON.stringify(JSON.parse<Map<string, JSON.Raw>>(input))).toBe(input);
@@ -28,6 +35,20 @@ describe("Should serialize and deserialize nested map values", () => {
   m.set("letters", ["a", "b", "c"]);
   expect(JSON.stringify(m)).toBe('{"letters":["a","b","c"]}');
   expect(JSON.stringify(JSON.parse<Map<string, string[]>>('{"letters":["a","b","c"]}'))).toBe('{"letters":["a","b","c"]}');
+});
+
+describe("Should handle maps with booleans, floats, and whitespace", () => {
+  expect(JSON.stringify(JSON.parse<Map<string, bool>>('{ "yes" : true , "no" : false }'))).toBe('{"yes":true,"no":false}');
+  expect(JSON.stringify(JSON.parse<Map<string, f64>>('{ "pi" : 3.14 , "e" : 2.718 }'))).toBe('{"pi":3.14,"e":2.718}');
+});
+
+describe("Should round-trip maps with nested object values", () => {
+  const parsed = JSON.parse<Map<string, MapValue>>('{"a":{"id":1,"name":"alice"},"b":{"id":2,"name":"bob"}}');
+  expect(parsed.get("a")!.id.toString()).toBe("1");
+  expect(parsed.get("a")!.name).toBe("alice");
+  expect(parsed.get("b")!.id.toString()).toBe("2");
+  expect(parsed.get("b")!.name).toBe("bob");
+  expect(JSON.stringify(parsed)).toBe('{"a":{"id":1,"name":"alice"},"b":{"id":2,"name":"bob"}}');
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {

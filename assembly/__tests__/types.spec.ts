@@ -16,6 +16,12 @@ class Alias {
   }
 }
 
+
+@json
+class AliasHolder {
+  items: Alias[] = [];
+}
+
 const alias = new Alias("bar");
 
 describe("Should serialize with type aliases", () => {
@@ -43,6 +49,15 @@ describe("Should handle additional alias instances", () => {
 describe("Should deserialize additional alias payloads", () => {
   expect(JSON.parse<Alias>('{"foo":""}').foo).toBe("");
   expect(JSON.parse<Alias>('{"foo":"multi word value"}').foo).toBe("multi word value");
+});
+
+describe("Should preserve aliases in arrays and nested wrappers", () => {
+  const parsed = JSON.parse<AliasHolder>('{"items":[{"foo":"a"},{"foo":"b"},{"foo":"c"}]}');
+  expect(parsed.items.length.toString()).toBe("3");
+  expect(parsed.items[0].foo).toBe("a");
+  expect(parsed.items[1].foo).toBe("b");
+  expect(parsed.items[2].foo).toBe("c");
+  expect(JSON.stringify(parsed)).toBe('{"items":[{"foo":"a"},{"foo":"b"},{"foo":"c"}]}');
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {

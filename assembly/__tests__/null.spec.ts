@@ -1,6 +1,13 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+
+@json
+class MaybeData {
+  value: string | null = null;
+  other: JSON.Box<i32> | null = null;
+}
+
 describe("Should serialize null", () => {
   expect(JSON.stringify(null)).toBe("null");
 });
@@ -29,6 +36,19 @@ describe("Should keep non-null values with nullable wrappers", () => {
   const boxed = JSON.parse<JSON.Box<i32> | null>("15");
   expect((boxed == null).toString()).toBe("false");
   expect(boxed!.value.toString()).toBe("15");
+});
+
+describe("Should round-trip nulls inside arrays and objects", () => {
+  const parsed = JSON.parse<MaybeData>('{"value":null,"other":12}');
+  expect((parsed.value == null).toString()).toBe("true");
+  expect((parsed.other == null).toString()).toBe("false");
+  expect(parsed.other!.value.toString()).toBe("12");
+  expect(JSON.stringify(parsed)).toBe('{"value":null,"other":12}');
+
+  const parsedNulls = JSON.parse<MaybeData>('{"value":null,"other":null}');
+  expect((parsedNulls.value == null).toString()).toBe("true");
+  expect((parsedNulls.other == null).toString()).toBe("true");
+  expect(JSON.stringify(parsedNulls)).toBe('{"value":null,"other":null}');
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {

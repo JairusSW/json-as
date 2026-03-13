@@ -135,6 +135,34 @@ describe("Should deserialize and reserialize string sets", () => {
   expect(JSON.stringify(set1)).toBe('["a","b"]');
 });
 
+describe("Should round-trip sets with whitespace and nested values", () => {
+  const ints = JSON.parse<Set<i32>>("[ 4 , 5 , 5 , 6 ]");
+  expect(ints.size).toBe(3);
+  expect(ints.has(4)).toBe(true);
+  expect(ints.has(5)).toBe(true);
+  expect(ints.has(6)).toBe(true);
+
+  const bools = JSON.parse<Set<bool>>("[ true , false , true , false ]");
+  expect(bools.size).toBe(2);
+  expect(JSON.stringify(bools)).toBe("[true,false]");
+});
+
+describe("Should round-trip object sets through serialization boundaries", () => {
+  const set1 = new Set<Vec3>();
+  const a = new Vec3();
+  a.x = 1.0;
+  a.y = 2.0;
+  a.z = 3.0;
+  const b = new Vec3();
+  b.x = -4.0;
+  b.y = 5.5;
+  b.z = 6.0;
+  set1.add(a);
+  set1.add(b);
+  const out = JSON.stringify(set1);
+  expect(out).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":-4.0,"y":5.5,"z":6.0}]');
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");

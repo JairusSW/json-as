@@ -1,6 +1,13 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+
+@json
+class BoolEnvelope {
+  value: bool = false;
+  flags: bool[] = [];
+}
+
 describe("Should serialize booleans", () => {
   expect(JSON.stringify<bool>(true)).toBe("true");
   expect(JSON.stringify<bool>(false)).toBe("false");
@@ -23,6 +30,20 @@ describe("Additional regression coverage - primitives and arrays", () => {
 describe("Should round-trip boolean arrays and nested arrays", () => {
   expect(JSON.stringify(JSON.parse<bool[]>("[true,false,true,false]"))).toBe("[true,false,true,false]");
   expect(JSON.stringify(JSON.parse<bool[][]>("[[true],[false,true]]"))).toBe("[[true],[false,true]]");
+});
+
+describe("Should handle boolean whitespace and nesting cases", () => {
+  expect(JSON.stringify(JSON.parse<bool[]>("[ true , false , true ]"))).toBe("[true,false,true]");
+  expect(JSON.stringify(JSON.parse<bool[][]>("[[ true ], [ false , true ], []]"))).toBe("[[true],[false,true],[]]");
+});
+
+describe("Should deserialize booleans in object wrappers", () => {
+  const parsed = JSON.parse<BoolEnvelope>('{"value":true,"flags":[false,true,false]}');
+  expect(parsed.value.toString()).toBe("true");
+  expect(parsed.flags.length.toString()).toBe("3");
+  expect(parsed.flags[0].toString()).toBe("false");
+  expect(parsed.flags[1].toString()).toBe("true");
+  expect(JSON.stringify(parsed)).toBe('{"value":true,"flags":[false,true,false]}');
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {

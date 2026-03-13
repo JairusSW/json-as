@@ -17,6 +17,12 @@ class DataWithEnum {
   }
 }
 
+
+@json
+class EnumEnvelope {
+  items: DataWithEnum[] = [];
+}
+
 describe("Should serialize enums", () => {
   expect(JSON.stringify<Enum1>(Enum1.One)).toBe("1");
   expect(JSON.stringify<Enum1>(Enum1.Zero)).toBe("0");
@@ -54,6 +60,20 @@ describe("Should deserialize enum wrappers repeatedly", () => {
   expect(JSON.parse<DataWithEnum>('{"v":0}').v).toBe(Enum1.Zero);
   expect(JSON.parse<DataWithEnum>('{"v":1}').v).toBe(Enum1.One);
   expect(JSON.parse<DataWithEnum>('{"v":2}').v).toBe(Enum1.Two);
+});
+
+describe("Should serialize and deserialize enum arrays", () => {
+  expect(JSON.stringify<Enum1[]>([Enum1.Zero, Enum1.Two, Enum1.Three])).toBe("[0,2,3]");
+  expect(JSON.stringify(JSON.parse<Enum1[]>("[0,2,3]"))).toBe("[0,2,3]");
+});
+
+describe("Should preserve enum values in nested wrappers", () => {
+  const parsed = JSON.parse<EnumEnvelope>('{"items":[{"v":0},{"v":3},{"v":1}]}');
+  expect(parsed.items.length.toString()).toBe("3");
+  expect(parsed.items[0].v).toBe(Enum1.Zero);
+  expect(parsed.items[1].v).toBe(Enum1.Three);
+  expect(parsed.items[2].v).toBe(Enum1.One);
+  expect(JSON.stringify(parsed)).toBe('{"items":[{"v":0},{"v":3},{"v":1}]}');
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {

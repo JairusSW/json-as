@@ -67,6 +67,26 @@ describe("Should deserialize nested generic wrappers", () => {
   expect(nested.foo.foo.toString()).toBe("7");
 });
 
+describe("Should round-trip deeper generic array wrappers", () => {
+  const parsed = JSON.parse<GenericTest<GenericTest<string>[]>>('{"foo":[{"foo":"a"},{"foo":"b"},{"foo":"c"}]}');
+  expect(parsed.foo.length.toString()).toBe("3");
+  expect(parsed.foo[0].foo).toBe("a");
+  expect(parsed.foo[1].foo).toBe("b");
+  expect(parsed.foo[2].foo).toBe("c");
+  expect(JSON.stringify(parsed)).toBe('{"foo":[{"foo":"a"},{"foo":"b"},{"foo":"c"}]}');
+});
+
+describe("Should round-trip generic struct arrays with field order changes", () => {
+  const parsed = JSON.parse<GenericTest<Vec3[]>>('{"foo":[{"z":3,"x":1,"y":2},{"y":5,"z":6,"x":4}]}');
+  expect(parsed.foo.length.toString()).toBe("2");
+  expect(parsed.foo[0].x.toString()).toBe("1");
+  expect(parsed.foo[0].y.toString()).toBe("2");
+  expect(parsed.foo[0].z.toString()).toBe("3");
+  expect(parsed.foo[1].x.toString()).toBe("4");
+  expect(parsed.foo[1].y.toString()).toBe("5");
+  expect(parsed.foo[1].z.toString()).toBe("6");
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");

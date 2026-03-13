@@ -55,6 +55,22 @@ describe("Should serialize and deserialize additional dates", () => {
   expect(parsed.getUTCDate().toString()).toBe("29");
 });
 
+describe("Should round-trip more date boundaries and whitespace", () => {
+  const beforeEpoch = new Date(Date.UTC(1969, 11, 31, 23, 59, 59, 999));
+  expect(JSON.stringify(beforeEpoch)).toBe('"1969-12-31T23:59:59.999Z"');
+
+  const parsedBeforeEpoch = JSON.parse<Date>('"1969-12-31T23:59:59.999Z"');
+  expect(parsedBeforeEpoch.getUTCFullYear().toString()).toBe("1969");
+  expect(parsedBeforeEpoch.getUTCMonth().toString()).toBe("11");
+  expect(parsedBeforeEpoch.getUTCDate().toString()).toBe("31");
+  expect(parsedBeforeEpoch.getUTCMilliseconds().toString()).toBe("999");
+
+  const millennium = JSON.parse<Date>('"2000-01-01T00:00:00.000Z"');
+  expect(millennium.getUTCFullYear().toString()).toBe("2000");
+  expect(millennium.getUTCMonth().toString()).toBe("0");
+  expect(millennium.getUTCDate().toString()).toBe("1");
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");

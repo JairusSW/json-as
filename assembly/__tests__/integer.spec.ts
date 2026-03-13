@@ -46,6 +46,38 @@ describe("Should deserialize integer boundaries", () => {
   expect(JSON.parse<u32>("4294967295").toString()).toBe("4294967295");
 });
 
+describe("Should round-trip a wider signed integer matrix", () => {
+  expect(JSON.stringify(JSON.parse<i64>("0"))).toBe("0");
+  expect(JSON.stringify(JSON.parse<i64>("1"))).toBe("1");
+  expect(JSON.stringify(JSON.parse<i64>("-1"))).toBe("-1");
+  expect(JSON.stringify(JSON.parse<i64>("7"))).toBe("7");
+  expect(JSON.stringify(JSON.parse<i64>("-7"))).toBe("-7");
+  expect(JSON.stringify(JSON.parse<i64>("10"))).toBe("10");
+  expect(JSON.stringify(JSON.parse<i64>("-10"))).toBe("-10");
+  expect(JSON.stringify(JSON.parse<i64>("999"))).toBe("999");
+  expect(JSON.stringify(JSON.parse<i64>("-999"))).toBe("-999");
+  expect(JSON.stringify(JSON.parse<i64>("123456789"))).toBe("123456789");
+  expect(JSON.stringify(JSON.parse<i64>("-123456789"))).toBe("-123456789");
+  expect(JSON.stringify(JSON.parse<i64>("9223372036854775807"))).toBe("9223372036854775807");
+  expect(JSON.stringify(JSON.parse<i64>("-9223372036854775808"))).toBe("-9223372036854775808");
+});
+
+describe("Should round-trip a wider unsigned integer matrix", () => {
+  expect(JSON.stringify(JSON.parse<u64>("0"))).toBe("0");
+  expect(JSON.stringify(JSON.parse<u64>("1"))).toBe("1");
+  expect(JSON.stringify(JSON.parse<u64>("7"))).toBe("7");
+  expect(JSON.stringify(JSON.parse<u64>("10"))).toBe("10");
+  expect(JSON.stringify(JSON.parse<u64>("999"))).toBe("999");
+  expect(JSON.stringify(JSON.parse<u64>("123456789"))).toBe("123456789");
+  expect(JSON.stringify(JSON.parse<u64>("18446744073709551615"))).toBe("18446744073709551615");
+});
+
+describe("Should handle integer whitespace and zero variants", () => {
+  expect(JSON.stringify(JSON.parse<u32>("00042"))).toBe("42");
+  expect(JSON.stringify(JSON.parse<i32[]>("[0,-1,2,-3,4]"))).toBe("[0,-1,2,-3,4]");
+  expect(JSON.stringify(JSON.parse<i32[]>("[ 0 , -1 , 2 , -3 , 4 ]"))).toBe("[0,-1,2,-3,4]");
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");

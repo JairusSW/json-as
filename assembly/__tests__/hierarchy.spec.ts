@@ -81,6 +81,27 @@ describe("should keep base behavior for plain base object", () => {
   expect(JSON.stringify(foo)).toBe('{"a":99}');
 });
 
+describe("should preserve subclass typing through repeated parses", () => {
+  const parsedA = JSON.parse<Bar>('"bar"');
+  const parsedB = JSON.parse<Bar>('"not-bar"');
+  const parsedC = JSON.parse<Bar>('"bar"');
+  expect(parsedA.a.toString()).toBe("1");
+  expect(parsedA.b.toString()).toBe("2");
+  expect(parsedB.a.toString()).toBe("0");
+  expect(parsedB.b.toString()).toBe("0");
+  expect(parsedC.a.toString()).toBe("1");
+  expect(parsedC.b.toString()).toBe("2");
+});
+
+describe("should serialize subclasses through parent arrays", () => {
+  const bars = new Array<Foo>();
+  const bar = new Bar();
+  bar.a = 1;
+  bar.b = 2;
+  bars.push(bar);
+  expect(JSON.stringify<Array<Foo>>(bars)).toBe('["bar"]');
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
