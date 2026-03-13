@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### fix: finish subtype-aware StaticArray deserialization
+- Reworked `StaticArray` deserialization to dispatch by element subtype, mirroring the existing `Array<subtype>` deserializer matrix instead of relying on a generic fallback.
+- Materialized complex deserialized array results into fixed `StaticArray` storage for nested arrays, nested static arrays, maps, `JSON.Value`, `JSON.Box`, `JSON.Obj`, `JSON.Raw`, and transform-backed structs.
+- Added regression coverage for richer `StaticArray` payloads and fixed a shared `JSON.Raw[]` delimiter edge case exposed by the new `StaticArray<JSON.Raw>` path.
+
 ### fix: tighten default-path runtime correctness
 - Fixed `JSON.Value` signed integer tagging and stringification so negative integer values no longer serialize as unsigned.
 - Fixed `@omitif("...")` to use the same omit semantics as the callback form during transform-generated serialization.

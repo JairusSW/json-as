@@ -167,6 +167,48 @@ describe("Should round-trip static array objects with reordered fields", () => {
   expect(JSON.stringify(arr)).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]');
 });
 
+describe("Should deserialize static arrays of JSON.Value", () => {
+  const arr = JSON.parse<StaticArray<JSON.Value>>('[{"a":1},"x",false,null,[1,2]]');
+  expect(arr.length).toBe(5);
+  expect(arr[0].get<JSON.Obj>().get("a")!.toString()).toBe("1.0");
+  expect(arr[1].get<string>()).toBe("x");
+  expect(arr[2].get<bool>().toString()).toBe("false");
+  expect(arr[3].type.toString()).toBe(JSON.Types.Null.toString());
+  expect(JSON.stringify(arr[4].get<JSON.Value[]>())).toBe("[1.0,2.0]");
+  expect(JSON.stringify(arr)).toBe('[{"a":1.0},"x",false,null,[1.0,2.0]]');
+});
+
+describe("Should deserialize static arrays of maps and boxed values", () => {
+  const maps = JSON.parse<StaticArray<Map<string, i32>>>('[{"a":1},{"b":2,"c":3}]');
+  const boxed = JSON.parse<StaticArray<JSON.Box<i32>>>("[1,-2,3]");
+
+  expect(maps.length).toBe(2);
+  expect(maps[0].get("a")).toBe(1);
+  expect(maps[1].get("b")).toBe(2);
+  expect(maps[1].get("c")).toBe(3);
+  expect(JSON.stringify(maps)).toBe('[{"a":1},{"b":2,"c":3}]');
+
+  expect(boxed.length).toBe(3);
+  expect(boxed[0].value).toBe(1);
+  expect(boxed[1].value).toBe(-2);
+  expect(boxed[2].value).toBe(3);
+  expect(JSON.stringify(boxed)).toBe("[1,-2,3]");
+});
+
+describe("Should preserve escaped nested strings inside static arrays", () => {
+  const strings = JSON.parse<StaticArray<string>>('["path \\\\\\\\ and quote \\\\\\"","brackets [ ] { }"]');
+  const raw = JSON.parse<StaticArray<JSON.Raw>>('["text with spaces","{\\"nested\\":[1,2,3]}"]');
+
+  expect(strings.length).toBe(2);
+  expect(strings[0]).toBe('path \\\\ and quote \\"');
+  expect(strings[1]).toBe("brackets [ ] { }");
+  expect(JSON.stringify(strings)).toBe('["path \\\\\\\\ and quote \\\\\\"","brackets [ ] { }"]');
+
+  expect(raw.length).toBe(2);
+  expect(raw[0].toString()).toBe('"text with spaces"');
+  expect(raw[1].toString()).toBe('"{\\"nested\\":[1,2,3]}"');
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");

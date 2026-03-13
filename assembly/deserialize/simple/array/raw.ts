@@ -11,7 +11,9 @@ export function deserializeRawArray(srcStart: usize, srcEnd: usize, dst: usize):
   srcStart += 2;
   while (srcStart < srcEnd) {
     let code = load<u16>(srcStart);
-    if (code == COMMA || isSpace(code)) {
+    if (code == BRACKET_RIGHT) {
+      break;
+    } else if (code == COMMA || isSpace(code)) {
       srcStart += 2;
       continue;
     } else if (code == QUOTE) {
