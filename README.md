@@ -407,6 +407,8 @@ The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaS
 > Note: Benchmarks reflect the **latest version**. Older versions may show different performance.
 >
 > Current local benchmark machine: AMD Ryzen 7 7800X3D (8 cores, 8 threads), 96 MB L3 cache, 32 GB RAM.
+>
+> Benchmark results include normal end-to-end work such as allocating the destination object or array before deserializing into it. Raw parser throughput is higher than the published figures because these numbers intentionally include that allocation/setup cost.
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart01.svg" alt="Performance Chart 1">
 
@@ -419,10 +421,6 @@ The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaS
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart05.png" alt="Performance Chart 5">
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart06.png" alt="Performance Chart 6">
-
-> Note: I have focused on extensively optimizing serialization. I used to have deserialization be highly unsafe and extremely fast, but I've since doubled down on safety for deserialization which has negatively affected performance. I will be optimizing soon.
-
-> Note on Token: I am currently working on optimizing the token deserialization process. This reflects the *future* performance of this library.
 
 ### Performance Tuning
 
