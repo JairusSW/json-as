@@ -16,59 +16,58 @@ class SessionStatusResponse {
   role: string = "admin";
   expires_at: string = "2025-12-23T04:30:00Z";
 
+  // @inline
+  // __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {
+  //   const dst = changetype<usize>(out);
 
-  @inline
-  __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {
-    const dst = changetype<usize>(out);
+  //   do {
+  //     if (load<u64>(srcStart, 0) != 32932988889202811 || load<u64>(srcStart, 8) != 30962681236684916 || load<u64>(srcStart, 16) != 27303497949577332 || load<u64>(srcStart, 24) != 9570578711511156 || load<u16>(srcStart, 32) != 58) break;
+  //     srcStart += 34;
+  //     if (load<u64>(srcStart) == TRUE_WORD) {
+  //       store<bool>(dst + offsetof<this>("authenticated"), true);
+  //       srcStart += 8;
+  //     } else if (load<u64>(srcStart) == FALSE_WORD && load<u16>(srcStart, 8) == 101) {
+  //       store<bool>(dst + offsetof<this>("authenticated"), false);
+  //       srcStart += 10;
+  //     } else break;
 
-    do {
-      if (load<u64>(srcStart, 0) != 32932988889202811 || load<u64>(srcStart, 8) != 30962681236684916 || load<u64>(srcStart, 16) != 27303497949577332 || load<u64>(srcStart, 24) != 9570578711511156 || load<u16>(srcStart, 32) != 58) break;
-      srcStart += 34;
-      if (load<u64>(srcStart) == TRUE_WORD) {
-        store<bool>(dst + offsetof<this>("authenticated"), true);
-        srcStart += 8;
-      } else if (load<u64>(srcStart) == FALSE_WORD && load<u16>(srcStart, 8) == 101) {
-        store<bool>(dst + offsetof<this>("authenticated"), false);
-        srcStart += 10;
-      } else break;
+  //     if (load<u64>(srcStart, 0) != 32370124835127340 || load<u64>(srcStart, 8) != 29555280583983205 || load<u32>(srcStart, 16) != 2228324 || load<u16>(srcStart, 20) != 58) break;
+  //     srcStart += 22;
+  //     {
+  //       const valueStart = srcStart;
+  //       if (load<u16>(srcStart) == 45) {
+  //         srcStart += 2;
+  //         if (srcStart >= srcEnd) break;
+  //       }
 
-      if (load<u64>(srcStart, 0) != 32370124835127340 || load<u64>(srcStart, 8) != 29555280583983205 || load<u32>(srcStart, 16) != 2228324 || load<u16>(srcStart, 20) != 58) break;
-      srcStart += 22;
-      {
-        const valueStart = srcStart;
-        if (load<u16>(srcStart) == 45) {
-          srcStart += 2;
-          if (srcStart >= srcEnd) break;
-        }
+  //       let digit = <u32>load<u16>(srcStart) - 48;
+  //       if (digit > 9) break;
+  //       srcStart += 2;
 
-        let digit = <u32>load<u16>(srcStart) - 48;
-        if (digit > 9) break;
-        srcStart += 2;
+  //       while (srcStart < srcEnd) {
+  //         digit = <u32>load<u16>(srcStart) - 48;
+  //         if (digit > 9) break;
+  //         srcStart += 2;
+  //       }
 
-        while (srcStart < srcEnd) {
-          digit = <u32>load<u16>(srcStart) - 48;
-          if (digit > 9) break;
-          srcStart += 2;
-        }
+  //       store<i32>(dst + offsetof<this>("user_id"), atoi<i32>(valueStart, srcStart));
+  //     }
 
-        store<i32>(dst + offsetof<this>("user_id"), atoi<i32>(valueStart, srcStart));
-      }
+  //     if (load<u64>(srcStart, 0) != 32370124835127340 || load<u64>(srcStart, 8) != 27303545194807397 || load<u64>(srcStart, 16) != 16325694684725357) break;
+  //     srcStart = deserializeStringField_SWAR<string>(srcStart + 24, srcEnd, dst + offsetof<this>("username"));
 
-      if (load<u64>(srcStart, 0) != 32370124835127340 || load<u64>(srcStart, 8) != 27303545194807397 || load<u64>(srcStart, 16) != 16325694684725357) break;
-      srcStart = deserializeStringField_SWAR<string>(srcStart + 24, srcEnd, dst + offsetof<this>("username"));
+  //     if (load<u64>(srcStart, 0) != 31244212043382828 || load<u64>(srcStart, 8) != 16325694684725356) break;
+  //     srcStart = deserializeStringField_SWAR<string>(srcStart + 16, srcEnd, dst + offsetof<this>("role"));
 
-      if (load<u64>(srcStart, 0) != 31244212043382828 || load<u64>(srcStart, 8) != 16325694684725356) break;
-      srcStart = deserializeStringField_SWAR<string>(srcStart + 16, srcEnd, dst + offsetof<this>("role"));
+  //     if (load<u64>(srcStart, 0) != 33777430999203884 || load<u64>(srcStart, 8) != 28429462280929392 || load<u64>(srcStart, 16) != 32651513916489843 || load<u32>(srcStart, 24) != 3801122) break;
+  //     srcStart = deserializeStringField_SWAR<string>(srcStart + 28, srcEnd, dst + offsetof<this>("expires_at"));
 
-      if (load<u64>(srcStart, 0) != 33777430999203884 || load<u64>(srcStart, 8) != 28429462280929392 || load<u64>(srcStart, 16) != 32651513916489843 || load<u32>(srcStart, 24) != 3801122) break;
-      srcStart = deserializeStringField_SWAR<string>(srcStart + 28, srcEnd, dst + offsetof<this>("expires_at"));
+  //     if (load<u16>(srcStart) != 125) break;
+  //     return srcStart + 2;
+  //   } while (false);
 
-      if (load<u16>(srcStart) != 125) break;
-      return srcStart + 2;
-    } while (false);
-
-    throw new Error("Failed to parse JSON");
-  }
+  //   throw new Error("Failed to parse JSON");
+  // }
 }
 
 const v1 = new SessionStatusResponse();
