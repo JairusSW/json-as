@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### chore: clean linting and project housekeeping
+- Excluded generated `.as-test` build artifacts from ESLint so lint runs only evaluate source files.
+- Rewrote a handful of generic deserializer byte-offset calculations to use parser-safe `sizeof<valueof<T>>()` math without changing runtime behavior.
+- Updated release/docs project files and removed the obsolete `run-tests.sh` helper.
+
 ### fix: add built-in typed array support
 - Added default serialization and deserialization support for all built-in typed arrays.
 - Added dedicated `ArrayBuffer` parse/serialize helpers and routed transform-generated `ArrayBuffer` field serialization through a dedicated buffer path inside `@json` classes.
