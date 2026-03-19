@@ -6,7 +6,7 @@ import aseslint from "./tools/assemblyscript-eslint-local.js";
 
 export default tseslint.config(
   {
-    ignores: ["bin/**", "templates/**", "tests/**/*.js", "transform/lib/**", "build/**", "assembly/**/*.tmp.ts"],
+    ignores: ["bin/**", "templates/**", "tests/**/*.js", "transform/lib/**", "build/**", ".as-test/**", "assembly/**/*.tmp.ts"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

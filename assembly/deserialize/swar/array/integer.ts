@@ -39,6 +39,7 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
   }
 }
 
+
 @inline function storeSignedInteger<T extends number[]>(slot: usize, value: i64): void {
   if (sizeof<valueof<T>>() == sizeof<i8>()) {
     store<i8>(slot, <i8>value);
@@ -52,6 +53,7 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
     store<i64>(slot, value);
   }
 }
+
 
 @inline function storeUnsignedInteger<T extends number[]>(slot: usize, value: u64): void {
   if (sizeof<valueof<T>>() == sizeof<u8>()) {
@@ -180,6 +182,7 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
   pushUnsignedInteger<T>(out, value);
   return srcStart;
 }
+
 
 @inline function skipIntegerArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) {
@@ -312,7 +315,7 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
           }
 
           if (index >= reusableLength) break;
-          storeSignedInteger<T>(dataStart + ((<usize>index) << alignof<valueof<T>>()), negative ? -(<i64>value) : <i64>value);
+          storeSignedInteger<T>(dataStart + <usize>index * sizeof<valueof<T>>(), negative ? -(<i64>value) : <i64>value);
           index++;
           if (srcStart >= srcEnd) break;
 
@@ -350,7 +353,7 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
           }
 
           if (index >= reusableLength) break;
-          storeUnsignedInteger<T>(dataStart + ((<usize>index) << alignof<valueof<T>>()), value);
+          storeUnsignedInteger<T>(dataStart + <usize>index * sizeof<valueof<T>>(), value);
           index++;
           if (srcStart >= srcEnd) break;
 

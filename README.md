@@ -36,7 +36,7 @@ npm install json-as
 Add the `--transform` to your `asc` command (e.g. in package.json)
 
 ```bash
---transform json-as/transform
+--transform json-as
 ```
 
 Optionally, for additional performance, also add:
@@ -50,7 +50,7 @@ Alternatively, add it to your `asconfig.json`
 ```typescript
 {
   "options": {
-    "transform": ["json-as/transform"]
+    "transform": ["json-as"]
   }
 }
 ```

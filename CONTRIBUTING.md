@@ -60,7 +60,7 @@ npm test
 Run a specific test file:
 
 ```bash
-./run-tests.sh string  # Runs string.spec.ts
+npm test string # Runs string.spec.ts
 ```
 
 ### Running Benchmarks
@@ -79,17 +79,23 @@ npm run bench:js
 
 ```
 json-as/
-├── assembly/           # AssemblyScript runtime implementation
+├── .as-test/          # As-test configuration and runners
+├── assembly/          # AssemblyScript runtime implementation
 │   ├── index.ts       # Main entry point (JSON namespace)
 │   ├── serialize/     # Serialization implementations
+│   │   ├── index/     # Indexer of all methods
 │   │   ├── simple/    # Naive implementation
 │   │   ├── swar/      # SWAR-optimized
 │   │   └── simd/      # SIMD-optimized
 │   ├── deserialize/   # Deserialization implementations
+│   │   ├── index/     # Indexer of all methods
+│   │   ├── simple/    # Naive implementation
+│   │   ├── swar/      # SWAR-optimized
+│   │   └── simd/      # SIMD-optimized
 │   ├── util/          # Utility functions
 │   ├── custom/        # Constants and character codes
 │   └── __tests__/     # Test files
-├── transform/          # TypeScript compiler transform
+├── transform/         # TypeScript compiler transform
 │   └── src/           # Transform source code
 ├── lib/               # Shared utilities (buffer system)
 ├── bench/             # Benchmark suite

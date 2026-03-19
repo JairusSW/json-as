@@ -4,11 +4,22 @@ import { deserializeIntegerArray_SLOW } from "../../swar/array/integer";
 const ASCII_LANE_MASK_4: u64 = 0x00ff00ff00ff00ff;
 const ASCII_ZERO_4: u64 = 0x0030003000300030;
 
+
 @lazy const SPLAT_30 = i16x8.splat(0x30);
+
+
 @lazy const SPLAT_09 = i16x8.splat(9);
+
+
 @lazy const ZERO_I16X8 = i16x8.splat(0);
+
+
 @lazy const ZERO_I32X4 = i32x4.splat(0);
+
+
 @lazy const PACK_WEIGHTS_10_1 = i8x16(10, 1, 10, 1, 10, 1, 10, 1, 0, 0, 0, 0, 0, 0, 0, 0);
+
+
 @lazy const PAIR_WEIGHTS_100_1 = i16x8(100, 1, 100, 1, 0, 0, 0, 0);
 
 
@@ -41,6 +52,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
   }
 }
 
+
 @inline function storeSignedInteger<T extends number[]>(slot: usize, value: i64): void {
   if (sizeof<valueof<T>>() == sizeof<i8>()) {
     store<i8>(slot, <i8>value);
@@ -54,6 +66,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
     store<i64>(slot, value);
   }
 }
+
 
 @inline function storeUnsignedInteger<T extends number[]>(slot: usize, value: u64): void {
   if (sizeof<valueof<T>>() == sizeof<u8>()) {
@@ -196,7 +209,7 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(srcStart: usize
           }
 
           if (index >= reusableLength) break;
-          storeSignedInteger<T>(dataStart + ((<usize>index) << alignof<valueof<T>>()), negative ? -(<i64>value) : <i64>value);
+          storeSignedInteger<T>(dataStart + <usize>index * sizeof<valueof<T>>(), negative ? -(<i64>value) : <i64>value);
           index++;
           if (srcStart >= srcEnd) break;
 
@@ -232,7 +245,7 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(srcStart: usize
           }
 
           if (index >= reusableLength) break;
-          storeUnsignedInteger<T>(dataStart + ((<usize>index) << alignof<valueof<T>>()), value);
+          storeUnsignedInteger<T>(dataStart + <usize>index * sizeof<valueof<T>>(), value);
           index++;
           if (srcStart >= srcEnd) break;
 

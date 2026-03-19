@@ -1,5 +1,6 @@
 import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA, QUOTE } from "../../../custom/chars";
 
+
 @inline export function ensureArrayField<T extends Array<any>>(fieldPtr: usize): T {
   let out = load<T>(fieldPtr);
   if (!changetype<usize>(out)) {
@@ -11,17 +12,20 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
   return out;
 }
 
+
 @inline function backslashOrQuoteMask(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
   const q = block ^ 0x0022_0022_0022_0022;
   return (((q - 0x0001_0001_0001_0001) & ~q) | ((b - 0x0001_0001_0001_0001) & ~b)) & 0x0080_0080_0080_0080;
 }
 
+
 @inline export function ensureArrayElementSlot<T extends Array<any>>(out: T, index: i32): usize {
   const nextLength = index + 1;
   if (out.length < nextLength) out.length = nextLength;
-  return out.dataStart + ((<usize>index) << alignof<valueof<T>>());
+  return out.dataStart + <usize>index * sizeof<valueof<T>>();
 }
+
 
 @inline export function scanQuotedValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
   srcStart += 2;
@@ -54,6 +58,7 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
 
   return 0;
 }
+
 
 @inline export function scanValueEnd(srcStart: usize, srcEnd: usize): usize {
   if (srcStart >= srcEnd) return 0;

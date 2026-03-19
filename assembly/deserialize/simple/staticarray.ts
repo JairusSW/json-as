@@ -16,8 +16,9 @@ import { deserializeStaticArrayFloat } from "./staticarray/float";
 import { deserializeStaticArrayInteger } from "./staticarray/integer";
 import { deserializeStaticArrayString } from "./staticarray/string";
 
+
 @inline function materializeStaticArray<T extends StaticArray<any>>(src: valueof<T>[], dst: usize): T {
-  const byteLength = (<usize>src.length) << alignof<valueof<T>>();
+  const byteLength = <usize>src.length * sizeof<valueof<T>>();
   let out = dst;
 
   if (!out) {
