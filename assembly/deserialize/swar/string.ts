@@ -43,7 +43,6 @@ import { hex4_to_u16_swar } from "../../util/swar";
 // @ts-expect-error: @inline is a valid decorator
 @inline function copyStringFromSource(srcStart: usize, byteLength: usize): string {
   if (byteLength == 0) return changetype<string>("");
-  // @ts-expect-error: __new is a runtime builtin
   const out = __new(byteLength, idof<string>());
   memory.copy(out, srcStart, byteLength);
   return changetype<string>(out);
