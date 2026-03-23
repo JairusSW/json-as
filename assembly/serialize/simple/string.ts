@@ -3,6 +3,7 @@ import { _intTo16 } from "../../custom/util";
 import { bytes } from "../../util/bytes";
 import { BACK_SLASH, QUOTE } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
+import { u16_to_hex4_swar } from "../../util/swar";
 import { serializeStruct } from "./struct";
 
 // @ts-ignore: decorator allowed
@@ -68,7 +69,7 @@ import { serializeStruct } from "./struct";
     // unpaired high/low surrogate
     bs.growSize(10);
     store<u32>(bs.offset, U_MARKER); // \u
-    store<u64>(bs.offset, load<u64>(changetype<usize>(code.toString(16))), 4);
+    store<u64>(bs.offset, u16_to_hex4_swar(code), 4);
     bs.offset += 12;
     lastPtr = srcPtr;
     continue;
@@ -84,15 +85,6 @@ import { serializeStruct } from "./struct";
 @inline function write_u_escape(code: u16): void {
   bs.growSize(10);
   store<u32>(bs.offset, U_MARKER); // "\u"
-  // write hex digits (lowercase, matches tests)
-  store<u16>(bs.offset + 4, hexNibble((code >> 12) & 0xf));
-  store<u16>(bs.offset + 6, hexNibble((code >> 8) & 0xf));
-  store<u16>(bs.offset + 8, hexNibble((code >> 4) & 0xf));
-  store<u16>(bs.offset + 10, hexNibble(code & 0xf));
+  store<u64>(bs.offset, u16_to_hex4_swar(code), 4);
   bs.offset += 12;
-}
-
-// @ts-ignore: inline
-@inline function hexNibble(n: u16): u16 {
-  return n < 10 ? 48 + n : 87 + n;
 }

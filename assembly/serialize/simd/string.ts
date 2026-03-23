@@ -2,6 +2,7 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { bs, sc } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
+import { u16_to_hex4_swar } from "../../util/swar";
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const U00_MARKER = 13511005048209500;
 // @ts-expect-error: @lazy is a valid decorator
@@ -118,7 +119,7 @@ export function serializeString_SIMD(src: string): void {
       // unpaired high/low surrogate
       const dstIdx = bs.offset + laneIdx - 1;
       store<u32>(dstIdx, U_MARKER); // \u
-      store<u64>(dstIdx, load<u64>(changetype<usize>(code.toString(16))), 4);
+      store<u64>(dstIdx, u16_to_hex4_swar(code), 4);
       // memory.copy(dstIdx + 12, srcIdx + 1, 15 - laneIdx);
       store<v128>(dstIdx, load<v128>(srcIdx, 1), 12);
       bs.offset += 10;
@@ -181,15 +182,6 @@ export function serializeString_SIMD(src: string): void {
 @inline function write_u_escape(code: u16): void {
   bs.growSize(10);
   store<u32>(bs.offset, U_MARKER); // "\u"
-  // write hex digits (lowercase, matches tests)
-  store<u16>(bs.offset + 4, hexNibble((code >> 12) & 0xf));
-  store<u16>(bs.offset + 6, hexNibble((code >> 8) & 0xf));
-  store<u16>(bs.offset + 8, hexNibble((code >> 4) & 0xf));
-  store<u16>(bs.offset + 10, hexNibble(code & 0xf));
+  store<u64>(bs.offset, u16_to_hex4_swar(code), 4);
   bs.offset += 12;
-}
-
-// @ts-expect-error: @inline is a valid decorator
-@inline function hexNibble(n: u16): u16 {
-  return n < 10 ? 48 + n : 87 + n;
 }

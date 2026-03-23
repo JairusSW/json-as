@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- perf: add a packed SWAR `u16_to_hex4_swar` helper for `\uXXXX` emission and use it across simple, SWAR, and SIMD string serializers
+- tests: add dedicated SWAR hex helper coverage, including exhaustive full-range round-trip validation
+- bench: add SWAR hex and SWAR string serializer head-to-head microbenchmarks
+
 ## 2026-03-19 - 1.3.0
 
 - chore: exclude generated `.as-test` build artifacts from ESLint, tighten generic deserializer offset math, and remove the obsolete `run-tests.sh` helper
