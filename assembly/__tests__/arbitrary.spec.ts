@@ -3,9 +3,16 @@ import { describe, expect } from "as-test";
 import { Vec3 } from "./types";
 
 describe("Should serialize arbitrary types", () => {
+  const typed = new Uint8Array(3);
+  typed[0] = 1;
+  typed[1] = 2;
+  typed[2] = 3;
+
   expect(JSON.stringify(JSON.Value.from("hello world"))).toBe('"hello world"');
   expect(JSON.stringify(JSON.Value.from(0))).toBe("0");
   expect(JSON.stringify(JSON.Value.from(true))).toBe("true");
+  expect(JSON.stringify(JSON.Value.from(typed))).toBe("[1,2,3]");
+  expect(JSON.stringify(JSON.Value.from(typed.buffer))).toBe("[1,2,3]");
   expect(JSON.stringify(JSON.Value.from(new Vec3()))).toBe('{"x":1.0,"y":2.0,"z":3.0}');
   expect(JSON.stringify([JSON.Value.from("string"), JSON.Value.from(true), JSON.Value.from(3.14), JSON.Value.from(new Vec3())])).toBe('["string",true,3.14,{"x":1.0,"y":2.0,"z":3.0}]');
 

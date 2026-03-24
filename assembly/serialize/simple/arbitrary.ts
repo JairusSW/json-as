@@ -7,6 +7,7 @@ import { serializeInteger } from "./integer";
 import { serializeMap } from "./map";
 import { serializeObject } from "./object";
 import { serializeString } from "./string";
+import { serializeDynamic } from "../index/typedarray";
 
 export function serializeArbitrary(src: JSON.Value): void {
   switch (src.type) {
@@ -61,6 +62,11 @@ export function serializeArbitrary(src: JSON.Value): void {
     }
     case JSON.Types.Map: {
       serializeMap(src.get<Map<string, JSON.Value>>());
+      break;
+    }
+    case JSON.Types.TypedArray:
+    case JSON.Types.ArrayBuffer: {
+      serializeDynamic(src.type, src.get<usize>());
       break;
     }
     default: {

@@ -3,7 +3,7 @@ import { heap } from "memory";
 
 // Buffer management constants
 const SHRINK_EVERY_N_MASK: usize = 255; // check every 256 outputs
-const MIN_BUFFER_SIZE: usize = 128;
+const MIN_BUFFER_SIZE: usize = 1024;
 
 // Exponential moving average smoothing factor (0.0 to 1.0)
 // Higher values = more responsive to recent sizes, lower = more stable
@@ -168,6 +168,23 @@ export namespace bs {
     bufferSize = newSize;
     offset = buffer;
     stackSize = 0;
+  }
+
+  /**
+   * Shrinks the buffer using the same adaptive sizing policy as normal output
+   * finalization. Keeps enough capacity for the recent typical output size while
+   * releasing clearly excess memory.
+   */
+  // @ts-expect-error: @inline is a valid decorator
+  @inline export function shrink(): void {
+    let next = typicalSize << 1;
+    if (next < MIN_BUFFER_SIZE) next = MIN_BUFFER_SIZE;
+    if (bufferSize > next) {
+      resize(u32(next));
+    } else {
+      offset = buffer;
+      stackSize = 0;
+    }
   }
 
   /**

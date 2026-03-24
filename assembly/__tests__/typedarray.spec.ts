@@ -100,6 +100,68 @@ function makeArrayBuffer(): ArrayBuffer {
   return out;
 }
 
+function hexDigit(value: u8): string {
+  return String.fromCharCode(value < 10 ? 48 + value : 87 + value);
+}
+
+function parseHexNibble(code: u16): u8 {
+  if (code >= 48 && code <= 57) return <u8>(code - 48);
+  if (code >= 97 && code <= 102) return <u8>(code - 87);
+  return <u8>(code - 55);
+}
+
+function makeHexBytes(): HexBytes {
+  const out = new HexBytes(4);
+  out[0] = 10;
+  out[1] = 20;
+  out[2] = 30;
+  out[3] = 40;
+  return out;
+}
+
+
+@json
+class HexBytes extends Uint8Array {
+  constructor(length: i32 = 0) {
+    super(length);
+  }
+
+  toHex(): string {
+    let out = "";
+    for (let i = 0; i < this.length; i++) {
+      const value = unchecked(this[i]);
+      out += hexDigit(value >> 4);
+      out += hexDigit(value & 0x0f);
+    }
+    return out;
+  }
+
+
+  @inline __SERIALIZE_CUSTOM(): void {
+    JSON.__serialize(this.toHex());
+  }
+
+
+  @inline __DESERIALIZE_CUSTOM(data: string): HexBytes {
+    const raw = JSON.parse<string>(data);
+    const out = new HexBytes(raw.length >> 1);
+
+    for (let i = 0, j = 0; i < raw.length; i += 2, j++) {
+      const hi = parseHexNibble(<u16>raw.charCodeAt(i));
+      const lo = parseHexNibble(<u16>raw.charCodeAt(i + 1));
+      unchecked((out[j] = <u8>((hi << 4) | lo)));
+    }
+
+    return out;
+  }
+}
+
+
+@json
+class HexEnvelope {
+  payload: HexBytes = makeHexBytes();
+}
+
 
 @json
 class BinaryEnvelope {
@@ -178,10 +240,10 @@ describe("Should serialize and deserialize typed arrays by default", () => {
 
 describe("Should serialize and deserialize ArrayBuffer by default", () => {
   const buffer = makeArrayBuffer();
-  expect(JSON.stringifyArrayBuffer(changetype<usize>(buffer))).toBe("[10,20,30,40]");
+  expect(JSON.stringify(buffer)).toBe("[10,20,30,40]");
 
   const parsed = JSON.parseArrayBuffer("[10,20,30,40]");
-  expect(JSON.stringifyArrayBuffer(changetype<usize>(parsed))).toBe(JSON.stringifyArrayBuffer(changetype<usize>(buffer)));
+  expect(JSON.stringify(parsed)).toBe(JSON.stringify(buffer));
 });
 
 describe("Should support typed arrays and ArrayBuffer inside @json classes", () => {
@@ -194,7 +256,7 @@ describe("Should support typed arrays and ArrayBuffer inside @json classes", () 
   expect(JSON.stringify(parsed.bytes)).toBe(JSON.stringify(input.bytes));
   expect(JSON.stringify(parsed.ints)).toBe(JSON.stringify(input.ints));
   expect(JSON.stringify(parsed.floats)).toBe(JSON.stringify(input.floats));
-  expect(JSON.stringifyArrayBuffer(changetype<usize>(parsed.raw))).toBe(JSON.stringifyArrayBuffer(changetype<usize>(input.raw)));
+  expect(JSON.stringify(parsed.raw)).toBe(JSON.stringify(input.raw));
 });
 
 describe("Should serialize constructor-assigned typed arrays inside @json classes", () => {
@@ -207,4 +269,34 @@ describe("Should serialize nested classes with mixed typed-array field initializ
   const input = new BinaryContainer();
   const serialized = JSON.stringify(input);
   expect(serialized).toBe('{"left":{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75]},"right":{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75],"raw":[10,20,30,40]}}');
+});
+
+describe("Should allow Uint8Array subclasses to override serialization and deserialization explicitly", () => {
+  const input = makeHexBytes();
+  const serialized = JSON.stringify(input);
+
+  expect(serialized).toBe('"0a141e28"');
+
+  const parsed = JSON.parse<HexBytes>(serialized);
+  expect(parsed.length).toBe(4);
+  expect(parsed[0]).toBe(10);
+  expect(parsed[1]).toBe(20);
+  expect(parsed[2]).toBe(30);
+  expect(parsed[3]).toBe(40);
+  expect(JSON.stringify(parsed)).toBe(serialized);
+});
+
+describe("Should preserve custom typed-array subclass behavior inside @json classes", () => {
+  const input = new HexEnvelope();
+  const serialized = JSON.stringify(input);
+
+  expect(serialized).toBe('{"payload":"0a141e28"}');
+
+  const parsed = JSON.parse<HexEnvelope>(serialized);
+  expect(parsed.payload.length).toBe(4);
+  expect(parsed.payload[0]).toBe(10);
+  expect(parsed.payload[1]).toBe(20);
+  expect(parsed.payload[2]).toBe(30);
+  expect(parsed.payload[3]).toBe(40);
+  expect(JSON.stringify(parsed)).toBe(serialized);
 });

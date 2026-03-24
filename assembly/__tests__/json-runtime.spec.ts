@@ -1,5 +1,6 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
+import { bs } from "../../lib/as-bs";
 import { Vec3 } from "./types";
 
 describe("Should cover JSON.Value type creation broadly", () => {
@@ -105,4 +106,33 @@ describe("Should traverse parsed arbitrary runtime structures", () => {
   expect(nested[0].get<f64>().toString()).toBe("2.0");
   expect(nested[1].get<f64>().toString()).toBe("3.0");
   expect(JSON.stringify(parsed)).toBe('{"items":[{"kind":"a","value":1.0},{"kind":"b","value":[2.0,3.0]}],"ok":true}');
+});
+
+describe("Should preserve bs state for JSON.internal helpers", () => {
+  bs.offset = bs.buffer;
+  bs.stackSize = 0;
+  bs.proposeSize(16);
+  bs.offset += 6;
+
+  const beforeStringifyOffset = bs.offset;
+  const beforeStringifyStack = bs.stackSize;
+  const serialized = JSON.internal.stringify<JSON.Value[]>([JSON.Value.from(1), JSON.Value.from(true)]);
+
+  expect(serialized).toBe("[1,true]");
+  expect(bs.offset).toBe(beforeStringifyOffset);
+  expect(bs.stackSize).toBe(beforeStringifyStack);
+
+  const beforeParseOffset = bs.offset;
+  const beforeParseStack = bs.stackSize;
+  const parsed = JSON.internal.parse<JSON.Value>('{"x":1,"y":true}');
+  const parsedObj = parsed.get<JSON.Obj>();
+
+  expect(parsedObj.get("x")!.get<f64>().toString()).toBe("1.0");
+  expect(parsedObj.get("y")!.get<bool>().toString()).toBe("true");
+  expect(JSON.internal.stringify(parsed)).toBe('{"x":1.0,"y":true}');
+  expect(bs.offset).toBe(beforeParseOffset);
+  expect(bs.stackSize).toBe(beforeParseStack);
+
+  bs.offset = bs.buffer;
+  bs.stackSize = 0;
 });

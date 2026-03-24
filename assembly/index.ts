@@ -33,8 +33,8 @@ import { serializeRaw } from "./serialize/index/raw";
 import { deserializeRaw } from "./deserialize/index/raw";
 import { deserializeString } from "./deserialize/index/string";
 import { serializeString } from "./serialize/index/string";
-import { deserializeArrayBuffer, deserializeTypedArray } from "./deserialize/index/typedarray";
-import { serializeArrayBufferUnsafe, serializeTypedArray } from "./serialize/index/typedarray";
+import { __deserializeArrayBuffer as deserializeArrayBufferDirect, deserializeArrayBuffer, deserializeTypedArray, parseArrayBuffer as parseArrayBufferDirect } from "./deserialize/index/typedarray";
+import { serializeArrayBuffer as serializeArrayBufferDirect, serializeArrayBufferUnsafe, serializeDynamic, serializeTypedArray } from "./serialize/index/typedarray";
 
 /**
  * Offset of the 'storage' property in the JSON.Value class.
@@ -59,7 +59,7 @@ export namespace JSON {
      * ```
      */
     export function shrink(): void {
-      bs.resize(64);
+      bs.shrink();
     }
   }
   /**
@@ -118,10 +118,10 @@ export namespace JSON {
     } else if (isString<nonnull<T>>()) {
       serializeString(data as string);
       return bs.out<string>();
-      // @ts-expect-error: Supplied by transform
-    } else if (isDefined(data.__SERIALIZE)) {
+      // @ts-expect-error: Supplied by custom implementation
+    } else if (isDefined(data.__SERIALIZE_CUSTOM)) {
       // @ts-expect-error
-      inline.always(data.__SERIALIZE(changetype<usize>(data)));
+      data.__SERIALIZE_CUSTOM();
       return bs.out<string>();
     } else if (data instanceof Date) {
       out = out ? changetype<string>(__renew(changetype<usize>(out), 52)) : changetype<string>(__new(52, idof<string>()));
@@ -171,6 +171,10 @@ export namespace JSON {
     } else if (data instanceof Float64Array) {
       inline.always(serializeTypedArray<Float64Array>(data));
       return bs.out<string>();
+    } else if (data instanceof ArrayBuffer) {
+      const dataStart = changetype<usize>(data);
+      serializeArrayBufferUnsafe(dataStart, changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize);
+      return bs.out<string>();
     } else if (data instanceof Set) {
       // @ts-expect-error
       inline.always(serializeSet(changetype<nonnull<T>>(data)));
@@ -190,15 +194,14 @@ export namespace JSON {
       return bs.out<string>();
     } else if (data instanceof JSON.Box) {
       return JSON.stringify(data.value);
+      // @ts-expect-error: Defined by transform
+    } else if (isDefined(data.__SERIALIZE)) {
+      // @ts-expect-error
+      inline.always(data.__SERIALIZE(changetype<usize>(data)));
+      return bs.out<string>();
     } else {
-      throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, StaticArray, TypedArray, Map, Date, and @json decorated classes. ` + `For ArrayBuffer, use JSON.stringifyArrayBuffer(changetype<usize>(...)).`);
+      throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, StaticArray, TypedArray, ArrayBuffer, Map, Date, and @json decorated classes.`);
     }
-  }
-
-
-  @inline export function stringifyArrayBuffer(dataStart: usize): string {
-    serializeArrayBufferUnsafe(dataStart, changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize);
-    return bs.out<string>();
   }
 
   /**
@@ -225,6 +228,12 @@ export namespace JSON {
       return deserializeString(dataPtr, dataPtr + dataSize) as T;
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
+      // @ts-expect-error: Supplied by custom implementation
+      if (isDefined(type.__DESERIALIZE_CUSTOM)) {
+        const out = changetype<nonnull<T>>(instantiate<T>());
+        // @ts-expect-error
+        return out.__DESERIALIZE_CUSTOM(data);
+      }
       if (type instanceof StaticArray) {
         // @ts-expect-error
         return inline.always(deserializeStaticArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0));
@@ -258,14 +267,6 @@ export namespace JSON {
       } else if (type instanceof Set) {
         // @ts-expect-error
         return inline.always(deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0));
-        // @ts-expect-error: Defined by transform
-      } else if (isDefined(type.__DESERIALIZE)) {
-        const out = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
-        // @ts-expect-error: Defined by transform
-        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
-        // @ts-expect-error
-        out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
-        return out;
       } else if (type instanceof Map) {
         // @ts-expect-error
         return inline.always(deserializeMap<nonnull<T>>(dataPtr, dataPtr + dataSize, 0));
@@ -284,6 +285,14 @@ export namespace JSON {
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error
         return new JSON.Box(parseBox(data, changetype<nonnull<T>>(0).value));
+        // @ts-expect-error: Defined by transform
+      } else if (isDefined(type.__DESERIALIZE)) {
+        const out = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
+        // @ts-expect-error: Defined by transform
+        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        // @ts-expect-error
+        out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
+        return out;
       } else {
         throw new Error(`Could not deserialize JSON to type '${nameof<T>()}'. ` + `If this is a custom class, ensure it has the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Input: "${data.length > 50 ? data.slice(0, 50) + "..." : data}"`);
       }
@@ -299,7 +308,7 @@ export namespace JSON {
    * Enum-like namespace representing the different types supported by JSON.Value.
    *
    * Used internally to track the runtime type of values stored in JSON.Value instances.
-   * Types 0-17 are reserved for built-in types; custom @json classes use idof<T>() + Struct.
+   * Types 0-19 are reserved for built-in types; custom @json classes use idof<T>() + Struct.
    */
   export namespace Types {
     /** Represents a null value */
@@ -340,6 +349,10 @@ export namespace JSON {
     @inline export const Map: u16 = 16;
     // @ts-expect-error
     @inline export const Struct: u16 = 17;
+    // @ts-expect-error
+    @inline export const TypedArray: u16 = 18;
+    // @ts-expect-error
+    @inline export const ArrayBuffer: u16 = 19;
   }
 
   /**
@@ -470,6 +483,18 @@ export namespace JSON {
       if (value instanceof u64) return JSON.Types.U64;
       if (value instanceof f32) return JSON.Types.F32;
       if (value instanceof f64) return JSON.Types.F64;
+      if (value instanceof Int8Array) return JSON.Types.TypedArray;
+      if (value instanceof Uint8Array) return JSON.Types.TypedArray;
+      if (value instanceof Uint8ClampedArray) return JSON.Types.TypedArray;
+      if (value instanceof Int16Array) return JSON.Types.TypedArray;
+      if (value instanceof Uint16Array) return JSON.Types.TypedArray;
+      if (value instanceof Int32Array) return JSON.Types.TypedArray;
+      if (value instanceof Uint32Array) return JSON.Types.TypedArray;
+      if (value instanceof Int64Array) return JSON.Types.TypedArray;
+      if (value instanceof Uint64Array) return JSON.Types.TypedArray;
+      if (value instanceof Float32Array) return JSON.Types.TypedArray;
+      if (value instanceof Float64Array) return JSON.Types.TypedArray;
+      if (value instanceof ArrayBuffer) return JSON.Types.ArrayBuffer;
       if (value instanceof Map) return JSON.Types.Map;
       if (value instanceof JSON.Raw) return JSON.Types.Raw;
       if (value instanceof JSON.Obj) return JSON.Types.Object;
@@ -492,6 +517,18 @@ export namespace JSON {
       else if (isNullable<T>() && changetype<usize>(value) === 0) store<usize>(changetype<usize>(this), 0, STORAGE);
       else if (isString<T>()) store<T>(changetype<usize>(this), value, STORAGE);
       else if (value instanceof JSON.Raw) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Int8Array) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Uint8Array) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Uint8ClampedArray) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Int16Array) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Uint16Array) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Int32Array) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Uint32Array) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Int64Array) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Uint64Array) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Float32Array) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof Float64Array) store<T>(changetype<usize>(this), value, STORAGE);
+      else if (value instanceof ArrayBuffer) store<T>(changetype<usize>(this), value, STORAGE);
       else if (value instanceof Map) {
         if (idof<T>() !== idof<Map<string, JSON.Value>>()) {
           abort("Maps must be of type Map<string, JSON.Value>!");
@@ -586,6 +623,11 @@ export namespace JSON {
           out += element.toString() + "]";
 
           return out.toString();
+        }
+        case JSON.Types.TypedArray:
+        case JSON.Types.ArrayBuffer: {
+          serializeDynamic(this.type, this.get<usize>());
+          return bs.out<string>();
         }
         case JSON.Types.Object: {
           return JSON.stringify(this.get<JSON.Obj>());
@@ -808,14 +850,10 @@ export namespace JSON {
       bs.offset += 8;
     } else if (isString<nonnull<T>>()) {
       serializeString(data as string);
-      // @ts-expect-error: Supplied by transform
+      // @ts-expect-error: Supplied by custom implementation
     } else if (isDefined(data.__SERIALIZE_CUSTOM)) {
       // @ts-expect-error
       return data.__SERIALIZE_CUSTOM();
-      // @ts-expect-error: Supplied by transform
-    } else if (isDefined(data.__SERIALIZE)) {
-      // @ts-expect-error
-      serializeStruct(changetype<nonnull<T>>(data));
     } else if (data instanceof Date) {
       // @ts-expect-error
       inline.always(serializeDate(changetype<nonnull<T>>(data)));
@@ -847,6 +885,9 @@ export namespace JSON {
       serializeTypedArray<Float32Array>(data);
     } else if (data instanceof Float64Array) {
       serializeTypedArray<Float64Array>(data);
+    } else if (data instanceof ArrayBuffer) {
+      const dataStart = changetype<usize>(data);
+      serializeArrayBufferUnsafe(dataStart, changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize);
     } else if (data instanceof Set) {
       // @ts-expect-error
       serializeSet(changetype<nonnull<T>>(data));
@@ -861,32 +902,32 @@ export namespace JSON {
       serializeObject(data);
     } else if (data instanceof JSON.Box) {
       __serialize(data.value);
+      // @ts-expect-error: Defined by transform
+    } else if (isDefined(data.__SERIALIZE_CUSTOM)) {
+      // @ts-expect-error
+      return data.__SERIALIZE_CUSTOM();
+      // @ts-expect-error: Defined by transform
+    } else if (isDefined(data.__SERIALIZE)) {
+      // @ts-expect-error
+      serializeStruct(changetype<nonnull<T>>(data));
     } else {
-      throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, StaticArray, TypedArray, Map, Date, and @json decorated classes. ` + `For ArrayBuffer, use JSON.stringifyArrayBuffer(changetype<usize>(...)).`);
+      throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, StaticArray, TypedArray, ArrayBuffer, Map, Date, and @json decorated classes.`);
     }
   }
 
 
-  @inline export function __serializeArrayBufferUnsafe(dataStart: usize): void {
-    serializeArrayBufferUnsafe(dataStart, changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize);
-  }
-
-
   @inline export function __serializeArrayBuffer(data: ArrayBuffer): void {
-    const dataStart = changetype<usize>(data);
-    serializeArrayBufferUnsafe(dataStart, changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize);
+    serializeArrayBufferDirect(data);
   }
 
 
   @inline export function parseArrayBuffer(data: string): ArrayBuffer {
-    const dataSize = bytes(data);
-    const dataPtr = changetype<usize>(data);
-    return deserializeArrayBuffer(dataPtr, dataPtr + dataSize, 0);
+    return parseArrayBufferDirect(data);
   }
 
 
   @inline export function __deserializeArrayBuffer(srcStart: usize, srcEnd: usize, dst: usize = 0): ArrayBuffer {
-    return deserializeArrayBuffer(srcStart, srcEnd, dst);
+    return deserializeArrayBufferDirect(srcStart, srcEnd, dst);
   }
 
   /**
@@ -913,6 +954,12 @@ export namespace JSON {
       return null;
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
+      // @ts-expect-error: Supplied by custom implementation
+      if (isDefined(type.__DESERIALIZE_CUSTOM)) {
+        const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
+        // @ts-expect-error
+        return out.__DESERIALIZE_CUSTOM(ptrToStr(srcStart, srcEnd));
+      }
       if (type instanceof StaticArray) {
         // @ts-expect-error: type
         return deserializeStaticArray<T>(srcStart, srcEnd, dst);
@@ -946,14 +993,6 @@ export namespace JSON {
       } else if (type instanceof Set) {
         // @ts-expect-error: type
         return deserializeSet<T>(srcStart, srcEnd, dst);
-        // @ts-expect-error: Defined by transform
-      } else if (isDefined(type.__DESERIALIZE)) {
-        const out = changetype<nonnull<T>>(dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
-        // @ts-expect-error: Defined by transform
-        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
-        // @ts-expect-error: Defined by transform
-        out.__DESERIALIZE(srcStart, srcEnd, out);
-        return out;
       } else if (type instanceof Map) {
         // @ts-expect-error: type
         return deserializeMap<T>(srcStart, srcEnd, dst);
@@ -972,6 +1011,14 @@ export namespace JSON {
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error: type
         return new JSON.Box(deserializeBox(srcStart, srcEnd, dst, changetype<nonnull<T>>(0).value));
+        // @ts-expect-error: Defined by transform
+      } else if (isDefined(type.__DESERIALIZE)) {
+        const out = changetype<nonnull<T>>(dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
+        // @ts-expect-error: Defined by transform
+        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        // @ts-expect-error: Defined by transform
+        out.__DESERIALIZE(srcStart, srcEnd, out);
+        return out;
       }
     }
     const snippet = ptrToStr(srcStart, srcEnd);
@@ -1002,102 +1049,30 @@ export namespace JSON {
      */
     // @ts-expect-error: inline
     @inline export function stringify<T>(data: T, out: string | null = null): string {
-      if (isBoolean<T>()) {
-        if (out) {
-          if (<bool>data == true) {
-            out = changetype<string>(__renew(changetype<usize>(out), 8));
-            store<u64>(changetype<usize>(out), TRUE_WORD_U64);
-          } else {
-            out = changetype<string>(__renew(changetype<usize>(out), 10));
-            store<u64>(changetype<usize>(out), FALSE_WORD_U64);
-            store<u16>(changetype<usize>(out), 101, 8);
-          }
-          return out;
-        }
-        return data ? "true" : "false";
-      } else if (isInteger<T>() && !isSigned<T>() && nameof<T>() == "usize" && data == 0) {
-        if (out) {
-          out = changetype<string>(__renew(changetype<usize>(out), 8));
-          store<u64>(changetype<usize>(out), NULL_WORD_U64);
-          return out;
-        }
-        return NULL_WORD;
-      } else if (isInteger<T>(data)) {
-        if (out) {
-          out = changetype<string>(__renew(changetype<usize>(out), sizeof<T>() << 3));
-
-          const bytes = itoa_buffered(changetype<usize>(out), data) << 1;
-          return (out = changetype<string>(__renew(changetype<usize>(out), bytes)));
-        }
-        return data.toString();
-      } else if (isFloat<T>(data)) {
-        if (out) {
-          out = changetype<string>(__renew(changetype<usize>(out), 64));
-
-          const bytes = dtoa_buffered(changetype<usize>(out), data) << 1;
-          return (out = changetype<string>(__renew(changetype<usize>(out), bytes)));
-        }
-        return data.toString();
-      } else if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
-        if (out) {
-          out = changetype<string>(__renew(changetype<usize>(out), 8));
-          store<u64>(changetype<usize>(out), NULL_WORD_U64);
-          return out;
-        }
-        return NULL_WORD;
-      } else if (isString<nonnull<T>>()) {
-        serializeString(data as string);
-        return bs.cpyOut<string>();
-        // @ts-expect-error: Supplied by transform
-      } else if (isDefined(data.__SERIALIZE)) {
-        bs.saveState();
-        // @ts-expect-error
-        inline.always(data.__SERIALIZE(changetype<usize>(data)));
-        return bs.cpyOut<string>();
-      } else if (data instanceof Date) {
-        out = out ? changetype<string>(__renew(changetype<usize>(out), 52)) : changetype<string>(__new(52, idof<string>()));
-
-        store<u16>(changetype<usize>(out), QUOTE);
-        memory.copy(changetype<usize>(out) + 2, changetype<usize>(data.toISOString()), 48);
-        store<u16>(changetype<usize>(out), QUOTE, 50);
-        return changetype<string>(out);
-      } else if (data instanceof Array) {
-        bs.saveState();
-        // @ts-expect-error
-        inline.always(serializeArray(changetype<nonnull<T>>(data)));
-        return bs.cpyOut<string>();
-      } else if (data instanceof StaticArray) {
-        bs.saveState();
-        // @ts-expect-error
-        inline.always(serializeStaticArray(changetype<nonnull<T>>(data)));
-        return bs.cpyOut<string>();
-      } else if (data instanceof Set) {
-        bs.saveState();
-        // @ts-expect-error
-        inline.always(serializeSet(changetype<nonnull<T>>(data)));
-        return bs.cpyOut<string>();
-      } else if (data instanceof Map) {
-        bs.saveState();
-        // @ts-expect-error
-        inline.always(serializeMap(changetype<nonnull<T>>(data)));
-        return bs.cpyOut<string>();
-      } else if (data instanceof JSON.Raw) {
-        bs.saveState();
-        serializeRaw(data);
-        return bs.cpyOut<string>();
-      } else if (data instanceof JSON.Value) {
-        bs.saveState();
-        inline.always(serializeArbitrary(data));
-        return bs.cpyOut<string>();
-      } else if (data instanceof JSON.Obj) {
-        bs.saveState();
-        inline.always(serializeObject(data));
-        return bs.cpyOut<string>();
-      } else if (data instanceof JSON.Box) {
-        return JSON.internal.stringify(data.value);
-      } else {
-        throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, Map, Date, and @json decorated classes.`);
+      bs.saveState();
+      JSON.__serialize<T>(data);
+      const result = bs.cpyOut<string>();
+      if (out) {
+        const len = bytes(result);
+        out = changetype<string>(__renew(changetype<usize>(out), len));
+        memory.copy(changetype<usize>(out), changetype<usize>(result), len);
+        return out;
       }
+      return result;
+    }
+
+    /**
+     * Parses JSON data without mutating the caller's active serialization buffer state.
+     * Don't use this directly, use `JSON.parse` instead.
+     * @param data - string
+     * @returns - T
+     */
+    // @ts-expect-error: inline
+    @inline export function parse<T>(data: string): T {
+      bs.saveState();
+      const result = JSON.parse<T>(data);
+      bs.loadState();
+      return result;
     }
   }
 }
