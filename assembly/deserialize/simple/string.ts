@@ -31,7 +31,7 @@ import { hex4_to_u16_swar } from "../../util/swar";
   srcStart += 2;
   srcEnd -= 2;
   const outStart = bs.offset - bs.buffer;
-  bs.proposeSize(u32(srcEnd - srcStart));
+  bs.ensureSize(u32(srcEnd - srcStart));
 
   while (srcStart < srcEnd) {
     const block = load<u16>(srcStart);

@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-03-25 - 1.3.1
+## Unreleased
 
 - feat: allow `JSON.Value` to store and re-serialize built-in typed arrays and `ArrayBuffer`
 - feat: support `JSON.stringify<ArrayBuffer>(...)` directly without a dedicated helper
@@ -17,7 +17,9 @@
 - fix: rewrite nested `JSON.parse(...)` calls inside custom serializers and deserializers to `JSON.internal.parse(...)`, matching the existing internal stringify rewrite and documented behavior
 - docs: clarify that custom serializers and deserializers must always produce and consume valid JSON
 - docs: document how subclassing built-in container types behaves, including when `@json` custom overrides take effect
+- fix: stop naive string deserialization scratch allocations from growing across repeated large payload parses by using local `ensureSize(...)` scratch capacity instead of serialization-style proposed growth
 - tests: expand custom serializer/deserializer coverage for nullable fields, multiple custom fields, escaped content, whitespace, and repeated round-trips
+- tests: add a repeated large string-heavy struct parse regression that exercises the naive deserialization scratch path
 - tests: add override coverage for plain and custom subclasses of `Array`, `Map`, `Set`, and typed arrays
 - tests: add `JSON.Value` regressions for undecorated and decorated typed-array subclasses
 - tests: add regression coverage for generated `@json` subclasses inheriting stdlib typed-array fields

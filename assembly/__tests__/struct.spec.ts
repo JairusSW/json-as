@@ -196,3 +196,39 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe("[[1],[2,3],[]]");
   expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
 });
+
+describe("Should keep naive string scratch space bounded across repeated large struct parses", () => {
+  const payload = buildStringHeavyPayload();
+
+  for (let i = 0; i < 256; i++) {
+    const parsed = JSON.parse<StringHeavyPayload>(payload);
+    expect(parsed.title.length).toBe(704);
+    expect(parsed.repo.length).toBe(608);
+    expect(parsed.summary.length).toBe(704);
+    expect(parsed.footer.length).toBe(384);
+  }
+});
+
+function repeatChunk(chunk: string, count: i32): string {
+  let out = "";
+  for (let i = 0; i < count; i++) out += chunk;
+  return out;
+}
+
+function buildStringHeavyPayload(): string {
+  const title = repeatChunk("alpha-beta-", 64);
+  const repo = repeatChunk("octocat/repository/", 32);
+  const summary = repeatChunk("payload-segment-", 44);
+  const footer = repeatChunk("final-block-", 32);
+
+  return '{"title":"' + title + '","repo":"' + repo + '","summary":"' + summary + '","footer":"' + footer + '"}';
+}
+
+
+@json
+class StringHeavyPayload {
+  title: string = "";
+  repo: string = "";
+  summary: string = "";
+  footer: string = "";
+}
