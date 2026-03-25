@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2026-03-25 - 1.3.1
 
 - feat: allow `JSON.Value` to store and re-serialize built-in typed arrays and `ArrayBuffer`
 - feat: support `JSON.stringify<ArrayBuffer>(...)` directly without a dedicated helper
@@ -14,12 +14,14 @@
 - fix: make generated custom serializer wrappers use the provided `ptr` so indirect-call sites like `JSON.Value` serialize correctly
 - fix: resolve stdlib and `--lib` base classes during transform inheritance so `@json` subclasses of built-ins like `Uint8Array` include inherited fields instead of collapsing to empty objects
 - fix: stop preloading transform imports through `parser.parseFile(...)`, so repeated `asc()` calls in the same process no longer poison parser state or trip `lookupForeignFile` assertions
+- fix: rewrite nested `JSON.parse(...)` calls inside custom serializers and deserializers to `JSON.internal.parse(...)`, matching the existing internal stringify rewrite and documented behavior
 - docs: clarify that custom serializers and deserializers must always produce and consume valid JSON
 - docs: document how subclassing built-in container types behaves, including when `@json` custom overrides take effect
 - tests: expand custom serializer/deserializer coverage for nullable fields, multiple custom fields, escaped content, whitespace, and repeated round-trips
 - tests: add override coverage for plain and custom subclasses of `Array`, `Map`, `Set`, and typed arrays
 - tests: add `JSON.Value` regressions for undecorated and decorated typed-array subclasses
 - tests: add regression coverage for generated `@json` subclasses inheriting stdlib typed-array fields
+- chore: restrict published package contents to the runtime, declarations, built transform output, and top-level metadata files
 - perf: raise the serialization buffer minimum size to 1024 bytes and add adaptive `bs.shrink()`
 - perf: add a packed SWAR `u16_to_hex4_swar` helper for `\uXXXX` emission and use it across simple, SWAR, and SIMD string serializers
 - tests: add dedicated SWAR hex helper coverage, including exhaustive full-range round-trip validation

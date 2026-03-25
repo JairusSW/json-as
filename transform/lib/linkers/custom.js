@@ -5,12 +5,16 @@ export class CustomTransform extends Visitor {
     modify = false;
     visitCallExpression(node) {
         super.visit(node.args, node);
-        if (node.expression.kind != 21 || node.expression.property.text != "stringify")
+        if (node.expression.kind != 21)
             return;
-        if (node.expression.expression.kind != 6 || node.expression.expression.text != "JSON")
+        const expression = node.expression;
+        const property = expression.property.text;
+        if (property != "stringify" && property != "parse")
+            return;
+        if (expression.expression.kind != 6 || expression.expression.text != "JSON")
             return;
         if (this.modify) {
-            node.expression.expression = Node.createPropertyAccessExpression(Node.createIdentifierExpression("JSON", node.expression.range), Node.createIdentifierExpression("internal", node.expression.range), node.expression.range);
+            expression.expression = Node.createPropertyAccessExpression(Node.createIdentifierExpression("JSON", node.expression.range), Node.createIdentifierExpression("internal", node.expression.range), node.expression.range);
         }
         this.modify = true;
     }
