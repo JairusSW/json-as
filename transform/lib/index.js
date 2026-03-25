@@ -87,6 +87,46 @@ export class JSONTransform extends Visitor {
     imports = [];
     simdStatements = [];
     visitedClasses = new Set();
+    collectInheritedFieldMembers(node, source, members, visited = new Set()) {
+        if (!node.extendsType)
+            return;
+        const extendsName = source.resolveExtendsName(node);
+        if (!extendsName || visited.has(extendsName))
+            return;
+        visited.add(extendsName);
+        let baseDecl = source.getClass(extendsName);
+        let baseSource = baseDecl ? source : null;
+        if (!baseDecl) {
+            const imported = source.getImportedClass(extendsName, this.parser);
+            if (imported) {
+                baseDecl = imported;
+                baseSource = this.sources.get(imported.range.source);
+            }
+        }
+        if (!baseDecl) {
+            const available = source.getAvailableClass(extendsName, this.parser);
+            if (available) {
+                baseDecl = available;
+                baseSource = this.sources.get(available.range.source);
+            }
+        }
+        if (!baseDecl || !baseSource)
+            return;
+        const isDecoratedBase = !!baseDecl.decorators?.some((decorator) => {
+            const name = decorator.name.text;
+            return name === "json" || name === "serializable";
+        });
+        if (isDecoratedBase)
+            return;
+        this.collectInheritedFieldMembers(baseDecl, baseSource, members, visited);
+        const inheritedMembers = baseDecl.members.filter((v) => v.kind === 54 && !v.is(32) && !v.is(512) && !v.is(1024) && !v.decorators?.some((decorator) => decorator.name.text === "omit"));
+        for (let i = inheritedMembers.length - 1; i >= 0; i--) {
+            const inherited = inheritedMembers[i];
+            if (!members.some((member) => member.name.text == inherited.name.text)) {
+                members.unshift(inherited);
+            }
+        }
+    }
     visitClassDeclarationRef(node) {
         if (!node.decorators?.length ||
             !node.decorators.some((decorator) => {
@@ -141,13 +181,14 @@ export class JSONTransform extends Visitor {
             return;
         if (!this.schemas.has(source.internalPath))
             this.schemas.set(source.internalPath, []);
-        const members = [...node.members.filter((v) => v.kind === 54 && v.flags !== 32 && v.flags !== 512 && v.flags !== 1024 && !v.decorators?.some((decorator) => decorator.name.text === "omit"))];
+        const members = [...node.members.filter((v) => v.kind === 54 && !v.is(32) && !v.is(512) && !v.is(1024) && !v.decorators?.some((decorator) => decorator.name.text === "omit"))];
         const serializers = [...node.members.filter((v) => v.kind === 58 && v.decorators && v.decorators.some((e) => e.name.text.toLowerCase() === "serializer") && !v.name.text.startsWith("__try"))];
         const deserializers = [...node.members.filter((v) => v.kind === 58 && v.decorators && v.decorators.some((e) => e.name.text.toLowerCase() === "deserializer") && !v.name.text.startsWith("__try"))];
         const schema = new Schema();
         schema.node = node;
         schema.name = source.getQualifiedName(node);
         if (node.extendsType) {
+            this.collectInheritedFieldMembers(node, source, members);
             const extendsName = source.resolveExtendsName(node);
             if (!schema.parent) {
                 const depSearch = schema.deps.find((v) => v.name == extendsName);
@@ -192,6 +233,30 @@ export class JSONTransform extends Visitor {
                                 throw new Error("Could not find schema for " + externalSearch.name.text + " in " + externalSource.internalPath);
                             schema.deps.push(schem);
                             schema.parent = schem;
+                        }
+                        else {
+                            const availableSearch = source.getAvailableClass(extendsName, this.parser);
+                            if (availableSearch) {
+                                if (DEBUG > 0)
+                                    console.log("Found " + availableSearch.name.text + " from available sources for " + source.internalPath);
+                                const availableSource = this.sources.get(availableSearch.range.source);
+                                if (availableSearch.decorators?.some((decorator) => {
+                                    const name = decorator.name.text;
+                                    return name === "json" || name === "serializable";
+                                })) {
+                                    if (!this.visitedClasses.has(availableSource.getFullPath(availableSearch))) {
+                                        this.visitClassDeclarationRef(availableSearch);
+                                        this.schemas.get(availableSource.internalPath).push(this.schema);
+                                        this.visitClassDeclaration(node);
+                                        return;
+                                    }
+                                    const schem = this.schemas.get(availableSource.internalPath)?.find((s) => s.name == extendsName);
+                                    if (schem) {
+                                        schema.deps.push(schem);
+                                        schema.parent = schem;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1525,11 +1590,7 @@ export default class Transformer extends Transform {
         }
     }
     afterParse(parser) {
-        const transformer = JSONTransform.SN;
-        transformer.schemas = new Map();
-        transformer.sources = new SourceSet();
-        transformer.visitedClasses = new Set();
-        transformer.simdStatements = [];
+        const transformer = new JSONTransform();
         const sources = parser.sources
             .filter((source) => {
             const p = source.internalPath;

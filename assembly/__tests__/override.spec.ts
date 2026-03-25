@@ -27,6 +27,20 @@ class PlainFloats extends Float64Array {
   }
 }
 
+
+@json
+class GeneratedBytes extends Uint8Array {
+  constructor(length: i32 = 0) {
+    super(length);
+  }
+}
+
+
+@json
+class GeneratedBytesEnvelope {
+  value: GeneratedBytes = new GeneratedBytes(0);
+}
+
 function makePlainInts(): PlainInts {
   const out = new PlainInts();
   out.push(1);
@@ -218,6 +232,25 @@ describe("Should keep built-in behavior for plain Uint8Array subclasses", () => 
 describe("Should keep built-in behavior for plain Float64Array subclasses", () => {
   const value = makePlainFloats();
   expect(JSON.stringify(value)).toBe("[-1.5,0.125,3.14159]");
+});
+
+describe("Should treat @json typed-array subclasses as generated classes with inherited stdlib fields", () => {
+  const value = new GeneratedBytes(4);
+  value[0] = 10;
+  value[1] = 20;
+  value[2] = 30;
+  value[3] = 40;
+
+  const encoded = JSON.stringify(value);
+  expect(encoded.includes('"buffer":[10,20,30,40]')).toBe(true);
+  expect(encoded.includes('"byteLength":4')).toBe(true);
+  expect(encoded.includes('"dataStart":')).toBe(true);
+
+  const envelope = new GeneratedBytesEnvelope();
+  envelope.value = value;
+  const envelopeEncoded = JSON.stringify(envelope);
+  expect(envelopeEncoded.includes('"value":')).toBe(true);
+  expect(envelopeEncoded.includes('"buffer":[10,20,30,40]')).toBe(true);
 });
 
 describe("Should allow Uint8Array subclasses to override serialization", () => {

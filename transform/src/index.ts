@@ -102,6 +102,51 @@ export class JSONTransform extends Visitor {
 
   public visitedClasses: Set<string> = new Set<string>();
 
+  private collectInheritedFieldMembers(node: ClassDeclaration, source: Src, members: FieldDeclaration[], visited = new Set<string>()): void {
+    if (!node.extendsType) return;
+
+    const extendsName = source.resolveExtendsName(node);
+    if (!extendsName || visited.has(extendsName)) return;
+    visited.add(extendsName);
+
+    let baseDecl: ClassDeclaration | null = source.getClass(extendsName);
+    let baseSource: Src | null = baseDecl ? source : null;
+
+    if (!baseDecl) {
+      const imported = source.getImportedClass(extendsName, this.parser);
+      if (imported) {
+        baseDecl = imported;
+        baseSource = this.sources.get(imported.range.source);
+      }
+    }
+
+    if (!baseDecl) {
+      const available = source.getAvailableClass(extendsName, this.parser);
+      if (available) {
+        baseDecl = available;
+        baseSource = this.sources.get(available.range.source);
+      }
+    }
+
+    if (!baseDecl || !baseSource) return;
+
+    const isDecoratedBase = !!baseDecl.decorators?.some((decorator) => {
+      const name = (<IdentifierExpression>decorator.name).text;
+      return name === "json" || name === "serializable";
+    });
+    if (isDecoratedBase) return;
+
+    this.collectInheritedFieldMembers(baseDecl, baseSource, members, visited);
+
+    const inheritedMembers = baseDecl.members.filter((v) => v.kind === NodeKind.FieldDeclaration && !v.is(CommonFlags.Static) && !v.is(CommonFlags.Private) && !v.is(CommonFlags.Protected) && !v.decorators?.some((decorator) => (<IdentifierExpression>decorator.name).text === "omit")) as FieldDeclaration[];
+    for (let i = inheritedMembers.length - 1; i >= 0; i--) {
+      const inherited = inheritedMembers[i];
+      if (!members.some((member) => member.name.text == inherited.name.text)) {
+        members.unshift(inherited);
+      }
+    }
+  }
+
   visitClassDeclarationRef(node: ClassDeclaration): void {
     if (
       !node.decorators?.length ||
@@ -170,7 +215,7 @@ export class JSONTransform extends Visitor {
     if (this.visitedClasses.has(fullClassPath)) return;
     if (!this.schemas.has(source.internalPath)) this.schemas.set(source.internalPath, []);
 
-    const members: FieldDeclaration[] = [...(node.members.filter((v) => v.kind === NodeKind.FieldDeclaration && v.flags !== CommonFlags.Static && v.flags !== CommonFlags.Private && v.flags !== CommonFlags.Protected && !v.decorators?.some((decorator) => (<IdentifierExpression>decorator.name).text === "omit")) as FieldDeclaration[])];
+    const members: FieldDeclaration[] = [...(node.members.filter((v) => v.kind === NodeKind.FieldDeclaration && !v.is(CommonFlags.Static) && !v.is(CommonFlags.Private) && !v.is(CommonFlags.Protected) && !v.decorators?.some((decorator) => (<IdentifierExpression>decorator.name).text === "omit")) as FieldDeclaration[])];
     const serializers: MethodDeclaration[] = [...node.members.filter((v) => v.kind === NodeKind.MethodDeclaration && v.decorators && v.decorators.some((e) => (<IdentifierExpression>e.name).text.toLowerCase() === "serializer") && !v.name.text.startsWith("__try"))] as MethodDeclaration[];
     const deserializers: MethodDeclaration[] = [...node.members.filter((v) => v.kind === NodeKind.MethodDeclaration && v.decorators && v.decorators.some((e) => (<IdentifierExpression>e.name).text.toLowerCase() === "deserializer") && !v.name.text.startsWith("__try"))] as MethodDeclaration[];
 
@@ -179,6 +224,7 @@ export class JSONTransform extends Visitor {
     schema.name = source.getQualifiedName(node);
 
     if (node.extendsType) {
+      this.collectInheritedFieldMembers(node, source, members);
       const extendsName = source.resolveExtendsName(node);
 
       if (!schema.parent) {
@@ -216,6 +262,30 @@ export class JSONTransform extends Visitor {
               if (!schem) throw new Error("Could not find schema for " + externalSearch.name.text + " in " + externalSource.internalPath);
               schema.deps.push(schem);
               schema.parent = schem;
+            } else {
+              const availableSearch = source.getAvailableClass(extendsName, this.parser);
+              if (availableSearch) {
+                if (DEBUG > 0) console.log("Found " + availableSearch.name.text + " from available sources for " + source.internalPath);
+                const availableSource = this.sources.get(availableSearch.range.source);
+                if (
+                  availableSearch.decorators?.some((decorator) => {
+                    const name = (<IdentifierExpression>decorator.name).text;
+                    return name === "json" || name === "serializable";
+                  })
+                ) {
+                  if (!this.visitedClasses.has(availableSource.getFullPath(availableSearch))) {
+                    this.visitClassDeclarationRef(availableSearch);
+                    this.schemas.get(availableSource.internalPath).push(this.schema);
+                    this.visitClassDeclaration(node);
+                    return;
+                  }
+                  const schem = this.schemas.get(availableSource.internalPath)?.find((s) => s.name == extendsName);
+                  if (schem) {
+                    schema.deps.push(schem);
+                    schema.parent = schem;
+                  }
+                }
+              }
             }
           }
         }
@@ -1713,14 +1783,14 @@ export default class Transformer extends Transform {
   }
 
   afterParse(parser: Parser): void {
-    const transformer = JSONTransform.SN;
+    const transformer = new JSONTransform();
 
-    // Reset singleton state to prevent pollution across compilations
-    // This is critical for worker pools where the same process handles multiple compilations
-    transformer.schemas = new Map<string, Schema[]>();
-    transformer.sources = new SourceSet();
-    transformer.visitedClasses = new Set<string>();
-    transformer.simdStatements = [];
+    // // Reset singleton state to prevent pollution across compilations
+    // // This is critical for worker pools where the same process handles multiple compilations
+    // transformer.schemas = new Map<string, Schema[]>();
+    // transformer.sources = new SourceSet();
+    // transformer.visitedClasses = new Set<string>();
+    // transformer.simdStatements = [];
 
     const sources = parser.sources
       .filter((source) => {

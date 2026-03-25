@@ -249,27 +249,27 @@ export namespace JSON {
         // @ts-expect-error
         return inline.always(deserializeArray<nonnull<T>>(dataPtr, dataPtr + dataSize, changetype<usize>(instantiate<T>())));
       } else if (type instanceof Int8Array) {
-        return deserializeTypedArray<Int8Array>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Uint8Array) {
-        return deserializeTypedArray<Uint8Array>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Uint8ClampedArray) {
-        return deserializeTypedArray<Uint8ClampedArray>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Int16Array) {
-        return deserializeTypedArray<Int16Array>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Uint16Array) {
-        return deserializeTypedArray<Uint16Array>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Int32Array) {
-        return deserializeTypedArray<Int32Array>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Uint32Array) {
-        return deserializeTypedArray<Uint32Array>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Int64Array) {
-        return deserializeTypedArray<Int64Array>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Uint64Array) {
-        return deserializeTypedArray<Uint64Array>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Float32Array) {
-        return deserializeTypedArray<Float32Array>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Float64Array) {
-        return deserializeTypedArray<Float64Array>(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeTypedArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof ArrayBuffer) {
         return deserializeArrayBuffer(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Set) {
@@ -955,27 +955,27 @@ export namespace JSON {
         // @ts-expect-error: type
         return deserializeArray<T>(srcStart, srcEnd, dst);
       } else if (type instanceof Int8Array) {
-        return deserializeTypedArray<Int8Array>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Uint8Array) {
-        return deserializeTypedArray<Uint8Array>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Uint8ClampedArray) {
-        return deserializeTypedArray<Uint8ClampedArray>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Int16Array) {
-        return deserializeTypedArray<Int16Array>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Uint16Array) {
-        return deserializeTypedArray<Uint16Array>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Int32Array) {
-        return deserializeTypedArray<Int32Array>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Uint32Array) {
-        return deserializeTypedArray<Uint32Array>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Int64Array) {
-        return deserializeTypedArray<Int64Array>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Uint64Array) {
-        return deserializeTypedArray<Uint64Array>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Float32Array) {
-        return deserializeTypedArray<Float32Array>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Float64Array) {
-        return deserializeTypedArray<Float64Array>(srcStart, srcEnd, dst) as T;
+        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof ArrayBuffer) {
         return deserializeArrayBuffer(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Set) {
@@ -1018,7 +1018,8 @@ export namespace JSON {
     }
   }
   /**
-   * Methods for use when using JSON methods inside another JSON method or custom serializer/deserializer.
+   * Methods for use when using JSON methods inside another JSON method or custom serializer/deserializer
+   * Transform will automatically convert JSON.x calls to JSON.internal.x when in a custom (de)serializer
    */
   export namespace internal {
     /**

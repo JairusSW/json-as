@@ -262,6 +262,24 @@ export class Src {
   }
 
   /**
+   * Get any visible class from parser sources, including stdlib and sources provided via --lib.
+   * @param qualifiedName Qualified name of class.
+   * @param parser AssemblyScript parser.
+   * @returns Class declaration or null if not found.
+   */
+  getAvailableClass(qualifiedName: string, parser: Parser): ClassDeclaration | null {
+    for (const externalSource of parser.sources) {
+      if (externalSource.internalPath == this.internalPath) continue;
+      const source = this.sourceSet.get(externalSource);
+      const classDeclaration = source.getClass(qualifiedName);
+      if (classDeclaration && (classDeclaration.flags & CommonFlags.Export || externalSource.internalPath.startsWith("~lib/"))) {
+        return classDeclaration;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Get imported enum from other sources in the parser.
    * @param qualifiedName Qualified name of enum.
    * @param parser AssemblyScript parser.
