@@ -396,6 +396,75 @@ These functions are then wrapped before being consumed by the json-as library:
 
 This allows custom serialization while maintaining a generic interface for the library to access.
 
+### Overriding built-in container types
+
+Undecorated subclasses of built-in container types keep the built-in JSON behavior.
+
+For example:
+
+- `class MyBytes extends Uint8Array {}` still serializes like a normal `Uint8Array`
+- `class MyMap extends Map<string, i32> {}` still serializes like a normal `Map<string, i32>`
+- the same applies to subclassable built-ins such as `Array`, `Set`, and typed arrays
+
+If you want a different wire format, decorate the subclass with `@json` and provide custom `@serializer(...)` / `@deserializer(...)` methods:
+
+```typescript
+function hexDigit(value: u8): string {
+  return String.fromCharCode(value < 10 ? 48 + value : 87 + value);
+}
+
+function parseHexNibble(code: u16): u8 {
+  if (code >= 48 && code <= 57) return <u8>(code - 48);
+  if (code >= 97 && code <= 102) return <u8>(code - 87);
+  return <u8>(code - 55);
+}
+
+@json
+class HexBytes extends Uint8Array {
+  constructor(length: i32 = 0) {
+    super(length);
+  }
+
+  @serializer("string")
+  serializer(self: HexBytes): string {
+    let out = "";
+    for (let i = 0; i < self.length; i++) {
+      const value = unchecked(self[i]);
+      out += hexDigit(value >> 4);
+      out += hexDigit(value & 0x0f);
+    }
+    return JSON.stringify(out);
+  }
+
+  @deserializer("string")
+  deserializer(data: string): HexBytes {
+    const raw = JSON.parse<string>(data);
+    const out = new HexBytes(raw.length >> 1);
+
+    for (let i = 0, j = 0; i < raw.length; i += 2, j++) {
+      const hi = parseHexNibble(<u16>raw.charCodeAt(i));
+      const lo = parseHexNibble(<u16>raw.charCodeAt(i + 1));
+      unchecked((out[j] = <u8>((hi << 4) | lo)));
+    }
+
+    return out;
+  }
+}
+
+const bytes = new HexBytes(4);
+bytes[0] = 10;
+bytes[1] = 20;
+bytes[2] = 30;
+bytes[3] = 40;
+
+JSON.stringify(bytes);      // "\"0a141e28\""
+JSON.parse<HexBytes>("\"0a141e28\"");
+```
+
+This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, and typed arrays.
+
+`ArrayBuffer` and `String` are `@final` in AssemblyScript, so they cannot be subclassed there.
+
 ## Performance
 
 The `json-as` library is engineered for **multi-GB/s processing speeds**, leveraging SIMD and SWAR optimizations along with highly efficient transformations. The charts below highlight key performance metrics such as build time, operations-per-second, and throughput.
