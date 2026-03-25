@@ -334,11 +334,11 @@ const serialized = JSON.stringify<Foo>(Foo.bar);
 
 This library supports custom serialization and deserialization methods, which can be defined using the `@serializer` and `@deserializer` decorators.
 
-Here's an example of creating a custom data type called `Point` which serializes to `(x,y)`
+Custom serializers and deserializers must always speak valid JSON. You can optionally provide the JSON value shape they operate on using one of: `"any"`, `"string"`, `"number"`, `"object"`, `"array"`, `"boolean"`, or `"null"`. If omitted, the shape defaults to `"any"`.
+
+Here's an example of creating a custom data type called `Point` which serializes to a JSON string:
 
 ```typescript
-import { bytes } from "json-as/assembly/util";
-
 @json
 class Point {
   x: f64 = 0.0;
@@ -348,19 +348,19 @@ class Point {
     this.y = y;
   }
 
-  @serializer
+  @serializer("string")
   serializer(self: Point): string {
-    return `(${self.x},${self.y})`;
+    return JSON.stringify(`${self.x},${self.y}`);
   }
 
-  @deserializer
+  @deserializer("string")
   deserializer(data: string): Point {
-    const dataSize = bytes(data);
-    if (dataSize <= 2) throw new Error("Could not deserialize provided data as type Point");
+    const raw = JSON.parse<string>(data);
+    if (!raw.length) throw new Error("Could not deserialize provided data as type Point");
 
-    const c = data.indexOf(",");
-    const x = data.slice(1, c);
-    const y = data.slice(c + 1, data.length - 1);
+    const c = raw.indexOf(",");
+    const x = raw.slice(0, c);
+    const y = raw.slice(c + 1);
 
     return new Point(f64.parse(x), f64.parse(y));
   }
@@ -375,9 +375,9 @@ console.log("Serialized    " + serialized);
 console.log("Deserialized  " + JSON.stringify(deserialized));
 ```
 
-The serializer function converts a `Point` instance into a string format `(x,y)`.
+The serializer function converts a `Point` instance into a valid JSON string value.
 
-The deserializer function parses the string `(x,y)` back into a `Point` instance.
+The deserializer function parses that JSON string back into a `Point` instance.
 
 These functions are then wrapped before being consumed by the json-as library:
 

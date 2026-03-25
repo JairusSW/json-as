@@ -1,6 +1,5 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
-import { bytes } from "../util";
 
 
 @json
@@ -13,20 +12,20 @@ class Point {
   }
 
 
-  @serializer
+  @serializer("string")
   serializer(self: Point): string {
-    return `(${self.x},${self.y})`;
+    return JSON.stringify(`${self.x},${self.y}`);
   }
 
 
-  @deserializer
+  @deserializer("string")
   deserializer(data: string): Point {
-    const dataSize = bytes(data);
-    if (dataSize <= 2) throw new Error("Could not deserialize provided data as type Point");
+    const raw = JSON.parse<string>(data);
+    if (!raw.length) throw new Error("Could not deserialize provided data as type Point");
 
-    const c = data.indexOf(",");
-    const x = data.slice(1, c);
-    const y = data.slice(c + 1, data.length - 1);
+    const c = raw.indexOf(",");
+    const x = raw.slice(0, c);
+    const y = raw.slice(c + 1);
 
     return new Point(f64.parse(x), f64.parse(y));
   }
@@ -42,17 +41,17 @@ class ObjectWithCustom {
 }
 
 describe("Should serialize using custom serializers", () => {
-  expect(JSON.stringify<Point>(new Point(1, 2))).toBe("(1.0,2.0)");
+  expect(JSON.stringify<Point>(new Point(1, 2))).toBe('"1.0,2.0"');
 });
 
 describe("Should deserialize using custom deserializers", () => {
-  const p1 = JSON.parse<Point>("(1.0,2.0)");
+  const p1 = JSON.parse<Point>('"1.0,2.0"');
   expect(p1.x.toString()).toBe("1.0");
   expect(p1.y.toString()).toBe("2.0");
 });
 
 describe("Should serialize and deserialize using nested custom serializers", () => {
-  expect(JSON.stringify<ObjectWithCustom>(new ObjectWithCustom(new Point(1, 2)))).toBe(`{"value":(1.0,2.0)}`);
+  expect(JSON.stringify<ObjectWithCustom>(new ObjectWithCustom(new Point(1, 2)))).toBe('{"value":"1.0,2.0"}');
 });
 
 describe("Additional regression coverage - primitives and arrays", () => {
@@ -65,26 +64,56 @@ describe("Additional regression coverage - primitives and arrays", () => {
 });
 
 describe("Should deserialize additional custom points", () => {
-  const p1 = JSON.parse<Point>("(-10.5,22.25)");
+  const p1 = JSON.parse<Point>('" -10.5,22.25"');
   expect(p1.x.toString()).toBe("-10.5");
   expect(p1.y.toString()).toBe("22.25");
 });
 
 describe("Should deserialize custom points with zero and negative values", () => {
-  const parsed = JSON.parse<Point>("(0.0,-3.0)");
+  const parsed = JSON.parse<Point>('"0.0,-3.0"');
   expect(parsed.x.toString()).toBe("0.0");
   expect(parsed.y.toString()).toBe("-3.0");
 });
 
 describe("Should round-trip a broader custom point matrix", () => {
-  expect(JSON.stringify(JSON.parse<Point>("(12.5,0.25)"))).toBe("(12.5,0.25)");
-  expect(JSON.stringify(JSON.parse<Point>("(-0.5,-0.25)"))).toBe("(-0.5,-0.25)");
-  expect(JSON.stringify(JSON.parse<Point>("(1000.0,-999.75)"))).toBe("(1000.0,-999.75)");
+  expect(JSON.stringify(JSON.parse<Point>('"12.5,0.25"'))).toBe('"12.5,0.25"');
+  expect(JSON.stringify(JSON.parse<Point>('"-0.5,-0.25"'))).toBe('"-0.5,-0.25"');
+  expect(JSON.stringify(JSON.parse<Point>('"1000.0,-999.75"'))).toBe('"1000.0,-999.75"');
 });
 
 describe("Should serialize and deserialize nested custom containers repeatedly", () => {
   const obj = new ObjectWithCustom(new Point(-3.25, 19.75));
-  expect(JSON.stringify(obj)).toBe('{"value":(-3.25,19.75)}');
+  expect(JSON.stringify(obj)).toBe('{"value":"-3.25,19.75"}');
+});
+
+describe("Should deserialize nested custom fields with surrounding object whitespace", () => {
+  const parsed = JSON.parse<ObjectWithCustom>('{  "value"  :  " -7.5 , 11.25 "  }');
+  expect(parsed.value.x.toString()).toBe("-7.5");
+  expect(parsed.value.y.toString()).toBe("11.25");
+  expect(JSON.stringify(parsed)).toBe('{"value":"-7.5,11.25"}');
+});
+
+describe("Should preserve custom values through repeated parse and stringify cycles", () => {
+  let encoded = '"8.5,-9.25"';
+  for (let i = 0; i < 6; i++) {
+    encoded = JSON.stringify(JSON.parse<Point>(encoded));
+  }
+  expect(encoded).toBe('"8.5,-9.25"');
+});
+
+describe("Should preserve nested custom values through repeated parse and stringify cycles", () => {
+  let encoded = '{"value":"-12.0,0.75"}';
+  for (let i = 0; i < 6; i++) {
+    encoded = JSON.stringify(JSON.parse<ObjectWithCustom>(encoded));
+  }
+  expect(encoded).toBe('{"value":"-12.0,0.75"}');
+});
+
+describe("Should deserialize custom values with tighter separators and exponent forms", () => {
+  const parsed = JSON.parse<Point>('"-1.25e1,2.5e-1"');
+  expect(parsed.x.toString()).toBe("-12.5");
+  expect(parsed.y.toString()).toBe("0.25");
+  expect(JSON.stringify(parsed)).toBe('"-12.5,0.25"');
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {

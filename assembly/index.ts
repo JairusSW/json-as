@@ -33,8 +33,8 @@ import { serializeRaw } from "./serialize/index/raw";
 import { deserializeRaw } from "./deserialize/index/raw";
 import { deserializeString } from "./deserialize/index/string";
 import { serializeString } from "./serialize/index/string";
-import { __deserializeArrayBuffer as deserializeArrayBufferDirect, deserializeArrayBuffer, deserializeTypedArray, parseArrayBuffer as parseArrayBufferDirect } from "./deserialize/index/typedarray";
-import { serializeArrayBuffer as serializeArrayBufferDirect, serializeArrayBufferUnsafe, serializeDynamic, serializeTypedArray } from "./serialize/index/typedarray";
+import { deserializeArrayBuffer, deserializeTypedArray } from "./deserialize/index/typedarray";
+import { serializeArrayBufferUnsafe, serializeDynamic, serializeTypedArray } from "./serialize/index/typedarray";
 
 /**
  * Offset of the 'storage' property in the JSON.Value class.
@@ -118,10 +118,15 @@ export namespace JSON {
     } else if (isString<nonnull<T>>()) {
       serializeString(data as string);
       return bs.out<string>();
-      // @ts-expect-error: Supplied by custom implementation
+      // @ts-expect-error: Defined by transform
     } else if (isDefined(data.__SERIALIZE_CUSTOM)) {
-      // @ts-expect-error
+      // @ts-expect-error: Defined by transform
       data.__SERIALIZE_CUSTOM();
+      return bs.out<string>();
+      // @ts-expect-error: Defined by transform
+    } else if (isDefined(data.__SERIALIZE)) {
+      // @ts-expect-error: Defined by transform
+      inline.always(data.__SERIALIZE(changetype<usize>(data)));
       return bs.out<string>();
     } else if (data instanceof Date) {
       out = out ? changetype<string>(__renew(changetype<usize>(out), 52)) : changetype<string>(__new(52, idof<string>()));
@@ -194,11 +199,6 @@ export namespace JSON {
       return bs.out<string>();
     } else if (data instanceof JSON.Box) {
       return JSON.stringify(data.value);
-      // @ts-expect-error: Defined by transform
-    } else if (isDefined(data.__SERIALIZE)) {
-      // @ts-expect-error
-      inline.always(data.__SERIALIZE(changetype<usize>(data)));
-      return bs.out<string>();
     } else {
       throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, StaticArray, TypedArray, ArrayBuffer, Map, Date, and @json decorated classes.`);
     }
@@ -228,11 +228,19 @@ export namespace JSON {
       return deserializeString(dataPtr, dataPtr + dataSize) as T;
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
-      // @ts-expect-error: Supplied by custom implementation
+      // @ts-expect-error: Defined by transform
       if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-        const out = changetype<nonnull<T>>(instantiate<T>());
+        const out = changetype<nonnull<T>>(0);
         // @ts-expect-error
         return out.__DESERIALIZE_CUSTOM(data);
+        // @ts-expect-error: Defined by transform
+      } else if (isDefined(type.__DESERIALIZE)) {
+        const out = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
+        // @ts-expect-error: Defined by transform
+        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        // @ts-expect-error: Defined by transform
+        out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
+        return out;
       }
       if (type instanceof StaticArray) {
         // @ts-expect-error
@@ -285,14 +293,6 @@ export namespace JSON {
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error
         return new JSON.Box(parseBox(data, changetype<nonnull<T>>(0).value));
-        // @ts-expect-error: Defined by transform
-      } else if (isDefined(type.__DESERIALIZE)) {
-        const out = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
-        // @ts-expect-error: Defined by transform
-        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
-        // @ts-expect-error
-        out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
-        return out;
       } else {
         throw new Error(`Could not deserialize JSON to type '${nameof<T>()}'. ` + `If this is a custom class, ensure it has the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Input: "${data.length > 50 ? data.slice(0, 50) + "..." : data}"`);
       }
@@ -850,10 +850,14 @@ export namespace JSON {
       bs.offset += 8;
     } else if (isString<nonnull<T>>()) {
       serializeString(data as string);
-      // @ts-expect-error: Supplied by custom implementation
+      // @ts-expect-error: Defined by transform
     } else if (isDefined(data.__SERIALIZE_CUSTOM)) {
       // @ts-expect-error
       return data.__SERIALIZE_CUSTOM();
+      // @ts-expect-error: Defined by transform
+    } else if (isDefined(data.__SERIALIZE)) {
+      // @ts-expect-error: type
+      serializeStruct(changetype<nonnull<T>>(data));
     } else if (data instanceof Date) {
       // @ts-expect-error
       inline.always(serializeDate(changetype<nonnull<T>>(data)));
@@ -902,32 +906,9 @@ export namespace JSON {
       serializeObject(data);
     } else if (data instanceof JSON.Box) {
       __serialize(data.value);
-      // @ts-expect-error: Defined by transform
-    } else if (isDefined(data.__SERIALIZE_CUSTOM)) {
-      // @ts-expect-error
-      return data.__SERIALIZE_CUSTOM();
-      // @ts-expect-error: Defined by transform
-    } else if (isDefined(data.__SERIALIZE)) {
-      // @ts-expect-error
-      serializeStruct(changetype<nonnull<T>>(data));
     } else {
       throw new Error(`Could not serialize data of type '${nameof<T>()}'. ` + `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` + `Supported types: primitives, string, Array, StaticArray, TypedArray, ArrayBuffer, Map, Date, and @json decorated classes.`);
     }
-  }
-
-
-  @inline export function __serializeArrayBuffer(data: ArrayBuffer): void {
-    serializeArrayBufferDirect(data);
-  }
-
-
-  @inline export function parseArrayBuffer(data: string): ArrayBuffer {
-    return parseArrayBufferDirect(data);
-  }
-
-
-  @inline export function __deserializeArrayBuffer(srcStart: usize, srcEnd: usize, dst: usize = 0): ArrayBuffer {
-    return deserializeArrayBufferDirect(srcStart, srcEnd, dst);
   }
 
   /**
@@ -954,11 +935,19 @@ export namespace JSON {
       return null;
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
-      // @ts-expect-error: Supplied by custom implementation
+      // @ts-expect-error: Defined by transform
       if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-        const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
-        // @ts-expect-error
+        const out = changetype<nonnull<T>>(0);
+        // @ts-expect-error: Defined by transform
         return out.__DESERIALIZE_CUSTOM(ptrToStr(srcStart, srcEnd));
+        // @ts-expect-error: Defined by transform
+      } else if (isDefined(type.__DESERIALIZE)) {
+        const out = changetype<nonnull<T>>(dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
+        // @ts-expect-error: Defined by transform
+        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        // @ts-expect-error: Defined by transform
+        out.__DESERIALIZE(srcStart, srcEnd, out);
+        return out;
       }
       if (type instanceof StaticArray) {
         // @ts-expect-error: type
@@ -1011,14 +1000,6 @@ export namespace JSON {
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error: type
         return new JSON.Box(deserializeBox(srcStart, srcEnd, dst, changetype<nonnull<T>>(0).value));
-        // @ts-expect-error: Defined by transform
-      } else if (isDefined(type.__DESERIALIZE)) {
-        const out = changetype<nonnull<T>>(dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
-        // @ts-expect-error: Defined by transform
-        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
-        // @ts-expect-error: Defined by transform
-        out.__DESERIALIZE(srcStart, srcEnd, out);
-        return out;
       }
     }
     const snippet = ptrToStr(srcStart, srcEnd);

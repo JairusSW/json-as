@@ -58,6 +58,7 @@ export class Schema {
     needsLink = null;
     byteSize = 0;
     deps = [];
+    customJsonKind = "any";
     _custom = false;
     set custom(value) {
         this._custom = value;

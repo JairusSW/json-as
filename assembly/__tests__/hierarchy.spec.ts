@@ -14,13 +14,13 @@ class Bar extends Foo {
   b: i32 = 0;
 
 
-  @serializer
+  @serializer("string")
   serialize(self: Bar): string {
     return `"bar"`;
   }
 
 
-  @deserializer
+  @deserializer("string")
   deserialize(data: string): Bar {
     return data == '"bar"'
       ? {

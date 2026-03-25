@@ -31,6 +31,7 @@ export declare class Schema {
     needsLink: string | null;
     byteSize: number;
     deps: Schema[];
+    customJsonKind: string;
     private _custom;
     set custom(value: boolean);
     get custom(): boolean;

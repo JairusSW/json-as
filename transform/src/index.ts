@@ -27,10 +27,60 @@ function needsReferenceLoad(type: string): boolean {
 
 function getSerializeCall(type: string, realName: string): string {
   if (type == "ArrayBuffer") {
-    return `JSON.__serializeArrayBuffer(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+    return `JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
   }
 
   return needsReferenceLoad(type) ? `JSON.__serialize<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n` : `JSON.__serialize<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+}
+
+const CUSTOM_JSON_KINDS = new Set(["any", "string", "number", "object", "array", "boolean", "null"]);
+
+function parseCustomJsonKind(method: MethodDeclaration, decoratorName: string): string {
+  const decorator = method.decorators?.find((v) => (<IdentifierExpression>v.name).text.toLowerCase() == decoratorName);
+  if (!decorator || !decorator.args || decorator.args.length == 0) return "any";
+  if (decorator.args.length > 1) throwError(`@${decoratorName} accepts at most one argument`, decorator.range);
+
+  const arg = decorator.args[0];
+  if (arg.kind != NodeKind.Literal || (arg as LiteralExpression).literalKind != LiteralKind.String) {
+    throwError(`@${decoratorName} argument must be a string literal like @${decoratorName}("string")`, arg.range);
+  }
+
+  const kind = (arg as StringLiteralExpression).value;
+  if (!CUSTOM_JSON_KINDS.has(kind)) {
+    throwError(`Unsupported @${decoratorName} JSON type '${kind}'. Expected one of: any, string, number, object, array, boolean, null`, arg.range);
+  }
+  return kind;
+}
+
+function addMemberToCustomBucket(sortedMembers: { string: Property[]; number: Property[]; boolean: Property[]; null: Property[]; array: Property[]; object: Property[] }, member: Property, kind: string): void {
+  switch (kind) {
+    case "string":
+      sortedMembers.string.push(member);
+      break;
+    case "number":
+      sortedMembers.number.push(member);
+      break;
+    case "boolean":
+      sortedMembers.boolean.push(member);
+      break;
+    case "null":
+      sortedMembers.null.push(member);
+      break;
+    case "array":
+      sortedMembers.array.push(member);
+      break;
+    case "object":
+      sortedMembers.object.push(member);
+      break;
+    default:
+      sortedMembers.string.push(member);
+      sortedMembers.number.push(member);
+      sortedMembers.object.push(member);
+      sortedMembers.array.push(member);
+      sortedMembers.boolean.push(member);
+      sortedMembers.null.push(member);
+      break;
+  }
 }
 
 export class JSONTransform extends Visitor {
@@ -218,7 +268,6 @@ export class JSONTransform extends Visitor {
             if (!this.visitedClasses.has(source.getFullPath(internalSearch))) {
               this.visitClassDeclarationRef(internalSearch);
               const internalSchema = this.schemas.get(internalSearch.range.source.internalPath)?.find((s) => s.name == unknownType);
-              // if (internalSchema.custom) mem.custom = true;
               schema.deps.push(internalSchema);
               this.schemas.get(internalSearch.range.source.internalPath).push(this.schema);
               this.visitClassDeclaration(node);
@@ -271,7 +320,9 @@ export class JSONTransform extends Visitor {
     if (serializers.length) {
       this.schema.custom = true;
       const serializer = serializers[0];
+      const serializerJsonKind = parseCustomJsonKind(serializer, "serializer");
       const hasCall = CustomTransform.hasCall(serializer);
+      this.schema.customJsonKind = serializerJsonKind;
 
       CustomTransform.visit(serializer);
 
@@ -295,6 +346,11 @@ export class JSONTransform extends Visitor {
     if (deserializers.length) {
       this.schema.custom = true;
       const deserializer = deserializers[0];
+      const deserializerJsonKind = parseCustomJsonKind(deserializer, "deserializer");
+      if (this.schema.customJsonKind != "any" && deserializerJsonKind != "any" && this.schema.customJsonKind != deserializerJsonKind) {
+        throwError(`@serializer and @deserializer JSON types for ${this.schema.name} must match`, deserializer.range);
+      }
+      if (this.schema.customJsonKind == "any") this.schema.customJsonKind = deserializerJsonKind;
       if (!deserializer.signature.parameters.length) throwError("Could not find any parameters in custom deserializer for " + this.schema.name + ". Deserializers must have one parameter like 'deserializer(data: string): " + this.schema.name + " {}'", deserializer.range);
       if (deserializer.signature.parameters.length > 1) throwError("Found too many parameters in custom deserializer for " + this.schema.name + ", but deserializers can only accept one parameter of type 'string'!", deserializer.signature.parameters[1].range);
       if ((<NamedTypeNode>deserializer.signature.parameters[0].type).name.identifier.text != "string") throwError("Type of parameter for custom deserializer does not match! It must be 'string'", deserializer.signature.parameters[0].type.range);
@@ -304,10 +360,8 @@ export class JSONTransform extends Visitor {
         deserializer.decorators.push(Node.createDecorator(Node.createIdentifierExpression("inline", deserializer.range), null, deserializer.range));
       }
 
-      DESERIALIZE_CUSTOM += "  __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
-      DESERIALIZE_CUSTOM += "    const data = inline.always(this." + deserializer.name.text + "(JSON.Util.ptrToStr(srcStart, srcEnd)));\n";
-      DESERIALIZE_CUSTOM += "    memory.copy(changetype<usize>(out), changetype<usize>(data), offsetof<nonnull<__JSON_T>>());\n";
-      DESERIALIZE_CUSTOM += "    return srcEnd;\n";
+      DESERIALIZE_CUSTOM += "  @inline __DESERIALIZE_CUSTOM(data: string): this {\n";
+      DESERIALIZE_CUSTOM += "    return inline.always(this." + deserializer.name.text + "(data));\n";
       DESERIALIZE_CUSTOM += "  }\n";
     }
 
@@ -335,6 +389,7 @@ export class JSONTransform extends Visitor {
       mem.value = value;
       mem.node = member;
       mem.byteSize = sizeof(mem.type);
+      mem.custom = schema.deps.some((dep) => dep?.name == stripNull(type) && dep.custom);
 
       this.schema.byteSize += mem.byteSize;
 
@@ -509,13 +564,11 @@ export class JSONTransform extends Visitor {
 
     for (const member of this.schema.members) {
       const type = stripNull(member.type);
-      if (member.custom || member.generic) {
-        sortedMembers.string.push(member);
-        sortedMembers.number.push(member);
-        sortedMembers.object.push(member);
-        sortedMembers.array.push(member);
-        sortedMembers.boolean.push(member);
-        sortedMembers.null.push(member);
+      const customDep = this.schema.deps.find((dep) => dep && (dep.name == type || dep.name.endsWith("." + type)) && dep.custom);
+      const isCustomType = member.custom || !!customDep;
+      if (isCustomType || member.generic) {
+        addMemberToCustomBucket(sortedMembers, member, member.generic ? "any" : customDep?.customJsonKind || "any");
+        if (member.node.type.isNullable) sortedMembers.null.push(member);
       } else {
         if (member.node.type.isNullable) sortedMembers.null.push(member);
         if (isString(type) || type == "JSON.Raw") sortedMembers.string.push(member);
@@ -1372,12 +1425,14 @@ export class JSONTransform extends Visitor {
     const DESERIALIZE_DIRECT = useFastPath ? DESERIALIZE_FAST.replace("@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {", "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {") : DESERIALIZE.replace("__DESERIALIZE_SLOW<__JSON_T>", "__DESERIALIZE<__JSON_T>");
     const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
     const INITIALIZE_METHOD = !useFastPath ? SimpleParser.parseClassMember(INITIALIZE, node) : null;
-    const DESERIALIZE_METHOD = SimpleParser.parseClassMember(DESERIALIZE_CUSTOM || DESERIALIZE_DIRECT, node);
+    const DESERIALIZE_CUSTOM_METHOD = DESERIALIZE_CUSTOM ? SimpleParser.parseClassMember(DESERIALIZE_CUSTOM, node) : null;
+    const DESERIALIZE_METHOD = DESERIALIZE_CUSTOM ? null : SimpleParser.parseClassMember(DESERIALIZE_DIRECT, node);
     const DESERIALIZE_FAST_METHOD = useFastPath ? SimpleParser.parseClassMember(DESERIALIZE_FAST, node) : null;
 
     if (!node.members.find((v) => v.name.text == "__SERIALIZE")) node.members.push(SERIALIZE_METHOD);
     if (!useFastPath && INITIALIZE_METHOD && !node.members.find((v) => v.name.text == "__INITIALIZE")) node.members.push(INITIALIZE_METHOD);
-    if (!node.members.find((v) => v.name.text == "__DESERIALIZE")) node.members.push(DESERIALIZE_METHOD);
+    if (DESERIALIZE_CUSTOM_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE_CUSTOM")) node.members.push(DESERIALIZE_CUSTOM_METHOD);
+    if (DESERIALIZE_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE")) node.members.push(DESERIALIZE_METHOD);
     if (!DESERIALIZE_CUSTOM && useFastPath && DESERIALIZE_FAST_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")) node.members.push(DESERIALIZE_FAST_METHOD);
     super.visitClassDeclaration(node);
   }

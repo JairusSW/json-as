@@ -5,7 +5,11 @@
 - feat: allow `JSON.Value` to store and re-serialize built-in typed arrays and `ArrayBuffer`
 - feat: support `JSON.stringify<ArrayBuffer>(...)` directly without a dedicated helper
 - feat: let explicit `__SERIALIZE_CUSTOM` / `__DESERIALIZE_CUSTOM` hooks override built-in typed-array and `ArrayBuffer` handling while keeping generated hooks last
+- feat: support optional JSON shape hints on `@serializer(...)` / `@deserializer(...)` decorators, defaulting to `any`
 - fix: preserve `bs` state across `JSON.internal.stringify(...)` and `JSON.internal.parse(...)`
+- fix: allow nested `@json` fields that use decorator-based custom deserializers to deserialize correctly from string-valued object properties
+- fix: restore correct object-value end pointers in generated field deserializers so nested maps and custom string-backed fields both deserialize correctly
+- docs: clarify that custom serializers and deserializers must always produce and consume valid JSON
 - perf: raise the serialization buffer minimum size to 1024 bytes and add adaptive `bs.shrink()`
 - perf: add a packed SWAR `u16_to_hex4_swar` helper for `\uXXXX` emission and use it across simple, SWAR, and SIMD string serializers
 - tests: add dedicated SWAR hex helper coverage, including exhaustive full-range round-trip validation

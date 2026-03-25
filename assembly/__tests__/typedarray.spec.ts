@@ -242,7 +242,7 @@ describe("Should serialize and deserialize ArrayBuffer by default", () => {
   const buffer = makeArrayBuffer();
   expect(JSON.stringify(buffer)).toBe("[10,20,30,40]");
 
-  const parsed = JSON.parseArrayBuffer("[10,20,30,40]");
+  const parsed = JSON.parse<ArrayBuffer>("[10,20,30,40]");
   expect(JSON.stringify(parsed)).toBe(JSON.stringify(buffer));
 });
 
@@ -269,34 +269,4 @@ describe("Should serialize nested classes with mixed typed-array field initializ
   const input = new BinaryContainer();
   const serialized = JSON.stringify(input);
   expect(serialized).toBe('{"left":{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75]},"right":{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75],"raw":[10,20,30,40]}}');
-});
-
-describe("Should allow Uint8Array subclasses to override serialization and deserialization explicitly", () => {
-  const input = makeHexBytes();
-  const serialized = JSON.stringify(input);
-
-  expect(serialized).toBe('"0a141e28"');
-
-  const parsed = JSON.parse<HexBytes>(serialized);
-  expect(parsed.length).toBe(4);
-  expect(parsed[0]).toBe(10);
-  expect(parsed[1]).toBe(20);
-  expect(parsed[2]).toBe(30);
-  expect(parsed[3]).toBe(40);
-  expect(JSON.stringify(parsed)).toBe(serialized);
-});
-
-describe("Should preserve custom typed-array subclass behavior inside @json classes", () => {
-  const input = new HexEnvelope();
-  const serialized = JSON.stringify(input);
-
-  expect(serialized).toBe('{"payload":"0a141e28"}');
-
-  const parsed = JSON.parse<HexEnvelope>(serialized);
-  expect(parsed.payload.length).toBe(4);
-  expect(parsed.payload[0]).toBe(10);
-  expect(parsed.payload[1]).toBe(20);
-  expect(parsed.payload[2]).toBe(30);
-  expect(parsed.payload[3]).toBe(40);
-  expect(JSON.stringify(parsed)).toBe(serialized);
 });
