@@ -1405,15 +1405,6 @@ export class JSONTransform extends Visitor {
         this.baseCWD = this.baseCWD.replaceAll("/", path.sep);
         const baseDir = path.resolve(fileURLToPath(import.meta.url), "..", "..", "..");
         let fromPath = node.range.source.normalizedPath.replaceAll("/", path.sep);
-        const isLib = path.dirname(baseDir).endsWith("node_modules");
-        if (!isLib && !this.parser.sources.some((s) => s.normalizedPath.startsWith("assembly/index"))) {
-            const newPath = path.join(baseDir, "assembly", "index.ts");
-            this.parser.parseFile(readFileSync(newPath).toString(), newPath, false);
-        }
-        else if (isLib && !this.parser.sources.some((s) => s.normalizedPath.startsWith("~lib/json-as/assembly/index"))) {
-            const newPath = "~lib/json-as/assembly/index.ts";
-            this.parser.parseFile(readFileSync(path.join(baseDir, "assembly", "index.ts")).toString(), newPath, false);
-        }
         fromPath = fromPath.startsWith("~lib") ? fromPath.slice(5) : path.join(this.baseCWD, fromPath);
         const bsImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "bs" || d.name.text == "bs"));
         const jsonImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "JSON" || d.name.text == "JSON"));

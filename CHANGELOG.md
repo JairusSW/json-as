@@ -13,6 +13,7 @@
 - fix: make `JSON.Value` follow built-in subclass rules consistently for typed-array subclasses and custom `@json` subclasses
 - fix: make generated custom serializer wrappers use the provided `ptr` so indirect-call sites like `JSON.Value` serialize correctly
 - fix: resolve stdlib and `--lib` base classes during transform inheritance so `@json` subclasses of built-ins like `Uint8Array` include inherited fields instead of collapsing to empty objects
+- fix: stop preloading transform imports through `parser.parseFile(...)`, so repeated `asc()` calls in the same process no longer poison parser state or trip `lookupForeignFile` assertions
 - docs: clarify that custom serializers and deserializers must always produce and consume valid JSON
 - docs: document how subclassing built-in container types behaves, including when `@json` custom overrides take effect
 - tests: expand custom serializer/deserializer coverage for nullable fields, multiple custom fields, escaped content, whitespace, and repeated round-trips

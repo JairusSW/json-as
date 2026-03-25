@@ -61,6 +61,7 @@ export declare class Src {
     getClass(qualifiedName: string): ClassDeclaration | null;
     getEnum(qualifiedName: string): EnumDeclaration | null;
     getImportedClass(qualifiedName: string, parser: Parser): ClassDeclaration | null;
+    getAvailableClass(qualifiedName: string, parser: Parser): ClassDeclaration | null;
     getImportedEnum(qualifiedName: string, parser: Parser): EnumDeclaration | null;
     getFullPath(node: DeclarationStatement): string;
     resolveExtendsName(classDeclaration: ClassDeclaration): string;

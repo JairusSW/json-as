@@ -94,6 +94,21 @@ describe("Should keep built-in behavior for undecorated typed-array subclasses i
   expect(JSON.stringify(JSON.Value.from(bytes))).toBe("[10,20,30,40]");
 });
 
+describe("Should keep built-in behavior for ArrayBuffer in JSON.Value and JSON.Obj", () => {
+  const buffer = new ArrayBuffer(4);
+  const view = Uint8Array.wrap(buffer);
+  view[0] = 10;
+  view[1] = 20;
+  view[2] = 30;
+  view[3] = 40;
+
+  expect(JSON.stringify(JSON.Value.from(buffer))).toBe("[10,20,30,40]");
+
+  const obj = new JSON.Obj();
+  obj.set("raw", buffer);
+  expect(JSON.stringify(obj)).toBe('{"raw":[10,20,30,40]}');
+});
+
 describe("Should use custom behavior for decorated typed-array subclasses in JSON.Value", () => {
   const bytes = new HexBytes(4);
   bytes[0] = 10;

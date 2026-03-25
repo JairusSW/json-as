@@ -207,6 +207,18 @@ export class Src {
         }
         return null;
     }
+    getAvailableClass(qualifiedName, parser) {
+        for (const externalSource of parser.sources) {
+            if (externalSource.internalPath == this.internalPath)
+                continue;
+            const source = this.sourceSet.get(externalSource);
+            const classDeclaration = source.getClass(qualifiedName);
+            if (classDeclaration && (classDeclaration.flags & 2 || externalSource.internalPath.startsWith("~lib/"))) {
+                return classDeclaration;
+            }
+        }
+        return null;
+    }
     getImportedEnum(qualifiedName, parser) {
         for (const stmt of this.imports) {
             const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);

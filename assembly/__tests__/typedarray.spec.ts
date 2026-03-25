@@ -1,5 +1,6 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
+import { bs } from "../../lib/as-bs";
 
 function makeInt8Array(): Int8Array {
   const out = new Int8Array(3);
@@ -98,6 +99,18 @@ function makeArrayBuffer(): ArrayBuffer {
   view[2] = 30;
   view[3] = 40;
   return out;
+}
+
+class PlainBytes extends Uint8Array {
+  constructor(length: i32 = 0) {
+    super(length);
+  }
+}
+
+class PlainFloats extends Float64Array {
+  constructor(length: i32 = 0) {
+    super(length);
+  }
 }
 
 function hexDigit(value: u8): string {
@@ -246,6 +259,16 @@ describe("Should serialize and deserialize ArrayBuffer by default", () => {
   expect(JSON.stringify(parsed)).toBe(JSON.stringify(buffer));
 });
 
+describe("Should deserialize undecorated typed-array subclasses with built-in behavior", () => {
+  const parsedBytes = JSON.parse<PlainBytes>("[10,20,30,40]");
+  expect((parsedBytes instanceof PlainBytes).toString()).toBe("true");
+  expect(JSON.stringify(parsedBytes)).toBe("[10,20,30,40]");
+
+  const parsedFloats = JSON.parse<PlainFloats>("[-1.5,0.125,3.14159]");
+  expect((parsedFloats instanceof PlainFloats).toString()).toBe("true");
+  expect(JSON.stringify(parsedFloats)).toBe("[-1.5,0.125,3.14159]");
+});
+
 describe("Should support typed arrays and ArrayBuffer inside @json classes", () => {
   const input = new BinaryEnvelope();
   const serialized = JSON.stringify(input);
@@ -269,4 +292,36 @@ describe("Should serialize nested classes with mixed typed-array field initializ
   const input = new BinaryContainer();
   const serialized = JSON.stringify(input);
   expect(serialized).toBe('{"left":{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75]},"right":{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75],"raw":[10,20,30,40]}}');
+});
+
+describe("Should preserve bs state for typed-array and ArrayBuffer internal helpers", () => {
+  const encoded = JSON.internal.stringify(new BinaryEnvelope());
+  expect(encoded).toBe('{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75],"raw":[10,20,30,40]}');
+
+  const parsed = JSON.internal.parse<BinaryEnvelope>(encoded);
+  expect(JSON.stringify(parsed)).toBe(encoded);
+  expect(JSON.stringify(parsed.raw)).toBe("[10,20,30,40]");
+});
+
+describe("Should support typed-array subclasses through JSON.__serialize and JSON.__deserialize", () => {
+  const bytes = new PlainBytes(4);
+  bytes[0] = 10;
+  bytes[1] = 20;
+  bytes[2] = 30;
+  bytes[3] = 40;
+
+  bs.offset = bs.buffer;
+  bs.stackSize = 0;
+  JSON.__serialize(bytes);
+  expect(bs.out<string>()).toBe("[10,20,30,40]");
+
+  const encodedBytes = "[10,20,30,40]";
+  const decodedBytes = JSON.__deserialize<PlainBytes>(changetype<usize>(encodedBytes), changetype<usize>(encodedBytes) + (encodedBytes.length << 1), 0);
+  expect((decodedBytes instanceof PlainBytes).toString()).toBe("true");
+  expect(JSON.stringify(decodedBytes)).toBe("[10,20,30,40]");
+
+  const encodedCustom = '"0a141e28"';
+  const decodedCustom = JSON.__deserialize<HexBytes>(changetype<usize>(encodedCustom), changetype<usize>(encodedCustom) + (encodedCustom.length << 1), 0);
+  expect((decodedCustom instanceof HexBytes).toString()).toBe("true");
+  expect(JSON.stringify(decodedCustom)).toBe(encodedCustom);
 });
