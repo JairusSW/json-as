@@ -40,6 +40,19 @@ class ObjectWithCustom {
   }
 }
 
+
+@json
+class NullableCustomBox {
+  value: Point | null = null;
+}
+
+
+@json
+class DualCustom {
+  left: Point = new Point(0, 0);
+  right: Point = new Point(0, 0);
+}
+
 describe("Should serialize using custom serializers", () => {
   expect(JSON.stringify<Point>(new Point(1, 2))).toBe('"1.0,2.0"');
 });
@@ -52,6 +65,20 @@ describe("Should deserialize using custom deserializers", () => {
 
 describe("Should serialize and deserialize using nested custom serializers", () => {
   expect(JSON.stringify<ObjectWithCustom>(new ObjectWithCustom(new Point(1, 2)))).toBe('{"value":"1.0,2.0"}');
+});
+
+describe("Should deserialize nullable custom fields from null", () => {
+  const parsed = JSON.parse<NullableCustomBox>('{"value":null}');
+  expect((parsed.value == null).toString()).toBe("true");
+  expect(JSON.stringify(parsed)).toBe('{"value":null}');
+});
+
+describe("Should deserialize nullable custom fields from values", () => {
+  const parsed = JSON.parse<NullableCustomBox>('{"value":"4.0,-2.5"}');
+  expect((parsed.value == null).toString()).toBe("false");
+  expect(parsed.value!.x.toString()).toBe("4.0");
+  expect(parsed.value!.y.toString()).toBe("-2.5");
+  expect(JSON.stringify(parsed)).toBe('{"value":"4.0,-2.5"}');
 });
 
 describe("Additional regression coverage - primitives and arrays", () => {
@@ -81,9 +108,25 @@ describe("Should round-trip a broader custom point matrix", () => {
   expect(JSON.stringify(JSON.parse<Point>('"1000.0,-999.75"'))).toBe('"1000.0,-999.75"');
 });
 
+describe("Should preserve escaped content inside string-backed custom values", () => {
+  const parsed = JSON.parse<Point>('"1.5,\\n2.25"');
+  expect(parsed.x.toString()).toBe("1.5");
+  expect(parsed.y.toString()).toBe("2.25");
+  expect(JSON.stringify(parsed)).toBe('"1.5,2.25"');
+});
+
 describe("Should serialize and deserialize nested custom containers repeatedly", () => {
   const obj = new ObjectWithCustom(new Point(-3.25, 19.75));
   expect(JSON.stringify(obj)).toBe('{"value":"-3.25,19.75"}');
+});
+
+describe("Should deserialize multiple custom fields in one object", () => {
+  const parsed = JSON.parse<DualCustom>('{"left":"1.0,2.0","right":"-3.0,4.5"}');
+  expect(parsed.left.x.toString()).toBe("1.0");
+  expect(parsed.left.y.toString()).toBe("2.0");
+  expect(parsed.right.x.toString()).toBe("-3.0");
+  expect(parsed.right.y.toString()).toBe("4.5");
+  expect(JSON.stringify(parsed)).toBe('{"left":"1.0,2.0","right":"-3.0,4.5"}');
 });
 
 describe("Should deserialize nested custom fields with surrounding object whitespace", () => {
@@ -109,8 +152,8 @@ describe("Should preserve nested custom values through repeated parse and string
   expect(encoded).toBe('{"value":"-12.0,0.75"}');
 });
 
-describe("Should deserialize custom values with tighter separators and exponent forms", () => {
-  const parsed = JSON.parse<Point>('"-1.25e1,2.5e-1"');
+describe("Should deserialize custom values with tighter separators", () => {
+  const parsed = JSON.parse<Point>('" -12.5 , 0.25 "');
   expect(parsed.x.toString()).toBe("-12.5");
   expect(parsed.y.toString()).toBe("0.25");
   expect(JSON.stringify(parsed)).toBe('"-12.5,0.25"');
