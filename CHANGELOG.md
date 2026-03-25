@@ -5,7 +5,7 @@
 - feat: allow `JSON.Value` to store and re-serialize built-in typed arrays and `ArrayBuffer`
 - feat: support `JSON.stringify<ArrayBuffer>(...)` directly without a dedicated helper
 - feat: let explicit `__SERIALIZE_CUSTOM` / `__DESERIALIZE_CUSTOM` hooks override built-in typed-array and `ArrayBuffer` handling while keeping generated hooks last
-- feat: support optional JSON shape hints on `@serializer(...)` / `@deserializer(...)` decorators, defaulting to `any`
+- feat: support optional JSON shape hints on `@serializer(...)` / `@deserializer(...)` decorators, defaulting to `any` and allowing nullable forms like `string | null`
 - fix: preserve `bs` state across `JSON.internal.stringify(...)` and `JSON.internal.parse(...)`
 - fix: allow nested `@json` fields that use decorator-based custom deserializers to deserialize correctly from string-valued object properties
 - fix: restore correct object-value end pointers in generated field deserializers so nested maps and custom string-backed fields both deserialize correctly

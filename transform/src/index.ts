@@ -33,7 +33,7 @@ function getSerializeCall(type: string, realName: string): string {
   return needsReferenceLoad(type) ? `JSON.__serialize<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n` : `JSON.__serialize<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
 }
 
-const CUSTOM_JSON_KINDS = new Set(["any", "string", "number", "object", "array", "boolean", "null"]);
+const CUSTOM_JSON_KINDS = new Set(["any", "string", "number", "object", "array", "boolean", "null", "any | null", "string | null", "number | null", "object | null", "array | null", "boolean | null"]);
 
 function parseCustomJsonKind(method: MethodDeclaration, decoratorName: string): string {
   const decorator = method.decorators?.find((v) => (<IdentifierExpression>v.name).text.toLowerCase() == decoratorName);
@@ -53,7 +53,12 @@ function parseCustomJsonKind(method: MethodDeclaration, decoratorName: string): 
 }
 
 function addMemberToCustomBucket(sortedMembers: { string: Property[]; number: Property[]; boolean: Property[]; null: Property[]; array: Property[]; object: Property[] }, member: Property, kind: string): void {
-  switch (kind) {
+  const isNullable = kind.endsWith(" | null");
+  const baseKind = isNullable ? kind.slice(0, kind.length - 7) : kind;
+
+  if (isNullable) sortedMembers.null.push(member);
+
+  switch (baseKind) {
     case "string":
       sortedMembers.string.push(member);
       break;
@@ -64,7 +69,7 @@ function addMemberToCustomBucket(sortedMembers: { string: Property[]; number: Pr
       sortedMembers.boolean.push(member);
       break;
     case "null":
-      sortedMembers.null.push(member);
+      if (!isNullable) sortedMembers.null.push(member);
       break;
     case "array":
       sortedMembers.array.push(member);
@@ -78,7 +83,7 @@ function addMemberToCustomBucket(sortedMembers: { string: Property[]; number: Pr
       sortedMembers.object.push(member);
       sortedMembers.array.push(member);
       sortedMembers.boolean.push(member);
-      sortedMembers.null.push(member);
+      if (!isNullable) sortedMembers.null.push(member);
       break;
   }
 }
