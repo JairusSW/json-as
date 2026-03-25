@@ -26,8 +26,8 @@ export namespace bs {
   /** Proposed size of output */
   export let stackSize: usize = 0;
 
-  let pauseOffset: usize = 0;
-  let pauseStackSize: usize = 0;
+  let pauseOffsets = new Array<usize>();
+  let pauseStackSizes = new Array<usize>();
 
   // Exponential moving average of output sizes for adaptive buffer sizing
   // This provides smoother adaptation than simple averaging
@@ -50,10 +50,9 @@ export namespace bs {
   // @ts-expect-error: @inline is a valid decorator
   @inline function renewBuffer(newSize: usize): void {
     const oldPtr = buffer;
+    const relOffset = offset - oldPtr;
     const newPtr = heap.realloc(oldPtr, newSize);
-    const delta = newPtr - oldPtr;
-    offset += delta;
-    if (pauseOffset != 0) pauseOffset += delta;
+    offset = newPtr + relOffset;
     buffer = newPtr;
     bufferSize = newSize;
   }
@@ -81,24 +80,13 @@ export namespace bs {
 
   export let cacheOutput: usize = 0;
   export let cacheOutputLen: usize = 0;
-
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function digestArena(): void {
-    if (cacheOutput === 0) return;
-    const len = cacheOutputLen;
-    proposeSize(<u32>len);
-    memory.copy(offset, cacheOutput, len);
-    offset += len;
-    bs.cacheOutput = 0;
-    bs.cacheOutputLen = 0;
-  }
   /**
    * Stores the state of the buffer, allowing further changes to be reset
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function saveState(): void {
-    pauseOffset = offset;
-    pauseStackSize = stackSize;
+    pauseOffsets.push(offset - buffer);
+    pauseStackSizes.push(stackSize);
   }
 
   /**
@@ -107,19 +95,13 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function loadState(): void {
-    offset = pauseOffset;
-    stackSize = pauseStackSize;
-  }
-
-  /**
-   * Resets the buffer to the state it was in when `pause()` was called.
-   * This allows for changes made after the pause to be discarded.
-   */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function resetState(): void {
-    offset = pauseOffset;
-    stackSize = pauseStackSize;
-    pauseOffset = 0;
+    const length = pauseOffsets.length;
+    if (length == 0) return;
+    const index = length - 1;
+    offset = buffer + unchecked(pauseOffsets[index]);
+    stackSize = unchecked(pauseStackSizes[index]);
+    pauseOffsets.length = index;
+    pauseStackSizes.length = index;
   }
 
   /**
@@ -161,13 +143,11 @@ export namespace bs {
   // @ts-expect-error: @inline is a valid decorator
   @inline export function resize(newSize: u32): void {
     const oldPtr = buffer;
+    const relOffset = offset - oldPtr;
     const newPtr = heap.realloc(buffer, newSize);
-    const delta = newPtr - oldPtr;
-    if (pauseOffset != 0) pauseOffset += delta;
     buffer = newPtr;
     bufferSize = newSize;
-    offset = buffer;
-    stackSize = 0;
+    offset = buffer + relOffset;
   }
 
   /**
@@ -193,13 +173,14 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function cpyOut<T>(): T {
-    if (pauseOffset == 0) {
+    if (pauseOffsets.length == 0) {
       const len = offset - buffer;
       // @ts-expect-error: __new is a runtime builtin
       const _out = __new(len, idof<T>());
       memory.copy(_out, buffer, len);
       return changetype<T>(_out);
     } else {
+      const pauseOffset = buffer + unchecked(pauseOffsets[pauseOffsets.length - 1]);
       const len = offset - pauseOffset;
       // @ts-expect-error: __new is a runtime builtin
       const _out = __new(len, idof<T>());
@@ -207,6 +188,59 @@ export namespace bs {
       bs.loadState();
       return changetype<T>(_out);
     }
+  }
+
+  /**
+   * Copies the slice starting at a caller-provided relative buffer offset and restores
+   * `offset` back to that slice start.
+   *
+   * This is intended for deserializers that borrow `bs` as temporary scratch space and
+   * already know their local slice start as `bs.offset - bs.buffer`.
+   *
+   * Note: this restores only `offset`. Deserialization paths do not currently depend on
+   * `stackSize`, which is tracked for serialization growth heuristics.
+   */
+  // @ts-expect-error: @inline is a valid decorator
+  @inline export function sliceOut<T>(start: usize): T {
+    const sliceStart = buffer + start;
+    const len = offset - sliceStart;
+    // @ts-expect-error: __new is a runtime builtin
+    const _out = __new(len, idof<T>());
+    memory.copy(_out, sliceStart, len);
+    offset = sliceStart;
+    return changetype<T>(_out);
+  }
+
+  /**
+   * Copies the slice starting at a caller-provided relative buffer offset into a string field
+   * and restores `offset` back to that slice start.
+   */
+  // @ts-expect-error: @inline is a valid decorator
+  @inline export function toField(start: usize, dstFieldPtr: usize): void {
+    const sliceStart = buffer + start;
+    const byteLength = <u32>(offset - sliceStart);
+    if (byteLength == 0) {
+      store<usize>(dstFieldPtr, changetype<usize>(""));
+      offset = sliceStart;
+      return;
+    }
+
+    const current = load<usize>(dstFieldPtr);
+    let stringPtr: usize;
+    if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+      stringPtr = current;
+    } else if (current != 0 && current != changetype<usize>("")) {
+      // @ts-expect-error: __renew is a runtime builtin
+      stringPtr = __renew(current, byteLength);
+      store<usize>(dstFieldPtr, stringPtr);
+    } else {
+      // @ts-expect-error: __new is a runtime builtin
+      stringPtr = __new(byteLength, idof<string>());
+      store<usize>(dstFieldPtr, stringPtr);
+    }
+
+    memory.copy(stringPtr, sliceStart, byteLength);
+    offset = sliceStart;
   }
 
   /**
@@ -236,38 +270,6 @@ export namespace bs {
       stackSize = 0;
     }
     return changetype<T>(out);
-  }
-
-  /**
-   * Copies the buffer's content to a new object of a specified type.
-   * @returns The new object containing the buffer's content.
-   */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function view<T>(): T {
-    const len = offset - buffer;
-    // @ts-expect-error: __new is a runtime builtin
-    const _out = __new(len, idof<T>());
-    memory.copy(_out, buffer, len);
-    return changetype<T>(_out);
-  }
-
-  /**
-   * Copies the buffer's content to a given destination pointer.
-   * Uses exponential moving average for adaptive buffer sizing.
-   * @param dst - The destination pointer.
-   * @returns The destination pointer cast to the specified type.
-   */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function outTo<T>(dst: usize): T {
-    const len = offset - buffer;
-    if (len != changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize) {
-      // @ts-expect-error: __renew is a runtime builtin
-      dst = __renew(dst, len);
-    }
-    memory.copy(dst, buffer, len);
-
-    finalizeDynamicOutput(len);
-    return changetype<T>(dst);
   }
 }
 

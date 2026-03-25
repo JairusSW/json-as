@@ -99,10 +99,10 @@ import { deserializeStringField_SWAR } from "../swar/string";
   const prefixLen = <u32>(escapeStart - payloadStart);
   let srcStart = escapeStart;
   const srcEnd16 = srcEnd - 16;
+  const outStart = bs.offset - bs.buffer;
   bs.ensureSize(u32(srcEnd - srcStart));
-  bs.offset = bs.buffer;
   if (prefixLen != 0) {
-    memory.copy(bs.buffer, payloadStart, prefixLen);
+    memory.copy(bs.offset, payloadStart, prefixLen);
     bs.offset += prefixLen;
   }
 
@@ -195,7 +195,7 @@ import { deserializeStringField_SWAR } from "../swar/string";
     bs.offset += 2;
   }
 
-  return bs.out<string>();
+  return bs.sliceOut<string>(outStart);
 }
 
 export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {

@@ -152,6 +152,22 @@ describe("Should preserve nested custom values through repeated parse and string
   expect(encoded).toBe('{"value":"-12.0,0.75"}');
 });
 
+describe("Should preserve custom values through JSON.internal helpers", () => {
+  const encoded = JSON.internal.stringify<Point>(new Point(6.25, -7.5));
+  expect(encoded).toBe('"6.25,-7.5"');
+  const parsed = JSON.internal.parse<Point>(encoded);
+  expect(parsed.x.toString()).toBe("6.25");
+  expect(parsed.y.toString()).toBe("-7.5");
+});
+
+describe("Should preserve nested custom values through JSON.internal helpers", () => {
+  const encoded = JSON.internal.stringify<ObjectWithCustom>(new ObjectWithCustom(new Point(9.5, -1.25)));
+  expect(encoded).toBe('{"value":"9.5,-1.25"}');
+  const parsed = JSON.internal.parse<ObjectWithCustom>(encoded);
+  expect(parsed.value.x.toString()).toBe("9.5");
+  expect(parsed.value.y.toString()).toBe("-1.25");
+});
+
 describe("Should deserialize custom values with tighter separators", () => {
   const parsed = JSON.parse<Point>('" -12.5 , 0.25 "');
   expect(parsed.x.toString()).toBe("-12.5");

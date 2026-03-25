@@ -52,10 +52,10 @@ import { hex4_to_u16_swar } from "../../util/swar";
 @inline function deserializeEscapedString_SWAR(payloadStart: usize, escapeStart: usize, srcEnd: usize): string {
   const srcEnd8 = srcEnd - 8;
   const prefixLen = <u32>(escapeStart - payloadStart);
-  bs.offset = bs.buffer;
+  const outStart = bs.offset - bs.buffer;
   bs.ensureSize(<u32>(srcEnd - payloadStart));
   if (prefixLen != 0) {
-    memory.copy(bs.buffer, payloadStart, prefixLen);
+    memory.copy(bs.offset, payloadStart, prefixLen);
     bs.offset += prefixLen;
   }
 
@@ -140,7 +140,7 @@ import { hex4_to_u16_swar } from "../../util/swar";
 
     bs.offset += 2;
   }
-  return bs.out<string>();
+  return bs.sliceOut<string>(outStart);
 }
 
 export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
@@ -607,10 +607,10 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
 @inline function deserializeEscapedStringScan_SWAR(payloadStart: usize, escapeStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   const prefixLen = <u32>(escapeStart - payloadStart);
   const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
-  bs.offset = bs.buffer;
+  const outStart = bs.offset - bs.buffer;
   bs.ensureSize(<u32>(srcEnd - payloadStart));
   if (prefixLen != 0) {
-    memory.copy(bs.buffer, payloadStart, prefixLen);
+    memory.copy(bs.offset, payloadStart, prefixLen);
     bs.offset += prefixLen;
   }
 
@@ -636,8 +636,7 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
           memory.copy(bs.offset, lastPtr, runLen);
           bs.offset += runLen;
         }
-        writeStringToField(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
-        bs.offset = bs.buffer;
+        bs.toField(outStart, dstFieldPtr);
         return srcIdx + 2;
       }
       if (char != BACK_SLASH) continue;
@@ -673,8 +672,7 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
         memory.copy(bs.offset, lastPtr, runLen);
         bs.offset += runLen;
       }
-      writeStringToField(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
-      bs.offset = bs.buffer;
+      bs.toField(outStart, dstFieldPtr);
       return srcStart + 2;
     }
     if (char != BACK_SLASH) {
@@ -702,7 +700,7 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
     lastPtr = srcStart;
   }
 
-  bs.offset = bs.buffer;
+  bs.offset = bs.buffer + outStart;
   abort("Unterminated string literal");
   return srcStart;
 }

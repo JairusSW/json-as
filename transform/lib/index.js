@@ -323,9 +323,16 @@ export class JSONTransform extends Visitor {
                 serializer.decorators.push(Node.createDecorator(Node.createIdentifierExpression("inline", serializer.range), null, serializer.range));
             }
             SERIALIZE_CUSTOM += "  __SERIALIZE(ptr: usize): void {\n";
-            SERIALIZE_CUSTOM += "    const data = this." + serializer.name.text + "(" + (serializer.signature.parameters.length ? "this" : "") + ");\n";
-            if (hasCall)
-                SERIALIZE_CUSTOM += "    bs.resetState();\n";
+            if (hasCall) {
+                SERIALIZE_CUSTOM += "    const savedOffset = bs.offset;\n";
+                SERIALIZE_CUSTOM += "    const savedStackSize = bs.stackSize;\n";
+            }
+            SERIALIZE_CUSTOM += "    const self = changetype<this>(ptr);\n";
+            SERIALIZE_CUSTOM += "    const data = self." + serializer.name.text + "(" + (serializer.signature.parameters.length ? "self" : "") + ");\n";
+            if (hasCall) {
+                SERIALIZE_CUSTOM += "    bs.offset = savedOffset;\n";
+                SERIALIZE_CUSTOM += "    bs.stackSize = savedStackSize;\n";
+            }
             SERIALIZE_CUSTOM += "    const dataSize = data.length << 1;\n";
             SERIALIZE_CUSTOM += "    memory.copy(bs.offset, changetype<usize>(data), dataSize);\n";
             SERIALIZE_CUSTOM += "    bs.offset += dataSize;\n";

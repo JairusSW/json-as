@@ -31,6 +31,28 @@ import { serializeArrayBufferUnsafe, serializeTypedArray } from "../simple/typed
       serializeTypedArray<Float32Array>(changetype<Float32Array>(data));
     } else if (id == idof<Float64Array>()) {
       serializeTypedArray<Float64Array>(changetype<Float64Array>(data));
+    } else if (changetype<Int8Array>(data) instanceof Int8Array) {
+      serializeTypedArray<Int8Array>(changetype<Int8Array>(data));
+    } else if (changetype<Uint8Array>(data) instanceof Uint8Array) {
+      serializeTypedArray<Uint8Array>(changetype<Uint8Array>(data));
+    } else if (changetype<Uint8ClampedArray>(data) instanceof Uint8ClampedArray) {
+      serializeTypedArray<Uint8ClampedArray>(changetype<Uint8ClampedArray>(data));
+    } else if (changetype<Int16Array>(data) instanceof Int16Array) {
+      serializeTypedArray<Int16Array>(changetype<Int16Array>(data));
+    } else if (changetype<Uint16Array>(data) instanceof Uint16Array) {
+      serializeTypedArray<Uint16Array>(changetype<Uint16Array>(data));
+    } else if (changetype<Int32Array>(data) instanceof Int32Array) {
+      serializeTypedArray<Int32Array>(changetype<Int32Array>(data));
+    } else if (changetype<Uint32Array>(data) instanceof Uint32Array) {
+      serializeTypedArray<Uint32Array>(changetype<Uint32Array>(data));
+    } else if (changetype<Int64Array>(data) instanceof Int64Array) {
+      serializeTypedArray<Int64Array>(changetype<Int64Array>(data));
+    } else if (changetype<Uint64Array>(data) instanceof Uint64Array) {
+      serializeTypedArray<Uint64Array>(changetype<Uint64Array>(data));
+    } else if (changetype<Float32Array>(data) instanceof Float32Array) {
+      serializeTypedArray<Float32Array>(changetype<Float32Array>(data));
+    } else if (changetype<Float64Array>(data) instanceof Float64Array) {
+      serializeTypedArray<Float64Array>(changetype<Float64Array>(data));
     } else {
       throw new Error("Unsupported typed array in JSON.Value");
     }

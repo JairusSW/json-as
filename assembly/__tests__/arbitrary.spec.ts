@@ -2,6 +2,55 @@ import { JSON } from "..";
 import { describe, expect } from "as-test";
 import { Vec3 } from "./types";
 
+class PlainBytes extends Uint8Array {
+  constructor(length: i32 = 0) {
+    super(length);
+  }
+}
+
+function hexDigit(value: u8): string {
+  return String.fromCharCode(value < 10 ? 48 + value : 87 + value);
+}
+
+function parseHexNibble(code: u16): u8 {
+  if (code >= 48 && code <= 57) return <u8>(code - 48);
+  if (code >= 97 && code <= 102) return <u8>(code - 87);
+  return <u8>(code - 55);
+}
+
+
+@json
+class HexBytes extends Uint8Array {
+  constructor(length: i32 = 0) {
+    super(length);
+  }
+
+
+  @serializer("string")
+  serializer(self: HexBytes): string {
+    let out = "";
+    for (let i = 0; i < self.length; i++) {
+      const value = unchecked(self[i]);
+      out += hexDigit(value >> 4);
+      out += hexDigit(value & 0x0f);
+    }
+    return JSON.stringify(out);
+  }
+
+
+  @deserializer("string")
+  deserializer(data: string): HexBytes {
+    const raw = JSON.parse<string>(data);
+    const out = new HexBytes(raw.length >> 1);
+    for (let i = 0, j = 0; i < raw.length; i += 2, j++) {
+      const hi = parseHexNibble(<u16>raw.charCodeAt(i));
+      const lo = parseHexNibble(<u16>raw.charCodeAt(i + 1));
+      unchecked((out[j] = <u8>((hi << 4) | lo)));
+    }
+    return out;
+  }
+}
+
 describe("Should serialize arbitrary types", () => {
   const typed = new Uint8Array(3);
   typed[0] = 1;
@@ -34,6 +83,24 @@ describe("Should serialize arbitrary types", () => {
 
   expect(JSON.stringify(JSON.Value.from<JSON.Box<i32> | null>(null))).toBe("null");
   expect(JSON.stringify(JSON.Value.from<JSON.Box<i32> | null>(JSON.Box.from(123)))).toBe("123");
+});
+
+describe("Should keep built-in behavior for undecorated typed-array subclasses in JSON.Value", () => {
+  const bytes = new PlainBytes(4);
+  bytes[0] = 10;
+  bytes[1] = 20;
+  bytes[2] = 30;
+  bytes[3] = 40;
+  expect(JSON.stringify(JSON.Value.from(bytes))).toBe("[10,20,30,40]");
+});
+
+describe("Should use custom behavior for decorated typed-array subclasses in JSON.Value", () => {
+  const bytes = new HexBytes(4);
+  bytes[0] = 10;
+  bytes[1] = 20;
+  bytes[2] = 30;
+  bytes[3] = 40;
+  expect(JSON.stringify(JSON.Value.from(bytes))).toBe('"0a141e28"');
 });
 
 describe("Should deserialize arbitrary types", () => {

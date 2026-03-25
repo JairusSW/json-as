@@ -7,12 +7,16 @@
 - feat: let explicit `__SERIALIZE_CUSTOM` / `__DESERIALIZE_CUSTOM` hooks override built-in typed-array and `ArrayBuffer` handling while keeping generated hooks last
 - feat: support optional JSON shape hints on `@serializer(...)` / `@deserializer(...)` decorators, defaulting to `any` and allowing nullable forms like `string | null`
 - fix: preserve `bs` state across `JSON.internal.stringify(...)` and `JSON.internal.parse(...)`
+- fix: make escaped string deserializers use local `bs` slices so nested parse/custom flows do not clobber active buffer state
 - fix: allow nested `@json` fields that use decorator-based custom deserializers to deserialize correctly from string-valued object properties
 - fix: restore correct object-value end pointers in generated field deserializers so nested maps and custom string-backed fields both deserialize correctly
+- fix: make `JSON.Value` follow built-in subclass rules consistently for typed-array subclasses and custom `@json` subclasses
+- fix: make generated custom serializer wrappers use the provided `ptr` so indirect-call sites like `JSON.Value` serialize correctly
 - docs: clarify that custom serializers and deserializers must always produce and consume valid JSON
 - docs: document how subclassing built-in container types behaves, including when `@json` custom overrides take effect
 - tests: expand custom serializer/deserializer coverage for nullable fields, multiple custom fields, escaped content, whitespace, and repeated round-trips
 - tests: add override coverage for plain and custom subclasses of `Array`, `Map`, `Set`, and typed arrays
+- tests: add `JSON.Value` regressions for undecorated and decorated typed-array subclasses
 - perf: raise the serialization buffer minimum size to 1024 bytes and add adaptive `bs.shrink()`
 - perf: add a packed SWAR `u16_to_hex4_swar` helper for `\uXXXX` emission and use it across simple, SWAR, and SIMD string serializers
 - tests: add dedicated SWAR hex helper coverage, including exhaustive full-range round-trip validation

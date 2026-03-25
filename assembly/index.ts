@@ -483,6 +483,8 @@ export namespace JSON {
       if (value instanceof u64) return JSON.Types.U64;
       if (value instanceof f32) return JSON.Types.F32;
       if (value instanceof f64) return JSON.Types.F64;
+      // @ts-expect-error: supplied by transform
+      if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) return u16(idof<T>()) + JSON.Types.Struct;
       if (value instanceof Int8Array) return JSON.Types.TypedArray;
       if (value instanceof Uint8Array) return JSON.Types.TypedArray;
       if (value instanceof Uint8ClampedArray) return JSON.Types.TypedArray;
@@ -498,9 +500,6 @@ export namespace JSON {
       if (value instanceof Map) return JSON.Types.Map;
       if (value instanceof JSON.Raw) return JSON.Types.Raw;
       if (value instanceof JSON.Obj) return JSON.Types.Object;
-
-      // @ts-expect-error: supplied by transform
-      if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) return u16(idof<T>()) + JSON.Types.Struct;
       return JSON.Types.Null;
     }
     /**
@@ -517,7 +516,12 @@ export namespace JSON {
       else if (isNullable<T>() && changetype<usize>(value) === 0) store<usize>(changetype<usize>(this), 0, STORAGE);
       else if (isString<T>()) store<T>(changetype<usize>(this), value, STORAGE);
       else if (value instanceof JSON.Raw) store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Int8Array) store<T>(changetype<usize>(this), value, STORAGE);
+      // @ts-expect-error: supplied by transform
+      else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
+        // @ts-expect-error
+        if (!JSON.Value.METHODS.has(idof<T>())) JSON.Value.METHODS.set(idof<T>(), value.__SERIALIZE.index);
+        store<usize>(changetype<usize>(this), changetype<usize>(value), STORAGE);
+      } else if (value instanceof Int8Array) store<T>(changetype<usize>(this), value, STORAGE);
       else if (value instanceof Uint8Array) store<T>(changetype<usize>(this), value, STORAGE);
       else if (value instanceof Uint8ClampedArray) store<T>(changetype<usize>(this), value, STORAGE);
       else if (value instanceof Int16Array) store<T>(changetype<usize>(this), value, STORAGE);
@@ -534,11 +538,6 @@ export namespace JSON {
           abort("Maps must be of type Map<string, JSON.Value>!");
         }
         store<T>(changetype<usize>(this), value, STORAGE);
-        // @ts-expect-error: supplied by transform
-      } else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
-        // @ts-expect-error
-        if (!JSON.Value.METHODS.has(idof<T>())) JSON.Value.METHODS.set(idof<T>(), value.__SERIALIZE.index);
-        store<usize>(changetype<usize>(this), changetype<usize>(value), STORAGE);
       } else if (value instanceof JSON.Obj) {
         store<T>(changetype<usize>(this), value, STORAGE);
         // @ts-expect-error

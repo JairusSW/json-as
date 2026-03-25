@@ -14,6 +14,7 @@
   - [Using Raw JSON Strings](#using-raw-json-strings)
   - [Working with Enums](#working-with-enums)
   - [Using Custom Serializers or Deserializers](#using-custom-serializers-or-deserializers)
+  - [Overriding built-in Container Types](#overriding-built-in-container-types)
 - [Performance](#performance)
   - [Comparison to JavaScript](#comparison-to-javascript)
   - [Performance Tuning](#performance-tuning)
@@ -362,7 +363,7 @@ class Point {
     const x = raw.slice(0, c);
     const y = raw.slice(c + 1);
 
-    return new Point(f64.parse(x), f64.parse(y));
+    return new Point(f64.parse(x), f64.parse(y)); // NEVER use this in deserializers. Always return a new instance
   }
 }
 
@@ -378,6 +379,8 @@ console.log("Deserialized  " + JSON.stringify(deserialized));
 The serializer function converts a `Point` instance into a valid JSON string value.
 
 The deserializer function parses that JSON string back into a `Point` instance.
+
+Custom deserializers should always instantiate and return a new object. They should not assume an existing destination instance will be passed in or reused.
 
 These functions are then wrapped before being consumed by the json-as library:
 
@@ -400,11 +403,21 @@ This allows custom serialization while maintaining a generic interface for the l
 
 Undecorated subclasses of built-in container types keep the built-in JSON behavior.
 
+This rule applies consistently across:
+
+- `JSON.stringify(...)`
+- `JSON.parse<T>(...)`
+- `JSON.Value.from(...)`
+- `JSON.internal.stringify(...)`
+- `JSON.internal.parse(...)`
+
 For example:
 
 - `class MyBytes extends Uint8Array {}` still serializes like a normal `Uint8Array`
 - `class MyMap extends Map<string, i32> {}` still serializes like a normal `Map<string, i32>`
 - the same applies to subclassable built-ins such as `Array`, `Set`, and typed arrays
+
+If you decorate that subclass with `@json`, it is treated as a normal generated class instead of inheriting the built-in container behavior. That means generated `__SERIALIZE` / `__DESERIALIZE` logic and custom serializer/deserializer hooks can take over.
 
 If you want a different wire format, decorate the subclass with `@json` and provide custom `@serializer(...)` / `@deserializer(...)` methods:
 
