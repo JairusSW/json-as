@@ -6,7 +6,7 @@
   "coverageDir": "./.as-test/coverage",
   "snapshotDir": "./.as-test/snapshots",
   "config": "none",
-  "coverage": true,
+  "coverage": false,
   "buildOptions": {
     "args": ["--transform ./transform", "--debug"],
     "target": "wasi"
