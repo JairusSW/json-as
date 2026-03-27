@@ -12,7 +12,7 @@
     "@assemblyscript/wasi-shim": "^0.1.0",
     "@eslint/js": "^9.0.0",
     "@types/node": "^25.0.10",
-    "as-test": "^1.0.1",
+    "as-test": "^1.0.3",
     "assemblyscript": "^0.28.9",
     "assemblyscript-prettier": "^3.0.1",
     "chartjs-node-canvas": "^5.0.0",
@@ -40,7 +40,7 @@
     "Deon Groenewald"
   ],
   "description": "The only JSON library you'll need for AssemblyScript with SIMD and SWAR",
-  "homepage": "https://github.com/JairusSW/json-as#readme",
+  "homepage": "https://docs.jairus.dev/json-as",
   "files": [
     "assembly/custom/",
     "assembly/deserialize/",
@@ -80,8 +80,8 @@
   },
   "scripts": {
     "ci": "act",
-    "test": "ast test --disable coverage --disable try-as",
-    "test:ci": "ast test --disable coverage --clean",
+    "test": "ast test --disable coverage --parallel",
+    "test:ci": "ast test --parallel --disable coverage --clean",
     "test:coverage": "ast test --enable coverage",
     "bench": "npm run bench:as && npm run bench:js && ./build-charts.sh",
     "bench:as": "bash ./run-bench.as.sh",

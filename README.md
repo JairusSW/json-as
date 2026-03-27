@@ -6,6 +6,7 @@
 <summary>Table of Contents</summary>
 
 - [Installation](#installation)
+- [Docs](#docs)
 - [Usage](#usage)
 - [Examples](#examples)
   - [Omitting Fields](#omitting-fields)
@@ -57,6 +58,12 @@ Alternatively, add it to your `asconfig.json`
 ```
 
 If you'd like to see the code that the transform generates, run the build step with `DEBUG=true`
+
+## Docs
+
+Full documentation lives at:
+
+<https://docs.jairus.dev/json-as>
 
 ## Usage
 
