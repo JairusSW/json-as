@@ -80,8 +80,8 @@
   },
   "scripts": {
     "ci": "act",
-    "test": "ast test --disable coverage --parallel",
-    "test:ci": "ast test --parallel --disable coverage --clean",
+    "test": "ast test --parallel",
+    "test:ci": "ast test --parallel --clean",
     "test:coverage": "ast test --enable coverage",
     "bench": "npm run bench:as && npm run bench:js && ./build-charts.sh",
     "bench:as": "bash ./run-bench.as.sh",
