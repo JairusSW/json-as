@@ -378,7 +378,7 @@ export class JSONTransform extends Visitor {
     this.visitedClasses.add(fullClassPath);
 
     const codegenMode = getCodegenMode(this.program);
-    const useFastPath = USE_FAST_PATH && codegenMode !== JSONMode.NAIVE;
+    const requestedFastPath = USE_FAST_PATH && codegenMode !== JSONMode.NAIVE;
 
     let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
     let INITIALIZE = "@inline __INITIALIZE(): this {\n";
@@ -511,6 +511,8 @@ export class JSONTransform extends Visitor {
     }
 
     if (!this.schema.static) this.schema.members = sortMembers(this.schema.members);
+
+    const useFastPath = requestedFastPath && this.schema.static;
 
     indent = "  ";
 
@@ -713,6 +715,7 @@ export class JSONTransform extends Visitor {
       // const isLast = this.schema.members.indexOf(member) == this.schema.members.length - 1;
       const out: string[] = [];
       const resolvedType = stripNull(type);
+      const resolvedSchema = this.getSchema(resolvedType);
       const fieldOffset = `offsetof<this>(${JSON.stringify(member.name)})`;
       const fieldPtr = `${outPtr} + offsetof<this>(${JSON.stringify(member.name)})`;
       const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
@@ -745,7 +748,7 @@ export class JSONTransform extends Visitor {
         out.push("}");
       } else if (FLOAT_TYPES.includes(resolvedType)) {
         out.push(`${srcPtr} = deserializeFloatField<${resolvedType}>(${valuePtr}, srcEnd, ${fieldPtr});`);
-      } else if (this.getSchema(resolvedType)) {
+      } else if (resolvedSchema && !resolvedSchema.custom) {
         out.push("{");
         if (member.node.type.isNullable) {
           out.push(`  if (load<u64>(${srcPtr}) == 30399761348886638) {`);
@@ -765,6 +768,7 @@ export class JSONTransform extends Visitor {
         out.push("}");
       } else if (resolvedType.startsWith("Array<")) {
         const valueType = getArrayValueType(resolvedType);
+        const valueSchema = valueType ? this.getSchema(valueType) : null;
         if (valueType && ["string", "String"].includes(valueType)) {
           out.push("{");
           out.push(`  if (load<u16>(${srcPtr}) != 0x5b) break;`);
@@ -795,7 +799,7 @@ export class JSONTransform extends Visitor {
           out.push("    break;");
           out.push("  }");
           out.push("}");
-        } else if (valueType && this.getSchema(valueType)) {
+        } else if (valueType && valueSchema && !valueSchema.custom) {
           out.push("{");
           out.push(`  if (load<u16>(${srcPtr}) != 0x5b) break;`);
           out.push(`  let value = load<${resolvedType}>(${outPtr}, ${fieldOffset});`);
@@ -873,7 +877,8 @@ export class JSONTransform extends Visitor {
         out.push(`    ${srcPtr} += 2;`);
         out.push("  }");
         out.push(`  if (inString || depth != 0 || ${srcPtr} <= valueStart) break;`);
-        out.push(`  store<${resolvedType}>(${outPtr}, JSON.__deserialize<${resolvedType}>(valueStart, ${srcPtr}), ${fieldOffset});`);
+        out.push(`  store<${member.type}>(${outPtr}, JSON.__deserialize<${member.type}>(valueStart, ${srcPtr}), ${fieldOffset});`);
+        out.push(`  if (load<u16>(${srcPtr}) == 0x2c) ${srcPtr} += 2;`);
         out.push("}");
       }
       return out;

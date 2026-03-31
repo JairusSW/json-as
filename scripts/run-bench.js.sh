@@ -1,4 +1,8 @@
 #!/bin/bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 
 ENGINES=${ENGINES:-"turbofan"}
 npx tsc -p ./bench > /dev/null 2>&1
@@ -45,21 +49,20 @@ for file in "${FILES[@]}"; do
   for engine in $ENGINES; do
     echo -e "$filename (js/$engine)\n"
 
-    arg="${filename%.ts}.${runtime}.ts"
     if [[ "$engine" == "ignition" ]]; then
-      v8 --no-opt --allow-natives-syntax --module $file_js -- $arg
+      v8 --no-opt --allow-natives-syntax --module "$file_js"
     fi
 
     if [[ "$engine" == "liftoff" ]]; then
-      v8 --liftoff-only --no-opt --allow-natives-syntax --module $file_js -- $arg
+      v8 --liftoff-only --no-opt --allow-natives-syntax --module "$file_js"
     fi
 
     if [[ "$engine" == "sparkplug" ]]; then
-      v8 --sparkplug --always-sparkplug --allow-natives-syntax --no-opt --module $file_js -- $arg
+      v8 --sparkplug --always-sparkplug --allow-natives-syntax --no-opt --module "$file_js"
     fi
 
     if [[ "$engine" == "turbofan" ]]; then
-      v8 --no-liftoff --no-wasm-tier-up --allow-natives-syntax --module $file_js -- $arg
+      v8 --no-liftoff --no-wasm-tier-up --allow-natives-syntax --module "$file_js"
     fi
   done
 done

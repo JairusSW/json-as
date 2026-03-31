@@ -553,32 +553,32 @@ npm install
 4. Run either benchmark suite directly:
 
 ```bash
-./run-bench.as.sh
-./run-bench.js.sh
+npm run bench:as
+npm run bench:js
 ```
 
 5. Build charts from the latest local logs:
 
 ```bash
-./build-charts.sh
+npm run build:charts
 ```
 
 6. Publish benchmark charts to the `docs` branch:
 
 ```bash
-./publish-benchmarks.sh
+npm run bench:publish
 ```
 
 If you already have fresh logs and only want to rebuild charts and push them:
 
 ```bash
-./publish-benchmarks.sh --no-run
+npm run bench:publish -- --no-run
 ```
 
-Or run the full local publish flow in one step:
+Or run the full local benchmark flow in one step:
 
 ```bash
-npm run bench:publish
+npm run bench
 ```
 
 ## Debugging
@@ -590,6 +590,8 @@ npm run bench:publish
 ## Architecture
 
 For a deep dive into how json-as works internally, including the transform system, optimization modes (NAIVE, SWAR, SIMD), and buffer management, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+For a code-oriented repository walkthrough that maps the runtime, transform, tests, and benchmark files to their concrete responsibilities, see [PROJECT_WALKTHROUGH.md](./PROJECT_WALKTHROUGH.md).
 
 ## Contributing
 

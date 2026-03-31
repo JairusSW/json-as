@@ -55,16 +55,15 @@ export function serializeString_SIMD(src: string): void {
     // console.log("lt20   : " + mask_to_string_v128(lt20) + " -> " + mask_to_string_v128(SPLAT_0020));
     // console.log("gteD8  : " + mask_to_string_v128(gteD8) + " -> " + mask_to_string_v128(SPLAT_FFD8));
 
-    const sieve = v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8)));
-    // console.log("sieve  : " + mask_to_string_v128(sieve));
+    let mask = i8x16.bitmask(v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))));
 
-    if (!v128.any_true(sieve)) {
+    if (mask == 0) {
       bs.offset += 16;
       srcStart += 16;
       continue;
     }
 
-    let mask = i8x16.bitmask(sieve);
+    bs.growSize(popcnt(mask) * 10 + 12);
 
     do {
       const laneIdx = ctz(mask);
@@ -110,7 +109,7 @@ export function serializeString_SIMD(src: string): void {
         const next = load<u16>(srcIdx, 1);
         if (next >= 0xdc00 && next <= 0xdfff) {
           // paired surrogate
-          mask &= mask - 1;
+          mask &= ~(0b11 << (laneIdx + 1));
           continue;
         }
       }

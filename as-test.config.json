@@ -11,6 +11,12 @@
     "args": ["--transform ./transform", "--debug"],
     "target": "wasi"
   },
+  "fuzz": {
+    "input": ["./assembly/__fuzz__/*.fuzz.ts"],
+    "runs": 500,
+    "seed": 1337,
+    "target": "bindings"
+  },
   "runOptions": {
     "runtime": {
       "cmd": "wasmtime <file>"

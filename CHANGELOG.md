@@ -24,10 +24,16 @@
 - tests: add `JSON.Value` regressions for undecorated and decorated typed-array subclasses
 - tests: add regression coverage for generated `@json` subclasses inheriting stdlib typed-array fields
 - chore: restrict published package contents to the runtime, declarations, built transform output, and top-level metadata files
+- chore: move benchmark and publish helper scripts under `scripts/` and expose them through npm scripts
+- docs: add a deep project walkthrough and refresh README task/benchmark references
+- perf: reserve SIMD string serializer buffer growth once per hit block to reduce dense-escape overhead
 - perf: raise the serialization buffer minimum size to 1024 bytes and add adaptive `bs.shrink()`
 - perf: add a packed SWAR `u16_to_hex4_swar` helper for `\uXXXX` emission and use it across simple, SWAR, and SIMD string serializers
 - tests: add dedicated SWAR hex helper coverage, including exhaustive full-range round-trip validation
+- tests: add whitespace coverage for string-backed custom serializer/deserializer flows
+- fuzz: add a basic `as-test` stringify fuzzer for safe ASCII string serialization
 - bench: add SWAR hex and SWAR string serializer head-to-head microbenchmarks
+- bench: add SIMD string serializer and SWAR escape/string variant head-to-head benchmarks
 
 ## 2026-03-19 - 1.3.0
 

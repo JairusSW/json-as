@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 REMOTE_NAME="${REMOTE_NAME:-origin}"
@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: ./publish-benchmarks.sh [--no-run]"
+      echo "Usage: ./scripts/publish-benchmarks.sh [--no-run]"
       exit 1
       ;;
   esac
@@ -44,16 +44,16 @@ fi
 
 if [[ "$RUN_BENCHES" == "1" ]]; then
   echo "Running AssemblyScript benchmarks..."
-  JSON_USE_FAST_PATH="$FAST_PATH" ./run-bench.as.sh
+  JSON_USE_FAST_PATH="$FAST_PATH" ./scripts/run-bench.as.sh
 
   echo "Running JavaScript benchmarks..."
-  ./run-bench.js.sh
+  ./scripts/run-bench.js.sh
 else
   echo "Skipping benchmark runs. Reusing existing logs."
 fi
 
 echo "Building charts..."
-./build-charts.sh
+./scripts/build-charts.sh
 test -d ./build/charts
 compgen -G "./build/charts/*" > /dev/null
 cp -R ./build/charts/. "$TMP_CHARTS_DIR/"
