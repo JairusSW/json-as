@@ -75,11 +75,11 @@ for file in "${FILES[@]}"; do
     filename=$(basename -- "$file")
     filename_lower="${filename,,}"
     file_mode=""
-    if [[ "$filename_lower" == *-simd.bench.ts ]]; then
+    if [[ "$filename_lower" == simd-* || "$filename_lower" == *-simd.bench.ts ]]; then
         file_mode="SIMD"
-    elif [[ "$filename_lower" == *-swar.bench.ts ]]; then
+    elif [[ "$filename_lower" == swar-* || "$filename_lower" == *-swar.bench.ts ]]; then
         file_mode="SWAR"
-    elif [[ "$filename_lower" == *-naive.bench.ts ]]; then
+    elif [[ "$filename_lower" == naive-* || "$filename_lower" == *-naive.bench.ts ]]; then
         file_mode="NAIVE"
     fi
 
@@ -127,60 +127,60 @@ for file in "${FILES[@]}"; do
             argSwar="${filename%.ts}.${runtime}.swar.wasm"
             argSimd="${filename%.ts}.${runtime}.simd.wasm"
             if [[ "$engine" == "ignition" ]]; then
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE") && (-z "$file_mode" || "$file_mode" == "NAIVE") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/naive)\n"
                     v8 --no-opt --module ./bench/runners/assemblyscript.js -- $argNaive
                 fi
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR") && (-z "$file_mode" || "$file_mode" == "SWAR") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/swar)\n"
                     v8 --no-opt --module ./bench/runners/assemblyscript.js -- $argSwar
                 fi
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD") && (-z "$file_mode" || "$file_mode" == "SIMD") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/simd)\n"
                     v8 --no-opt --module ./bench/runners/assemblyscript.js -- $argSimd
                 fi
             fi
 
             if [[ "$engine" == "liftoff" ]]; then
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE") && (-z "$file_mode" || "$file_mode" == "NAIVE") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/naive)\n"
                     v8 --liftoff-only --no-opt --module ./bench/runners/assemblyscript.js -- $argNaive
                 fi
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR") && (-z "$file_mode" || "$file_mode" == "SWAR") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/swar)\n"
                     v8 --liftoff-only --no-opt --module ./bench/runners/assemblyscript.js -- $argSwar
                 fi
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD") && (-z "$file_mode" || "$file_mode" == "SIMD") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/simd)\n"
                     v8 --liftoff-only --no-opt --module ./bench/runners/assemblyscript.js -- $argSimd
                 fi
             fi
 
             if [[ "$engine" == "sparkplug" ]]; then
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE") && (-z "$file_mode" || "$file_mode" == "NAIVE") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/naive)\n"
                     v8 --sparkplug --always-sparkplug --no-opt --module ./bench/runners/assemblyscript.js -- $argNaive
                 fi
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR") && (-z "$file_mode" || "$file_mode" == "SWAR") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/swar)\n"
                     v8 --sparkplug --always-sparkplug --no-opt --module ./bench/runners/assemblyscript.js -- $argSwar
                 fi
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD") && (-z "$file_mode" || "$file_mode" == "SIMD") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/simd)\n"
                     v8 --sparkplug --always-sparkplug --no-opt --module ./bench/runners/assemblyscript.js -- $argSimd
                 fi
             fi
 
             if [[ "$engine" == "turbofan" ]]; then
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE") && (-z "$file_mode" || "$file_mode" == "NAIVE") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/naive)\n"
                     v8 $TURBOFAN_FLAGS --module ./bench/runners/assemblyscript.js -- $argNaive
                 fi
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR") && (-z "$file_mode" || "$file_mode" == "SWAR") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/swar)\n"
                     v8 $TURBOFAN_FLAGS --module ./bench/runners/assemblyscript.js -- $argSwar
                 fi
-                if [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD" ]]; then
+                if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD") && (-z "$file_mode" || "$file_mode" == "SIMD") ]]; then
                     echo -e "$filename (asc/$runtime/$engine/simd)\n"
                     v8 $TURBOFAN_FLAGS --module ./bench/runners/assemblyscript.js -- $argSimd
                 fi

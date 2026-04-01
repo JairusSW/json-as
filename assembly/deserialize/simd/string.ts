@@ -111,15 +111,13 @@ import { deserializeStringField_SWAR } from "../swar/string";
     store<v128>(bs.offset, block);
 
     const eq5C = i16x8.eq(block, SPLAT_5C);
+    let mask = i16x8.bitmask(eq5C);
 
-    // Early exit
-    if (!v128.any_true(eq5C)) {
+    if (mask == 0) {
       srcStart += 16;
       bs.offset += 16;
       continue;
     }
-
-    let mask = i16x8.bitmask(eq5C);
 
     let srcChg: usize = 0;
     let lastLane: usize = 0;
@@ -207,14 +205,14 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
 
   while (srcStart < srcEnd16) {
     const block = load<v128>(srcStart);
-    const eq5C = i16x8.eq(block, SPLAT_5C);
+    const mask = i16x8.bitmask(i16x8.eq(block, SPLAT_5C));
 
-    if (!v128.any_true(eq5C)) {
+    if (mask == 0) {
       srcStart += 16;
       continue;
     }
 
-    const laneIdx = usize(ctz(i16x8.bitmask(eq5C)) << 1);
+    const laneIdx = usize(ctz(mask) << 1);
     return inline.always(deserializeEscapedString_SIMD(payloadStart, srcStart + laneIdx, srcEnd));
   }
 
