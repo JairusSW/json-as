@@ -5,7 +5,6 @@ import { u16_to_hex4_swar } from "../../util/swar";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 
 // @ts-expect-error: @lazy is a valid decorator
-// @ts-nocheck
 @lazy const U00_MARKER = 13511005048209500;
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const U_MARKER = 7667804;
