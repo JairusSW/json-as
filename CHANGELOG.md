@@ -4,6 +4,17 @@
 
 - feat: support fast-path deserialization for `@omitnull` schemas that preserve canonical generated key order
 - feat: add direct fast-path struct-field support for `JSON.Raw`
+- feat: add delegated fast-path struct-field support for `Set<T>`
+- feat: extend fast-path optional-field handling to support `@omitif` (including mixed `@omitif` + `@omitnull` schemas)
+- feat: add delegated fast-path struct-field support for `Map<K,V>` and `StaticArray<T>`
+- feat: add fast-path delegated support for `JSON.Value`, `JSON.Obj`, and enum fields via `scanValueEnd(...)` + typed fallback
+- feat: add delegated array deserialization support for `Array<Date>` and `Array<Set<T>>` in both default and fast-path field flows
+- feat: support broad `Map<K,V>` key round-trips by encoding non-string keys as quoted JSON key strings and decoding keys back through typed parse
+- tests: expand fast-path deserialization coverage for optional decorators, delegated containers, and map key variants
+- tests: add extensive map key round-trip coverage (`string`, numeric, boolean, date, struct, and array keys)
+- docs: add fast-path and container compatibility matrices to README, with current constraints and support examples
+- docs: track container and fast-path follow-up work in `TODO.md`
+- chore: merge legacy `TODO` into `TODO.md`
 - perf: promote the merged SWAR string-field deserializer path for escaped struct fields
 - tests: add a dedicated fast-path deserialization suite and config covering direct fields plus verified delegated fallback field types
 - docs: add a fast-path deserialization support matrix with current guarantees and known gaps

@@ -19,6 +19,8 @@
 - [Performance](#performance)
   - [Comparison to JavaScript](#comparison-to-javascript)
   - [Performance Tuning](#performance-tuning)
+  - [Fast-Path Compatibility Matrix](#fast-path-compatibility-matrix)
+  - [Container Compatibility Matrix](#container-compatibility-matrix)
   - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [Debugging](#debugging)
 - [Architecture](#architecture)
@@ -525,6 +527,73 @@ Here's a short list:
 **JSON_USE_FAST_PATH** (default: 0) - When set to `1`, the transform emits the fast `__DESERIALIZE` implementation for generated structs. When unset or `0`, it emits only the slow path. See [FAST_PATH_DESERIALIZE.md](./FAST_PATH_DESERIALIZE.md) for the current support matrix, known gaps, and dedicated test command.
 
 **JSON_WRITE** (default: "") - Select a series of files to output after transform and optimization passes have completed for easy inspection. Usage: `JSON_WRITE=.path-to-file-a.ts,./path-to-file-b.ts`
+
+### Fast-Path Compatibility Matrix
+
+Fast path applies to generated struct deserialization only (`JSON_USE_FAST_PATH=1`, `JSON_MODE=SWAR|SIMD`).
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| `JSON_MODE=NAIVE` | Not supported | Fast path is only emitted for `SWAR` / `SIMD`. |
+| Canonical minified object layout | Required | No whitespace, canonical generated key order, no extra/missing keys. |
+| Class-level `@deserializer` | Not supported | Custom deserializer takes over. |
+| Class-level `@serializer` | Supported | Does not block fast-path deserialization. |
+| `@alias` fields | Supported | Fast path matches the aliased key names directly. |
+| `@omitnull` fields | Supported | Optional field keys can be absent in canonical order. |
+| `@omitif` fields | Supported | Optional field keys can be absent in canonical order. |
+| Mixed `@omitnull` + `@omitif` | Supported | Supported in fast-path tests. |
+| `@omit` fields | Supported (serialize-side) | Omitted fields are not part of the parse contract. |
+
+Field-type support in fast path:
+
+| Field category | Status | Implementation |
+| --- | --- | --- |
+| Integers / floats / bool | Supported | Direct field parsers. |
+| `string` / nullable string | Supported | SWAR/SIMD string field parser. |
+| Nested generated struct | Supported | Direct nested `__DESERIALIZE` call. |
+| `Array<string>` / `Array<@json class>` | Supported | Specialized direct array paths. |
+| Other `Array<T>` | Supported | Delegated field helper. |
+| `Set<T>` | Supported | Field helper. |
+| `Map<K,V>` | Supported | Field helper (`scanValueEnd` + typed value parse). |
+| `StaticArray<T>` | Supported | Field helper (`scanValueEnd` + static array parse). |
+| `JSON.Raw` | Supported | Direct field path. |
+| `JSON.Value` / `JSON.Obj` | Supported | `scanValueEnd` + `JSON.__deserialize<T>`. |
+| Enums | Supported | `scanValueEnd` + `JSON.__deserialize<Enum>`. |
+| `JSON.Box<T>` | Supported | Direct box-aware field path. |
+| `Date` | Supported | Direct date field path. |
+
+For the detailed evolving list of optimizations and known gaps, see [FAST_PATH_DESERIALIZE.md](./FAST_PATH_DESERIALIZE.md).
+
+### Container Compatibility Matrix
+
+This matrix describes the current **main parser/runtime** behavior (not just fast-path struct parsing).
+
+| Container | Serialization | Deserialization | Notes |
+| --- | --- | --- | --- |
+| `Array<T>` | Broad (`JSON.__serialize<valueof<T>>`) | Selective dispatch by element type | Deserialization supports primitives, nested arrays, `JSON.Value`, `JSON.Box`, `JSON.Obj`, `JSON.Raw`, `Date`, `Set`, `Map`, and `@json`/custom struct types. |
+| `Map<K,V>` | Broad values and broad key types | Broad key types | Non-string keys are encoded as JSON text and then written as JSON object keys (quoted strings). Deserialization decodes key strings back with typed parsing. |
+| `Set<T>` | Broad (`JSON.__serialize<indexof<T>>`) | Broad, element-scan + `JSON.__deserialize<indexof<T>>` for managed/reference types | Primitive element fast branches exist; managed/reference elements are delegated to generic typed deserialization. |
+
+Container-type examples inferred from current code paths:
+
+| Type | Serialize | Deserialize |
+| --- | --- | --- |
+| `Array<JSON.Raw>` | Yes | Yes |
+| `Array<Map<string, i32>>` | Yes | Yes |
+| `Array<Date>` | Yes | Yes |
+| `Array<Set<string>>` | Yes | Yes |
+| `Map<string, Date>` | Yes | Yes |
+| `Map<bool, i32>` | Yes | Yes |
+| `Map<Date, i32>` | Yes | Yes |
+| `Map<@json class, i32>` | Yes | Yes |
+| `Map<i32[], string>` | Yes | Yes |
+| `Set<Date>` | Yes | Yes |
+
+TODO (container coverage):
+
+- decide and document whether array dispatch should also include typed-array/ArrayBuffer element types
+- decide whether to keep broad `Map<K,V>` key support or provide a strict JSON-object-key mode (`string` only)
+- add explicit tests for each matrix row above so support status is locked by CI
 
 ### Running Benchmarks Locally
 
