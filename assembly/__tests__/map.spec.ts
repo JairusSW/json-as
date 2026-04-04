@@ -42,6 +42,91 @@ describe("Should handle maps with booleans, floats, and whitespace", () => {
   expect(JSON.stringify(JSON.parse<Map<string, f64>>('{ "pi" : 3.14 , "e" : 2.718 }'))).toBe('{"pi":3.14,"e":2.718}');
 });
 
+describe("Should serialize and deserialize maps with boolean keys", () => {
+  const parsed = JSON.parse<Map<bool, i32>>('{"true":1,"false":2}');
+  expect(parsed.get(true)).toBe(1);
+  expect(parsed.get(false)).toBe(2);
+  expect(JSON.stringify(parsed)).toBe('{"true":1,"false":2}');
+});
+
+describe("Should serialize and deserialize maps with integer keys", () => {
+  const m = new Map<i32, string>();
+  m.set(1, "one");
+  m.set(-2, "two");
+  expect(JSON.stringify(m)).toBe('{"1":"one","-2":"two"}');
+
+  const parsed = JSON.parse<Map<i32, string>>('{"1":"one","-2":"two"}');
+  expect(parsed.get(1)).toBe("one");
+  expect(parsed.get(-2)).toBe("two");
+  expect(JSON.stringify(parsed)).toBe('{"1":"one","-2":"two"}');
+});
+
+describe("Should serialize and deserialize maps with float keys", () => {
+  const m = new Map<f64, i32>();
+  m.set(3.5, 1);
+  m.set(-0.125, 2);
+  expect(JSON.stringify(m)).toBe('{"3.5":1,"-0.125":2}');
+
+  const parsed = JSON.parse<Map<f64, i32>>('{"3.5":1,"-0.125":2}');
+  const keys = parsed.keys();
+  expect(keys.length).toBe(2);
+  expect(keys[0].toString()).toBe("3.5");
+  expect(keys[1].toString()).toBe("-0.125");
+  expect(parsed.values()[0]).toBe(1);
+  expect(parsed.values()[1]).toBe(2);
+  expect(JSON.stringify(parsed)).toBe('{"3.5":1,"-0.125":2}');
+});
+
+describe("Should serialize and deserialize maps with date keys", () => {
+  const m = new Map<Date, i32>();
+  m.set(new Date(0), 1);
+  m.set(new Date(1738618120525), 2);
+  expect(JSON.stringify(m)).toBe('{"\\"1970-01-01T00:00:00.000Z\\"":1,"\\"2025-02-03T21:28:40.525Z\\"":2}');
+
+  const parsed = JSON.parse<Map<Date, i32>>('{"\\"1970-01-01T00:00:00.000Z\\"":1,"\\"2025-02-03T21:28:40.525Z\\"":2}');
+  const keys = parsed.keys();
+  expect(keys.length).toBe(2);
+  expect(keys[0].getTime().toString()).toBe("0");
+  expect(keys[1].getTime().toString()).toBe("1738618120525");
+  expect(parsed.values()[0]).toBe(1);
+  expect(parsed.values()[1]).toBe(2);
+  expect(JSON.stringify(parsed)).toBe('{"\\"1970-01-01T00:00:00.000Z\\"":1,"\\"2025-02-03T21:28:40.525Z\\"":2}');
+});
+
+describe("Should serialize and deserialize maps with struct keys", () => {
+  const m = new Map<MapValue, i32>();
+  m.set({ id: 1, name: "alice" }, 10);
+  m.set({ id: 2, name: "bob" }, 20);
+  expect(JSON.stringify(m)).toBe('{"{\\"id\\":1,\\"name\\":\\"alice\\"}":10,"{\\"id\\":2,\\"name\\":\\"bob\\"}":20}');
+
+  const parsed = JSON.parse<Map<MapValue, i32>>('{"{\\"id\\":1,\\"name\\":\\"alice\\"}":10,"{\\"id\\":2,\\"name\\":\\"bob\\"}":20}');
+  const keys = parsed.keys();
+  expect(keys.length).toBe(2);
+  expect(keys[0].id).toBe(1);
+  expect(keys[0].name).toBe("alice");
+  expect(keys[1].id).toBe(2);
+  expect(keys[1].name).toBe("bob");
+  expect(parsed.values()[0]).toBe(10);
+  expect(parsed.values()[1]).toBe(20);
+  expect(JSON.stringify(parsed)).toBe('{"{\\"id\\":1,\\"name\\":\\"alice\\"}":10,"{\\"id\\":2,\\"name\\":\\"bob\\"}":20}');
+});
+
+describe("Should serialize and deserialize maps with array keys", () => {
+  const m = new Map<i32[], string>();
+  m.set([1, 2], "a");
+  m.set([3], "b");
+  expect(JSON.stringify(m)).toBe('{"[1,2]":"a","[3]":"b"}');
+
+  const parsed = JSON.parse<Map<i32[], string>>('{"[1,2]":"a","[3]":"b"}');
+  const keys = parsed.keys();
+  expect(keys.length).toBe(2);
+  expect(JSON.stringify(keys[0])).toBe("[1,2]");
+  expect(JSON.stringify(keys[1])).toBe("[3]");
+  expect(parsed.values()[0]).toBe("a");
+  expect(parsed.values()[1]).toBe("b");
+  expect(JSON.stringify(parsed)).toBe('{"[1,2]":"a","[3]":"b"}');
+});
+
 describe("Should round-trip maps with nested object values", () => {
   const parsed = JSON.parse<Map<string, MapValue>>('{"a":{"id":1,"name":"alice"},"b":{"id":2,"name":"bob"}}');
   expect(parsed.get("a")!.id.toString()).toBe("1");

@@ -1,6 +1,11 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+enum FastState {
+  Off = 0,
+  On = 1,
+}
+
 @json
 class FastChild {
   id: i32 = 0;
@@ -23,6 +28,12 @@ class FastDirectFields {
 }
 
 @json
+class FastArrayDelegatedFields {
+  dates: Date[] = [];
+  groups: Set<i32>[] = [];
+}
+
+@json
 class FastValueField {
   value: JSON.Value = JSON.Value.empty();
 }
@@ -38,6 +49,16 @@ class FastBoxField {
 }
 
 @json
+class FastBoolBoxField {
+  boxed: JSON.Box<bool> | null = null;
+}
+
+@json
+class FastDateField {
+  createdAt: Date | null = null;
+}
+
+@json
 class FastRawField {
   raw: JSON.Raw = JSON.Raw.from("{}");
 }
@@ -48,8 +69,34 @@ class FastSetField {
 }
 
 @json
+class FastIntSetField {
+  ids: Set<i32> = new Set<i32>();
+}
+
+@json
 class FastMapField {
   meta: Map<string, i32> = new Map<string, i32>();
+}
+
+@json
+class FastIntKeyMapField {
+  meta: Map<i32, bool> = new Map<i32, bool>();
+}
+
+@json
+class FastMapStructField {
+  meta: Map<string, FastChild> = new Map<string, FastChild>();
+}
+
+@json
+class FastDateKeyMapField {
+  meta: Map<Date, i32> = new Map<Date, i32>();
+}
+
+@json
+class FastEnumField {
+  state: FastState = FastState.Off;
+  nextState: FastState = FastState.Off;
 }
 
 @json
@@ -67,6 +114,26 @@ class FastOmitNullFields {
 
   id: i32 = 0;
   name: string = "";
+}
+
+@json
+class FastOmitIfFields {
+  @omitif("this.count == 0")
+  count: i32 = 0;
+
+  id: i32 = 0;
+  name: string = "";
+}
+
+@json
+class FastMixedOptionalFields {
+  @omitif("this.count == 0")
+  count: i32 = 0;
+
+  @omitnull()
+  note: string | null = null;
+
+  id: i32 = 0;
 }
 
 describe("Fast-path deserialization should handle direct field types", () => {
@@ -110,6 +177,23 @@ describe("Fast-path deserialization should handle nullable direct fields", () =>
   expect(JSON.stringify(parsed)).toBe(payload);
 });
 
+describe("Fast-path deserialization should handle delegated Date[] and Set[] fields", () => {
+  const payload = '{"dates":["2025-02-03T21:28:40.525Z","1970-01-01T00:00:00.000Z"],"groups":[[1,2],[3],[]]}';
+  const parsed = JSON.parse<FastArrayDelegatedFields>(payload);
+
+  expect(parsed.dates.length).toBe(2);
+  expect(parsed.dates[0].getUTCFullYear()).toBe(2025);
+  expect(parsed.dates[0].getUTCMilliseconds()).toBe(525);
+  expect(parsed.dates[1].getTime()).toBe(0);
+
+  expect(parsed.groups.length).toBe(3);
+  expect(parsed.groups[0].has(1).toString()).toBe("true");
+  expect(parsed.groups[0].has(2).toString()).toBe("true");
+  expect(parsed.groups[1].has(3).toString()).toBe("true");
+  expect(parsed.groups[2].size).toBe(0);
+  expect(JSON.stringify(parsed)).toBe(payload);
+});
+
 describe("Fast-path deserialization should handle JSON.Value fields", () => {
   const parsed = JSON.parse<FastValueField>('{"value":{"ok":true,"nums":[1,2,3]}}');
   expect(parsed.value.get<JSON.Obj>().get("ok")!.get<bool>().toString()).toBe("true");
@@ -130,6 +214,40 @@ describe("Fast-path deserialization should handle JSON.Box fields", () => {
   expect(JSON.stringify(parsed)).toBe('{"boxed":15}');
 });
 
+describe("Fast-path deserialization should handle boolean JSON.Box fields", () => {
+  const parsed = JSON.parse<FastBoolBoxField>('{"boxed":false}');
+  expect(parsed.boxed!.value.toString()).toBe("false");
+  expect(JSON.stringify(parsed)).toBe('{"boxed":false}');
+});
+
+describe("Fast-path deserialization should handle nullable JSON.Box fields", () => {
+  const parsed = JSON.parse<FastBoxField>('{"boxed":null}');
+  expect((parsed.boxed == null).toString()).toBe("true");
+  expect(JSON.stringify(parsed)).toBe('{"boxed":null}');
+});
+
+describe("Fast-path deserialization should handle Date fields", () => {
+  const parsed = JSON.parse<FastDateField>('{"createdAt":"2025-02-03T21:28:40.525Z"}');
+  expect(parsed.createdAt!.getUTCFullYear().toString()).toBe("2025");
+  expect(parsed.createdAt!.getUTCMonth().toString()).toBe("1");
+  expect(parsed.createdAt!.getUTCDate().toString()).toBe("3");
+  expect(parsed.createdAt!.getUTCMilliseconds().toString()).toBe("525");
+  expect(JSON.stringify(parsed)).toBe('{"createdAt":"2025-02-03T21:28:40.525Z"}');
+});
+
+describe("Fast-path deserialization should handle nullable Date fields", () => {
+  const parsed = JSON.parse<FastDateField>('{"createdAt":null}');
+  expect((parsed.createdAt == null).toString()).toBe("true");
+  expect(JSON.stringify(parsed)).toBe('{"createdAt":null}');
+});
+
+describe("Fast-path deserialization should preserve Date round-trip value", () => {
+  const payload = '{"createdAt":"1970-01-01T00:00:00.000Z"}';
+  const parsed = JSON.parse<FastDateField>(payload);
+  expect(parsed.createdAt!.getTime().toString()).toBe("0");
+  expect(JSON.stringify(parsed)).toBe(payload);
+});
+
 describe("Fast-path deserialization should handle JSON.Raw fields", () => {
   const parsed = JSON.parse<FastRawField>('{"raw":{"hello":[1,true,"x"]}}');
   expect(parsed.raw.toString()).toBe('{"hello":[1,true,"x"]}');
@@ -143,11 +261,58 @@ describe("Fast-path deserialization should handle Set fields", () => {
   expect(JSON.stringify(parsed)).toBe('{"labels":["left","right"]}');
 });
 
+describe("Fast-path deserialization should handle integer Set fields", () => {
+  const parsed = JSON.parse<FastIntSetField>('{"ids":[1,2,3,4]}');
+  expect(parsed.ids.has(1).toString()).toBe("true");
+  expect(parsed.ids.has(4).toString()).toBe("true");
+  expect(parsed.ids.size.toString()).toBe("4");
+  expect(JSON.stringify(parsed)).toBe('{"ids":[1,2,3,4]}');
+});
+
 describe("Fast-path deserialization should handle Map fields", () => {
   const parsed = JSON.parse<FastMapField>('{"meta":{"x":1,"y":2}}');
   expect(parsed.meta.get("x")).toBe(1);
   expect(parsed.meta.get("y")).toBe(2);
   expect(JSON.stringify(parsed)).toBe('{"meta":{"x":1,"y":2}}');
+});
+
+describe("Fast-path deserialization should handle maps with numeric keys", () => {
+  const parsed = JSON.parse<FastIntKeyMapField>('{"meta":{"1":true,"2":false}}');
+  expect(parsed.meta.get(1).toString()).toBe("true");
+  expect(parsed.meta.get(2).toString()).toBe("false");
+  expect(JSON.stringify(parsed)).toBe('{"meta":{"1":true,"2":false}}');
+});
+
+describe("Fast-path deserialization should handle maps with date keys", () => {
+  const parsed = JSON.parse<FastDateKeyMapField>('{"meta":{"\\"1970-01-01T00:00:00.000Z\\"":1,"\\"2025-02-03T21:28:40.525Z\\"":2}}');
+  const keys = parsed.meta.keys();
+  expect(keys.length).toBe(2);
+  expect(keys[0].getTime().toString()).toBe("0");
+  expect(keys[1].getTime().toString()).toBe("1738618120525");
+  expect(parsed.meta.values()[0]).toBe(1);
+  expect(parsed.meta.values()[1]).toBe(2);
+  expect(JSON.stringify(parsed)).toBe('{"meta":{"\\"1970-01-01T00:00:00.000Z\\"":1,"\\"2025-02-03T21:28:40.525Z\\"":2}}');
+});
+
+describe("Fast-path deserialization should handle maps with struct values", () => {
+  const parsed = JSON.parse<FastMapStructField>('{"meta":{"left":{"id":1,"label":"L"},"right":{"id":2,"label":"R"}}}');
+  expect(parsed.meta.get("left").id).toBe(1);
+  expect(parsed.meta.get("right").label).toBe("R");
+  expect(JSON.stringify(parsed)).toBe('{"meta":{"left":{"id":1,"label":"L"},"right":{"id":2,"label":"R"}}}');
+});
+
+
+describe("Fast-path deserialization should handle empty map fields", () => {
+  const parsed = JSON.parse<FastMapField>('{"meta":{}}');
+  expect(parsed.meta.size).toBe(0);
+  expect(JSON.stringify(parsed)).toBe('{"meta":{}}');
+});
+
+describe("Fast-path deserialization should handle enum fields", () => {
+  const parsed = JSON.parse<FastEnumField>('{"state":1,"nextState":0}');
+  expect(parsed.state.toString()).toBe("1");
+  expect(parsed.nextState.toString()).toBe("0");
+  expect(JSON.stringify(parsed)).toBe('{"state":1,"nextState":0}');
 });
 
 describe("Fast-path deserialization should handle StaticArray fields", () => {
@@ -156,6 +321,22 @@ describe("Fast-path deserialization should handle StaticArray fields", () => {
   expect(parsed.coords[0]).toBe(9);
   expect(parsed.coords[2]).toBe(7);
   expect(JSON.stringify(parsed)).toBe('{"coords":[9,8,7]}');
+});
+
+describe("Fast-path deserialization should preserve StaticArray field capacity", () => {
+  const parsedShort = JSON.parse<FastStaticArrayField>('{"coords":[3]}');
+  expect(parsedShort.coords.length).toBe(3);
+  expect(parsedShort.coords[0]).toBe(3);
+  expect(parsedShort.coords[1]).toBe(0);
+  expect(parsedShort.coords[2]).toBe(0);
+  expect(JSON.stringify(parsedShort)).toBe('{"coords":[3,0,0]}');
+
+  const parsedEmpty = JSON.parse<FastStaticArrayField>('{"coords":[]}');
+  expect(parsedEmpty.coords.length).toBe(3);
+  expect(parsedEmpty.coords[0]).toBe(0);
+  expect(parsedEmpty.coords[1]).toBe(0);
+  expect(parsedEmpty.coords[2]).toBe(0);
+  expect(JSON.stringify(parsedEmpty)).toBe('{"coords":[0,0,0]}');
 });
 
 describe("Fast-path deserialization should handle omitnull schemas when omitted fields are absent", () => {
@@ -174,4 +355,34 @@ describe("Fast-path deserialization should handle omitnull schemas when optional
   expect(parsed.id).toBe(2);
   expect(parsed.name).toBe("beta");
   expect(JSON.stringify(parsed)).toBe('{"note":"hello","raw":{"x":1},"id":2,"name":"beta"}');
+});
+
+describe("Fast-path deserialization should handle omitif schemas when omitted fields are absent", () => {
+  const parsed = JSON.parse<FastOmitIfFields>('{"id":3,"name":"gamma"}');
+  expect(parsed.id).toBe(3);
+  expect(parsed.name).toBe("gamma");
+  expect(parsed.count).toBe(0);
+  expect(JSON.stringify(parsed)).toBe('{"id":3,"name":"gamma"}');
+});
+
+describe("Fast-path deserialization should handle omitif schemas when optional fields are present", () => {
+  const parsed = JSON.parse<FastOmitIfFields>('{"count":7,"id":4,"name":"delta"}');
+  expect(parsed.count).toBe(7);
+  expect(parsed.id).toBe(4);
+  expect(parsed.name).toBe("delta");
+  expect(JSON.stringify(parsed)).toBe('{"count":7,"id":4,"name":"delta"}');
+});
+
+describe("Fast-path deserialization should handle mixed omitif and omitnull schemas", () => {
+  const parsedMissing = JSON.parse<FastMixedOptionalFields>('{"id":1}');
+  expect(parsedMissing.count).toBe(0);
+  expect((parsedMissing.note == null).toString()).toBe("true");
+  expect(parsedMissing.id).toBe(1);
+  expect(JSON.stringify(parsedMissing)).toBe('{"id":1}');
+
+  const parsedPresent = JSON.parse<FastMixedOptionalFields>('{"count":5,"note":"x","id":2}');
+  expect(parsedPresent.count).toBe(5);
+  expect(parsedPresent.note!).toBe("x");
+  expect(parsedPresent.id).toBe(2);
+  expect(JSON.stringify(parsedPresent)).toBe('{"count":5,"note":"x","id":2}');
 });
