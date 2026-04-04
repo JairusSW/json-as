@@ -2,21 +2,45 @@ import { JSON } from ".";
 
 
 @json
-class Example {
-  name!: string;
-
-  // @omitnull()
-  optionalField!: string | null;
+class Point {
+  x: f64 = 0.0;
+  y: f64 = 0.0;
+  constructor(x: f64, y: f64) {
+    this.x = x;
+    this.y = y;
+  }
 }
 
-const obj1 = new Example();
-obj1.name = "Jairus";
-obj1.optionalField = null;
 
-console.log(JSON.stringify(obj1)); // { "name": "Jairus" }
+@json
+class UseStdTest {
+  strCount: Map<string, i32>;
+  pointCount: Map<Point, i32>;
+  val: i64;
+  constructor() {
+    this.strCount = new Map();
+    this.val = 233;
+    this.pointCount = new Map();
+  }
 
-const obj2 = new Example();
-obj2.name = "Jairus";
-obj2.optionalField = "not null!";
+  recordStr(s: string): void {
+    if (!this.strCount.has(s)) this.strCount.set(s, 1);
+    else this.strCount.set(s, this.strCount.get(s) + 1);
+  }
+  recordPoint(p: Point): void {
+    if (!this.pointCount.has(p)) this.pointCount.set(p, 1);
+    else this.pointCount.set(p, this.pointCount.get(p) + 1);
+  }
+}
 
-console.log(JSON.stringify(obj2)); // { "name": "Jairus" }
+const usestd = new UseStdTest();
+usestd.recordStr("hello");
+usestd.recordStr("world");
+const p1 = new Point(1.414, 3.14);
+usestd.recordPoint(p1);
+const s: string = JSON.stringify(usestd);
+console.log(s);
+
+const expected: UseStdTest = JSON.parse<UseStdTest>(s);
+const correct = JSON.stringify(usestd) === JSON.stringify(expected);
+console.log(correct.toString());
