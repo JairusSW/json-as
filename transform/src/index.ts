@@ -658,7 +658,8 @@ export class JSONTransform extends Visitor {
         if (member.node.type.isNullable) sortedMembers.null.push(member);
       } else {
         if (member.node.type.isNullable) sortedMembers.null.push(member);
-        if (isString(type) || type == "JSON.Raw") sortedMembers.string.push(member);
+        if (isString(type) || type == "Date") sortedMembers.string.push(member);
+        else if (type == "JSON.Raw") sortedMembers.object.push(member);
         else if (isBoolean(type) || type.startsWith("JSON.Box<bool")) sortedMembers.boolean.push(member);
         else if (isPrimitive(type) || type.startsWith("JSON.Box<") || isEnum(type, this.sources.get(this.schema.node.range.source), this.parser)) sortedMembers.number.push(member);
         else if (isArray(type)) sortedMembers.array.push(member);
@@ -989,6 +990,7 @@ export class JSONTransform extends Visitor {
     indent = "  ";
 
     DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
+    DESERIALIZE_FAST += indent + "const srcStartSlow = srcStart;\n";
     DESERIALIZE_FAST += indent + "do {\n";
     indent += "  ";
 
@@ -1082,7 +1084,7 @@ export class JSONTransform extends Visitor {
     DESERIALIZE_FAST += indent + "return srcStart;\n";
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "} while (false);\n\n";
-    DESERIALIZE_FAST += indent + 'throw new Error("Failed to parse JSON ");';
+    DESERIALIZE_FAST += indent + "return this.__DESERIALIZE_SLOW<__JSON_T>(srcStartSlow, srcEnd, out);";
 
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "}";
@@ -1493,7 +1495,19 @@ export class JSONTransform extends Visitor {
           const first = group[0];
           const fName = first.alias || first.name;
           DESERIALIZE += indent + "          if (" + (first.generic ? "isBoolean<" + first.type + ">() && " : "") + getComparison(fName) + ") { // " + fName + "\n";
-          DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
+          if (first.type.startsWith("JSON.Box<bool") || first.type.startsWith("JSON.Box<boolean") || first.type.startsWith("Box<bool") || first.type.startsWith("Box<boolean")) {
+            DESERIALIZE +=
+              indent +
+              "            store<" +
+              first.type +
+              ">(changetype<usize>(out), changetype<" +
+              first.type +
+              ">(JSON.Box.from<bool>(true)), offsetof<this>(" +
+              JSON.stringify(first.name) +
+              "));\n";
+          } else {
+            DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
+          }
           DESERIALIZE += indent + "            srcStart += 2;\n";
           DESERIALIZE += indent + "            keyStart = 0;\n";
           DESERIALIZE += indent + "            break;\n";
@@ -1503,7 +1517,19 @@ export class JSONTransform extends Visitor {
             const mem = group[i];
             const memName = mem.alias || mem.name;
             DESERIALIZE += indent + " else if (" + (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") + getComparison(memName) + ") { // " + memName + "\n";
-            DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
+            if (mem.type.startsWith("JSON.Box<bool") || mem.type.startsWith("JSON.Box<boolean") || mem.type.startsWith("Box<bool") || mem.type.startsWith("Box<boolean")) {
+              DESERIALIZE +=
+                indent +
+                "            store<" +
+                mem.type +
+                ">(changetype<usize>(out), changetype<" +
+                mem.type +
+                ">(JSON.Box.from<bool>(true)), offsetof<this>(" +
+                JSON.stringify(mem.name) +
+                "));\n";
+            } else {
+              DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
+            }
             DESERIALIZE += indent + "            srcStart += 2;\n";
             DESERIALIZE += indent + "            keyStart = 0;\n";
             DESERIALIZE += indent + "            break;\n";
@@ -1547,7 +1573,19 @@ export class JSONTransform extends Visitor {
           const first = group[0];
           const fName = first.alias || first.name;
           DESERIALIZE += indent + "          if (" + (first.generic ? "isBoolean<" + first.type + ">() && " : "") + getComparison(fName) + ") { // " + fName + "\n";
-          DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
+          if (first.type.startsWith("JSON.Box<bool") || first.type.startsWith("JSON.Box<boolean") || first.type.startsWith("Box<bool") || first.type.startsWith("Box<boolean")) {
+            DESERIALIZE +=
+              indent +
+              "            store<" +
+              first.type +
+              ">(changetype<usize>(out), changetype<" +
+              first.type +
+              ">(JSON.Box.from<bool>(false)), offsetof<this>(" +
+              JSON.stringify(first.name) +
+              "));\n";
+          } else {
+            DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
+          }
           DESERIALIZE += indent + "            srcStart += 2;\n";
           DESERIALIZE += indent + "            keyStart = 0;\n";
           DESERIALIZE += indent + "            break;\n";
@@ -1557,7 +1595,19 @@ export class JSONTransform extends Visitor {
             const mem = group[i];
             const memName = mem.alias || mem.name;
             DESERIALIZE += indent + " else if (" + (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") + getComparison(memName) + ") { // " + memName + "\n";
-            DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
+            if (mem.type.startsWith("JSON.Box<bool") || mem.type.startsWith("JSON.Box<boolean") || mem.type.startsWith("Box<bool") || mem.type.startsWith("Box<boolean")) {
+              DESERIALIZE +=
+                indent +
+                "            store<" +
+                mem.type +
+                ">(changetype<usize>(out), changetype<" +
+                mem.type +
+                ">(JSON.Box.from<bool>(false)), offsetof<this>(" +
+                JSON.stringify(mem.name) +
+                "));\n";
+            } else {
+              DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
+            }
             DESERIALIZE += indent + "            srcStart += 2;\n";
             DESERIALIZE += indent + "            keyStart = 0;\n";
             DESERIALIZE += indent + "            break;\n";
@@ -1673,12 +1723,14 @@ export class JSONTransform extends Visitor {
     const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
     const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
     const DESERIALIZE_CUSTOM_METHOD = DESERIALIZE_CUSTOM ? SimpleParser.parseClassMember(DESERIALIZE_CUSTOM, node) : null;
+    const DESERIALIZE_SLOW_METHOD = useFastPath ? SimpleParser.parseClassMember(DESERIALIZE, node) : null;
     const DESERIALIZE_METHOD = DESERIALIZE_CUSTOM ? null : SimpleParser.parseClassMember(DESERIALIZE_DIRECT, node);
     const DESERIALIZE_FAST_METHOD = useFastPath ? SimpleParser.parseClassMember(DESERIALIZE_FAST, node) : null;
 
     if (!node.members.find((v) => v.name.text == "__SERIALIZE")) node.members.push(SERIALIZE_METHOD);
     if (INITIALIZE_METHOD && !node.members.find((v) => v.name.text == "__INITIALIZE")) node.members.push(INITIALIZE_METHOD);
     if (DESERIALIZE_CUSTOM_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE_CUSTOM")) node.members.push(DESERIALIZE_CUSTOM_METHOD);
+    if (!DESERIALIZE_CUSTOM && useFastPath && DESERIALIZE_SLOW_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE_SLOW")) node.members.push(DESERIALIZE_SLOW_METHOD);
     if (DESERIALIZE_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE")) node.members.push(DESERIALIZE_METHOD);
     if (!DESERIALIZE_CUSTOM && useFastPath && DESERIALIZE_FAST_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")) node.members.push(DESERIALIZE_FAST_METHOD);
     super.visitClassDeclaration(node);
@@ -1691,7 +1743,6 @@ export class JSONTransform extends Visitor {
     const SERIALIZE_EMPTY = "@inline __SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
     const INITIALIZE_EMPTY = "@inline __INITIALIZE(): this {\n  return this;\n}";
     const DESERIALIZE_EMPTY = "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n  return srcEnd;\n}";
-    const useFastPath = USE_FAST_PATH && getCodegenMode(this.program) !== JSONMode.NAIVE;
 
     if (DEBUG > 0) {
       console.log(SERIALIZE_EMPTY);

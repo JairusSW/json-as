@@ -1,7 +1,8 @@
 import { JSON } from "../..";
-import { BACK_SLASH, BRACKET_LEFT, BRACKET_RIGHT, BRACE_LEFT, BRACE_RIGHT, CHAR_F, CHAR_N, CHAR_T, COMMA, QUOTE } from "../../custom/chars";
-import { isSpace, atoi, isUnescapedQuote, scanStringEnd } from "../../util";
+import { BRACKET_LEFT, BRACKET_RIGHT, BRACE_LEFT, BRACE_RIGHT, CHAR_F, CHAR_T, COMMA, QUOTE } from "../../custom/chars";
+import { isSpace, atoi, scanStringEnd } from "../../util";
 
+// @ts-expect-error: Decorator valid here
 @inline function scanSetElementEnd(srcStart: usize, srcEnd: usize): usize {
   const first = load<u16>(srcStart);
 
@@ -136,6 +137,7 @@ export function deserializeSet<T extends Set<any>>(srcStart: usize, srcEnd: usiz
   return out;
 }
 
+// @ts-expect-error: Decorator valid here
 @inline export function deserializeSetField<T extends Set<any>>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
   let out = load<T>(fieldPtr);
   if (!changetype<usize>(out)) {

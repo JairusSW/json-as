@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/as-test/as-test.config.schema.json",
-  "input": ["./assembly/__fast_tests__/*.spec.ts"],
+  "input": ["./assembly/__tests__/fast-path-deserialize.spec.ts"],
   "outDir": "./.as-test-fast/build",
   "logs": "./.as-test-fast/logs",
   "coverageDir": "./.as-test-fast/coverage",
