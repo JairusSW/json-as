@@ -88,7 +88,7 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
 
   while (srcStart < srcEnd) {
     const code = load<u16>(srcStart);
-    if (code == COMMA || code == BRACKET_RIGHT) return srcStart;
+    if (code == COMMA || code == BRACKET_RIGHT || code == BRACE_RIGHT) return srcStart;
     srcStart += 2;
   }
 

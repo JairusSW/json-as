@@ -488,8 +488,9 @@ export class JSONTransform extends Visitor {
             this.schema.members = sortMembers(this.schema.members);
         const hasOmitIfMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitIf));
         const hasOmitNullMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull));
-        const supportsFastOmitNullPath = requestedFastPath && !hasOmitIfMembers && hasOmitNullMembers;
-        const useFastPath = requestedFastPath && (this.schema.static || supportsFastOmitNullPath);
+        const hasOptionalMembers = hasOmitIfMembers || hasOmitNullMembers;
+        const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
+        const useFastPath = requestedFastPath && (this.schema.static || supportsFastOptionalPath);
         indent = "  ";
         if (this.schema.static == false) {
             if (this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull))) {
@@ -507,36 +508,34 @@ export class JSONTransform extends Visitor {
             const aliasName = JSON.stringify(member.alias || member.name);
             const realName = member.name;
             const isLast = i == this.schema.members.length - 1;
-            if (!useFastPath) {
-                if (member.value) {
-                    if (member.value != "null" && member.value != "0" && member.value != "0.0" && member.value != "false") {
-                        INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                    }
+            if (member.value) {
+                if (member.value != "null" && member.value != "0" && member.value != "0.0" && member.value != "false") {
+                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
                 }
-                else if (member.generic) {
-                    INITIALIZE += `  if (isManaged<nonnull<${member.type}>>() || isReference<nonnull<${member.type}>>()) {\n`;
-                    INITIALIZE += `    store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())), offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                    INITIALIZE += `    if (isDefined(this.${member.name}.__INITIALIZE)) changetype<nonnull<${member.type}>>(this.${member.name}).__INITIALIZE();\n`;
-                    INITIALIZE += `  }\n`;
+            }
+            else if (member.generic) {
+                INITIALIZE += `  if (isManaged<nonnull<${member.type}>>() || isReference<nonnull<${member.type}>>()) {\n`;
+                INITIALIZE += `    store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                INITIALIZE += `    if (isDefined(this.${member.name}.__INITIALIZE)) changetype<nonnull<${member.type}>>(this.${member.name}).__INITIALIZE();\n`;
+                INITIALIZE += `  }\n`;
+            }
+            else if (!member.node.type.isNullable) {
+                if (this.getSchema(member.type)) {
+                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
                 }
-                else if (!member.node.type.isNullable) {
-                    if (this.getSchema(member.type)) {
-                        INITIALIZE += `  store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                    }
-                    else if (member.type.startsWith("Array<")) {
-                        INITIALIZE += `  store<${member.type}>(changetype<usize>(this), [], offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                    }
-                    else if (member.type.startsWith("Map<")) {
-                        INITIALIZE += `  store<${member.type}>(changetype<usize>(this), new ${member.type}(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                    }
-                    else if (member.type.startsWith("Set<")) {
-                        INITIALIZE += `  store<${member.type}>(changetype<usize>(this), new ${member.type}(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                    }
-                    else if (member.type.startsWith("StaticArray<")) {
-                    }
-                    else if (member.type == "string" || member.type == "String") {
-                        INITIALIZE += `  store<${member.type}>(changetype<usize>(this), "", offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                    }
+                else if (member.type.startsWith("Array<")) {
+                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), [], offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                }
+                else if (member.type.startsWith("Map<")) {
+                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), new ${member.type}(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                }
+                else if (member.type.startsWith("Set<")) {
+                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), new ${member.type}(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                }
+                else if (member.type.startsWith("StaticArray<")) {
+                }
+                else if (member.type == "string" || member.type == "String") {
+                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), "", offsetof<this>(${JSON.stringify(member.name)}));\n`;
                 }
             }
             const SIMD_ENABLED = this.program.options.hasFeature(16);
@@ -700,6 +699,62 @@ export class JSONTransform extends Visitor {
                 }
                 out.push("}");
             }
+            else if (resolvedType == "Date") {
+                out.push("{");
+                if (member.node.type.isNullable) {
+                    out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
+                    out.push(`    store<${member.type}>(${outPtr}, changetype<${member.type}>(0), ${fieldOffset});`);
+                    out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
+                    out.push("  } else {");
+                }
+                out.push(`  if (load<u16>(${valuePtr}) != 0x22) break;`);
+                out.push(`  let dateEnd = ${valuePtr} + 2;`);
+                out.push(`  while (dateEnd < srcEnd) {`);
+                out.push("    if (load<u16>(dateEnd) == 0x22 && load<u16>(dateEnd - 2) != 0x5c) break;");
+                out.push("    dateEnd += 2;");
+                out.push("  }");
+                out.push("  if (dateEnd >= srcEnd) break;");
+                out.push(`  store<${resolvedType}>(${outPtr}, JSON.__deserialize<${resolvedType}>(${valuePtr}, dateEnd + 2), ${fieldOffset});`);
+                out.push(`  ${srcPtr} = dateEnd + 2;`);
+                if (member.node.type.isNullable) {
+                    out.push("  }");
+                }
+                out.push("}");
+            }
+            else if (resolvedType.startsWith("JSON.Box<") || resolvedType.startsWith("Box<")) {
+                const innerType = resolvedType.slice(resolvedType.indexOf("<") + 1, -1).trim();
+                out.push("{");
+                if (member.node.type.isNullable) {
+                    out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
+                    out.push(`    store<${member.type}>(${outPtr}, changetype<${member.type}>(0), ${fieldOffset});`);
+                    out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
+                    out.push("  } else {");
+                }
+                if (innerType == "bool" || innerType == "boolean") {
+                    out.push(`    if (load<u64>(${valuePtr}) == 28429475166421108) {`);
+                    out.push(`      store<${resolvedType}>(${outPtr}, changetype<${resolvedType}>(JSON.Box.from<${innerType}>(true)), ${fieldOffset});`);
+                    out.push(`      ${srcPtr} = ${valuePtr} + 8;`);
+                    out.push("    } else if (load<u64>(" + valuePtr + ") == 32370086184550502 && load<u16>(" + valuePtr + ", 8) == 101) {");
+                    out.push(`      store<${resolvedType}>(${outPtr}, changetype<${resolvedType}>(JSON.Box.from<${innerType}>(false)), ${fieldOffset});`);
+                    out.push(`      ${srcPtr} = ${valuePtr} + 10;`);
+                    out.push("    } else break;");
+                }
+                else {
+                    out.push(`    let boxEnd = ${valuePtr};`);
+                    out.push("    while (boxEnd < srcEnd) {");
+                    out.push("      const code = load<u16>(boxEnd);");
+                    out.push("      if (code == 0x2c || code == 0x7d) break;");
+                    out.push("      boxEnd += 2;");
+                    out.push("    }");
+                    out.push(`    if (boxEnd <= ${valuePtr}) break;`);
+                    out.push(`    store<${resolvedType}>(${outPtr}, changetype<${resolvedType}>(JSON.Box.from<${innerType}>(JSON.__deserialize<${innerType}>(${valuePtr}, boxEnd))), ${fieldOffset});`);
+                    out.push(`    ${srcPtr} = boxEnd;`);
+                }
+                if (member.node.type.isNullable) {
+                    out.push("  }");
+                }
+                out.push("}");
+            }
             else if (resolvedType == "JSON.Raw") {
                 out.push("{");
                 out.push(`  const valueStart = ${srcPtr};`);
@@ -736,15 +791,13 @@ export class JSONTransform extends Visitor {
                 out.push("}");
             }
             else if (isBoolean(resolvedType)) {
-                out.push("{");
-                out.push(`  if (load<u64>(${srcPtr}) == 28429475166421108) {`);
-                out.push(`    store<${resolvedType}>(${outPtr}, true, ${fieldOffset});`);
-                out.push(`    ${srcPtr} += 8;`);
-                out.push("  } else if (load<u64>(" + srcPtr + ") == 32370086184550502 && load<u16>(" + srcPtr + ", 8) == 101) {");
-                out.push(`    store<${resolvedType}>(${outPtr}, false, ${fieldOffset});`);
-                out.push(`    ${srcPtr} += 10;`);
-                out.push("  } else break;");
-                out.push("}");
+                out.push(`if (load<u64>(${srcPtr}) == 28429475166421108) {`);
+                out.push(`  store<${resolvedType}>(${outPtr}, true, ${fieldOffset});`);
+                out.push(`  ${srcPtr} += 8;`);
+                out.push("} else if (load<u64>(" + srcPtr + ") == 32370086184550502 && load<u16>(" + srcPtr + ", 8) == 101) {");
+                out.push(`  store<${resolvedType}>(${outPtr}, false, ${fieldOffset});`);
+                out.push(`  ${srcPtr} += 10;`);
+                out.push("} else break;");
             }
             else if (FLOAT_TYPES.includes(resolvedType)) {
                 out.push(`${srcPtr} = deserializeFloatField<${resolvedType}>(${valuePtr}, srcEnd, ${fieldPtr});`);
@@ -758,7 +811,7 @@ export class JSONTransform extends Visitor {
                     out.push("  } else {");
                 }
                 out.push(`  let value = load<${resolvedType}>(${outPtr}, ${fieldOffset});`);
-                out.push("  if (changetype<usize>(value) == 0) {");
+                out.push(`  if (isNullable<${member.type}>() && changetype<usize>(value) == 0) {`);
                 out.push(`    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
                 out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                 out.push("  }");
@@ -775,7 +828,7 @@ export class JSONTransform extends Visitor {
                     out.push("{");
                     out.push(`  if (load<u16>(${srcPtr}) != 0x5b) break;`);
                     out.push(`  let value = load<${resolvedType}>(${outPtr}, ${fieldOffset});`);
-                    out.push("  if (changetype<usize>(value) == 0) {");
+                    out.push(`  if (isNullable<${member.type}>() && changetype<usize>(value) == 0) {`);
                     out.push(`    value = [];`);
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push("  }");
@@ -806,7 +859,7 @@ export class JSONTransform extends Visitor {
                     out.push("{");
                     out.push(`  if (load<u16>(${srcPtr}) != 0x5b) break;`);
                     out.push(`  let value = load<${resolvedType}>(${outPtr}, ${fieldOffset});`);
-                    out.push("  if (changetype<usize>(value) == 0) {");
+                    out.push(`  if (isNullable<${member.type}>() && changetype<usize>(value) == 0) {`);
                     out.push(`    value = [];`);
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push("  }");
@@ -819,7 +872,7 @@ export class JSONTransform extends Visitor {
                     out.push(`    let item: ${valueType};`);
                     out.push("    if (index < value.length) {");
                     out.push("      item = unchecked(value[index]);");
-                    out.push("      if (changetype<usize>(item) == 0) {");
+                    out.push(`      if (isNullable<valueof<${resolvedType}>>() && changetype<usize>(item) == 0) {`);
                     out.push(`        item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
                     out.push("        unchecked((value[index] = item));");
                     out.push("      }");
@@ -847,6 +900,26 @@ export class JSONTransform extends Visitor {
                     out.push(`${srcPtr} = deserializeArrayField_SWAR<${resolvedType}>(${srcPtr}, srcEnd, ${fieldPtr});`);
                     out.push(`if (!${srcPtr}) break;`);
                 }
+            }
+            else if (resolvedType.startsWith("Map<")) {
+                out.push(`${srcPtr} = deserializeMapField<${resolvedType}>(${srcPtr}, srcEnd, ${fieldPtr});`);
+                out.push(`if (!${srcPtr}) break;`);
+            }
+            else if (resolvedType.startsWith("Set<")) {
+                out.push(`${srcPtr} = deserializeSetField<${resolvedType}>(${srcPtr}, srcEnd, ${fieldPtr});`);
+                out.push(`if (!${srcPtr}) break;`);
+            }
+            else if (resolvedType.startsWith("StaticArray<")) {
+                out.push(`${srcPtr} = deserializeStaticArrayField<${resolvedType}>(${srcPtr}, srcEnd, ${fieldPtr});`);
+                out.push(`if (!${srcPtr}) break;`);
+            }
+            else if (resolvedType == "JSON.Value" || resolvedType == "JSON.Obj" || isEnum(resolvedType, this.sources.get(this.schema.node.range.source), this.parser)) {
+                out.push("{");
+                out.push(`  const valueEnd = scanValueEnd(${valuePtr}, srcEnd);`);
+                out.push("  if (!valueEnd) break;");
+                out.push(`  store<${member.type}>(${outPtr}, JSON.__deserialize<${member.type}>(${valuePtr}, valueEnd), ${fieldOffset});`);
+                out.push(`  ${srcPtr} = valueEnd;`);
+                out.push("}");
             }
             else {
                 out.push("{");
@@ -889,7 +962,7 @@ export class JSONTransform extends Visitor {
         DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
         DESERIALIZE_FAST += indent + "do {\n";
         indent += "  ";
-        if (supportsFastOmitNullPath) {
+        if (supportsFastOptionalPath) {
             DESERIALIZE_FAST += indent + "if (load<u16>(srcStart) !== 0x7b) break; // {\n";
             DESERIALIZE_FAST += indent + "srcStart += 2;\n";
             DESERIALIZE_FAST += indent + "let seenAny = false;\n\n";
@@ -906,7 +979,7 @@ export class JSONTransform extends Visitor {
                 const inlineStringValue = ["string", "String"].includes(resolvedType);
                 const deserializerFirst = getDeserializer(member.type, "srcStart", "dst", member, inlineStringValue ? firstKeyOffset : 0);
                 const deserializerNext = getDeserializer(member.type, "srcStart", "dst", member, inlineStringValue ? nextKeyOffset : 0);
-                const isOptional = member.flags.has(PropertyFlags.OmitNull);
+                const isOptional = member.flags.has(PropertyFlags.OmitNull) || member.flags.has(PropertyFlags.OmitIf);
                 if (!deserializerFirst.length || !deserializerNext.length) {
                     DESERIALIZE_FAST += indent + "break;\n\n";
                     continue;
@@ -1447,25 +1520,22 @@ export class JSONTransform extends Visitor {
         SERIALIZE += indent + "bs.offset += 2;\n";
         SERIALIZE += "}";
         SERIALIZE = SERIALIZE.slice(0, 32) + indent + "bs.proposeSize(" + this.schema.byteSize + ");\n" + SERIALIZE.slice(32);
-        if (!useFastPath) {
-            INITIALIZE += "  return this;\n";
-            INITIALIZE += "}";
-        }
+        INITIALIZE += "  return this;\n";
+        INITIALIZE += "}";
         if (DEBUG > 0) {
             console.log(SERIALIZE_CUSTOM || SERIALIZE);
-            if (!useFastPath)
-                console.log(INITIALIZE);
+            console.log(INITIALIZE);
             console.log(DESERIALIZE_CUSTOM || DESERIALIZE);
         }
         const DESERIALIZE_DIRECT = useFastPath ? DESERIALIZE_FAST.replace("@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {", "@inline __DESERIALIZE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {") : DESERIALIZE.replace("__DESERIALIZE_SLOW<__JSON_T>", "__DESERIALIZE<__JSON_T>");
         const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
-        const INITIALIZE_METHOD = !useFastPath ? SimpleParser.parseClassMember(INITIALIZE, node) : null;
+        const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
         const DESERIALIZE_CUSTOM_METHOD = DESERIALIZE_CUSTOM ? SimpleParser.parseClassMember(DESERIALIZE_CUSTOM, node) : null;
         const DESERIALIZE_METHOD = DESERIALIZE_CUSTOM ? null : SimpleParser.parseClassMember(DESERIALIZE_DIRECT, node);
         const DESERIALIZE_FAST_METHOD = useFastPath ? SimpleParser.parseClassMember(DESERIALIZE_FAST, node) : null;
         if (!node.members.find((v) => v.name.text == "__SERIALIZE"))
             node.members.push(SERIALIZE_METHOD);
-        if (!useFastPath && INITIALIZE_METHOD && !node.members.find((v) => v.name.text == "__INITIALIZE"))
+        if (INITIALIZE_METHOD && !node.members.find((v) => v.name.text == "__INITIALIZE"))
             node.members.push(INITIALIZE_METHOD);
         if (DESERIALIZE_CUSTOM_METHOD && !node.members.find((v) => v.name.text == "__DESERIALIZE_CUSTOM"))
             node.members.push(DESERIALIZE_CUSTOM_METHOD);
@@ -1486,16 +1556,15 @@ export class JSONTransform extends Visitor {
         const useFastPath = USE_FAST_PATH && getCodegenMode(this.program) !== JSONMode.NAIVE;
         if (DEBUG > 0) {
             console.log(SERIALIZE_EMPTY);
-            if (!useFastPath)
-                console.log(INITIALIZE_EMPTY);
+            console.log(INITIALIZE_EMPTY);
             console.log(DESERIALIZE_EMPTY);
         }
         const SERIALIZE_METHOD_EMPTY = SimpleParser.parseClassMember(SERIALIZE_EMPTY, node);
-        const INITIALIZE_METHOD_EMPTY = !useFastPath ? SimpleParser.parseClassMember(INITIALIZE_EMPTY, node) : null;
+        const INITIALIZE_METHOD_EMPTY = SimpleParser.parseClassMember(INITIALIZE_EMPTY, node);
         const DESERIALIZE_METHOD_EMPTY = SimpleParser.parseClassMember(DESERIALIZE_EMPTY, node);
         if (!node.members.find((v) => v.name.text == "__SERIALIZE"))
             node.members.push(SERIALIZE_METHOD_EMPTY);
-        if (!useFastPath && INITIALIZE_METHOD_EMPTY && !node.members.find((v) => v.name.text == "__INITIALIZE"))
+        if (INITIALIZE_METHOD_EMPTY && !node.members.find((v) => v.name.text == "__INITIALIZE"))
             node.members.push(INITIALIZE_METHOD_EMPTY);
         if (!node.members.find((v) => v.name.text == "__DESERIALIZE"))
             node.members.push(DESERIALIZE_METHOD_EMPTY);
@@ -1519,14 +1588,22 @@ export class JSONTransform extends Visitor {
         const deserializeIntegerFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeIntegerField" || d.name.text == "deserializeIntegerField"));
         const deserializeUnsignedFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeUnsignedField" || d.name.text == "deserializeUnsignedField"));
         const deserializeFloatFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeFloatField" || d.name.text == "deserializeFloatField"));
+        const scanValueEndImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "scanValueEnd" || d.name.text == "scanValueEnd"));
         const deserializeArrayField_SWARImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeArrayField_SWAR" || d.name.text == "deserializeArrayField_SWAR"));
+        const deserializeMapFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeMapField" || d.name.text == "deserializeMapField"));
+        const deserializeSetFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeSetField" || d.name.text == "deserializeSetField"));
+        const deserializeStaticArrayFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeStaticArrayField" || d.name.text == "deserializeStaticArrayField"));
         const deserializeStringFieldSWARImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeStringField_SWAR" || d.name.text == "deserializeStringField_SWAR"));
         const deserializeStringFieldSIMDImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeStringField_SIMD" || d.name.text == "deserializeStringField_SIMD"));
         const sourceText = readFileSync(fromPath).toString();
         const hasLocalDeserializeIntegerField = /\bdeserializeIntegerField\b/.test(sourceText);
         const hasLocalDeserializeUnsignedField = /\bdeserializeUnsignedField\b/.test(sourceText);
         const hasLocalDeserializeFloatField = /\bdeserializeFloatField\b/.test(sourceText);
+        const hasLocalScanValueEnd = /\bscanValueEnd\b/.test(sourceText);
         const hasLocaldeserializeArrayField_SWAR = /\bdeserializeArrayField_SWAR\b/.test(sourceText);
+        const hasLocaldeserializeMapField = /\bdeserializeMapField\b/.test(sourceText);
+        const hasLocaldeserializeSetField = /\bdeserializeSetField\b/.test(sourceText);
+        const hasLocaldeserializeStaticArrayField = /\bdeserializeStaticArrayField\b/.test(sourceText);
         const hasLocalDeserializeStringFieldSWAR = /\bdeserializeStringField_SWAR\b/.test(sourceText);
         const hasLocalDeserializeStringFieldSIMD = /\bdeserializeStringField_SIMD\b/.test(sourceText);
         let baseRel = path.posix.join(...path.relative(path.dirname(fromPath), path.join(baseDir)).split(path.sep));
@@ -1572,8 +1649,32 @@ export class JSONTransform extends Visitor {
             if (DEBUG > 0)
                 console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
         }
+        if (!scanValueEndImport && !hasLocalScanValueEnd) {
+            const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("scanValueEnd", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "swar", "array", "shared"), node.range), node.range);
+            node.range.source.statements.unshift(replaceNode);
+            if (DEBUG > 0)
+                console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
+        }
         if (!deserializeArrayField_SWARImport && !hasLocaldeserializeArrayField_SWAR) {
             const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("deserializeArrayField_SWAR", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "simple", "array"), node.range), node.range);
+            node.range.source.statements.unshift(replaceNode);
+            if (DEBUG > 0)
+                console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
+        }
+        if (!deserializeMapFieldImport && !hasLocaldeserializeMapField) {
+            const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("deserializeMapField", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "simple", "map"), node.range), node.range);
+            node.range.source.statements.unshift(replaceNode);
+            if (DEBUG > 0)
+                console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
+        }
+        if (!deserializeSetFieldImport && !hasLocaldeserializeSetField) {
+            const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("deserializeSetField", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "simple", "set"), node.range), node.range);
+            node.range.source.statements.unshift(replaceNode);
+            if (DEBUG > 0)
+                console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");
+        }
+        if (!deserializeStaticArrayFieldImport && !hasLocaldeserializeStaticArrayField) {
+            const replaceNode = Node.createImportStatement([Node.createImportDeclaration(Node.createIdentifierExpression("deserializeStaticArrayField", node.range, false), null, node.range)], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "simple", "staticarray"), node.range), node.range);
             node.range.source.statements.unshift(replaceNode);
             if (DEBUG > 0)
                 console.log("Added import: " + toString(replaceNode) + " to " + node.range.source.normalizedPath + "\n");

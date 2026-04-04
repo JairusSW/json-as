@@ -3,6 +3,7 @@ import { deserializeArbitraryArray } from "./array/arbitrary";
 import { deserializeArrayArray } from "./array/array";
 import { deserializeBooleanArray } from "./array/bool";
 import { deserializeFloatArray } from "./array/float";
+import { deserializeGenericArray } from "./array/generic";
 import { deserializeIntegerArray } from "./array/integer";
 import { deserializeMapArray } from "./array/map";
 import { deserializeStructArray } from "./array/struct";
@@ -42,6 +43,12 @@ export function deserializeArray<T extends unknown[]>(srcStart: usize, srcEnd: u
     } else if (type instanceof JSON.Raw) {
       // @ts-ignore: type
       return deserializeRawArray(srcStart, srcEnd, dst);
+    } else if (type instanceof Date) {
+      // @ts-ignore: type
+      return deserializeGenericArray<T>(srcStart, srcEnd, dst);
+    } else if (type instanceof Set) {
+      // @ts-ignore: type
+      return deserializeGenericArray<T>(srcStart, srcEnd, dst);
     } else if (type instanceof Map) {
       // @ts-ignore: type
       return deserializeMapArray<T>(srcStart, srcEnd, dst);

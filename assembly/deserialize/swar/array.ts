@@ -4,6 +4,7 @@ import { deserializeArrayArrayField } from "./array/array";
 import { deserializeBooleanArrayField } from "./array/bool";
 import { deserializeBoxArrayField } from "./array/box";
 import { deserializeFloatArrayField } from "./array/float";
+import { deserializeGenericArrayField } from "./array/generic";
 import { deserializeIntegerArrayField } from "./array/integer";
 import { deserializeMapArrayField } from "./array/map";
 import { deserializeObjectArrayField } from "./array/object";
@@ -33,6 +34,10 @@ import { deserializeStructArrayField } from "./array/struct";
       return deserializeObjectArrayField<T>(srcStart, srcEnd, fieldPtr);
     } else if (type instanceof JSON.Raw) {
       return deserializeRawArrayField(srcStart, srcEnd, fieldPtr);
+    } else if (type instanceof Date) {
+      return deserializeGenericArrayField<T>(srcStart, srcEnd, fieldPtr);
+    } else if (type instanceof Set) {
+      return deserializeGenericArrayField<T>(srcStart, srcEnd, fieldPtr);
     } else if (type instanceof Map) {
       return deserializeMapArrayField<T>(srcStart, srcEnd, fieldPtr);
       // @ts-ignore: defined by transform

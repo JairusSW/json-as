@@ -4,6 +4,7 @@ import { deserializeArrayArray } from "../simple/array/array";
 import { deserializeBooleanArray } from "../simple/array/bool";
 import { deserializeBoxArray } from "../simple/array/box";
 import { deserializeFloatArray } from "../simple/array/float";
+import { deserializeGenericArray } from "../simple/array/generic";
 import { deserializeIntegerArray as deserializeIntegerArray_NAIVE } from "../simple/array/integer";
 import { deserializeMapArray } from "../simple/array/map";
 import { deserializeObjectArray } from "../simple/array/object";
@@ -45,6 +46,10 @@ export function deserializeArray<T extends unknown[]>(srcStart: usize, srcEnd: u
       return deserializeObjectArray<T>(srcStart, srcEnd, dst);
     } else if (type instanceof JSON.Raw) {
       return deserializeRawArray(srcStart, srcEnd, dst) as T;
+    } else if (type instanceof Date) {
+      return deserializeGenericArray<T>(srcStart, srcEnd, dst);
+    } else if (type instanceof Set) {
+      return deserializeGenericArray<T>(srcStart, srcEnd, dst);
     } else if (type instanceof Map) {
       return deserializeMapArray<T>(srcStart, srcEnd, dst);
       // @ts-ignore: defined by transform

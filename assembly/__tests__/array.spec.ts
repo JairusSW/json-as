@@ -96,6 +96,27 @@ describe("Should deserialize object arrays", () => {
   expect(JSON.stringify(JSON.parse<Vec3[]>('[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]'))).toBe('[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]');
 });
 
+describe("Should serialize and deserialize date arrays", () => {
+  const input = '["2025-02-03T21:28:40.525Z","1970-01-01T00:00:00.000Z"]';
+  const parsed = JSON.parse<Date[]>(input);
+  expect(parsed.length).toBe(2);
+  expect(parsed[0].getUTCFullYear()).toBe(2025);
+  expect(parsed[0].getUTCMilliseconds()).toBe(525);
+  expect(parsed[1].getTime()).toBe(0);
+  expect(JSON.stringify(parsed)).toBe(input);
+});
+
+describe("Should serialize and deserialize set arrays", () => {
+  const input = "[[1,2],[3],[]]";
+  const parsed = JSON.parse<Set<i32>[]>(input);
+  expect(parsed.length).toBe(3);
+  expect(parsed[0].has(1).toString()).toBe("true");
+  expect(parsed[0].has(2).toString()).toBe("true");
+  expect(parsed[1].has(3).toString()).toBe("true");
+  expect(parsed[2].size).toBe(0);
+  expect(JSON.stringify(parsed)).toBe(input);
+});
+
 describe("Should deserialize raw arrays", () => {
   const r1 = JSON.parse<JSON.Raw[]>('[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]');
   expect<string>(r1[0].toString()).toBe('{"x":3.4,"y":1.2,"z":8.3}');

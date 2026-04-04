@@ -15,6 +15,7 @@ import { deserializeStaticArrayBoolean } from "./staticarray/bool";
 import { deserializeStaticArrayFloat } from "./staticarray/float";
 import { deserializeStaticArrayInteger } from "./staticarray/integer";
 import { deserializeStaticArrayString } from "./staticarray/string";
+import { scanValueEnd } from "../swar/array/shared";
 
 
 @inline function materializeStaticArray<T extends StaticArray<any>>(src: valueof<T>[], dst: usize): T {
@@ -69,4 +70,13 @@ export function deserializeStaticArray<T extends StaticArray<any>>(srcStart: usi
   }
 
   throw new Error("Could not parse static array of type " + nameof<T>() + "!");
+}
+
+@inline export function deserializeStaticArrayField<T extends StaticArray<any>>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
+  const valueEnd = scanValueEnd(srcStart, srcEnd);
+  if (!valueEnd) throw new Error("Failed to parse JSON!");
+
+  const out = deserializeStaticArray<T>(srcStart, valueEnd, load<usize>(fieldPtr));
+  store<T>(fieldPtr, out);
+  return valueEnd;
 }
