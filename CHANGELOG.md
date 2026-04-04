@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- feat: support fast-path deserialization for `@omitnull` schemas that preserve canonical generated key order
+- feat: add direct fast-path struct-field support for `JSON.Raw`
+- perf: promote the merged SWAR string-field deserializer path for escaped struct fields
+- tests: add a dedicated fast-path deserialization suite and config covering direct fields plus verified delegated fallback field types
+- docs: add a fast-path deserialization support matrix with current guarantees and known gaps
 - feat: allow `JSON.Value` to store and re-serialize built-in typed arrays and `ArrayBuffer`
 - feat: support `JSON.stringify<ArrayBuffer>(...)` directly without a dedicated helper
 - feat: let explicit `__SERIALIZE_CUSTOM` / `__DESERIALIZE_CUSTOM` hooks override built-in typed-array and `ArrayBuffer` handling while keeping generated hooks last

@@ -604,18 +604,8 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
 */
 
 // @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedStringScan_SWAR(payloadStart: usize, escapeStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
-  const prefixLen = <u32>(escapeStart - payloadStart);
-  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
-  const outStart = bs.offset - bs.buffer;
-  bs.ensureSize(<u32>(srcEnd - payloadStart));
-  if (prefixLen != 0) {
-    memory.copy(bs.offset, payloadStart, prefixLen);
-    bs.offset += prefixLen;
-  }
-
-  let lastPtr = escapeStart;
-  let srcStart = escapeStart;
+@inline function deserializeEscapedStringContinuation_SWAR(lastPtr: usize, srcStart: usize, srcEnd: usize, dstFieldPtr: usize, outStart: usize): usize {
+  const srcEnd8 = srcEnd - 8;
 
   while (srcStart <= srcEnd8) {
     const blockStart = srcStart;
@@ -661,6 +651,7 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
       srcStart = lastPtr;
       break;
     } while (mask !== 0);
+
     if (srcStart == blockStart) srcStart += 8;
   }
 
@@ -696,7 +687,6 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
       bs.offset += 2;
       srcStart += 12;
     }
-
     lastPtr = srcStart;
   }
 
@@ -710,7 +700,7 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
-  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
+  const srcEnd8 = srcEnd - 8;
   srcStart = payloadStart;
 
   while (srcStart <= srcEnd8) {
@@ -731,7 +721,27 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
       }
       if (char != BACK_SLASH) continue;
 
-      return deserializeEscapedStringScan_SWAR(payloadStart, srcIdx, srcEnd, dstFieldPtr);
+      const outStart = bs.offset - bs.buffer;
+      bs.ensureSize(<u32>(srcEnd - payloadStart));
+      const prefixLen = <u32>(srcIdx - payloadStart);
+      if (prefixLen != 0) {
+        memory.copy(bs.offset, payloadStart, prefixLen);
+        bs.offset += prefixLen;
+      }
+
+      const chunk = load<u32>(srcIdx);
+      const code = <u16>(chunk >> 16);
+      let lastPtr: usize;
+      if (code !== 0x75) {
+        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+        bs.offset += 2;
+        lastPtr = srcIdx + 4;
+      } else {
+        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
+        bs.offset += 2;
+        lastPtr = srcIdx + 12;
+      }
+      return inline.always(deserializeEscapedStringContinuation_SWAR(lastPtr, lastPtr, srcEnd, dstFieldPtr, outStart));
     } while (mask !== 0);
 
     srcStart += 8;
@@ -744,7 +754,26 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
       return srcStart + 2;
     }
     if (char == BACK_SLASH) {
-      return deserializeEscapedStringScan_SWAR(payloadStart, srcStart, srcEnd, dstFieldPtr);
+      const outStart = bs.offset - bs.buffer;
+      bs.ensureSize(<u32>(srcEnd - payloadStart));
+      const prefixLen = <u32>(srcStart - payloadStart);
+      if (prefixLen != 0) {
+        memory.copy(bs.offset, payloadStart, prefixLen);
+        bs.offset += prefixLen;
+      }
+
+      const code = load<u16>(srcStart, 2);
+      let lastPtr: usize;
+      if (code !== 0x75) {
+        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+        bs.offset += 2;
+        lastPtr = srcStart + 4;
+      } else {
+        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
+        bs.offset += 2;
+        lastPtr = srcStart + 12;
+      }
+      return inline.always(deserializeEscapedStringContinuation_SWAR(lastPtr, lastPtr, srcEnd, dstFieldPtr, outStart));
     }
     srcStart += 2;
   }

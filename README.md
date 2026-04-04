@@ -522,7 +522,7 @@ Here's a short list:
 
 **JSON_MODE** (default: SWAR) - Selects which mode should be used. Can be `NAIVE,SWAR,SIMD`. Note that `--enable simd` may be required.
 
-**JSON_USE_FAST_PATH** (default: 0) - When set to `1`, the transform emits the fast `__DESERIALIZE` implementation for generated structs. When unset or `0`, it emits only the slow path.
+**JSON_USE_FAST_PATH** (default: 0) - When set to `1`, the transform emits the fast `__DESERIALIZE` implementation for generated structs. When unset or `0`, it emits only the slow path. See [FAST_PATH_DESERIALIZE.md](./FAST_PATH_DESERIALIZE.md) for the current support matrix, known gaps, and dedicated test command.
 
 **JSON_WRITE** (default: "") - Select a series of files to output after transform and optimization passes have completed for easy inspection. Usage: `JSON_WRITE=.path-to-file-a.ts,./path-to-file-b.ts`
 

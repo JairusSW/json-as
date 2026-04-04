@@ -486,7 +486,10 @@ export class JSONTransform extends Visitor {
         }
         if (!this.schema.static)
             this.schema.members = sortMembers(this.schema.members);
-        const useFastPath = requestedFastPath && this.schema.static;
+        const hasOmitIfMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitIf));
+        const hasOmitNullMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull));
+        const supportsFastOmitNullPath = requestedFastPath && !hasOmitIfMembers && hasOmitNullMembers;
+        const useFastPath = requestedFastPath && (this.schema.static || supportsFastOmitNullPath);
         indent = "  ";
         if (this.schema.static == false) {
             if (this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull))) {
@@ -697,6 +700,41 @@ export class JSONTransform extends Visitor {
                 }
                 out.push("}");
             }
+            else if (resolvedType == "JSON.Raw") {
+                out.push("{");
+                out.push(`  const valueStart = ${srcPtr};`);
+                out.push("  let depth: i32 = 0;");
+                out.push("  let inString = false;");
+                out.push(`  while (${srcPtr} < srcEnd) {`);
+                out.push(`    const code = load<u16>(${srcPtr});`);
+                out.push("    if (inString) {");
+                out.push(`      if (code == 0x22 && load<u16>(${srcPtr} - 2) != 0x5c) inString = false;`);
+                out.push(`      ${srcPtr} += 2;`);
+                out.push("      continue;");
+                out.push("    }");
+                out.push("    if (code == 0x22) {");
+                out.push("      inString = true;");
+                out.push(`      ${srcPtr} += 2;`);
+                out.push("      continue;");
+                out.push("    }");
+                out.push("    if (code == 0x7b || code == 0x5b) {");
+                out.push("      depth++;");
+                out.push(`      ${srcPtr} += 2;`);
+                out.push("      continue;");
+                out.push("    }");
+                out.push("    if (code == 0x7d || code == 0x5d) {");
+                out.push("      if (depth == 0) break;");
+                out.push("      depth--;");
+                out.push(`      ${srcPtr} += 2;`);
+                out.push("      continue;");
+                out.push("    }");
+                out.push("    if (code == 0x2c && depth == 0) break;");
+                out.push(`    ${srcPtr} += 2;`);
+                out.push("  }");
+                out.push(`  if (inString || depth != 0 || ${srcPtr} <= valueStart) break;`);
+                out.push(`  store<${member.type}>(${outPtr}, JSON.Raw.from(JSON.Util.ptrToStr(valueStart, ${srcPtr})), ${fieldOffset});`);
+                out.push("}");
+            }
             else if (isBoolean(resolvedType)) {
                 out.push("{");
                 out.push(`  if (load<u64>(${srcPtr}) == 28429475166421108) {`);
@@ -843,7 +881,6 @@ export class JSONTransform extends Visitor {
                 out.push("  }");
                 out.push(`  if (inString || depth != 0 || ${srcPtr} <= valueStart) break;`);
                 out.push(`  store<${member.type}>(${outPtr}, JSON.__deserialize<${member.type}>(valueStart, ${srcPtr}), ${fieldOffset});`);
-                out.push(`  if (load<u16>(${srcPtr}) == 0x2c) ${srcPtr} += 2;`);
                 out.push("}");
             }
             return out;
@@ -852,25 +889,91 @@ export class JSONTransform extends Visitor {
         DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
         DESERIALIZE_FAST += indent + "do {\n";
         indent += "  ";
-        for (let i = 0; i < this.schema.members.length; i++) {
-            const member = this.schema.members[i];
-            const key = JSON.stringify(member.alias || member.name);
-            if (key.length <= 2)
-                throw new Error("Key cannot be empty!");
-            const keySection = (i == 0 ? "{" : ",") + key + ":";
-            DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
-            const keyOffset = keySection.length << 1;
-            const resolvedType = stripNull(member.type);
-            const inlineStringValue = ["string", "String"].includes(resolvedType);
-            if (!inlineStringValue) {
-                DESERIALIZE_FAST += indent + `srcStart += ${keyOffset};\n\n`;
+        if (supportsFastOmitNullPath) {
+            DESERIALIZE_FAST += indent + "if (load<u16>(srcStart) !== 0x7b) break; // {\n";
+            DESERIALIZE_FAST += indent + "srcStart += 2;\n";
+            DESERIALIZE_FAST += indent + "let seenAny = false;\n\n";
+            for (let i = 0; i < this.schema.members.length; i++) {
+                const member = this.schema.members[i];
+                const key = JSON.stringify(member.alias || member.name);
+                if (key.length <= 2)
+                    throw new Error("Key cannot be empty!");
+                const firstKeySection = key + ":";
+                const nextKeySection = "," + key + ":";
+                const firstKeyOffset = firstKeySection.length << 1;
+                const nextKeyOffset = nextKeySection.length << 1;
+                const resolvedType = stripNull(member.type);
+                const inlineStringValue = ["string", "String"].includes(resolvedType);
+                const deserializerFirst = getDeserializer(member.type, "srcStart", "dst", member, inlineStringValue ? firstKeyOffset : 0);
+                const deserializerNext = getDeserializer(member.type, "srcStart", "dst", member, inlineStringValue ? nextKeyOffset : 0);
+                const isOptional = member.flags.has(PropertyFlags.OmitNull);
+                if (!deserializerFirst.length || !deserializerNext.length) {
+                    DESERIALIZE_FAST += indent + "break;\n\n";
+                    continue;
+                }
+                DESERIALIZE_FAST += indent + "if (!seenAny) {\n";
+                indent += "  ";
+                DESERIALIZE_FAST += indent + `if ( // ${firstKeySection}\n${(indent += "  ")}${getComparisions(firstKeySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) {\n`;
+                indent += "  ";
+                if (isOptional) {
+                    DESERIALIZE_FAST += indent + "// optional @omitnull field omitted\n";
+                }
+                else {
+                    DESERIALIZE_FAST += indent + "break;\n";
+                }
+                indent = indent.slice(0, -2);
+                DESERIALIZE_FAST += indent + "} else {\n";
+                indent += "  ";
+                if (!inlineStringValue)
+                    DESERIALIZE_FAST += indent + `srcStart += ${firstKeyOffset};\n`;
+                DESERIALIZE_FAST += indent + deserializerFirst.join("\n" + indent) + "\n";
+                DESERIALIZE_FAST += indent + "seenAny = true;\n";
+                indent = indent.slice(0, -2);
+                DESERIALIZE_FAST += indent + "}\n";
+                indent = indent.slice(0, -2);
+                DESERIALIZE_FAST += indent + "} else {\n";
+                indent += "  ";
+                DESERIALIZE_FAST += indent + `if ( // ${nextKeySection}\n${(indent += "  ")}${getComparisions(nextKeySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) {\n`;
+                indent += "  ";
+                if (isOptional) {
+                    DESERIALIZE_FAST += indent + "// optional @omitnull field omitted\n";
+                }
+                else {
+                    DESERIALIZE_FAST += indent + "break;\n";
+                }
+                indent = indent.slice(0, -2);
+                DESERIALIZE_FAST += indent + "} else {\n";
+                indent += "  ";
+                if (!inlineStringValue)
+                    DESERIALIZE_FAST += indent + `srcStart += ${nextKeyOffset};\n`;
+                DESERIALIZE_FAST += indent + deserializerNext.join("\n" + indent) + "\n";
+                indent = indent.slice(0, -2);
+                DESERIALIZE_FAST += indent + "}\n";
+                indent = indent.slice(0, -2);
+                DESERIALIZE_FAST += indent + "}\n\n";
             }
-            const deserializer = getDeserializer(member.type, "srcStart", "dst", member, inlineStringValue ? keyOffset : 0);
-            if (!deserializer.length) {
-                DESERIALIZE_FAST += indent + "break;\n\n";
-                continue;
+        }
+        else {
+            for (let i = 0; i < this.schema.members.length; i++) {
+                const member = this.schema.members[i];
+                const key = JSON.stringify(member.alias || member.name);
+                if (key.length <= 2)
+                    throw new Error("Key cannot be empty!");
+                const keySection = (i == 0 ? "{" : ",") + key + ":";
+                DESERIALIZE_FAST += indent + `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
+                const keyOffset = keySection.length << 1;
+                const resolvedType = stripNull(member.type);
+                const inlineStringValue = ["string", "String"].includes(resolvedType);
+                if (!inlineStringValue) {
+                    DESERIALIZE_FAST += indent + `srcStart += ${keyOffset};\n\n`;
+                }
+                const deserializer = getDeserializer(member.type, "srcStart", "dst", member, inlineStringValue ? keyOffset : 0);
+                if (!deserializer.length) {
+                    DESERIALIZE_FAST += indent + "break;\n\n";
+                    continue;
+                }
+                DESERIALIZE_FAST += indent + deserializer.join("\n" + indent) + "\n\n";
             }
-            DESERIALIZE_FAST += indent + deserializer.join("\n" + indent) + "\n\n";
         }
         DESERIALIZE_FAST += indent + "if (load<u16>(srcStart) !== 0x7d) break; // }\n";
         DESERIALIZE_FAST += indent + "srcStart += 2;\n";
