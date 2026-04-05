@@ -6,8 +6,6 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
     store<T>(fieldPtr, out);
-  } else {
-    out.length = 0;
   }
   return out;
 }
@@ -22,7 +20,14 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
 
 @inline export function ensureArrayElementSlot<T extends Array<any>>(out: T, index: i32): usize {
   const nextLength = index + 1;
-  if (out.length < nextLength) out.length = nextLength;
+  if (out.length < nextLength) {
+    out.length = nextLength;
+    const slot = out.dataStart + <usize>index * sizeof<valueof<T>>();
+    // Reference arrays can allocate recursively before the caller stores the new element.
+    // Zero the newly exposed slot immediately so incremental GC never observes a garbage pointer.
+    if (isManaged<valueof<T>>() || isReference<valueof<T>>()) store<usize>(slot, 0);
+    return slot;
+  }
   return out.dataStart + <usize>index * sizeof<valueof<T>>();
 }
 

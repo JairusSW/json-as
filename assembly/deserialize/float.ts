@@ -2,6 +2,25 @@ import { ptrToStr } from "../util/ptrToStr";
 
 // @ts-ignore: inline
 @inline function pow10Fast(exponent: u32): f64 {
+  if (exponent == 0) return 1.0;
+  if (exponent == 1) return 10.0;
+  if (exponent == 2) return 100.0;
+  if (exponent == 3) return 1e3;
+  if (exponent == 4) return 1e4;
+  if (exponent == 5) return 1e5;
+  if (exponent == 6) return 1e6;
+  if (exponent == 7) return 1e7;
+  if (exponent == 8) return 1e8;
+  if (exponent == 9) return 1e9;
+  if (exponent == 10) return 1e10;
+  if (exponent == 11) return 1e11;
+  if (exponent == 12) return 1e12;
+  if (exponent == 13) return 1e13;
+  if (exponent == 14) return 1e14;
+  if (exponent == 15) return 1e15;
+  if (exponent == 16) return 1e16;
+  if (exponent == 17) return 1e17;
+  if (exponent == 18) return 1e18;
   let result = 1.0;
   if (exponent & 1) result *= 1e1;
   if (exponent & 2) result *= 1e2;

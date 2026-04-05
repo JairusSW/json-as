@@ -1,10 +1,10 @@
+import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
-import { deserializeArrayField } from "../array";
-import { ensureArrayElementSlot, ensureArrayField } from "./shared";
+import { deserializeFloatArrayInto } from "./float";
+import { ensureArrayField, scanValueEnd } from "./shared";
 
 
-@inline export function deserializeArrayArrayField<T extends unknown[][]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  const out = ensureArrayField<T>(fieldPtr);
+@inline function deserializeArrayArrayInto<T extends unknown[][]>(srcStart: usize, srcEnd: usize, out: T): usize {
   let index = 0;
 
   do {
@@ -17,9 +17,39 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
     }
 
     while (srcStart < srcEnd) {
-      const slot = ensureArrayElementSlot<T>(out, index);
-      srcStart = deserializeArrayField<valueof<T>>(srcStart, srcEnd, slot);
-      if (!srcStart || srcStart >= srcEnd) break;
+      if (isFloat<valueof<valueof<T>>>()) {
+        let value: valueof<T>;
+        if (index < out.length) {
+          value = unchecked(out[index]);
+        } else {
+          value = changetype<valueof<T>>(instantiate<nonnull<valueof<T>>>());
+          out.push(value);
+        }
+        srcStart = deserializeFloatArrayInto<valueof<T>>(srcStart, srcEnd, value);
+        if (!srcStart || srcStart >= srcEnd) break;
+      } else if (isArray<valueof<valueof<T>>>()) {
+        let value: valueof<T>;
+        if (index < out.length) {
+          value = unchecked(out[index]);
+        } else {
+          value = changetype<valueof<T>>(instantiate<nonnull<valueof<T>>>());
+          out.push(value);
+        }
+        srcStart = deserializeArrayArrayInto<valueof<T>>(srcStart, srcEnd, value);
+        if (!srcStart || srcStart >= srcEnd) break;
+      } else {
+        const valueEnd = scanValueEnd(srcStart, srcEnd);
+        if (!valueEnd || valueEnd <= srcStart) break;
+
+        let valuePtr: usize = 0;
+        if (index < out.length) {
+          valuePtr = changetype<usize>(unchecked(out[index]));
+        }
+        const value = JSON.__deserialize<valueof<T>>(srcStart, valueEnd, valuePtr);
+        if (index < out.length) unchecked((out[index] = value));
+        else out.push(value);
+        srcStart = valueEnd;
+      }
 
       const code = load<u16>(srcStart);
       if (code == COMMA) {
@@ -36,4 +66,9 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
   } while (false);
 
   throw new Error("Failed to parse JSON!");
+}
+
+
+@inline export function deserializeArrayArrayField<T extends unknown[][]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
+  return deserializeArrayArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
 }

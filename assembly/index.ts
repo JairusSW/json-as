@@ -17,7 +17,6 @@ import { serializeSet } from "./serialize/index/set";
 import { deserializeSet } from "./deserialize/index/set";
 import { serializeStaticArray } from "./serialize/index/staticarray";
 import { deserializeStaticArray } from "./deserialize/index/staticarray";
-
 import { NULL_WORD, QUOTE, NULL_WORD_U64, TRUE_WORD_U64, FALSE_WORD_U64 } from "./custom/chars";
 import { dtoa_buffered, itoa_buffered } from "util/number";
 import { serializeBool } from "./serialize/index/bool";
@@ -236,8 +235,9 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
       } else if (isDefined(type.__DESERIALIZE)) {
         const out = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
+        // Fast-path builds emit __DESERIALIZE_FAST and can initialize lazily while parsing.
         // @ts-expect-error: Defined by transform
-        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        if (!isDefined(type.__DESERIALIZE_FAST) && isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
         out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
         return out;
@@ -943,7 +943,7 @@ export namespace JSON {
       } else if (isDefined(type.__DESERIALIZE)) {
         const out = changetype<nonnull<T>>(dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
         // @ts-expect-error: Defined by transform
-        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        if (!isDefined(type.__DESERIALIZE_FAST) && isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
         out.__DESERIALIZE(srcStart, srcEnd, out);
         return out;
