@@ -235,11 +235,16 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
       } else if (isDefined(type.__DESERIALIZE)) {
         const out = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
-        // Fast-path builds emit __DESERIALIZE_FAST and can initialize lazily while parsing.
         // @ts-expect-error: Defined by transform
-        if (!isDefined(type.__DESERIALIZE_FAST) && isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
-        out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
+        if (isDefined(type.__DESERIALIZE_FAST)) {
+          // @ts-expect-error: Defined by transform
+          const fastEnd = out.__DESERIALIZE_FAST(dataPtr, dataPtr + dataSize, out);
+          // @ts-expect-error: Defined by transform
+          if (!fastEnd) out.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, out);
+          // @ts-expect-error: Defined by transform
+        } else out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
         return out;
       }
       if (type instanceof StaticArray) {
@@ -943,9 +948,11 @@ export namespace JSON {
       } else if (isDefined(type.__DESERIALIZE)) {
         const out = changetype<nonnull<T>>(dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
         // @ts-expect-error: Defined by transform
-        if (!isDefined(type.__DESERIALIZE_FAST) && isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
-        out.__DESERIALIZE(srcStart, srcEnd, out);
+        if (isDefined(type.__DESERIALIZE_SLOW)) out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
+        // @ts-expect-error: Defined by transform
+        else out.__DESERIALIZE(srcStart, srcEnd, out);
         return out;
       }
       if (type instanceof StaticArray) {

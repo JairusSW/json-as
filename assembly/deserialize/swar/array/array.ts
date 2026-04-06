@@ -4,7 +4,7 @@ import { deserializeFloatArrayInto } from "./float";
 import { ensureArrayField, scanValueEnd } from "./shared";
 
 
-@inline function deserializeArrayArrayInto<T extends unknown[][]>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline export function deserializeArrayArrayInto<T extends unknown[][]>(srcStart: usize, srcEnd: usize, out: T): usize {
   let index = 0;
 
   do {
@@ -22,7 +22,7 @@ import { ensureArrayField, scanValueEnd } from "./shared";
         if (index < out.length) {
           value = unchecked(out[index]);
         } else {
-          value = changetype<valueof<T>>(instantiate<nonnull<valueof<T>>>());
+          value = changetype<valueof<T>>(instantiate<valueof<T>>());
           out.push(value);
         }
         srcStart = deserializeFloatArrayInto<valueof<T>>(srcStart, srcEnd, value);
@@ -32,7 +32,7 @@ import { ensureArrayField, scanValueEnd } from "./shared";
         if (index < out.length) {
           value = unchecked(out[index]);
         } else {
-          value = changetype<valueof<T>>(instantiate<nonnull<valueof<T>>>());
+          value = changetype<valueof<T>>(instantiate<valueof<T>>());
           out.push(value);
         }
         srcStart = deserializeArrayArrayInto<valueof<T>>(srcStart, srcEnd, value);

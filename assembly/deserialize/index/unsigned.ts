@@ -1,1 +1,1 @@
-export { deserializeUnsigned } from "../unsigned";
+export { deserializeUnsigned } from "../simple/unsigned";

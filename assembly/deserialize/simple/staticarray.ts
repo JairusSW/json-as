@@ -72,10 +72,11 @@ export function deserializeStaticArray<T extends StaticArray<any>>(srcStart: usi
   throw new Error("Could not parse static array of type " + nameof<T>() + "!");
 }
 
-@inline export function deserializeStaticArrayField<T extends StaticArray<any>>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
+@inline export function deserializeStaticArrayField<T extends StaticArray<any>>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
   const valueEnd = scanValueEnd(srcStart, srcEnd);
   if (!valueEnd) throw new Error("Failed to parse JSON!");
 
+  const fieldPtr = dstObj + dstOffset;
   const out = deserializeStaticArray<T>(srcStart, valueEnd, load<usize>(fieldPtr));
   store<T>(fieldPtr, out);
   return valueEnd;

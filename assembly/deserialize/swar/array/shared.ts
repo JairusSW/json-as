@@ -10,6 +10,15 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
   return out;
 }
 
+@inline export function ensureArrayFieldAt<T extends Array<any>>(dstObj: usize, dstOffset: usize): T {
+  let out = load<T>(dstObj, dstOffset);
+  if (!changetype<usize>(out)) {
+    out = changetype<T>(instantiate<T>());
+    store<T>(dstObj, out, dstOffset);
+  }
+  return out;
+}
+
 
 @inline function backslashOrQuoteMask(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;

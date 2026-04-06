@@ -170,14 +170,8 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
   return out;
 }
 
-@inline export function deserializeMapField<T extends Map<any, any>>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  let out = load<T>(fieldPtr);
-  if (!changetype<usize>(out)) {
-    out = changetype<T>(instantiate<T>());
-    store<T>(fieldPtr, out);
-  } else {
-    changetype<nonnull<T>>(out).clear();
-  }
+@inline export function deserializeMapInto<T extends Map<any, any>>(srcStart: usize, srcEnd: usize, out: T): usize {
+  changetype<nonnull<T>>(out).clear();
 
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACE_LEFT) throw new Error("Failed to parse JSON!");
   srcStart += 2;
@@ -213,4 +207,13 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
   }
 
   throw new Error("Failed to parse JSON!");
+}
+
+@inline export function deserializeMapField<T extends Map<any, any>>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+  let out = load<T>(dstObj, dstOffset);
+  if (!changetype<usize>(out)) {
+    out = changetype<T>(instantiate<T>());
+    store<T>(dstObj, out, dstOffset);
+  }
+  return deserializeMapInto<T>(srcStart, srcEnd, out);
 }

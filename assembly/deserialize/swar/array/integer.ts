@@ -1,5 +1,5 @@
-import { deserializeIntegerField } from "../../integer";
-import { deserializeUnsignedField } from "../../unsigned";
+import { deserializeIntegerField } from "../../simple/integer";
+import { deserializeUnsignedField } from "../../simple/unsigned";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
@@ -425,8 +425,7 @@ export function deserializeIntegerArray_SWAR<T extends number[]>(srcStart: usize
 }
 
 
-@inline export function deserializeIntegerArrayField<T extends number[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  const out = ensureArrayField<T>(fieldPtr);
+@inline export function deserializeIntegerArrayInto<T extends number[]>(srcStart: usize, srcEnd: usize, out: T): usize {
   let index = 0;
 
   do {
@@ -458,4 +457,8 @@ export function deserializeIntegerArray_SWAR<T extends number[]>(srcStart: usize
   } while (false);
 
   throw new Error("Failed to parse JSON!");
+}
+
+@inline export function deserializeIntegerArrayField<T extends number[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
+  return deserializeIntegerArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
 }

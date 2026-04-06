@@ -305,8 +305,33 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   memory.copy(stringPtr, srcStart, byteLength);
 }
 
+// @ts-expect-error: @inline is a valid decorator
+@inline function writeStringToOwnerField<TOwner>(owner: TOwner, fieldOffset: usize, srcStart: usize, byteLength: u32): void {
+  let fieldPtr = changetype<usize>(owner) + fieldOffset;
+  if (byteLength == 0) {
+    store<usize>(fieldPtr, changetype<usize>(""));
+    return;
+  }
+
+  const current = load<usize>(fieldPtr);
+  let stringPtr: usize;
+  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+    stringPtr = current;
+  } else if (current != 0 && current != changetype<usize>("")) {
+    stringPtr = __renew(current, byteLength);
+    fieldPtr = changetype<usize>(owner) + fieldOffset;
+    store<usize>(fieldPtr, stringPtr);
+  } else {
+    stringPtr = __new(byteLength, idof<string>());
+    fieldPtr = changetype<usize>(owner) + fieldOffset;
+    store<usize>(fieldPtr, stringPtr);
+  }
+  memory.copy(stringPtr, srcStart, byteLength);
+}
+
 /*
-export function deserializeStringField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+export function deserializeStringField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+  const dstFieldPtr = dstObj + dstOffset;
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
@@ -695,6 +720,99 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
   return srcStart;
 }
 
+// @ts-expect-error: @inline is a valid decorator
+@inline function deserializeEscapedStringContinuationToOwner_SWAR<TOwner>(lastPtr: usize, srcStart: usize, srcEnd: usize, owner: TOwner, fieldOffset: usize, outStart: usize): usize {
+  const srcEnd8 = srcEnd - 8;
+
+  while (srcStart <= srcEnd8) {
+    const blockStart = srcStart;
+    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
+    if (mask === 0) {
+      srcStart += 8;
+      continue;
+    }
+
+    do {
+      const laneIdx = usize(ctz(mask) >> 3);
+      mask &= mask - 1;
+      const srcIdx = srcStart + laneIdx;
+      const char = load<u16>(srcIdx);
+      if (char == QUOTE) {
+        const runLen = <u32>(srcIdx - lastPtr);
+        if (runLen != 0) {
+          memory.copy(bs.offset, lastPtr, runLen);
+          bs.offset += runLen;
+        }
+        writeStringToOwnerField(owner, fieldOffset, bs.buffer, <u32>(bs.offset - bs.buffer));
+        bs.offset = bs.buffer + outStart;
+        return srcIdx + 2;
+      }
+      if (char != BACK_SLASH) continue;
+
+      const runLen = <u32>(srcIdx - lastPtr);
+      if (runLen != 0) {
+        memory.copy(bs.offset, lastPtr, runLen);
+        bs.offset += runLen;
+      }
+
+      const code = <u16>(load<u32>(srcIdx) >> 16);
+      if (code !== 0x75) {
+        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+        bs.offset += 2;
+        lastPtr = srcIdx + 4;
+      } else {
+        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
+        bs.offset += 2;
+        lastPtr = srcIdx + 12;
+      }
+      srcStart = lastPtr;
+      break;
+    } while (mask !== 0);
+
+    if (srcStart == blockStart) srcStart += 8;
+  }
+
+  while (srcStart < srcEnd) {
+    const char = load<u16>(srcStart);
+    if (char == QUOTE) {
+      const runLen = <u32>(srcStart - lastPtr);
+      if (runLen != 0) {
+        memory.copy(bs.offset, lastPtr, runLen);
+        bs.offset += runLen;
+      }
+      writeStringToOwnerField(owner, fieldOffset, bs.buffer, <u32>(bs.offset - bs.buffer));
+      bs.offset = bs.buffer + outStart;
+      return srcStart + 2;
+    }
+    if (char != BACK_SLASH) {
+      srcStart += 2;
+      continue;
+    }
+
+    const runLen = <u32>(srcStart - lastPtr);
+    if (runLen != 0) {
+      memory.copy(bs.offset, lastPtr, runLen);
+      bs.offset += runLen;
+    }
+
+    const code = load<u16>(srcStart, 2);
+    if (code !== 0x75) {
+      store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+      bs.offset += 2;
+      srcStart += 4;
+    } else {
+      store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
+      bs.offset += 2;
+      srcStart += 12;
+    }
+    lastPtr = srcStart;
+  }
+
+  bs.offset = bs.buffer + outStart;
+  abort("Unterminated string literal");
+  return srcStart;
+}
+
 // Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
 export function deserializeStringField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
@@ -774,6 +892,91 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
         lastPtr = srcStart + 12;
       }
       return inline.always(deserializeEscapedStringContinuation_SWAR(lastPtr, lastPtr, srcEnd, dstFieldPtr, outStart));
+    }
+    srcStart += 2;
+  }
+
+  abort("Unterminated string literal");
+  return srcStart;
+}
+
+export function deserializeStringFieldToOwner_SWAR<TOwner, T extends string | null>(srcStart: usize, srcEnd: usize, owner: TOwner, fieldOffset: usize): usize {
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+
+  const payloadStart = srcStart + 2;
+  const srcEnd8 = srcEnd - 8;
+  srcStart = payloadStart;
+
+  while (srcStart <= srcEnd8) {
+    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
+    if (mask === 0) {
+      srcStart += 8;
+      continue;
+    }
+
+    do {
+      const laneIdx = usize(ctz(mask) >> 3);
+      mask &= mask - 1;
+      const srcIdx = srcStart + laneIdx;
+      const char = load<u16>(srcIdx);
+      if (char == QUOTE) {
+        writeStringToOwnerField(owner, fieldOffset, payloadStart, <u32>(srcIdx - payloadStart));
+        return srcIdx + 2;
+      }
+      if (char != BACK_SLASH) continue;
+
+      const outStart = bs.offset - bs.buffer;
+      bs.ensureSize(<u32>(srcEnd - payloadStart));
+      const prefixLen = <u32>(srcIdx - payloadStart);
+      if (prefixLen != 0) {
+        memory.copy(bs.offset, payloadStart, prefixLen);
+        bs.offset += prefixLen;
+      }
+
+      const code = <u16>(load<u32>(srcIdx) >> 16);
+      let lastPtr: usize;
+      if (code !== 0x75) {
+        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+        bs.offset += 2;
+        lastPtr = srcIdx + 4;
+      } else {
+        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
+        bs.offset += 2;
+        lastPtr = srcIdx + 12;
+      }
+      return inline.always(deserializeEscapedStringContinuationToOwner_SWAR(lastPtr, lastPtr, srcEnd, owner, fieldOffset, outStart));
+    } while (mask !== 0);
+
+    srcStart += 8;
+  }
+
+  while (srcStart < srcEnd) {
+    const char = load<u16>(srcStart);
+    if (char == QUOTE) {
+      writeStringToOwnerField(owner, fieldOffset, payloadStart, <u32>(srcStart - payloadStart));
+      return srcStart + 2;
+    }
+    if (char == BACK_SLASH) {
+      const outStart = bs.offset - bs.buffer;
+      bs.ensureSize(<u32>(srcEnd - payloadStart));
+      const prefixLen = <u32>(srcStart - payloadStart);
+      if (prefixLen != 0) {
+        memory.copy(bs.offset, payloadStart, prefixLen);
+        bs.offset += prefixLen;
+      }
+
+      const code = load<u16>(srcStart, 2);
+      let lastPtr: usize;
+      if (code !== 0x75) {
+        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+        bs.offset += 2;
+        lastPtr = srcStart + 4;
+      } else {
+        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
+        bs.offset += 2;
+        lastPtr = srcStart + 12;
+      }
+      return inline.always(deserializeEscapedStringContinuationToOwner_SWAR(lastPtr, lastPtr, srcEnd, owner, fieldOffset, outStart));
     }
     srcStart += 2;
   }

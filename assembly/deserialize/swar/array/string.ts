@@ -3,8 +3,7 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 import { deserializeStringField_SWAR } from "../string";
 
 
-@inline export function deserializeStringArrayField<T extends string[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  const out = ensureArrayField<T>(fieldPtr);
+@inline export function deserializeStringArrayInto<T extends string[]>(srcStart: usize, srcEnd: usize, out: T): usize {
   let index = 0;
 
   do {
@@ -36,4 +35,8 @@ import { deserializeStringField_SWAR } from "../string";
   } while (false);
 
   throw new Error("Failed to parse JSON!");
+}
+
+@inline export function deserializeStringArrayField<T extends string[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
+  return deserializeStringArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
 }

@@ -1,4 +1,4 @@
-import { deserializeFloatField } from "../../float";
+import { deserializeFloatField } from "../../simple/float";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 

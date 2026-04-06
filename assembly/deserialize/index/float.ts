@@ -1,1 +1,1 @@
-export { deserializeFloat } from "../float";
+export { deserializeFloat } from "../simple/float";

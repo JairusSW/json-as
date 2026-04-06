@@ -7,7 +7,7 @@ import { deserializeString_SWAR } from "../swar/string";
 import { deserializeArbitrary } from "./arbitrary";
 import { deserializeArray } from "./array";
 import { deserializeBoolean } from "./bool";
-import { deserializeFloat } from "../float";
+import { deserializeFloat } from "./float";
 import { deserializeString } from "./string";
 
 export function deserializeObject(srcStart: usize, srcEnd: usize, dst: usize): JSON.Obj {

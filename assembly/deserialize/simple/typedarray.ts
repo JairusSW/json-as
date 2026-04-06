@@ -1,5 +1,5 @@
 import { COMMA, BRACKET_RIGHT } from "../../custom/chars";
-import { deserializeFloat } from "../index/float";
+import { deserializeFloat } from "./float";
 import { atoi, isSpace } from "../../util";
 
 

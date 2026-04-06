@@ -2,8 +2,7 @@ import { BRACKET_LEFT, BRACKET_RIGHT, COMMA, FALSE_WORD_U64, TRUE_WORD_U64 } fro
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 
 
-@inline export function deserializeBooleanArrayField<T extends boolean[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  const out = ensureArrayField<T>(fieldPtr);
+@inline export function deserializeBooleanArrayInto<T extends boolean[]>(srcStart: usize, srcEnd: usize, out: T): usize {
   let index = 0;
 
   do {
@@ -44,4 +43,8 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
   } while (false);
 
   throw new Error("Failed to parse JSON!");
+}
+
+@inline export function deserializeBooleanArrayField<T extends boolean[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
+  return deserializeBooleanArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
 }

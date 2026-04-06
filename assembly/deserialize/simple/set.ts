@@ -138,13 +138,17 @@ export function deserializeSet<T extends Set<any>>(srcStart: usize, srcEnd: usiz
 }
 
 // @ts-expect-error: Decorator valid here
-@inline export function deserializeSetField<T extends Set<any>>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  let out = load<T>(fieldPtr);
+@inline export function deserializeSetInto<T extends Set<any>>(srcStart: usize, srcEnd: usize, out: T): usize {
+  changetype<nonnull<T>>(out).clear();
+  return deserializeSetDirect<T>(srcStart, srcEnd, changetype<nonnull<T>>(out));
+}
+
+// @ts-expect-error: Decorator valid here
+@inline export function deserializeSetField<T extends Set<any>>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+  let out = load<T>(dstObj, dstOffset);
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
-    store<T>(fieldPtr, out);
-  } else {
-    changetype<nonnull<T>>(out).clear();
+    store<T>(dstObj, out, dstOffset);
   }
-  return deserializeSetDirect<T>(srcStart, srcEnd, changetype<nonnull<T>>(out));
+  return deserializeSetInto<T>(srcStart, srcEnd, out);
 }

@@ -65,7 +65,8 @@ import { hex4_to_u16_swar } from "../../util/swar";
 }
 
 // @ts-ignore: inline
-@inline export function deserializeStringField<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+@inline export function deserializeStringField<T extends string | null>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+  const dstFieldPtr = dstObj + dstOffset;
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;

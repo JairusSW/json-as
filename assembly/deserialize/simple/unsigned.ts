@@ -1,4 +1,4 @@
-import { atoi } from "../util/atoi";
+import { atoi } from "../../util/atoi";
 
 // @ts-ignore: inline
 @inline export function deserializeUnsigned<T>(srcStart: usize, srcEnd: usize): T {
@@ -6,7 +6,8 @@ import { atoi } from "../util/atoi";
 }
 
 // @ts-ignore: inline
-@inline export function deserializeUnsignedField<T extends number>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
+@inline export function deserializeUnsignedField<T extends number>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+  const fieldPtr = dstObj + dstOffset;
   let digit = <u32>load<u16>(srcStart) - 48;
   if (digit > 9) unreachable();
 

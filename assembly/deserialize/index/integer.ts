@@ -1,1 +1,1 @@
-export { deserializeInteger } from "../integer";
+export { deserializeInteger } from "../simple/integer";

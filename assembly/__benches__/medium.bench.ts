@@ -32,7 +32,8 @@ function parseBoolField(srcStart: usize, dstFieldPtr: usize): usize {
 
 
 @inline
-function deserializeIntegerField<T extends number>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
+function deserializeIntegerField<T extends number>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+  const fieldPtr = dstObj + dstOffset;
   let valueEnd = srcStart;
   if (load<u16>(valueEnd) == 45) {
     valueEnd += 2;

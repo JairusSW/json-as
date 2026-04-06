@@ -4,7 +4,7 @@ import { QUOTE } from "../../custom/chars";
 import { BACK_SLASH } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
-import { deserializeStringField_SWAR } from "../swar/string";
+import { deserializeStringField_SWAR, deserializeStringFieldToOwner_SWAR } from "../swar/string";
 
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_5C = i16x8.splat(0x5c); // \
@@ -89,6 +89,30 @@ import { deserializeStringField_SWAR } from "../swar/string";
   } else {
     stringPtr = __new(byteLength, idof<string>());
     store<usize>(dstFieldPtr, stringPtr);
+  }
+  memory.copy(stringPtr, srcStart, byteLength);
+}
+
+// @ts-expect-error: @inline is a valid decorator
+@inline function writeStringToOwnerField_SIMD<TOwner>(owner: TOwner, fieldOffset: usize, srcStart: usize, byteLength: u32): void {
+  let fieldPtr = changetype<usize>(owner) + fieldOffset;
+  if (byteLength == 0) {
+    store<usize>(fieldPtr, changetype<usize>(""));
+    return;
+  }
+
+  const current = load<usize>(fieldPtr);
+  let stringPtr: usize;
+  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+    stringPtr = current;
+  } else if (current != 0 && current != changetype<usize>("")) {
+    stringPtr = __renew(current, byteLength);
+    fieldPtr = changetype<usize>(owner) + fieldOffset;
+    store<usize>(fieldPtr, stringPtr);
+  } else {
+    stringPtr = __new(byteLength, idof<string>());
+    fieldPtr = changetype<usize>(owner) + fieldOffset;
+    store<usize>(fieldPtr, stringPtr);
   }
   memory.copy(stringPtr, srcStart, byteLength);
 }
@@ -227,7 +251,8 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
 }
 
 // @ts-expect-error: @inline is a valid decorator
-@inline export function deserializeStringField_SIMD<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+@inline export function deserializeStringField_SIMD<T extends string | null>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+  const dstFieldPtr = dstObj + dstOffset;
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
   const quotedStart = srcStart;
@@ -271,6 +296,59 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
     }
     if (char == BACK_SLASH) {
       return deserializeStringField_SWAR<T>(quotedStart, srcEnd, dstFieldPtr);
+    }
+    srcStart += 2;
+  }
+
+  abort("Unterminated string literal");
+  return srcStart;
+}
+
+// @ts-expect-error: @inline is a valid decorator
+@inline export function deserializeStringFieldToOwner_SIMD<TOwner, T extends string | null>(srcStart: usize, srcEnd: usize, owner: TOwner, fieldOffset: usize): usize {
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+
+  const quotedStart = srcStart;
+  const payloadStart = srcStart + 2;
+  const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
+  srcStart = payloadStart;
+
+  while (srcStart <= srcEnd16) {
+    const block = load<v128>(srcStart);
+    let mask = i16x8.bitmask(v128.or(i16x8.eq(block, SPLAT_5C), i16x8.eq(block, SPLAT_22)));
+
+    if (mask == 0) {
+      srcStart += 16;
+      continue;
+    }
+
+    do {
+      const laneIdx = usize(ctz(mask) << 1);
+      mask &= mask - 1;
+      const srcIdx = srcStart + laneIdx;
+      const char = load<u16>(srcIdx);
+
+      if (char == QUOTE) {
+        writeStringToOwnerField_SIMD(owner, fieldOffset, payloadStart, <u32>(srcIdx - payloadStart));
+        return srcIdx + 2;
+      }
+
+      if (char == BACK_SLASH) {
+        return deserializeStringFieldToOwner_SWAR<TOwner, T>(quotedStart, srcEnd, owner, fieldOffset);
+      }
+    } while (mask != 0);
+
+    srcStart += 16;
+  }
+
+  while (srcStart < srcEnd) {
+    const char = load<u16>(srcStart);
+    if (char == QUOTE) {
+      writeStringToOwnerField_SIMD(owner, fieldOffset, payloadStart, <u32>(srcStart - payloadStart));
+      return srcStart + 2;
+    }
+    if (char == BACK_SLASH) {
+      return deserializeStringFieldToOwner_SWAR<TOwner, T>(quotedStart, srcEnd, owner, fieldOffset);
     }
     srcStart += 2;
   }

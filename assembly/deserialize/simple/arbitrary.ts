@@ -1,7 +1,7 @@
 import { JSON } from "../..";
 import { deserializeArray } from "./array";
 import { deserializeBoolean } from "./bool";
-import { deserializeFloat } from "../float";
+import { deserializeFloat } from "./float";
 import { deserializeString } from "./string";
 import { deserializeObject } from "./object";
 import { BRACE_LEFT, BRACKET_LEFT, CHAR_N, QUOTE } from "../../custom/chars";
