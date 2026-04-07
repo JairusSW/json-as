@@ -46,7 +46,7 @@ bench(
   40,
   canadaJsonChars << 1,
 );
-dumpToFile("canada-typed", "deserialize");
+dumpToFile("canada", "deserialize");
 
 bench(
   "Serialize Canada",
@@ -54,6 +54,6 @@ bench(
     blackbox(JSON.stringify(typed));
   },
   40,
-  typedSerialized.length << 1,
+  canadaJsonChars << 1,
 );
-dumpToFile("canada-typed", "serialize");
+dumpToFile("canada", "serialize");

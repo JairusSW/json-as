@@ -78,6 +78,6 @@ bench(
     blackbox(JSON.stringify(typed));
   },
   40,
-  typedSerialized.length << 1,
+  payloadChars << 1,
 );
 dumpToFile("large-file", "serialize");
