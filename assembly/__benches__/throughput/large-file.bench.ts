@@ -1,7 +1,9 @@
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
-import { blackbox, bench, dumpToFile } from "../lib/bench";
-import { payloadChars, payloadData } from "./large-file.data.ts";
+import { blackbox, bench, dumpToFile, readFile } from "../lib/bench";
+
+const payloadData = readFile("./assembly/__benches__/payloads/large-file.json");
+const payloadChars = payloadData.length;
 
 
 @json
@@ -11,6 +13,7 @@ class Large {
   actor!: Actor;
   repo!: Repo;
   payload!: Payload;
+
 
   @alias("public")
   _public!: boolean;

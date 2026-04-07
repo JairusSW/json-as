@@ -93,7 +93,7 @@ for file in "${FILES[@]}"; do
         output="./build/${filename%.ts}.${runtime}"
 
         if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "NAIVE") && (-z "$file_mode" || "$file_mode" == "NAIVE") ]]; then
-            JSON_WRITE="$write_target" JSON_MODE=NAIVE npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start || {
+            JSON_WRITE="$write_target" JSON_MODE=NAIVE npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start --exportRuntime || {
                 echo "Build failed"
                 exit 1
             }
@@ -103,7 +103,7 @@ for file in "${FILES[@]}"; do
         fi
 
         if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SWAR") && (-z "$file_mode" || "$file_mode" == "SWAR") ]]; then
-            JSON_WRITE="$write_target" JSON_MODE=SWAR npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start || {
+            JSON_WRITE="$write_target" JSON_MODE=SWAR npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --exportStart start --exportRuntime || {
                 echo "Build failed"
                 exit 1
             }
@@ -113,7 +113,7 @@ for file in "${FILES[@]}"; do
         fi
 
         if [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "SIMD") && (-z "$file_mode" || "$file_mode" == "SIMD") ]]; then
-            JSON_WRITE="$write_target" JSON_MODE=SIMD npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --enable simd --exportStart start || {
+            JSON_WRITE="$write_target" JSON_MODE=SIMD npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --enable bulk-memory --enable simd --exportStart start --exportRuntime || {
                 echo "Build failed"
                 exit 1
             }

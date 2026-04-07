@@ -4,6 +4,8 @@ const bytes = readbuffer("./build/" + arguments[0]);
 
 const module = new WebAssembly.Module(bytes);
 let memory = null;
+const ARRAYBUFFER_ID = 1;
+let __lowerBufferOffset = 0;
 const { exports } = new WebAssembly.Instance(module, {
   env: {
     abort: (msg, file, line) => {
@@ -19,6 +21,11 @@ const { exports } = new WebAssembly.Instance(module, {
       data = __liftString(data);
       writeFile(fileName, data);
     },
+    readFile: (filePath) => {
+      filePath = __liftString(filePath);
+      const data = readbuffer(filePath);
+      return __lowerBuffer(data);
+    },
   },
 });
 
@@ -32,6 +39,13 @@ function __liftString(pointer) {
     string = "";
   while (end - start > 1024) string += String.fromCharCode(...memoryU16.subarray(start, (start += 1024)));
   return string + String.fromCharCode(...memoryU16.subarray(start, end));
+}
+
+function __lowerBuffer(value) {
+  if (value == null) return 0;
+  const pointer = exports.__new(value.byteLength, 1) >>> 0;
+  new Uint8Array(memory.buffer).set(new Uint8Array(value), pointer);
+  return pointer;
 }
 
 exports.start();

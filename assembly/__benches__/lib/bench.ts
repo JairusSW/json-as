@@ -1,7 +1,11 @@
 import { JSON, JSONMode } from "../..";
 // @ts-ignore: decorator allowed
 @external("env", "writeFile")
-declare function writeFile(fileName: string, data: string): void;
+export declare function writeFile(fileName: string, data: string): void;
+
+// @ts-ignore: decorator allowed
+@external("env", "readFile")
+export declare function readFileBuffer(filePath: string): ArrayBuffer;
 
 
 @json
@@ -76,6 +80,10 @@ function JSON_MODE_TO_STRING(mode: JSONMode): string {
 
 export function dumpToFile(suite: string, type: string): void {
   writeFile("./build/logs/as/" + JSON_MODE_TO_STRING(JSON_MODE) + "/" + suite + "." + type + ".as.json", JSON.stringify(result));
+}
+
+export function readFile(path: string): string {
+  return String.UTF8.decode(readFileBuffer(path));
 }
 
 function formatNumber(n: u64): string {
