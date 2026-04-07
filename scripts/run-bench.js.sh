@@ -5,8 +5,15 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ENGINES=${ENGINES:-"turbofan"}
-npx tsc -p ./bench > /dev/null 2>&1
-npx tsc -p ./bench/throughput > /dev/null 2>&1
+if ! npx tsc -p ./bench > /tmp/tsc-bench.log 2>&1; then
+  cat /tmp/tsc-bench.log
+  exit 1
+fi
+
+if ! npx tsc -p ./bench/throughput > /tmp/tsc-throughput.log 2>&1; then
+  cat /tmp/tsc-throughput.log
+  exit 1
+fi
 cp ./bench/lib/bench.js ./build/lib/bench.js
 mkdir -p ./build/logs/js
 

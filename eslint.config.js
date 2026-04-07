@@ -53,6 +53,7 @@ export default tseslint.config(
         performance: "readonly",
         readbuffer: "readonly",
         writeFile: "readonly",
+        read: "readonly",
       },
     },
   },
@@ -62,6 +63,7 @@ export default tseslint.config(
       globals: {
         performance: "readonly",
         writeFile: "readonly",
+        read: "readonly",
       },
     },
   },

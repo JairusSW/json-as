@@ -1,6 +1,6 @@
 let result = {};
 export function bench(description, routine, ops = 1_000_000, bytesPerOp = 0) {
-  console.log(" - Benchmarking " + description);
+  print(" - Benchmarking " + description);
   let warmup = Math.floor(ops / 10);
   while (warmup-- > 0) {
     routine();
@@ -29,11 +29,16 @@ export function bench(description, routine, ops = 1_000_000, bytesPerOp = 0) {
     features: [],
     mbps: mbPerSec,
   };
-  console.log(log + "\n");
+  print(log + "\n");
 }
 export function dumpToFile(suite, type) {
   writeFile("./build/logs/js/" + suite + "." + type + ".js.json", JSON.stringify(result));
 }
+
+export function readFile(path) {
+  return read(path);
+}
+
 function formatNumber(n) {
   let str = n.toString();
   let len = str.length;

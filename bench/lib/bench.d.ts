@@ -20,3 +20,5 @@ export function bench(description: string, routine: () => void, ops?: number, by
 export function blackbox<T>(x: T): T;
 
 export function dumpToFile(suite: string, type: string): void;
+
+export function readFile(path: string): string;
