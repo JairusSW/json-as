@@ -17,7 +17,7 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
   let values = src.values();
   const keyIsString = isString<indexof<T>>();
 
-  bs.proposeSize(4);
+  bs.proposeSize(4 + <u32>(srcSize - 1) * 2 + <u32>srcSize * 2);
 
   store<u16>(bs.offset, BRACE_LEFT);
   bs.offset += 2;
@@ -28,11 +28,9 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
     } else {
       JSON.__serialize<string>(JSON.internal.stringify<indexof<T>>(unchecked(keys[i])));
     }
-    bs.growSize(2);
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
     JSON.__serialize(unchecked(values[i]));
-    bs.growSize(2);
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }
@@ -42,12 +40,10 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
   } else {
     JSON.__serialize<string>(JSON.internal.stringify<indexof<T>>(unchecked(keys[srcEnd])));
   }
-  bs.growSize(2);
   store<u16>(bs.offset, COLON);
   bs.offset += 2;
 
   JSON.__serialize(unchecked(values[srcEnd]));
-  // bs.growSize(2);
   store<u16>(bs.offset, BRACE_RIGHT);
   bs.offset += 2;
 }

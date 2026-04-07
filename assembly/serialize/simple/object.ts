@@ -18,29 +18,25 @@ export function serializeObject(src: JSON.Obj): void {
   const keys = src.keys();
   const values = src.values();
 
-  bs.growSize(2);
+  bs.proposeSize(4 + <u32>(srcSize - 1) * 2 + <u32>srcSize * 2);
   store<u16>(bs.offset, BRACE_LEFT);
   bs.offset += 2;
 
   for (let i = 0; i < srcEnd; i++) {
     serializeString_SWAR(unchecked(keys[i]));
-    bs.growSize(2);
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
 
     serializeArbitrary(unchecked(values[i]));
-    bs.growSize(2);
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }
 
   serializeString_SWAR(unchecked(keys[srcEnd]));
-  bs.growSize(2);
   store<u16>(bs.offset, COLON);
   bs.offset += 2;
   serializeArbitrary(unchecked(values[srcEnd]));
 
-  bs.growSize(2);
   store<u16>(bs.offset, BRACE_RIGHT);
   bs.offset += 2;
 }

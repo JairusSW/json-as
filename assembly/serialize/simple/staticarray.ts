@@ -3,14 +3,16 @@ import { COMMA, BRACKET_RIGHT, BRACKET_LEFT } from "../../custom/chars";
 import { JSON } from "../..";
 
 export function serializeStaticArray<T extends StaticArray<any>>(src: T): void {
-  bs.proposeSize(4);
-  const end = src.length - 1;
+  const len = src.length;
+  const end = len - 1;
   let i = 0;
   if (end == -1) {
+    bs.proposeSize(4);
     store<u32>(bs.offset, 6094939); // []
     bs.offset += 4;
     return;
   }
+  bs.proposeSize(4 + <u32>(len - 1) * 2);
 
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
@@ -18,7 +20,6 @@ export function serializeStaticArray<T extends StaticArray<any>>(src: T): void {
   while (i < end) {
     const block = unchecked(src[i++]);
     JSON.__serialize<valueof<T>>(block);
-    bs.growSize(2);
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }

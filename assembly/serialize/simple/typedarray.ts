@@ -15,20 +15,21 @@ function serializeTypedArrayElement<T extends ArrayLike<number>>(src: T, index: 
 }
 
 export function serializeTypedArray<T extends ArrayLike<number>>(src: T): void {
-  bs.proposeSize(4);
-  const end = src.length - 1;
+  const len = src.length;
+  const end = len - 1;
   if (end == -1) {
+    bs.proposeSize(4);
     store<u32>(bs.offset, 6094939);
     bs.offset += 4;
     return;
   }
+  bs.proposeSize(4 + <u32>(len - 1) * 2);
 
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
 
   for (let i = 0; i < end; i++) {
     serializeTypedArrayElement(src, i);
-    bs.growSize(2);
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }
@@ -41,19 +42,19 @@ export function serializeTypedArray<T extends ArrayLike<number>>(src: T): void {
 export function serializeArrayBufferUnsafe(srcStart: usize, byteLength: i32): void {
   const end = byteLength - 1;
 
-  bs.proposeSize(4);
   if (end == -1) {
+    bs.proposeSize(4);
     store<u32>(bs.offset, 6094939);
     bs.offset += 4;
     return;
   }
+  bs.proposeSize(4 + <u32>(end) * 2);
 
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
 
   for (let i = 0; i < end; i++) {
     serializeInteger<u8>(load<u8>(srcStart + <usize>i));
-    bs.growSize(2);
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }
