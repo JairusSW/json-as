@@ -2,52 +2,20 @@
 
 ## Unreleased
 
-- feat: support fast-path deserialization for `@omitnull` schemas that preserve canonical generated key order
-- feat: add direct fast-path struct-field support for `JSON.Raw`
-- feat: add delegated fast-path struct-field support for `Set<T>`
-- feat: extend fast-path optional-field handling to support `@omitif` (including mixed `@omitif` + `@omitnull` schemas)
-- feat: add delegated fast-path struct-field support for `Map<K,V>` and `StaticArray<T>`
-- feat: add fast-path delegated support for `JSON.Value`, `JSON.Obj`, and enum fields via `scanValueEnd(...)` + typed fallback
-- feat: add delegated array deserialization support for `Array<Date>` and `Array<Set<T>>` in both default and fast-path field flows
 - feat: support broad `Map<K,V>` key round-trips by encoding non-string keys as quoted JSON key strings and decoding keys back through typed parse
-- tests: expand fast-path deserialization coverage for optional decorators, delegated containers, and map key variants
-- tests: add extensive map key round-trip coverage (`string`, numeric, boolean, date, struct, and array keys)
-- docs: add fast-path and container compatibility matrices to README, with current constraints and support examples
-- docs: track container and fast-path follow-up work in `TODO.md`
-- chore: merge legacy `TODO` into `TODO.md`
-- perf: promote the merged SWAR string-field deserializer path for escaped struct fields
-- tests: add a dedicated fast-path deserialization suite and config covering direct fields plus verified delegated fallback field types
-- docs: add a fast-path deserialization support matrix with current guarantees and known gaps
 - feat: allow `JSON.Value` to store and re-serialize built-in typed arrays and `ArrayBuffer`
-- feat: support `JSON.stringify<ArrayBuffer>(...)` directly without a dedicated helper
 - feat: let explicit `__SERIALIZE_CUSTOM` / `__DESERIALIZE_CUSTOM` hooks override built-in typed-array and `ArrayBuffer` handling while keeping generated hooks last
 - feat: support optional JSON shape hints on `@serializer(...)` / `@deserializer(...)` decorators, defaulting to `any` and allowing nullable forms like `string | null`
 - fix: preserve `bs` state across `JSON.internal.stringify(...)` and `JSON.internal.parse(...)`
-- fix: make escaped string deserializers use local `bs` slices so nested parse/custom flows do not clobber active buffer state
-- fix: allow nested `@json` fields that use decorator-based custom deserializers to deserialize correctly from string-valued object properties
-- fix: restore correct object-value end pointers in generated field deserializers so nested maps and custom string-backed fields both deserialize correctly
 - fix: make `JSON.Value` follow built-in subclass rules consistently for typed-array subclasses and custom `@json` subclasses
 - fix: make generated custom serializer wrappers use the provided `ptr` so indirect-call sites like `JSON.Value` serialize correctly
-- fix: resolve stdlib and `--lib` base classes during transform inheritance so `@json` subclasses of built-ins like `Uint8Array` include inherited fields instead of collapsing to empty objects
-- fix: stop preloading transform imports through `parser.parseFile(...)`, so repeated `asc()` calls in the same process no longer poison parser state or trip `lookupForeignFile` assertions
-- fix: rewrite nested `JSON.parse(...)` calls inside custom serializers and deserializers to `JSON.internal.parse(...)`, matching the existing internal stringify rewrite and documented behavior
-- docs: clarify that custom serializers and deserializers must always produce and consume valid JSON
-- docs: document how subclassing built-in container types behaves, including when `@json` custom overrides take effect
+- fix: stop preloading transform imports through `parser.parseFile(...)`, so repeated `asc()` calls in the same process no longer poison parser state or trip `lookupForeignFile` assertionsfect
 - fix: stop naive string deserialization scratch allocations from growing across repeated large payload parses by using local `ensureSize(...)` scratch capacity instead of serialization-style proposed growth
-- tests: expand custom serializer/deserializer coverage for nullable fields, multiple custom fields, escaped content, whitespace, and repeated round-trips
-- tests: add a repeated large string-heavy struct parse regression that exercises the naive deserialization scratch path
-- tests: add override coverage for plain and custom subclasses of `Array`, `Map`, `Set`, and typed arrays
-- tests: add `JSON.Value` regressions for undecorated and decorated typed-array subclasses
-- tests: add regression coverage for generated `@json` subclasses inheriting stdlib typed-array fields
-- chore: restrict published package contents to the runtime, declarations, built transform output, and top-level metadata files
-- chore: move benchmark and publish helper scripts under `scripts/` and expose them through npm scripts
-- docs: add a deep project walkthrough and refresh README task/benchmark references
 - perf: reserve SIMD string serializer buffer growth once per hit block to reduce dense-escape overhead
 - perf: raise the serialization buffer minimum size to 1024 bytes and add adaptive `bs.shrink()`
 - perf: add a packed SWAR `u16_to_hex4_swar` helper for `\uXXXX` emission and use it across simple, SWAR, and SIMD string serializers
-- tests: add dedicated SWAR hex helper coverage, including exhaustive full-range round-trip validation
-- tests: add whitespace coverage for string-backed custom serializer/deserializer flows
-- fuzz: add a basic `as-test` stringify fuzzer for safe ASCII string serialization
+- perf: rewrite float serialization to Dragonbox per-width writers and share them across arrays, typed arrays, `JSON.Value`, and `JSON.stringify`
+- perf: tune the Canada benchmark serialization pipeline with buffered estimates, delimiter helpers, and feature-segment concatenation to eliminate repeated `bs` growth
 - bench: add SWAR hex and SWAR string serializer head-to-head microbenchmarks
 - bench: add SIMD string serializer and SWAR escape/string variant head-to-head benchmarks
 

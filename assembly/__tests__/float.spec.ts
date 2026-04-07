@@ -52,7 +52,10 @@ describe("Additional regression coverage - primitives and arrays", () => {
 
 describe("Should serialize additional float edge cases", () => {
   expect(JSON.stringify<f64>(-0.0000001)).toBe("-1e-7");
+  expect(JSON.stringify<f64>(0.125)).toBe("0.125");
+  expect(JSON.stringify<f64>(-0.125)).toBe("-0.125");
   expect(JSON.stringify<f64>(3.141592653589793)).toBe("3.141592653589793");
+  expect(JSON.stringify<f64>(1000.0)).toBe("1000.0");
   expect(JSON.stringify<f64>(-123456789.25)).toBe("-123456789.25");
 });
 

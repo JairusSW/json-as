@@ -1,6 +1,17 @@
 import { bs } from "../../../lib/as-bs";
 import { COMMA, BRACKET_RIGHT, BRACKET_LEFT } from "../../custom/chars";
 import { JSON } from "../..";
+import { serializeFloat32, serializeFloat64 } from "./float";
+
+@inline
+function serializeArrayElement<T>(value: T): void {
+  if (isFloat<T>()) {
+    if (sizeof<T>() == 4) serializeFloat32(<f32>value);
+    else serializeFloat64(<f64>value);
+    return;
+  }
+  JSON.__serialize<T>(value);
+}
 
 export function serializeArray<T extends any[]>(src: T): void {
   bs.proposeSize(4);
@@ -19,14 +30,14 @@ export function serializeArray<T extends any[]>(src: T): void {
 
   while (i < end) {
     const block = unchecked(src[i++]);
-    JSON.__serialize<valueof<T>>(block);
+    serializeArrayElement<valueof<T>>(block);
     bs.growSize(2);
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }
 
   const lastBlock = unchecked(src[end]);
-  JSON.__serialize<valueof<T>>(lastBlock);
+  serializeArrayElement<valueof<T>>(lastBlock);
   // bs.growSize(2);
   store<u16>(bs.offset, BRACKET_RIGHT);
   bs.offset += 2;

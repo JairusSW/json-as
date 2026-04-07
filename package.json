@@ -81,7 +81,7 @@
   "scripts": {
     "ci": "act",
     "test": "ast test --parallel",
-    "test:fast-path": "npm run build:transform && JSON_USE_FAST_PATH=1 ast test --parallel --mode swar,simd",
+    "test:fast": "npm run build:transform && JSON_USE_FAST_PATH=1 ast test --parallel --mode swar,simd",
     "fuzz": "ast fuzz",
     "test:fuzz": "ast test --fuzz --parallel",
     "test:ci": "ast test --parallel --clean",

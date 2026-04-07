@@ -18,10 +18,11 @@ import { deserializeSet } from "./deserialize/index/set";
 import { serializeStaticArray } from "./serialize/index/staticarray";
 import { deserializeStaticArray } from "./deserialize/index/staticarray";
 import { NULL_WORD, QUOTE, NULL_WORD_U64, TRUE_WORD_U64, FALSE_WORD_U64 } from "./custom/chars";
-import { dtoa_buffered, itoa_buffered } from "util/number";
+import { itoa_buffered } from "util/number";
 import { serializeBool } from "./serialize/index/bool";
 import { serializeInteger } from "./serialize/index/integer";
-import { serializeFloat } from "./serialize/index/float";
+import { serializeFloat, serializeFloat32, serializeFloat64 } from "./serialize/index/float";
+import { dragonbox_f32_buffered, dragonbox_f64_buffered } from "./util/dragonbox";
 import { serializeStruct } from "./serialize/index/struct";
 import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes } from "./util";
@@ -100,13 +101,9 @@ export namespace JSON {
       }
       return data.toString();
     } else if (isFloat<T>(data)) {
-      if (out) {
-        out = changetype<string>(__renew(changetype<usize>(out), 64));
-
-        const bytes = dtoa_buffered(changetype<usize>(out), data) << 1;
-        return (out = changetype<string>(__renew(changetype<usize>(out), bytes)));
-      }
-      return data.toString();
+      out = out ? changetype<string>(__renew(changetype<usize>(out), 64)) : changetype<string>(__new(64, idof<string>()));
+      const bytes = (sizeof<T>() == 4 ? dragonbox_f32_buffered(changetype<usize>(out), <f32>data) : dragonbox_f64_buffered(changetype<usize>(out), <f64>data)) << 1;
+      return changetype<string>(__renew(changetype<usize>(out), bytes));
     } else if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
       if (out) {
         out = changetype<string>(__renew(changetype<usize>(out), 8));
@@ -847,7 +844,9 @@ export namespace JSON {
       serializeInteger<T>(data);
     } else if (isFloat<T>(data)) {
       // @ts-expect-error
-      serializeFloat<T>(data);
+      if (sizeof<T>() == 4) serializeFloat32(<f32>data);
+      // @ts-expect-error
+      else serializeFloat64(<f64>data);
     } else if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
       bs.proposeSize(8);
       store<u64>(bs.offset, NULL_WORD_U64);

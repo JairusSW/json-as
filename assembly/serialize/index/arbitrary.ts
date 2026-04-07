@@ -2,7 +2,7 @@ import { JSON } from "../..";
 import { bs } from "../../../lib/as-bs";
 import { serializeArray } from "./array";
 import { serializeBool } from "./bool";
-import { serializeFloat } from "./float";
+import { serializeFloat32, serializeFloat64 } from "./float";
 import { serializeInteger } from "./integer";
 import { serializeMap } from "./map";
 import { serializeObject } from "./object";
@@ -41,10 +41,10 @@ export function serializeArbitrary(src: JSON.Value): void {
       serializeInteger<i64>(src.get<i64>());
       break;
     case JSON.Types.F32:
-      serializeFloat<f32>(src.get<f32>());
+      serializeFloat32(src.get<f32>());
       break;
     case JSON.Types.F64:
-      serializeFloat<f64>(src.get<f64>());
+      serializeFloat64(src.get<f64>());
       break;
     case JSON.Types.String:
       serializeString(src.get<string>());

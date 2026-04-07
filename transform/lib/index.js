@@ -670,18 +670,11 @@ export class JSONTransform extends Visitor {
         const FLOAT_TYPES = ["f32", "f64"];
         const INTEGER_TYPES = [...UNSIGNED_INTEGER_TYPES, ...SIGNED_INTEGER_TYPES];
         const STRING_FIELD_DESERIALIZER = codegenMode === JSONMode.SIMD ? "deserializeStringFieldToOwner_SIMD" : "deserializeStringFieldToOwner_SWAR";
-        const getArrayValueType = (type) => {
-            if (type.startsWith("Array<") || type.startsWith("StaticArray<")) {
-                return stripNull(type.slice(type.indexOf("<") + 1, -1).trim());
-            }
-            return null;
-        };
         const getDeserializer = (type, srcPtr, outPtr, member, keyOffset = 0, fastPath = false) => {
             const out = [];
             const resolvedType = stripNull(type);
             const resolvedSchema = this.getSchema(resolvedType);
             const fieldOffset = `offsetof<this>(${JSON.stringify(member.name)})`;
-            const fieldPtr = `${outPtr} + offsetof<this>(${JSON.stringify(member.name)})`;
             const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
             if (INTEGER_TYPES.includes(resolvedType)) {
                 const helper = SIGNED_INTEGER_TYPES.includes(resolvedType) ? "deserializeIntegerField" : "deserializeUnsignedField";

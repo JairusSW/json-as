@@ -1,13 +1,14 @@
 import { bs } from "../../../lib/as-bs";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../custom/chars";
-import { serializeFloat } from "./float";
+import { serializeFloat32, serializeFloat64 } from "./float";
 import { serializeInteger } from "./integer";
 
 
 @inline
 function serializeTypedArrayElement<T extends ArrayLike<number>>(src: T, index: i32): void {
   if (isFloat<valueof<T>>()) {
-    serializeFloat<valueof<T>>(unchecked(src[index]));
+    if (sizeof<valueof<T>>() == 4) serializeFloat32(<f32>unchecked(src[index]));
+    else serializeFloat64(<f64>unchecked(src[index]));
   } else {
     serializeInteger<valueof<T>>(unchecked(src[index]));
   }
