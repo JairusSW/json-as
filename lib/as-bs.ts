@@ -22,6 +22,8 @@ export namespace bs {
 
   /** Byte length of the buffer. */
   let bufferSize: usize = MIN_BUFFER_SIZE;
+  /** Cached end pointer for fast bounds checks. */
+  export let bufferEnd: usize = buffer + MIN_BUFFER_SIZE;
 
   /** Proposed size of output */
   export let stackSize: usize = 0;
@@ -55,6 +57,7 @@ export namespace bs {
     offset = newPtr + relOffset;
     buffer = newPtr;
     bufferSize = newSize;
+    bufferEnd = newPtr + newSize;
   }
 
   // @ts-expect-error: @inline is a valid decorator
@@ -111,6 +114,7 @@ export namespace bs {
    */
   // @ts-expect-error: @inline is a valid decorator
   @inline export function ensureSize(size: u32): void {
+    if (offset + usize(size) <= bufferEnd) return;
     reserve(offset - buffer + usize(size), MIN_BUFFER_SIZE);
   }
 
@@ -122,6 +126,7 @@ export namespace bs {
   // @ts-expect-error: @inline is a valid decorator
   @inline export function proposeSize(size: u32): void {
     stackSize += size;
+    if (stackSize <= bufferSize) return;
     reserve(stackSize, 0);
   }
 
@@ -133,6 +138,7 @@ export namespace bs {
   // @ts-expect-error: @inline is a valid decorator
   @inline export function growSize(size: u32): void {
     stackSize += size;
+    if (stackSize <= bufferSize) return;
     reserve(stackSize, MIN_BUFFER_SIZE);
   }
 
@@ -148,6 +154,7 @@ export namespace bs {
     buffer = newPtr;
     bufferSize = newSize;
     offset = buffer + relOffset;
+    bufferEnd = newPtr + newSize;
   }
 
   /**

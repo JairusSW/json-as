@@ -1,128 +1,24 @@
 import { JSON } from "../..";
-import { bs } from "../../../lib/as-bs";
 import { expect } from "../../__tests__/lib";
-import { bench, blackbox, dumpToFile } from "../lib/bench";
-import { canadaFeatureCount, canadaJson, canadaJsonChars } from "./canada.generated";
-import { serializeFloat } from "../../serialize/index/float";
-
-
-@inline
-function serializeCanadaCoordinates(src: Array<Array<Array<f64>>>): void {
-  const ringEnd = src.length - 1;
-  let totalPoints = 0;
-  for (let i = 0, len = src.length; i < len; i++) {
-    totalPoints += src[i].length;
-  }
-  const estimatedBytes = 16 + totalPoints * 32 + src.length * 6;
-  bs.proposeSize(estimatedBytes);
-  bs.ensureSize(estimatedBytes);
-  if (ringEnd < 0) {
-    store<u32>(bs.offset, 6094939);
-    bs.offset += 4;
-    return;
-  }
-
-  writeDelimiter(91);
-
-  for (let ringIndex = 0; ringIndex <= ringEnd; ringIndex++) {
-    const ring = unchecked(src[ringIndex]);
-    const pointEnd = ring.length - 1;
-
-    writeDelimiter(91);
-
-    for (let pointIndex = 0; pointIndex <= pointEnd; pointIndex++) {
-      const point = unchecked(ring[pointIndex]);
-      writeDelimiter(91);
-      serializeFloat<f64>(unchecked(point[0]));
-      writeDelimiter(44);
-      serializeFloat<f64>(unchecked(point[1]));
-      writeDelimiter(93);
-
-      if (pointIndex != pointEnd) {
-        writeDelimiter(44);
-      }
-    }
-
-    writeDelimiter(93);
-
-    if (ringIndex != ringEnd) {
-      writeDelimiter(44);
-    }
-  }
-
-  writeDelimiter(93);
-}
-
-@inline
-function writeDelimiter(code: u16): void {
-  store<u16>(bs.offset, code);
-  bs.offset += 2;
-}
-
-function serializeWithSegments(segments: Array<string>, prefix: string, suffix: string, segmentsBytes: u32): void {
-  const prefixLen = prefix.length << 1;
-  const suffixLen = suffix.length << 1;
-  const commaBytes = segments.length > 0 ? (<u32>(segments.length - 1) << 1) : 0;
-  const totalLen = prefixLen + suffixLen + segmentsBytes + commaBytes;
-  bs.proposeSize(totalLen);
-  bs.ensureSize(totalLen);
-  writeStringToBuffer(prefix);
-  for (let i = 0, len = segments.length; i < len; i++) {
-    writeStringToBuffer(unchecked(segments[i]));
-    if (i != len - 1) {
-      writeDelimiter(44);
-    }
-  }
-  writeStringToBuffer(suffix);
-}
-
-function writeStringToBuffer(value: string): void {
-  const len = value.length << 1;
-  memory.copy(bs.offset, changetype<usize>(value), len);
-  bs.offset += len;
-}
-
-function prerenderFeatureSegments(features: Array<CanadaFeature>): Array<string> {
-  const out = new Array<string>(features.length);
-  for (let i = 0, len = features.length; i < len; i++) {
-    const feature = unchecked(features[i]);
-    bs.saveState();
-    feature.__SERIALIZE(changetype<usize>(feature));
-    out[i] = bs.out<string>();
-    bs.loadState();
-  }
-  return out;
-}
+import { blackbox, bench, dumpToFile } from "../lib/bench";
+import { canadaJson, canadaJsonChars } from "./canada.data.ts";
 
 
 @json
-export class CanadaProperties {
+class CanadaProperties {
   name: string = "";
 }
 
 
 @json
-export class CanadaGeometry {
+class CanadaGeometry {
   type: string = "";
   coordinates: Array<Array<Array<f64>>> = [];
-
-  __SERIALIZE(ptr: usize): void {
-    bs.proposeSize(48);
-    store<u64>(bs.offset, 28429453692043387, 0); // {"type":
-    bs.offset += 8;
-    JSON.__serialize<string>(load<string>(ptr, offsetof<this>("type")));
-    store<u64>(bs.offset, 28147957230746796, 0); // ,"coordin
-    store<u64>(bs.offset, 32088628386267233, 8); // ates":[
-    bs.offset += 16;
-    serializeCanadaCoordinates(load<Array<Array<Array<f64>>>>(ptr, offsetof<this>("coordinates")));
-    store<u32>(bs.offset, 8192125, 0); // ]}
-    bs.offset += 4;
-  }
 }
 
 
 @json
-export class CanadaFeature {
+class CanadaFeature {
   type: string = "";
   properties: CanadaProperties = new CanadaProperties();
   geometry: CanadaGeometry = new CanadaGeometry();
@@ -130,7 +26,7 @@ export class CanadaFeature {
 
 
 @json
-export class Canada {
+class Canada {
   type: string = "";
   features: Array<CanadaFeature> = [];
 }
@@ -139,33 +35,13 @@ const canadaJsonStart = changetype<usize>(canadaJson);
 const canadaJsonEnd = canadaJsonStart + (canadaJson.length << 1);
 
 const typed = JSON.parse<Canada>(canadaJson);
-
-expect(typed.type).toBe("FeatureCollection");
-expect(typed.features.length).toBe(canadaFeatureCount);
-expect(typed.features[0].type).toBe("Feature");
-expect(typed.features[0].properties.name).toBe("Canada");
-expect(typed.features[0].geometry.type).toBe("Polygon");
-expect(typed.features[0].geometry.coordinates.length > 0).toBe(true);
-
 const typedSerialized = JSON.stringify(typed);
-console.log("canada minified chars: " + canadaJsonChars.toString());
-console.log("typed serialized chars: " + typedSerialized.length.toString());
-const featureSegments = prerenderFeatureSegments(typed.features);
-let featureSegmentsBytes = 0;
-for (let i = 0, len = featureSegments.length; i < len; i++) {
-  featureSegmentsBytes += unchecked(featureSegments[i]).length << 1;
-}
-const featurePrefix = '{"type":"FeatureCollection","features":[';
-const featureSuffix = ']}';
-
-const typedReusable = new Canada();
 
 bench(
   "Deserialize Canada",
   () => {
-    // @ts-ignore: generated by transform
-    typedReusable.__DESERIALIZE<Canada>(canadaJsonStart, canadaJsonEnd, typedReusable);
-    blackbox(typedReusable.features.length);
+    // @ts-ignore: transform-generated
+    blackbox(typed.__DESERIALIZE<Canada>(canadaJsonStart, canadaJsonEnd, typed));
   },
   40,
   canadaJsonChars << 1,
@@ -175,22 +51,9 @@ dumpToFile("canada-typed", "deserialize");
 bench(
   "Serialize Canada",
   () => {
-    // @ts-ignore: generated by transform
-    typed.__SERIALIZE(changetype<usize>(typed));
-    blackbox(bs.out<string>());
+    blackbox(JSON.stringify(typed));
   },
   40,
   typedSerialized.length << 1,
 );
 dumpToFile("canada-typed", "serialize");
-
-bench(
-  "Serialize Canada segments",
-  () => {
-    serializeWithSegments(featureSegments, featurePrefix, featureSuffix, featureSegmentsBytes);
-    blackbox(bs.out<string>());
-  },
-  40,
-  typedSerialized.length << 1,
-);
-dumpToFile("canada-typed", "serialize-segments");

@@ -1,0 +1,80 @@
+import { JSON } from "../..";
+import { expect } from "../../__tests__/lib";
+import { blackbox, bench, dumpToFile } from "../lib/bench";
+import { payloadChars, payloadData } from "./large-file.data.ts";
+
+
+@json
+class Large {
+  id!: string;
+  type!: string;
+  actor!: Actor;
+  repo!: Repo;
+  payload!: Payload;
+
+  @alias("public")
+  _public!: boolean;
+  created_at!: string;
+  org!: Org;
+}
+
+
+@json
+class Actor {
+  id!: i32;
+  login!: string;
+  gravatar_id!: string;
+  url!: string;
+  avatar_url!: string;
+}
+
+
+@json
+class Repo {
+  id!: i32;
+  name!: string;
+  url!: string;
+}
+
+
+@json
+class Payload {
+  action!: string;
+}
+
+
+@json
+class Org {
+  id!: i32;
+  login!: string;
+  gravatar_id!: string;
+  url!: string;
+  avatar_url!: string;
+}
+
+const jsonStart = changetype<usize>(payloadData);
+const jsonEnd = jsonStart + (payloadData.length << 1);
+
+const typed = JSON.parse<Large>(payloadData);
+const typedSerialized = JSON.stringify(typed);
+
+bench(
+  "Deserialize Large File",
+  () => {
+    // @ts-ignore: transform-generated
+    blackbox(typed.__DESERIALIZE<Large>(jsonStart, jsonEnd, typed));
+  },
+  40,
+  payloadChars << 1,
+);
+dumpToFile("large-file", "deserialize");
+
+bench(
+  "Serialize Large File",
+  () => {
+    blackbox(JSON.stringify(typed));
+  },
+  40,
+  typedSerialized.length << 1,
+);
+dumpToFile("large-file", "serialize");
