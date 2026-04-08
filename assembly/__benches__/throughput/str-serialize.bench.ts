@@ -1,32 +1,50 @@
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "../lib/bench";
-function makeUtf16String(targetBytes: i32): string {
+function makeUtf8String(targetBytes: i32): string {
   const BASE = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`~!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?";
-  const BYTES_PER_REPEAT = BASE.length << 1;
+  const BYTES_PER_REPEAT = BASE.length;
   const repeats = i32(Math.ceil(targetBytes / BYTES_PER_REPEAT));
   const str = BASE.repeat(repeats);
-  return str.slice(0, targetBytes >> 1);
+  return str.slice(0, targetBytes);
 }
-const strSmall = makeUtf16String(1 * 1024); // 1 KB
-const strMedium = makeUtf16String(500 * 1024); // 500 KB
-const strLarge = makeUtf16String(1000 * 1024); // 1000 KB
+const strSmall = makeUtf8String(1 * 1024); // 1 KB
+const strMedium = makeUtf8String(500 * 1024); // 500 KB
+const strLarge = makeUtf8String(1000 * 1024); // 1000 KB
+const strXLarge = makeUtf8String(2 * 1024 * 1024); // 2 MB
+const strXXLarge = makeUtf8String(5 * 1024 * 1024); // 5 MB
+const strHuge = makeUtf8String(10 * 1024 * 1024); // 10 MB
 const strSmallStr = JSON.stringify(strSmall);
 const strMediumStr = JSON.stringify(strMedium);
 const strLargeStr = JSON.stringify(strLarge);
+const strXLargeStr = JSON.stringify(strXLarge);
+const strXXLargeStr = JSON.stringify(strXXLarge);
+const strHugeStr = JSON.stringify(strHuge);
+const strSmallBytes = String.UTF8.byteLength(strSmallStr);
+const strMediumBytes = String.UTF8.byteLength(strMediumStr);
+const strLargeBytes = String.UTF8.byteLength(strLargeStr);
+const strXLargeBytes = String.UTF8.byteLength(strXLargeStr);
+const strXXLargeBytes = String.UTF8.byteLength(strXXLargeStr);
+const strHugeBytes = String.UTF8.byteLength(strHugeStr);
 expect(JSON.stringify(strSmall)).toBe(strSmallStr);
 expect(JSON.stringify(strMedium)).toBe(strMediumStr);
 expect(JSON.stringify(strLarge)).toBe(strLargeStr);
+expect(JSON.stringify(strXLarge)).toBe(strXLargeStr);
+expect(JSON.stringify(strXXLarge)).toBe(strXXLargeStr);
+expect(JSON.stringify(strHuge)).toBe(strHugeStr);
 expect(JSON.stringify(JSON.parse<string>(strSmallStr))).toBe(strSmallStr);
 expect(JSON.stringify(JSON.parse<string>(strMediumStr))).toBe(strMediumStr);
 expect(JSON.stringify(JSON.parse<string>(strLargeStr))).toBe(strLargeStr);
+expect(JSON.stringify(JSON.parse<string>(strXLargeStr))).toBe(strXLargeStr);
+expect(JSON.stringify(JSON.parse<string>(strXXLargeStr))).toBe(strXXLargeStr);
+expect(JSON.stringify(JSON.parse<string>(strHugeStr))).toBe(strHugeStr);
 bench(
   "Serialize Small String (1kb)",
   () => {
     blackbox(JSON.stringify(strSmall));
   },
   3_000_000,
-  strSmallStr.length << 1,
+  strSmallBytes,
 );
 dumpToFile("small-str", "serialize");
 bench(
@@ -35,7 +53,7 @@ bench(
     blackbox(JSON.stringify(strMedium));
   },
   8_500,
-  strMediumStr.length << 1,
+  strMediumBytes,
 );
 dumpToFile("medium-str", "serialize");
 bench(
@@ -44,6 +62,33 @@ bench(
     blackbox(JSON.stringify(strLarge));
   },
   3_000,
-  strLargeStr.length << 1,
+  strLargeBytes,
 );
 dumpToFile("large-str", "serialize");
+bench(
+  "Serialize XLarge String (2mb)",
+  () => {
+    blackbox(JSON.stringify(strXLarge));
+  },
+  1_500,
+  strXLargeBytes,
+);
+dumpToFile("xlarge-str", "serialize");
+bench(
+  "Serialize XXLarge String (5mb)",
+  () => {
+    blackbox(JSON.stringify(strXXLarge));
+  },
+  600,
+  strXXLargeBytes,
+);
+dumpToFile("xxlarge-str", "serialize");
+bench(
+  "Serialize Huge String (10mb)",
+  () => {
+    blackbox(JSON.stringify(strHuge));
+  },
+  300,
+  strHugeBytes,
+);
+dumpToFile("huge-str", "serialize");

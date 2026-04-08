@@ -3,6 +3,7 @@ import { bs } from "../../../lib/as-bs";
 import { expect } from "../../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "../lib/bench";
 
+
 @json // 1 KB
 class ObjLarge {
   lorum: u32 = U32.MAX_VALUE;
@@ -26,25 +27,32 @@ class ObjLarge {
 }
 const obj = new ObjLarge();
 const objStr = `{"lorum":4294967295,"ipsum":true,"dolor":[1,2,3,4,5],"sit":"abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\\\|;\\":'<>,./?","consectetur":123456,"adipiscing":false,"elit":[6,7,8,9,10],"sed":1.7976931348623157e+308,"eiusmod":"abcdYZ12345890./?abcdYZ12345890./?abcdYZ12340./?","tempor":999999,"incididunt":true,"ut":[16,17,18,19,20],"labore":3.1415926535,"et":"xyzXYZ09876!@#","dolore":-123456,"magna":false,"aliqua":[21,22,23,24,25],"argw":"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"}`;
+const objStrBytes = String.UTF8.byteLength(objStr);
+
+function opsForBytes(targetBytes: i32): i32 {
+  return (targetBytes + objStrBytes - 1) / objStrBytes;
+}
 expect(JSON.stringify(obj)).toBe(objStr);
 expect(JSON.stringify(JSON.parse<ObjLarge>(objStr))).toBe(objStr);
 bench(
   "Serialize Small Object (1kb)",
   () => {
-    // 1kb
-    // @ts-ignore
-    obj.__SERIALIZE(changetype<usize>(obj));
+    let ops = opsForBytes(1 * 1024);
+    while (ops > 0) {
+      // @ts-ignore
+      obj.__SERIALIZE(changetype<usize>(obj));
+      ops--;
+    }
     blackbox(bs.out<string>());
   },
   2_500_000,
-  objStr.length,
+  objStrBytes * opsForBytes(1 * 1024),
 );
 dumpToFile("small-obj", "serialize");
 bench(
   "Serialize Medium Object (500kb)",
   () => {
-    // 500kb
-    let ops = 500;
+    let ops = opsForBytes(500 * 1024);
     while (ops > 0) {
       // @ts-ignore
       obj.__SERIALIZE(changetype<usize>(obj));
@@ -53,14 +61,13 @@ bench(
     blackbox(bs.out<string>());
   },
   5_000,
-  objStr.length * 500,
+  objStrBytes * opsForBytes(500 * 1024),
 );
 dumpToFile("medium-obj", "serialize");
 bench(
   "Serialize Large Object (1000kb)",
   () => {
-    // 1000kb
-    let ops = 1000;
+    let ops = opsForBytes(1000 * 1024);
     while (ops > 0) {
       // @ts-ignore
       obj.__SERIALIZE(changetype<usize>(obj));
@@ -69,6 +76,54 @@ bench(
     blackbox(bs.out<string>());
   },
   500,
-  objStr.length * 1000,
+  objStrBytes * opsForBytes(1000 * 1024),
 );
 dumpToFile("large-obj", "serialize");
+
+bench(
+  "Serialize XLarge Object (2mb)",
+  () => {
+    let ops = opsForBytes(2 * 1024 * 1024);
+    while (ops > 0) {
+      // @ts-ignore
+      obj.__SERIALIZE(changetype<usize>(obj));
+      ops--;
+    }
+    blackbox(bs.out<string>());
+  },
+  250,
+  objStrBytes * opsForBytes(2 * 1024 * 1024),
+);
+dumpToFile("xlarge-obj", "serialize");
+
+bench(
+  "Serialize XXLarge Object (5mb)",
+  () => {
+    let ops = opsForBytes(5 * 1024 * 1024);
+    while (ops > 0) {
+      // @ts-ignore
+      obj.__SERIALIZE(changetype<usize>(obj));
+      ops--;
+    }
+    blackbox(bs.out<string>());
+  },
+  100,
+  objStrBytes * opsForBytes(5 * 1024 * 1024),
+);
+dumpToFile("xxlarge-obj", "serialize");
+
+bench(
+  "Serialize Huge Object (10mb)",
+  () => {
+    let ops = opsForBytes(10 * 1024 * 1024);
+    while (ops > 0) {
+      // @ts-ignore
+      obj.__SERIALIZE(changetype<usize>(obj));
+      ops--;
+    }
+    blackbox(bs.out<string>());
+  },
+  50,
+  objStrBytes * opsForBytes(10 * 1024 * 1024),
+);
+dumpToFile("huge-obj", "serialize");
