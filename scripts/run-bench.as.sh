@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 RUNTIMES=${RUNTIMES:-"incremental"}
-ENGINES=${ENGINES:-"liftoff ignition sparkplug turbofan"}
+ENGINES=${ENGINES:-"turbofan"}
 MODE_FILTER=${JSON_MODE:-""}
 TURBOFAN_FLAGS=${TURBOFAN_FLAGS:-"--no-liftoff --experimental-wasm-revectorize"}
 # Deserialize-biased alternative to try manually:

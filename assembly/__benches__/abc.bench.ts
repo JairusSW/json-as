@@ -13,7 +13,7 @@ bench(
     blackbox(inline.always(JSON.stringify(v1)));
   },
   24_000_00,
-  v1.length << 1,
+  v1.length,
 );
 dumpToFile("abc", "serialize");
 
@@ -23,6 +23,6 @@ bench(
     blackbox(inline.always(JSON.parse<string>(v2)));
   },
   24_000_00,
-  v2.length << 1,
+  v2.length,
 );
 dumpToFile("abc", "deserialize");
