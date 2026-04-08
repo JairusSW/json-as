@@ -10,7 +10,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   25_000_000,
-  v1.length << 1,
+  v1.length,
 );
 dumpToFile("uuidv4", "serialize");
 
@@ -20,6 +20,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   25_000_000,
-  v2.length << 1,
+  v2.length,
 );
 dumpToFile("uuidv4", "deserialize");

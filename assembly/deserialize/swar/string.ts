@@ -184,106 +184,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   return copyStringFromSource(payloadStart, srcEnd - payloadStart);
 }
 
-// /**
-//  * Deserializes a quoted JSON string into a reused/renewed destination string buffer.
-//  * @param srcStart pointer to opening quote
-//  * @param srcEnd pointer to closing quote
-//  * @param outPtr existing destination string pointer (or 0)
-//  * @returns next unread source pointer
-//  */
-// export function deserializeString_SWAR_TO(srcStart: usize, srcEnd: usize, outPtr: usize): usize {
-//   srcStart += 2;
-//   let dst = outPtr;
-//   const srcEnd8 = srcEnd - 8;
-//   const byteSize = srcEnd - srcStart;
-//   if (!dst) {
-//     dst = __new(byteSize, idof<string>());
-//   } else if (changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize < <u32>byteSize) {
-//     dst = __renew(dst, byteSize);
-//   }
-//   let offset = dst;
-
-//   while (srcStart < srcEnd8) {
-//     const block = load<u64>(srcStart);
-//     store<u64>(offset, block);
-
-//     let mask = inline.always(backslash_mask_unsafe(block));
-
-//     if (mask === 0) {
-//       srcStart += 8;
-//       offset += 8;
-//       continue;
-//     }
-
-//     do {
-//       const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
-//       mask &= mask - 1;
-//       const srcIdx = srcStart + laneIdx;
-//       const dstIdx = offset + laneIdx;
-//       const header = load<u32>(srcIdx);
-//       const code = <u16>(header >> 16);
-
-//       if ((header & 0xffff) !== 0x5c) continue;
-
-//       if (code !== 0x75) {
-//         const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-//         mask &= mask - usize(escaped === 0x5c);
-//         store<u16>(dstIdx, escaped);
-//         const copyStart = srcIdx + 4;
-//         if (copyStart < srcEnd) {
-//           const copyBytes = min<usize>(4, srcEnd - copyStart);
-//           memory.copy(dstIdx + 2, copyStart, copyBytes);
-//         }
-
-//         const l6 = usize(laneIdx === 6);
-//         offset -= (1 - l6) << 1;
-//         srcStart += l6 << 1;
-//         continue;
-//       }
-
-//       const block = load<u64>(srcIdx, 4); // XXXX
-//       const escaped = hex4_to_u16_swar(block);
-//       store<u16>(dstIdx, escaped);
-//       srcStart += 4 + laneIdx;
-//       offset -= 6 - laneIdx;
-//     } while (mask !== 0);
-
-//     offset += 8;
-//     srcStart += 8;
-//   }
-
-//   while (srcStart < srcEnd) {
-//     const block = load<u16>(srcStart);
-//     store<u16>(offset, block);
-//     srcStart += 2;
-
-//     if (block !== 0x5c) {
-//       offset += 2;
-//       continue;
-//     }
-
-//     const code = load<u16>(srcStart);
-//     if (code !== 0x75) {
-//       const block = load<u16>(srcStart);
-//       const escape = load<u16>(DESERIALIZE_ESCAPE_TABLE + block);
-//       store<u16>(offset, escape);
-//       srcStart += 2;
-//     } else {
-//       const block = load<u64>(srcStart, 2); // XXXX
-//       const escaped = hex4_to_u16_swar(block);
-//       store<u16>(offset, escaped);
-//       srcStart += 10;
-//     }
-
-//     offset += 2;
-//   }
-//   if (offset - dst != byteSize) {
-//     dst = __renew(dst, offset - dst);
-//   }
-//   return srcEnd + 2;
-// }
-
-// Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
+// Writes into the destination field, reusing or resizing the backing string.
 // @ts-expect-error: @inline is a valid decorator
 @inline function writeStringToField(dstFieldPtr: usize, srcStart: usize, byteLength: u32): void {
   if (byteLength == 0) {
@@ -304,8 +205,6 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   }
   memory.copy(stringPtr, srcStart, byteLength);
 }
-
-
 
 // @ts-expect-error: @inline is a valid decorator
 @inline function deserializeEscapedStringContinuation_SWAR(lastPtr: usize, srcStart: usize, srcEnd: usize, dstFieldPtr: usize, outStart: usize): usize {
@@ -398,8 +297,6 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   abort("Unterminated string literal");
   return srcStart;
 }
-
-// @ts-expect-error: @inline is a valid decorator
 
 // Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
 export function deserializeStringField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {

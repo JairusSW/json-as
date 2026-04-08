@@ -7,21 +7,21 @@ const objStr = readFile("./assembly/__benches__/payloads/github-events.json");
 
 const parsed = JSON.parse(objStr);
 bench(
-  "Deserialize Large File (2.1MB)",
+  "Deserialize Github Events",
   () => {
     blackbox(JSON.parse(objStr));
   },
   100,
-  objStr.length << 1,
+  objStr.length,
 );
 dumpToFile("github-events", "deserialize");
 
 bench(
-  "Serialize Large File (2.1MB)",
+  "Serialize Github Events",
   () => {
     blackbox(JSON.stringify(parsed));
   },
   100,
-  objStr.length << 1,
+  objStr.length,
 );
 dumpToFile("github-events", "deserialize");

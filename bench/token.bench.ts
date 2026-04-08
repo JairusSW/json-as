@@ -18,7 +18,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   5_000_000,
-  v2.length << 1,
+  v2.length,
 );
 dumpToFile("token", "serialize");
 
@@ -28,6 +28,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   5_000_000,
-  v2.length << 1,
+  v2.length,
 );
 dumpToFile("token", "deserialize");

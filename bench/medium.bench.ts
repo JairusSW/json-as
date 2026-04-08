@@ -73,7 +73,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   500_000,
-  v2.length << 1,
+  v2.length,
 );
 dumpToFile("medium", "serialize");
 
@@ -83,6 +83,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   500_000,
-  v2.length << 1,
+  v2.length,
 );
 dumpToFile("medium", "deserialize");

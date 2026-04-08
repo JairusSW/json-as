@@ -31,7 +31,7 @@ bench(
     blackbox(JSON.stringify(obj));
   },
   2_500_000,
-  objStr.length << 1,
+  objStr.length,
 );
 dumpToFile("small-obj", "serialize");
 
@@ -46,7 +46,7 @@ bench(
     }
   },
   5_000,
-  (objStr.length << 1) * 500,
+  objStr.length * 500,
 );
 dumpToFile("medium-obj", "serialize");
 
@@ -61,6 +61,6 @@ bench(
     }
   },
   500,
-  (objStr.length << 1) * 1000,
+  objStr.length * 1000,
 );
 dumpToFile("large-obj", "serialize");

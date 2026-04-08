@@ -15,7 +15,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   12_800_000,
-  v2.length << 1,
+  v2.length,
 );
 dumpToFile("vec3", "serialize");
 
@@ -25,6 +25,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   12_800_000,
-  v2.length << 1,
+  v2.length,
 );
 dumpToFile("vec3", "deserialize");
