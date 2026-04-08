@@ -2,7 +2,7 @@ import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import { blackbox, bench, dumpToFile, readFile } from "../lib/bench";
 
-const payloadData = readFile("./assembly/__benches__/payloads/large-file.json");
+const payloadData = readFile("./assembly/__benches__/payloads/github-events.json");
 const payloadChars = payloadData.length;
 
 
@@ -70,7 +70,7 @@ bench(
   40,
   payloadChars << 1,
 );
-dumpToFile("large-file", "deserialize");
+dumpToFile("github-events", "deserialize");
 
 bench(
   "Serialize Large File",
@@ -80,4 +80,4 @@ bench(
   40,
   payloadChars << 1,
 );
-dumpToFile("large-file", "serialize");
+dumpToFile("github-events", "serialize");

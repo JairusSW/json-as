@@ -5,9 +5,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 RUNTIMES=${RUNTIMES:-"incremental"}
-ENGINES=${ENGINES:-"turbofan"}
+ENGINES=${ENGINES:-"liftoff ignition sparkplug turbofan"}
 MODE_FILTER=${JSON_MODE:-""}
-TURBOFAN_FLAGS=${TURBOFAN_FLAGS:-"--no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize"}
+TURBOFAN_FLAGS=${TURBOFAN_FLAGS:-"--no-liftoff --experimental-wasm-revectorize"}
 # Deserialize-biased alternative to try manually:
 # TURBOFAN_FLAGS="--no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize --minor-ms --minor-ms-concurrent-marking-trigger=30 --turboshaft-wasm-load-elimination"
 BENCH_NAME=""
