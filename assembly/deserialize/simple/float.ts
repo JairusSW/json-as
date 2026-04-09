@@ -1,4 +1,7 @@
 import { ptrToStr } from "../../util/ptrToStr";
+import { fastDoubleParse } from "../../util/fast-double-parser";
+
+const FAST_DOUBLE_SCRATCH = memory.data(8);
 
 // @ts-ignore: inline
 @inline function pow10Fast(exponent: u32): f64 {
@@ -36,6 +39,17 @@ import { ptrToStr } from "../../util/ptrToStr";
 
 // @ts-ignore: inline
 @inline export function deserializeFloat<T>(srcStart: usize, srcEnd: usize): T {
+  const fastEnd = fastDoubleParse(srcStart, srcEnd, FAST_DOUBLE_SCRATCH);
+  if (fastEnd != 0) {
+    const value = load<f64>(FAST_DOUBLE_SCRATCH);
+    // @ts-ignore
+    const type: T = 0;
+    // @ts-ignore
+    if (type instanceof f64) return <T>value;
+    // @ts-ignore
+    return <T>(<f32>value);
+  }
+
   let negative = false;
   if (load<u16>(srcStart) == 45) {
     negative = true;
@@ -121,6 +135,17 @@ import { ptrToStr } from "../../util/ptrToStr";
 // @ts-ignore: inline
 @inline export function deserializeFloatField<T extends number>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
   const fieldPtr = dstObj + dstOffset;
+  const fastEnd = fastDoubleParse(srcStart, srcEnd, FAST_DOUBLE_SCRATCH);
+  if (fastEnd != 0) {
+    const value = load<f64>(FAST_DOUBLE_SCRATCH);
+    if (sizeof<T>() == sizeof<f32>()) {
+      store<f32>(fieldPtr, <f32>value);
+    } else {
+      store<f64>(fieldPtr, value);
+    }
+    return fastEnd;
+  }
+
   let negative = false;
   if (load<u16>(srcStart) == 45) {
     negative = true;
