@@ -18,7 +18,7 @@ function getBenchData(filePath: string) {
   };
 }
 
-const payloads = ["small-str", "medium-str", "large-str"];
+const payloads = ["str-1mb", "str-2mb", "str-3mb", "str-4mb", "str-5mb", "str-6mb", "str-7mb", "str-8mb", "str-9mb", "str-10mb"];
 const engines = ["js", "naive", "swar", "simd"];
 const modes = ["serialize"];
 

@@ -1,4 +1,5 @@
 import { bench, blackbox, dumpToFile } from "../lib/bench";
+
 function makeUtf8String(targetBytes: number): string {
   const BASE = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`~!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?";
   const BYTES_PER_REPEAT = BASE.length;
@@ -7,19 +8,6 @@ function makeUtf8String(targetBytes: number): string {
   return str.slice(0, targetBytes);
 }
 
-const strSmall = makeUtf8String(1 * 1024); // 1 KB
-const strMedium = makeUtf8String(500 * 1024); // 500 KB
-const strLarge = makeUtf8String(1000 * 1024); // 1000 KB
-const strXLarge = makeUtf8String(2 * 1024 * 1024); // 2 MB
-const strXXLarge = makeUtf8String(5 * 1024 * 1024); // 5 MB
-const strHuge = makeUtf8String(10 * 1024 * 1024); // 10 MB
-
-const strSmallStr = JSON.stringify(strSmall);
-const strMediumStr = JSON.stringify(strMedium);
-const strLargeStr = JSON.stringify(strLarge);
-const strXLargeStr = JSON.stringify(strXLarge);
-const strXXLargeStr = JSON.stringify(strXXLarge);
-const strHugeStr = JSON.stringify(strHuge);
 function utf8ByteLength(value: string): number {
   let bytes = 0;
   for (let i = 0; i < value.length; i++) {
@@ -44,27 +32,26 @@ function utf8ByteLength(value: string): number {
   }
   return bytes;
 }
-const strSmallBytes = utf8ByteLength(strSmallStr);
-const strMediumBytes = utf8ByteLength(strMediumStr);
-const strLargeBytes = utf8ByteLength(strLargeStr);
-const strXLargeBytes = utf8ByteLength(strXLargeStr);
-const strXXLargeBytes = utf8ByteLength(strXXLargeStr);
-const strHugeBytes = utf8ByteLength(strHugeStr);
 
-bench("Serialize Small String (1kb)", () => blackbox(JSON.stringify(strSmall)), 3_000_000, strSmallBytes);
-dumpToFile("small-str", "serialize");
+const sizesMB = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const strings: string[] = [];
+const jsonStrings: string[] = [];
+const bytes: number[] = [];
 
-bench("Serialize Medium String (500kb)", () => blackbox(JSON.stringify(strMedium)), 8_500, strMediumBytes);
-dumpToFile("medium-str", "serialize");
+for (const sizeMB of sizesMB) {
+  const value = makeUtf8String(sizeMB * 1024 * 1024);
+  const json = JSON.stringify(value);
+  strings.push(value);
+  jsonStrings.push(json);
+  bytes.push(utf8ByteLength(json));
+}
 
-bench("Serialize Large String (1000kb)", () => blackbox(JSON.stringify(strLarge)), 3_000, strLargeBytes);
-dumpToFile("large-str", "serialize");
+const baseOps = 3000;
 
-bench("Serialize XLarge String (2mb)", () => blackbox(JSON.stringify(strXLarge)), 1_500, strXLargeBytes);
-dumpToFile("xlarge-str", "serialize");
-
-bench("Serialize XXLarge String (5mb)", () => blackbox(JSON.stringify(strXXLarge)), 600, strXXLargeBytes);
-dumpToFile("xxlarge-str", "serialize");
-
-bench("Serialize Huge String (10mb)", () => blackbox(JSON.stringify(strHuge)), 300, strHugeBytes);
-dumpToFile("huge-str", "serialize");
+for (let i = 0; i < sizesMB.length; i++) {
+  const sizeMB = sizesMB[i];
+  const label = `${sizeMB}mb`;
+  const ops = Math.floor(baseOps / sizeMB);
+  bench(`Serialize String (${label})`, () => blackbox(JSON.stringify(strings[i])), ops, bytes[i]);
+  dumpToFile(`str-${label}`, "serialize");
+}

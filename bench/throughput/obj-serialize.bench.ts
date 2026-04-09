@@ -21,8 +21,6 @@ class ObjLarge {
   argw: string = 'abcdYZ12345890sdfw"vie91kfESDFOK12i9i12dsf./?';
 }
 
-const obj = new ObjLarge();
-const objStr = `{"lorum":4294967295,"ipsum":true,"dolor":[1,2,3,4,5],"sit":"abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\\\|;\\":'<>,./?","consectetur":123456,"adipiscing":false,"elit":[6,7,8,9,10],"sed":1.7976931348623157e+308,"eiusmod":"abcdYZ12345890./?abcdYZ12345890./?abcdYZ12340./?","tempor":999999,"incididunt":true,"ut":[16,17,18,19,20],"labore":3.1415926535,"et":"xyzXYZ09876!@#","dolore":-123456,"magna":false,"aliqua":[21,22,23,24,25],"argw":"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"}`;
 function utf8ByteLength(value: string): number {
   let bytes = 0;
   for (let i = 0; i < value.length; i++) {
@@ -47,92 +45,33 @@ function utf8ByteLength(value: string): number {
   }
   return bytes;
 }
+
+const obj = new ObjLarge();
+const objStr = `{"lorum":4294967295,"ipsum":true,"dolor":[1,2,3,4,5],"sit":"abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\\\|;\\":'<>,./?","consectetur":123456,"adipiscing":false,"elit":[6,7,8,9,10],"sed":1.7976931348623157e+308,"eiusmod":"abcdYZ12345890./?abcdYZ12345890./?abcdYZ12340./?","tempor":999999,"incididunt":true,"ut":[16,17,18,19,20],"labore":3.1415926535,"et":"xyzXYZ09876!@#","dolore":-123456,"magna":false,"aliqua":[21,22,23,24,25],"argw":"abcdYZ12345890sdfw\\"vie91kfESDFOK12i9i12dsf./?"}`;
 const objStrBytes = utf8ByteLength(objStr);
 
 function opsForBytes(targetBytes: number): number {
   return Math.ceil(targetBytes / objStrBytes);
 }
 
-bench(
-  "Serialize Small Object (1kb)",
-  () => {
-    let ops = opsForBytes(1 * 1024);
-    while (ops > 0) {
-      blackbox(JSON.stringify(obj));
-      ops--;
-    }
-  },
-  2_500_000,
-  objStrBytes * opsForBytes(1 * 1024),
-);
-dumpToFile("small-obj", "serialize");
+const sizesMB = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const baseOps = 500;
 
-bench(
-  "Serialize Medium Object (500kb)",
-  () => {
-    let ops = opsForBytes(500 * 1024);
-    while (ops > 0) {
-      blackbox(JSON.stringify(obj));
-      ops--;
-    }
-  },
-  5_000,
-  objStrBytes * opsForBytes(500 * 1024),
-);
-dumpToFile("medium-obj", "serialize");
-
-bench(
-  "Serialize Large Object (1000kb)",
-  () => {
-    let ops = opsForBytes(1000 * 1024);
-    while (ops > 0) {
-      blackbox(JSON.stringify(obj));
-      ops--;
-    }
-  },
-  500,
-  objStrBytes * opsForBytes(1000 * 1024),
-);
-dumpToFile("large-obj", "serialize");
-
-bench(
-  "Serialize XLarge Object (2mb)",
-  () => {
-    let ops = opsForBytes(2 * 1024 * 1024);
-    while (ops > 0) {
-      blackbox(JSON.stringify(obj));
-      ops--;
-    }
-  },
-  250,
-  objStrBytes * opsForBytes(2 * 1024 * 1024),
-);
-dumpToFile("xlarge-obj", "serialize");
-
-bench(
-  "Serialize XXLarge Object (5mb)",
-  () => {
-    let ops = opsForBytes(5 * 1024 * 1024);
-    while (ops > 0) {
-      blackbox(JSON.stringify(obj));
-      ops--;
-    }
-  },
-  100,
-  objStrBytes * opsForBytes(5 * 1024 * 1024),
-);
-dumpToFile("xxlarge-obj", "serialize");
-
-bench(
-  "Serialize Huge Object (10mb)",
-  () => {
-    let ops = opsForBytes(10 * 1024 * 1024);
-    while (ops > 0) {
-      blackbox(JSON.stringify(obj));
-      ops--;
-    }
-  },
-  50,
-  objStrBytes * opsForBytes(10 * 1024 * 1024),
-);
-dumpToFile("huge-obj", "serialize");
+for (const sizeMB of sizesMB) {
+  const label = `${sizeMB}mb`;
+  const targetBytes = sizeMB * 1024 * 1024;
+  const ops = Math.floor(baseOps / sizeMB);
+  bench(
+    `Serialize Object (${label})`,
+    () => {
+      let count = opsForBytes(targetBytes);
+      while (count > 0) {
+        blackbox(JSON.stringify(obj));
+        count--;
+      }
+    },
+    ops,
+    objStrBytes * opsForBytes(targetBytes),
+  );
+  dumpToFile(`obj-${label}`, "serialize");
+}

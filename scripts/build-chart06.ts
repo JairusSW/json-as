@@ -18,7 +18,7 @@ function getBenchData(filePath: string) {
   };
 }
 
-const payloads = ["small-obj", "medium-obj", "large-obj"];
+const payloads = ["obj-1mb", "obj-2mb", "obj-3mb", "obj-4mb", "obj-5mb", "obj-6mb", "obj-7mb", "obj-8mb", "obj-9mb", "obj-10mb"];
 const modes = ["deserialize"];
 
 type SeriesSpec = {
