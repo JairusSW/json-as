@@ -1,13 +1,13 @@
 import { getBenchResults, createBarChart, generateChart, type BenchKind, BenchResult } from "./lib/bench-utils";
 
 const PAYLOADS: Record<string, string> = {
-  abc: "Alphabet\n   (104b)",
-  uuidv4: "UUIDv4\n   (72b)",
-  vec3: "3D Vector\n     (38b)",
-  token: "Token\n  (98b)",
-  small: "Small Payload\n       (216b)",
-  medium: "Medium Payload\n        (2.1kb)",
-  large: "Large Payload\n      (10.5kb)",
+  abc: "Alphabet\n   (52b)",
+  uuidv4: "UUIDv4\n   (36b)",
+  vec3: "3D Vector\n     (19b)",
+  token: "Token\n  (49b)",
+  small: "Small Payload\n       (108b)",
+  medium: "Medium Payload\n        (1.1kb)",
+  large: "Large Payload\n      (5.5kb)",
 };
 
 const KIND: BenchKind = "serialize";
