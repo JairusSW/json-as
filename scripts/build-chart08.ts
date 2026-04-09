@@ -18,7 +18,7 @@ function getBenchData(filePath: string) {
   };
 }
 
-const payloads = ["str-1kb", "str-50kb", "str-100kb", "str-150kb", "str-200kb", "str-250kb", "str-300kb", "str-350kb", "str-400kb", "str-450kb", "str-500kb", "str-550kb", "str-600kb", "str-650kb", "str-700kb", "str-750kb", "str-800kb", "str-850kb", "str-900kb", "str-950kb", "str-1mb-small"];
+const payloads = ["str-1kb", "str-50kb", "str-100kb", "str-150kb", "str-200kb", "str-250kb", "str-300kb", "str-350kb", "str-400kb", "str-450kb", "str-500kb", "str-550kb", "str-600kb", "str-650kb", "str-700kb", "str-750kb", "str-800kb", "str-850kb", "str-900kb", "str-950kb", "str-1mb"];
 const engines = ["js", "naive", "swar", "simd"];
 const modes = ["deserialize"];
 

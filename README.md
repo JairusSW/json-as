@@ -505,13 +505,37 @@ The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaS
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart02.svg" alt="Performance Chart 2">
 
+<details>
+<summary>String serialize charts (click to expand)</summary>
+
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart03.png" alt="Performance Chart 3">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart07.png" alt="Performance Chart 7">
+</details>
+
+<details>
+<summary>String deserialize charts (click to expand)</summary>
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart04.png" alt="Performance Chart 4">
 
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart08.png" alt="Performance Chart 8">
+</details>
+
+<details>
+<summary>Object serialize charts (click to expand)</summary>
+
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart05.png" alt="Performance Chart 5">
 
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart09.png" alt="Performance Chart 9">
+</details>
+
+<details>
+<summary>Object deserialize charts (click to expand)</summary>
+
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart06.png" alt="Performance Chart 6">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart10.png" alt="Performance Chart 10">
+</details>
 
 ### Performance Tuning
 

@@ -328,16 +328,6 @@ bench(
 dumpToFile("str-950kb", "deserialize");
 
 bench(
-  "Deserialize String (1mb-small)",
-  () => {
-    blackbox(JSON.parse<string>(json1));
-  },
-  3000,
-  bytes1,
-);
-dumpToFile("str-1mb-small", "deserialize");
-
-bench(
   "Deserialize String (1mb)",
   () => {
     blackbox(JSON.parse<string>(json1));

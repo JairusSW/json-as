@@ -328,16 +328,6 @@ bench(
 dumpToFile("str-950kb", "serialize");
 
 bench(
-  "Serialize String (1mb-small)",
-  () => {
-    blackbox(JSON.stringify(str1));
-  },
-  3000,
-  bytes1,
-);
-dumpToFile("str-1mb-small", "serialize");
-
-bench(
   "Serialize String (1mb)",
   () => {
     blackbox(JSON.stringify(str1));

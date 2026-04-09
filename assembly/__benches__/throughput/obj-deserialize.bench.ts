@@ -71,7 +71,6 @@ const smallBytes16 = 800 * 1024;
 const smallBytes17 = 850 * 1024;
 const smallBytes18 = 900 * 1024;
 const smallBytes19 = 950 * 1024;
-const smallBytes20 = 1024 * 1024;
 
 const bytes1 = 1 * 1024 * 1024;
 const bytes2 = 2 * 1024 * 1024;
@@ -387,21 +386,6 @@ bench(
   objSmallStrBytes * opsForSmallBytes(smallBytes19),
 );
 dumpToFile("obj-950kb", "deserialize");
-
-bench(
-  "Deserialize Object (1mb-small)",
-  () => {
-    let count = opsForSmallBytes(smallBytes20);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__DESERIALIZE<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
-      count--;
-    }
-  },
-  3000,
-  objSmallStrBytes * opsForSmallBytes(smallBytes20),
-);
-dumpToFile("obj-1mb-small", "deserialize");
 
 bench(
   "Deserialize Object (1mb)",

@@ -18,7 +18,7 @@ function getBenchData(filePath: string) {
   };
 }
 
-const payloads = ["obj-1kb", "obj-50kb", "obj-100kb", "obj-150kb", "obj-200kb", "obj-250kb", "obj-300kb", "obj-350kb", "obj-400kb", "obj-450kb", "obj-500kb", "obj-550kb", "obj-600kb", "obj-650kb", "obj-700kb", "obj-750kb", "obj-800kb", "obj-850kb", "obj-900kb", "obj-950kb", "obj-1mb-small"];
+const payloads = ["obj-1kb", "obj-50kb", "obj-100kb", "obj-150kb", "obj-200kb", "obj-250kb", "obj-300kb", "obj-350kb", "obj-400kb", "obj-450kb", "obj-500kb", "obj-550kb", "obj-600kb", "obj-650kb", "obj-700kb", "obj-750kb", "obj-800kb", "obj-850kb", "obj-900kb", "obj-950kb", "obj-1mb"];
 const engines = ["js", "naive", "swar", "simd"];
 const modes = ["serialize"];
 

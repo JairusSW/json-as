@@ -70,7 +70,6 @@ const smallBytes16 = 800 * 1024;
 const smallBytes17 = 850 * 1024;
 const smallBytes18 = 900 * 1024;
 const smallBytes19 = 950 * 1024;
-const smallBytes20 = 1024 * 1024;
 
 const bytes1 = 1 * 1024 * 1024;
 const bytes2 = 2 * 1024 * 1024;
@@ -406,22 +405,6 @@ bench(
   objSmallStrBytes * opsForSmallBytes(smallBytes19),
 );
 dumpToFile("obj-950kb", "serialize");
-
-bench(
-  "Serialize Object (1mb-small)",
-  () => {
-    let count = opsForSmallBytes(smallBytes20);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  3000,
-  objSmallStrBytes * opsForSmallBytes(smallBytes20),
-);
-dumpToFile("obj-1mb-small", "serialize");
 
 bench(
   "Serialize Object (1mb)",
