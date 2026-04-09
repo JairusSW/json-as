@@ -21,6 +21,13 @@ class ObjLarge {
   argw: string = 'abcdYZ12345890sdfw"vie91kfESDFOK12i9i12dsf./?';
 }
 
+class ObjSmall {
+  id: number = 42;
+  ok: boolean = true;
+  name: string = "tiny-object";
+  tags: Array<number> = [1, 2, 3];
+}
+
 function utf8ByteLength(value: string): number {
   let bytes = 0;
   for (let i = 0; i < value.length; i++) {
@@ -52,6 +59,37 @@ const objStrBytes = utf8ByteLength(objStr);
 
 function opsForBytes(targetBytes: number): number {
   return Math.ceil(targetBytes / objStrBytes);
+}
+
+const smallObj = new ObjSmall();
+const smallObjStr = JSON.stringify(smallObj);
+const smallObjStrBytes = utf8ByteLength(smallObjStr);
+
+function opsForSmallBytes(targetBytes: number): number {
+  return Math.ceil(targetBytes / smallObjStrBytes);
+}
+
+const smallSizes = [1 * 1024, 50 * 1024, 100 * 1024, 150 * 1024, 200 * 1024, 250 * 1024, 300 * 1024, 350 * 1024, 400 * 1024, 450 * 1024, 500 * 1024, 550 * 1024, 600 * 1024, 650 * 1024, 700 * 1024, 750 * 1024, 800 * 1024, 850 * 1024, 900 * 1024, 950 * 1024, 1024 * 1024];
+const smallLabels = ["1kb", "50kb", "100kb", "150kb", "200kb", "250kb", "300kb", "350kb", "400kb", "450kb", "500kb", "550kb", "600kb", "650kb", "700kb", "750kb", "800kb", "850kb", "900kb", "950kb", "1mb-small"];
+const smallBaseOps = 500;
+
+for (let i = 0; i < smallSizes.length; i++) {
+  const sizeBytes = smallSizes[i];
+  const label = smallLabels[i];
+  const ops = Math.min(200_000, Math.floor((smallBaseOps * 1024 * 1024) / sizeBytes));
+  bench(
+    `Serialize Object (${label})`,
+    () => {
+      let count = opsForSmallBytes(sizeBytes);
+      while (count > 0) {
+        blackbox(JSON.stringify(smallObj));
+        count--;
+      }
+    },
+    ops,
+    smallObjStrBytes * opsForSmallBytes(sizeBytes),
+  );
+  dumpToFile(`obj-${label}`, "serialize");
 }
 
 const sizesMB = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];

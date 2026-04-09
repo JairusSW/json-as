@@ -11,3 +11,7 @@ bun ./scripts/build-chart03.ts
 bun ./scripts/build-chart04.ts
 bun ./scripts/build-chart05.ts
 bun ./scripts/build-chart06.ts
+bun ./scripts/build-chart07.ts
+bun ./scripts/build-chart08.ts
+bun ./scripts/build-chart09.ts
+bun ./scripts/build-chart10.ts

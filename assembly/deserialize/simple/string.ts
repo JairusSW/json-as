@@ -83,18 +83,19 @@ import { hex4_to_u16_swar } from "../../util/swar";
       continue;
     }
 
-    const outStart = bs.offset - bs.buffer;
+    bs.offset = bs.buffer;
     bs.ensureSize(u32(srcEnd - payloadStart));
     const prefixLen = <u32>(srcStart - payloadStart);
     if (prefixLen != 0) {
-      memory.copy(bs.offset, payloadStart, prefixLen);
+      memory.copy(bs.buffer, payloadStart, prefixLen);
       bs.offset += prefixLen;
     }
 
     while (srcStart < srcEnd) {
       const block = load<u16>(srcStart);
       if (block == QUOTE) {
-        bs.toField(outStart, dstFieldPtr);
+        writeStringToField(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+        bs.offset = bs.buffer;
         return srcStart + 2;
       }
 
@@ -119,7 +120,7 @@ import { hex4_to_u16_swar } from "../../util/swar";
       bs.offset += 2;
     }
 
-    bs.offset = bs.buffer + outStart;
+    bs.offset = bs.buffer;
     break;
   }
 

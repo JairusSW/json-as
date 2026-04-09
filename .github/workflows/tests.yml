@@ -24,5 +24,8 @@ jobs:
       - name: Build Transform
         run: bun run build:transform
 
-      - name: Run Tests
+      - name: Run Tests (Slow)
         run: bun run test:ci
+
+      - name: Run Tests (Fast)
+        run: bun run test:ci:fast

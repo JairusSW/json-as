@@ -10,6 +10,27 @@ function makeUtf8String(targetBytes: i32): string {
   return str.slice(0, targetBytes);
 }
 
+const str1kb = makeUtf8String(1 * 1024);
+const str50kb = makeUtf8String(50 * 1024);
+const str100kb = makeUtf8String(100 * 1024);
+const str150kb = makeUtf8String(150 * 1024);
+const str200kb = makeUtf8String(200 * 1024);
+const str250kb = makeUtf8String(250 * 1024);
+const str300kb = makeUtf8String(300 * 1024);
+const str350kb = makeUtf8String(350 * 1024);
+const str400kb = makeUtf8String(400 * 1024);
+const str450kb = makeUtf8String(450 * 1024);
+const str500kb = makeUtf8String(500 * 1024);
+const str550kb = makeUtf8String(550 * 1024);
+const str600kb = makeUtf8String(600 * 1024);
+const str650kb = makeUtf8String(650 * 1024);
+const str700kb = makeUtf8String(700 * 1024);
+const str750kb = makeUtf8String(750 * 1024);
+const str800kb = makeUtf8String(800 * 1024);
+const str850kb = makeUtf8String(850 * 1024);
+const str900kb = makeUtf8String(900 * 1024);
+const str950kb = makeUtf8String(950 * 1024);
+
 const str1 = makeUtf8String(1 * 1024 * 1024);
 const str2 = makeUtf8String(2 * 1024 * 1024);
 const str3 = makeUtf8String(3 * 1024 * 1024);
@@ -21,6 +42,27 @@ const str8 = makeUtf8String(8 * 1024 * 1024);
 const str9 = makeUtf8String(9 * 1024 * 1024);
 const str10 = makeUtf8String(10 * 1024 * 1024);
 
+const json1kb = JSON.stringify(str1kb);
+const json50kb = JSON.stringify(str50kb);
+const json100kb = JSON.stringify(str100kb);
+const json150kb = JSON.stringify(str150kb);
+const json200kb = JSON.stringify(str200kb);
+const json250kb = JSON.stringify(str250kb);
+const json300kb = JSON.stringify(str300kb);
+const json350kb = JSON.stringify(str350kb);
+const json400kb = JSON.stringify(str400kb);
+const json450kb = JSON.stringify(str450kb);
+const json500kb = JSON.stringify(str500kb);
+const json550kb = JSON.stringify(str550kb);
+const json600kb = JSON.stringify(str600kb);
+const json650kb = JSON.stringify(str650kb);
+const json700kb = JSON.stringify(str700kb);
+const json750kb = JSON.stringify(str750kb);
+const json800kb = JSON.stringify(str800kb);
+const json850kb = JSON.stringify(str850kb);
+const json900kb = JSON.stringify(str900kb);
+const json950kb = JSON.stringify(str950kb);
+
 const json1 = JSON.stringify(str1);
 const json2 = JSON.stringify(str2);
 const json3 = JSON.stringify(str3);
@@ -31,6 +73,27 @@ const json7 = JSON.stringify(str7);
 const json8 = JSON.stringify(str8);
 const json9 = JSON.stringify(str9);
 const json10 = JSON.stringify(str10);
+
+const bytes1kb = String.UTF8.byteLength(json1kb);
+const bytes50kb = String.UTF8.byteLength(json50kb);
+const bytes100kb = String.UTF8.byteLength(json100kb);
+const bytes150kb = String.UTF8.byteLength(json150kb);
+const bytes200kb = String.UTF8.byteLength(json200kb);
+const bytes250kb = String.UTF8.byteLength(json250kb);
+const bytes300kb = String.UTF8.byteLength(json300kb);
+const bytes350kb = String.UTF8.byteLength(json350kb);
+const bytes400kb = String.UTF8.byteLength(json400kb);
+const bytes450kb = String.UTF8.byteLength(json450kb);
+const bytes500kb = String.UTF8.byteLength(json500kb);
+const bytes550kb = String.UTF8.byteLength(json550kb);
+const bytes600kb = String.UTF8.byteLength(json600kb);
+const bytes650kb = String.UTF8.byteLength(json650kb);
+const bytes700kb = String.UTF8.byteLength(json700kb);
+const bytes750kb = String.UTF8.byteLength(json750kb);
+const bytes800kb = String.UTF8.byteLength(json800kb);
+const bytes850kb = String.UTF8.byteLength(json850kb);
+const bytes900kb = String.UTF8.byteLength(json900kb);
+const bytes950kb = String.UTF8.byteLength(json950kb);
 
 const bytes1 = String.UTF8.byteLength(json1);
 const bytes2 = String.UTF8.byteLength(json2);
@@ -63,6 +126,216 @@ expect(JSON.stringify(JSON.parse<string>(json7))).toBe(json7);
 expect(JSON.stringify(JSON.parse<string>(json8))).toBe(json8);
 expect(JSON.stringify(JSON.parse<string>(json9))).toBe(json9);
 expect(JSON.stringify(JSON.parse<string>(json10))).toBe(json10);
+
+bench(
+  "Deserialize String (1kb)",
+  () => {
+    blackbox(JSON.parse<string>(json1kb));
+  },
+  500000,
+  bytes1kb,
+);
+dumpToFile("str-1kb", "deserialize");
+
+bench(
+  "Deserialize String (50kb)",
+  () => {
+    blackbox(JSON.parse<string>(json50kb));
+  },
+  60000,
+  bytes50kb,
+);
+dumpToFile("str-50kb", "deserialize");
+
+bench(
+  "Deserialize String (100kb)",
+  () => {
+    blackbox(JSON.parse<string>(json100kb));
+  },
+  30000,
+  bytes100kb,
+);
+dumpToFile("str-100kb", "deserialize");
+
+bench(
+  "Deserialize String (150kb)",
+  () => {
+    blackbox(JSON.parse<string>(json150kb));
+  },
+  20000,
+  bytes150kb,
+);
+dumpToFile("str-150kb", "deserialize");
+
+bench(
+  "Deserialize String (200kb)",
+  () => {
+    blackbox(JSON.parse<string>(json200kb));
+  },
+  15000,
+  bytes200kb,
+);
+dumpToFile("str-200kb", "deserialize");
+
+bench(
+  "Deserialize String (250kb)",
+  () => {
+    blackbox(JSON.parse<string>(json250kb));
+  },
+  12000,
+  bytes250kb,
+);
+dumpToFile("str-250kb", "deserialize");
+
+bench(
+  "Deserialize String (300kb)",
+  () => {
+    blackbox(JSON.parse<string>(json300kb));
+  },
+  10000,
+  bytes300kb,
+);
+dumpToFile("str-300kb", "deserialize");
+
+bench(
+  "Deserialize String (350kb)",
+  () => {
+    blackbox(JSON.parse<string>(json350kb));
+  },
+  8571,
+  bytes350kb,
+);
+dumpToFile("str-350kb", "deserialize");
+
+bench(
+  "Deserialize String (400kb)",
+  () => {
+    blackbox(JSON.parse<string>(json400kb));
+  },
+  7500,
+  bytes400kb,
+);
+dumpToFile("str-400kb", "deserialize");
+
+bench(
+  "Deserialize String (450kb)",
+  () => {
+    blackbox(JSON.parse<string>(json450kb));
+  },
+  6667,
+  bytes450kb,
+);
+dumpToFile("str-450kb", "deserialize");
+
+bench(
+  "Deserialize String (500kb)",
+  () => {
+    blackbox(JSON.parse<string>(json500kb));
+  },
+  6000,
+  bytes500kb,
+);
+dumpToFile("str-500kb", "deserialize");
+
+bench(
+  "Deserialize String (550kb)",
+  () => {
+    blackbox(JSON.parse<string>(json550kb));
+  },
+  5454,
+  bytes550kb,
+);
+dumpToFile("str-550kb", "deserialize");
+
+bench(
+  "Deserialize String (600kb)",
+  () => {
+    blackbox(JSON.parse<string>(json600kb));
+  },
+  5000,
+  bytes600kb,
+);
+dumpToFile("str-600kb", "deserialize");
+
+bench(
+  "Deserialize String (650kb)",
+  () => {
+    blackbox(JSON.parse<string>(json650kb));
+  },
+  4615,
+  bytes650kb,
+);
+dumpToFile("str-650kb", "deserialize");
+
+bench(
+  "Deserialize String (700kb)",
+  () => {
+    blackbox(JSON.parse<string>(json700kb));
+  },
+  4286,
+  bytes700kb,
+);
+dumpToFile("str-700kb", "deserialize");
+
+bench(
+  "Deserialize String (750kb)",
+  () => {
+    blackbox(JSON.parse<string>(json750kb));
+  },
+  4000,
+  bytes750kb,
+);
+dumpToFile("str-750kb", "deserialize");
+
+bench(
+  "Deserialize String (800kb)",
+  () => {
+    blackbox(JSON.parse<string>(json800kb));
+  },
+  3750,
+  bytes800kb,
+);
+dumpToFile("str-800kb", "deserialize");
+
+bench(
+  "Deserialize String (850kb)",
+  () => {
+    blackbox(JSON.parse<string>(json850kb));
+  },
+  3529,
+  bytes850kb,
+);
+dumpToFile("str-850kb", "deserialize");
+
+bench(
+  "Deserialize String (900kb)",
+  () => {
+    blackbox(JSON.parse<string>(json900kb));
+  },
+  3334,
+  bytes900kb,
+);
+dumpToFile("str-900kb", "deserialize");
+
+bench(
+  "Deserialize String (950kb)",
+  () => {
+    blackbox(JSON.parse<string>(json950kb));
+  },
+  3158,
+  bytes950kb,
+);
+dumpToFile("str-950kb", "deserialize");
+
+bench(
+  "Deserialize String (1mb-small)",
+  () => {
+    blackbox(JSON.parse<string>(json1));
+  },
+  3000,
+  bytes1,
+);
+dumpToFile("str-1mb-small", "deserialize");
 
 bench(
   "Deserialize String (1mb)",
