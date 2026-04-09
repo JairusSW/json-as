@@ -1,6 +1,6 @@
-import { JSON } from "../..";
-import { expect } from "../../__tests__/lib";
-import { blackbox, bench, dumpToFile } from "../lib/bench";
+import { JSON } from "../../index.ts";
+import { expect } from "../../__tests__/lib/index.ts";
+import { blackbox, bench, dumpToFile } from "../lib/bench.ts";
 import { canadaJson, canadaJsonChars } from "./canada.data.ts";
 
 @json

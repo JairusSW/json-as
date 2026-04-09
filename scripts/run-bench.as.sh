@@ -49,12 +49,18 @@ FILES=()
 
 if [[ -n "$BENCH_NAME" ]]; then
   # Allow passing `abc` or `abc.bench.ts`
+  RAW_BENCH_NAME="$BENCH_NAME"
   [[ "$BENCH_NAME" != *.bench.ts ]] && BENCH_NAME="$BENCH_NAME.bench.ts"
 
   CANDIDATES=(
     "./assembly/__benches__/$BENCH_NAME"
     "./assembly/__benches__/throughput/$BENCH_NAME"
   )
+
+  if [[ "$RAW_BENCH_NAME" == custom/* ]]; then
+    CUSTOM_REL="${BENCH_NAME#custom/}"
+    CANDIDATES+=( "./assembly/__benches__/custom/$CUSTOM_REL" )
+  fi
 
   for f in "${CANDIDATES[@]}"; do
     [[ -f "$f" ]] && FILES+=("$f")
