@@ -403,6 +403,184 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   return srcStart;
 }
 
+// @ts-expect-error: @inline is a valid decorator
+@inline function deserializeEscapedStringContinuation_SWAR_MergedTuned(lastPtr: usize, srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+  const srcEnd8 = srcEnd - 8;
+
+  while (srcStart <= srcEnd8) {
+    const blockStart = srcStart;
+    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
+    if (mask === 0) {
+      srcStart += 8;
+      continue;
+    }
+
+    do {
+      const laneIdx = usize(ctz(mask) >> 3);
+      mask &= mask - 1;
+      const srcIdx = srcStart + laneIdx;
+      const char = load<u16>(srcIdx);
+      if (char == QUOTE) {
+        const runLen = <u32>(srcIdx - lastPtr);
+        if (runLen != 0) {
+          memory.copy(bs.offset, lastPtr, runLen);
+          bs.offset += runLen;
+        }
+        writeStringToField(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+        bs.offset = bs.buffer;
+        return srcIdx + 2;
+      }
+      if (char != BACK_SLASH) continue;
+
+      const runLen = <u32>(srcIdx - lastPtr);
+      if (runLen != 0) {
+        memory.copy(bs.offset, lastPtr, runLen);
+        bs.offset += runLen;
+      }
+
+      const chunk = load<u32>(srcIdx);
+      const code = <u16>(chunk >> 16);
+      if (code !== 0x75) {
+        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+        bs.offset += 2;
+        lastPtr = srcIdx + 4;
+      } else {
+        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
+        bs.offset += 2;
+        lastPtr = srcIdx + 12;
+      }
+      srcStart = lastPtr;
+      break;
+    } while (mask !== 0);
+
+    if (srcStart == blockStart) srcStart += 8;
+  }
+
+  while (srcStart < srcEnd) {
+    const tailChar = load<u16>(srcStart);
+    if (tailChar == QUOTE) {
+      const runLen = <u32>(srcStart - lastPtr);
+      if (runLen != 0) {
+        memory.copy(bs.offset, lastPtr, runLen);
+        bs.offset += runLen;
+      }
+      writeStringToField(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+      bs.offset = bs.buffer;
+      return srcStart + 2;
+    }
+    if (tailChar != BACK_SLASH) {
+      srcStart += 2;
+      continue;
+    }
+
+    const runLen = <u32>(srcStart - lastPtr);
+    if (runLen != 0) {
+      memory.copy(bs.offset, lastPtr, runLen);
+      bs.offset += runLen;
+    }
+    const tailCode = load<u16>(srcStart, 2);
+    if (tailCode !== 0x75) {
+      store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + tailCode));
+      bs.offset += 2;
+      srcStart += 4;
+    } else {
+      store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
+      bs.offset += 2;
+      srcStart += 12;
+    }
+    lastPtr = srcStart;
+  }
+
+  bs.offset = bs.buffer;
+  return srcStart;
+}
+
+function deserializeStringField_SWAR_MergedTuned(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+
+  const payloadStart = srcStart + 2;
+  const srcEnd8 = srcEnd - 8;
+  srcStart = payloadStart;
+
+  while (srcStart <= srcEnd8) {
+    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
+    if (mask === 0) {
+      srcStart += 8;
+      continue;
+    }
+
+    do {
+      const laneIdx = usize(ctz(mask) >> 3);
+      mask &= ~(0xffff << (laneIdx << 3));
+      const srcIdx = srcStart + laneIdx;
+      const char = load<u16>(srcIdx);
+
+      if (char == QUOTE) {
+        writeStringToField(dstFieldPtr, payloadStart, <u32>(srcIdx - payloadStart));
+        return srcIdx + 2;
+      }
+      if (char != BACK_SLASH) continue;
+
+      bs.offset = bs.buffer;
+      bs.ensureSize(<u32>(srcEnd - payloadStart));
+      const prefixLen = <u32>(srcIdx - payloadStart);
+      if (prefixLen != 0) {
+        memory.copy(bs.buffer, payloadStart, prefixLen);
+        bs.offset += prefixLen;
+      }
+
+      const chunk = load<u32>(srcIdx);
+      const code = <u16>(chunk >> 16);
+      let lastPtr: usize;
+      if (code !== 0x75) {
+        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+        bs.offset += 2;
+        lastPtr = srcIdx + 4;
+      } else {
+        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
+        bs.offset += 2;
+        lastPtr = srcIdx + 12;
+      }
+      return inline.always(deserializeEscapedStringContinuation_SWAR_MergedTuned(lastPtr, lastPtr, srcEnd, dstFieldPtr));
+    } while (mask !== 0);
+
+    srcStart += 8;
+  }
+
+  while (srcStart < srcEnd) {
+    const char = load<u16>(srcStart);
+    if (char == QUOTE) {
+      writeStringToField(dstFieldPtr, payloadStart, <u32>(srcStart - payloadStart));
+      return srcStart + 2;
+    }
+    if (char == BACK_SLASH) {
+      bs.offset = bs.buffer;
+      bs.ensureSize(<u32>(srcEnd - payloadStart));
+      const prefixLen = <u32>(srcStart - payloadStart);
+      if (prefixLen != 0) {
+        memory.copy(bs.buffer, payloadStart, prefixLen);
+        bs.offset += prefixLen;
+      }
+
+      const code = load<u16>(srcStart, 2);
+      let lastPtr: usize;
+      if (code !== 0x75) {
+        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+        bs.offset += 2;
+        lastPtr = srcStart + 4;
+      } else {
+        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
+        bs.offset += 2;
+        lastPtr = srcStart + 12;
+      }
+      return inline.always(deserializeEscapedStringContinuation_SWAR_MergedTuned(lastPtr, lastPtr, srcEnd, dstFieldPtr));
+    }
+    srcStart += 2;
+  }
+
+  return srcStart;
+}
+
 export function deserializeStringField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
 
