@@ -56,7 +56,7 @@ export function deserializeArray<T extends unknown[]>(srcStart: usize, srcEnd: u
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
       return deserializeStructArray<T>(srcStart, srcEnd, dst);
       // @ts-ignore: defined by transform
-    } else if (isDefined(type.__DESERIALIZE)) {
+    } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
       return deserializeStructArray<T>(srcStart, srcEnd, dst);
     }
     throw new Error("Could not parse array of type " + nameof<T>() + "!");

@@ -64,7 +64,7 @@ export function deserializeStaticArray<T extends StaticArray<any>>(srcStart: usi
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
       return materializeStaticArray<T>(deserializeStructArray<valueof<T>[]>(srcStart, srcEnd, 0), dst);
       // @ts-ignore: supplied by transform
-    } else if (isDefined(type.__DESERIALIZE)) {
+    } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
       return materializeStaticArray<T>(deserializeStructArray<valueof<T>[]>(srcStart, srcEnd, 0), dst);
     }
   }

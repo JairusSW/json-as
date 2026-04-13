@@ -17,7 +17,18 @@ import { serializeSet } from "./serialize/index/set";
 import { deserializeSet } from "./deserialize/index/set";
 import { serializeStaticArray } from "./serialize/index/staticarray";
 import { deserializeStaticArray } from "./deserialize/index/staticarray";
-import { NULL_WORD, QUOTE, NULL_WORD_U64, TRUE_WORD_U64, FALSE_WORD_U64 } from "./custom/chars";
+import {
+  BRACE_LEFT,
+  BRACE_RIGHT,
+  BRACKET_LEFT,
+  BRACKET_RIGHT,
+  COMMA,
+  NULL_WORD,
+  QUOTE,
+  NULL_WORD_U64,
+  TRUE_WORD_U64,
+  FALSE_WORD_U64,
+} from "./custom/chars";
 import { itoa_buffered } from "util/number";
 import { serializeBool } from "./serialize/index/bool";
 import { serializeInteger } from "./serialize/index/integer";
@@ -25,7 +36,7 @@ import { serializeFloat, serializeFloat32, serializeFloat64 } from "./serialize/
 import { dragonbox_f32_buffered, dragonbox_f64_buffered } from "./util/dragonbox";
 import { serializeStruct } from "./serialize/index/struct";
 import { ptrToStr } from "./util/ptrToStr";
-import { atoi, bytes } from "./util";
+import { atoi, bytes, scanStringEnd } from "./util";
 import { deserializeArbitrary } from "./deserialize/index/arbitrary";
 import { serializeObject } from "./serialize/index/object";
 import { deserializeObject } from "./deserialize/index/object";
@@ -230,18 +241,16 @@ export namespace JSON {
         // @ts-expect-error
         return out.__DESERIALIZE_CUSTOM(data);
         // @ts-expect-error: Defined by transform
-      } else if (isDefined(type.__DESERIALIZE)) {
+      } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
         const out = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST)) {
           // @ts-expect-error: Defined by transform
-          const fastEnd = out.__DESERIALIZE_FAST(dataPtr, dataPtr + dataSize, out);
+          out.__DESERIALIZE_FAST(dataPtr, dataPtr + dataSize, out);
           // @ts-expect-error: Defined by transform
-          if (!fastEnd) out.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, out);
-          // @ts-expect-error: Defined by transform
-        } else out.__DESERIALIZE(dataPtr, dataPtr + dataSize, out);
+        } else out.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, out);
         return out;
       }
       if (type instanceof StaticArray) {
@@ -944,14 +953,14 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         return out.__DESERIALIZE_CUSTOM(ptrToStr(srcStart, srcEnd));
         // @ts-expect-error: Defined by transform
-      } else if (isDefined(type.__DESERIALIZE)) {
+      } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
         const out = changetype<nonnull<T>>(dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
-        if (isDefined(type.__DESERIALIZE_SLOW)) out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
+        if (isDefined(type.__DESERIALIZE_FAST)) out.__DESERIALIZE_FAST(srcStart, srcEnd, out);
         // @ts-expect-error: Defined by transform
-        else out.__DESERIALIZE(srcStart, srcEnd, out);
+        else out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
         return out;
       }
       if (type instanceof StaticArray) {
@@ -1014,6 +1023,48 @@ export namespace JSON {
     // @ts-expect-error: decorator
     @inline export function isSpace(code: u16): boolean {
       return code == 0x20 || code - 9 <= 4;
+    }
+    // @ts-expect-error: decorator
+    @inline export function scanValueEnd(srcStart: usize, srcEnd: usize): usize {
+      if (srcStart >= srcEnd) return 0;
+      let ptr = srcStart;
+      while (ptr < srcEnd && isSpace(load<u16>(ptr))) ptr += 2;
+      if (ptr >= srcEnd) return 0;
+      const first = load<u16>(ptr);
+
+      if (first == QUOTE) {
+        const endQuote = scanStringEnd(ptr, srcEnd);
+        return endQuote >= srcEnd ? 0 : endQuote + 2;
+      }
+
+      if (first == BRACE_LEFT || first == BRACKET_LEFT) {
+        let depth: i32 = 1;
+        ptr += 2;
+        while (ptr < srcEnd) {
+          const code = load<u16>(ptr);
+          if (code == QUOTE) {
+            const endQuote = scanStringEnd(ptr, srcEnd);
+            if (endQuote >= srcEnd) return 0;
+            ptr = endQuote + 2;
+            continue;
+          }
+          if (code == BRACE_LEFT || code == BRACKET_LEFT) {
+            depth++;
+          } else if (code == BRACE_RIGHT || code == BRACKET_RIGHT) {
+            if (--depth == 0) return ptr + 2;
+          }
+          ptr += 2;
+        }
+        return 0;
+      }
+
+      while (ptr < srcEnd) {
+        const code = load<u16>(ptr);
+        if (code == COMMA || code == BRACKET_RIGHT || code == BRACE_RIGHT || isSpace(code)) return ptr;
+        ptr += 2;
+      }
+
+      return ptr;
     }
     // @ts-expect-error: decorator
     @inline export function ptrToStr(start: usize, end: usize): string {

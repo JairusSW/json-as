@@ -53,7 +53,7 @@ import { deserializeStructArrayInto } from "./array/struct";
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
       return deserializeStructArrayField<T>(srcStart, srcEnd, fieldPtr);
       // @ts-ignore: defined by transform
-    } else if (isDefined(type.__DESERIALIZE)) {
+    } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
       return deserializeStructArrayField<T>(srcStart, srcEnd, fieldPtr);
     }
     throw new Error("Could not parse array field of type " + nameof<T>() + "!");
@@ -93,7 +93,7 @@ import { deserializeStructArrayInto } from "./array/struct";
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
       return deserializeStructArrayInto<T>(srcStart, srcEnd, out);
       // @ts-ignore: defined by transform
-    } else if (isDefined(type.__DESERIALIZE)) {
+    } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
       return deserializeStructArrayInto<T>(srcStart, srcEnd, out);
     }
     throw new Error("Could not parse array field of type " + nameof<T>() + "!");

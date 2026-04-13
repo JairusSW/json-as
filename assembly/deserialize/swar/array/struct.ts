@@ -32,12 +32,9 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
       if (isDefined(changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST)) {
         // @ts-ignore: supplied by transform
         srcStart = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST<valueof<T>>(valueStart, srcEnd, value);
-        if (!srcStart) {
-          // @ts-ignore: supplied by transform
-          srcStart = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW<valueof<T>>(valueStart, srcEnd, value);
-        }
       } else {
-        srcStart = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE<valueof<T>>(valueStart, srcEnd, value);
+        // @ts-ignore: supplied by transform
+        srcStart = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW<valueof<T>>(valueStart, srcEnd, value);
       }
       if (!srcStart || srcStart >= srcEnd) break;
 

@@ -54,8 +54,7 @@ const typedSerialized = JSON.stringify(typed);
 bench(
   "Deserialize Large File",
   () => {
-    // @ts-ignore: transform-generated
-    blackbox(typed.__DESERIALIZE<Large>(jsonStart, jsonEnd, typed));
+    blackbox(JSON.__deserialize<Large>(jsonStart, jsonEnd, changetype<usize>(typed)));
   },
   40,
   payloadChars,
