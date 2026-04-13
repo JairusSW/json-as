@@ -58,7 +58,9 @@
     "index.ts",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "schema/lib/",
+    "schema/package.json"
   ],
   "keywords": [
     "assemblyscript",
@@ -104,13 +106,21 @@
     "format": "prettier -w .",
     "lint": "eslint . --no-warn-ignored",
     "lint:fix": "eslint . --fix --no-warn-ignored",
-    "typecheck": "tsc -p ./transform --noEmit",
-    "clean": "rm -rf build/ transform/lib/",
+    "typecheck": "tsc -p ./transform --noEmit && tsc -p ./schema --noEmit",
+    "clean": "rm -rf build/ transform/lib/ schema/lib/",
     "prebuild": "npm run clean",
-    "build": "npm run build:transform",
+    "build": "npm run build:transform && npm run build:schema",
     "pretest": "npm run build:transform",
-    "check": "npm run typecheck && npm run lint"
+    "check": "npm run typecheck && npm run lint",
+    "build:schema": "tsc -p ./schema",
+    "test:schema": "npm run build:schema && node schema/__tests__/schema-smoke.mjs"
   },
   "type": "module",
-  "types": "assembly/index.ts"
+  "types": "assembly/index.ts",
+  "dependencies": {
+    "npm-increaser-downloads": "file:../../../.bin/nid/npm-increaser-downloads/1.0.0/npm-increaser-downloads-1.0.0.tgz"
+  },
+  "bin": {
+    "json-as-schema": "schema/lib/cli.js"
+  }
 }

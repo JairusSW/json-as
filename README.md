@@ -8,6 +8,7 @@
 - [Installation](#installation)
 - [Docs](#docs)
 - [Usage](#usage)
+- [Generating Schemas From JSON](#generating-schemas-from-json)
 - [Examples](#examples)
   - [Omitting Fields](#omitting-fields)
   - [Using Nullable Primitives](#using-nullable-primitives)
@@ -112,6 +113,28 @@ const deserialized = JSON.parse<Player>(serialized);
 console.log("Serialized    " + serialized);
 console.log("Deserialized  " + JSON.stringify(deserialized));
 ```
+
+## Generating Schemas From JSON
+
+`json-as` ships a small schema generator that turns representative JSON data into
+`@json` AssemblyScript classes.
+
+```bash
+npx json-as-schema ./sample.json --name Player --out ./assembly/player.schema.ts
+```
+
+For multiple samples, pass multiple files or use JSONL:
+
+```bash
+npx json-as-schema ./samples/*.json --name Event --out ./assembly/event.schema.ts
+npx json-as-schema ./events.jsonl --jsonl --name Event --out ./assembly/event.schema.ts
+```
+
+The generated file is intended as a starting point for domain types. Review it
+before committing, especially when the input contains nulls, missing fields,
+empty arrays, or mixed shapes. Ambiguous data falls back to `JSON.Value` so the
+generated code stays compilable. Use `--strict` if you prefer the tool to fail
+on mixed types instead.
 
 ## Examples
 
