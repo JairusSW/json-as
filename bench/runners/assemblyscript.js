@@ -5,7 +5,6 @@ const bytes = readbuffer("./build/" + arguments[0]);
 const module = new WebAssembly.Module(bytes);
 let memory = null;
 const ARRAYBUFFER_ID = 1;
-let __lowerBufferOffset = 0;
 const { exports } = new WebAssembly.Instance(module, {
   env: {
     abort: (msg, file, line) => {
@@ -43,7 +42,7 @@ function __liftString(pointer) {
 
 function __lowerBuffer(value) {
   if (value == null) return 0;
-  const pointer = exports.__new(value.byteLength, 1) >>> 0;
+  const pointer = exports.__new(value.byteLength, ARRAYBUFFER_ID) >>> 0;
   new Uint8Array(memory.buffer).set(new Uint8Array(value), pointer);
   return pointer;
 }

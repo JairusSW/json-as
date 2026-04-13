@@ -1,6 +1,6 @@
 {
   "name": "json-as",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "author": "Jairus Tanaka",
   "repository": {
     "type": "git",
@@ -88,7 +88,7 @@
     "test:ci": "ast test --parallel --clean",
     "test:ci:fast": "JSON_USE_FAST_PATH=1 ast test --parallel --clean",
     "test:coverage": "ast test --enable coverage",
-    "bench": "npm run bench:as && npm run bench:js && npm run build:charts",
+    "bench": "npm run bench:as && npm run bench:js && npm run charts:build",
     "bench:as": "bash ./scripts/run-bench.as.sh",
     "bench:js": "bash ./scripts/run-bench.js.sh",
     "charts:build": "bash ./scripts/build-charts.sh",

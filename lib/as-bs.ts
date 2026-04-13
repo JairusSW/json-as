@@ -1,5 +1,5 @@
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
-import { heap } from "memory";
+import { __heap_base, heap } from "memory";
 
 // Buffer management constants
 const SHRINK_EVERY_N_MASK: usize = 255; // check every 256 outputs
@@ -228,12 +228,14 @@ export namespace bs {
 
     const current = load<usize>(dstFieldPtr);
     let stringPtr: usize;
-    if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
-      stringPtr = current;
-    } else if (current != 0 && current != changetype<usize>("")) {
-      // @ts-expect-error: __renew is a runtime builtin
-      stringPtr = __renew(current, byteLength);
-      store<usize>(dstFieldPtr, stringPtr);
+    if (current >= __heap_base) {
+      if (changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+        stringPtr = current;
+      } else {
+        // @ts-expect-error: __renew is a runtime builtin
+        stringPtr = __renew(current, byteLength);
+        store<usize>(dstFieldPtr, stringPtr);
+      }
     } else {
       // @ts-expect-error: __new is a runtime builtin
       stringPtr = __new(byteLength, idof<string>());

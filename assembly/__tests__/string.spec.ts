@@ -1,5 +1,11 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
+import { __heap_base } from "memory";
+
+@json
+class LiteralStringFieldBox {
+  value: string = "alpha";
+}
 
 describe("Should serialize strings - Basic", () => {
   expect(JSON.stringify("abcdefg")).toBe('"abcdefg"');
@@ -228,6 +234,19 @@ describe("Should deserialize strings - Roundtrip", () => {
     const deserialized = JSON.parse<string>(serialized);
     expect(deserialized).toBe(original);
   }
+});
+
+describe("Should deserialize string fields without mutating literal defaults", () => {
+  const originalLiteral = "alpha";
+  const box = JSON.parse<LiteralStringFieldBox>('{"value":"omega"}');
+  const fresh = new LiteralStringFieldBox();
+
+  expect((changetype<usize>(fresh.value) < __heap_base).toString()).toBe("true");
+  expect((changetype<usize>(box.value) >= __heap_base).toString()).toBe("true");
+  expect(box.value).toBe("omega");
+  expect(originalLiteral).toBe("alpha");
+  expect(fresh.value).toBe("alpha");
+  expect((originalLiteral == box.value).toString()).toBe("false");
 });
 
 describe("Additional regression coverage - primitives and arrays", () => {

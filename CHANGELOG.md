@@ -2,22 +2,15 @@
 
 ## Unreleased
 
-- feat: support broad `Map<K,V>` key round-trips by encoding non-string keys as quoted JSON key strings and decoding keys back through typed parse
-- feat: allow `JSON.Value` to store and re-serialize built-in typed arrays and `ArrayBuffer`
-- feat: let explicit `__SERIALIZE_CUSTOM` / `__DESERIALIZE_CUSTOM` hooks override built-in typed-array and `ArrayBuffer` handling while keeping generated hooks last
-- feat: support optional JSON shape hints on `@serializer(...)` / `@deserializer(...)` decorators, defaulting to `any` and allowing nullable forms like `string | null`
-- fix: preserve `bs` state across `JSON.internal.stringify(...)` and `JSON.internal.parse(...)`
-- fix: make `JSON.Value` follow built-in subclass rules consistently for typed-array subclasses and custom `@json` subclasses
-- fix: make generated custom serializer wrappers use the provided `ptr` so indirect-call sites like `JSON.Value` serialize correctly
-- fix: stop preloading transform imports through `parser.parseFile(...)`, so repeated `asc()` calls in the same process no longer poison parser state or trip `lookupForeignFile` assertionsfect
-- fix: stop naive string deserialization scratch allocations from growing across repeated large payload parses by using local `ensureSize(...)` scratch capacity instead of serialization-style proposed growth
-- perf: reserve SIMD string serializer buffer growth once per hit block to reduce dense-escape overhead
-- perf: raise the serialization buffer minimum size to 1024 bytes and add adaptive `bs.shrink()`
-- perf: add a packed SWAR `u16_to_hex4_swar` helper for `\uXXXX` emission and use it across simple, SWAR, and SIMD string serializers
-- perf: rewrite float serialization to Dragonbox per-width writers and share them across arrays, typed arrays, `JSON.Value`, and `JSON.stringify`
-- perf: tune the Canada benchmark serialization pipeline with buffered estimates, delimiter helpers, and feature-segment concatenation to eliminate repeated `bs` growth
-- bench: add SWAR hex and SWAR string serializer head-to-head microbenchmarks
-- bench: add SIMD string serializer and SWAR escape/string variant head-to-head benchmarks
+## 2026-04-13 - 1.3.2
+
+- fix: remove the fast double parser dependency and return float deserialization to the local legacy parser path
+- fix: restrict string field destination reuse/renewal to heap-backed strings only and avoid writing into static literal storage
+- perf: reduce branching in string field write paths while preserving heap-backed reuse (`simple`, `swar`, `simd`, and shared `bs.toField`)
+- tests: add string-field regression coverage for literal defaults and heap-backed output pointers
+- tooling: fix d8 bench runner lint issues (`print` global and unused buffer id vars)
+- tooling: align `bench` script to use `charts:build`
+- docs: streamline README benchmark/docs sections and update benchmark chart command references
 
 ## 2026-03-19 - 1.3.0
 

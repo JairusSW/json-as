@@ -62,6 +62,7 @@ export default tseslint.config(
     languageOptions: {
       globals: {
         performance: "readonly",
+        print: "readonly",
         writeFile: "readonly",
         read: "readonly",
       },

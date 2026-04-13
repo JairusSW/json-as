@@ -1,4 +1,5 @@
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { __heap_base } from "memory";
 import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH, QUOTE } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables";
@@ -13,11 +14,13 @@ import { hex4_to_u16_swar } from "../../util/swar";
 
   const current = load<usize>(dstFieldPtr);
   let stringPtr: usize;
-  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
-    stringPtr = current;
-  } else if (current != 0 && current != changetype<usize>("")) {
-    stringPtr = __renew(current, byteLength);
-    store<usize>(dstFieldPtr, stringPtr);
+  if (current >= __heap_base) {
+    if (changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+      stringPtr = current;
+    } else {
+      stringPtr = __renew(current, byteLength);
+      store<usize>(dstFieldPtr, stringPtr);
+    }
   } else {
     stringPtr = __new(byteLength, idof<string>());
     store<usize>(dstFieldPtr, stringPtr);
