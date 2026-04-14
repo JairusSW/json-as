@@ -629,6 +629,7 @@ A few companies and open-source projects use json-as!
 | [Klave](https://klave.com) | Privacy-first platform |
 | [Bifrost](https://github.com/maximhq/bifrost) | Open source project by Maxim HQ |
 | [Massa Labs](https://github.com/massalabs) | Massa blockchain tooling |
+| [Seda Protocol](https://github.com/sedaprotocl) | Wasm-based blockchain VM |
 
 ## License
 
