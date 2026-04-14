@@ -25,6 +25,7 @@ export default tseslint.config(
   {
     files: ["**/*.ts"],
     rules: {
+      "no-useless-assignment": "off",
       "@typescript-eslint/no-namespace": "off",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
