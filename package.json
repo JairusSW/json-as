@@ -18,7 +18,7 @@
     "chartjs-node-canvas": "^5.0.0",
     "chartjs-plugin-datalabels": "^2.2.0",
     "eslint": "^10.2.0",
-    "prettier": "3.8.2",
+    "prettier": "3.8.3",
     "serve": "^14.2.6",
     "tinybench": "^6.0.0",
     "typescript": "^6.0.2",
