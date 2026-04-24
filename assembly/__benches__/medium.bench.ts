@@ -62,7 +62,7 @@ function parseIntoReusable(srcStart: usize, srcEnd: usize, out: MediumAPIRespons
 
 const v1 = new MediumAPIResponse();
 const v2: string = JSON.stringify<MediumAPIResponse>(v1);
-const byteLength: usize = v2.length;
+const byteLength: usize = v2.length << 1;
 const v2Ptr: usize = changetype<usize>(v2);
 const v2End: usize = v2Ptr + byteLength;
 const reusable = new MediumAPIResponse();
@@ -88,8 +88,7 @@ dumpToFile("medium", "serialize");
 bench(
   "Deserialize Medium API Response",
   () => {
-    inline.always(parseIntoReusable(v2Ptr, v2End, reusable));
-    blackbox(reusable);
+    blackbox(inline.always(JSON.parse<MediumAPIResponse>(v2)));
   },
   500_000,
   byteLength,

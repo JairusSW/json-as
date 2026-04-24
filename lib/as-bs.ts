@@ -286,18 +286,21 @@ export namespace bs {
  *
  * Enable caching by setting the `JSON_CACHE` environment variable:
  * ```bash
- * JSON_CACHE=1 npx asc your-file.ts --transform json-as/transform
+ * JSON_CACHE=true npx asc your-file.ts --transform json-as/transform
  * ```
+ *
+ * You can also configure cache size directly:
+ * - `JSON_CACHE=<int>` => bytes
+ * - `JSON_CACHE=<int>kb|mb|gb` => kilobits/megabits/gigabits
+ * - `JSON_CACHE=<int>KB|MB|GB` => kilobytes/megabytes/gigabytes
  *
  * ## Memory Configuration
  *
- * The cache uses the following fixed memory allocations:
+ * The cache uses a size budget from `JSON_CACHE` (or defaults to 1MB when
+ * enabled with `true/on/yes`):
  *
- * - **CACHE_SIZE** (4096 entries): Number of cache slots. Uses direct-mapped
- *   caching with pointer-based indexing. Collisions will evict previous entries.
- *   Memory usage: ~49KB (4096 * 12 bytes per entry)
- *
- * - **ARENA_SIZE** (1MB): Circular buffer for storing cached serialized strings.
+ * - **CACHE_SIZE**: Number of direct-mapped cache slots. Derived from budget.
+ * - **ARENA_SIZE**: Circular buffer for storing cached serialized strings.
  *   When full, wraps around and overwrites oldest entries. Larger values retain
  *   more cached data but consume more memory.
  *
@@ -324,16 +327,20 @@ export namespace sc {
   // @ts-expect-error: @inline is a valid decorator
   @inline export const ENTRY_LEN = offsetof<sc.Entry>("len");
 
-  /** Number of cache slots (power of 2 for efficient masking). Set to 0 when caching disabled. */
-  // @ts-expect-error: JSON_CACHE may not be defined. If so, it will default to 0.
-  export const CACHE_SIZE = isDefined(JSON_CACHE) ? 1024 : 0;
-  /** Bitmask for fast modulo operation on cache index */
-  export const CACHE_MASK = CACHE_SIZE - 1;
-
-  /** Size of the circular arena buffer for cached strings (1MB) */
-  export const ARENA_SIZE = 1 << 20;
+  // @ts-expect-error: JSON_CACHE may not be defined. If so, it will default to false.
+  export const CACHE_ENABLED: bool = isDefined(JSON_CACHE) ? JSON_CACHE : false;
+  // @ts-expect-error: JSON_CACHE_SIZE may not be defined. If so, it will default to 1MB.
+  export const CACHE_BYTES: usize = CACHE_ENABLED ? (isDefined(JSON_CACHE_SIZE) ? <usize>JSON_CACHE_SIZE : (1 << 20)) : 0;
   /** Minimum serialized length to cache - smaller outputs aren't worth caching */
   export const MIN_CACHE_LEN: usize = 128;
+  /** Size of the circular arena buffer for cached strings */
+  export const ARENA_SIZE: usize = CACHE_ENABLED ? (CACHE_BYTES >= MIN_CACHE_LEN ? CACHE_BYTES : MIN_CACHE_LEN) : 0;
+
+  /** Number of cache slots (power of 2 for efficient masking). Set to 0 when caching disabled. */
+  const CACHE_SIZE_BASE: i32 = CACHE_ENABLED ? i32((ARENA_SIZE >> 10) >= 1 ? (ARENA_SIZE >> 10) : 1) : 0;
+  export const CACHE_SIZE: usize = CACHE_ENABLED ? <usize>(1 << (32 - clz<i32>(CACHE_SIZE_BASE - 1))) : 0;
+  /** Bitmask for fast modulo operation on cache index */
+  export const CACHE_MASK: usize = CACHE_SIZE > 0 ? CACHE_SIZE - 1 : 0;
 
   /** Cache entry structure - stores pointer to string, cached output location, and length */
   @unmanaged
@@ -347,9 +354,9 @@ export namespace sc {
   }
 
   /** Static array of cache entries */
-  export const entries = new StaticArray<sc.Entry>(CACHE_SIZE);
+  export const entries = new StaticArray<sc.Entry>(i32(CACHE_SIZE));
   /** Circular buffer arena for storing cached serialized strings */
-  export const arena = new ArrayBuffer(ARENA_SIZE);
+  export const arena = new ArrayBuffer(i32(ARENA_SIZE));
   /** Current write position in the arena */
   export let arenaPtr: usize = changetype<usize>(arena);
   /** End boundary of the arena */
@@ -393,7 +400,9 @@ export namespace sc {
    * @param len - Length of serialized output
    */
   export function insertCached(str: usize, start: usize, len: usize): void {
+    if (!CACHE_ENABLED || ARENA_SIZE == 0) return;
     if (len < MIN_CACHE_LEN) return;
+    if (len > ARENA_SIZE) return;
     if (arenaPtr + len > arenaEnd) {
       // Wrap around to beginning of arena (circular buffer)
       arenaPtr = changetype<usize>(arena);

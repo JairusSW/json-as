@@ -13,6 +13,7 @@ const WRITE = process.env["JSON_WRITE"]?.trim();
 const rawValue = process.env["JSON_DEBUG"]?.trim();
 const DEBUG = rawValue === "true" ? 1 : rawValue === "false" || rawValue === "" ? 0 : isNaN(Number(rawValue)) ? 0 : Number(rawValue);
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
+const DEFAULT_JSON_CACHE_BYTES = 1 << 20;
 function envFlagDefaultTrue(value) {
     if (!value)
         return true;
@@ -28,6 +29,43 @@ function envFlagDefaultTrue(value) {
 }
 const USE_FAST_PATH = envFlagDefaultTrue(process.env["JSON_USE_FAST_PATH"]);
 const THROW_FAST_PATH = process.env["JSON_FAST_PATH_THROW"]?.trim() === "1";
+function parseJSONCacheConfig(value) {
+    if (!value)
+        return { enabled: false, bytes: 0 };
+    const raw = value.trim();
+    if (!raw)
+        return { enabled: false, bytes: 0 };
+    const lower = raw.toLowerCase();
+    if (lower === "false" || lower === "off" || lower === "no" || lower === "none" || lower === "0") {
+        return { enabled: false, bytes: 0 };
+    }
+    if (lower === "true" || lower === "on" || lower === "yes") {
+        return { enabled: true, bytes: DEFAULT_JSON_CACHE_BYTES };
+    }
+    const match = /^(\d+)\s*([kKmMgG]?[bB])?$/.exec(raw);
+    if (!match) {
+        throw new Error(`Invalid JSON_CACHE value '${value}'. Expected true/false or <int>[kb|mb|gb|KB|MB|GB].`);
+    }
+    const amount = Number(match[1]);
+    const suffix = match[2] || "B";
+    if (!Number.isFinite(amount)) {
+        throw new Error(`Invalid JSON_CACHE value '${value}'.`);
+    }
+    const unit = suffix[0];
+    const scale = unit == "k" || unit == "K" ? 1_000 : unit == "m" || unit == "M" ? 1_000_000 : unit == "g" || unit == "G" ? 1_000_000_000 : 1;
+    let bytes = amount * scale;
+    if (suffix.endsWith("b")) {
+        bytes = Math.ceil(bytes / 8);
+    }
+    if (bytes <= 0) {
+        return { enabled: false, bytes: 0 };
+    }
+    if (bytes > 0xffff_ffff) {
+        throw new Error(`JSON_CACHE value '${value}' is too large (max 4GB).`);
+    }
+    return { enabled: true, bytes: Math.floor(bytes) };
+}
+const JSON_CACHE_CONFIG = parseJSONCacheConfig(process.env["JSON_CACHE"]);
 function needsReferenceLoad(type) {
     return type == "ArrayBuffer" || type == "Int8Array" || type == "Uint8Array" || type == "Uint8ClampedArray" || type == "Int16Array" || type == "Uint16Array" || type == "Int32Array" || type == "Uint32Array" || type == "Int64Array" || type == "Uint64Array" || type == "Float32Array" || type == "Float64Array";
 }
@@ -1897,8 +1935,9 @@ export default class Transformer extends Transform {
             }
         }
         program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE));
-        if (process.env["JSON_CACHE"]?.trim().toLowerCase() === "true" || process.env["JSON_CACHE"]?.trim().toLowerCase() === "1") {
+        if (JSON_CACHE_CONFIG.enabled) {
             program.registerConstantInteger("JSON_CACHE", Type.bool, i64_one);
+            program.registerConstantInteger("JSON_CACHE_SIZE", Type.u32, i64_new(JSON_CACHE_CONFIG.bytes));
         }
     }
     afterParse(parser) {

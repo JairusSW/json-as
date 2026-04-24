@@ -52,3 +52,4 @@ declare enum JSONMode {
 
 declare const JSON_MODE: JSONMode;
 declare const JSON_CACHE: bool;
+declare const JSON_CACHE_SIZE: usize;

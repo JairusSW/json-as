@@ -542,7 +542,7 @@ The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaS
 Instead of using flags for setting options, `json-as` is configured by environmental variables.
 Here's a short list:
 
-**JSON_CACHE** (default: 0) - Enables caching costly strings based on hit frequency. May boost string serialization in excess of 22 GB/s.
+**JSON_CACHE** (default: 0) - Enables and sizes string cache. Supports `true|false`, raw bytes (`JSON_CACHE=1048576`), bits (`JSON_CACHE=512kb`, `2mb`, `1gb`), and bytes (`JSON_CACHE=64KB`, `2MB`, `1GB`). May boost string serialization in excess of 22 GB/s.
 
 **JSON_DEBUG** (default: 0) - Sets the debug level. May be within range `0-3`
 

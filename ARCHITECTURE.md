@@ -162,7 +162,7 @@ Located in `lib/as-bs.ts`, the buffer system (`bs` namespace) manages memory for
 
 ### String Caching (`sc` namespace)
 
-Optional feature enabled via `JSON_CACHE=1` for repeated string serialization.
+Optional feature enabled via `JSON_CACHE` for repeated string serialization (`true` for default size, or explicit size like `512KB`, `4mb`, `1GB`).
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
@@ -297,7 +297,7 @@ For `@json` decorated classes, the generated `__DESERIALIZE` method:
 | `JSON_USE_FAST_PATH` | 1 | Emit fast struct `__DESERIALIZE` by default; set `0`, `false`, `off`, or `no` to force slow-path-only output |
 | `JSON_DEBUG` | 0 | Debug level 0-3 (prints generated code) |
 | `JSON_WRITE` | "" | Comma-separated files to output after transform |
-| `JSON_CACHE` | 0 | Enable string caching (set to 1) |
+| `JSON_CACHE` | 0 | Enable and size string cache (`true`, `<int>`, `<int>kb|mb|gb`, `<int>KB|MB|GB`) |
 | `JSON_STRICT` | false | Enable strict JSON validation |
 
 ## Performance Considerations
