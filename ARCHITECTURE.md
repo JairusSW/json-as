@@ -294,7 +294,7 @@ For `@json` decorated classes, the generated `__DESERIALIZE` method:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `JSON_MODE` | SWAR | Optimization mode: NAIVE, SWAR, SIMD |
-| `JSON_USE_FAST_PATH` | 0 | When set to `1`, emit the fast struct `__DESERIALIZE` body and helper; otherwise emit only the slow path |
+| `JSON_USE_FAST_PATH` | 1 | Emit fast struct `__DESERIALIZE` by default; set `0`, `false`, `off`, or `no` to force slow-path-only output |
 | `JSON_DEBUG` | 0 | Debug level 0-3 (prints generated code) |
 | `JSON_WRITE` | "" | Comma-separated files to output after transform |
 | `JSON_CACHE` | 0 | Enable string caching (set to 1) |

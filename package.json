@@ -91,6 +91,7 @@
     "bench": "npm run bench:as && npm run bench:js && npm run charts:build",
     "bench:as": "bash ./scripts/run-bench.as.sh",
     "bench:js": "bash ./scripts/run-bench.js.sh",
+    "charts": "bun run charts:build && bun run charts:serve",
     "charts:build": "bash ./scripts/build-charts.sh",
     "charts:publish": "bash ./scripts/publish-benchmarks.sh",
     "charts:serve": "serve ./build/charts/",

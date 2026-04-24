@@ -13,7 +13,7 @@ class SessionStatusResponse {
 }
 const v1 = new SessionStatusResponse();
 const v2: string = JSON.stringify<SessionStatusResponse>(v1);
-const byteLength: usize = v2.length << 1;
+const byteLength: usize = v2.length;
 expect(JSON.stringify(v1)).toBe(v2);
 expect(JSON.stringify(JSON.parse<SessionStatusResponse>(v2))).toBe(v2);
 bench(
@@ -22,7 +22,7 @@ bench(
     blackbox(inline.always(JSON.stringify<SessionStatusResponse>(v1)));
   },
   5_000_000,
-  v2.length,
+  byteLength,
 );
 dumpToFile("small", "serialize");
 bench(
@@ -31,6 +31,6 @@ bench(
     blackbox(inline.always(JSON.parse<SessionStatusResponse>(v2)));
   },
   5_000_000,
-  v2.length,
+  byteLength,
 );
 dumpToFile("small", "deserialize");

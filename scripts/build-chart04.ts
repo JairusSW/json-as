@@ -1,9 +1,8 @@
 import fs from "fs";
-import path from "path";
 import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
-import { subtitle } from "./lib/bench-utils";
+import { benchLogPath, subtitle } from "./lib/bench-utils";
 
 function loadJSON(file: string) {
   const text = fs.readFileSync(file, "utf-8");
@@ -38,7 +37,7 @@ const series: SeriesSpec[] = [
 
 function logPath(payload: string, spec: SeriesSpec, mode: string) {
   const transformedPayload = spec.payloadTransform ? spec.payloadTransform(payload) : payload;
-  return path.join("./build", "logs", spec.language, spec.engine, `${transformedPayload}.${mode}.${spec.language}.json`);
+  return benchLogPath(transformedPayload, mode as "serialize" | "deserialize", spec.language, spec.engine);
 }
 
 interface ChartPoint {

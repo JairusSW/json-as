@@ -13,7 +13,8 @@ export function bench(description, routine, ops = 1_000_000, bytesPerOp = 0) {
   const end = performance.now();
   const elapsed = Math.max(1, end - start);
   const opsPerSecond = (ops * 1000) / elapsed;
-  let log = `   Completed benchmark in ${formatNumber(Math.round(elapsed))}ms at ${formatNumber(Math.round(opsPerSecond))} ops/s`;
+  const nsPerOp = (elapsed * 1_000_000) / ops;
+  let log = `   Completed benchmark in ${formatNumber(Math.round(elapsed))}ms at ${formatNumber(Math.round(opsPerSecond))} ops/s (${formatDurationPerOp(nsPerOp)})`;
   let mbPerSec = 0;
   if (bytesPerOp > 0) {
     const totalBytes = bytesPerOp * ops;
@@ -27,6 +28,7 @@ export function bench(description, routine, ops = 1_000_000, bytesPerOp = 0) {
     bytes: bytesPerOp,
     operations: ops,
     features: [],
+    nsPerOp,
     mbps: mbPerSec,
   };
   print(log + "\n");
@@ -49,6 +51,11 @@ function formatNumber(n) {
     result += str.charAt(i);
   }
   return result;
+}
+
+function formatDurationPerOp(nsPerOp) {
+  if (nsPerOp >= 1000) return `${(nsPerOp / 1000).toFixed(2)} us/op`;
+  return `${nsPerOp.toFixed(2)} ns/op`;
 }
 
 export function blackbox(x) {

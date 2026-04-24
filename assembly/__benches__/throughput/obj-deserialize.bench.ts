@@ -49,10 +49,15 @@ const objSmallStrEnd = changetype<usize>(objSmallStr) + (objSmallStr.length << 1
   if (isDefined(out.__DESERIALIZE_FAST)) {
     // @ts-ignore: supplied by transform
     out.__DESERIALIZE_FAST(srcStart, srcEnd, out);
-  } else {
+    return;
+  }
+  // @ts-ignore: supplied by transform
+  if (isDefined(out.__DESERIALIZE_SLOW)) {
     // @ts-ignore: supplied by transform
     out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
+    return;
   }
+  throw new Error("Missing __DESERIALIZE_FAST/__DESERIALIZE_SLOW");
 }
 
 function opsForBytes(targetBytes: i32): i32 {

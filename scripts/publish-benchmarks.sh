@@ -8,6 +8,7 @@ REMOTE_NAME="${REMOTE_NAME:-origin}"
 DOCS_BRANCH="${DOCS_BRANCH:-docs}"
 FAST_PATH="${JSON_USE_FAST_PATH:-1}"
 RUN_BENCHES=1
+CHART_ARGS=()
 TMP_CHARTS_DIR="$(mktemp -d)"
 TMP_DOCS_DIR="$(mktemp -d)"
 WORKTREE_ADDED=0
@@ -18,9 +19,13 @@ while [[ $# -gt 0 ]]; do
       RUN_BENCHES=0
       shift
       ;;
+    --v8|--wavm|--llvm)
+      CHART_ARGS+=("$1")
+      shift
+      ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: ./scripts/publish-benchmarks.sh [--no-run]"
+      echo "Usage: ./scripts/publish-benchmarks.sh [--no-run] [--v8|--wavm]"
       exit 1
       ;;
   esac
@@ -53,7 +58,7 @@ else
 fi
 
 echo "Building charts..."
-./scripts/build-charts.sh
+./scripts/build-charts.sh "${CHART_ARGS[@]}"
 test -d ./build/charts
 compgen -G "./build/charts/*" > /dev/null
 cp -R ./build/charts/. "$TMP_CHARTS_DIR/"

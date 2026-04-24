@@ -7,9 +7,11 @@ export function deserializeStruct<T>(srcStart: usize, srcEnd: usize, dst: usize)
   if (isDefined(out.__DESERIALIZE_FAST)) {
     // @ts-ignore: supplied by transform
     out.__DESERIALIZE_FAST(srcStart, srcEnd, out);
-  } else {
+  } else if (isDefined(out.__DESERIALIZE_SLOW)) {
     // @ts-ignore: supplied by transform
     out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
+  } else {
+    throw new Error("Missing __DESERIALIZE_FAST/__DESERIALIZE_SLOW");
   }
   return out;
 }

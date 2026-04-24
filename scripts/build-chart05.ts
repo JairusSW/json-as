@@ -1,9 +1,8 @@
 import fs from "fs";
-import path from "path";
 import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
-import { subtitle } from "./lib/bench-utils";
+import { benchLogPath, subtitle } from "./lib/bench-utils";
 
 function loadJSON(file: string) {
   const text = fs.readFileSync(file, "utf-8");
@@ -24,10 +23,7 @@ const modes = ["serialize"];
 
 function logPath(payload: string, engine: string, mode: string) {
   const language = engine == "js" ? "js" : "as";
-  if (language === "js") {
-    engine = "";
-  }
-  return path.join("./build", "logs", language, engine, `${payload}.${mode}.${language}.json`);
+  return benchLogPath(payload, mode as "serialize" | "deserialize", language, engine == "js" ? "" : engine);
 }
 
 interface ChartPoint {

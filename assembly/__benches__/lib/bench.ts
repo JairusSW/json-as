@@ -7,6 +7,10 @@ export declare function writeFile(fileName: string, data: string): void;
 @external("env", "readFile")
 export declare function readFileBuffer(filePath: string): ArrayBuffer;
 
+// @ts-expect-error: AS_BENCH_RUNTIME_WAVM may be undefined.
+const BENCH_RUNTIME_WAVM: bool = isDefined(AS_BENCH_RUNTIME_WAVM);
+const BENCH_RUNTIME_STDOUT: bool = BENCH_RUNTIME_WAVM;
+
 
 @json
 class BenchResult {
@@ -16,6 +20,7 @@ class BenchResult {
   bytes!: u64;
   operations!: u64;
   features!: string[];
+  nsPerOp!: f64;
   mbps!: f64;
   gbps!: f64;
 }
@@ -62,8 +67,9 @@ export function bench(description: string, routine: () => void, ops: u64 = 1_000
   const elapsed = Math.max(1, end - start);
 
   const opsPerSecond = f64(ops * 1000) / elapsed;
+  const nsPerOp = (elapsed * 1_000_000) / f64(ops);
 
-  let log = `   Completed benchmark in ${formatNumber(u64(Math.round(elapsed)))}ms at ${formatNumber(u64(Math.round(opsPerSecond)))} ops/s`;
+  let log = `   Completed benchmark in ${formatNumber(u64(Math.round(elapsed)))}ms at ${formatNumber(u64(Math.round(opsPerSecond)))} ops/s (${formatDurationPerOp(nsPerOp)})`;
 
   let mbPerSec: f64 = 0;
   if (bytesPerOp > 0) {
@@ -82,6 +88,7 @@ export function bench(description: string, routine: () => void, ops: u64 = 1_000
     bytes: bytesPerOp,
     operations: ops,
     features,
+    nsPerOp,
     mbps: mbPerSec,
     gbps: mbPerSec / 1000,
   };
@@ -102,10 +109,18 @@ function JSON_MODE_TO_STRING(mode: JSONMode): string {
 }
 
 export function dumpToFile(suite: string, type: string): void {
-  writeFile("./build/logs/as/" + JSON_MODE_TO_STRING(JSON_MODE) + "/" + suite + "." + type + ".as.json", JSON.stringify(result));
+  const suffix = BENCH_RUNTIME_WAVM ? ".wavm.json" : ".as.json";
+  const fileName = "./build/logs/as/" + JSON_MODE_TO_STRING(JSON_MODE) + "/" + suite + "." + type + suffix;
+  const json = JSON.stringify(result);
+  if (BENCH_RUNTIME_STDOUT) {
+    console.log("__AS_BENCH_JSON__" + fileName + "\t" + json);
+    return;
+  }
+  writeFile(fileName, json);
 }
 
 export function readFile(path: string): string {
+  if (BENCH_RUNTIME_STDOUT) throw new Error("readFile is not available in the WAVM/WASI benchmark runner: " + path);
   return String.UTF8.decode(readFileBuffer(path));
 }
 
@@ -119,6 +134,20 @@ function formatNumber(n: u64): string {
     result += str.charAt(i);
   }
   return result;
+}
+
+function formatDecimal(n: f64, digits: u32): string {
+  const scale = i64(Math.pow(10, f64(digits)));
+  const rounded = i64(Math.round(n * f64(scale)));
+  const whole = rounded / scale;
+  let fraction = (rounded % scale).toString();
+  while (u32(fraction.length) < digits) fraction = "0" + fraction;
+  return whole.toString() + "." + fraction;
+}
+
+function formatDurationPerOp(nsPerOp: f64): string {
+  if (nsPerOp >= 1000) return formatDecimal(nsPerOp / 1000, 2) + " us/op";
+  return formatDecimal(nsPerOp, 2) + " ns/op";
 }
 
 const blackBoxArea = memory.data(64);

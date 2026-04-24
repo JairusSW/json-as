@@ -233,14 +233,19 @@ export namespace JSON {
       } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
         const out = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
         // @ts-expect-error: Defined by transform
-        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
-        // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST)) {
           // @ts-expect-error: Defined by transform
-          out.__DESERIALIZE_FAST(dataPtr, dataPtr + dataSize, out);
+          if (out.__DESERIALIZE_FAST(dataPtr, dataPtr + dataSize, out) == dataPtr + dataSize) return out;
           // @ts-expect-error: Defined by transform
-        } else out.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, out);
-        return out;
+        }
+        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        // @ts-expect-error: Defined by transform
+        if (isDefined(type.__DESERIALIZE_SLOW)) {
+          // @ts-expect-error: Defined by transform
+          out.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, out);
+          return out;
+        }
+        throw new Error(`No deserialize method defined for type ${type}`);
       }
       if (type instanceof StaticArray) {
         // @ts-expect-error
@@ -945,12 +950,19 @@ export namespace JSON {
       } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
         const out = changetype<nonnull<T>>(dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()));
         // @ts-expect-error: Defined by transform
+        if (isDefined(type.__DESERIALIZE_FAST)) {
+          // @ts-expect-error: Defined by transform
+          if (out.__DESERIALIZE_FAST(srcStart, srcEnd, out) == srcEnd) return out;
+        }
+        // @ts-expect-error: Defined by transform
         if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
-        if (isDefined(type.__DESERIALIZE_FAST)) out.__DESERIALIZE_FAST(srcStart, srcEnd, out);
-        // @ts-expect-error: Defined by transform
-        else out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
-        return out;
+        if (isDefined(type.__DESERIALIZE_SLOW)) {
+          // @ts-expect-error: Defined by transform
+          out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
+          return out;
+        }
+        throw new Error(`No deserialize method defined for type ${type}`);
       }
       if (type instanceof StaticArray) {
         // @ts-expect-error: type

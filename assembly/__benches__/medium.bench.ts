@@ -41,8 +41,39 @@ class MediumAPIResponse {
   tags: string[] = ["typescript", "webassembly", "performance", "rust", "assemblyscript", "json"];
   recent_activity: RecentActivity[] = [new RecentActivity(), new RecentActivity(), new RecentActivity(), new RecentActivity(), new RecentActivity()];
 }
+
+
+@inline
+function parseIntoReusable(srcStart: usize, srcEnd: usize, out: MediumAPIResponse): void {
+  // @ts-expect-error: defined by transform in SWAR/SIMD modes
+  if (isDefined(out.__DESERIALIZE_FAST)) {
+    // @ts-expect-error: defined by transform in SWAR/SIMD modes
+    out.__DESERIALIZE_FAST<MediumAPIResponse>(srcStart, srcEnd, out);
+    return;
+  }
+  // @ts-expect-error: defined by transform in all modes
+  if (isDefined(out.__DESERIALIZE_SLOW)) {
+    // @ts-expect-error: defined by transform in all modes
+    out.__DESERIALIZE_SLOW<MediumAPIResponse>(srcStart, srcEnd, out);
+    return;
+  }
+  throw new Error("Missing __DESERIALIZE_FAST/__DESERIALIZE_SLOW on MediumAPIResponse");
+}
+
 const v1 = new MediumAPIResponse();
 const v2: string = JSON.stringify<MediumAPIResponse>(v1);
+const byteLength: usize = v2.length;
+const v2Ptr: usize = changetype<usize>(v2);
+const v2End: usize = v2Ptr + byteLength;
+const reusable = new MediumAPIResponse();
+reusable.preferences = new UserPreferences();
+reusable.tags = new Array<string>(6);
+reusable.recent_activity = new Array<RecentActivity>(5);
+reusable.recent_activity[0] = new RecentActivity();
+reusable.recent_activity[1] = new RecentActivity();
+reusable.recent_activity[2] = new RecentActivity();
+reusable.recent_activity[3] = new RecentActivity();
+reusable.recent_activity[4] = new RecentActivity();
 expect(JSON.stringify(v1)).toBe(v2);
 expect(JSON.stringify(JSON.parse<MediumAPIResponse>(v2))).toBe(v2);
 bench(
@@ -51,15 +82,16 @@ bench(
     blackbox(inline.always(JSON.stringify<MediumAPIResponse>(v1)));
   },
   500_000,
-  v2.length,
+  byteLength,
 );
 dumpToFile("medium", "serialize");
 bench(
   "Deserialize Medium API Response",
   () => {
-    blackbox(inline.always(JSON.parse<MediumAPIResponse>(v2)));
+    inline.always(parseIntoReusable(v2Ptr, v2End, reusable));
+    blackbox(reusable);
   },
   500_000,
-  v2.length,
+  byteLength,
 );
 dumpToFile("medium", "deserialize");

@@ -33,6 +33,11 @@ export interface LineSeries {
 }
 
 const LOGS_DIR = "./build/logs";
+export type ASBenchRuntime = "v8" | "wavm";
+const BENCH_RUNTIME: ASBenchRuntime = ((): ASBenchRuntime => {
+  const value = process.env["JSON_CHART_RUNTIME"]?.trim().toLowerCase();
+  return value === "wavm" ? "wavm" : "v8";
+})();
 
 const VERSION = "v" + JSON.parse(fs.readFileSync("./package.json", "utf-8")).version;
 let V8_VERSION = execSync("v8").toString().trim().slice(11);
@@ -48,11 +53,12 @@ function readBenchLog(filePath: string): BenchResult {
   return JSON.parse(fs.readFileSync("./" + filePath, "utf-8")) as BenchResult;
 }
 
-function benchPath(kind: "js" | "as", payload: string, type: BenchKind, engine?: "swar" | "simd" | "naive"): string {
-  if (kind === "js") {
+export function benchLogPath(payload: string, type: BenchKind, language: "js" | "as", engine = ""): string {
+  if (language === "js") {
     return path.join(LOGS_DIR, "js", `${payload}.${type}.js.json`);
   }
-  return path.join(LOGS_DIR, "as", engine!.toLowerCase(), `${payload}.${type}.as.json`);
+  const suffix = BENCH_RUNTIME === "wavm" ? ".wavm.json" : ".as.json";
+  return path.join(LOGS_DIR, "as", engine.toLowerCase(), `${payload}.${type}${suffix}`);
 }
 
 export function getBenchResults(payloads: string[]): BenchResults {
@@ -62,10 +68,10 @@ export function getBenchResults(payloads: string[]): BenchResults {
     out[payload] = { serialize: [], deserialize: [] };
 
     for (const kind of ["serialize", "deserialize"] as const) {
-      const js = readBenchLog(benchPath("js", payload, kind));
-      const naive = readBenchLog(benchPath("as", payload, kind, "naive"));
-      const swar = readBenchLog(benchPath("as", payload, kind, "swar"));
-      const simd = readBenchLog(benchPath("as", payload, kind, "simd"));
+      const js = readBenchLog(benchLogPath(payload, kind, "js"));
+      const naive = readBenchLog(benchLogPath(payload, kind, "as", "naive"));
+      const swar = readBenchLog(benchLogPath(payload, kind, "as", "swar"));
+      const simd = readBenchLog(benchLogPath(payload, kind, "as", "simd"));
 
       out[payload][kind] = [js, naive, swar, simd];
     }
