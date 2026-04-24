@@ -2,6 +2,7 @@ import { JSON } from "../";
 import { expect } from "../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
+
 @json
 class Token {
   uid: u32 = 256;

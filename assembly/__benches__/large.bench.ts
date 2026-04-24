@@ -2,6 +2,7 @@ import { JSON } from "..";
 import { expect } from "../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
+
 @json
 class RepoOwner {
   public login: string = "octocat";
@@ -25,6 +26,7 @@ class RepoOwner {
   public site_admin: boolean = false;
 }
 
+
 @json
 class RepoLicense {
   public key: string = "";
@@ -33,6 +35,7 @@ class RepoLicense {
   public url: string | null = null;
   public node_id: string = "";
 }
+
 
 @json
 class Repo {

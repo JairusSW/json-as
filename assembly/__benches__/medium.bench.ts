@@ -2,6 +2,7 @@ import { JSON } from "..";
 import { expect } from "../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
+
 @json
 class UserPreferences {
   theme: string = "dark";
@@ -12,12 +13,14 @@ class UserPreferences {
   two_factor_enabled: boolean = false;
 }
 
+
 @json
 class RecentActivity {
   action: string = "starred";
   timestamp: string = "2025-12-22T10:15:00Z";
   target: string = "JairusSW/json-as";
 }
+
 
 @json
 class MediumAPIResponse {

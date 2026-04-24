@@ -2,6 +2,7 @@ import { JSON } from "..";
 import { expect } from "../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "./lib/bench";
 
+
 @json
 class Vec3 {
   public x!: i32;

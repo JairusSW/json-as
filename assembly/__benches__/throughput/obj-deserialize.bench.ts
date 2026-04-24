@@ -43,6 +43,7 @@ const objSmallStr = JSON.stringify(smallObj);
 const objSmallStrBytes = String.UTF8.byteLength(objSmallStr);
 const objSmallStrEnd = changetype<usize>(objSmallStr) + (objSmallStr.length << 1);
 
+
 @inline function deserializeInto<T>(srcStart: usize, srcEnd: usize, out: T): void {
   // @ts-ignore: supplied by transform
   if (isDefined(out.__DESERIALIZE_FAST)) {

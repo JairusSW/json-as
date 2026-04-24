@@ -2,6 +2,7 @@ import { JSON } from "..";
 import { describe, expect } from "as-test";
 import { __heap_base } from "memory";
 
+
 @json
 class LiteralStringFieldBox {
   value: string = "alpha";

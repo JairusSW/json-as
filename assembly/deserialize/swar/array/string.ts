@@ -37,6 +37,7 @@ import { deserializeStringField_SWAR } from "../string";
   throw new Error("Failed to parse JSON!");
 }
 
+
 @inline export function deserializeStringArrayField<T extends string[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
   return deserializeStringArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
 }

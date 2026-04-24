@@ -190,7 +190,6 @@ export namespace bs {
     }
   }
 
-
   /**
    * Copies the slice starting at a caller-provided relative buffer offset and restores
    * `offset` back to that slice start.

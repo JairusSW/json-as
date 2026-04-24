@@ -1,6 +1,7 @@
 import { bs } from "../../../lib/as-bs";
 import { dragonbox_f32_buffered, dragonbox_f64_buffered } from "../../util/dragonbox";
 
+
 @inline
 export function serializeFloat32(data: f32): void {
   bs.ensureSize(64);
@@ -8,6 +9,7 @@ export function serializeFloat32(data: f32): void {
   bs.stackSize += size;
   bs.offset += size;
 }
+
 
 @inline
 export function serializeFloat64(data: f64): void {

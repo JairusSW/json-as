@@ -4,6 +4,7 @@ import { blackbox, bench, dumpToFile, readFile } from "../lib/bench";
 const payloadData = readFile("./assembly/__benches__/payloads/github-events.json");
 const payloadChars = payloadData.length;
 
+
 @json
 class Large {
   id!: string;
@@ -12,11 +13,13 @@ class Large {
   repo!: Repo;
   payload!: Payload;
 
+
   @alias("public")
   _public!: boolean;
   created_at!: string;
   org!: Org;
 }
+
 
 @json
 class Actor {
@@ -27,6 +30,7 @@ class Actor {
   avatar_url!: string;
 }
 
+
 @json
 class Repo {
   id!: i32;
@@ -34,10 +38,12 @@ class Repo {
   url!: string;
 }
 
+
 @json
 class Payload {
   action!: string;
 }
+
 
 @json
 class Org {

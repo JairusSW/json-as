@@ -10,6 +10,7 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
   return out;
 }
 
+
 @inline export function ensureArrayFieldAt<T extends Array<any>>(dstObj: usize, dstOffset: usize): T {
   let out = load<T>(dstObj, dstOffset);
   if (!changetype<usize>(out)) {

@@ -2,8 +2,8 @@ import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { ensureArrayElementSlot, ensureArrayField, scanValueEnd } from "./shared";
 
-@inline export function deserializeGenericArrayInto<T extends unknown[]>(srcStart: usize, srcEnd: usize, out: T): usize {
 
+@inline export function deserializeGenericArrayInto<T extends unknown[]>(srcStart: usize, srcEnd: usize, out: T): usize {
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) throw new Error("Failed to parse JSON!");
   srcStart += 2;
   if (srcStart >= srcEnd) throw new Error("Failed to parse JSON!");
@@ -34,6 +34,7 @@ import { ensureArrayElementSlot, ensureArrayField, scanValueEnd } from "./shared
 
   throw new Error("Failed to parse JSON!");
 }
+
 
 @inline export function deserializeGenericArrayField<T extends unknown[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
   return deserializeGenericArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));

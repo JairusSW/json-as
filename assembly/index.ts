@@ -17,18 +17,7 @@ import { serializeSet } from "./serialize/index/set";
 import { deserializeSet } from "./deserialize/index/set";
 import { serializeStaticArray } from "./serialize/index/staticarray";
 import { deserializeStaticArray } from "./deserialize/index/staticarray";
-import {
-  BRACE_LEFT,
-  BRACE_RIGHT,
-  BRACKET_LEFT,
-  BRACKET_RIGHT,
-  COMMA,
-  NULL_WORD,
-  QUOTE,
-  NULL_WORD_U64,
-  TRUE_WORD_U64,
-  FALSE_WORD_U64,
-} from "./custom/chars";
+import { BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA, NULL_WORD, QUOTE, NULL_WORD_U64, TRUE_WORD_U64, FALSE_WORD_U64 } from "./custom/chars";
 import { itoa_buffered } from "util/number";
 import { serializeBool } from "./serialize/index/bool";
 import { serializeInteger } from "./serialize/index/integer";

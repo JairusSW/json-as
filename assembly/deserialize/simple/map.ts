@@ -170,6 +170,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
   return out;
 }
 
+
 @inline export function deserializeMapInto<T extends Map<any, any>>(srcStart: usize, srcEnd: usize, out: T): usize {
   changetype<nonnull<T>>(out).clear();
 
@@ -208,6 +209,7 @@ export function deserializeMap<T extends Map<any, any>>(srcStart: usize, srcEnd:
 
   throw new Error("Failed to parse JSON!");
 }
+
 
 @inline export function deserializeMapField<T extends Map<any, any>>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
   let out = load<T>(dstObj, dstOffset);

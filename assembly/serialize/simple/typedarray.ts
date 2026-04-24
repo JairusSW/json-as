@@ -48,7 +48,7 @@ export function serializeArrayBufferUnsafe(srcStart: usize, byteLength: i32): vo
     bs.offset += 4;
     return;
   }
-  bs.proposeSize(4 + <u32>(end) * 2);
+  bs.proposeSize(4 + <u32>end * 2);
 
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;

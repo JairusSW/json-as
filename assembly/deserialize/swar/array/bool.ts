@@ -45,6 +45,7 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
   throw new Error("Failed to parse JSON!");
 }
 
+
 @inline export function deserializeBooleanArrayField<T extends boolean[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
   return deserializeBooleanArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
 }

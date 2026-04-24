@@ -3,10 +3,12 @@ import { expect } from "../../__tests__/lib/index.ts";
 import { blackbox, bench, dumpToFile } from "../lib/bench.ts";
 import { canadaJson, canadaJsonChars } from "./canada.data.ts";
 
+
 @json
 class CanadaProperties {
   name: string = "";
 }
+
 
 @json
 class CanadaGeometry {
@@ -14,12 +16,14 @@ class CanadaGeometry {
   coordinates: Array<Array<Array<f64>>> = [];
 }
 
+
 @json
 class CanadaFeature {
   type: string = "";
   properties: CanadaProperties = new CanadaProperties();
   geometry: CanadaGeometry = new CanadaGeometry();
 }
+
 
 @json
 class Canada {

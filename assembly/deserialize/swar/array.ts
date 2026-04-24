@@ -62,6 +62,7 @@ import { deserializeStructArrayInto } from "./array/struct";
   }
 }
 
+
 @inline export function deserializeArrayInto_SWAR<T extends unknown[]>(srcStart: usize, srcEnd: usize, out: T): usize {
   if (isString<valueof<T>>()) {
     return deserializeStringArrayInto<T>(srcStart, srcEnd, out);

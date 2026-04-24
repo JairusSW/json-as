@@ -6,11 +6,13 @@ enum FastState {
   On = 1,
 }
 
+
 @json
 class FastChild {
   id: i32 = 0;
   label: string = "";
 }
+
 
 @json
 class FastDirectFields {
@@ -27,71 +29,85 @@ class FastDirectFields {
   scores: i32[] = [];
 }
 
+
 @json
 class FastArrayDelegatedFields {
   dates: Date[] = [];
   groups: Set<i32>[] = [];
 }
 
+
 @json
 class FastValueField {
   value: JSON.Value = JSON.Value.empty();
 }
+
 
 @json
 class FastObjField {
   obj: JSON.Obj = new JSON.Obj();
 }
 
+
 @json
 class FastBoxField {
   boxed: JSON.Box<i32> | null = null;
 }
+
 
 @json
 class FastBoolBoxField {
   boxed: JSON.Box<bool> | null = null;
 }
 
+
 @json
 class FastDateField {
   createdAt: Date | null = null;
 }
+
 
 @json
 class FastRawField {
   raw: JSON.Raw = JSON.Raw.from("{}");
 }
 
+
 @json
 class FastSetField {
   labels: Set<string> = new Set<string>();
 }
+
 
 @json
 class FastIntSetField {
   ids: Set<i32> = new Set<i32>();
 }
 
+
 @json
 class FastMapField {
   meta: Map<string, i32> = new Map<string, i32>();
 }
+
 
 @json
 class FastIntKeyMapField {
   meta: Map<i32, bool> = new Map<i32, bool>();
 }
 
+
 @json
 class FastMapStructField {
   meta: Map<string, FastChild> = new Map<string, FastChild>();
 }
 
+
 @json
 class FastDateKeyMapField {
   meta: Map<Date, i32> = new Map<Date, i32>();
 }
+
 
 @json
 class FastEnumField {
@@ -99,15 +115,19 @@ class FastEnumField {
   nextState: FastState = FastState.Off;
 }
 
+
 @json
 class FastStaticArrayField {
   coords: StaticArray<i32> = [0, 0, 0];
 }
 
+
 @json
 class FastOmitNullFields {
+
   @omitnull()
   note: string | null = null;
+
 
   @omitnull()
   raw: JSON.Raw | null = null;
@@ -116,8 +136,10 @@ class FastOmitNullFields {
   name: string = "";
 }
 
+
 @json
 class FastOmitIfFields {
+
   @omitif("this.count == 0")
   count: i32 = 0;
 
@@ -125,10 +147,13 @@ class FastOmitIfFields {
   name: string = "";
 }
 
+
 @json
 class FastMixedOptionalFields {
+
   @omitif("this.count == 0")
   count: i32 = 0;
+
 
   @omitnull()
   note: string | null = null;
@@ -137,8 +162,7 @@ class FastMixedOptionalFields {
 }
 
 describe("Fast-path deserialization should handle direct field types", () => {
-  const payload =
-    '{"id":7,"total":42,"ratio":3.5,"ok":true,"name":"alpha","note":"line\\nbreak","child":{"id":1,"label":"nested"},"maybeChild":{"id":2,"label":"optional"},"tags":["a","b","c"],"children":[{"id":3,"label":"x"},{"id":4,"label":"y"}],"scores":[5,6,7]}';
+  const payload = '{"id":7,"total":42,"ratio":3.5,"ok":true,"name":"alpha","note":"line\\nbreak","child":{"id":1,"label":"nested"},"maybeChild":{"id":2,"label":"optional"},"tags":["a","b","c"],"children":[{"id":3,"label":"x"},{"id":4,"label":"y"}],"scores":[5,6,7]}';
 
   const parsed = JSON.parse<FastDirectFields>(payload);
 
@@ -300,7 +324,6 @@ describe("Fast-path deserialization should handle maps with struct values", () =
   expect(parsed.meta.get("right").label).toBe("R");
   expect(JSON.stringify(parsed)).toBe('{"meta":{"left":{"id":1,"label":"L"},"right":{"id":2,"label":"R"}}}');
 });
-
 
 describe("Fast-path deserialization should handle empty map fields", () => {
   const parsed = JSON.parse<FastMapField>('{"meta":{}}');

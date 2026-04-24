@@ -459,6 +459,7 @@ export function deserializeIntegerArray_SWAR<T extends number[]>(srcStart: usize
   throw new Error("Failed to parse JSON!");
 }
 
+
 @inline export function deserializeIntegerArrayField<T extends number[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
   return deserializeIntegerArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
 }

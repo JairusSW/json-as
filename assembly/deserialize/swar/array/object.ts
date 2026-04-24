@@ -55,6 +55,7 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
   throw new Error("Failed to parse JSON!");
 }
 
+
 @inline export function deserializeObjectArrayField<T extends unknown[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
   return deserializeObjectArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
 }

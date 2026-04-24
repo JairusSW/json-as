@@ -3,6 +3,7 @@ import { COMMA, BRACKET_RIGHT, BRACKET_LEFT } from "../../custom/chars";
 import { JSON } from "../..";
 import { serializeFloat32, serializeFloat64 } from "./float";
 
+
 @inline
 function serializeArrayElement<T>(value: T): void {
   if (isFloat<T>()) {

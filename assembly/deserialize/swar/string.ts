@@ -209,7 +209,6 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   memory.copy(stringPtr, srcStart, byteLength);
 }
 
-
 // @ts-expect-error: @inline is a valid decorator
 @inline function deserializeEscapedStringContinuation_SWAR(lastPtr: usize, srcStart: usize, srcEnd: usize, dstFieldPtr: usize, outStart: usize): usize {
   const srcEnd8 = srcEnd - 8;
@@ -629,7 +628,6 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
   abort("Unterminated string literal");
   return srcStart;
 }
-
 
 /**
  * Computes a per-byte mask identifying ASCII backslash or quote bytes.
