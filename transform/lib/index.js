@@ -13,7 +13,7 @@ const WRITE = process.env["JSON_WRITE"]?.trim();
 const rawValue = process.env["JSON_DEBUG"]?.trim();
 const DEBUG = rawValue === "true" ? 1 : rawValue === "false" || rawValue === "" ? 0 : isNaN(Number(rawValue)) ? 0 : Number(rawValue);
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
-const USE_FAST_PATH = process.env["JSON_USE_FAST_PATH"]?.trim() === "1";
+const USE_FAST_PATH = process.env["JSON_USE_FAST_PATH"] ? process.env["JSON_USE_FAST_PATH"].trim() === "1" : true;
 function needsReferenceLoad(type) {
     return type == "ArrayBuffer" || type == "Int8Array" || type == "Uint8Array" || type == "Uint8ClampedArray" || type == "Int16Array" || type == "Uint16Array" || type == "Int32Array" || type == "Uint32Array" || type == "Int64Array" || type == "Uint64Array" || type == "Float32Array" || type == "Float64Array";
 }
@@ -1322,15 +1322,7 @@ export class JSONTransform extends Visitor {
                 const fName = first.alias || first.name;
                 DESERIALIZE += indent + "          if (" + (first.generic ? "isBoolean<" + first.type + ">() && " : "") + getComparison(fName) + ") { // " + fName + "\n";
                 if (first.type.startsWith("JSON.Box<bool") || first.type.startsWith("JSON.Box<boolean") || first.type.startsWith("Box<bool") || first.type.startsWith("Box<boolean")) {
-                    DESERIALIZE +=
-                        indent +
-                            "            store<" +
-                            first.type +
-                            ">(changetype<usize>(out), changetype<" +
-                            first.type +
-                            ">(JSON.Box.from<bool>(true)), offsetof<this>(" +
-                            JSON.stringify(first.name) +
-                            "));\n";
+                    DESERIALIZE += indent + "            store<" + first.type + ">(changetype<usize>(out), changetype<" + first.type + ">(JSON.Box.from<bool>(true)), offsetof<this>(" + JSON.stringify(first.name) + "));\n";
                 }
                 else {
                     DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
@@ -1344,15 +1336,7 @@ export class JSONTransform extends Visitor {
                     const memName = mem.alias || mem.name;
                     DESERIALIZE += indent + " else if (" + (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") + getComparison(memName) + ") { // " + memName + "\n";
                     if (mem.type.startsWith("JSON.Box<bool") || mem.type.startsWith("JSON.Box<boolean") || mem.type.startsWith("Box<bool") || mem.type.startsWith("Box<boolean")) {
-                        DESERIALIZE +=
-                            indent +
-                                "            store<" +
-                                mem.type +
-                                ">(changetype<usize>(out), changetype<" +
-                                mem.type +
-                                ">(JSON.Box.from<bool>(true)), offsetof<this>(" +
-                                JSON.stringify(mem.name) +
-                                "));\n";
+                        DESERIALIZE += indent + "            store<" + mem.type + ">(changetype<usize>(out), changetype<" + mem.type + ">(JSON.Box.from<bool>(true)), offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
                     }
                     else {
                         DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
@@ -1392,15 +1376,7 @@ export class JSONTransform extends Visitor {
                 const fName = first.alias || first.name;
                 DESERIALIZE += indent + "          if (" + (first.generic ? "isBoolean<" + first.type + ">() && " : "") + getComparison(fName) + ") { // " + fName + "\n";
                 if (first.type.startsWith("JSON.Box<bool") || first.type.startsWith("JSON.Box<boolean") || first.type.startsWith("Box<bool") || first.type.startsWith("Box<boolean")) {
-                    DESERIALIZE +=
-                        indent +
-                            "            store<" +
-                            first.type +
-                            ">(changetype<usize>(out), changetype<" +
-                            first.type +
-                            ">(JSON.Box.from<bool>(false)), offsetof<this>(" +
-                            JSON.stringify(first.name) +
-                            "));\n";
+                    DESERIALIZE += indent + "            store<" + first.type + ">(changetype<usize>(out), changetype<" + first.type + ">(JSON.Box.from<bool>(false)), offsetof<this>(" + JSON.stringify(first.name) + "));\n";
                 }
                 else {
                     DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(first.name) + "));\n";
@@ -1414,15 +1390,7 @@ export class JSONTransform extends Visitor {
                     const memName = mem.alias || mem.name;
                     DESERIALIZE += indent + " else if (" + (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") + getComparison(memName) + ") { // " + memName + "\n";
                     if (mem.type.startsWith("JSON.Box<bool") || mem.type.startsWith("JSON.Box<boolean") || mem.type.startsWith("Box<bool") || mem.type.startsWith("Box<boolean")) {
-                        DESERIALIZE +=
-                            indent +
-                                "            store<" +
-                                mem.type +
-                                ">(changetype<usize>(out), changetype<" +
-                                mem.type +
-                                ">(JSON.Box.from<bool>(false)), offsetof<this>(" +
-                                JSON.stringify(mem.name) +
-                                "));\n";
+                        DESERIALIZE += indent + "            store<" + mem.type + ">(changetype<usize>(out), changetype<" + mem.type + ">(JSON.Box.from<bool>(false)), offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
                     }
                     else {
                         DESERIALIZE += indent + "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" + JSON.stringify(mem.name) + "));\n";
