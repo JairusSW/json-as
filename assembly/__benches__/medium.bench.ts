@@ -42,24 +42,6 @@ class MediumAPIResponse {
   recent_activity: RecentActivity[] = [new RecentActivity(), new RecentActivity(), new RecentActivity(), new RecentActivity(), new RecentActivity()];
 }
 
-
-@inline
-function parseIntoReusable(srcStart: usize, srcEnd: usize, out: MediumAPIResponse): void {
-  // @ts-expect-error: defined by transform in SWAR/SIMD modes
-  if (isDefined(out.__DESERIALIZE_FAST)) {
-    // @ts-expect-error: defined by transform in SWAR/SIMD modes
-    out.__DESERIALIZE_FAST<MediumAPIResponse>(srcStart, srcEnd, out);
-    return;
-  }
-  // @ts-expect-error: defined by transform in all modes
-  if (isDefined(out.__DESERIALIZE_SLOW)) {
-    // @ts-expect-error: defined by transform in all modes
-    out.__DESERIALIZE_SLOW<MediumAPIResponse>(srcStart, srcEnd, out);
-    return;
-  }
-  throw new Error("Missing __DESERIALIZE_FAST/__DESERIALIZE_SLOW on MediumAPIResponse");
-}
-
 const v1 = new MediumAPIResponse();
 const v2: string = JSON.stringify<MediumAPIResponse>(v1);
 const byteLength: usize = v2.length << 1;
