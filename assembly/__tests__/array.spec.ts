@@ -15,6 +15,8 @@ describe("Should serialize float arrays", () => {
   expect(JSON.stringify<f64[]>([7.23, 10e2, 10e2, 123456e-5, 123456e-5, 0.0, 7.23])).toBe("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]");
 
   expect(JSON.stringify<f64[]>([1e21, 1e22, 1e-7, 1e-8, 1e-9])).toBe("[1e+21,1e+22,1e-7,1e-8,1e-9]");
+
+  expect(JSON.stringify<f32[]>([-1.5, 0.25, 3.75])).toBe("[-1.5,0.25,3.75]");
 });
 
 describe("Should serialize boolean arrays", () => {
@@ -68,6 +70,7 @@ describe("Should deserialize integer arrays", () => {
 describe("Should deserialize float arrays", () => {
   expect(JSON.stringify(JSON.parse<f64[]>("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]"))).toBe("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]");
   expect(JSON.stringify(JSON.parse<f64[]>("[1e+21,1e+22,1e-7,1e-8,1e-9]"))).toBe("[1e+21,1e+22,1e-7,1e-8,1e-9]");
+  expect(JSON.stringify(JSON.parse<f32[]>("[-1.5,0.25,3.75]"))).toBe("[-1.5,0.25,3.75]");
 });
 
 describe("Should deserialize boolean arrays", () => {
@@ -178,6 +181,30 @@ describe("Should serialize and deserialize empty arrays", () => {
   expect(JSON.stringify<i32[]>([])).toBe("[]");
   expect(JSON.stringify(JSON.parse<i32[]>("[]"))).toBe("[]");
   expect(JSON.stringify(JSON.parse<string[]>("[]"))).toBe("[]");
+});
+
+describe("Should serialize single-item arrays without trailing commas", () => {
+  expect(JSON.stringify<i32[]>([42])).toBe("[42]");
+  expect(JSON.stringify<f32[]>([-0.5])).toBe("[-0.5]");
+  expect(JSON.stringify<bool[]>([true])).toBe("[true]");
+  expect(JSON.stringify<string[]>(["x"])).toBe('["x"]');
+});
+
+describe("Should preserve JSON.internal behavior for primitive arrays", () => {
+  const ints = JSON.internal.stringify<i32[]>([1, 2, 3, 4]);
+  const floats = JSON.internal.stringify<f32[]>([-1.5, 0.25, 3.75]);
+  const bools = JSON.internal.stringify<bool[]>([true, false, true]);
+  const strings = JSON.internal.stringify<string[]>(["alpha", "beta"]);
+
+  expect(ints).toBe("[1,2,3,4]");
+  expect(floats).toBe("[-1.5,0.25,3.75]");
+  expect(bools).toBe("[true,false,true]");
+  expect(strings).toBe('["alpha","beta"]');
+
+  expect(JSON.internal.parse<i32[]>(ints).length).toBe(4);
+  expect(JSON.internal.parse<f32[]>(floats)[0]).toBe(-1.5);
+  expect(JSON.internal.parse<bool[]>(bools)[1].toString()).toBe("false");
+  expect(JSON.internal.parse<string[]>(strings)[1]).toBe("beta");
 });
 
 describe("Should handle additional array shapes", () => {

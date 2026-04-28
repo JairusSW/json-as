@@ -101,6 +101,23 @@ function makeArrayBuffer(): ArrayBuffer {
   return out;
 }
 
+function makeRampUint8Array(size: i32): Uint8Array {
+  const out = new Uint8Array(size);
+  for (let i = 0; i < size; i++) {
+    out[i] = <u8>((i * 17 + 31) & 0xff);
+  }
+  return out;
+}
+
+function makeRampArrayBuffer(size: i32): ArrayBuffer {
+  const out = new ArrayBuffer(size);
+  const view = Uint8Array.wrap(out);
+  for (let i = 0; i < size; i++) {
+    view[i] = <u8>((i * 23 + 7) & 0xff);
+  }
+  return out;
+}
+
 class PlainBytes extends Uint8Array {
   constructor(length: i32 = 0) {
     super(length);
@@ -259,6 +276,30 @@ describe("Should serialize and deserialize ArrayBuffer by default", () => {
   expect(JSON.stringify(parsed)).toBe(JSON.stringify(buffer));
 });
 
+describe("Should serialize empty and single-item typed buffers", () => {
+  expect(JSON.stringify(new Uint8Array(0))).toBe("[]");
+  expect(JSON.stringify(new ArrayBuffer(0))).toBe("[]");
+
+  const one = new Uint8Array(1);
+  one[0] = 255;
+  expect(JSON.stringify(one)).toBe("[255]");
+
+  const oneBuffer = new ArrayBuffer(1);
+  Uint8Array.wrap(oneBuffer)[0] = 42;
+  expect(JSON.stringify(oneBuffer)).toBe("[42]");
+});
+
+describe("Should serialize larger typed buffers deterministically", () => {
+  const bytes = makeRampUint8Array(16);
+  const raw = makeRampArrayBuffer(16);
+
+  expect(JSON.stringify(bytes)).toBe("[31,48,65,82,99,116,133,150,167,184,201,218,235,252,13,30]");
+  expect(JSON.stringify(raw)).toBe("[7,30,53,76,99,122,145,168,191,214,237,4,27,50,73,96]");
+
+  expect(JSON.stringify(JSON.parse<Uint8Array>(JSON.stringify(bytes)))).toBe(JSON.stringify(bytes));
+  expect(JSON.stringify(JSON.parse<ArrayBuffer>(JSON.stringify(raw)))).toBe(JSON.stringify(raw));
+});
+
 describe("Should deserialize undecorated typed-array subclasses with built-in behavior", () => {
   const parsedBytes = JSON.parse<PlainBytes>("[10,20,30,40]");
   expect((parsedBytes instanceof PlainBytes).toString()).toBe("true");
@@ -324,4 +365,21 @@ describe("Should support typed-array subclasses through JSON.__serialize and JSO
   const decodedCustom = JSON.__deserialize<HexBytes>(changetype<usize>(encodedCustom), changetype<usize>(encodedCustom) + (encodedCustom.length << 1), 0);
   expect((decodedCustom instanceof HexBytes).toString()).toBe("true");
   expect(JSON.stringify(decodedCustom)).toBe(encodedCustom);
+});
+
+describe("Should preserve JSON.internal behavior for typed arrays and ArrayBuffer", () => {
+  const bytes = makeRampUint8Array(8);
+  const raw = makeRampArrayBuffer(8);
+
+  const encodedBytes = JSON.internal.stringify(bytes);
+  const encodedRaw = JSON.internal.stringify(raw);
+
+  expect(encodedBytes).toBe("[31,48,65,82,99,116,133,150]");
+  expect(encodedRaw).toBe("[7,30,53,76,99,122,145,168]");
+
+  const parsedBytes = JSON.internal.parse<Uint8Array>(encodedBytes);
+  const parsedRaw = JSON.internal.parse<ArrayBuffer>(encodedRaw);
+
+  expect(JSON.stringify(parsedBytes)).toBe(encodedBytes);
+  expect(JSON.stringify(parsedRaw)).toBe(encodedRaw);
 });

@@ -21,6 +21,12 @@ describe("Should serialize float sets", () => {
   set1.add(1000.0);
   set1.add(0.0);
   expect(JSON.stringify(set1)).toBe("[7.23,1000.0,0.0]");
+
+  const set2 = new Set<f32>();
+  set2.add(-1.5);
+  set2.add(0.25);
+  set2.add(3.75);
+  expect(JSON.stringify(set2)).toBe("[-1.5,0.25,3.75]");
 });
 
 describe("Should serialize boolean sets", () => {
@@ -62,6 +68,12 @@ describe("Should deserialize float sets", () => {
   expect(set1.has(1000.0)).toBe(true);
   expect(set1.has(0.0)).toBe(true);
   expect(set1.size).toBe(3);
+
+  const set2 = JSON.parse<Set<f32>>("[-1.5,0.25,3.75]");
+  expect(set2.has(-1.5)).toBe(true);
+  expect(set2.has(0.25)).toBe(true);
+  expect(set2.has(3.75)).toBe(true);
+  expect(set2.size).toBe(3);
 });
 
 describe("Should deserialize boolean sets", () => {
@@ -161,6 +173,64 @@ describe("Should round-trip object sets through serialization boundaries", () =>
   set1.add(b);
   const out = JSON.stringify(set1);
   expect(out).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":-4.0,"y":5.5,"z":6.0}]');
+});
+
+describe("Should serialize single-item sets without trailing commas", () => {
+  const ints = new Set<i32>();
+  ints.add(42);
+  expect(JSON.stringify(ints)).toBe("[42]");
+
+  const floats = new Set<f32>();
+  floats.add(-0.5);
+  expect(JSON.stringify(floats)).toBe("[-0.5]");
+
+  const bools = new Set<bool>();
+  bools.add(true);
+  expect(JSON.stringify(bools)).toBe("[true]");
+
+  const strings = new Set<string>();
+  strings.add("x");
+  expect(JSON.stringify(strings)).toBe('["x"]');
+});
+
+describe("Should preserve JSON.internal behavior for primitive sets", () => {
+  const intSet = new Set<i32>();
+  intSet.add(1);
+  intSet.add(2);
+  intSet.add(3);
+
+  const floatSet = new Set<f32>();
+  floatSet.add(-1.5);
+  floatSet.add(0.25);
+  floatSet.add(3.75);
+
+  const boolSet = new Set<bool>();
+  boolSet.add(true);
+  boolSet.add(false);
+
+  const stringSet = new Set<string>();
+  stringSet.add("alpha");
+  stringSet.add("beta");
+
+  const ints = JSON.internal.stringify(intSet);
+  const floats = JSON.internal.stringify(floatSet);
+  const bools = JSON.internal.stringify(boolSet);
+  const strings = JSON.internal.stringify(stringSet);
+
+  expect(ints).toBe("[1,2,3]");
+  expect(floats).toBe("[-1.5,0.25,3.75]");
+  expect(bools).toBe("[true,false]");
+  expect(strings).toBe('["alpha","beta"]');
+
+  const parsedInts = JSON.internal.parse<Set<i32>>(ints);
+  const parsedFloats = JSON.internal.parse<Set<f32>>(floats);
+  const parsedBools = JSON.internal.parse<Set<bool>>(bools);
+  const parsedStrings = JSON.internal.parse<Set<string>>(strings);
+
+  expect(parsedInts.size).toBe(3);
+  expect(parsedFloats.has(-1.5)).toBe(true);
+  expect(parsedBools.has(false)).toBe(true);
+  expect(parsedStrings.has("beta")).toBe(true);
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {

@@ -14,6 +14,8 @@ import { u16_to_hex4_swar } from "../../util/swar";
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_0020 = i16x8.splat(0x0020); // space and control check
 // @ts-expect-error: @lazy is a valid decorator
+@lazy const SPLAT_007F = i16x8.splat(0x007f); // ascii boundary
+// @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_FFD8 = i16x8.splat(i16(0xd7fe));
 
 /**
@@ -21,6 +23,7 @@ import { u16_to_hex4_swar } from "../../util/swar";
  */
 export function serializeString_SIMD(src: string): void {
   let srcStart = changetype<usize>(src);
+  const srcInitial = srcStart;
   if (isDefined(JSON_CACHE)) {
     // check cache
     const e = unchecked(sc.entries[i32((srcStart >> 4) & sc.CACHE_MASK)]);
@@ -35,6 +38,45 @@ export function serializeString_SIMD(src: string): void {
 
   const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
   const srcEnd = srcStart + srcSize;
+  do {
+    const srcEnd16Fast = srcEnd - 16;
+    bs.proposeSize(srcSize + 4);
+
+    const dstStart = bs.offset;
+    let dst = dstStart + 2;
+
+    while (srcStart < srcEnd16Fast) {
+      const block = load<v128>(srcStart);
+      const eq22 = i16x8.eq(block, SPLAT_0022);
+      const eq5C = i16x8.eq(block, SPLAT_005C);
+      const lt20 = i16x8.lt_u(block, SPLAT_0020);
+      const gt7F = i16x8.gt_u(block, SPLAT_007F);
+
+      const mask = i8x16.bitmask(v128.or(gt7F, v128.or(eq22, v128.or(eq5C, lt20))));
+      if (mask != 0) break;
+
+      store<v128>(dst, block);
+      srcStart += 16;
+      dst += 16;
+    }
+    if (srcStart < srcEnd16Fast) break;
+
+    while (srcStart <= srcEnd - 2) {
+      const code = load<u16>(srcStart);
+      if (code > 0x7f || code == BACK_SLASH || code == 34 || code < 32) break;
+      store<u16>(dst, code);
+      srcStart += 2;
+      dst += 2;
+    }
+    if (srcStart <= srcEnd - 2) break;
+
+    store<u16>(dstStart, 34); // "
+    store<u16>(dst, 34); // "
+    bs.offset = dst + 2;
+    return;
+  } while (false);
+
+  srcStart = srcInitial;
   const srcEnd16 = srcEnd - 16;
 
   bs.proposeSize(srcSize + 4);

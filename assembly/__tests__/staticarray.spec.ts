@@ -13,6 +13,7 @@ describe("Should serialize integer static arrays", () => {
 
 describe("Should serialize float static arrays", () => {
   expect(JSON.stringify<StaticArray<f64>>([7.23, 1000.0, 0.0])).toBe("[7.23,1000.0,0.0]");
+  expect(JSON.stringify<StaticArray<f32>>([-1.5, 0.25, 3.75])).toBe("[-1.5,0.25,3.75]");
 });
 
 describe("Should serialize boolean static arrays", () => {
@@ -48,6 +49,12 @@ describe("Should deserialize float static arrays", () => {
   expect(arr[0]).toBe(7.23);
   expect(arr[1]).toBe(1000.0);
   expect(arr[2]).toBe(0.0);
+
+  const arr32 = JSON.parse<StaticArray<f32>>("[-1.5,0.25,3.75]");
+  expect(arr32.length).toBe(3);
+  expect(arr32[0]).toBe(-1.5);
+  expect(arr32[1]).toBe(0.25);
+  expect(arr32[2]).toBe(3.75);
 });
 
 describe("Should deserialize boolean static arrays", () => {
@@ -207,6 +214,30 @@ describe("Should preserve escaped nested strings inside static arrays", () => {
   expect(raw.length).toBe(2);
   expect(raw[0].toString()).toBe('"text with spaces"');
   expect(raw[1].toString()).toBe('"{\\"nested\\":[1,2,3]}"');
+});
+
+describe("Should serialize single-item static arrays without trailing commas", () => {
+  expect(JSON.stringify<StaticArray<i32>>([42])).toBe("[42]");
+  expect(JSON.stringify<StaticArray<f32>>([-0.5])).toBe("[-0.5]");
+  expect(JSON.stringify<StaticArray<bool>>([true])).toBe("[true]");
+  expect(JSON.stringify<StaticArray<string>>(["x"])).toBe('["x"]');
+});
+
+describe("Should preserve JSON.internal behavior for primitive static arrays", () => {
+  const ints = JSON.internal.stringify<StaticArray<i32>>([1, 2, 3, 4]);
+  const floats = JSON.internal.stringify<StaticArray<f32>>([-1.5, 0.25, 3.75]);
+  const bools = JSON.internal.stringify<StaticArray<bool>>([true, false, true]);
+  const strings = JSON.internal.stringify<StaticArray<string>>(["alpha", "beta"]);
+
+  expect(ints).toBe("[1,2,3,4]");
+  expect(floats).toBe("[-1.5,0.25,3.75]");
+  expect(bools).toBe("[true,false,true]");
+  expect(strings).toBe('["alpha","beta"]');
+
+  expect(JSON.internal.parse<StaticArray<i32>>(ints).length).toBe(4);
+  expect(JSON.internal.parse<StaticArray<f32>>(floats)[0]).toBe(-1.5);
+  expect(JSON.internal.parse<StaticArray<bool>>(bools)[1].toString()).toBe("false");
+  expect(JSON.internal.parse<StaticArray<string>>(strings)[1]).toBe("beta");
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {

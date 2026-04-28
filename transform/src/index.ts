@@ -536,7 +536,7 @@ export class JSONTransform extends Visitor {
       mem.type = type;
       mem.value = value;
       mem.node = member;
-      mem.byteSize = sizeof(mem.type);
+      mem.byteSize = estimatedSerializedByteSize(mem.type, source, this.parser);
       mem.custom = schema.deps.some((dep) => dep?.name == stripNull(type) && dep.custom);
 
       this.schema.byteSize += mem.byteSize;
@@ -2314,12 +2314,55 @@ function sizeof(type: string): number {
     return 20; // 4294967295
   else if (type == "i32")
     return 22; // -2147483647
+  else if (type == "usize")
+    return 40; // platform dependent, reserve conservatively like u64
+  else if (type == "isize")
+    return 42; // platform dependent, reserve conservatively like i64
   else if (type == "u64")
     return 40; // 18446744073709551615
   else if (type == "i64")
-    return 40; // -9223372036854775807
+    return 42; // -9223372036854775808
+  else if (type == "f32")
+    return 34; // max dtoa length used by runtime reserve
+  else if (type == "f64")
+    return 66; // max dtoa length used by runtime reserve
   else if (type == "bool" || type == "boolean") return 10;
   else return 0;
+}
+
+function estimatedSerializedByteSize(type: string, source: Src, parser: Parser): number {
+  const trimmed = type.trim();
+  const baseType = stripNull(trimmed);
+  const nullable = trimmed != baseType;
+
+  let estimated = sizeof(baseType);
+
+  if (estimated == 0) {
+    if (isEnum(baseType, source, parser)) {
+      // Enums serialize as numbers.
+      estimated = 22;
+    } else if (baseType == "Date") {
+      estimated = 52; // "1970-01-01T00:00:00.000Z"
+    } else if (isString(baseType)) {
+      estimated = 4; // ""
+    } else if (isArray(baseType) || baseType.startsWith("Map<")) {
+      estimated = 4; // [] or {}
+    } else if (baseType == "JSON.Obj" || baseType == "Obj" || baseType == "JSON.Raw" || baseType == "Raw" || baseType == "JSON.Value" || baseType == "Value") {
+      estimated = 4;
+    } else if (baseType == "ArrayBuffer" || needsReferenceLoad(baseType)) {
+      estimated = 4; // [] for typed/buffer values
+    } else {
+      // Nested @json classes and unknown managed values serialize to at least an object/value token.
+      estimated = 4;
+    }
+  }
+
+  if (nullable) {
+    // Null literal is "null" (8 bytes in UTF-16 output buffer).
+    estimated = Math.max(estimated, 8);
+  }
+
+  return estimated;
 }
 
 function isPrimitive(type: string): boolean {

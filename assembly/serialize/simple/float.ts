@@ -3,6 +3,20 @@ import { dragonbox_f32_buffered, dragonbox_f64_buffered } from "../../util/drago
 
 
 @inline
+export function serializeFloat32Unsafe(data: f32): void {
+  const size = dragonbox_f32_buffered(bs.offset, data) << 1;
+  bs.offset += size;
+}
+
+
+@inline
+export function serializeFloat64Unsafe(data: f64): void {
+  const size = dragonbox_f64_buffered(bs.offset, data) << 1;
+  bs.offset += size;
+}
+
+
+@inline
 export function serializeFloat32(data: f32): void {
   bs.ensureSize(64);
   const size = dragonbox_f32_buffered(bs.offset, data) << 1;

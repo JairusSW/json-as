@@ -498,7 +498,7 @@ export class JSONTransform extends Visitor {
             mem.type = type;
             mem.value = value;
             mem.node = member;
-            mem.byteSize = sizeof(mem.type);
+            mem.byteSize = estimatedSerializedByteSize(mem.type, source, this.parser);
             mem.custom = schema.deps.some((dep) => dep?.name == stripNull(type) && dep.custom);
             this.schema.byteSize += mem.byteSize;
             if (member.decorators) {
@@ -2104,14 +2104,55 @@ function sizeof(type) {
         return 20;
     else if (type == "i32")
         return 22;
+    else if (type == "usize")
+        return 40;
+    else if (type == "isize")
+        return 42;
     else if (type == "u64")
         return 40;
     else if (type == "i64")
-        return 40;
+        return 42;
+    else if (type == "f32")
+        return 34;
+    else if (type == "f64")
+        return 66;
     else if (type == "bool" || type == "boolean")
         return 10;
     else
         return 0;
+}
+function estimatedSerializedByteSize(type, source, parser) {
+    const trimmed = type.trim();
+    const baseType = stripNull(trimmed);
+    const nullable = trimmed != baseType;
+    let estimated = sizeof(baseType);
+    if (estimated == 0) {
+        if (isEnum(baseType, source, parser)) {
+            estimated = 22;
+        }
+        else if (baseType == "Date") {
+            estimated = 52;
+        }
+        else if (isString(baseType)) {
+            estimated = 4;
+        }
+        else if (isArray(baseType) || baseType.startsWith("Map<")) {
+            estimated = 4;
+        }
+        else if (baseType == "JSON.Obj" || baseType == "Obj" || baseType == "JSON.Raw" || baseType == "Raw" || baseType == "JSON.Value" || baseType == "Value") {
+            estimated = 4;
+        }
+        else if (baseType == "ArrayBuffer" || needsReferenceLoad(baseType)) {
+            estimated = 4;
+        }
+        else {
+            estimated = 4;
+        }
+    }
+    if (nullable) {
+        estimated = Math.max(estimated, 8);
+    }
+    return estimated;
 }
 function isPrimitive(type) {
     const primitiveTypes = ["u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64", "bool", "boolean"];

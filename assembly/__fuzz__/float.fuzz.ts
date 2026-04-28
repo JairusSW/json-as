@@ -46,7 +46,7 @@ fuzz("f32 stringify/parse roundtrips finite values", (bits: u32): bool => {
   return sameJsonFloatF32(value, decoded);
 }).generate((seed: FuzzSeed, run: (bits: u32) => bool): void => {
   run(makeFiniteBitsF32(seed));
-});
+}, 5_000_000);
 
 fuzz("f64 stringify/parse roundtrips finite values", (high: u32, low: u32): bool => {
   const bits = ((<u64>high) << 32) | (<u64>low);
@@ -61,4 +61,4 @@ fuzz("f64 stringify/parse roundtrips finite values", (high: u32, low: u32): bool
 }).generate((seed: FuzzSeed, run: (high: u32, low: u32) => bool): void => {
   const bits = makeFiniteBitsF64(seed);
   run(<u32>(bits >>> 32), <u32>bits);
-});
+}, 5_000_000);
