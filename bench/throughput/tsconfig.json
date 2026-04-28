@@ -3,6 +3,8 @@
     "target": "ES2022",
     "module": "ES2020",
     "moduleResolution": "Node",
+    "ignoreDeprecations": "6.0",
+    "rootDir": "..",
     "removeComments": true,
     "types": ["node"],
     "outDir": "../../build",
