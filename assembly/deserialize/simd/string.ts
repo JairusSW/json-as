@@ -206,6 +206,26 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
   srcStart += 2;
   srcEnd -= 2;
   const payloadStart = srcStart;
+  do {
+    const srcEnd16Fast = srcEnd - 16;
+
+    while (srcStart < srcEnd16Fast) {
+      const block = load<v128>(srcStart);
+      if (i16x8.bitmask(i16x8.eq(block, SPLAT_5C)) != 0) break;
+      srcStart += 16;
+    }
+    if (srcStart < srcEnd16Fast) break;
+
+    while (srcStart < srcEnd) {
+      if (load<u16>(srcStart) == BACK_SLASH) break;
+      srcStart += 2;
+    }
+    if (srcStart < srcEnd) break;
+
+    return copyStringFromSource_SIMD(payloadStart, srcEnd - payloadStart);
+  } while (false);
+
+  srcStart = payloadStart;
   const srcEnd16 = srcEnd - 16;
 
   while (srcStart < srcEnd16) {

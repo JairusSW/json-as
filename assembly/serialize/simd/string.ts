@@ -1,5 +1,5 @@
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
-import { bs, sc } from "../../../lib/as-bs";
+import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { u16_to_hex4_swar } from "../../util/swar";
@@ -14,8 +14,6 @@ import { u16_to_hex4_swar } from "../../util/swar";
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_0020 = i16x8.splat(0x0020); // space and control check
 // @ts-expect-error: @lazy is a valid decorator
-@lazy const SPLAT_007F = i16x8.splat(0x007f); // ascii boundary
-// @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_FFD8 = i16x8.splat(i16(0xd7fe));
 
 /**
@@ -24,17 +22,6 @@ import { u16_to_hex4_swar } from "../../util/swar";
 export function serializeString_SIMD(src: string): void {
   let srcStart = changetype<usize>(src);
   const srcInitial = srcStart;
-  if (isDefined(JSON_CACHE)) {
-    // check cache
-    const e = unchecked(sc.entries[i32((srcStart >> 4) & sc.CACHE_MASK)]);
-    if (e.key == srcStart) {
-      // bs.offset += e.len;
-      // bs.stackSize += e.len;
-      bs.cacheOutput = e.ptr;
-      bs.cacheOutputLen = e.len;
-      return;
-    }
-  }
 
   const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
   const srcEnd = srcStart + srcSize;
@@ -50,9 +37,9 @@ export function serializeString_SIMD(src: string): void {
       const eq22 = i16x8.eq(block, SPLAT_0022);
       const eq5C = i16x8.eq(block, SPLAT_005C);
       const lt20 = i16x8.lt_u(block, SPLAT_0020);
-      const gt7F = i16x8.gt_u(block, SPLAT_007F);
+      const gteD8 = i8x16.gt_u(block, SPLAT_FFD8);
 
-      const mask = i8x16.bitmask(v128.or(gt7F, v128.or(eq22, v128.or(eq5C, lt20))));
+      const mask = i8x16.bitmask(v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))));
       if (mask != 0) break;
 
       store<v128>(dst, block);
@@ -85,7 +72,6 @@ export function serializeString_SIMD(src: string): void {
 
   while (srcStart < srcEnd16) {
     const block = load<v128>(srcStart);
-    store<v128>(bs.offset, block);
 
     const eq22 = i16x8.eq(block, SPLAT_0022);
     const eq5C = i16x8.eq(block, SPLAT_005C);
@@ -100,12 +86,13 @@ export function serializeString_SIMD(src: string): void {
     let mask = i8x16.bitmask(v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))));
 
     if (mask == 0) {
+      store<v128>(bs.offset, block);
       bs.offset += 16;
       srcStart += 16;
       continue;
     }
 
-    bs.growSize(popcnt(mask) * 10 + 12);
+    store<v128>(bs.offset, block);
 
     do {
       const laneIdx = ctz(mask);
@@ -215,8 +202,6 @@ export function serializeString_SIMD(src: string): void {
 
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
-
-  if (isDefined(JSON_CACHE)) sc.insertCached(changetype<usize>(src), srcStart, srcSize);
 }
 
 // @ts-expect-error: @inline is a valid decorator

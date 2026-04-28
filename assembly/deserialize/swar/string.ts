@@ -149,6 +149,27 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   srcStart += 2;
   srcEnd -= 2;
   const payloadStart = srcStart;
+  do {
+    const srcEnd16Fast = srcEnd - 16;
+
+    while (srcStart < srcEnd16Fast) {
+      const m0 = inline.always(backslash_mask_unsafe(load<u64>(srcStart)));
+      const m1 = inline.always(backslash_mask_unsafe(load<u64>(srcStart, 8)));
+      if ((m0 | m1) != 0) break;
+      srcStart += 16;
+    }
+    if (srcStart < srcEnd16Fast) break;
+
+    while (srcStart < srcEnd) {
+      if (load<u16>(srcStart) == BACK_SLASH) break;
+      srcStart += 2;
+    }
+    if (srcStart < srcEnd) break;
+
+    return copyStringFromSource(payloadStart, srcEnd - payloadStart);
+  } while (false);
+
+  srcStart = payloadStart;
   const srcEnd8 = srcEnd - 8;
 
   while (srcStart < srcEnd8) {
