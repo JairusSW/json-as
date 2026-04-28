@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 2026-04-28 - 1.3.3
+
+- perf: made deserialization 200% to 300% faster
+- chore: enable JSON_USE_FAST_PATH by default
+
 ## 2026-04-13 - 1.3.2
 
 - fix: remove the fast double parser dependency and return float deserialization to the local legacy parser path
