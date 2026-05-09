@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 2026-05-08 - 1.3.5
+
+- compat: make the transform load `NodeKind` from the installed AssemblyScript runtime at execution time instead of baking stale const-enum ordinals into published JS, fixing cross-version breakage around `TupleType` and related enum shifts [#188](https://github.com/JairusSW/json-as/issues/188) [#189](https://github.com/JairusSW/json-as/pull/189)
+- deps: bump `assemblyscript` to `0.28.17` and rebuild the published transform output
+- tests: refresh the suite and align local `as-test` config defaults so direct `as-test` runs continue to include the transform in all modes
+
+## 2026-04-28 - 1.3.4
+
+- perf: improve deserialization throughput by roughly another 20%
+- chore: update TypeScript configuration to support the deserialization changes and rebuild flow
+
 ## 2026-04-28 - 1.3.3
 
 - perf: made deserialization 200% to 300% faster
