@@ -1,4 +1,5 @@
-import { CallExpression, IdentifierExpression, Node, NodeKind, PropertyAccessExpression } from "assemblyscript/dist/assemblyscript.js";
+import { CallExpression, IdentifierExpression, Node, PropertyAccessExpression } from "assemblyscript/dist/assemblyscript.js";
+import { NodeKind } from "../types.js";
 import { Visitor } from "../visitor.js";
 
 export class CustomTransform extends Visitor {

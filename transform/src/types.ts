@@ -1,6 +1,9 @@
-import { ClassDeclaration, Expression, FieldDeclaration, Source, NodeKind, Node, NamespaceDeclaration, DeclarationStatement, TypeName, Parser, ImportStatement, CommonFlags, EnumDeclaration } from "assemblyscript/dist/assemblyscript.js";
+import { ClassDeclaration, Expression, FieldDeclaration, Source, Node, NamespaceDeclaration, DeclarationStatement, TypeName, Parser, ImportStatement, CommonFlags, EnumDeclaration } from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
 import { stripNull } from "./index.js";
+
+import * as asc from "assemblyscript/dist/assemblyscript.js";
+export const NodeKind = (asc as unknown as { NodeKind: Record<string, number> }).NodeKind;
 
 export enum PropertyFlags {
   OmitNull,
