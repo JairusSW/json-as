@@ -1,9 +1,10 @@
-import { ClassDeclaration, CommonFlags, Feature, FieldDeclaration, FloatLiteralExpression, FunctionExpression, IdentifierExpression, ImportStatement, IntegerLiteralExpression, LiteralExpression, LiteralKind, MethodDeclaration, NamedTypeNode, Node, NodeKind, Parser, Program, Range, Source, SourceKind, StringLiteralExpression, Type } from "assemblyscript/dist/assemblyscript.js";
+import { ClassDeclaration, CommonFlags, Feature, FieldDeclaration, FloatLiteralExpression, FunctionExpression, IdentifierExpression, ImportStatement, IntegerLiteralExpression, LiteralExpression, LiteralKind, MethodDeclaration, NamedTypeNode, Node, Parser, Program, Range, Source, SourceKind, StringLiteralExpression, Type } from "assemblyscript/dist/assemblyscript.js";
 import { Transform } from "assemblyscript/dist/transform.js";
 import { readFileSync, writeFileSync } from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { CustomTransform } from "./linkers/custom.js";
+import { NodeKind } from "./types.js";
 import { Property, PropertyFlags, Schema, SourceSet, Src } from "./types.js";
 import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
