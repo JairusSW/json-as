@@ -83,7 +83,7 @@ function parseCustomJsonKind(method, decoratorName) {
     if (decorator.args.length > 1)
         throwError(`@${decoratorName} accepts at most one argument`, decorator.range);
     const arg = decorator.args[0];
-    if (arg.kind != 16 || arg.literalKind != 2) {
+    if (arg.kind != 17 || arg.literalKind != 2) {
         throwError(`@${decoratorName} argument must be a string literal like @${decoratorName}("string")`, arg.range);
     }
     const kind = arg.value;
@@ -171,7 +171,7 @@ export class JSONTransform extends Visitor {
         if (isDecoratedBase)
             return;
         this.collectInheritedFieldMembers(baseDecl, baseSource, members, visited);
-        const inheritedMembers = baseDecl.members.filter((v) => v.kind === 54 && !v.is(32) && !v.is(512) && !v.is(1024) && !v.decorators?.some((decorator) => decorator.name.text === "omit"));
+        const inheritedMembers = baseDecl.members.filter((v) => v.kind === 55 && !v.is(32) && !v.is(512) && !v.is(1024) && !v.decorators?.some((decorator) => decorator.name.text === "omit"));
         for (let i = inheritedMembers.length - 1; i >= 0; i--) {
             const inherited = inheritedMembers[i];
             if (!members.some((member) => member.name.text == inherited.name.text)) {
@@ -233,9 +233,9 @@ export class JSONTransform extends Visitor {
             return;
         if (!this.schemas.has(source.internalPath))
             this.schemas.set(source.internalPath, []);
-        const members = [...node.members.filter((v) => v.kind === 54 && !v.is(32) && !v.is(512) && !v.is(1024) && !v.decorators?.some((decorator) => decorator.name.text === "omit"))];
-        const serializers = [...node.members.filter((v) => v.kind === 58 && v.decorators && v.decorators.some((e) => e.name.text.toLowerCase() === "serializer") && !v.name.text.startsWith("__try"))];
-        const deserializers = [...node.members.filter((v) => v.kind === 58 && v.decorators && v.decorators.some((e) => e.name.text.toLowerCase() === "deserializer") && !v.name.text.startsWith("__try"))];
+        const members = [...node.members.filter((v) => v.kind === 55 && !v.is(32) && !v.is(512) && !v.is(1024) && !v.decorators?.some((decorator) => decorator.name.text === "omit"))];
+        const serializers = [...node.members.filter((v) => v.kind === 59 && v.decorators && v.decorators.some((e) => e.name.text.toLowerCase() === "serializer") && !v.name.text.startsWith("__try"))];
+        const deserializers = [...node.members.filter((v) => v.kind === 59 && v.decorators && v.decorators.some((e) => e.name.text.toLowerCase() === "deserializer") && !v.name.text.startsWith("__try"))];
         const schema = new Schema();
         schema.node = node;
         schema.name = source.getQualifiedName(node);
@@ -507,7 +507,7 @@ export class JSONTransform extends Visitor {
                     switch (decoratorName) {
                         case "alias": {
                             const arg = decorator.args[0];
-                            if (!arg || (arg.kind != 16 && arg.literalKind != 2 && arg.literalKind != 1 && arg.literalKind != 0))
+                            if (!arg || (arg.kind != 17 && arg.literalKind != 2 && arg.literalKind != 1 && arg.literalKind != 0))
                                 throwError("@alias must have an argument of type string or number", member.range);
                             mem.alias = arg.value.toString();
                             break;
@@ -634,7 +634,7 @@ export class JSONTransform extends Visitor {
                     SERIALIZE += indent + `}\n`;
                 }
                 else if (member.flags.has(PropertyFlags.OmitIf)) {
-                    if (member.flags.get(PropertyFlags.OmitIf).kind == 14) {
+                    if (member.flags.get(PropertyFlags.OmitIf).kind == 15) {
                         const arg = member.flags.get(PropertyFlags.OmitIf);
                         arg.declaration.signature.parameters[0].type = Node.createNamedType(Node.createSimpleTypeName("this", node.range), null, false, node.range);
                         arg.declaration.signature.returnType.name = Node.createSimpleTypeName("boolean", arg.declaration.signature.returnType.name.range);
@@ -642,7 +642,7 @@ export class JSONTransform extends Visitor {
                     }
                     else {
                         const expression = member.flags.get(PropertyFlags.OmitIf);
-                        const rendered = expression.kind == 16 && expression.literalKind == 2 ? JSON.stringify(expression.value).slice(1, -1) : toString(expression);
+                        const rendered = expression.kind == 17 && expression.literalKind == 2 ? JSON.stringify(expression.value).slice(1, -1) : toString(expression);
                         SERIALIZE += indent + `if (!(${rendered})) {\n`;
                     }
                     indentInc();

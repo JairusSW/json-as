@@ -110,7 +110,7 @@ export function cloneNode(input, seen = new WeakMap(), path = "") {
 export function stripExpr(node) {
     if (!node)
         return node;
-    if (node.kind == 38)
+    if (node.kind == 39)
         return node.expression;
     return node;
 }

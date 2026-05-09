@@ -491,11 +491,11 @@ export class ASTBuilder extends Visitor {
     }
     visitUnaryExpression(node) {
         switch (node.kind) {
-            case 27: {
+            case 28: {
                 this.visitUnaryPostfixExpression(node);
                 break;
             }
-            case 28: {
+            case 29: {
                 this.visitUnaryPrefixExpression(node);
                 break;
             }
@@ -515,8 +515,8 @@ export class ASTBuilder extends Visitor {
         this.visitNode(node);
         const sb = this.sb;
         if (!sb.length ||
-            node.kind == 47 ||
-            node.kind == 38) {
+            node.kind == 48 ||
+            node.kind == 39) {
             sb.push(";\n");
         }
         else {
@@ -630,7 +630,7 @@ export class ASTBuilder extends Visitor {
             }
             for (let i = 0, k = members.length; i < k; ++i) {
                 const member = members[i];
-                if (member.kind != 54 || member.parameterIndex < 0) {
+                if (member.kind != 55 || member.parameterIndex < 0) {
                     util.indent(sb, indentLevel);
                     this.visitNodeAndTerminate(member);
                 }
@@ -646,7 +646,7 @@ export class ASTBuilder extends Visitor {
         const sb = this.sb;
         sb.push("do ");
         this.visitNode(node.body);
-        if (node.body.kind == 30) {
+        if (node.body.kind == 31) {
             sb.push(" while (");
         }
         else {
@@ -748,23 +748,23 @@ export class ASTBuilder extends Visitor {
     visitExportDefaultStatement(node) {
         const declaration = node.declaration;
         switch (declaration.kind) {
-            case 52: {
+            case 53: {
                 this.visitEnumDeclaration(declaration, true);
                 break;
             }
-            case 55: {
+            case 56: {
                 this.visitFunctionDeclaration(declaration, true);
                 break;
             }
-            case 51: {
+            case 52: {
                 this.visitClassDeclaration(declaration, true);
                 break;
             }
-            case 57: {
+            case 58: {
                 this.visitInterfaceDeclaration(declaration, true);
                 break;
             }
-            case 59: {
+            case 60: {
                 this.visitNamespaceDeclaration(declaration, true);
                 break;
             }
@@ -945,12 +945,12 @@ export class ASTBuilder extends Visitor {
         sb.push(") ");
         const ifTrue = node.ifTrue;
         this.visitNode(ifTrue);
-        if (ifTrue.kind != 30) {
+        if (ifTrue.kind != 31) {
             sb.push(";\n");
         }
         const ifFalse = node.ifFalse;
         if (ifFalse) {
-            if (ifTrue.kind == 30) {
+            if (ifTrue.kind == 31) {
                 sb.push(" else ");
             }
             else {
@@ -1258,7 +1258,7 @@ export class ASTBuilder extends Visitor {
         sb.push("while (");
         this.visitNode(node.condition);
         const statement = node.body;
-        if (statement.kind == 34) {
+        if (statement.kind == 35) {
             sb.push(")");
         }
         else {

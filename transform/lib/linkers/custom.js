@@ -5,13 +5,13 @@ export class CustomTransform extends Visitor {
     modify = false;
     visitCallExpression(node) {
         super.visit(node.args, node);
-        if (node.expression.kind != 21)
+        if (node.expression.kind != 22)
             return;
         const expression = node.expression;
         const property = expression.property.text;
         if (property != "stringify" && property != "parse")
             return;
-        if (expression.expression.kind != 6 || expression.expression.text != "JSON")
+        if (expression.expression.kind != 7 || expression.expression.text != "JSON")
             return;
         if (this.modify) {
             expression.expression = Node.createPropertyAccessExpression(Node.createIdentifierExpression("JSON", node.expression.range), Node.createIdentifierExpression("internal", node.expression.range), node.expression.range);

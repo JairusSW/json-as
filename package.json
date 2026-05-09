@@ -13,7 +13,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.6.0",
     "as-test": "^1.0.7",
-    "assemblyscript": "^0.28.14",
+    "assemblyscript": "^0.28.16",
     "assemblyscript-prettier": "^3.0.4",
     "chartjs-node-canvas": "^5.0.0",
     "chartjs-plugin-datalabels": "^2.2.0",
@@ -38,7 +38,8 @@
     "Tomáš Hromada",
     "Loredana Cirstea",
     "Accipiter Nisus",
-    "Deon Groenewald"
+    "Deon Groenewald",
+    "yoyo837"
   ],
   "description": "The only JSON library you'll need for AssemblyScript with SIMD and SWAR",
   "homepage": "https://docs.jairus.dev/json-as",

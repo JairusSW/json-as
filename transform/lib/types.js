@@ -165,19 +165,19 @@ export class Src {
     traverse(nodes, path) {
         for (const node of nodes) {
             switch (node.kind) {
-                case 59:
+                case 60:
                     const namespaceDeclaration = node;
                     this.traverse(namespaceDeclaration.members, [...path, namespaceDeclaration]);
                     break;
-                case 51:
+                case 52:
                     const classDeclaration = node;
                     this.classes[this.qualifiedName(classDeclaration, path)] = classDeclaration;
                     break;
-                case 52:
+                case 53:
                     const enumDeclaration = node;
                     this.enums[this.qualifiedName(enumDeclaration, path)] = enumDeclaration;
                     break;
-                case 42:
+                case 43:
                     const importStatement = node;
                     this.imports.push(importStatement);
                     break;
@@ -262,9 +262,9 @@ export class Src {
     }
     getNamespaceOrClassName(node) {
         switch (node.kind) {
-            case 59:
+            case 60:
                 return node.name.text;
-            case 51:
+            case 52:
                 return node.name.text;
         }
         return "";
