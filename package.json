@@ -87,7 +87,6 @@
     "fuzz": "ast fuzz",
     "test:fuzz": "ast test --fuzz --parallel",
     "test:ci": "ast test --parallel --clean",
-    "test:ci:fast": "JSON_USE_FAST_PATH=1 ast test --parallel --clean",
     "test:coverage": "ast test --enable coverage",
     "bench": "npm run bench:as && npm run bench:js && npm run charts:build",
     "bench:as": "bash ./scripts/run-bench.as.sh",

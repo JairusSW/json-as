@@ -25,7 +25,7 @@ jobs:
         run: bun run build:transform
 
       - name: Run Tests (Slow)
-        run: bun run test:ci
+        run: JSON_USE_FAST_PATH=0 bun run test:ci
 
       - name: Run Tests (Fast)
-        run: bun run test:ci:fast
+        run: JSON_USE_FAST_PATH=1 bun run test:ci
