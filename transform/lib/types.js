@@ -1,5 +1,7 @@
 import { TypeAlias } from "./linkers/alias.js";
 import { stripNull } from "./index.js";
+import * as asc from "assemblyscript/dist/assemblyscript.js";
+export const NodeKind = asc.NodeKind;
 export var PropertyFlags;
 (function (PropertyFlags) {
     PropertyFlags[PropertyFlags["OmitNull"] = 0] = "OmitNull";
@@ -165,19 +167,19 @@ export class Src {
     traverse(nodes, path) {
         for (const node of nodes) {
             switch (node.kind) {
-                case 60:
+                case NodeKind.NamespaceDeclaration:
                     const namespaceDeclaration = node;
                     this.traverse(namespaceDeclaration.members, [...path, namespaceDeclaration]);
                     break;
-                case 52:
+                case NodeKind.ClassDeclaration:
                     const classDeclaration = node;
                     this.classes[this.qualifiedName(classDeclaration, path)] = classDeclaration;
                     break;
-                case 53:
+                case NodeKind.EnumDeclaration:
                     const enumDeclaration = node;
                     this.enums[this.qualifiedName(enumDeclaration, path)] = enumDeclaration;
                     break;
-                case 43:
+                case NodeKind.Import:
                     const importStatement = node;
                     this.imports.push(importStatement);
                     break;
@@ -262,9 +264,9 @@ export class Src {
     }
     getNamespaceOrClassName(node) {
         switch (node.kind) {
-            case 60:
+            case NodeKind.NamespaceDeclaration:
                 return node.name.text;
-            case 52:
+            case NodeKind.ClassDeclaration:
                 return node.name.text;
         }
         return "";

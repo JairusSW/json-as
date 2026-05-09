@@ -1,5 +1,6 @@
 import { ClassDeclaration, Expression, FieldDeclaration, Source, DeclarationStatement, Parser, ImportStatement, EnumDeclaration } from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
+export declare const NodeKind: Record<string, number>;
 export declare enum PropertyFlags {
     OmitNull = 0,
     OmitIf = 1,

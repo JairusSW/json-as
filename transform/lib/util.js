@@ -1,6 +1,7 @@
 import { Parser, Tokenizer, Source } from "assemblyscript/dist/assemblyscript.js";
 import { ASTBuilder } from "./builder.js";
 import * as path from "path";
+import { NodeKind } from "./types.js";
 export class SimpleParser {
     static get parser() {
         return new Parser();
@@ -110,7 +111,7 @@ export function cloneNode(input, seen = new WeakMap(), path = "") {
 export function stripExpr(node) {
     if (!node)
         return node;
-    if (node.kind == 39)
+    if (node.kind == NodeKind.Expression)
         return node.expression;
     return node;
 }

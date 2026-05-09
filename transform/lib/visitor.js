@@ -1,3 +1,4 @@
+import { NodeKind } from "./types.js";
 export class Visitor {
     currentSource = null;
     visit(node, ref = null) {
@@ -14,216 +15,216 @@ export class Visitor {
     }
     _visit(node, ref) {
         switch (node.kind) {
-            case 0:
+            case NodeKind.Source:
                 this.visitSource(node, ref);
                 break;
-            case 1:
+            case NodeKind.NamedType:
                 this.visitNamedTypeNode(node, ref);
                 break;
-            case 2:
+            case NodeKind.FunctionType:
                 this.visitFunctionTypeNode(node, ref);
                 break;
-            case 4:
+            case NodeKind.TypeName:
                 this.visitTypeName(node, ref);
                 break;
-            case 5:
+            case NodeKind.TypeParameter:
                 this.visitTypeParameter(node, ref);
                 break;
-            case 7:
+            case NodeKind.Identifier:
                 this.visitIdentifierExpression(node, ref);
                 break;
-            case 8:
+            case NodeKind.Assertion:
                 this.visitAssertionExpression(node, ref);
                 break;
-            case 9:
+            case NodeKind.Binary:
                 this.visitBinaryExpression(node, ref);
                 break;
-            case 10:
+            case NodeKind.Call:
                 this.visitCallExpression(node, ref);
                 break;
-            case 11:
+            case NodeKind.Class:
                 this.visitClassExpression(node, ref);
                 break;
-            case 12:
+            case NodeKind.Comma:
                 this.visitCommaExpression(node, ref);
                 break;
-            case 13:
+            case NodeKind.ElementAccess:
                 this.visitElementAccessExpression(node, ref);
                 break;
-            case 15:
+            case NodeKind.Function:
                 this.visitFunctionExpression(node, ref);
                 break;
-            case 16:
+            case NodeKind.InstanceOf:
                 this.visitInstanceOfExpression(node, ref);
                 break;
-            case 17:
+            case NodeKind.Literal:
                 this.visitLiteralExpression(node, ref);
                 break;
-            case 18:
+            case NodeKind.New:
                 this.visitNewExpression(node, ref);
                 break;
-            case 21:
+            case NodeKind.Parenthesized:
                 this.visitParenthesizedExpression(node, ref);
                 break;
-            case 22:
+            case NodeKind.PropertyAccess:
                 this.visitPropertyAccessExpression(node, ref);
                 break;
-            case 23:
+            case NodeKind.Ternary:
                 this.visitTernaryExpression(node, ref);
                 break;
-            case 28:
+            case NodeKind.UnaryPostfix:
                 this.visitUnaryPostfixExpression(node, ref);
                 break;
-            case 29:
+            case NodeKind.UnaryPrefix:
                 this.visitUnaryPrefixExpression(node, ref);
                 break;
-            case 31:
+            case NodeKind.Block:
                 this.visitBlockStatement(node, ref);
                 break;
-            case 32:
+            case NodeKind.Break:
                 this.visitBreakStatement(node, ref);
                 break;
-            case 33:
+            case NodeKind.Continue:
                 this.visitContinueStatement(node, ref);
                 break;
-            case 34:
+            case NodeKind.Do:
                 this.visitDoStatement(node, ref);
                 break;
-            case 35:
+            case NodeKind.Empty:
                 this.visitEmptyStatement(node, ref);
                 break;
-            case 36:
+            case NodeKind.Export:
                 this.visitExportStatement(node, ref);
                 break;
-            case 37:
+            case NodeKind.ExportDefault:
                 this.visitExportDefaultStatement(node, ref);
                 break;
-            case 38:
+            case NodeKind.ExportImport:
                 this.visitExportImportStatement(node, ref);
                 break;
-            case 39:
+            case NodeKind.Expression:
                 this.visitExpressionStatement(node, ref);
                 break;
-            case 40:
+            case NodeKind.For:
                 this.visitForStatement(node, ref);
                 break;
-            case 42:
+            case NodeKind.If:
                 this.visitIfStatement(node, ref);
                 break;
-            case 43:
+            case NodeKind.Import:
                 this.visitImportStatement(node, ref);
                 break;
-            case 44:
+            case NodeKind.Return:
                 this.visitReturnStatement(node, ref);
                 break;
-            case 45:
+            case NodeKind.Switch:
                 this.visitSwitchStatement(node, ref);
                 break;
-            case 46:
+            case NodeKind.Throw:
                 this.visitThrowStatement(node, ref);
                 break;
-            case 47:
+            case NodeKind.Try:
                 this.visitTryStatement(node, ref);
                 break;
-            case 48:
+            case NodeKind.Variable:
                 this.visitVariableStatement(node, ref);
                 break;
-            case 50:
+            case NodeKind.While:
                 this.visitWhileStatement(node, ref);
                 break;
-            case 52:
+            case NodeKind.ClassDeclaration:
                 this.visitClassDeclaration(node, false, ref);
                 break;
-            case 53:
+            case NodeKind.EnumDeclaration:
                 this.visitEnumDeclaration(node, false, ref);
                 break;
-            case 54:
+            case NodeKind.EnumValueDeclaration:
                 this.visitEnumValueDeclaration(node, ref);
                 break;
-            case 55:
+            case NodeKind.FieldDeclaration:
                 this.visitFieldDeclaration(node, ref);
                 break;
-            case 56:
+            case NodeKind.FunctionDeclaration:
                 this.visitFunctionDeclaration(node, false, ref);
                 break;
-            case 57:
+            case NodeKind.ImportDeclaration:
                 this.visitImportDeclaration(node, ref);
                 break;
-            case 58:
+            case NodeKind.InterfaceDeclaration:
                 this.visitInterfaceDeclaration(node, false, ref);
                 break;
-            case 59:
+            case NodeKind.MethodDeclaration:
                 this.visitMethodDeclaration(node, ref);
                 break;
-            case 60:
+            case NodeKind.NamespaceDeclaration:
                 this.visitNamespaceDeclaration(node, false, ref);
                 break;
-            case 61:
+            case NodeKind.TypeDeclaration:
                 this.visitTypeDeclaration(node, ref);
                 break;
-            case 62:
+            case NodeKind.VariableDeclaration:
                 this.visitVariableDeclaration(node, ref);
                 break;
-            case 63:
+            case NodeKind.Decorator:
                 this.visitDecoratorNode(node, ref);
                 break;
-            case 64:
+            case NodeKind.ExportMember:
                 this.visitExportMember(node, ref);
                 break;
-            case 65:
+            case NodeKind.SwitchCase:
                 this.visitSwitchCase(node, ref);
                 break;
-            case 66:
+            case NodeKind.IndexSignature:
                 this.visitIndexSignature(node, ref);
                 break;
-            case 19:
+            case NodeKind.Null:
                 this.visitNullExpression(node, ref);
                 break;
-            case 26: {
+            case NodeKind.True: {
                 this.visitTrueExpression(node, ref);
                 break;
             }
-            case 14: {
+            case NodeKind.False: {
                 this.visitFalseExpression(node, ref);
                 break;
             }
-            case 30: {
+            case NodeKind.Compiled: {
                 this.visitCompiledExpression(node, ref);
                 break;
             }
-            case 27: {
+            case NodeKind.Constructor: {
                 this.visitConstructorExpression(node, ref);
                 break;
             }
-            case 67: {
+            case NodeKind.Comment: {
                 this.visitComment(node, ref);
                 break;
             }
-            case 41: {
+            case NodeKind.ForOf: {
                 this.visitForOfStatement(node, ref);
                 break;
             }
-            case 51: {
+            case NodeKind.Module: {
                 this.visitModuleDeclaration(node, ref);
                 break;
             }
-            case 20: {
+            case NodeKind.Omitted: {
                 this.visitOmittedExpression(node, ref);
                 break;
             }
-            case 6: {
+            case NodeKind.Parameter: {
                 this.visitParameter(node, ref);
                 break;
             }
-            case 24: {
+            case NodeKind.Super: {
                 this.visitSuperExpression(node, ref);
                 break;
             }
-            case 25: {
+            case NodeKind.This: {
                 this.visitThisExpression(node, ref);
                 break;
             }
-            case 49: {
+            case NodeKind.Void: {
                 this.visitVoidStatement(node, ref);
                 break;
             }

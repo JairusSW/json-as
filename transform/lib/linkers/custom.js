@@ -1,17 +1,18 @@
 import { Node } from "assemblyscript/dist/assemblyscript.js";
+import { NodeKind } from "../types.js";
 import { Visitor } from "../visitor.js";
 export class CustomTransform extends Visitor {
     static SN = new CustomTransform();
     modify = false;
     visitCallExpression(node) {
         super.visit(node.args, node);
-        if (node.expression.kind != 22)
+        if (node.expression.kind != NodeKind.PropertyAccess)
             return;
         const expression = node.expression;
         const property = expression.property.text;
         if (property != "stringify" && property != "parse")
             return;
-        if (expression.expression.kind != 7 || expression.expression.text != "JSON")
+        if (expression.expression.kind != NodeKind.Identifier || expression.expression.text != "JSON")
             return;
         if (this.modify) {
             expression.expression = Node.createPropertyAccessExpression(Node.createIdentifierExpression("JSON", node.expression.range), Node.createIdentifierExpression("internal", node.expression.range), node.expression.range);
