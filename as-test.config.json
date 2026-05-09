@@ -20,8 +20,7 @@
   "runOptions": {
     "runtime": {
       "cmd": "wasmtime <file>"
-    },
-    "reporter": "default"
+    }
   },
   "modes": {
     "naive": {
@@ -39,7 +38,7 @@
         "JSON_MODE": "SIMD"
       },
       "buildOptions": {
-        "args": ["--enable simd"]
+        "args": ["--transform ./transform", "--debug", "--enable simd"]
       }
     }
   }
