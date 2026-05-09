@@ -11,18 +11,18 @@
   "devDependencies": {
     "@assemblyscript/wasi-shim": "^0.1.0",
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.6.0",
-    "as-test": "^1.0.7",
+    "@types/node": "^25.6.2",
+    "as-test": "1.0.16",
     "assemblyscript": "^0.28.17",
     "assemblyscript-prettier": "^3.0.4",
     "chartjs-node-canvas": "^5.0.0",
     "chartjs-plugin-datalabels": "^2.2.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.3.0",
     "prettier": "3.8.3",
     "serve": "^14.2.6",
-    "tinybench": "^6.0.0",
-    "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.2"
+    "tinybench": "^6.0.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.2"
   },
   "bugs": {
     "url": "https://github.com/JairusSW/json-as/issues"
