@@ -18,6 +18,7 @@
     "chartjs-node-canvas": "^5.0.0",
     "chartjs-plugin-datalabels": "^2.2.0",
     "eslint": "^10.3.0",
+    "husky": "^9.1.7",
     "prettier": "3.8.3",
     "serve": "^14.2.6",
     "tinybench": "^6.0.1",
@@ -105,12 +106,14 @@
     "format": "prettier -w .",
     "lint": "eslint . --no-warn-ignored",
     "lint:fix": "eslint . --fix --no-warn-ignored",
+    "precommit:verify": "bash ./scripts/pre-commit.sh",
     "typecheck": "tsc -p ./transform --noEmit",
     "clean": "rm -rf build/ transform/lib/",
     "prebuild": "npm run clean",
     "build": "npm run build:transform",
     "pretest": "npm run build:transform",
-    "check": "npm run typecheck && npm run lint"
+    "check": "npm run typecheck && npm run lint",
+    "prepare": "husky"
   },
   "type": "module",
   "types": "assembly/index.ts"
