@@ -998,11 +998,7 @@ function serializeString_SIMD_MaskCombine(src: string): void {
     const block = load<v128>(srcStart);
     store<v128>(bs.offset, block);
 
-    let mask =
-      i8x16.bitmask(i16x8.eq(block, SPLAT_0022)) |
-      i8x16.bitmask(i16x8.eq(block, SPLAT_005C)) |
-      i8x16.bitmask(i16x8.lt_u(block, SPLAT_0020)) |
-      i8x16.bitmask(i8x16.gt_u(block, SPLAT_FFD8));
+    let mask = i8x16.bitmask(i16x8.eq(block, SPLAT_0022)) | i8x16.bitmask(i16x8.eq(block, SPLAT_005C)) | i8x16.bitmask(i16x8.lt_u(block, SPLAT_0020)) | i8x16.bitmask(i8x16.gt_u(block, SPLAT_FFD8));
 
     if (mask == 0) {
       bs.offset += 16;

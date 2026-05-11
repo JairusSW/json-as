@@ -1,6 +1,7 @@
 import { bs } from "../../../lib/as-bs";
 import { itoa_buffered } from "util/number";
 
+
 @inline
 export function serializeIntegerUnsafe<T extends number>(data: T): void {
   const bytesWritten = itoa_buffered(bs.offset, data) << 1;

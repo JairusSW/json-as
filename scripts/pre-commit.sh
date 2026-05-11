@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo "Building transform..."
+npm run build:transform
+
 echo "Running formatter..."
 npm run format
 
@@ -13,6 +16,3 @@ fi
 
 echo "Running linter..."
 npm run lint
-
-echo "Building transform..."
-npm run build:transform

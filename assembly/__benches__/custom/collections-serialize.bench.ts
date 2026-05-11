@@ -2,7 +2,6 @@ import { JSON } from "../../index.ts";
 import { expect } from "../../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "../lib/bench";
 
-
 function makeUint8Array(size: i32): Uint8Array {
   const out = new Uint8Array(size);
   for (let i = 0; i < size; i++) {
@@ -10,7 +9,6 @@ function makeUint8Array(size: i32): Uint8Array {
   }
   return out;
 }
-
 
 function makeArrayBuffer(size: i32): ArrayBuffer {
   const out = new ArrayBuffer(size);
@@ -21,16 +19,11 @@ function makeArrayBuffer(size: i32): ArrayBuffer {
   return out;
 }
 
-
 const intArraySmall: Array<i32> = [1, 2, 3, 4, 5, 6, 7, 8];
 const intArraySmallJson = "[1,2,3,4,5,6,7,8]";
 const intArraySmallBytes = String.UTF8.byteLength(intArraySmallJson);
 
-const intArrayMedium: Array<i32> = [
-  11, 12, 13, 14, 15, 16, 17, 18,
-  19, 20, 21, 22, 23, 24, 25, 26,
-  27, 28, 29, 30, 31, 32, 33, 34,
-];
+const intArrayMedium: Array<i32> = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34];
 const intArrayMediumJson = "[11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]";
 const intArrayMediumBytes = String.UTF8.byteLength(intArrayMediumJson);
 
@@ -38,11 +31,7 @@ const staticArraySmall: StaticArray<i32> = [1, 2, 3, 4, 5, 6, 7, 8];
 const staticArraySmallJson = "[1,2,3,4,5,6,7,8]";
 const staticArraySmallBytes = String.UTF8.byteLength(staticArraySmallJson);
 
-const staticArrayMedium: StaticArray<i32> = [
-  11, 12, 13, 14, 15, 16, 17, 18,
-  19, 20, 21, 22, 23, 24, 25, 26,
-  27, 28, 29, 30, 31, 32, 33, 34,
-];
+const staticArrayMedium: StaticArray<i32> = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34];
 const staticArrayMediumJson = "[11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]";
 const staticArrayMediumBytes = String.UTF8.byteLength(staticArrayMediumJson);
 

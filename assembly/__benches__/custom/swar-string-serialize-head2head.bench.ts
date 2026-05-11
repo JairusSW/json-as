@@ -282,14 +282,22 @@ function serializeString_SWAR_UnsafeDetect(src: string): void {
 // @ts-expect-error: @inline is a valid decorator
 @inline function shortEscapeSwitchOrZero(code: u16): u32 {
   switch (code) {
-    case <u16>QUOTE: return (<u32>BACK_SLASH) | ((<u32>QUOTE) << 16);
-    case <u16>BACK_SLASH: return (<u32>BACK_SLASH) | ((<u32>BACK_SLASH) << 16);
-    case 8: return (<u32>BACK_SLASH) | ((<u32>98) << 16); // b
-    case 9: return (<u32>BACK_SLASH) | ((<u32>116) << 16); // t
-    case 10: return (<u32>BACK_SLASH) | ((<u32>110) << 16); // n
-    case 12: return (<u32>BACK_SLASH) | ((<u32>102) << 16); // f
-    case 13: return (<u32>BACK_SLASH) | ((<u32>114) << 16); // r
-    default: return 0;
+    case <u16>QUOTE:
+      return (<u32>BACK_SLASH) | ((<u32>QUOTE) << 16);
+    case <u16>BACK_SLASH:
+      return (<u32>BACK_SLASH) | ((<u32>BACK_SLASH) << 16);
+    case 8:
+      return (<u32>BACK_SLASH) | ((<u32>98) << 16); // b
+    case 9:
+      return (<u32>BACK_SLASH) | ((<u32>116) << 16); // t
+    case 10:
+      return (<u32>BACK_SLASH) | ((<u32>110) << 16); // n
+    case 12:
+      return (<u32>BACK_SLASH) | ((<u32>102) << 16); // f
+    case 13:
+      return (<u32>BACK_SLASH) | ((<u32>114) << 16); // r
+    default:
+      return 0;
   }
 }
 

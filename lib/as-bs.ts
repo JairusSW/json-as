@@ -330,14 +330,14 @@ export namespace sc {
   // @ts-expect-error: JSON_CACHE may not be defined. If so, it will default to false.
   export const CACHE_ENABLED: bool = isDefined(JSON_CACHE) ? JSON_CACHE : false;
   // @ts-expect-error: JSON_CACHE_SIZE may not be defined. If so, it will default to 1MB.
-  export const CACHE_BYTES: usize = isDefined(JSON_CACHE_SIZE) ? <usize>JSON_CACHE_SIZE : (1 << 20);
+  export const CACHE_BYTES: usize = isDefined(JSON_CACHE_SIZE) ? <usize>JSON_CACHE_SIZE : 1 << 20;
   /** Minimum serialized length to cache - smaller outputs aren't worth caching */
   export const MIN_CACHE_LEN: usize = 128;
   /** Size of the circular arena buffer for cached strings */
   export const ARENA_SIZE: usize = CACHE_BYTES >= MIN_CACHE_LEN ? CACHE_BYTES : MIN_CACHE_LEN;
 
   /** Number of cache slots (power of 2 for efficient masking). Set to 0 when caching disabled. */
-  const CACHE_SIZE_BASE: i32 = CACHE_ENABLED ? i32((ARENA_SIZE >> 10) >= 1 ? (ARENA_SIZE >> 10) : 1) : 0;
+  const CACHE_SIZE_BASE: i32 = CACHE_ENABLED ? i32(ARENA_SIZE >> 10 >= 1 ? ARENA_SIZE >> 10 : 1) : 0;
   export const CACHE_SIZE: usize = CACHE_ENABLED ? <usize>(1 << (32 - clz<i32>(CACHE_SIZE_BASE - 1))) : 0;
   /** Bitmask for fast modulo operation on cache index */
   export const CACHE_MASK: usize = CACHE_SIZE > 0 ? CACHE_SIZE - 1 : 0;
