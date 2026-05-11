@@ -4,6 +4,14 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+uppercase() {
+  printf '%s' "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+lowercase() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 RUNTIMES=${RUNTIMES:-"incremental"}
 ENGINES=${ENGINES:-"turbofan"}
 MODE_FILTER=${JSON_MODE:-""}
@@ -24,7 +32,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --mode)
       [[ $# -lt 2 ]] && { echo "Missing value for --mode"; exit 1; }
-      MODE_FILTER="${2^^}"
+      MODE_FILTER="$(uppercase "$2")"
       shift 2
       ;;
     --v8)
@@ -227,12 +235,13 @@ build_wavm_mode() {
 should_run_mode() {
   local mode="$1"
   local file_mode="$2"
-  [[ (-z "$MODE_FILTER" || "$MODE_FILTER" == "$mode") && (-z "$file_mode" || "$file_mode" == "$mode") ]]
+  [[ -z "$MODE_FILTER" || "$MODE_FILTER" == "$mode" ]] || return 1
+  [[ -z "$file_mode" || "$file_mode" == "$mode" ]]
 }
 
 for file in "${FILES[@]}"; do
-  filename=$(basename -- "$file")
-  filename_lower="${filename,,}"
+  filename="${file##*/}"
+  filename_lower="$(lowercase "$filename")"
   file_mode=""
   if [[ "$filename_lower" == simd-* || "$filename_lower" == *-simd.bench.ts ]]; then
     file_mode="SIMD"
@@ -252,7 +261,7 @@ for file in "${FILES[@]}"; do
     output="./build/${filename%.ts}.${runtime}"
 
     for mode in NAIVE SWAR SIMD; do
-      mode_lower="${mode,,}"
+      mode_lower="$(lowercase "$mode")"
       if ! should_run_mode "$mode" "$file_mode"; then
         continue
       fi

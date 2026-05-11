@@ -5,13 +5,41 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ENGINES=${ENGINES:-"turbofan"}
-if ! npx tsc -p ./bench > /tmp/tsc-bench.log 2>&1; then
-  cat /tmp/tsc-bench.log
+resolve_d8_bin() {
+  if [[ -n "${D8_BIN:-}" ]]; then
+    printf '%s\n' "$D8_BIN"
+    return 0
+  fi
+
+  if command -v v8 >/dev/null 2>&1; then
+    printf '%s\n' "v8"
+    return 0
+  fi
+
+  if command -v d8 >/dev/null 2>&1; then
+    printf '%s\n' "d8"
+    return 0
+  fi
+
+  return 1
+}
+
+if ! D8_BIN="$(resolve_d8_bin)"; then
+  echo "❌ Neither v8 nor d8 was found in PATH"
   exit 1
 fi
 
-if ! npx tsc -p ./bench/throughput > /tmp/tsc-throughput.log 2>&1; then
-  cat /tmp/tsc-throughput.log
+TSC_BENCH_LOG="$(mktemp)"
+TSC_THROUGHPUT_LOG="$(mktemp)"
+trap 'rm -f "$TSC_BENCH_LOG" "$TSC_THROUGHPUT_LOG"' EXIT
+
+if ! npx tsc -p ./bench >"$TSC_BENCH_LOG" 2>&1; then
+  cat "$TSC_BENCH_LOG"
+  exit 1
+fi
+
+if ! npx tsc -p ./bench/throughput >"$TSC_THROUGHPUT_LOG" 2>&1; then
+  cat "$TSC_THROUGHPUT_LOG"
   exit 1
 fi
 cp ./bench/lib/bench.js ./build/lib/bench.js
@@ -51,7 +79,7 @@ else
 fi
 
 for file in "${FILES[@]}"; do
-  filename=$(basename -- "$file")
+  filename="${file##*/}"
 
   if [[ "$file" == *throughput/* ]]; then
       file_js="./build/throughput/${filename%.ts}.js"
@@ -60,22 +88,22 @@ for file in "${FILES[@]}"; do
   fi
 
   for engine in $ENGINES; do
-    echo -e "$filename (js/$engine)\n"
+    printf '%s\n\n' "$filename (js/$engine)"
 
     if [[ "$engine" == "ignition" ]]; then
-      v8 --no-opt --allow-natives-syntax --module "$file_js"
+      "$D8_BIN" --no-opt --allow-natives-syntax --module "$file_js"
     fi
 
     if [[ "$engine" == "liftoff" ]]; then
-      v8 --liftoff-only --no-opt --allow-natives-syntax --module "$file_js"
+      "$D8_BIN" --liftoff-only --no-opt --allow-natives-syntax --module "$file_js"
     fi
 
     if [[ "$engine" == "sparkplug" ]]; then
-      v8 --sparkplug --always-sparkplug --allow-natives-syntax --no-opt --module "$file_js"
+      "$D8_BIN" --sparkplug --always-sparkplug --allow-natives-syntax --no-opt --module "$file_js"
     fi
 
     if [[ "$engine" == "turbofan" ]]; then
-      v8 --no-liftoff --no-wasm-tier-up --allow-natives-syntax --module "$file_js"
+      "$D8_BIN" --no-liftoff --no-wasm-tier-up --allow-natives-syntax --module "$file_js"
     fi
   done
 done
