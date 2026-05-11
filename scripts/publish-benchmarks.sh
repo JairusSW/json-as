@@ -25,7 +25,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: ./scripts/publish-benchmarks.sh [--no-run] [--v8|--wavm]"
+      echo "Usage: ./scripts/publish-benchmarks.sh [--no-run] [--v8|--wavm|--llvm]"
       exit 1
       ;;
   esac
@@ -58,7 +58,11 @@ else
 fi
 
 echo "Building charts..."
-./scripts/build-charts.sh "${CHART_ARGS[@]}"
+if [[ ${#CHART_ARGS[@]} -gt 0 ]]; then
+  ./scripts/build-charts.sh "${CHART_ARGS[@]}"
+else
+  ./scripts/build-charts.sh
+fi
 test -d ./build/charts
 compgen -G "./build/charts/*" > /dev/null
 cp -R ./build/charts/. "$TMP_CHARTS_DIR/"
