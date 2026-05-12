@@ -16,3 +16,5 @@ build/
 !.as-test/snapshots/
 !.as-test/snapshots/**
 *.map
+# Include essential as-test artifacts
+!.as-test/
