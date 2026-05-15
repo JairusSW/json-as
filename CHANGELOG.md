@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- fix: prevent cross-lane borrow propagation in `detect_escapable_u64_swar_safe` and `detect_escapable_u64_swar_unsafe` by ORing `0x0100_0100_0100_0100` into each 16-bit lane before the SWAR subtraction steps, eliminating corrupted output (`\u00\0\0`) when a NUL or other control character precedes a printable character in SWAR string serialization
+- tooling: fix `bun run bench -- <suite>` argument forwarding so the suite name reaches `run-bench.as.sh` (and `run-bench.js.sh` for non-custom suites) instead of only being passed to `charts:build`
+
 ## 2026-05-08 - 1.3.5
 
 - compat: make the transform load `NodeKind` from the installed AssemblyScript runtime at execution time instead of baking stale const-enum ordinals into published JS, fixing cross-version breakage around `TupleType` and related enum shifts [#188](https://github.com/JairusSW/json-as/issues/188) [#189](https://github.com/JairusSW/json-as/pull/189)
