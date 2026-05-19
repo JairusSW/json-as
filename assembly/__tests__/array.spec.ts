@@ -6,15 +6,23 @@ describe("Should serialize integer arrays", () => {
 
   expect(JSON.stringify<u64[]>([0, 100, 101])).toBe("[0,100,101]");
 
-  expect(JSON.stringify<i32[]>([0, 100, 101, -100, -101])).toBe("[0,100,101,-100,-101]");
+  expect(JSON.stringify<i32[]>([0, 100, 101, -100, -101])).toBe(
+    "[0,100,101,-100,-101]",
+  );
 
-  expect(JSON.stringify<i64[]>([0, 100, 101, -100, -101])).toBe("[0,100,101,-100,-101]");
+  expect(JSON.stringify<i64[]>([0, 100, 101, -100, -101])).toBe(
+    "[0,100,101,-100,-101]",
+  );
 });
 
 describe("Should serialize float arrays", () => {
-  expect(JSON.stringify<f64[]>([7.23, 10e2, 10e2, 123456e-5, 123456e-5, 0.0, 7.23])).toBe("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]");
+  expect(
+    JSON.stringify<f64[]>([7.23, 10e2, 10e2, 123456e-5, 123456e-5, 0.0, 7.23]),
+  ).toBe("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]");
 
-  expect(JSON.stringify<f64[]>([1e21, 1e22, 1e-7, 1e-8, 1e-9])).toBe("[1e+21,1e+22,1e-7,1e-8,1e-9]");
+  expect(JSON.stringify<f64[]>([1e21, 1e22, 1e-7, 1e-8, 1e-9])).toBe(
+    "[1e+21,1e+22,1e-7,1e-8,1e-9]",
+  );
 
   expect(JSON.stringify<f32[]>([-1.5, 0.25, 3.75])).toBe("[-1.5,0.25,3.75]");
 });
@@ -26,21 +34,39 @@ describe("Should serialize boolean arrays", () => {
 });
 
 describe("Should serialize string arrays", () => {
-  expect(JSON.stringify<string[]>(['string "with random spa\nces and \nnewlines\n\n\n'])).toBe('["string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"]');
+  expect(
+    JSON.stringify<string[]>([
+      'string "with random spa\nces and \nnewlines\n\n\n',
+    ]),
+  ).toBe('["string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"]');
 });
 
 describe("Should serialize nested integer arrays", () => {
-  expect(JSON.stringify<i64[][]>([[100, 101], [-100, -101], [0]])).toBe("[[100,101],[-100,-101],[0]]");
+  expect(JSON.stringify<i64[][]>([[100, 101], [-100, -101], [0]])).toBe(
+    "[[100,101],[-100,-101],[0]]",
+  );
 });
 
 describe("Should serialize nested float arrays", () => {
-  expect(JSON.stringify<f64[][]>([[7.23], [10e2], [10e2], [123456e-5], [123456e-5], [0.0], [7.23]])).toBe("[[7.23],[1000.0],[1000.0],[1.23456],[1.23456],[0.0],[7.23]]");
+  expect(
+    JSON.stringify<f64[][]>([
+      [7.23],
+      [10e2],
+      [10e2],
+      [123456e-5],
+      [123456e-5],
+      [0.0],
+      [7.23],
+    ]),
+  ).toBe("[[7.23],[1000.0],[1000.0],[1.23456],[1.23456],[0.0],[7.23]]");
 });
 
 describe("Should serialize nested boolean arrays", () => {
   expect(JSON.stringify<bool[][]>([[true], [false]])).toBe("[[true],[false]]");
 
-  expect(JSON.stringify<boolean[][]>([[true], [false]])).toBe("[[true],[false]]");
+  expect(JSON.stringify<boolean[][]>([[true], [false]])).toBe(
+    "[[true],[false]]",
+  );
 });
 
 describe("Should serialize object arrays", () => {
@@ -63,40 +89,80 @@ describe("Should serialize object arrays", () => {
 describe("Should deserialize integer arrays", () => {
   expect(JSON.stringify(JSON.parse<u32[]>("[0,100,101]"))).toBe("[0,100,101]");
   expect(JSON.stringify(JSON.parse<u64[]>("[0,100,101]"))).toBe("[0,100,101]");
-  expect(JSON.stringify(JSON.parse<i32[]>("[0,100,101,-100,-101]"))).toBe("[0,100,101,-100,-101]");
-  expect(JSON.stringify(JSON.parse<i64[]>("[0,100,101,-100,-101]"))).toBe("[0,100,101,-100,-101]");
+  expect(JSON.stringify(JSON.parse<i32[]>("[0,100,101,-100,-101]"))).toBe(
+    "[0,100,101,-100,-101]",
+  );
+  expect(JSON.stringify(JSON.parse<i64[]>("[0,100,101,-100,-101]"))).toBe(
+    "[0,100,101,-100,-101]",
+  );
 });
 
 describe("Should deserialize float arrays", () => {
-  expect(JSON.stringify(JSON.parse<f64[]>("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]"))).toBe("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]");
-  expect(JSON.stringify(JSON.parse<f64[]>("[1e+21,1e+22,1e-7,1e-8,1e-9]"))).toBe("[1e+21,1e+22,1e-7,1e-8,1e-9]");
-  expect(JSON.stringify(JSON.parse<f32[]>("[-1.5,0.25,3.75]"))).toBe("[-1.5,0.25,3.75]");
+  expect(
+    JSON.stringify(
+      JSON.parse<f64[]>("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]"),
+    ),
+  ).toBe("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]");
+  expect(
+    JSON.stringify(JSON.parse<f64[]>("[1e+21,1e+22,1e-7,1e-8,1e-9]")),
+  ).toBe("[1e+21,1e+22,1e-7,1e-8,1e-9]");
+  expect(JSON.stringify(JSON.parse<f32[]>("[-1.5,0.25,3.75]"))).toBe(
+    "[-1.5,0.25,3.75]",
+  );
 });
 
 describe("Should deserialize boolean arrays", () => {
-  expect(JSON.stringify(JSON.parse<bool[]>("[true,false]"))).toBe("[true,false]");
-  expect(JSON.stringify(JSON.parse<boolean[]>("[true,false]"))).toBe("[true,false]");
+  expect(JSON.stringify(JSON.parse<bool[]>("[true,false]"))).toBe(
+    "[true,false]",
+  );
+  expect(JSON.stringify(JSON.parse<boolean[]>("[true,false]"))).toBe(
+    "[true,false]",
+  );
 });
 
 describe("Should deserialize string arrays", () => {
-  expect(JSON.stringify(JSON.parse<string[]>('["string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"]'))).toBe('["string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"]');
+  expect(
+    JSON.stringify(
+      JSON.parse<string[]>(
+        '["string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"]',
+      ),
+    ),
+  ).toBe('["string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"]');
 });
 
 describe("Should deserialize nested integer arrays", () => {
-  expect(JSON.stringify(JSON.parse<i64[][]>("[[100,101],[-100,-101],[0]]"))).toBe("[[100,101],[-100,-101],[0]]");
+  expect(
+    JSON.stringify(JSON.parse<i64[][]>("[[100,101],[-100,-101],[0]]")),
+  ).toBe("[[100,101],[-100,-101],[0]]");
 });
 
 describe("Should deserialize nested float arrays", () => {
-  expect(JSON.stringify(JSON.parse<f64[][]>("[[7.23],[1000.0],[1000.0],[1.23456],[1.23456],[0.0],[7.23]]"))).toBe("[[7.23],[1000.0],[1000.0],[1.23456],[1.23456],[0.0],[7.23]]");
+  expect(
+    JSON.stringify(
+      JSON.parse<f64[][]>(
+        "[[7.23],[1000.0],[1000.0],[1.23456],[1.23456],[0.0],[7.23]]",
+      ),
+    ),
+  ).toBe("[[7.23],[1000.0],[1000.0],[1.23456],[1.23456],[0.0],[7.23]]");
 });
 
 describe("Should deserialize nested boolean arrays", () => {
-  expect(JSON.stringify(JSON.parse<bool[][]>("[[true],[false]]"))).toBe("[[true],[false]]");
-  expect(JSON.stringify(JSON.parse<boolean[][]>("[[true],[false]]"))).toBe("[[true],[false]]");
+  expect(JSON.stringify(JSON.parse<bool[][]>("[[true],[false]]"))).toBe(
+    "[[true],[false]]",
+  );
+  expect(JSON.stringify(JSON.parse<boolean[][]>("[[true],[false]]"))).toBe(
+    "[[true],[false]]",
+  );
 });
 
 describe("Should deserialize object arrays", () => {
-  expect(JSON.stringify(JSON.parse<Vec3[]>('[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]'))).toBe('[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]');
+  expect(
+    JSON.stringify(
+      JSON.parse<Vec3[]>(
+        '[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]',
+      ),
+    ),
+  ).toBe('[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]');
 });
 
 describe("Should serialize and deserialize date arrays", () => {
@@ -120,12 +186,41 @@ describe("Should serialize and deserialize set arrays", () => {
   expect(JSON.stringify(parsed)).toBe(input);
 });
 
+// The generic-array path (Date[]/Set[]) tolerates whitespace and empty input.
+// These cases exist to keep that behaviour pinned: every other array kind has
+// its own SWAR/SIMD reader, so this is the only place the simple/array/generic
+// scanner is exercised.
+describe("Should parse an empty Date array", () => {
+  const parsed = JSON.parse<Date[]>("[]");
+  expect(parsed.length).toBe(0);
+  expect(JSON.stringify(parsed)).toBe("[]");
+});
+
+describe("Should tolerate whitespace around and between Date elements", () => {
+  const input =
+    '  [ "2025-02-03T21:28:40.525Z" , "1970-01-01T00:00:00.000Z" ]  ';
+  const parsed = JSON.parse<Date[]>(input);
+  expect(parsed.length).toBe(2);
+  expect(parsed[0].getUTCFullYear()).toBe(2025);
+  expect(parsed[1].getTime()).toBe(0);
+});
+
+describe("Should parse an empty Set array", () => {
+  const parsed = JSON.parse<Set<i32>[]>("[]");
+  expect(parsed.length).toBe(0);
+  expect(JSON.stringify(parsed)).toBe("[]");
+});
+
 describe("Should deserialize raw arrays", () => {
-  const r1 = JSON.parse<JSON.Raw[]>('[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]');
+  const r1 = JSON.parse<JSON.Raw[]>(
+    '[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]',
+  );
   expect<string>(r1[0].toString()).toBe('{"x":3.4,"y":1.2,"z":8.3}');
   expect<string>(r1[1].toString()).toBe('{"x":3.4,"y":-2.1,"z":9.3}');
 
-  const r2 = JSON.parse<JSON.Raw[][]>('[[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}],[{"x":0.1,"y":-7.3,"z":4.5}]]');
+  const r2 = JSON.parse<JSON.Raw[][]>(
+    '[[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}],[{"x":0.1,"y":-7.3,"z":4.5}]]',
+  );
   expect<string>(r2[0][0].toString()).toBe('{"x":3.4,"y":1.2,"z":8.3}');
   expect<string>(r2[0][1].toString()).toBe('{"x":3.4,"y":-2.1,"z":9.3}');
   expect<string>(r2[1][0].toString()).toBe('{"x":0.1,"y":-7.3,"z":4.5}');
@@ -150,7 +245,9 @@ describe("Should deserialize raw arrays", () => {
   expect<string>(r4[1][3].toString()).toBe("9");
   expect<string>(r4[1][4].toString()).toBe("10");
 
-  const r5 = JSON.parse<JSON.Raw[]>('[{"x":3.4,"y":1.2,"z":8.3},[1,2,3,4,5],"12345",true,false,null,[[]]]');
+  const r5 = JSON.parse<JSON.Raw[]>(
+    '[{"x":3.4,"y":1.2,"z":8.3},[1,2,3,4,5],"12345",true,false,null,[[]]]',
+  );
   expect<string>(r5[0].toString()).toBe('{"x":3.4,"y":1.2,"z":8.3}');
   expect<string>(r5[1].toString()).toBe("[1,2,3,4,5]");
   expect<string>(r5[2].toString()).toBe('"12345"');
@@ -169,12 +266,16 @@ class Vec3 {
 }
 
 describe("Additional regression coverage - primitives and arrays", () => {
-  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe('"regression"');
+  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe(
+    '"regression"',
+  );
   expect(JSON.stringify(JSON.parse<i32>("-42"))).toBe("-42");
   expect(JSON.stringify(JSON.parse<bool>("false"))).toBe("false");
   expect(JSON.stringify(JSON.parse<f64>("3.5"))).toBe("3.5");
   expect(JSON.stringify(JSON.parse<i32[]>("[1,2,3,4]"))).toBe("[1,2,3,4]");
-  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe('["a","b","c"]');
+  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe(
+    '["a","b","c"]',
+  );
 });
 
 describe("Should serialize and deserialize empty arrays", () => {
@@ -208,14 +309,22 @@ describe("Should preserve JSON.internal behavior for primitive arrays", () => {
 });
 
 describe("Should handle additional array shapes", () => {
-  expect(JSON.stringify(JSON.parse<i32[]>("[-1,0,1,2147483647,-2147483648]"))).toBe("[-1,0,1,2147483647,-2147483648]");
-  expect(JSON.stringify(JSON.parse<string[][]>('[[],["x"],["y","z"]]'))).toBe('[[],["x"],["y","z"]]');
+  expect(
+    JSON.stringify(JSON.parse<i32[]>("[-1,0,1,2147483647,-2147483648]")),
+  ).toBe("[-1,0,1,2147483647,-2147483648]");
+  expect(JSON.stringify(JSON.parse<string[][]>('[[],["x"],["y","z"]]'))).toBe(
+    '[[],["x"],["y","z"]]',
+  );
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
   expect(JSON.stringify(JSON.parse<f64>("-0.125"))).toBe("-0.125");
-  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe("[[1],[2,3],[]]");
-  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
+  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe(
+    "[[1],[2,3],[]]",
+  );
+  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe(
+    '"line\\nbreak"',
+  );
 });

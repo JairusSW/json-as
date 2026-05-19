@@ -25,9 +25,13 @@ function reserveTypedArray<T extends ArrayLike<number>>(len: i32): void {
 
 
 @inline
-function serializeTypedArrayElement<T extends ArrayLike<number>>(src: T, index: i32): void {
+function serializeTypedArrayElement<T extends ArrayLike<number>>(
+  src: T,
+  index: i32,
+): void {
   if (isFloat<valueof<T>>()) {
-    if (sizeof<valueof<T>>() == 4) serializeFloat32Unsafe(<f32>unchecked(src[index]));
+    if (sizeof<valueof<T>>() == 4)
+      serializeFloat32Unsafe(<f32>unchecked(src[index]));
     else serializeFloat64Unsafe(<f64>unchecked(src[index]));
   } else {
     serializeIntegerUnsafe<valueof<T>>(unchecked(src[index]));
@@ -59,7 +63,10 @@ export function serializeTypedArray<T extends ArrayLike<number>>(src: T): void {
   bs.offset += 2;
 }
 
-export function serializeArrayBufferUnsafe(srcStart: usize, byteLength: i32): void {
+export function serializeArrayBufferUnsafe(
+  srcStart: usize,
+  byteLength: i32,
+): void {
   const end = byteLength - 1;
 
   if (end == -1) {

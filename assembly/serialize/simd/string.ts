@@ -39,7 +39,9 @@ export function serializeString_SIMD(src: string): void {
       const lt20 = i16x8.lt_u(block, SPLAT_0020);
       const gteD8 = i8x16.gt_u(block, SPLAT_FFD8);
 
-      const mask = i8x16.bitmask(v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))));
+      const mask = i8x16.bitmask(
+        v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))),
+      );
       if (mask != 0) break;
 
       store<v128>(dst, block);
@@ -83,7 +85,9 @@ export function serializeString_SIMD(src: string): void {
     // console.log("lt20   : " + mask_to_string_v128(lt20) + " -> " + mask_to_string_v128(SPLAT_0020));
     // console.log("gteD8  : " + mask_to_string_v128(gteD8) + " -> " + mask_to_string_v128(SPLAT_FFD8));
 
-    let mask = i8x16.bitmask(v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))));
+    let mask = i8x16.bitmask(
+      v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))),
+    );
 
     if (mask == 0) {
       store<v128>(bs.offset, block);

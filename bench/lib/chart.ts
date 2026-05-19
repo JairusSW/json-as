@@ -25,7 +25,9 @@ type ChartData = {
 if (import.meta.main) {
   const args = process.argv.slice(2);
   if (!args.length) {
-    console.error("Usage:\n bun ./chartplot.ts <bench1.json> <bench2.json> [...] [-o output.svg]");
+    console.error(
+      "Usage:\n bun ./chartplot.ts <bench1.json> <bench2.json> [...] [-o output.svg]",
+    );
     process.exit(1);
   }
 
@@ -65,10 +67,23 @@ function generateBarChartFromFiles(files: string[], outputFile: string) {
   }
 
   // Group by payload and sort payloads logically
-  const uniquePayloads = [...new Set(results.map((r) => r.payload))].sort(comparePayloads);
+  const uniquePayloads = [...new Set(results.map((r) => r.payload))].sort(
+    comparePayloads,
+  );
 
   const uniqueLibraries = [...new Set(results.map((r) => r.library))];
-  const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#84cc16", "#f97316", "#ec4899", "#6366f1"];
+  const colors = [
+    "#3b82f6",
+    "#10b981",
+    "#f59e0b",
+    "#ef4444",
+    "#8b5cf6",
+    "#06b6d4",
+    "#84cc16",
+    "#f97316",
+    "#ec4899",
+    "#6366f1",
+  ];
 
   const chart: ChartData = {
     title: "JSON Throughput by Payload Size",
@@ -81,7 +96,10 @@ function generateBarChartFromFiles(files: string[], outputFile: string) {
   console.log(`✅ Bar chart written to ${outputFile}`);
 }
 
-function inferBenchmarkMeta(file: string): { implementation: string; payload: string } {
+function inferBenchmarkMeta(file: string): {
+  implementation: string;
+  payload: string;
+} {
   const normalized = file.replace(/\\/g, "/");
   const parts = normalized.split("/");
   const logsIndex = parts.lastIndexOf("logs");
@@ -89,7 +107,10 @@ function inferBenchmarkMeta(file: string): { implementation: string; payload: st
   const language = logsIndex >= 0 ? parts[logsIndex + 1] || "" : "";
   const maybeEngine = logsIndex >= 0 ? parts[logsIndex + 2] || "" : "";
   const fileName = basename(file);
-  const stem = fileName.replace(/\.(serialize|deserialize)\.(as|js)\.json$/, "");
+  const stem = fileName.replace(
+    /\.(serialize|deserialize)\.(as|js)\.json$/,
+    "",
+  );
 
   let implementationBase = "";
   if (language === "js") {
@@ -101,7 +122,11 @@ function inferBenchmarkMeta(file: string): { implementation: string; payload: st
   }
 
   if (stem.startsWith("string-head2head-")) {
-    const payload = stem.endsWith("-plain") ? "plain" : stem.endsWith("-escaped") ? "escaped" : "string-head2head";
+    const payload = stem.endsWith("-plain")
+      ? "plain"
+      : stem.endsWith("-escaped")
+        ? "escaped"
+        : "string-head2head";
     const variant = stem
       .replace(/^string-head2head-/, "")
       .replace(/-(plain|escaped)$/, "")
@@ -120,7 +145,21 @@ function inferBenchmarkMeta(file: string): { implementation: string; payload: st
 }
 
 function comparePayloads(a: string, b: string): number {
-  const payloadOrder = ["abc", "vec3", "small", "small-str", "small-str-scan", "medium", "medium-str", "medium-str-scan", "large", "large-str", "large-str-scan", "plain", "escaped"];
+  const payloadOrder = [
+    "abc",
+    "vec3",
+    "small",
+    "small-str",
+    "small-str-scan",
+    "medium",
+    "medium-str",
+    "medium-str-scan",
+    "large",
+    "large-str",
+    "large-str-scan",
+    "plain",
+    "escaped",
+  ];
 
   const aIndex = payloadOrder.indexOf(a);
   const bIndex = payloadOrder.indexOf(b);
@@ -131,7 +170,11 @@ function comparePayloads(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
-function generateGroupedBarSVG(data: ChartData, libraries: string[], colors: string[]): string {
+function generateGroupedBarSVG(
+  data: ChartData,
+  libraries: string[],
+  colors: string[],
+): string {
   const width = 900;
   const height = 550;
   const padding = { top: 80, right: 200, bottom: 80, left: 80 };
@@ -145,7 +188,8 @@ function generateGroupedBarSVG(data: ChartData, libraries: string[], colors: str
   const allValues = data.results.map((r) => r.gbPerSec);
   const yMax = Math.max(...allValues, 0.1) * 1.1;
 
-  const yScale = (v: number) => padding.top + chartHeight - (v / yMax) * chartHeight;
+  const yScale = (v: number) =>
+    padding.top + chartHeight - (v / yMax) * chartHeight;
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
@@ -206,7 +250,9 @@ Throughput (GB/s)
     const groupX = padding.left + groupWidth * payloadIdx;
 
     libraries.forEach((lib, libIdx) => {
-      const result = data.results.find((r) => r.payload === payload && r.library === lib);
+      const result = data.results.find(
+        (r) => r.payload === payload && r.library === lib,
+      );
       if (!result) return;
 
       const x = groupX + (libIdx + 0.1) * (groupWidth / libraries.length);

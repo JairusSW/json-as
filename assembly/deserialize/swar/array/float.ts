@@ -3,7 +3,11 @@ import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 
 
-@inline export function deserializeFloatArrayInto<T extends number[]>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline export function deserializeFloatArrayInto<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
   let index = 0;
 
   do {
@@ -38,6 +42,14 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 }
 
 
-@inline export function deserializeFloatArrayField<T extends number[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  return deserializeFloatArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
+@inline export function deserializeFloatArrayField<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  fieldPtr: usize,
+): usize {
+  return deserializeFloatArrayInto<T>(
+    srcStart,
+    srcEnd,
+    ensureArrayField<T>(fieldPtr),
+  );
 }

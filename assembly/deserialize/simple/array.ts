@@ -11,10 +11,17 @@ import { deserializeStringArray } from "./array/string";
 import { deserializeObjectArray } from "./array/object";
 import { deserializeBoxArray } from "./array/box";
 import { deserializeRawArray } from "./array/raw";
-export { deserializeArrayField, deserializeArrayField as deserializeArrayField_SWAR } from "../swar/array";
+export {
+  deserializeArrayField,
+  deserializeArrayField as deserializeArrayField_SWAR,
+} from "../swar/array";
 
 // @ts-ignore: Decorator valid here
-export function deserializeArray<T extends unknown[]>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeArray<T extends unknown[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
   if (isString<valueof<T>>()) {
     return <T>deserializeStringArray(srcStart, srcEnd, dst);
   } else if (isBoolean<valueof<T>>()) {
@@ -56,7 +63,10 @@ export function deserializeArray<T extends unknown[]>(srcStart: usize, srcEnd: u
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
       return deserializeStructArray<T>(srcStart, srcEnd, dst);
       // @ts-ignore: defined by transform
-    } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
+    } else if (
+      isDefined(type.__DESERIALIZE_SLOW) ||
+      isDefined(type.__DESERIALIZE_FAST)
+    ) {
       return deserializeStructArray<T>(srcStart, srcEnd, dst);
     }
     throw new Error("Could not parse array of type " + nameof<T>() + "!");

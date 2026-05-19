@@ -34,7 +34,10 @@ export function bench(description, routine, ops = 1_000_000, bytesPerOp = 0) {
   print(log + "\n");
 }
 export function dumpToFile(suite, type) {
-  writeFile("./build/logs/js/" + suite + "." + type + ".js.json", JSON.stringify(result));
+  writeFile(
+    "./build/logs/js/" + suite + "." + type + ".js.json",
+    JSON.stringify(result),
+  );
 }
 
 export function readFile(path) {

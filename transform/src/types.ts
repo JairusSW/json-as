@@ -1,9 +1,23 @@
-import { ClassDeclaration, Expression, FieldDeclaration, Source, Node, NamespaceDeclaration, DeclarationStatement, TypeName, Parser, ImportStatement, CommonFlags, EnumDeclaration } from "assemblyscript/dist/assemblyscript.js";
+import {
+  ClassDeclaration,
+  Expression,
+  FieldDeclaration,
+  Source,
+  Node,
+  NamespaceDeclaration,
+  DeclarationStatement,
+  TypeName,
+  Parser,
+  ImportStatement,
+  CommonFlags,
+  EnumDeclaration,
+} from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
 import { stripNull } from "./index.js";
 
 import * as asc from "assemblyscript/dist/assemblyscript.js";
-export const NodeKind = (asc as unknown as { NodeKind: Record<string, number> }).NodeKind;
+export const NodeKind = (asc as unknown as { NodeKind: Record<string, number> })
+  .NodeKind;
 
 export enum PropertyFlags {
   OmitNull,
@@ -17,7 +31,10 @@ export class Property {
   public alias: string | null = null;
   public type: string = "";
   public value: string | null = null;
-  public flags: Map<PropertyFlags, Expression | null> = new Map<PropertyFlags, Expression | null>();
+  public flags: Map<PropertyFlags, Expression | null> = new Map<
+    PropertyFlags,
+    Expression | null
+  >();
   public node!: FieldDeclaration;
   public byteSize: number = 0;
   public _generic: boolean = false;
@@ -28,7 +45,10 @@ export class Property {
   }
   get custom(): boolean {
     if (this._custom) return true;
-    if (this.parent.node.isGeneric && this.parent.node.typeParameters.some((p) => p.name.text == this.type)) {
+    if (
+      this.parent.node.isGeneric &&
+      this.parent.node.typeParameters.some((p) => p.name.text == this.type)
+    ) {
       // console.log("Custom (Generic): " + this.name);
       // this._generic = true;
       this._custom = true;
@@ -49,7 +69,12 @@ export class Property {
   }
   get generic(): boolean {
     if (this._generic) return true;
-    if (this.parent.node.isGeneric && this.parent.node.typeParameters.some((p) => p.name.text == stripNull(this.type))) {
+    if (
+      this.parent.node.isGeneric &&
+      this.parent.node.typeParameters.some(
+        (p) => p.name.text == stripNull(this.type),
+      )
+    ) {
       // console.log("Generic: " + this.name);
       this._generic = true;
       return true;
@@ -83,7 +108,11 @@ export class Schema {
     if (visited.has(this.name)) return 4;
     visited.add(this.name);
 
-    const requiredMembers = this.members.filter((member) => !member.flags.has(PropertyFlags.OmitIf) && !member.flags.has(PropertyFlags.OmitNull));
+    const requiredMembers = this.members.filter(
+      (member) =>
+        !member.flags.has(PropertyFlags.OmitIf) &&
+        !member.flags.has(PropertyFlags.OmitNull),
+    );
     if (!requiredMembers.length) return 4;
 
     let minChars = 2; // {}
@@ -110,29 +139,55 @@ export class Schema {
     return min;
   }
 
-  private getNonNullableTypeMinChars(type: string, visited: Set<string>): number {
+  private getNonNullableTypeMinChars(
+    type: string,
+    visited: Set<string>,
+  ): number {
     if (type.startsWith("JSON.Box<") || type.startsWith("Box<")) {
       const genericStart = type.indexOf("<");
       const genericEnd = type.lastIndexOf(">");
-      if (genericStart !== -1 && genericEnd !== -1 && genericEnd > genericStart) {
-        return this.getTypeMinChars(type.slice(genericStart + 1, genericEnd), visited);
+      if (
+        genericStart !== -1 &&
+        genericEnd !== -1 &&
+        genericEnd > genericStart
+      ) {
+        return this.getTypeMinChars(
+          type.slice(genericStart + 1, genericEnd),
+          visited,
+        );
       }
     }
 
-    if (type.startsWith("Array<") || type.startsWith("StaticArray<") || type.startsWith("Set<")) return 2; // []
+    if (
+      type.startsWith("Array<") ||
+      type.startsWith("StaticArray<") ||
+      type.startsWith("Set<")
+    )
+      return 2; // []
     if (type.startsWith("Map<")) return 2; // {}
 
-    if (type == "string" || type == "String" || type == "JSON.Raw" || type == "Raw") return 2; // ""
+    if (
+      type == "string" ||
+      type == "String" ||
+      type == "JSON.Raw" ||
+      type == "Raw"
+    )
+      return 2; // ""
     if (type == "Date") return 26; // "1970-01-01T00:00:00.000Z"
     if (type == "bool" || type == "boolean") return 4; // true
     if (Schema.isNumericType(type)) return 1; // 0
     if (type == "JSON.Obj" || type == "Obj") return 2; // {}
     if (type == "JSON.Value" || type == "Value") return 1; // 0
 
-    const dep = this.deps.find((schema) => schema.name === type || schema.name.endsWith("." + type));
+    const dep = this.deps.find(
+      (schema) => schema.name === type || schema.name.endsWith("." + type),
+    );
     if (dep) return dep.getMinLength(visited) >> 1;
 
-    if (this.parent && (this.parent.name === type || this.parent.name.endsWith("." + type))) {
+    if (
+      this.parent &&
+      (this.parent.name === type || this.parent.name.endsWith("." + type))
+    ) {
       return this.parent.getMinLength(visited) >> 1;
     }
 
@@ -140,7 +195,20 @@ export class Schema {
   }
 
   private static isNumericType(type: string): boolean {
-    return ["u8", "u16", "u32", "u64", "usize", "i8", "i16", "i32", "i64", "isize", "f32", "f64"].includes(type);
+    return [
+      "u8",
+      "u16",
+      "u32",
+      "u64",
+      "usize",
+      "i8",
+      "i16",
+      "i32",
+      "i64",
+      "isize",
+      "f32",
+      "f64",
+    ].includes(type);
   }
 }
 
@@ -170,7 +238,10 @@ export class Src {
   public aliases: TypeAlias[];
   public exports: Schema[] = [];
   public imports: ImportStatement[] = [];
-  private nodeMap: Map<Node, NamespaceDeclaration[]> = new Map<Node, NamespaceDeclaration[]>();
+  private nodeMap: Map<Node, NamespaceDeclaration[]> = new Map<
+    Node,
+    NamespaceDeclaration[]
+  >();
   private classes: Record<string, ClassDeclaration> = {};
   private enums: Record<string, EnumDeclaration> = {};
 
@@ -195,17 +266,22 @@ export class Src {
         case NodeKind.NamespaceDeclaration:
           // eslint-disable-next-line no-case-declarations
           const namespaceDeclaration = node as NamespaceDeclaration;
-          this.traverse(namespaceDeclaration.members, [...path, namespaceDeclaration]);
+          this.traverse(namespaceDeclaration.members, [
+            ...path,
+            namespaceDeclaration,
+          ]);
           break;
         case NodeKind.ClassDeclaration:
           // eslint-disable-next-line no-case-declarations
           const classDeclaration = node as ClassDeclaration;
-          this.classes[this.qualifiedName(classDeclaration, path)] = classDeclaration;
+          this.classes[this.qualifiedName(classDeclaration, path)] =
+            classDeclaration;
           break;
         case NodeKind.EnumDeclaration:
           // eslint-disable-next-line no-case-declarations
           const enumDeclaration = node as EnumDeclaration;
-          this.enums[this.qualifiedName(enumDeclaration, path)] = enumDeclaration;
+          this.enums[this.qualifiedName(enumDeclaration, path)] =
+            enumDeclaration;
           break;
         case NodeKind.Import:
           // eslint-disable-next-line no-case-declarations
@@ -250,9 +326,14 @@ export class Src {
    * @param parser AssemblyScript parser.
    * @returns Class declaration or null if not found.
    */
-  getImportedClass(qualifiedName: string, parser: Parser): ClassDeclaration | null {
+  getImportedClass(
+    qualifiedName: string,
+    parser: Parser,
+  ): ClassDeclaration | null {
     for (const stmt of this.imports) {
-      const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
+      const externalSource = parser.sources
+        .filter((src) => src.internalPath != this.internalPath)
+        .find((src) => src.internalPath == stmt.internalPath);
       if (!externalSource) continue;
 
       const source = this.sourceSet.get(externalSource);
@@ -270,12 +351,19 @@ export class Src {
    * @param parser AssemblyScript parser.
    * @returns Class declaration or null if not found.
    */
-  getAvailableClass(qualifiedName: string, parser: Parser): ClassDeclaration | null {
+  getAvailableClass(
+    qualifiedName: string,
+    parser: Parser,
+  ): ClassDeclaration | null {
     for (const externalSource of parser.sources) {
       if (externalSource.internalPath == this.internalPath) continue;
       const source = this.sourceSet.get(externalSource);
       const classDeclaration = source.getClass(qualifiedName);
-      if (classDeclaration && (classDeclaration.flags & CommonFlags.Export || externalSource.internalPath.startsWith("~lib/"))) {
+      if (
+        classDeclaration &&
+        (classDeclaration.flags & CommonFlags.Export ||
+          externalSource.internalPath.startsWith("~lib/"))
+      ) {
         return classDeclaration;
       }
     }
@@ -288,9 +376,14 @@ export class Src {
    * @param parser AssemblyScript parser.
    * @returns Enum declaration or null if not found.
    */
-  getImportedEnum(qualifiedName: string, parser: Parser): EnumDeclaration | null {
+  getImportedEnum(
+    qualifiedName: string,
+    parser: Parser,
+  ): EnumDeclaration | null {
     for (const stmt of this.imports) {
-      const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
+      const externalSource = parser.sources
+        .filter((src) => src.internalPath != this.internalPath)
+        .find((src) => src.internalPath == stmt.internalPath);
       if (!externalSource) continue;
 
       const source = this.sourceSet.get(externalSource);
@@ -354,8 +447,13 @@ export class Src {
    * @param parents Array of namespace parents.
    * @returns Qualified name
    */
-  private qualifiedName(node: DeclarationStatement, parents: NamespaceDeclaration[]): string {
-    return parents?.length ? parents.map((p) => p.name.text).join(".") + "." + node.name.text : node.name.text;
+  private qualifiedName(
+    node: DeclarationStatement,
+    parents: NamespaceDeclaration[],
+  ): string {
+    return parents?.length
+      ? parents.map((p) => p.name.text).join(".") + "." + node.name.text
+      : node.name.text;
   }
 
   /**

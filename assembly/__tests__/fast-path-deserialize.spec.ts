@@ -162,7 +162,8 @@ class FastMixedOptionalFields {
 }
 
 describe("Fast-path deserialization should handle direct field types", () => {
-  const payload = '{"id":7,"total":42,"ratio":3.5,"ok":true,"name":"alpha","note":"line\\nbreak","child":{"id":1,"label":"nested"},"maybeChild":{"id":2,"label":"optional"},"tags":["a","b","c"],"children":[{"id":3,"label":"x"},{"id":4,"label":"y"}],"scores":[5,6,7]}';
+  const payload =
+    '{"id":7,"total":42,"ratio":3.5,"ok":true,"name":"alpha","note":"line\\nbreak","child":{"id":1,"label":"nested"},"maybeChild":{"id":2,"label":"optional"},"tags":["a","b","c"],"children":[{"id":3,"label":"x"},{"id":4,"label":"y"}],"scores":[5,6,7]}';
 
   const parsed = JSON.parse<FastDirectFields>(payload);
 
@@ -188,7 +189,8 @@ describe("Fast-path deserialization should handle direct field types", () => {
 });
 
 describe("Fast-path deserialization should handle nullable direct fields", () => {
-  const payload = '{"id":1,"total":0,"ratio":0.0,"ok":false,"name":"beta","note":null,"child":{"id":9,"label":"base"},"maybeChild":null,"tags":[],"children":[],"scores":[]}';
+  const payload =
+    '{"id":1,"total":0,"ratio":0.0,"ok":false,"name":"beta","note":null,"child":{"id":9,"label":"base"},"maybeChild":null,"tags":[],"children":[],"scores":[]}';
 
   const parsed = JSON.parse<FastDirectFields>(payload);
 
@@ -202,7 +204,8 @@ describe("Fast-path deserialization should handle nullable direct fields", () =>
 });
 
 describe("Fast-path deserialization should handle delegated Date[] and Set[] fields", () => {
-  const payload = '{"dates":["2025-02-03T21:28:40.525Z","1970-01-01T00:00:00.000Z"],"groups":[[1,2],[3],[]]}';
+  const payload =
+    '{"dates":["2025-02-03T21:28:40.525Z","1970-01-01T00:00:00.000Z"],"groups":[[1,2],[3],[]]}';
   const parsed = JSON.parse<FastArrayDelegatedFields>(payload);
 
   expect(parsed.dates.length).toBe(2);
@@ -219,10 +222,20 @@ describe("Fast-path deserialization should handle delegated Date[] and Set[] fie
 });
 
 describe("Fast-path deserialization should handle JSON.Value fields", () => {
-  const parsed = JSON.parse<FastValueField>('{"value":{"ok":true,"nums":[1,2,3]}}');
-  expect(parsed.value.get<JSON.Obj>().get("ok")!.get<bool>().toString()).toBe("true");
-  expect(JSON.stringify(parsed.value.get<JSON.Obj>().get("nums")!.get<JSON.Value[]>())).toBe("[1.0,2.0,3.0]");
-  expect(JSON.stringify(parsed)).toBe('{"value":{"ok":true,"nums":[1.0,2.0,3.0]}}');
+  const parsed = JSON.parse<FastValueField>(
+    '{"value":{"ok":true,"nums":[1,2,3]}}',
+  );
+  expect(parsed.value.get<JSON.Obj>().get("ok")!.get<bool>().toString()).toBe(
+    "true",
+  );
+  expect(
+    JSON.stringify(
+      parsed.value.get<JSON.Obj>().get("nums")!.get<JSON.Value[]>(),
+    ),
+  ).toBe("[1.0,2.0,3.0]");
+  expect(JSON.stringify(parsed)).toBe(
+    '{"value":{"ok":true,"nums":[1.0,2.0,3.0]}}',
+  );
 });
 
 describe("Fast-path deserialization should handle JSON.Obj fields", () => {
@@ -251,12 +264,16 @@ describe("Fast-path deserialization should handle nullable JSON.Box fields", () 
 });
 
 describe("Fast-path deserialization should handle Date fields", () => {
-  const parsed = JSON.parse<FastDateField>('{"createdAt":"2025-02-03T21:28:40.525Z"}');
+  const parsed = JSON.parse<FastDateField>(
+    '{"createdAt":"2025-02-03T21:28:40.525Z"}',
+  );
   expect(parsed.createdAt!.getUTCFullYear().toString()).toBe("2025");
   expect(parsed.createdAt!.getUTCMonth().toString()).toBe("1");
   expect(parsed.createdAt!.getUTCDate().toString()).toBe("3");
   expect(parsed.createdAt!.getUTCMilliseconds().toString()).toBe("525");
-  expect(JSON.stringify(parsed)).toBe('{"createdAt":"2025-02-03T21:28:40.525Z"}');
+  expect(JSON.stringify(parsed)).toBe(
+    '{"createdAt":"2025-02-03T21:28:40.525Z"}',
+  );
 });
 
 describe("Fast-path deserialization should handle nullable Date fields", () => {
@@ -301,28 +318,38 @@ describe("Fast-path deserialization should handle Map fields", () => {
 });
 
 describe("Fast-path deserialization should handle maps with numeric keys", () => {
-  const parsed = JSON.parse<FastIntKeyMapField>('{"meta":{"1":true,"2":false}}');
+  const parsed = JSON.parse<FastIntKeyMapField>(
+    '{"meta":{"1":true,"2":false}}',
+  );
   expect(parsed.meta.get(1).toString()).toBe("true");
   expect(parsed.meta.get(2).toString()).toBe("false");
   expect(JSON.stringify(parsed)).toBe('{"meta":{"1":true,"2":false}}');
 });
 
 describe("Fast-path deserialization should handle maps with date keys", () => {
-  const parsed = JSON.parse<FastDateKeyMapField>('{"meta":{"\\"1970-01-01T00:00:00.000Z\\"":1,"\\"2025-02-03T21:28:40.525Z\\"":2}}');
+  const parsed = JSON.parse<FastDateKeyMapField>(
+    '{"meta":{"\\"1970-01-01T00:00:00.000Z\\"":1,"\\"2025-02-03T21:28:40.525Z\\"":2}}',
+  );
   const keys = parsed.meta.keys();
   expect(keys.length).toBe(2);
   expect(keys[0].getTime().toString()).toBe("0");
   expect(keys[1].getTime().toString()).toBe("1738618120525");
   expect(parsed.meta.values()[0]).toBe(1);
   expect(parsed.meta.values()[1]).toBe(2);
-  expect(JSON.stringify(parsed)).toBe('{"meta":{"\\"1970-01-01T00:00:00.000Z\\"":1,"\\"2025-02-03T21:28:40.525Z\\"":2}}');
+  expect(JSON.stringify(parsed)).toBe(
+    '{"meta":{"\\"1970-01-01T00:00:00.000Z\\"":1,"\\"2025-02-03T21:28:40.525Z\\"":2}}',
+  );
 });
 
 describe("Fast-path deserialization should handle maps with struct values", () => {
-  const parsed = JSON.parse<FastMapStructField>('{"meta":{"left":{"id":1,"label":"L"},"right":{"id":2,"label":"R"}}}');
+  const parsed = JSON.parse<FastMapStructField>(
+    '{"meta":{"left":{"id":1,"label":"L"},"right":{"id":2,"label":"R"}}}',
+  );
   expect(parsed.meta.get("left").id).toBe(1);
   expect(parsed.meta.get("right").label).toBe("R");
-  expect(JSON.stringify(parsed)).toBe('{"meta":{"left":{"id":1,"label":"L"},"right":{"id":2,"label":"R"}}}');
+  expect(JSON.stringify(parsed)).toBe(
+    '{"meta":{"left":{"id":1,"label":"L"},"right":{"id":2,"label":"R"}}}',
+  );
 });
 
 describe("Fast-path deserialization should handle empty map fields", () => {
@@ -379,7 +406,9 @@ describe("Fast-path deserialization should handle omitnull schemas when omitted 
 });
 
 describe("Fast-path deserialization should handle omitnull schemas when optional fields are present", () => {
-  const parsed = JSON.parse<FastOmitNullFields>('{"note":"hello","raw":{"x":1},"id":2,"name":"beta"}');
+  const parsed = JSON.parse<FastOmitNullFields>(
+    '{"note":"hello","raw":{"x":1},"id":2,"name":"beta"}',
+  );
   const note = parsed.note;
   if (note != null) expect(note).toBe("hello");
   const raw = parsed.raw;
@@ -387,7 +416,10 @@ describe("Fast-path deserialization should handle omitnull schemas when optional
   expect(parsed.id).toBe(2);
   expect(parsed.name).toBe("beta");
   const out = JSON.stringify(parsed);
-  expect(out == '{"note":"hello","raw":{"x":1},"id":2,"name":"beta"}' || out == '{"id":2,"name":"beta"}').toBe(true);
+  expect(
+    out == '{"note":"hello","raw":{"x":1},"id":2,"name":"beta"}' ||
+      out == '{"id":2,"name":"beta"}',
+  ).toBe(true);
 });
 
 describe("Fast-path deserialization should handle omitif schemas when omitted fields are absent", () => {
@@ -399,7 +431,9 @@ describe("Fast-path deserialization should handle omitif schemas when omitted fi
 });
 
 describe("Fast-path deserialization should handle omitif schemas when optional fields are present", () => {
-  const parsed = JSON.parse<FastOmitIfFields>('{"count":7,"id":4,"name":"delta"}');
+  const parsed = JSON.parse<FastOmitIfFields>(
+    '{"count":7,"id":4,"name":"delta"}',
+  );
   expect(parsed.count).toBe(7);
   expect(parsed.id).toBe(4);
   expect(parsed.name).toBe("delta");
@@ -413,10 +447,15 @@ describe("Fast-path deserialization should handle mixed omitif and omitnull sche
   expect(parsedMissing.id).toBe(1);
   expect(JSON.stringify(parsedMissing)).toBe('{"id":1}');
 
-  const parsedPresent = JSON.parse<FastMixedOptionalFields>('{"count":5,"note":"x","id":2}');
+  const parsedPresent = JSON.parse<FastMixedOptionalFields>(
+    '{"count":5,"note":"x","id":2}',
+  );
   expect(parsedPresent.count).toBe(5);
   if (parsedPresent.note != null) expect(parsedPresent.note).toBe("x");
   expect(parsedPresent.id).toBe(2);
   const outPresent = JSON.stringify(parsedPresent);
-  expect(outPresent == '{"count":5,"note":"x","id":2}' || outPresent == '{"count":5,"id":2}').toBe(true);
+  expect(
+    outPresent == '{"count":5,"note":"x","id":2}' ||
+      outPresent == '{"count":5,"id":2}',
+  ).toBe(true);
 });

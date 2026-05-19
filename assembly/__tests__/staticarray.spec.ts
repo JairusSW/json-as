@@ -6,14 +6,22 @@ describe("Should serialize integer static arrays", () => {
 
   expect(JSON.stringify<StaticArray<u64>>([0, 100, 101])).toBe("[0,100,101]");
 
-  expect(JSON.stringify<StaticArray<i32>>([0, 100, 101, -100, -101])).toBe("[0,100,101,-100,-101]");
+  expect(JSON.stringify<StaticArray<i32>>([0, 100, 101, -100, -101])).toBe(
+    "[0,100,101,-100,-101]",
+  );
 
-  expect(JSON.stringify<StaticArray<i64>>([0, 100, 101, -100, -101])).toBe("[0,100,101,-100,-101]");
+  expect(JSON.stringify<StaticArray<i64>>([0, 100, 101, -100, -101])).toBe(
+    "[0,100,101,-100,-101]",
+  );
 });
 
 describe("Should serialize float static arrays", () => {
-  expect(JSON.stringify<StaticArray<f64>>([7.23, 1000.0, 0.0])).toBe("[7.23,1000.0,0.0]");
-  expect(JSON.stringify<StaticArray<f32>>([-1.5, 0.25, 3.75])).toBe("[-1.5,0.25,3.75]");
+  expect(JSON.stringify<StaticArray<f64>>([7.23, 1000.0, 0.0])).toBe(
+    "[7.23,1000.0,0.0]",
+  );
+  expect(JSON.stringify<StaticArray<f32>>([-1.5, 0.25, 3.75])).toBe(
+    "[-1.5,0.25,3.75]",
+  );
 });
 
 describe("Should serialize boolean static arrays", () => {
@@ -21,7 +29,9 @@ describe("Should serialize boolean static arrays", () => {
 });
 
 describe("Should serialize string static arrays", () => {
-  expect(JSON.stringify<StaticArray<string>>(["hello", "world"])).toBe('["hello","world"]');
+  expect(JSON.stringify<StaticArray<string>>(["hello", "world"])).toBe(
+    '["hello","world"]',
+  );
 });
 
 describe("Should serialize empty static arrays", () => {
@@ -109,11 +119,15 @@ describe("Should serialize object static arrays", () => {
     { x: 1.0, y: 2.0, z: 3.0 },
     { x: 4.0, y: 5.0, z: 6.0 },
   ];
-  expect(JSON.stringify(arr)).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]');
+  expect(JSON.stringify(arr)).toBe(
+    '[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]',
+  );
 });
 
 describe("Should deserialize object static arrays", () => {
-  const arr = JSON.parse<StaticArray<Vec3>>('[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]');
+  const arr = JSON.parse<StaticArray<Vec3>>(
+    '[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]',
+  );
   expect(arr.length).toBe(2);
   expect(arr[0].x).toBe(1.0);
   expect(arr[0].y).toBe(2.0);
@@ -132,12 +146,16 @@ class Vec3 {
 }
 
 describe("Additional regression coverage - primitives and arrays", () => {
-  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe('"regression"');
+  expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe(
+    '"regression"',
+  );
   expect(JSON.stringify(JSON.parse<i32>("-42"))).toBe("-42");
   expect(JSON.stringify(JSON.parse<bool>("false"))).toBe("false");
   expect(JSON.stringify(JSON.parse<f64>("3.5"))).toBe("3.5");
   expect(JSON.stringify(JSON.parse<i32[]>("[1,2,3,4]"))).toBe("[1,2,3,4]");
-  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe('["a","b","c"]');
+  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe(
+    '["a","b","c"]',
+  );
 });
 
 describe("Should support additional staticarray boundaries", () => {
@@ -151,7 +169,9 @@ describe("Should round-trip nested empty static arrays", () => {
   const arr: StaticArray<StaticArray<i32>> = [[], [1], []];
   const out = JSON.stringify(arr);
   expect(out).toBe("[[],[1],[]]");
-  expect(JSON.stringify(JSON.parse<StaticArray<StaticArray<i32>>>(out))).toBe("[[],[1],[]]");
+  expect(JSON.stringify(JSON.parse<StaticArray<StaticArray<i32>>>(out))).toBe(
+    "[[],[1],[]]",
+  );
 });
 
 describe("Should support whitespace and negative values in static arrays", () => {
@@ -163,7 +183,9 @@ describe("Should support whitespace and negative values in static arrays", () =>
 });
 
 describe("Should round-trip static array objects with reordered fields", () => {
-  const arr = JSON.parse<StaticArray<Vec3>>('[{"z":3.0,"y":2.0,"x":1.0},{"y":5.0,"x":4.0,"z":6.0}]');
+  const arr = JSON.parse<StaticArray<Vec3>>(
+    '[{"z":3.0,"y":2.0,"x":1.0},{"y":5.0,"x":4.0,"z":6.0}]',
+  );
   expect(arr.length).toBe(2);
   expect(arr[0].x).toBe(1.0);
   expect(arr[0].y).toBe(2.0);
@@ -171,11 +193,15 @@ describe("Should round-trip static array objects with reordered fields", () => {
   expect(arr[1].x).toBe(4.0);
   expect(arr[1].y).toBe(5.0);
   expect(arr[1].z).toBe(6.0);
-  expect(JSON.stringify(arr)).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]');
+  expect(JSON.stringify(arr)).toBe(
+    '[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]',
+  );
 });
 
 describe("Should deserialize static arrays of JSON.Value", () => {
-  const arr = JSON.parse<StaticArray<JSON.Value>>('[{"a":1},"x",false,null,[1,2]]');
+  const arr = JSON.parse<StaticArray<JSON.Value>>(
+    '[{"a":1},"x",false,null,[1,2]]',
+  );
   expect(arr.length).toBe(5);
   expect(arr[0].get<JSON.Obj>().get("a")!.toString()).toBe("1.0");
   expect(arr[1].get<string>()).toBe("x");
@@ -186,7 +212,9 @@ describe("Should deserialize static arrays of JSON.Value", () => {
 });
 
 describe("Should deserialize static arrays of maps and boxed values", () => {
-  const maps = JSON.parse<StaticArray<Map<string, i32>>>('[{"a":1},{"b":2,"c":3}]');
+  const maps = JSON.parse<StaticArray<Map<string, i32>>>(
+    '[{"a":1},{"b":2,"c":3}]',
+  );
   const boxed = JSON.parse<StaticArray<JSON.Box<i32>>>("[1,-2,3]");
 
   expect(maps.length).toBe(2);
@@ -203,13 +231,19 @@ describe("Should deserialize static arrays of maps and boxed values", () => {
 });
 
 describe("Should preserve escaped nested strings inside static arrays", () => {
-  const strings = JSON.parse<StaticArray<string>>('["path \\\\\\\\ and quote \\\\\\"","brackets [ ] { }"]');
-  const raw = JSON.parse<StaticArray<JSON.Raw>>('["text with spaces","{\\"nested\\":[1,2,3]}"]');
+  const strings = JSON.parse<StaticArray<string>>(
+    '["path \\\\\\\\ and quote \\\\\\"","brackets [ ] { }"]',
+  );
+  const raw = JSON.parse<StaticArray<JSON.Raw>>(
+    '["text with spaces","{\\"nested\\":[1,2,3]}"]',
+  );
 
   expect(strings.length).toBe(2);
   expect(strings[0]).toBe('path \\\\ and quote \\"');
   expect(strings[1]).toBe("brackets [ ] { }");
-  expect(JSON.stringify(strings)).toBe('["path \\\\\\\\ and quote \\\\\\"","brackets [ ] { }"]');
+  expect(JSON.stringify(strings)).toBe(
+    '["path \\\\\\\\ and quote \\\\\\"","brackets [ ] { }"]',
+  );
 
   expect(raw.length).toBe(2);
   expect(raw[0].toString()).toBe('"text with spaces"');
@@ -227,7 +261,10 @@ describe("Should preserve JSON.internal behavior for primitive static arrays", (
   const ints = JSON.internal.stringify<StaticArray<i32>>([1, 2, 3, 4]);
   const floats = JSON.internal.stringify<StaticArray<f32>>([-1.5, 0.25, 3.75]);
   const bools = JSON.internal.stringify<StaticArray<bool>>([true, false, true]);
-  const strings = JSON.internal.stringify<StaticArray<string>>(["alpha", "beta"]);
+  const strings = JSON.internal.stringify<StaticArray<string>>([
+    "alpha",
+    "beta",
+  ]);
 
   expect(ints).toBe("[1,2,3,4]");
   expect(floats).toBe("[-1.5,0.25,3.75]");
@@ -236,7 +273,9 @@ describe("Should preserve JSON.internal behavior for primitive static arrays", (
 
   expect(JSON.internal.parse<StaticArray<i32>>(ints).length).toBe(4);
   expect(JSON.internal.parse<StaticArray<f32>>(floats)[0]).toBe(-1.5);
-  expect(JSON.internal.parse<StaticArray<bool>>(bools)[1].toString()).toBe("false");
+  expect(JSON.internal.parse<StaticArray<bool>>(bools)[1].toString()).toBe(
+    "false",
+  );
   expect(JSON.internal.parse<StaticArray<string>>(strings)[1]).toBe("beta");
 });
 
@@ -244,6 +283,10 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
   expect(JSON.stringify(JSON.parse<f64>("-0.125"))).toBe("-0.125");
-  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe("[[1],[2,3],[]]");
-  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
+  expect(JSON.stringify(JSON.parse<i32[][]>("[[1],[2,3],[]]"))).toBe(
+    "[[1],[2,3],[]]",
+  );
+  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe(
+    '"line\\nbreak"',
+  );
 });

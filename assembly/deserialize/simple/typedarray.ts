@@ -25,7 +25,11 @@ import { atoi, isSpace } from "../../util";
   return count;
 }
 
-export function deserializeTypedArray<T extends ArrayLike<number>>(srcStart: usize, srcEnd: usize, dst: usize = 0): T {
+export function deserializeTypedArray<T extends ArrayLike<number>>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize = 0,
+): T {
   const count = countTypedArrayElements(srcStart, srcEnd);
   let out = changetype<T>(dst || changetype<usize>(instantiate<T>(count)));
 
@@ -44,7 +48,12 @@ export function deserializeTypedArray<T extends ArrayLike<number>>(srcStart: usi
         const code = load<u16>(srcStart);
         if (code == COMMA || code == BRACKET_RIGHT || isSpace(code)) {
           if (isFloat<valueof<T>>()) {
-            unchecked((out[index++] = deserializeFloat<valueof<T>>(lastIndex, srcStart)));
+            unchecked(
+              (out[index++] = deserializeFloat<valueof<T>>(
+                lastIndex,
+                srcStart,
+              )),
+            );
           } else {
             unchecked((out[index++] = atoi<valueof<T>>(lastIndex, srcStart)));
           }
@@ -60,7 +69,11 @@ export function deserializeTypedArray<T extends ArrayLike<number>>(srcStart: usi
   return out;
 }
 
-export function deserializeArrayBuffer(srcStart: usize, srcEnd: usize, dst: usize = 0): ArrayBuffer {
+export function deserializeArrayBuffer(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize = 0,
+): ArrayBuffer {
   const count = countTypedArrayElements(srcStart, srcEnd);
   let out = dst ? changetype<ArrayBuffer>(dst) : new ArrayBuffer(count);
 

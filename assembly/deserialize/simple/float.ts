@@ -119,7 +119,12 @@ import { ptrToStr } from "../../util/ptrToStr";
 }
 
 // @ts-ignore: inline
-@inline export function deserializeFloatField<T extends number>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+@inline export function deserializeFloatField<T extends number>(
+  srcStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
   const fieldPtr = dstObj + dstOffset;
   let negative = false;
   if (load<u16>(srcStart) == 45) {

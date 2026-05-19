@@ -40,7 +40,12 @@ export function serializeStaticArray<T extends StaticArray<any>>(src: T): void {
     bs.offset += 4;
     return;
   }
-  if (isBoolean<valueof<T>>() || isInteger<valueof<T>>() || isFloat<valueof<T>>() || isString<valueof<T>>()) {
+  if (
+    isBoolean<valueof<T>>() ||
+    isInteger<valueof<T>>() ||
+    isFloat<valueof<T>>() ||
+    isString<valueof<T>>()
+  ) {
     reservePrimitiveStaticArray<valueof<T>>(len);
   } else {
     bs.proposeSize(4 + <u32>(len - 1) * 2);

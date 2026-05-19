@@ -47,17 +47,29 @@ describe("Should round-trip a broad float matrix", () => {
 
 describe("Should round-trip escaped strings and nested structs", () => {
   expect(JSON.stringify(JSON.parse<string>('"simple"'))).toBe('"simple"');
-  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe('"line\\nbreak"');
-  expect(JSON.stringify(JSON.parse<string>('"tab\\there"'))).toBe('"tab\\there"');
-  expect(JSON.stringify(JSON.parse<string>('"quote \\" here"'))).toBe('"quote \\" here"');
-  expect(JSON.stringify(JSON.parse<string>('"unicode \\u03a9"'))).toBe('"unicode Ω"');
+  expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe(
+    '"line\\nbreak"',
+  );
+  expect(JSON.stringify(JSON.parse<string>('"tab\\there"'))).toBe(
+    '"tab\\there"',
+  );
+  expect(JSON.stringify(JSON.parse<string>('"quote \\" here"'))).toBe(
+    '"quote \\" here"',
+  );
+  expect(JSON.stringify(JSON.parse<string>('"unicode \\u03a9"'))).toBe(
+    '"unicode Ω"',
+  );
 
-  const parsed = JSON.parse<MatrixEnvelope>('{"id":7,"label":"demo","flags":[true,false,true],"values":[1.5,2.5,3.5],"pos":{"x":4.5,"y":5.5,"z":6.5}}');
+  const parsed = JSON.parse<MatrixEnvelope>(
+    '{"id":7,"label":"demo","flags":[true,false,true],"values":[1.5,2.5,3.5],"pos":{"x":4.5,"y":5.5,"z":6.5}}',
+  );
   expect(parsed.id.toString()).toBe("7");
   expect(parsed.label).toBe("demo");
   expect(parsed.flags.length.toString()).toBe("3");
   expect(parsed.flags[0].toString()).toBe("true");
   expect(parsed.values[1].toString()).toBe("2.5");
   expect((parsed.pos as Vec3).y.toString()).toBe("5.5");
-  expect(JSON.stringify(parsed)).toBe('{"id":7,"label":"demo","flags":[true,false,true],"values":[1.5,2.5,3.5],"pos":{"x":4.5,"y":5.5,"z":6.5}}');
+  expect(JSON.stringify(parsed)).toBe(
+    '{"id":7,"label":"demo","flags":[true,false,true],"values":[1.5,2.5,3.5],"pos":{"x":4.5,"y":5.5,"z":6.5}}',
+  );
 });

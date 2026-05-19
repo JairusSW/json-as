@@ -37,7 +37,13 @@ const typedSerialized = JSON.stringify(typed);
 bench(
   "Deserialize Canada",
   () => {
-    blackbox(JSON.__deserialize<Canada>(canadaJsonStart, canadaJsonEnd, changetype<usize>(typed)));
+    blackbox(
+      JSON.__deserialize<Canada>(
+        canadaJsonStart,
+        canadaJsonEnd,
+        changetype<usize>(typed),
+      ),
+    );
   },
   40,
   canadaJsonChars,

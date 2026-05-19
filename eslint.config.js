@@ -6,7 +6,15 @@ import aseslint from "./tools/assemblyscript-eslint-local.js";
 
 export default tseslint.config(
   {
-    ignores: ["bin/**", "templates/**", "tests/**/*.js", "transform/lib/**", "build/**", ".as-test/**", "assembly/**/*.tmp.ts"],
+    ignores: [
+      "bin/**",
+      "templates/**",
+      "tests/**/*.js",
+      "transform/lib/**",
+      "build/**",
+      ".as-test/**",
+      "assembly/**/*.tmp.ts",
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -27,7 +35,10 @@ export default tseslint.config(
     rules: {
       "no-useless-assignment": "off",
       "@typescript-eslint/no-namespace": "off",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
   },
   {

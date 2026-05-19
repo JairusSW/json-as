@@ -30,7 +30,9 @@ let result: BenchResult | null = null;
 // 64KB per WebAssembly memory page
 const WASM_PAGE_SIZE: usize = 64 * 1024;
 // @ts-expect-error: BENCH_PREALLOC_BYTES may be undefined.
-const PREALLOC_BYTES: usize = isDefined(BENCH_PREALLOC_BYTES) ? BENCH_PREALLOC_BYTES : 1 << 30; // 1GB
+const PREALLOC_BYTES: usize = isDefined(BENCH_PREALLOC_BYTES)
+  ? BENCH_PREALLOC_BYTES
+  : 1 << 30; // 1GB
 let preallocated = false;
 
 // @ts-expect-error: @inline is a valid decorator
@@ -39,14 +41,20 @@ let preallocated = false;
   preallocated = true;
   if (PREALLOC_BYTES == 0) return;
   const currentPages = usize(memory.size());
-  const targetPages: usize = (PREALLOC_BYTES + (WASM_PAGE_SIZE - 1)) / WASM_PAGE_SIZE;
+  const targetPages: usize =
+    (PREALLOC_BYTES + (WASM_PAGE_SIZE - 1)) / WASM_PAGE_SIZE;
   if (targetPages > currentPages) {
     // Ignore failure (memory.grow returns -1 on failure)
     memory.grow(i32(targetPages - currentPages));
   }
 }
 
-export function bench(description: string, routine: () => void, ops: u64 = 1_000_000, bytesPerOp: u64 = 0): void {
+export function bench(
+  description: string,
+  routine: () => void,
+  ops: u64 = 1_000_000,
+  bytesPerOp: u64 = 0,
+): void {
   preallocateMemory();
   // Run a full GC cycle before timing to reduce cross-bench noise.
   __collect();
@@ -110,7 +118,14 @@ function JSON_MODE_TO_STRING(mode: JSONMode): string {
 
 export function dumpToFile(suite: string, type: string): void {
   const suffix = BENCH_RUNTIME_WAVM ? ".wavm.json" : ".as.json";
-  const fileName = "./build/logs/as/" + JSON_MODE_TO_STRING(JSON_MODE) + "/" + suite + "." + type + suffix;
+  const fileName =
+    "./build/logs/as/" +
+    JSON_MODE_TO_STRING(JSON_MODE) +
+    "/" +
+    suite +
+    "." +
+    type +
+    suffix;
   const json = JSON.stringify(result);
   if (BENCH_RUNTIME_STDOUT) {
     console.log("__AS_BENCH_JSON__" + fileName + "\t" + json);
@@ -120,7 +135,10 @@ export function dumpToFile(suite: string, type: string): void {
 }
 
 export function readFile(path: string): string {
-  if (BENCH_RUNTIME_STDOUT) throw new Error("readFile is not available in the WAVM/WASI benchmark runner: " + path);
+  if (BENCH_RUNTIME_STDOUT)
+    throw new Error(
+      "readFile is not available in the WAVM/WASI benchmark runner: " + path,
+    );
   return String.UTF8.decode(readFileBuffer(path));
 }
 

@@ -4,7 +4,11 @@ import { deserializeFloatArrayInto } from "./float";
 import { ensureArrayField, scanValueEnd } from "./shared";
 
 
-@inline export function deserializeArrayArrayInto<T extends unknown[][]>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline export function deserializeArrayArrayInto<T extends unknown[][]>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
   let index = 0;
 
   do {
@@ -25,7 +29,11 @@ import { ensureArrayField, scanValueEnd } from "./shared";
           value = changetype<valueof<T>>(instantiate<valueof<T>>());
           out.push(value);
         }
-        srcStart = deserializeFloatArrayInto<valueof<T>>(srcStart, srcEnd, value);
+        srcStart = deserializeFloatArrayInto<valueof<T>>(
+          srcStart,
+          srcEnd,
+          value,
+        );
         if (!srcStart || srcStart >= srcEnd) break;
       } else if (isArray<valueof<valueof<T>>>()) {
         let value: valueof<T>;
@@ -35,7 +43,11 @@ import { ensureArrayField, scanValueEnd } from "./shared";
           value = changetype<valueof<T>>(instantiate<valueof<T>>());
           out.push(value);
         }
-        srcStart = deserializeArrayArrayInto<valueof<T>>(srcStart, srcEnd, value);
+        srcStart = deserializeArrayArrayInto<valueof<T>>(
+          srcStart,
+          srcEnd,
+          value,
+        );
         if (!srcStart || srcStart >= srcEnd) break;
       } else {
         const valueEnd = scanValueEnd(srcStart, srcEnd);
@@ -45,7 +57,11 @@ import { ensureArrayField, scanValueEnd } from "./shared";
         if (index < out.length) {
           valuePtr = changetype<usize>(unchecked(out[index]));
         }
-        const value = JSON.__deserialize<valueof<T>>(srcStart, valueEnd, valuePtr);
+        const value = JSON.__deserialize<valueof<T>>(
+          srcStart,
+          valueEnd,
+          valuePtr,
+        );
         if (index < out.length) unchecked((out[index] = value));
         else out.push(value);
         srcStart = valueEnd;
@@ -69,6 +85,14 @@ import { ensureArrayField, scanValueEnd } from "./shared";
 }
 
 
-@inline export function deserializeArrayArrayField<T extends unknown[][]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  return deserializeArrayArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
+@inline export function deserializeArrayArrayField<T extends unknown[][]>(
+  srcStart: usize,
+  srcEnd: usize,
+  fieldPtr: usize,
+): usize {
+  return deserializeArrayArrayInto<T>(
+    srcStart,
+    srcEnd,
+    ensureArrayField<T>(fieldPtr),
+  );
 }

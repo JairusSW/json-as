@@ -17,13 +17,40 @@ function getBenchData(filePath: string) {
   };
 }
 
-const payloads = ["obj-1kb", "obj-50kb", "obj-100kb", "obj-150kb", "obj-200kb", "obj-250kb", "obj-300kb", "obj-350kb", "obj-400kb", "obj-450kb", "obj-500kb", "obj-550kb", "obj-600kb", "obj-650kb", "obj-700kb", "obj-750kb", "obj-800kb", "obj-850kb", "obj-900kb", "obj-950kb", "obj-1mb"];
+const payloads = [
+  "obj-1kb",
+  "obj-50kb",
+  "obj-100kb",
+  "obj-150kb",
+  "obj-200kb",
+  "obj-250kb",
+  "obj-300kb",
+  "obj-350kb",
+  "obj-400kb",
+  "obj-450kb",
+  "obj-500kb",
+  "obj-550kb",
+  "obj-600kb",
+  "obj-650kb",
+  "obj-700kb",
+  "obj-750kb",
+  "obj-800kb",
+  "obj-850kb",
+  "obj-900kb",
+  "obj-950kb",
+  "obj-1mb",
+];
 const engines = ["js", "naive", "swar", "simd"];
 const modes = ["serialize"];
 
 function logPath(payload: string, engine: string, mode: string) {
   const language = engine == "js" ? "js" : "as";
-  return benchLogPath(payload, mode as "serialize" | "deserialize", language, engine == "js" ? "" : engine);
+  return benchLogPath(
+    payload,
+    mode as "serialize" | "deserialize",
+    language,
+    engine == "js" ? "" : engine,
+  );
 }
 
 interface ChartPoint {
@@ -62,7 +89,9 @@ const datasets = [];
 
 for (const mode of modes) {
   for (const engine of engines) {
-    const data: ChartPoint[] = payloads.map((p) => chartData[`${p}-${engine}-${mode}`][0]);
+    const data: ChartPoint[] = payloads.map(
+      (p) => chartData[`${p}-${engine}-${mode}`][0],
+    );
     datasets.push({
       label: `${engine.toUpperCase()}`,
       data,

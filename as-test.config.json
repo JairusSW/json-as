@@ -6,9 +6,18 @@
   "coverageDir": "./.as-test/coverage",
   "snapshotDir": "./.as-test/snapshots",
   "config": "none",
-  "coverage": false,
+  "coverage": {
+    "enabled": true,
+    "mode": "project",
+    "include": ["assembly/**/*.ts"],
+    "exclude": [
+      "assembly/__tests__/**/*.ts",
+      "assembly/__fuzz__/**/*.fuzz.ts",
+      "assembly/__bench__/**/*.bench.ts"
+    ]
+  },
   "buildOptions": {
-    "args": ["--transform ./transform", "--debug"],
+    "args": ["--debug"],
     "target": "wasi"
   },
   "fuzz": {
@@ -38,7 +47,7 @@
         "JSON_MODE": "SIMD"
       },
       "buildOptions": {
-        "args": ["--transform ./transform", "--debug", "--enable simd"]
+        "args": ["--debug", "--enable simd"]
       }
     }
   }

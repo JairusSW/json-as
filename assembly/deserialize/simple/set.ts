@@ -1,5 +1,14 @@
 import { JSON } from "../..";
-import { BRACKET_LEFT, BRACKET_RIGHT, BRACE_LEFT, BRACE_RIGHT, CHAR_F, CHAR_T, COMMA, QUOTE } from "../../custom/chars";
+import {
+  BRACKET_LEFT,
+  BRACKET_RIGHT,
+  BRACE_LEFT,
+  BRACE_RIGHT,
+  CHAR_F,
+  CHAR_T,
+  COMMA,
+  QUOTE,
+} from "../../custom/chars";
 import { isSpace, atoi, scanStringEnd } from "../../util";
 
 // @ts-expect-error: Decorator valid here
@@ -41,16 +50,24 @@ import { isSpace, atoi, scanStringEnd } from "../../util";
   return 0;
 }
 
-function deserializeSetDirect<T extends Set<any>>(srcStart: usize, srcEnd: usize, out: nonnull<T>, allowWhitespace: bool = false): usize {
-  if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) throw new Error("Expected '[' at start of set");
+function deserializeSetDirect<T extends Set<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: nonnull<T>,
+  allowWhitespace: bool = false,
+): usize {
+  if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT)
+    throw new Error("Expected '[' at start of set");
 
   srcStart += 2;
-  if (allowWhitespace) while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  if (allowWhitespace)
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   if (srcStart >= srcEnd) throw new Error("Unterminated set");
   if (load<u16>(srcStart) == BRACKET_RIGHT) return srcStart + 2;
 
   while (srcStart < srcEnd) {
-    if (allowWhitespace) while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    if (allowWhitespace)
+      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     const code = load<u16>(srcStart);
 
     // @ts-ignore: type
@@ -80,7 +97,12 @@ function deserializeSetDirect<T extends Set<any>>(srcStart: usize, srcEnd: usize
       let ptr = srcStart + 2;
       while (ptr < srcEnd) {
         const next = load<u16>(ptr);
-        if (next == COMMA || next == BRACKET_RIGHT || (allowWhitespace && isSpace(next))) break;
+        if (
+          next == COMMA ||
+          next == BRACKET_RIGHT ||
+          (allowWhitespace && isSpace(next))
+        )
+          break;
         ptr += 2;
       }
       // @ts-ignore: type
@@ -92,7 +114,12 @@ function deserializeSetDirect<T extends Set<any>>(srcStart: usize, srcEnd: usize
       let ptr = srcStart + 2;
       while (ptr < srcEnd) {
         const next = load<u16>(ptr);
-        if (next == COMMA || next == BRACKET_RIGHT || (allowWhitespace && isSpace(next))) break;
+        if (
+          next == COMMA ||
+          next == BRACKET_RIGHT ||
+          (allowWhitespace && isSpace(next))
+        )
+          break;
         ptr += 2;
       }
       // @ts-ignore: type
@@ -109,12 +136,14 @@ function deserializeSetDirect<T extends Set<any>>(srcStart: usize, srcEnd: usize
       break;
     }
 
-    if (allowWhitespace) while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    if (allowWhitespace)
+      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;
     const next = load<u16>(srcStart);
     if (next == COMMA) {
       srcStart += 2;
-      if (allowWhitespace) while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+      if (allowWhitespace)
+        while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
       continue;
     }
     if (next == BRACKET_RIGHT) return srcStart + 2;
@@ -124,27 +153,43 @@ function deserializeSetDirect<T extends Set<any>>(srcStart: usize, srcEnd: usize
   throw new Error("Failed to parse JSON!");
 }
 
-export function deserializeSet<T extends Set<any>>(srcStart: usize, srcEnd: usize, dst: usize): T {
-  const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
+export function deserializeSet<T extends Set<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
+  const out = changetype<nonnull<T>>(
+    dst || changetype<usize>(instantiate<T>()),
+  );
   out.clear();
 
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
-  if (srcStart >= srcEnd) throw new Error("Input string had zero length or was all whitespace");
+  if (srcStart >= srcEnd)
+    throw new Error("Input string had zero length or was all whitespace");
   const end = deserializeSetDirect<T>(srcStart, srcEnd, out, true);
   if (end != srcEnd) throw new Error("Expected ']' at end of set");
   return out;
 }
 
 // @ts-expect-error: Decorator valid here
-@inline export function deserializeSetInto<T extends Set<any>>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline export function deserializeSetInto<T extends Set<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
   changetype<nonnull<T>>(out).clear();
   return deserializeSetDirect<T>(srcStart, srcEnd, changetype<nonnull<T>>(out));
 }
 
 // @ts-expect-error: Decorator valid here
-@inline export function deserializeSetField<T extends Set<any>>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+@inline export function deserializeSetField<T extends Set<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
   let out = load<T>(dstObj, dstOffset);
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());

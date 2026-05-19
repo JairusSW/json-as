@@ -1,6 +1,9 @@
 import { bs } from "../../lib/as-bs";
 import { expect } from "../__tests__/lib";
-import { deserializeString_SWAR, deserializeStringField_SWAR as deserializeStringField_SWAR_Split } from "../deserialize/swar/string";
+import {
+  deserializeString_SWAR,
+  deserializeStringField_SWAR as deserializeStringField_SWAR_Split,
+} from "../deserialize/swar/string";
 import { BACK_SLASH, QUOTE } from "../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE } from "../globals/tables";
 import { hex4_to_u16_swar } from "../util/swar";
@@ -8,10 +11,17 @@ import { bench, blackbox, dumpToFile } from "./lib/bench";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 
 // @ts-expect-error: @inline is a valid decorator
-@inline function writeStringToFieldMerged(dstFieldPtr: usize, srcStart: usize, byteLength: u32): void {
+@inline function writeStringToFieldMerged(
+  dstFieldPtr: usize,
+  srcStart: usize,
+  byteLength: u32,
+): void {
   const current = load<usize>(dstFieldPtr);
   let outPtr: usize;
-  if (current != 0 && changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+  if (
+    current != 0 &&
+    changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength
+  ) {
     outPtr = current;
   } else if (current != 0 && current != changetype<usize>("")) {
     outPtr = __renew(current, byteLength);
@@ -27,7 +37,10 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 @inline function backslash_or_quote_mask_merged(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
   const q = block ^ 0x0022_0022_0022_0022;
-  return (((q - 0x0001_0001_0001_0001) & ~q) | ((b - 0x0001_0001_0001_0001) & ~b)) & 0x0080_0080_0080_0080;
+  return (
+    (((q - 0x0001_0001_0001_0001) & ~q) | ((b - 0x0001_0001_0001_0001) & ~b)) &
+    0x0080_0080_0080_0080
+  );
 }
 
 // @ts-expect-error: @inline is a valid decorator
@@ -37,7 +50,10 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 }
 
 // @ts-expect-error: @inline is a valid decorator
-@inline function deserializeStringMemcpy_NoEscape(srcStart: usize, srcEnd: usize): string {
+@inline function deserializeStringMemcpy_NoEscape(
+  srcStart: usize,
+  srcEnd: usize,
+): string {
   srcStart += 2;
   srcEnd -= 2;
   const byteLength = srcEnd - srcStart;
@@ -48,7 +64,10 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
   return changetype<string>(out);
 }
 
-function deserializeString_SWAR_Original(srcStart: usize, srcEnd: usize): string {
+function deserializeString_SWAR_Original(
+  srcStart: usize,
+  srcEnd: usize,
+): string {
   srcStart += 2;
   srcEnd -= 2;
   const srcEnd8 = srcEnd - 8;
@@ -127,7 +146,12 @@ function deserializeString_SWAR_Original(srcStart: usize, srcEnd: usize): string
 }
 
 // @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedStringScan_SWAR_SplitTuned(payloadStart: usize, escapeStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+@inline function deserializeEscapedStringScan_SWAR_SplitTuned(
+  payloadStart: usize,
+  escapeStart: usize,
+  srcEnd: usize,
+  dstFieldPtr: usize,
+): usize {
   const prefixLen = <u32>(escapeStart - payloadStart);
   const srcEnd8 = srcEnd - 8;
   bs.offset = bs.buffer;
@@ -142,7 +166,9 @@ function deserializeString_SWAR_Original(srcStart: usize, srcEnd: usize): string
 
   while (srcStart <= srcEnd8) {
     const blockStart = srcStart;
-    let mask = inline.always(backslash_or_quote_mask_merged(load<u64>(srcStart)));
+    let mask = inline.always(
+      backslash_or_quote_mask_merged(load<u64>(srcStart)),
+    );
     if (mask === 0) {
       srcStart += 8;
       continue;
@@ -159,7 +185,11 @@ function deserializeString_SWAR_Original(srcStart: usize, srcEnd: usize): string
           memory.copy(bs.offset, lastPtr, runLen);
           bs.offset += runLen;
         }
-        writeStringToFieldMerged(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+        writeStringToFieldMerged(
+          dstFieldPtr,
+          bs.buffer,
+          <u32>(bs.offset - bs.buffer),
+        );
         bs.offset = bs.buffer;
         return srcIdx + 2;
       }
@@ -196,7 +226,11 @@ function deserializeString_SWAR_Original(srcStart: usize, srcEnd: usize): string
         memory.copy(bs.offset, lastPtr, runLen);
         bs.offset += runLen;
       }
-      writeStringToFieldMerged(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+      writeStringToFieldMerged(
+        dstFieldPtr,
+        bs.buffer,
+        <u32>(bs.offset - bs.buffer),
+      );
       bs.offset = bs.buffer;
       return srcStart + 2;
     }
@@ -229,15 +263,22 @@ function deserializeString_SWAR_Original(srcStart: usize, srcEnd: usize): string
   return srcStart;
 }
 
-function deserializeStringField_SWAR_SplitTuned(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+function deserializeStringField_SWAR_SplitTuned(
+  srcStart: usize,
+  srcEnd: usize,
+  dstFieldPtr: usize,
+): usize {
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
+    abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
   const srcEnd8 = srcEnd - 8;
   srcStart = payloadStart;
 
   while (srcStart <= srcEnd8) {
-    let mask = inline.always(backslash_or_quote_mask_merged(load<u64>(srcStart)));
+    let mask = inline.always(
+      backslash_or_quote_mask_merged(load<u64>(srcStart)),
+    );
     if (mask === 0) {
       srcStart += 8;
       continue;
@@ -249,11 +290,22 @@ function deserializeStringField_SWAR_SplitTuned(srcStart: usize, srcEnd: usize, 
       const srcIdx = srcStart + laneIdx;
       const char = load<u16>(srcIdx);
       if (char == QUOTE) {
-        writeStringToFieldMerged(dstFieldPtr, payloadStart, <u32>(srcIdx - payloadStart));
+        writeStringToFieldMerged(
+          dstFieldPtr,
+          payloadStart,
+          <u32>(srcIdx - payloadStart),
+        );
         return srcIdx + 2;
       }
       if (char != BACK_SLASH) continue;
-      return inline.always(deserializeEscapedStringScan_SWAR_SplitTuned(payloadStart, srcIdx, srcEnd, dstFieldPtr));
+      return inline.always(
+        deserializeEscapedStringScan_SWAR_SplitTuned(
+          payloadStart,
+          srcIdx,
+          srcEnd,
+          dstFieldPtr,
+        ),
+      );
     } while (mask !== 0);
 
     srcStart += 8;
@@ -262,11 +314,22 @@ function deserializeStringField_SWAR_SplitTuned(srcStart: usize, srcEnd: usize, 
   while (srcStart < srcEnd) {
     const char = load<u16>(srcStart);
     if (char == QUOTE) {
-      writeStringToFieldMerged(dstFieldPtr, payloadStart, <u32>(srcStart - payloadStart));
+      writeStringToFieldMerged(
+        dstFieldPtr,
+        payloadStart,
+        <u32>(srcStart - payloadStart),
+      );
       return srcStart + 2;
     }
     if (char == BACK_SLASH) {
-      return inline.always(deserializeEscapedStringScan_SWAR_SplitTuned(payloadStart, srcStart, srcEnd, dstFieldPtr));
+      return inline.always(
+        deserializeEscapedStringScan_SWAR_SplitTuned(
+          payloadStart,
+          srcStart,
+          srcEnd,
+          dstFieldPtr,
+        ),
+      );
     }
     srcStart += 2;
   }
@@ -275,15 +338,22 @@ function deserializeStringField_SWAR_SplitTuned(srcStart: usize, srcEnd: usize, 
   return srcStart;
 }
 
-function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+function deserializeStringField_SWAR_Merged(
+  srcStart: usize,
+  srcEnd: usize,
+  dstFieldPtr: usize,
+): usize {
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
+    abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
   const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
   srcStart = payloadStart;
 
   while (srcStart <= srcEnd8) {
-    let mask = inline.always(backslash_or_quote_mask_merged(load<u64>(srcStart)));
+    let mask = inline.always(
+      backslash_or_quote_mask_merged(load<u64>(srcStart)),
+    );
     if (mask === 0) {
       srcStart += 8;
       continue;
@@ -296,7 +366,11 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
       const char = load<u16>(srcIdx);
 
       if (char == QUOTE) {
-        writeStringToFieldMerged(dstFieldPtr, payloadStart, <u32>(srcIdx - payloadStart));
+        writeStringToFieldMerged(
+          dstFieldPtr,
+          payloadStart,
+          <u32>(srcIdx - payloadStart),
+        );
         return srcIdx + 2;
       }
       if (char != BACK_SLASH) continue;
@@ -319,7 +393,9 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
         srcStart = lastPtr;
         while (srcStart <= srcEnd8) {
           const blockStart = srcStart;
-          let escapedMask = inline.always(backslash_or_quote_mask_merged(load<u64>(srcStart)));
+          let escapedMask = inline.always(
+            backslash_or_quote_mask_merged(load<u64>(srcStart)),
+          );
           if (escapedMask === 0) {
             srcStart += 8;
             continue;
@@ -336,7 +412,11 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
                 memory.copy(bs.offset, lastPtr, runLen);
                 bs.offset += runLen;
               }
-              writeStringToFieldMerged(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+              writeStringToFieldMerged(
+                dstFieldPtr,
+                bs.buffer,
+                <u32>(bs.offset - bs.buffer),
+              );
               bs.offset = bs.buffer;
               return escapedIdx + 2;
             }
@@ -351,7 +431,10 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
             const escapedChunk = load<u32>(escapedIdx);
             const escapedCode = <u16>(escapedChunk >> 16);
             if (escapedCode !== 0x75) {
-              store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + escapedCode));
+              store<u16>(
+                bs.offset,
+                load<u16>(DESERIALIZE_ESCAPE_TABLE + escapedCode),
+              );
               bs.offset += 2;
               lastPtr = escapedIdx + 4;
             } else {
@@ -374,7 +457,11 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
               memory.copy(bs.offset, lastPtr, runLen);
               bs.offset += runLen;
             }
-            writeStringToFieldMerged(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+            writeStringToFieldMerged(
+              dstFieldPtr,
+              bs.buffer,
+              <u32>(bs.offset - bs.buffer),
+            );
             bs.offset = bs.buffer;
             return srcStart + 2;
           }
@@ -390,7 +477,10 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
           }
           const tailCode = load<u16>(srcStart, 2);
           if (tailCode !== 0x75) {
-            store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + tailCode));
+            store<u16>(
+              bs.offset,
+              load<u16>(DESERIALIZE_ESCAPE_TABLE + tailCode),
+            );
             bs.offset += 2;
             srcStart += 4;
           } else {
@@ -409,7 +499,9 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
         srcStart = lastPtr;
         while (srcStart <= srcEnd8) {
           const blockStart = srcStart;
-          let escapedMask = inline.always(backslash_or_quote_mask_merged(load<u64>(srcStart)));
+          let escapedMask = inline.always(
+            backslash_or_quote_mask_merged(load<u64>(srcStart)),
+          );
           if (escapedMask === 0) {
             srcStart += 8;
             continue;
@@ -426,7 +518,11 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
                 memory.copy(bs.offset, lastPtr, runLen);
                 bs.offset += runLen;
               }
-              writeStringToFieldMerged(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+              writeStringToFieldMerged(
+                dstFieldPtr,
+                bs.buffer,
+                <u32>(bs.offset - bs.buffer),
+              );
               bs.offset = bs.buffer;
               return escapedIdx + 2;
             }
@@ -441,7 +537,10 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
             const escapedChunk = load<u32>(escapedIdx);
             const escapedCode = <u16>(escapedChunk >> 16);
             if (escapedCode !== 0x75) {
-              store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + escapedCode));
+              store<u16>(
+                bs.offset,
+                load<u16>(DESERIALIZE_ESCAPE_TABLE + escapedCode),
+              );
               bs.offset += 2;
               lastPtr = escapedIdx + 4;
             } else {
@@ -464,7 +563,11 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
               memory.copy(bs.offset, lastPtr, runLen);
               bs.offset += runLen;
             }
-            writeStringToFieldMerged(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+            writeStringToFieldMerged(
+              dstFieldPtr,
+              bs.buffer,
+              <u32>(bs.offset - bs.buffer),
+            );
             bs.offset = bs.buffer;
             return srcStart + 2;
           }
@@ -480,7 +583,10 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
           }
           const tailCode = load<u16>(srcStart, 2);
           if (tailCode !== 0x75) {
-            store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + tailCode));
+            store<u16>(
+              bs.offset,
+              load<u16>(DESERIALIZE_ESCAPE_TABLE + tailCode),
+            );
             bs.offset += 2;
             srcStart += 4;
           } else {
@@ -499,7 +605,11 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
   while (srcStart < srcEnd) {
     const char = load<u16>(srcStart);
     if (char == QUOTE) {
-      writeStringToFieldMerged(dstFieldPtr, payloadStart, <u32>(srcStart - payloadStart));
+      writeStringToFieldMerged(
+        dstFieldPtr,
+        payloadStart,
+        <u32>(srcStart - payloadStart),
+      );
       return srcStart + 2;
     }
     if (char == BACK_SLASH) {
@@ -532,7 +642,11 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
             memory.copy(bs.offset, lastPtr, runLen);
             bs.offset += runLen;
           }
-          writeStringToFieldMerged(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+          writeStringToFieldMerged(
+            dstFieldPtr,
+            bs.buffer,
+            <u32>(bs.offset - bs.buffer),
+          );
           bs.offset = bs.buffer;
           return srcStart + 2;
         }
@@ -568,12 +682,19 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
 }
 
 // @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedStringContinuation_SWAR_MergedTuned(lastPtr: usize, srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+@inline function deserializeEscapedStringContinuation_SWAR_MergedTuned(
+  lastPtr: usize,
+  srcStart: usize,
+  srcEnd: usize,
+  dstFieldPtr: usize,
+): usize {
   const srcEnd8 = srcEnd - 8;
 
   while (srcStart <= srcEnd8) {
     const blockStart = srcStart;
-    let mask = inline.always(backslash_or_quote_mask_merged(load<u64>(srcStart)));
+    let mask = inline.always(
+      backslash_or_quote_mask_merged(load<u64>(srcStart)),
+    );
     if (mask === 0) {
       srcStart += 8;
       continue;
@@ -590,7 +711,11 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
           memory.copy(bs.offset, lastPtr, runLen);
           bs.offset += runLen;
         }
-        writeStringToFieldMerged(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+        writeStringToFieldMerged(
+          dstFieldPtr,
+          bs.buffer,
+          <u32>(bs.offset - bs.buffer),
+        );
         bs.offset = bs.buffer;
         return srcIdx + 2;
       }
@@ -628,7 +753,11 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
         memory.copy(bs.offset, lastPtr, runLen);
         bs.offset += runLen;
       }
-      writeStringToFieldMerged(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+      writeStringToFieldMerged(
+        dstFieldPtr,
+        bs.buffer,
+        <u32>(bs.offset - bs.buffer),
+      );
       bs.offset = bs.buffer;
       return srcStart + 2;
     }
@@ -659,15 +788,22 @@ function deserializeStringField_SWAR_Merged(srcStart: usize, srcEnd: usize, dstF
   return srcStart;
 }
 
-function deserializeStringField_SWAR_MergedTuned(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+function deserializeStringField_SWAR_MergedTuned(
+  srcStart: usize,
+  srcEnd: usize,
+  dstFieldPtr: usize,
+): usize {
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
+    abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
   const srcEnd8 = srcEnd - 8;
   srcStart = payloadStart;
 
   while (srcStart <= srcEnd8) {
-    let mask = inline.always(backslash_or_quote_mask_merged(load<u64>(srcStart)));
+    let mask = inline.always(
+      backslash_or_quote_mask_merged(load<u64>(srcStart)),
+    );
     if (mask === 0) {
       srcStart += 8;
       continue;
@@ -680,7 +816,11 @@ function deserializeStringField_SWAR_MergedTuned(srcStart: usize, srcEnd: usize,
       const char = load<u16>(srcIdx);
 
       if (char == QUOTE) {
-        writeStringToFieldMerged(dstFieldPtr, payloadStart, <u32>(srcIdx - payloadStart));
+        writeStringToFieldMerged(
+          dstFieldPtr,
+          payloadStart,
+          <u32>(srcIdx - payloadStart),
+        );
         return srcIdx + 2;
       }
       if (char != BACK_SLASH) continue;
@@ -705,7 +845,14 @@ function deserializeStringField_SWAR_MergedTuned(srcStart: usize, srcEnd: usize,
         bs.offset += 2;
         lastPtr = srcIdx + 12;
       }
-      return inline.always(deserializeEscapedStringContinuation_SWAR_MergedTuned(lastPtr, lastPtr, srcEnd, dstFieldPtr));
+      return inline.always(
+        deserializeEscapedStringContinuation_SWAR_MergedTuned(
+          lastPtr,
+          lastPtr,
+          srcEnd,
+          dstFieldPtr,
+        ),
+      );
     } while (mask !== 0);
 
     srcStart += 8;
@@ -714,7 +861,11 @@ function deserializeStringField_SWAR_MergedTuned(srcStart: usize, srcEnd: usize,
   while (srcStart < srcEnd) {
     const char = load<u16>(srcStart);
     if (char == QUOTE) {
-      writeStringToFieldMerged(dstFieldPtr, payloadStart, <u32>(srcStart - payloadStart));
+      writeStringToFieldMerged(
+        dstFieldPtr,
+        payloadStart,
+        <u32>(srcStart - payloadStart),
+      );
       return srcStart + 2;
     }
     if (char == BACK_SLASH) {
@@ -737,7 +888,14 @@ function deserializeStringField_SWAR_MergedTuned(srcStart: usize, srcEnd: usize,
         bs.offset += 2;
         lastPtr = srcStart + 12;
       }
-      return inline.always(deserializeEscapedStringContinuation_SWAR_MergedTuned(lastPtr, lastPtr, srcEnd, dstFieldPtr));
+      return inline.always(
+        deserializeEscapedStringContinuation_SWAR_MergedTuned(
+          lastPtr,
+          lastPtr,
+          srcEnd,
+          dstFieldPtr,
+        ),
+      );
     }
     srcStart += 2;
   }
@@ -745,13 +903,18 @@ function deserializeStringField_SWAR_MergedTuned(srcStart: usize, srcEnd: usize,
   return srcStart;
 }
 
-const plainInputs: string[] = ['"jairus Jairus Tanaka me@jairus.dev https://avatars.githubusercontent.com/u/123456?v=4 I like compilers elegant algorithms bare metal simd wasm https://jairus.dev/ Seattle WA 2020-01-15T08:30:00Z dark en-US America/Los_Angeles friends_only typescript webassembly performance assemblyscript json starred 2025-12-22T10:15:00Z assemblyscript/json-as commented issue #142 pushed main branch forked fast-json-wasm created new benchmark suite repeated repeated repeated repeated repeated repeated repeated repeated repeated repeated"'];
+const plainInputs: string[] = [
+  '"jairus Jairus Tanaka me@jairus.dev https://avatars.githubusercontent.com/u/123456?v=4 I like compilers elegant algorithms bare metal simd wasm https://jairus.dev/ Seattle WA 2020-01-15T08:30:00Z dark en-US America/Los_Angeles friends_only typescript webassembly performance assemblyscript json starred 2025-12-22T10:15:00Z assemblyscript/json-as commented issue #142 pushed main branch forked fast-json-wasm created new benchmark suite repeated repeated repeated repeated repeated repeated repeated repeated repeated repeated"',
+];
 
-const escapedInputs: string[] = ['"ab\\\\\\"cd line\\nfeed tab\\tindent quote: \\"hello\\" slash\\\\backslash unicode \\u263A face emoji \\uD83D\\uDE80 mix\\\\\\"\\n\\t\\u0041 repeated\\\\\\"chunk\\n\\t\\u0042 repeated\\\\\\"chunk\\n\\t\\u0043 repeated\\\\\\"chunk\\n\\t\\u0044 repeated\\\\\\"chunk\\n\\t\\u0045"'];
+const escapedInputs: string[] = [
+  '"ab\\\\\\"cd line\\nfeed tab\\tindent quote: \\"hello\\" slash\\\\backslash unicode \\u263A face emoji \\uD83D\\uDE80 mix\\\\\\"\\n\\t\\u0041 repeated\\\\\\"chunk\\n\\t\\u0042 repeated\\\\\\"chunk\\n\\t\\u0043 repeated\\\\\\"chunk\\n\\t\\u0044 repeated\\\\\\"chunk\\n\\t\\u0045"',
+];
 
 function totalBytesOf(values: string[]): u64 {
   let total: u64 = 0;
-  for (let i = 0; i < values.length; i++) total += <u64>(unchecked(values[i]).length << 1);
+  for (let i = 0; i < values.length; i++)
+    total += <u64>(unchecked(values[i]).length << 1);
   return total;
 }
 
@@ -797,11 +960,31 @@ runCorpus(escapedInputs, escapedSplitTuned, VARIANT_TUNED_SPLIT);
 runCorpus(escapedInputs, escapedMerged, VARIANT_MERGED);
 runCorpus(escapedInputs, escapedMergedTuned, VARIANT_TUNED_MERGED);
 
-const plainDirect = deserializeString_SWAR(changetype<usize>(unchecked(plainInputs[0])), changetype<usize>(unchecked(plainInputs[0])) + (unchecked(plainInputs[0]).length << 1));
-const escapedDirect = deserializeString_SWAR(changetype<usize>(unchecked(escapedInputs[0])), changetype<usize>(unchecked(escapedInputs[0])) + (unchecked(escapedInputs[0]).length << 1));
-const plainDirectOriginal = deserializeString_SWAR_Original(changetype<usize>(unchecked(plainInputs[0])), changetype<usize>(unchecked(plainInputs[0])) + (unchecked(plainInputs[0]).length << 1));
-const escapedDirectOriginal = deserializeString_SWAR_Original(changetype<usize>(unchecked(escapedInputs[0])), changetype<usize>(unchecked(escapedInputs[0])) + (unchecked(escapedInputs[0]).length << 1));
-const plainMemcpy = deserializeStringMemcpy_NoEscape(changetype<usize>(unchecked(plainInputs[0])), changetype<usize>(unchecked(plainInputs[0])) + (unchecked(plainInputs[0]).length << 1));
+const plainDirect = deserializeString_SWAR(
+  changetype<usize>(unchecked(plainInputs[0])),
+  changetype<usize>(unchecked(plainInputs[0])) +
+    (unchecked(plainInputs[0]).length << 1),
+);
+const escapedDirect = deserializeString_SWAR(
+  changetype<usize>(unchecked(escapedInputs[0])),
+  changetype<usize>(unchecked(escapedInputs[0])) +
+    (unchecked(escapedInputs[0]).length << 1),
+);
+const plainDirectOriginal = deserializeString_SWAR_Original(
+  changetype<usize>(unchecked(plainInputs[0])),
+  changetype<usize>(unchecked(plainInputs[0])) +
+    (unchecked(plainInputs[0]).length << 1),
+);
+const escapedDirectOriginal = deserializeString_SWAR_Original(
+  changetype<usize>(unchecked(escapedInputs[0])),
+  changetype<usize>(unchecked(escapedInputs[0])) +
+    (unchecked(escapedInputs[0]).length << 1),
+);
+const plainMemcpy = deserializeStringMemcpy_NoEscape(
+  changetype<usize>(unchecked(plainInputs[0])),
+  changetype<usize>(unchecked(plainInputs[0])) +
+    (unchecked(plainInputs[0]).length << 1),
+);
 
 for (let i = 0; i < plainInputs.length; i++) {
   expect(unchecked(plainSplit[i])).toBe(unchecked(plainSplitTuned[i]));
@@ -866,7 +1049,13 @@ dumpToFile("string-head2head-merged-tuned-plain", "deserialize");
 bench(
   "String SWAR Direct Plain",
   () => {
-    blackbox(deserializeString_SWAR(changetype<usize>(unchecked(plainInputs[0])), changetype<usize>(unchecked(plainInputs[0])) + (unchecked(plainInputs[0]).length << 1)));
+    blackbox(
+      deserializeString_SWAR(
+        changetype<usize>(unchecked(plainInputs[0])),
+        changetype<usize>(unchecked(plainInputs[0])) +
+          (unchecked(plainInputs[0]).length << 1),
+      ),
+    );
   },
   1_000_000,
   plainBytes,
@@ -876,7 +1065,13 @@ dumpToFile("string-head2head-direct-plain", "deserialize");
 bench(
   "String SWAR Direct Original Plain",
   () => {
-    blackbox(deserializeString_SWAR_Original(changetype<usize>(unchecked(plainInputs[0])), changetype<usize>(unchecked(plainInputs[0])) + (unchecked(plainInputs[0]).length << 1)));
+    blackbox(
+      deserializeString_SWAR_Original(
+        changetype<usize>(unchecked(plainInputs[0])),
+        changetype<usize>(unchecked(plainInputs[0])) +
+          (unchecked(plainInputs[0]).length << 1),
+      ),
+    );
   },
   1_000_000,
   plainBytes,
@@ -886,7 +1081,13 @@ dumpToFile("string-head2head-direct-original-plain", "deserialize");
 bench(
   "String SWAR Direct Memcpy Plain",
   () => {
-    blackbox(deserializeStringMemcpy_NoEscape(changetype<usize>(unchecked(plainInputs[0])), changetype<usize>(unchecked(plainInputs[0])) + (unchecked(plainInputs[0]).length << 1)));
+    blackbox(
+      deserializeStringMemcpy_NoEscape(
+        changetype<usize>(unchecked(plainInputs[0])),
+        changetype<usize>(unchecked(plainInputs[0])) +
+          (unchecked(plainInputs[0]).length << 1),
+      ),
+    );
   },
   1_000_000,
   plainBytes,
@@ -936,7 +1137,13 @@ dumpToFile("string-head2head-merged-tuned-escaped", "deserialize");
 bench(
   "String SWAR Direct Escaped",
   () => {
-    blackbox(deserializeString_SWAR(changetype<usize>(unchecked(escapedInputs[0])), changetype<usize>(unchecked(escapedInputs[0])) + (unchecked(escapedInputs[0]).length << 1)));
+    blackbox(
+      deserializeString_SWAR(
+        changetype<usize>(unchecked(escapedInputs[0])),
+        changetype<usize>(unchecked(escapedInputs[0])) +
+          (unchecked(escapedInputs[0]).length << 1),
+      ),
+    );
   },
   1_000_000,
   escapedBytes,
@@ -946,7 +1153,13 @@ dumpToFile("string-head2head-direct-escaped", "deserialize");
 bench(
   "String SWAR Direct Original Escaped",
   () => {
-    blackbox(deserializeString_SWAR_Original(changetype<usize>(unchecked(escapedInputs[0])), changetype<usize>(unchecked(escapedInputs[0])) + (unchecked(escapedInputs[0]).length << 1)));
+    blackbox(
+      deserializeString_SWAR_Original(
+        changetype<usize>(unchecked(escapedInputs[0])),
+        changetype<usize>(unchecked(escapedInputs[0])) +
+          (unchecked(escapedInputs[0]).length << 1),
+      ),
+    );
   },
   1_000_000,
   escapedBytes,

@@ -1,7 +1,8 @@
 import { TypeAlias } from "./linkers/alias.js";
 import { stripNull } from "./index.js";
 import * as asc from "assemblyscript/dist/assemblyscript.js";
-export const NodeKind = asc.NodeKind;
+export const NodeKind = asc
+    .NodeKind;
 export var PropertyFlags;
 (function (PropertyFlags) {
     PropertyFlags[PropertyFlags["OmitNull"] = 0] = "OmitNull";
@@ -26,7 +27,8 @@ export class Property {
     get custom() {
         if (this._custom)
             return true;
-        if (this.parent.node.isGeneric && this.parent.node.typeParameters.some((p) => p.name.text == this.type)) {
+        if (this.parent.node.isGeneric &&
+            this.parent.node.typeParameters.some((p) => p.name.text == this.type)) {
             this._custom = true;
             return true;
         }
@@ -44,7 +46,8 @@ export class Property {
     get generic() {
         if (this._generic)
             return true;
-        if (this.parent.node.isGeneric && this.parent.node.typeParameters.some((p) => p.name.text == stripNull(this.type))) {
+        if (this.parent.node.isGeneric &&
+            this.parent.node.typeParameters.some((p) => p.name.text == stripNull(this.type))) {
             this._generic = true;
             return true;
         }
@@ -76,7 +79,8 @@ export class Schema {
         if (visited.has(this.name))
             return 4;
         visited.add(this.name);
-        const requiredMembers = this.members.filter((member) => !member.flags.has(PropertyFlags.OmitIf) && !member.flags.has(PropertyFlags.OmitNull));
+        const requiredMembers = this.members.filter((member) => !member.flags.has(PropertyFlags.OmitIf) &&
+            !member.flags.has(PropertyFlags.OmitNull));
         if (!requiredMembers.length)
             return 4;
         let minChars = 2;
@@ -103,15 +107,22 @@ export class Schema {
         if (type.startsWith("JSON.Box<") || type.startsWith("Box<")) {
             const genericStart = type.indexOf("<");
             const genericEnd = type.lastIndexOf(">");
-            if (genericStart !== -1 && genericEnd !== -1 && genericEnd > genericStart) {
+            if (genericStart !== -1 &&
+                genericEnd !== -1 &&
+                genericEnd > genericStart) {
                 return this.getTypeMinChars(type.slice(genericStart + 1, genericEnd), visited);
             }
         }
-        if (type.startsWith("Array<") || type.startsWith("StaticArray<") || type.startsWith("Set<"))
+        if (type.startsWith("Array<") ||
+            type.startsWith("StaticArray<") ||
+            type.startsWith("Set<"))
             return 2;
         if (type.startsWith("Map<"))
             return 2;
-        if (type == "string" || type == "String" || type == "JSON.Raw" || type == "Raw")
+        if (type == "string" ||
+            type == "String" ||
+            type == "JSON.Raw" ||
+            type == "Raw")
             return 2;
         if (type == "Date")
             return 26;
@@ -126,13 +137,27 @@ export class Schema {
         const dep = this.deps.find((schema) => schema.name === type || schema.name.endsWith("." + type));
         if (dep)
             return dep.getMinLength(visited) >> 1;
-        if (this.parent && (this.parent.name === type || this.parent.name.endsWith("." + type))) {
+        if (this.parent &&
+            (this.parent.name === type || this.parent.name.endsWith("." + type))) {
             return this.parent.getMinLength(visited) >> 1;
         }
         return 1;
     }
     static isNumericType(type) {
-        return ["u8", "u16", "u32", "u64", "usize", "i8", "i16", "i32", "i64", "isize", "f32", "f64"].includes(type);
+        return [
+            "u8",
+            "u16",
+            "u32",
+            "u64",
+            "usize",
+            "i8",
+            "i16",
+            "i32",
+            "i64",
+            "isize",
+            "f32",
+            "f64",
+        ].includes(type);
     }
 }
 export class SourceSet {
@@ -169,15 +194,20 @@ export class Src {
             switch (node.kind) {
                 case NodeKind.NamespaceDeclaration:
                     const namespaceDeclaration = node;
-                    this.traverse(namespaceDeclaration.members, [...path, namespaceDeclaration]);
+                    this.traverse(namespaceDeclaration.members, [
+                        ...path,
+                        namespaceDeclaration,
+                    ]);
                     break;
                 case NodeKind.ClassDeclaration:
                     const classDeclaration = node;
-                    this.classes[this.qualifiedName(classDeclaration, path)] = classDeclaration;
+                    this.classes[this.qualifiedName(classDeclaration, path)] =
+                        classDeclaration;
                     break;
                 case NodeKind.EnumDeclaration:
                     const enumDeclaration = node;
-                    this.enums[this.qualifiedName(enumDeclaration, path)] = enumDeclaration;
+                    this.enums[this.qualifiedName(enumDeclaration, path)] =
+                        enumDeclaration;
                     break;
                 case NodeKind.Import:
                     const importStatement = node;
@@ -198,7 +228,9 @@ export class Src {
     }
     getImportedClass(qualifiedName, parser) {
         for (const stmt of this.imports) {
-            const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
+            const externalSource = parser.sources
+                .filter((src) => src.internalPath != this.internalPath)
+                .find((src) => src.internalPath == stmt.internalPath);
             if (!externalSource)
                 continue;
             const source = this.sourceSet.get(externalSource);
@@ -215,7 +247,9 @@ export class Src {
                 continue;
             const source = this.sourceSet.get(externalSource);
             const classDeclaration = source.getClass(qualifiedName);
-            if (classDeclaration && (classDeclaration.flags & 2 || externalSource.internalPath.startsWith("~lib/"))) {
+            if (classDeclaration &&
+                (classDeclaration.flags & 2 ||
+                    externalSource.internalPath.startsWith("~lib/"))) {
                 return classDeclaration;
             }
         }
@@ -223,7 +257,9 @@ export class Src {
     }
     getImportedEnum(qualifiedName, parser) {
         for (const stmt of this.imports) {
-            const externalSource = parser.sources.filter((src) => src.internalPath != this.internalPath).find((src) => src.internalPath == stmt.internalPath);
+            const externalSource = parser.sources
+                .filter((src) => src.internalPath != this.internalPath)
+                .find((src) => src.internalPath == stmt.internalPath);
             if (!externalSource)
                 continue;
             const source = this.sourceSet.get(externalSource);
@@ -260,7 +296,9 @@ export class Src {
         return extendsName;
     }
     qualifiedName(node, parents) {
-        return parents?.length ? parents.map((p) => p.name.text).join(".") + "." + node.name.text : node.name.text;
+        return parents?.length
+            ? parents.map((p) => p.name.text).join(".") + "." + node.name.text
+            : node.name.text;
     }
     getNamespaceOrClassName(node) {
         switch (node.kind) {

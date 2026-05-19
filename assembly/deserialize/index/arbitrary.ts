@@ -6,7 +6,11 @@ import { deserializeObject } from "./object";
 import { deserializeString } from "./string";
 import { BRACE_LEFT, BRACKET_LEFT, CHAR_N, QUOTE } from "../../custom/chars";
 
-export function deserializeArbitrary(srcStart: usize, srcEnd: usize, dst: usize): JSON.Value {
+export function deserializeArbitrary(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): JSON.Value {
   const firstChar = load<u16>(srcStart);
   if (firstChar == QUOTE) {
     return JSON.Value.from(deserializeString(srcStart, srcEnd));

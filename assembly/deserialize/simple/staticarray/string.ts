@@ -2,7 +2,11 @@ import { JSON } from "../../..";
 import { QUOTE } from "../../../custom/chars";
 import { isUnescapedQuote } from "../../../util";
 
-export function deserializeStaticArrayString(srcStart: usize, srcEnd: usize, dst: usize): StaticArray<string> {
+export function deserializeStaticArrayString(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): StaticArray<string> {
   // First pass: count elements using same logic as Array deserializer
   let count: i32 = 0;
   let ptr = srcStart;
@@ -22,7 +26,9 @@ export function deserializeStaticArrayString(srcStart: usize, srcEnd: usize, dst
 
   // Allocate StaticArray with correct size
   const outSize = (<usize>count) << alignof<string>();
-  const out = changetype<StaticArray<string>>(dst || __new(outSize, idof<StaticArray<string>>()));
+  const out = changetype<StaticArray<string>>(
+    dst || __new(outSize, idof<StaticArray<string>>()),
+  );
 
   // Second pass: populate values
   let index = 0;
@@ -35,7 +41,9 @@ export function deserializeStaticArrayString(srcStart: usize, srcEnd: usize, dst
         inString = true;
         lastPos = srcStart;
       } else if (isUnescapedQuote(srcStart)) {
-        unchecked((out[index++] = JSON.__deserialize<string>(lastPos, srcStart + 2)));
+        unchecked(
+          (out[index++] = JSON.__deserialize<string>(lastPos, srcStart + 2)),
+        );
         inString = false;
       }
     }

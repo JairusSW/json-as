@@ -15,12 +15,12 @@ lowercase() {
 RUNTIMES=${RUNTIMES:-"incremental"}
 ENGINES=${ENGINES:-"turbofan"}
 MODE_FILTER=${JSON_MODE:-""}
-TURBOFAN_FLAGS=${TURBOFAN_FLAGS:-"--no-liftoff --experimental-wasm-revectorize"}
+TURBOFAN_FLAGS=${TURBOFAN_FLAGS:-"--no-liftoff"}
 D8_BIN=${D8_BIN:-""}
 WAVM_BIN=${WAVM_BIN:-"wavm"}
 WAVM_RUN_FLAGS=${WAVM_RUN_FLAGS:-"--abi=wasi --enable simd --enable bulk-memory --enable sign-extension"}
 # Deserialize-biased alternative to try manually:
-# TURBOFAN_FLAGS="--no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --experimental-wasm-revectorize --minor-ms --minor-ms-concurrent-marking-trigger=30 --turboshaft-wasm-load-elimination"
+# TURBOFAN_FLAGS="--no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --minor-ms --minor-ms-concurrent-marking-trigger=30 --turboshaft-wasm-load-elimination"
 BENCH_NAME=""
 ARGS=()
 RUN_V8=0

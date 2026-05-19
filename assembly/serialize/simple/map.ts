@@ -26,7 +26,9 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
     if (keyIsString) {
       JSON.__serialize(unchecked(keys[i]));
     } else {
-      JSON.__serialize<string>(JSON.internal.stringify<indexof<T>>(unchecked(keys[i])));
+      JSON.__serialize<string>(
+        JSON.internal.stringify<indexof<T>>(unchecked(keys[i])),
+      );
     }
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
@@ -38,7 +40,9 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
   if (keyIsString) {
     JSON.__serialize(unchecked(keys[srcEnd]));
   } else {
-    JSON.__serialize<string>(JSON.internal.stringify<indexof<T>>(unchecked(keys[srcEnd])));
+    JSON.__serialize<string>(
+      JSON.internal.stringify<indexof<T>>(unchecked(keys[srcEnd])),
+    );
   }
   store<u16>(bs.offset, COLON);
   bs.offset += 2;

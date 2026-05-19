@@ -39,11 +39,14 @@ const BENCH_RUNTIME: ASBenchRuntime = ((): ASBenchRuntime => {
   return value === "wavm" ? "wavm" : "v8";
 })();
 
-const VERSION = "v" + JSON.parse(fs.readFileSync("./package.json", "utf-8")).version;
+const VERSION =
+  "v" + JSON.parse(fs.readFileSync("./package.json", "utf-8")).version;
 let V8_VERSION = execSync("v8").toString().trim().slice(11);
 V8_VERSION = V8_VERSION.slice(0, V8_VERSION.indexOf("\n")).trim();
 const GIT_HASH = execSync("git rev-parse --short HEAD").toString().trim();
-const GIT_BRANCH = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
+const GIT_BRANCH = execSync("git rev-parse --abbrev-ref HEAD")
+  .toString()
+  .trim();
 
 export function subtitle() {
   return `${new Date().toDateString()} • ${VERSION} • v8 ${V8_VERSION} • ${GIT_HASH} • ${GIT_BRANCH}`;
@@ -53,12 +56,22 @@ function readBenchLog(filePath: string): BenchResult {
   return JSON.parse(fs.readFileSync("./" + filePath, "utf-8")) as BenchResult;
 }
 
-export function benchLogPath(payload: string, type: BenchKind, language: "js" | "as", engine = ""): string {
+export function benchLogPath(
+  payload: string,
+  type: BenchKind,
+  language: "js" | "as",
+  engine = "",
+): string {
   if (language === "js") {
     return path.join(LOGS_DIR, "js", `${payload}.${type}.js.json`);
   }
   const suffix = BENCH_RUNTIME === "wavm" ? ".wavm.json" : ".as.json";
-  return path.join(LOGS_DIR, "as", engine.toLowerCase(), `${payload}.${type}${suffix}`);
+  return path.join(
+    LOGS_DIR,
+    "as",
+    engine.toLowerCase(),
+    `${payload}.${type}${suffix}`,
+  );
 }
 
 export function getBenchResults(payloads: string[]): BenchResults {
@@ -99,7 +112,12 @@ export function createBarChart(
       .map((r) => r.mbps),
   );
 
-  const datasetNames = options.datasetLabels ?? ["Built-in JSON (JS)", "JSON-AS (NAIVE)", "JSON-AS (SWAR)", "JSON-AS (SIMD)"];
+  const datasetNames = options.datasetLabels ?? [
+    "Built-in JSON (JS)",
+    "JSON-AS (NAIVE)",
+    "JSON-AS (SWAR)",
+    "JSON-AS (SIMD)",
+  ];
 
   return {
     type: "bar",
@@ -274,7 +292,10 @@ export function generateChart(config: ChartConfiguration, outfile: string) {
     chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
   });
 
-  const buffer = canvas.renderToBufferSync(config, outfile.endsWith(".svg") ? "image/svg+xml" : "image/png");
+  const buffer = canvas.renderToBufferSync(
+    config,
+    outfile.endsWith(".svg") ? "image/svg+xml" : "image/png",
+  );
 
   fs.writeFileSync(outfile, buffer);
   console.log(`> ${outfile}`);

@@ -1,6 +1,5 @@
 {
   "plugins": ["./tools/assemblyscript-prettier-plugin.js"],
   "singleQuote": false,
-  "printWidth": 65536,
   "tabWidth": 2
 }

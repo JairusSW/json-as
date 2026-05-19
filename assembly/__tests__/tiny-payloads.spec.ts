@@ -66,7 +66,9 @@ describe("Should handle tiny non-string payloads and containers", () => {
   expect((JSON.stringify<i32>(-1).length < 9).toString()).toBe("true");
   expect((JSON.stringify<f64>(1.5).length < 9).toString()).toBe("true");
   expect((JSON.stringify<f64>(1e-7).length < 9).toString()).toBe("true");
-  expect((JSON.stringify<JSON.Raw>(JSON.Raw.from("[]")).length < 9).toString()).toBe("true");
+  expect(
+    (JSON.stringify<JSON.Raw>(JSON.Raw.from("[]")).length < 9).toString(),
+  ).toBe("true");
 
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
   expect(JSON.stringify(JSON.parse<bool>("false"))).toBe("false");
@@ -83,8 +85,16 @@ describe("Should handle tiny arrays and tiny objects", () => {
   expect((JSON.stringify<i32[]>([]).length < 9).toString()).toBe("true");
   expect((JSON.stringify<i32[]>([1]).length < 9).toString()).toBe("true");
   expect((JSON.stringify<i32[]>([1, 2]).length < 9).toString()).toBe("true");
-  expect((JSON.stringify<JSON.Value>(JSON.parse<JSON.Value>("[]")).length < 9).toString()).toBe("true");
-  expect((JSON.stringify<JSON.Value>(JSON.parse<JSON.Value>("{}")).length < 9).toString()).toBe("true");
+  expect(
+    (
+      JSON.stringify<JSON.Value>(JSON.parse<JSON.Value>("[]")).length < 9
+    ).toString(),
+  ).toBe("true");
+  expect(
+    (
+      JSON.stringify<JSON.Value>(JSON.parse<JSON.Value>("{}")).length < 9
+    ).toString(),
+  ).toBe("true");
 
   expect(JSON.stringify(JSON.parse<i32[]>("[]"))).toBe("[]");
   expect(JSON.stringify(JSON.parse<i32[]>("[1]"))).toBe("[1]");

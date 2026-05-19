@@ -23,7 +23,12 @@
   // (c & 0xF) + 9 * (c >> 6)
   block = (block & 0x0f000f000f000f) + ((block >> 6) & 0x03000300030003) * 9;
 
-  return <u16>(((block >> 0) << 12) | ((block >> 16) << 8) | ((block >> 32) << 4) | (block >> 48));
+  return <u16>(
+    (((block >> 0) << 12) |
+      ((block >> 16) << 8) |
+      ((block >> 32) << 4) |
+      (block >> 48))
+  );
 }
 
 /**
@@ -48,9 +53,14 @@
  */
 // @ts-expect-error: @inline is a valid decorator
 @inline export function u16_to_hex4_swar(code: u16): u64 {
-  let block = (<u64>((code >> 12) & 0xf)) | ((<u64>((code >> 8) & 0xf)) << 16) | ((<u64>((code >> 4) & 0xf)) << 32) | ((<u64>(code & 0xf)) << 48);
+  let block =
+    (<u64>((code >> 12) & 0xf)) |
+    ((<u64>((code >> 8) & 0xf)) << 16) |
+    ((<u64>((code >> 4) & 0xf)) << 32) |
+    ((<u64>(code & 0xf)) << 48);
 
-  const alphaMask = ((block + 0x0006_0006_0006_0006) >> 4) & 0x0001_0001_0001_0001;
+  const alphaMask =
+    ((block + 0x0006_0006_0006_0006) >> 4) & 0x0001_0001_0001_0001;
   block += 0x0030_0030_0030_0030 + alphaMask * 39;
   return block;
 }

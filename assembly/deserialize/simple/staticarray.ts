@@ -18,7 +18,10 @@ import { deserializeStaticArrayString } from "./staticarray/string";
 import { scanValueEnd } from "../swar/array/shared";
 
 
-@inline function materializeStaticArray<T extends StaticArray<any>>(src: valueof<T>[], dst: usize): T {
+@inline function materializeStaticArray<T extends StaticArray<any>>(
+  src: valueof<T>[],
+  dst: usize,
+): T {
   const byteLength = <usize>src.length * sizeof<valueof<T>>();
   let out = dst;
 
@@ -35,7 +38,11 @@ import { scanValueEnd } from "../swar/array/shared";
   return typed;
 }
 
-export function deserializeStaticArray<T extends StaticArray<any>>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeStaticArray<T extends StaticArray<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
   if (isString<valueof<T>>()) {
     return changetype<T>(deserializeStaticArrayString(srcStart, srcEnd, dst));
   } else if (isBoolean<valueof<T>>()) {
@@ -45,27 +52,61 @@ export function deserializeStaticArray<T extends StaticArray<any>>(srcStart: usi
   } else if (isFloat<valueof<T>>()) {
     return deserializeStaticArrayFloat<T>(srcStart, srcEnd, dst);
   } else if (isArray<valueof<T>>()) {
-    return materializeStaticArray<T>(deserializeArrayArray<valueof<T>[]>(srcStart, srcEnd, 0), dst);
+    return materializeStaticArray<T>(
+      deserializeArrayArray<valueof<T>[]>(srcStart, srcEnd, 0),
+      dst,
+    );
   } else if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
     const type = changetype<nonnull<valueof<T>>>(0);
     if (type instanceof StaticArray) {
-      return materializeStaticArray<T>(deserializeArrayArray<valueof<T>[]>(srcStart, srcEnd, 0), dst);
+      return materializeStaticArray<T>(
+        deserializeArrayArray<valueof<T>[]>(srcStart, srcEnd, 0),
+        dst,
+      );
     } else if (type instanceof JSON.Value) {
-      return materializeStaticArray<T>(changetype<valueof<T>[]>(deserializeArbitraryArray(srcStart, srcEnd, 0)), dst);
+      return materializeStaticArray<T>(
+        changetype<valueof<T>[]>(
+          deserializeArbitraryArray(srcStart, srcEnd, 0),
+        ),
+        dst,
+      );
     } else if (type instanceof JSON.Box) {
-      return materializeStaticArray<T>(changetype<valueof<T>[]>(deserializeBoxArray<valueof<T>[]>(srcStart, srcEnd, 0)), dst);
+      return materializeStaticArray<T>(
+        changetype<valueof<T>[]>(
+          deserializeBoxArray<valueof<T>[]>(srcStart, srcEnd, 0),
+        ),
+        dst,
+      );
     } else if (type instanceof JSON.Obj) {
-      return materializeStaticArray<T>(deserializeObjectArray<valueof<T>[]>(srcStart, srcEnd, 0), dst);
+      return materializeStaticArray<T>(
+        deserializeObjectArray<valueof<T>[]>(srcStart, srcEnd, 0),
+        dst,
+      );
     } else if (type instanceof JSON.Raw) {
-      return materializeStaticArray<T>(changetype<valueof<T>[]>(deserializeRawArray(srcStart, srcEnd, 0)), dst);
+      return materializeStaticArray<T>(
+        changetype<valueof<T>[]>(deserializeRawArray(srcStart, srcEnd, 0)),
+        dst,
+      );
     } else if (type instanceof Map) {
-      return materializeStaticArray<T>(deserializeMapArray<valueof<T>[]>(srcStart, srcEnd, 0), dst);
+      return materializeStaticArray<T>(
+        deserializeMapArray<valueof<T>[]>(srcStart, srcEnd, 0),
+        dst,
+      );
       // @ts-ignore: supplied by transform
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-      return materializeStaticArray<T>(deserializeStructArray<valueof<T>[]>(srcStart, srcEnd, 0), dst);
+      return materializeStaticArray<T>(
+        deserializeStructArray<valueof<T>[]>(srcStart, srcEnd, 0),
+        dst,
+      );
       // @ts-ignore: supplied by transform
-    } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
-      return materializeStaticArray<T>(deserializeStructArray<valueof<T>[]>(srcStart, srcEnd, 0), dst);
+    } else if (
+      isDefined(type.__DESERIALIZE_SLOW) ||
+      isDefined(type.__DESERIALIZE_FAST)
+    ) {
+      return materializeStaticArray<T>(
+        deserializeStructArray<valueof<T>[]>(srcStart, srcEnd, 0),
+        dst,
+      );
     }
   }
 
@@ -73,12 +114,21 @@ export function deserializeStaticArray<T extends StaticArray<any>>(srcStart: usi
 }
 
 
-@inline export function deserializeStaticArrayField<T extends StaticArray<any>>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+@inline export function deserializeStaticArrayField<T extends StaticArray<any>>(
+  srcStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
   const valueEnd = scanValueEnd(srcStart, srcEnd);
   if (!valueEnd) throw new Error("Failed to parse JSON!");
 
   const fieldPtr = dstObj + dstOffset;
-  const out = deserializeStaticArray<T>(srcStart, valueEnd, load<usize>(fieldPtr));
+  const out = deserializeStaticArray<T>(
+    srcStart,
+    valueEnd,
+    load<usize>(fieldPtr),
+  );
   store<T>(fieldPtr, out);
   return valueEnd;
 }

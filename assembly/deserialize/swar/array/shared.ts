@@ -1,7 +1,17 @@
-import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA, QUOTE } from "../../../custom/chars";
+import {
+  BACK_SLASH,
+  BRACE_LEFT,
+  BRACE_RIGHT,
+  BRACKET_LEFT,
+  BRACKET_RIGHT,
+  COMMA,
+  QUOTE,
+} from "../../../custom/chars";
 
 
-@inline export function ensureArrayField<T extends Array<any>>(fieldPtr: usize): T {
+@inline export function ensureArrayField<T extends Array<any>>(
+  fieldPtr: usize,
+): T {
   let out = load<T>(fieldPtr);
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
@@ -11,7 +21,10 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
 }
 
 
-@inline export function ensureArrayFieldAt<T extends Array<any>>(dstObj: usize, dstOffset: usize): T {
+@inline export function ensureArrayFieldAt<T extends Array<any>>(
+  dstObj: usize,
+  dstOffset: usize,
+): T {
   let out = load<T>(dstObj, dstOffset);
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
@@ -24,25 +37,35 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
 @inline function backslashOrQuoteMask(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
   const q = block ^ 0x0022_0022_0022_0022;
-  return (((q - 0x0001_0001_0001_0001) & ~q) | ((b - 0x0001_0001_0001_0001) & ~b)) & 0x0080_0080_0080_0080;
+  return (
+    (((q - 0x0001_0001_0001_0001) & ~q) | ((b - 0x0001_0001_0001_0001) & ~b)) &
+    0x0080_0080_0080_0080
+  );
 }
 
 
-@inline export function ensureArrayElementSlot<T extends Array<any>>(out: T, index: i32): usize {
+@inline export function ensureArrayElementSlot<T extends Array<any>>(
+  out: T,
+  index: i32,
+): usize {
   const nextLength = index + 1;
   if (out.length < nextLength) {
     out.length = nextLength;
     const slot = out.dataStart + <usize>index * sizeof<valueof<T>>();
     // Reference arrays can allocate recursively before the caller stores the new element.
     // Zero the newly exposed slot immediately so incremental GC never observes a garbage pointer.
-    if (isManaged<valueof<T>>() || isReference<valueof<T>>()) store<usize>(slot, 0);
+    if (isManaged<valueof<T>>() || isReference<valueof<T>>())
+      store<usize>(slot, 0);
     return slot;
   }
   return out.dataStart + <usize>index * sizeof<valueof<T>>();
 }
 
 
-@inline export function scanQuotedValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
+@inline export function scanQuotedValueEnd_SWAR(
+  srcStart: usize,
+  srcEnd: usize,
+): usize {
   srcStart += 2;
   const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
 
@@ -67,7 +90,8 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
 
   while (srcStart < srcEnd) {
     const char = load<u16>(srcStart);
-    if (char == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH) return srcStart + 2;
+    if (char == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH)
+      return srcStart + 2;
     srcStart += 2;
   }
 
@@ -103,7 +127,8 @@ import { BACK_SLASH, BRACE_LEFT, BRACE_RIGHT, BRACKET_LEFT, BRACKET_RIGHT, COMMA
 
   while (srcStart < srcEnd) {
     const code = load<u16>(srcStart);
-    if (code == COMMA || code == BRACKET_RIGHT || code == BRACE_RIGHT) return srcStart;
+    if (code == COMMA || code == BRACKET_RIGHT || code == BRACE_RIGHT)
+      return srcStart;
     srcStart += 2;
   }
 

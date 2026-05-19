@@ -4,7 +4,10 @@ import { deserializeString_SIMD } from "../simd/string";
 import { deserializeString_SWAR } from "../swar/string";
 
 
-@inline export function deserializeString(srcStart: usize, srcEnd: usize): string {
+@inline export function deserializeString(
+  srcStart: usize,
+  srcEnd: usize,
+): string {
   if (JSON_MODE == JSONMode.SIMD) {
     return deserializeString_SIMD(srcStart, srcEnd);
   } else if (JSON_MODE == JSONMode.NAIVE) {

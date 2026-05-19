@@ -1,4 +1,9 @@
-import { CallExpression, IdentifierExpression, Node, PropertyAccessExpression } from "assemblyscript/dist/assemblyscript.js";
+import {
+  CallExpression,
+  IdentifierExpression,
+  Node,
+  PropertyAccessExpression,
+} from "assemblyscript/dist/assemblyscript.js";
 import { NodeKind } from "../types.js";
 import { Visitor } from "../visitor.js";
 
@@ -11,10 +16,18 @@ export class CustomTransform extends Visitor {
     const expression = node.expression as PropertyAccessExpression;
     const property = expression.property.text;
     if (property != "stringify" && property != "parse") return;
-    if (expression.expression.kind != NodeKind.Identifier || (expression.expression as IdentifierExpression).text != "JSON") return;
+    if (
+      expression.expression.kind != NodeKind.Identifier ||
+      (expression.expression as IdentifierExpression).text != "JSON"
+    )
+      return;
 
     if (this.modify) {
-      expression.expression = Node.createPropertyAccessExpression(Node.createIdentifierExpression("JSON", node.expression.range), Node.createIdentifierExpression("internal", node.expression.range), node.expression.range);
+      expression.expression = Node.createPropertyAccessExpression(
+        Node.createIdentifierExpression("JSON", node.expression.range),
+        Node.createIdentifierExpression("internal", node.expression.range),
+        node.expression.range,
+      );
     }
     this.modify = true;
 

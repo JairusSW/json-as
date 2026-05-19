@@ -1,5 +1,6 @@
-import { deserializeIntegerField } from "../../simple/integer";
-import { deserializeUnsignedField } from "../../simple/unsigned";
+import { deserializeIntegerField } from "../../index/integer";
+import { deserializeUnsignedField } from "../../index/unsigned";
+import { deserializeIntegerArray as deserializeIntegerArray_NAIVE } from "../../simple/array/integer";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
@@ -10,7 +11,10 @@ const ASCII_RANGE_MASK_4: u64 = 0xfff0fff0fff0fff0;
 const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 
 
-@inline function pushSignedInteger<T extends number[]>(out: T, value: i64): void {
+@inline function pushSignedInteger<T extends number[]>(
+  out: T,
+  value: i64,
+): void {
   if (sizeof<valueof<T>>() == sizeof<i8>()) {
     out.push(<valueof<T>>(<i8>value));
   } else if (sizeof<valueof<T>>() == sizeof<i16>()) {
@@ -25,7 +29,10 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 }
 
 
-@inline function pushUnsignedInteger<T extends number[]>(out: T, value: u64): void {
+@inline function pushUnsignedInteger<T extends number[]>(
+  out: T,
+  value: u64,
+): void {
   if (sizeof<valueof<T>>() == sizeof<u8>()) {
     out.push(<valueof<T>>(<u8>value));
   } else if (sizeof<valueof<T>>() == sizeof<u16>()) {
@@ -40,7 +47,10 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 }
 
 
-@inline function storeSignedInteger<T extends number[]>(slot: usize, value: i64): void {
+@inline function storeSignedInteger<T extends number[]>(
+  slot: usize,
+  value: i64,
+): void {
   if (sizeof<valueof<T>>() == sizeof<i8>()) {
     store<i8>(slot, <i8>value);
   } else if (sizeof<valueof<T>>() == sizeof<i16>()) {
@@ -55,7 +65,10 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 }
 
 
-@inline function storeUnsignedInteger<T extends number[]>(slot: usize, value: u64): void {
+@inline function storeUnsignedInteger<T extends number[]>(
+  slot: usize,
+  value: u64,
+): void {
   if (sizeof<valueof<T>>() == sizeof<u8>()) {
     store<u8>(slot, <u8>value);
   } else if (sizeof<valueof<T>>() == sizeof<u16>()) {
@@ -72,13 +85,23 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 
 @inline function parse4DigitsASCII(block: u64): u32 {
   const digits = (block & ASCII_LANE_MASK_4) - ASCII_ZERO_4;
-  if (((digits | (digits + ASCII_RANGE_ADD_4)) & ASCII_RANGE_MASK_4) != 0) return U32.MAX_VALUE;
+  if (((digits | (digits + ASCII_RANGE_ADD_4)) & ASCII_RANGE_MASK_4) != 0)
+    return U32.MAX_VALUE;
 
-  return <u32>(<u32>(digits & 0xffff) * 1000 + <u32>((digits >> 16) & 0xffff) * 100 + <u32>((digits >> 32) & 0xffff) * 10 + <u32>(digits >> 48));
+  return <u32>(
+    (<u32>(digits & 0xffff) * 1000 +
+      <u32>((digits >> 16) & 0xffff) * 100 +
+      <u32>((digits >> 32) & 0xffff) * 10 +
+      <u32>(digits >> 48))
+  );
 }
 
 
-@inline function parseSignedIntegerScalar<T extends number[]>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline function parseSignedIntegerScalar<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
   let negative = false;
   let code = load<u16>(srcStart);
   if (code == 45) {
@@ -105,7 +128,11 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 }
 
 
-@inline function parseUnsignedIntegerScalar<T extends number[]>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline function parseUnsignedIntegerScalar<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
   let digit = <u32>load<u16>(srcStart) - 48;
   if (digit > 9) return 0;
 
@@ -123,7 +150,11 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 }
 
 
-@inline function parseSignedIntegerSWAR<T extends number[]>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline function parseSignedIntegerSWAR<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
   let negative = false;
   let code = load<u16>(srcStart);
   if (code == 45) {
@@ -139,11 +170,16 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
   let value: u64 = digit;
   srcStart += 2;
 
-  while (srcStart + 6 < srcEnd) {
-    const parsed = parse4DigitsASCII(load<u64>(srcStart));
-    if (parsed == U32.MAX_VALUE) break;
-    value = value * 10000 + parsed;
-    srcStart += 8;
+  // i8 tops out at 3 digits (-128..127), so the 4-digit kernel can never fire
+  // and the failing load + range check just burns cycles. Gate on the lane
+  // width so AS folds the loop away at compile time.
+  if (sizeof<valueof<T>>() > 1) {
+    while (srcStart + 6 < srcEnd) {
+      const parsed = parse4DigitsASCII(load<u64>(srcStart));
+      if (parsed == U32.MAX_VALUE) break;
+      value = value * 10000 + parsed;
+      srcStart += 8;
+    }
   }
 
   while (srcStart < srcEnd) {
@@ -158,7 +194,35 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 }
 
 
-@inline function parseUnsignedIntegerSWAR<T extends number[]>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline function parseUnsignedIntegerSWAR<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
+  // Narrow-type path mirrors the NAIVE structure: a tight scan loop to find
+  // the element terminator, then a fixed-count fold with no per-digit break.
+  // TurboFan tends to schedule this better than a single combined
+  // scan-and-fold loop because the fold has no data-dependent exit.
+  if (sizeof<valueof<T>>() <= 2) {
+    const first = <u32>load<u16>(srcStart) - 48;
+    if (first > 9) return 0;
+    const lastIndex = srcStart;
+    srcStart += 2;
+    while (srcStart < srcEnd) {
+      const c = <u32>load<u16>(srcStart) - 48;
+      if (c > 9) break;
+      srcStart += 2;
+    }
+    let value: u64 = 0;
+    let p = lastIndex;
+    while (p < srcStart) {
+      value = value * 10 + (<u32>load<u16>(p) - 48);
+      p += 2;
+    }
+    pushUnsignedInteger<T>(out, value);
+    return srcStart;
+  }
+
   let digit = <u32>load<u16>(srcStart) - 48;
   if (digit > 9) return 0;
 
@@ -184,7 +248,10 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 }
 
 
-@inline function skipIntegerArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
+@inline function skipIntegerArrayWhitespace(
+  srcStart: usize,
+  srcEnd: usize,
+): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) {
     srcStart += 2;
   }
@@ -192,8 +259,14 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 }
 
 // @ts-ignore: Decorator valid here
-export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize, srcEnd: usize, dst: usize): T {
-  const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
+export function deserializeIntegerArray_SLOW<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
+  const out = changetype<nonnull<T>>(
+    dst || changetype<usize>(instantiate<T>()),
+  );
   let index = 0;
 
   out.length = 0;
@@ -231,7 +304,10 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
         srcStart += 2;
       }
 
-      storeSignedInteger<T>(ensureArrayElementSlot<T>(out, index), negative ? -(<i64>value) : <i64>value);
+      storeSignedInteger<T>(
+        ensureArrayElementSlot<T>(out, index),
+        negative ? -(<i64>value) : <i64>value,
+      );
     } else {
       let digit = <u32>code - 48;
       if (digit > 9) break;
@@ -265,8 +341,15 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
 }
 
 
-@inline function deserializeIntegerArrayImpl<T extends number[]>(srcStart: usize, srcEnd: usize, dst: usize, useSWAR: bool): T {
-  const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
+@inline function deserializeIntegerArrayImpl<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+  useSWAR: bool,
+): T {
+  const out = changetype<nonnull<T>>(
+    dst || changetype<usize>(instantiate<T>()),
+  );
   const originalSrcStart = srcStart;
   const reusableLength = out.length;
 
@@ -300,11 +383,13 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
           let value: u64 = digit;
           srcStart += 2;
 
-          while (srcStart + 6 < srcEnd) {
-            const parsed = parse4DigitsASCII(load<u64>(srcStart));
-            if (parsed == U32.MAX_VALUE) break;
-            value = value * 10000 + parsed;
-            srcStart += 8;
+          if (sizeof<valueof<T>>() > 1) {
+            while (srcStart + 6 < srcEnd) {
+              const parsed = parse4DigitsASCII(load<u64>(srcStart));
+              if (parsed == U32.MAX_VALUE) break;
+              value = value * 10000 + parsed;
+              srcStart += 8;
+            }
           }
 
           while (srcStart < srcEnd) {
@@ -315,7 +400,10 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
           }
 
           if (index >= reusableLength) break;
-          storeSignedInteger<T>(dataStart + <usize>index * sizeof<valueof<T>>(), negative ? -(<i64>value) : <i64>value);
+          storeSignedInteger<T>(
+            dataStart + <usize>index * sizeof<valueof<T>>(),
+            negative ? -(<i64>value) : <i64>value,
+          );
           index++;
           if (srcStart >= srcEnd) break;
 
@@ -338,11 +426,13 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
           let value: u64 = digit;
           srcStart += 2;
 
-          while (srcStart + 6 < srcEnd) {
-            const parsed = parse4DigitsASCII(load<u64>(srcStart));
-            if (parsed == U32.MAX_VALUE) break;
-            value = value * 10000 + parsed;
-            srcStart += 8;
+          if (sizeof<valueof<T>>() > 1) {
+            while (srcStart + 6 < srcEnd) {
+              const parsed = parse4DigitsASCII(load<u64>(srcStart));
+              if (parsed == U32.MAX_VALUE) break;
+              value = value * 10000 + parsed;
+              srcStart += 8;
+            }
           }
 
           while (srcStart < srcEnd) {
@@ -353,7 +443,10 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
           }
 
           if (index >= reusableLength) break;
-          storeUnsignedInteger<T>(dataStart + <usize>index * sizeof<valueof<T>>(), value);
+          storeUnsignedInteger<T>(
+            dataStart + <usize>index * sizeof<valueof<T>>(),
+            value,
+          );
           index++;
           if (srcStart >= srcEnd) break;
 
@@ -384,7 +477,9 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
 
     if (isSigned<valueof<T>>()) {
       while (srcStart < srcEnd) {
-        srcStart = useSWAR ? parseSignedIntegerSWAR<T>(srcStart, srcEnd, out) : parseSignedIntegerScalar<T>(srcStart, srcEnd, out);
+        srcStart = useSWAR
+          ? parseSignedIntegerSWAR<T>(srcStart, srcEnd, out)
+          : parseSignedIntegerScalar<T>(srcStart, srcEnd, out);
         if (!srcStart || srcStart >= srcEnd) break;
 
         const code = load<u16>(srcStart);
@@ -397,7 +492,9 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
       }
     } else {
       while (srcStart < srcEnd) {
-        srcStart = useSWAR ? parseUnsignedIntegerSWAR<T>(srcStart, srcEnd, out) : parseUnsignedIntegerScalar<T>(srcStart, srcEnd, out);
+        srcStart = useSWAR
+          ? parseUnsignedIntegerSWAR<T>(srcStart, srcEnd, out)
+          : parseUnsignedIntegerScalar<T>(srcStart, srcEnd, out);
         if (!srcStart || srcStart >= srcEnd) break;
 
         const code = load<u16>(srcStart);
@@ -411,21 +508,158 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(srcStart: usize
     }
   } while (false);
 
-  return deserializeIntegerArray_SLOW<T>(originalSrcStart, srcEnd, changetype<usize>(out));
+  return deserializeIntegerArray_SLOW<T>(
+    originalSrcStart,
+    srcEnd,
+    changetype<usize>(out),
+  );
 }
 
 // @ts-ignore: Decorator valid here
-export function deserializeIntegerArray<T extends number[]>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeIntegerArray<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
   return deserializeIntegerArrayImpl<T>(srcStart, srcEnd, dst, false);
 }
 
 // @ts-ignore: Decorator valid here
-export function deserializeIntegerArray_SWAR<T extends number[]>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeIntegerArray_SWAR<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
+  // u8/i8 elements use a dedicated two-pass SWAR path: a 4-char-stride
+  // comma counter pre-sizes the array so the parse pass can drop the
+  // per-push capacity check and write through a direct pointer. The
+  // wider-lane SWAR kernel never amortizes itself for narrow elements
+  // (u8 max 3 digits) so we skip it entirely here.
+  if (sizeof<valueof<T>>() <= 1) {
+    return deserializeNarrowIntegerArray_SWAR<T>(srcStart, srcEnd, dst);
+  }
   return deserializeIntegerArrayImpl<T>(srcStart, srcEnd, dst, true);
 }
 
+/**
+ * Narrow-lane (u8/i8) integer-array deserializer.
+ *
+ * Two passes:
+ *   1) SWAR comma counter (4 chars per stride, popcnt over the lane mask)
+ *      sizes the array exactly so the parse pass can use unchecked stores.
+ *   2) Walks the input NAIVE-style (skip non-digits, scan to separator,
+ *      fold digits) but writes through a direct pointer, eliminating
+ *      `Array.push`'s per-element capacity check and length write.
+ *
+ * V8 already auto-SIMDs NAIVE's scalar scan loop tighter than a hand-rolled
+ * SWAR scan in pass 2, so we keep that pattern there and only pay SWAR cost
+ * on the pre-count - which is a tight load-mask-popcnt loop where V8's
+ * scalar code can't compete with the explicit 4-lane stride.
+ */
+function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
+  const out = changetype<nonnull<T>>(
+    dst || changetype<usize>(instantiate<T>()),
+  );
 
-@inline export function deserializeIntegerArrayInto<T extends number[]>(srcStart: usize, srcEnd: usize, out: T): usize {
+  // Worst-case sizing: every element is at least 1 digit + 1 delimiter = 2
+  // UTF-16 chars = 4 bytes, so the body inside `[...]` can't hold more than
+  // `(srcEnd - srcStart) / 4` elements. AS skips zero-fill on `length=` for
+  // unmanaged element types, so over-allocation is essentially free here
+  // and saves a full SWAR pass over the input.
+  const maxElements = i32((<usize>(srcEnd - srcStart)) >> 2);
+  if (maxElements > 0) out.length = maxElements;
+  const dataStart = out.dataStart;
+  const elementSize = sizeof<valueof<T>>();
+  let writePtr = dataStart;
+
+  while (srcStart < srcEnd) {
+    // Fast paths: 1-, 2-, or 3-digit unsigned element followed by `,` packs
+    // into one u64 load (covers ~100% of the typical 0..255 cycle). Ordered
+    // 3 -> 2 -> 1 because 3-digit values dominate any wide-range payload;
+    // the 2- and 1-digit branches cover the rest of `out`.
+    if (!isSigned<valueof<T>>() && srcStart + 6 < srcEnd) {
+      const block = load<u64>(srcStart);
+      if (((block >> 48) & 0xffff) == COMMA) {
+        const digits = (block & 0x0000_00ff_00ff_00ff) - 0x0000_0030_0030_0030;
+        const oor =
+          (digits | (digits + 0x0000_0006_0006_0006)) & 0x0000_fff0_fff0_fff0;
+        if (oor == 0) {
+          const d0 = <u32>(digits & 0xffff);
+          const d1 = <u32>((digits >> 16) & 0xffff);
+          const d2 = <u32>((digits >> 32) & 0xffff);
+          store<valueof<T>>(writePtr, <valueof<T>>(d0 * 100 + d1 * 10 + d2));
+          writePtr += elementSize;
+          srcStart += 8;
+          continue;
+        }
+      } else if (((block >> 32) & 0xffff) == COMMA) {
+        const digits = (block & 0x0000_0000_00ff_00ff) - 0x0000_0000_0030_0030;
+        const oor =
+          (digits | (digits + 0x0000_0000_0006_0006)) & 0x0000_0000_fff0_fff0;
+        if (oor == 0) {
+          const d0 = <u32>(digits & 0xffff);
+          const d1 = <u32>((digits >> 16) & 0xffff);
+          store<valueof<T>>(writePtr, <valueof<T>>(d0 * 10 + d1));
+          writePtr += elementSize;
+          srcStart += 6;
+          continue;
+        }
+      } else if (((block >> 16) & 0xffff) == COMMA) {
+        const d0 = <u32>(block & 0xffff) - 48;
+        if (d0 <= 9) {
+          store<valueof<T>>(writePtr, <valueof<T>>d0);
+          writePtr += elementSize;
+          srcStart += 4;
+          continue;
+        }
+      }
+    }
+    const code = load<u16>(srcStart);
+    if (<u32>code - 48 <= 9 || (isSigned<valueof<T>>() && code == 45)) {
+      const lastIndex = srcStart;
+      srcStart += 2;
+      while (srcStart < srcEnd) {
+        const c = load<u16>(srcStart);
+        if (c == COMMA || c == BRACKET_RIGHT || isSpace(c)) {
+          let value: u64 = 0;
+          let p = lastIndex;
+          if (isSigned<valueof<T>>() && load<u16>(p) == 45) {
+            p += 2;
+            while (p < srcStart) {
+              value = value * 10 + (<u32>load<u16>(p) - 48);
+              p += 2;
+            }
+            store<valueof<T>>(writePtr, <valueof<T>>-(<i64>value));
+          } else {
+            while (p < srcStart) {
+              value = value * 10 + (<u32>load<u16>(p) - 48);
+              p += 2;
+            }
+            store<valueof<T>>(writePtr, <valueof<T>>value);
+          }
+          writePtr += elementSize;
+          break;
+        }
+        srcStart += 2;
+      }
+    }
+    srcStart += 2;
+  }
+
+  out.length = i32(<usize>(writePtr - dataStart) / elementSize);
+  return out;
+}
+
+
+@inline export function deserializeIntegerArrayInto<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
   let index = 0;
 
   do {
@@ -439,7 +673,9 @@ export function deserializeIntegerArray_SWAR<T extends number[]>(srcStart: usize
 
     while (srcStart < srcEnd) {
       const slot = ensureArrayElementSlot<T>(out, index);
-      srcStart = isSigned<valueof<T>>() ? deserializeIntegerField<valueof<T>>(srcStart, srcEnd, slot) : deserializeUnsignedField<valueof<T>>(srcStart, srcEnd, slot);
+      srcStart = isSigned<valueof<T>>()
+        ? deserializeIntegerField<valueof<T>>(srcStart, srcEnd, slot)
+        : deserializeUnsignedField<valueof<T>>(srcStart, srcEnd, slot);
       if (!srcStart || srcStart >= srcEnd) break;
 
       const code = load<u16>(srcStart);
@@ -460,6 +696,14 @@ export function deserializeIntegerArray_SWAR<T extends number[]>(srcStart: usize
 }
 
 
-@inline export function deserializeIntegerArrayField<T extends number[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  return deserializeIntegerArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
+@inline export function deserializeIntegerArrayField<T extends number[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  fieldPtr: usize,
+): usize {
+  return deserializeIntegerArrayInto<T>(
+    srcStart,
+    srcEnd,
+    ensureArrayField<T>(fieldPtr),
+  );
 }

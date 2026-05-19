@@ -24,13 +24,15 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 @lazy const SPLAT_D800 = i16x8.splat(i16(0xd7ff));
 
 function makePlainPayload(targetBytes: i32): string {
-  const base = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-+=/., ";
+  const base =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-+=/., ";
   const repeats = i32(Math.ceil(targetBytes / (base.length << 1)));
   return base.repeat(repeats).slice(0, targetBytes >> 1);
 }
 
 function makeEscapedPayload(targetBytes: i32): string {
-  const base = 'abcdefgh"ijklmnop\\\\qrstuvwx\nyz\t\b\f\r' + "\u0001" + "\u001f";
+  const base =
+    'abcdefgh"ijklmnop\\\\qrstuvwx\nyz\t\b\f\r' + "\u0001" + "\u001f";
   const repeats = i32(Math.ceil(targetBytes / (base.length << 1)));
   return base.repeat(repeats).slice(0, targetBytes >> 1);
 }
@@ -95,7 +97,11 @@ const escaped = makeEscapedPayload(512 * 1024);
 }
 
 // @ts-expect-error: @inline is a valid decorator
-@inline function emitCodeUnitAt(srcStart: usize, srcEnd: usize, useShortMap: bool): usize {
+@inline function emitCodeUnitAt(
+  srcStart: usize,
+  srcEnd: usize,
+  useShortMap: bool,
+): usize {
   const code = load<u16>(srcStart);
 
   if (code == BACK_SLASH || code == QUOTE || code < 32) {
@@ -399,7 +405,11 @@ function serializeString_SIMD_DenseScalarShortMap(src: string): void {
         } else {
           bs.growSize(10);
           store<u64>(dstIdx, U00_MARKER);
-          store<u32>(dstIdx, load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)), 8);
+          store<u32>(
+            dstIdx,
+            load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)),
+            8,
+          );
           store<v128>(dstIdx, load<v128>(srcIdx, 2), 12);
           bs.offset += 10;
         }
@@ -671,7 +681,11 @@ function serializeString_SIMD_ShortMap(src: string): void {
         } else {
           bs.growSize(10);
           store<u64>(dstIdx, U00_MARKER);
-          store<u32>(dstIdx, load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)), 8);
+          store<u32>(
+            dstIdx,
+            load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)),
+            8,
+          );
           store<v128>(dstIdx, load<v128>(srcIdx, 2), 12);
           bs.offset += 10;
         }
@@ -712,7 +726,11 @@ function serializeString_SIMD_ShortMap(src: string): void {
       } else {
         bs.growSize(10);
         store<u64>(bs.offset, U00_MARKER);
-        store<u32>(bs.offset, load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)), 8);
+        store<u32>(
+          bs.offset,
+          load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)),
+          8,
+        );
         bs.offset += 12;
       }
       srcStart += 2;
@@ -998,7 +1016,11 @@ function serializeString_SIMD_MaskCombine(src: string): void {
     const block = load<v128>(srcStart);
     store<v128>(bs.offset, block);
 
-    let mask = i8x16.bitmask(i16x8.eq(block, SPLAT_0022)) | i8x16.bitmask(i16x8.eq(block, SPLAT_005C)) | i8x16.bitmask(i16x8.lt_u(block, SPLAT_0020)) | i8x16.bitmask(i8x16.gt_u(block, SPLAT_FFD8));
+    let mask =
+      i8x16.bitmask(i16x8.eq(block, SPLAT_0022)) |
+      i8x16.bitmask(i16x8.eq(block, SPLAT_005C)) |
+      i8x16.bitmask(i16x8.lt_u(block, SPLAT_0020)) |
+      i8x16.bitmask(i8x16.gt_u(block, SPLAT_FFD8));
 
     if (mask == 0) {
       bs.offset += 16;
@@ -1239,31 +1261,171 @@ expect(serializeRunCopy(escaped)).toBe(expectedEscaped);
 expect(serializeRunCopyShortMap(escaped)).toBe(expectedEscaped);
 expect(serializeCurrentPregrow(escaped)).toBe(expectedEscaped);
 
-bench("Serialize String SIMD plain (current)", () => blackbox(serializeCurrent(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (short-map)", () => blackbox(serializeShortMap(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (lane-surrogate)", () => blackbox(serializeLaneSurrogate(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (plain-fastpath)", () => blackbox(serializePlainFastpath(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (mask-once)", () => blackbox(serializeMaskOnce(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (mask-combine)", () => blackbox(serializeMaskCombine(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (first-hit)", () => blackbox(serializeFirstHit(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (first-hit-pregrow)", () => blackbox(serializeFirstHitPregrow(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (first-hit-shortmap)", () => blackbox(serializeFirstHitShortMap(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (dense-scalar)", () => blackbox(serializeDenseScalar(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (dense-scalar-shortmap)", () => blackbox(serializeDenseScalarShortMap(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (run-copy)", () => blackbox(serializeRunCopy(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (run-copy-shortmap)", () => blackbox(serializeRunCopyShortMap(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD plain (current-pregrow)", () => blackbox(serializeCurrentPregrow(plain)), 4_000, expectedPlain.length << 1);
-bench("Serialize String SIMD escaped (current)", () => blackbox(serializeCurrent(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (short-map)", () => blackbox(serializeShortMap(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (lane-surrogate)", () => blackbox(serializeLaneSurrogate(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (plain-fastpath)", () => blackbox(serializePlainFastpath(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (mask-once)", () => blackbox(serializeMaskOnce(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (mask-combine)", () => blackbox(serializeMaskCombine(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (first-hit)", () => blackbox(serializeFirstHit(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (first-hit-pregrow)", () => blackbox(serializeFirstHitPregrow(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (first-hit-shortmap)", () => blackbox(serializeFirstHitShortMap(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (dense-scalar)", () => blackbox(serializeDenseScalar(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (dense-scalar-shortmap)", () => blackbox(serializeDenseScalarShortMap(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (run-copy)", () => blackbox(serializeRunCopy(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (run-copy-shortmap)", () => blackbox(serializeRunCopyShortMap(escaped)), 4_000, expectedEscaped.length << 1);
-bench("Serialize String SIMD escaped (current-pregrow)", () => blackbox(serializeCurrentPregrow(escaped)), 4_000, expectedEscaped.length << 1);
+bench(
+  "Serialize String SIMD plain (current)",
+  () => blackbox(serializeCurrent(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (short-map)",
+  () => blackbox(serializeShortMap(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (lane-surrogate)",
+  () => blackbox(serializeLaneSurrogate(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (plain-fastpath)",
+  () => blackbox(serializePlainFastpath(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (mask-once)",
+  () => blackbox(serializeMaskOnce(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (mask-combine)",
+  () => blackbox(serializeMaskCombine(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (first-hit)",
+  () => blackbox(serializeFirstHit(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (first-hit-pregrow)",
+  () => blackbox(serializeFirstHitPregrow(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (first-hit-shortmap)",
+  () => blackbox(serializeFirstHitShortMap(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (dense-scalar)",
+  () => blackbox(serializeDenseScalar(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (dense-scalar-shortmap)",
+  () => blackbox(serializeDenseScalarShortMap(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (run-copy)",
+  () => blackbox(serializeRunCopy(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (run-copy-shortmap)",
+  () => blackbox(serializeRunCopyShortMap(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD plain (current-pregrow)",
+  () => blackbox(serializeCurrentPregrow(plain)),
+  4_000,
+  expectedPlain.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (current)",
+  () => blackbox(serializeCurrent(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (short-map)",
+  () => blackbox(serializeShortMap(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (lane-surrogate)",
+  () => blackbox(serializeLaneSurrogate(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (plain-fastpath)",
+  () => blackbox(serializePlainFastpath(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (mask-once)",
+  () => blackbox(serializeMaskOnce(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (mask-combine)",
+  () => blackbox(serializeMaskCombine(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (first-hit)",
+  () => blackbox(serializeFirstHit(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (first-hit-pregrow)",
+  () => blackbox(serializeFirstHitPregrow(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (first-hit-shortmap)",
+  () => blackbox(serializeFirstHitShortMap(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (dense-scalar)",
+  () => blackbox(serializeDenseScalar(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (dense-scalar-shortmap)",
+  () => blackbox(serializeDenseScalarShortMap(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (run-copy)",
+  () => blackbox(serializeRunCopy(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (run-copy-shortmap)",
+  () => blackbox(serializeRunCopyShortMap(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);
+bench(
+  "Serialize String SIMD escaped (current-pregrow)",
+  () => blackbox(serializeCurrentPregrow(escaped)),
+  4_000,
+  expectedEscaped.length << 1,
+);

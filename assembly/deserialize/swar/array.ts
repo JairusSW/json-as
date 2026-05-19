@@ -21,7 +21,12 @@ import { deserializeStringArrayInto } from "./array/string";
 import { deserializeStructArrayInto } from "./array/struct";
 
 
-@inline export function deserializeArrayField<T extends unknown[]>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+@inline export function deserializeArrayField<T extends unknown[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
   const fieldPtr = dstObj + dstOffset;
   if (isString<valueof<T>>()) {
     return deserializeStringArrayField<T>(srcStart, srcEnd, fieldPtr);
@@ -53,7 +58,10 @@ import { deserializeStructArrayInto } from "./array/struct";
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
       return deserializeStructArrayField<T>(srcStart, srcEnd, fieldPtr);
       // @ts-ignore: defined by transform
-    } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
+    } else if (
+      isDefined(type.__DESERIALIZE_SLOW) ||
+      isDefined(type.__DESERIALIZE_FAST)
+    ) {
       return deserializeStructArrayField<T>(srcStart, srcEnd, fieldPtr);
     }
     throw new Error("Could not parse array field of type " + nameof<T>() + "!");
@@ -63,7 +71,11 @@ import { deserializeStructArrayInto } from "./array/struct";
 }
 
 
-@inline export function deserializeArrayInto_SWAR<T extends unknown[]>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline export function deserializeArrayInto_SWAR<T extends unknown[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
   if (isString<valueof<T>>()) {
     return deserializeStringArrayInto<T>(srcStart, srcEnd, out);
   } else if (isBoolean<valueof<T>>()) {
@@ -94,7 +106,10 @@ import { deserializeStructArrayInto } from "./array/struct";
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
       return deserializeStructArrayInto<T>(srcStart, srcEnd, out);
       // @ts-ignore: defined by transform
-    } else if (isDefined(type.__DESERIALIZE_SLOW) || isDefined(type.__DESERIALIZE_FAST)) {
+    } else if (
+      isDefined(type.__DESERIALIZE_SLOW) ||
+      isDefined(type.__DESERIALIZE_FAST)
+    ) {
       return deserializeStructArrayInto<T>(srcStart, srcEnd, out);
     }
     throw new Error("Could not parse array field of type " + nameof<T>() + "!");

@@ -3,7 +3,10 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { __heap_base } from "memory";
 import { QUOTE } from "../../custom/chars";
 import { BACK_SLASH } from "../../custom/chars";
-import { DESERIALIZE_ESCAPE_TABLE, ESCAPE_HEX_TABLE } from "../../globals/tables";
+import {
+  DESERIALIZE_ESCAPE_TABLE,
+  ESCAPE_HEX_TABLE,
+} from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
 import { deserializeStringField_SWAR } from "../swar/string";
 
@@ -65,7 +68,10 @@ import { deserializeStringField_SWAR } from "../swar/string";
  * @returns number of bytes written
  */
 // @ts-expect-error: @inline is a valid decorator
-@inline function copyStringFromSource_SIMD(srcStart: usize, byteLength: usize): string {
+@inline function copyStringFromSource_SIMD(
+  srcStart: usize,
+  byteLength: usize,
+): string {
   if (byteLength == 0) return changetype<string>("");
   // @ts-expect-error: __new is a runtime builtin
   const out = __new(byteLength, idof<string>());
@@ -74,7 +80,11 @@ import { deserializeStringField_SWAR } from "../swar/string";
 }
 
 // @ts-expect-error: @inline is a valid decorator
-@inline function writeStringToField_SIMD(dstFieldPtr: usize, srcStart: usize, byteLength: u32): void {
+@inline function writeStringToField_SIMD(
+  dstFieldPtr: usize,
+  srcStart: usize,
+  byteLength: u32,
+): void {
   if (byteLength == 0) {
     store<usize>(dstFieldPtr, changetype<usize>(""));
     return;
@@ -100,7 +110,11 @@ import { deserializeStringField_SWAR } from "../swar/string";
 
 // todo: optimize and stuff. it works, its not pretty. ideally, i'd like this to be (nearly) branchless
 // @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedString_SIMD(payloadStart: usize, escapeStart: usize, srcEnd: usize): string {
+@inline function deserializeEscapedString_SIMD(
+  payloadStart: usize,
+  escapeStart: usize,
+  srcEnd: usize,
+): string {
   const prefixLen = <u32>(escapeStart - payloadStart);
   let srcStart = escapeStart;
   const srcEnd16 = srcEnd - 16;
@@ -238,12 +252,16 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
     }
 
     const laneIdx = usize(ctz(mask) << 1);
-    return inline.always(deserializeEscapedString_SIMD(payloadStart, srcStart + laneIdx, srcEnd));
+    return inline.always(
+      deserializeEscapedString_SIMD(payloadStart, srcStart + laneIdx, srcEnd),
+    );
   }
 
   while (srcStart < srcEnd) {
     if (load<u16>(srcStart) == BACK_SLASH) {
-      return inline.always(deserializeEscapedString_SIMD(payloadStart, srcStart, srcEnd));
+      return inline.always(
+        deserializeEscapedString_SIMD(payloadStart, srcStart, srcEnd),
+      );
     }
     srcStart += 2;
   }
@@ -252,9 +270,15 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
 }
 
 // @ts-expect-error: @inline is a valid decorator
-@inline export function deserializeStringField_SIMD<T extends string | null>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+@inline export function deserializeStringField_SIMD<T extends string | null>(
+  srcStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
   const dstFieldPtr = dstObj + dstOffset;
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
+    abort("Expected leading quote");
 
   const quotedStart = srcStart;
   const payloadStart = srcStart + 2;
@@ -263,7 +287,9 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
 
   while (srcStart <= srcEnd16) {
     const block = load<v128>(srcStart);
-    let mask = i16x8.bitmask(v128.or(i16x8.eq(block, SPLAT_5C), i16x8.eq(block, SPLAT_22)));
+    let mask = i16x8.bitmask(
+      v128.or(i16x8.eq(block, SPLAT_5C), i16x8.eq(block, SPLAT_22)),
+    );
 
     if (mask == 0) {
       srcStart += 16;
@@ -277,7 +303,11 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
       const char = load<u16>(srcIdx);
 
       if (char == QUOTE) {
-        writeStringToField_SIMD(dstFieldPtr, payloadStart, <u32>(srcIdx - payloadStart));
+        writeStringToField_SIMD(
+          dstFieldPtr,
+          payloadStart,
+          <u32>(srcIdx - payloadStart),
+        );
         return srcIdx + 2;
       }
 
@@ -292,7 +322,11 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
   while (srcStart < srcEnd) {
     const char = load<u16>(srcStart);
     if (char == QUOTE) {
-      writeStringToField_SIMD(dstFieldPtr, payloadStart, <u32>(srcStart - payloadStart));
+      writeStringToField_SIMD(
+        dstFieldPtr,
+        payloadStart,
+        <u32>(srcStart - payloadStart),
+      );
       return srcStart + 2;
     }
     if (char == BACK_SLASH) {

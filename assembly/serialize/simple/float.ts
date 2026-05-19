@@ -1,5 +1,8 @@
 import { bs } from "../../../lib/as-bs";
-import { dragonbox_f32_buffered, dragonbox_f64_buffered } from "../../util/dragonbox";
+import {
+  dragonbox_f32_buffered,
+  dragonbox_f64_buffered,
+} from "../../util/dragonbox";
 
 
 @inline

@@ -24,7 +24,9 @@ declare function omit(..._): void;
 /**
  * Property decorator that allows a field to be omitted when equal to an Expression.
  */
-declare function omitif(condition: string | ((value: any) => boolean)): Function;
+declare function omitif(
+  condition: string | ((value: any) => boolean),
+): Function;
 
 /**
  * Property decorator that allows a field to be omitted when a property is null.

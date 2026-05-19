@@ -51,7 +51,19 @@ describe("SWAR hex helpers should decode known UTF-16 hex lanes into u16 values"
 });
 
 describe("SWAR hex helpers should round-trip representative values", () => {
-  const values = [<u16>0x0000, <u16>0x0001, <u16>0x000f, <u16>0x0010, <u16>0x00ff, <u16>0x0100, <u16>0x1234, <u16>0xabcd, <u16>0xd800, <u16>0xdc00, <u16>0xffff];
+  const values = [
+    <u16>0x0000,
+    <u16>0x0001,
+    <u16>0x000f,
+    <u16>0x0010,
+    <u16>0x00ff,
+    <u16>0x0100,
+    <u16>0x1234,
+    <u16>0xabcd,
+    <u16>0xd800,
+    <u16>0xdc00,
+    <u16>0xffff,
+  ];
 
   for (let i = 0; i < values.length; i++) {
     const code = unchecked(values[i]);

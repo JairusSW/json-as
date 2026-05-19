@@ -225,47 +225,71 @@ class BinaryContainer {
 describe("Should serialize and deserialize typed arrays by default", () => {
   const int8 = makeInt8Array();
   expect(JSON.stringify(int8)).toBe("[-1,0,127]");
-  expect(JSON.stringify(JSON.parse<Int8Array>("[-1,0,127]"))).toBe(JSON.stringify(int8));
+  expect(JSON.stringify(JSON.parse<Int8Array>("[-1,0,127]"))).toBe(
+    JSON.stringify(int8),
+  );
 
   const uint8 = makeUint8Array();
   expect(JSON.stringify(uint8)).toBe("[0,1,2,255]");
-  expect(JSON.stringify(JSON.parse<Uint8Array>("[0,1,2,255]"))).toBe(JSON.stringify(uint8));
+  expect(JSON.stringify(JSON.parse<Uint8Array>("[0,1,2,255]"))).toBe(
+    JSON.stringify(uint8),
+  );
 
   const uint8Clamped = makeUint8ClampedArray();
   expect(JSON.stringify(uint8Clamped)).toBe("[0,128,255]");
-  expect(JSON.stringify(JSON.parse<Uint8ClampedArray>("[0,128,255]"))).toBe(JSON.stringify(uint8Clamped));
+  expect(JSON.stringify(JSON.parse<Uint8ClampedArray>("[0,128,255]"))).toBe(
+    JSON.stringify(uint8Clamped),
+  );
 
   const int16 = makeInt16Array();
   expect(JSON.stringify(int16)).toBe("[-32768,0,32767]");
-  expect(JSON.stringify(JSON.parse<Int16Array>("[-32768,0,32767]"))).toBe(JSON.stringify(int16));
+  expect(JSON.stringify(JSON.parse<Int16Array>("[-32768,0,32767]"))).toBe(
+    JSON.stringify(int16),
+  );
 
   const uint16 = makeUint16Array();
   expect(JSON.stringify(uint16)).toBe("[0,42,65535]");
-  expect(JSON.stringify(JSON.parse<Uint16Array>("[0,42,65535]"))).toBe(JSON.stringify(uint16));
+  expect(JSON.stringify(JSON.parse<Uint16Array>("[0,42,65535]"))).toBe(
+    JSON.stringify(uint16),
+  );
 
   const int32 = makeInt32Array();
   expect(JSON.stringify(int32)).toBe("[-2147483648,0,2147483647]");
-  expect(JSON.stringify(JSON.parse<Int32Array>("[-2147483648,0,2147483647]"))).toBe(JSON.stringify(int32));
+  expect(
+    JSON.stringify(JSON.parse<Int32Array>("[-2147483648,0,2147483647]")),
+  ).toBe(JSON.stringify(int32));
 
   const uint32 = makeUint32Array();
   expect(JSON.stringify(uint32)).toBe("[0,42,4294967295]");
-  expect(JSON.stringify(JSON.parse<Uint32Array>("[0,42,4294967295]"))).toBe(JSON.stringify(uint32));
+  expect(JSON.stringify(JSON.parse<Uint32Array>("[0,42,4294967295]"))).toBe(
+    JSON.stringify(uint32),
+  );
 
   const int64 = makeInt64Array();
   expect(JSON.stringify(int64)).toBe("[-9007199254740991,0,9007199254740991]");
-  expect(JSON.stringify(JSON.parse<Int64Array>("[-9007199254740991,0,9007199254740991]"))).toBe(JSON.stringify(int64));
+  expect(
+    JSON.stringify(
+      JSON.parse<Int64Array>("[-9007199254740991,0,9007199254740991]"),
+    ),
+  ).toBe(JSON.stringify(int64));
 
   const uint64 = makeUint64Array();
   expect(JSON.stringify(uint64)).toBe("[0,42,9007199254740991]");
-  expect(JSON.stringify(JSON.parse<Uint64Array>("[0,42,9007199254740991]"))).toBe(JSON.stringify(uint64));
+  expect(
+    JSON.stringify(JSON.parse<Uint64Array>("[0,42,9007199254740991]")),
+  ).toBe(JSON.stringify(uint64));
 
   const float32 = makeFloat32Array();
   expect(JSON.stringify(float32)).toBe("[-1.5,0.25,3.75]");
-  expect(JSON.stringify(JSON.parse<Float32Array>("[-1.5,0.25,3.75]"))).toBe(JSON.stringify(float32));
+  expect(JSON.stringify(JSON.parse<Float32Array>("[-1.5,0.25,3.75]"))).toBe(
+    JSON.stringify(float32),
+  );
 
   const float64 = makeFloat64Array();
   expect(JSON.stringify(float64)).toBe("[-1.5,0.125,3.14159]");
-  expect(JSON.stringify(JSON.parse<Float64Array>("[-1.5,0.125,3.14159]"))).toBe(JSON.stringify(float64));
+  expect(JSON.stringify(JSON.parse<Float64Array>("[-1.5,0.125,3.14159]"))).toBe(
+    JSON.stringify(float64),
+  );
 });
 
 describe("Should serialize and deserialize ArrayBuffer by default", () => {
@@ -293,11 +317,19 @@ describe("Should serialize larger typed buffers deterministically", () => {
   const bytes = makeRampUint8Array(16);
   const raw = makeRampArrayBuffer(16);
 
-  expect(JSON.stringify(bytes)).toBe("[31,48,65,82,99,116,133,150,167,184,201,218,235,252,13,30]");
-  expect(JSON.stringify(raw)).toBe("[7,30,53,76,99,122,145,168,191,214,237,4,27,50,73,96]");
+  expect(JSON.stringify(bytes)).toBe(
+    "[31,48,65,82,99,116,133,150,167,184,201,218,235,252,13,30]",
+  );
+  expect(JSON.stringify(raw)).toBe(
+    "[7,30,53,76,99,122,145,168,191,214,237,4,27,50,73,96]",
+  );
 
-  expect(JSON.stringify(JSON.parse<Uint8Array>(JSON.stringify(bytes)))).toBe(JSON.stringify(bytes));
-  expect(JSON.stringify(JSON.parse<ArrayBuffer>(JSON.stringify(raw)))).toBe(JSON.stringify(raw));
+  expect(JSON.stringify(JSON.parse<Uint8Array>(JSON.stringify(bytes)))).toBe(
+    JSON.stringify(bytes),
+  );
+  expect(JSON.stringify(JSON.parse<ArrayBuffer>(JSON.stringify(raw)))).toBe(
+    JSON.stringify(raw),
+  );
 });
 
 describe("Should deserialize undecorated typed-array subclasses with built-in behavior", () => {
@@ -313,7 +345,9 @@ describe("Should deserialize undecorated typed-array subclasses with built-in be
 describe("Should support typed arrays and ArrayBuffer inside @json classes", () => {
   const input = new BinaryEnvelope();
   const serialized = JSON.stringify(input);
-  expect(serialized).toBe('{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75],"raw":[10,20,30,40]}');
+  expect(serialized).toBe(
+    '{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75],"raw":[10,20,30,40]}',
+  );
 
   const parsed = JSON.parse<BinaryEnvelope>(serialized);
   expect(JSON.stringify(parsed)).toBe(serialized);
@@ -326,18 +360,24 @@ describe("Should support typed arrays and ArrayBuffer inside @json classes", () 
 describe("Should serialize constructor-assigned typed arrays inside @json classes", () => {
   const input = new BinaryEnvelopeCtor();
   const serialized = JSON.stringify(input);
-  expect(serialized).toBe('{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75]}');
+  expect(serialized).toBe(
+    '{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75]}',
+  );
 });
 
 describe("Should serialize nested classes with mixed typed-array field initialization styles", () => {
   const input = new BinaryContainer();
   const serialized = JSON.stringify(input);
-  expect(serialized).toBe('{"left":{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75]},"right":{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75],"raw":[10,20,30,40]}}');
+  expect(serialized).toBe(
+    '{"left":{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75]},"right":{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75],"raw":[10,20,30,40]}}',
+  );
 });
 
 describe("Should preserve bs state for typed-array and ArrayBuffer internal helpers", () => {
   const encoded = JSON.internal.stringify(new BinaryEnvelope());
-  expect(encoded).toBe('{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75],"raw":[10,20,30,40]}');
+  expect(encoded).toBe(
+    '{"bytes":[0,1,2,255],"ints":[-32768,0,32767],"floats":[-1.5,0.25,3.75],"raw":[10,20,30,40]}',
+  );
 
   const parsed = JSON.internal.parse<BinaryEnvelope>(encoded);
   expect(JSON.stringify(parsed)).toBe(encoded);
@@ -357,12 +397,20 @@ describe("Should support typed-array subclasses through JSON.__serialize and JSO
   expect(bs.out<string>()).toBe("[10,20,30,40]");
 
   const encodedBytes = "[10,20,30,40]";
-  const decodedBytes = JSON.__deserialize<PlainBytes>(changetype<usize>(encodedBytes), changetype<usize>(encodedBytes) + (encodedBytes.length << 1), 0);
+  const decodedBytes = JSON.__deserialize<PlainBytes>(
+    changetype<usize>(encodedBytes),
+    changetype<usize>(encodedBytes) + (encodedBytes.length << 1),
+    0,
+  );
   expect((decodedBytes instanceof PlainBytes).toString()).toBe("true");
   expect(JSON.stringify(decodedBytes)).toBe("[10,20,30,40]");
 
   const encodedCustom = '"0a141e28"';
-  const decodedCustom = JSON.__deserialize<HexBytes>(changetype<usize>(encodedCustom), changetype<usize>(encodedCustom) + (encodedCustom.length << 1), 0);
+  const decodedCustom = JSON.__deserialize<HexBytes>(
+    changetype<usize>(encodedCustom),
+    changetype<usize>(encodedCustom) + (encodedCustom.length << 1),
+    0,
+  );
   expect((decodedCustom instanceof HexBytes).toString()).toBe("true");
   expect(JSON.stringify(decodedCustom)).toBe(encodedCustom);
 });

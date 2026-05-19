@@ -3,7 +3,8 @@ import { expect } from "../../__tests__/lib";
 import { bench, blackbox, dumpToFile } from "../lib/bench";
 
 function makeUtf8String(targetBytes: i32): string {
-  const BASE = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`~!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?";
+  const BASE =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`~!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?";
   const BYTES_PER_REPEAT = BASE.length;
   const repeats = i32(Math.ceil(targetBytes / BYTES_PER_REPEAT));
   const str = BASE.repeat(repeats);

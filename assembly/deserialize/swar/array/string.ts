@@ -3,7 +3,11 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 import { deserializeStringField_SWAR } from "../string";
 
 
-@inline export function deserializeStringArrayInto<T extends string[]>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline export function deserializeStringArrayInto<T extends string[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
   let index = 0;
 
   do {
@@ -17,7 +21,11 @@ import { deserializeStringField_SWAR } from "../string";
 
     while (srcStart < srcEnd) {
       const slot = ensureArrayElementSlot<T>(out, index);
-      srcStart = deserializeStringField_SWAR<valueof<T>>(srcStart, srcEnd, slot);
+      srcStart = deserializeStringField_SWAR<valueof<T>>(
+        srcStart,
+        srcEnd,
+        slot,
+      );
       if (!srcStart || srcStart >= srcEnd) break;
 
       const code = load<u16>(srcStart);
@@ -38,6 +46,14 @@ import { deserializeStringField_SWAR } from "../string";
 }
 
 
-@inline export function deserializeStringArrayField<T extends string[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  return deserializeStringArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
+@inline export function deserializeStringArrayField<T extends string[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  fieldPtr: usize,
+): usize {
+  return deserializeStringArrayInto<T>(
+    srcStart,
+    srcEnd,
+    ensureArrayField<T>(fieldPtr),
+  );
 }

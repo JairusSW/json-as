@@ -1,7 +1,9 @@
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import { blackbox, bench, dumpToFile, readFile } from "../lib/bench";
-const payloadData = readFile("./assembly/__benches__/payloads/github-events.json");
+const payloadData = readFile(
+  "./assembly/__benches__/payloads/github-events.json",
+);
 const payloadChars = payloadData.length;
 
 
@@ -60,7 +62,9 @@ const typedSerialized = JSON.stringify(typed);
 bench(
   "Deserialize Large File",
   () => {
-    blackbox(JSON.__deserialize<Large>(jsonStart, jsonEnd, changetype<usize>(typed)));
+    blackbox(
+      JSON.__deserialize<Large>(jsonStart, jsonEnd, changetype<usize>(typed)),
+    );
   },
   40,
   payloadChars,

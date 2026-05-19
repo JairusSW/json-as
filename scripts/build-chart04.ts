@@ -17,7 +17,18 @@ function getBenchData(filePath: string) {
   };
 }
 
-const payloads = ["str-1mb", "str-2mb", "str-3mb", "str-4mb", "str-5mb", "str-6mb", "str-7mb", "str-8mb", "str-9mb", "str-10mb"];
+const payloads = [
+  "str-1mb",
+  "str-2mb",
+  "str-3mb",
+  "str-4mb",
+  "str-5mb",
+  "str-6mb",
+  "str-7mb",
+  "str-8mb",
+  "str-9mb",
+  "str-10mb",
+];
 const modes = ["deserialize"];
 
 type SeriesSpec = {
@@ -36,8 +47,15 @@ const series: SeriesSpec[] = [
 ];
 
 function logPath(payload: string, spec: SeriesSpec, mode: string) {
-  const transformedPayload = spec.payloadTransform ? spec.payloadTransform(payload) : payload;
-  return benchLogPath(transformedPayload, mode as "serialize" | "deserialize", spec.language, spec.engine);
+  const transformedPayload = spec.payloadTransform
+    ? spec.payloadTransform(payload)
+    : payload;
+  return benchLogPath(
+    transformedPayload,
+    mode as "serialize" | "deserialize",
+    spec.language,
+    spec.engine,
+  );
 }
 
 interface ChartPoint {
@@ -76,7 +94,9 @@ const datasets = [];
 
 for (const mode of modes) {
   for (const spec of series) {
-    const data: ChartPoint[] = payloads.map((p) => chartData[`${p}-${spec.key}-${mode}`][0]);
+    const data: ChartPoint[] = payloads.map(
+      (p) => chartData[`${p}-${spec.key}-${mode}`][0],
+    );
     datasets.push({
       label: spec.label,
       data,

@@ -1,4 +1,8 @@
-export function deserializeStruct<T>(srcStart: usize, srcEnd: usize, dst: usize): T {
+export function deserializeStruct<T>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
   const out = changetype<nonnull<T>>(dst || __new(offsetof<T>(), idof<T>()));
 
   // @ts-ignore: supplied by transform

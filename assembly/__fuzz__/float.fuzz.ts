@@ -20,7 +20,9 @@ function makeFiniteBitsF32(seed: FuzzSeed): u32 {
 
 function makeFiniteBitsF64(seed: FuzzSeed): u64 {
   const bits = ((<u64>seed.u32()) << 32) | (<u64>seed.u32());
-  return (bits & 0x7ff0000000000000) == 0x7ff0000000000000 ? bits & 0x800fffffffffffff : bits;
+  return (bits & 0x7ff0000000000000) == 0x7ff0000000000000
+    ? bits & 0x800fffffffffffff
+    : bits;
 }
 
 
@@ -48,17 +50,20 @@ fuzz("f32 stringify/parse roundtrips finite values", (bits: u32): bool => {
   run(makeFiniteBitsF32(seed));
 }, 5_000_000);
 
-fuzz("f64 stringify/parse roundtrips finite values", (high: u32, low: u32): bool => {
-  const bits = ((<u64>high) << 32) | (<u64>low);
-  const value = reinterpret<f64>(bits);
-  const encoded = JSON.stringify<f64>(value);
-  const decoded = JSON.parse<f64>(encoded);
+fuzz(
+  "f64 stringify/parse roundtrips finite values",
+  (high: u32, low: u32): bool => {
+    const bits = ((<u64>high) << 32) | (<u64>low);
+    const value = reinterpret<f64>(bits);
+    const encoded = JSON.stringify<f64>(value);
+    const decoded = JSON.parse<f64>(encoded);
 
-  expect(sameJsonFloatF64(value, decoded)).toBe(true);
-  expect(JSON.stringify<f64>(decoded)).toBe(encoded);
+    expect(sameJsonFloatF64(value, decoded)).toBe(true);
+    expect(JSON.stringify<f64>(decoded)).toBe(encoded);
 
-  return sameJsonFloatF64(value, decoded);
-}).generate((seed: FuzzSeed, run: (high: u32, low: u32) => bool): void => {
+    return sameJsonFloatF64(value, decoded);
+  },
+).generate((seed: FuzzSeed, run: (high: u32, low: u32) => bool): void => {
   const bits = makeFiniteBitsF64(seed);
   run(<u32>(bits >>> 32), <u32>bits);
 }, 5_000_000);

@@ -38,7 +38,12 @@ export function serializeSet<T extends Set<any>>(src: T): void {
     bs.offset += 4;
     return;
   }
-  if (isBoolean<indexof<T>>() || isInteger<indexof<T>>() || isFloat<indexof<T>>() || isString<indexof<T>>()) {
+  if (
+    isBoolean<indexof<T>>() ||
+    isInteger<indexof<T>>() ||
+    isFloat<indexof<T>>() ||
+    isString<indexof<T>>()
+  ) {
     reservePrimitiveSet<indexof<T>>(srcSize);
   } else {
     bs.proposeSize(4 + <u32>(srcSize - 1) * 2);

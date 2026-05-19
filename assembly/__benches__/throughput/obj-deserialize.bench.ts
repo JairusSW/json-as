@@ -8,7 +8,8 @@ class ObjLarge {
   lorum: u32 = U32.MAX_VALUE;
   ipsum: boolean = true;
   dolor: Array<i32> = [1, 2, 3, 4, 5];
-  sit: string = "abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
+  sit: string =
+    "abcdefghijklmnopdasfqrstfuvwYZ1234567890;~!@#$%^&*()_+=-{}][\\|;\":'<>,./?";
   consectetur: i32 = 123456;
   adipiscing: boolean = false;
   elit: Array<i32> = [6, 7, 8, 9, 10];
@@ -41,10 +42,15 @@ const objStrBytes = String.UTF8.byteLength(objStr);
 const objStrEnd = changetype<usize>(objStr) + (objStr.length << 1);
 const objSmallStr = JSON.stringify(smallObj);
 const objSmallStrBytes = String.UTF8.byteLength(objSmallStr);
-const objSmallStrEnd = changetype<usize>(objSmallStr) + (objSmallStr.length << 1);
+const objSmallStrEnd =
+  changetype<usize>(objSmallStr) + (objSmallStr.length << 1);
 
 
-@inline function deserializeInto<T>(srcStart: usize, srcEnd: usize, out: T): void {
+@inline function deserializeInto<T>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): void {
   // @ts-ignore: supplied by transform
   if (isDefined(out.__DESERIALIZE_FAST)) {
     // @ts-ignore: supplied by transform
@@ -110,7 +116,11 @@ bench(
     let count = opsForSmallBytes(smallBytes0);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -125,7 +135,11 @@ bench(
     let count = opsForSmallBytes(smallBytes1);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -140,7 +154,11 @@ bench(
     let count = opsForSmallBytes(smallBytes2);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -155,7 +173,11 @@ bench(
     let count = opsForSmallBytes(smallBytes3);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -170,7 +192,11 @@ bench(
     let count = opsForSmallBytes(smallBytes4);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -185,7 +211,11 @@ bench(
     let count = opsForSmallBytes(smallBytes5);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -200,7 +230,11 @@ bench(
     let count = opsForSmallBytes(smallBytes6);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -215,7 +249,11 @@ bench(
     let count = opsForSmallBytes(smallBytes7);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -230,7 +268,11 @@ bench(
     let count = opsForSmallBytes(smallBytes8);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -245,7 +287,11 @@ bench(
     let count = opsForSmallBytes(smallBytes9);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -260,7 +306,11 @@ bench(
     let count = opsForSmallBytes(smallBytes10);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -275,7 +325,11 @@ bench(
     let count = opsForSmallBytes(smallBytes11);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -290,7 +344,11 @@ bench(
     let count = opsForSmallBytes(smallBytes12);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -305,7 +363,11 @@ bench(
     let count = opsForSmallBytes(smallBytes13);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -320,7 +382,11 @@ bench(
     let count = opsForSmallBytes(smallBytes14);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -335,7 +401,11 @@ bench(
     let count = opsForSmallBytes(smallBytes15);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -350,7 +420,11 @@ bench(
     let count = opsForSmallBytes(smallBytes16);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -365,7 +439,11 @@ bench(
     let count = opsForSmallBytes(smallBytes17);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -380,7 +458,11 @@ bench(
     let count = opsForSmallBytes(smallBytes18);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },
@@ -395,7 +477,11 @@ bench(
     let count = opsForSmallBytes(smallBytes19);
     while (count > 0) {
       // @ts-ignore
-      deserializeInto<ObjSmall>(changetype<usize>(objSmallStr), objSmallStrEnd, smallObj);
+      deserializeInto<ObjSmall>(
+        changetype<usize>(objSmallStr),
+        objSmallStrEnd,
+        smallObj,
+      );
       count--;
     }
   },

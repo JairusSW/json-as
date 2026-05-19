@@ -17,13 +17,29 @@ function getBenchData(filePath: string) {
   };
 }
 
-const payloads = ["str-1mb", "str-2mb", "str-3mb", "str-4mb", "str-5mb", "str-6mb", "str-7mb", "str-8mb", "str-9mb", "str-10mb"];
+const payloads = [
+  "str-1mb",
+  "str-2mb",
+  "str-3mb",
+  "str-4mb",
+  "str-5mb",
+  "str-6mb",
+  "str-7mb",
+  "str-8mb",
+  "str-9mb",
+  "str-10mb",
+];
 const engines = ["js", "naive", "swar", "simd"];
 const modes = ["serialize"];
 
 function logPath(payload: string, engine: string, mode: string) {
   const language = engine == "js" ? "js" : "as";
-  return benchLogPath(payload, mode as "serialize" | "deserialize", language, engine == "js" ? "" : engine);
+  return benchLogPath(
+    payload,
+    mode as "serialize" | "deserialize",
+    language,
+    engine == "js" ? "" : engine,
+  );
 }
 
 interface ChartPoint {
@@ -62,7 +78,9 @@ const datasets = [];
 
 for (const mode of modes) {
   for (const engine of engines) {
-    const data: ChartPoint[] = payloads.map((p) => chartData[`${p}-${engine}-${mode}`][0]);
+    const data: ChartPoint[] = payloads.map(
+      (p) => chartData[`${p}-${engine}-${mode}`][0],
+    );
     datasets.push({
       label: `${engine.toUpperCase()}`,
       data,

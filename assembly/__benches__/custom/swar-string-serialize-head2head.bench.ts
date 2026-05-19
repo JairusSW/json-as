@@ -3,7 +3,153 @@ import { bs } from "../../../lib/as-bs";
 import { expect } from "../../__tests__/lib/index.ts";
 import { BACK_SLASH, QUOTE } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
-import { serializeString_SWAR, serializeString_SWAR_ExperimentalTableEscapes, detect_escapable_u64_swar_safe, detect_escapable_u64_swar_unsafe } from "../../serialize/swar/string";
+import {
+  serializeString_SWAR,
+  detect_escapable_u64_swar_safe,
+} from "../../serialize/swar/string";
+import { u16_to_hex4_swar as _u16_to_hex4_swar } from "../../util/swar";
+
+// Bench-local copies of two research kernels that previously lived in
+// `serialize/swar/string.ts`. They were never reachable from production code,
+// so they moved here to keep the production module lean while preserving the
+// head-to-head comparison.
+
+// @ts-expect-error: @inline is a valid decorator
+@inline function detect_escapable_u64_swar_unsafe(block: u64): u64 {
+  const lo = block & 0x00ff_00ff_00ff_00ff;
+  const loSafe = lo | 0x0100_0100_0100_0100;
+  const ascii_mask =
+    ((loSafe - 0x0020_0020_0020_0020) |
+      ((loSafe ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
+      ((loSafe ^ 0x005c_005c_005c_005c) - 0x0001_0001_0001_0001)) &
+    (0x0080_0080_0080_0080 & ~lo);
+  const hi = block & 0xff00_ff00_ff00_ff00;
+  return ascii_mask | hi;
+}
+
+// @ts-expect-error: @inline is a valid decorator
+@inline function _write_u_escape_local(code: u16): void {
+  bs.growSize(10);
+  store<u32>(bs.offset, U_MARKER);
+  store<u64>(bs.offset, _u16_to_hex4_swar(code), 4);
+  bs.offset += 12;
+}
+
+function serializeString_SWAR_ExperimentalTableEscapes(src: string): void {
+  let srcStart = changetype<usize>(src);
+  const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
+  const srcEnd = srcStart + srcSize;
+  const srcEnd8 = srcEnd - 8;
+
+  bs.proposeSize(srcSize + 4);
+  store<u16>(bs.offset, 34);
+  bs.offset += 2;
+
+  while (srcStart < srcEnd8) {
+    const block = load<u64>(srcStart);
+    let mask = detect_escapable_u64_swar_safe(block);
+    store<u64>(bs.offset, block);
+
+    if (mask === 0) {
+      srcStart += 8;
+      bs.offset += 8;
+      continue;
+    }
+
+    do {
+      const laneIdx = usize(ctz(mask) >> 3);
+      const srcIdx = srcStart + laneIdx;
+      if ((laneIdx & 1) === 0) {
+        mask &= mask - 1;
+        const code = load<u16>(srcIdx);
+        const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
+
+        if ((escaped & 0xffff) != BACK_SLASH) {
+          bs.growSize(10);
+          const dstIdx = bs.offset + laneIdx;
+          store<u64>(dstIdx, U00_MARKER);
+          store<u32>(dstIdx, escaped, 8);
+          store<u64>(dstIdx, load<u64>(srcIdx, 2), 12);
+          bs.offset += 10;
+        } else {
+          bs.growSize(2);
+          const dstIdx = bs.offset + laneIdx;
+          store<u32>(dstIdx, escaped);
+          store<u64>(dstIdx, load<u64>(srcIdx, 2), 4);
+          bs.offset += 2;
+        }
+        continue;
+      }
+      mask &= mask - 1;
+
+      const code = load<u16>(srcIdx - 1);
+      if (code < 0xd800 || code > 0xdfff) continue;
+
+      if (code <= 0xdbff && srcIdx + 2 < srcEnd) {
+        const next = load<u16>(srcIdx, 1);
+        if (next >= 0xdc00 && next <= 0xdfff) {
+          mask &= mask - 1;
+          continue;
+        }
+      }
+
+      bs.growSize(10);
+      const dstIdx = bs.offset + laneIdx - 1;
+      store<u32>(dstIdx, U_MARKER);
+      store<u64>(dstIdx, _u16_to_hex4_swar(code), 4);
+      store<u64>(dstIdx, load<u64>(srcIdx, 1), 12);
+      bs.offset += 10;
+    } while (mask !== 0);
+
+    srcStart += 8;
+    bs.offset += 8;
+  }
+
+  while (srcStart <= srcEnd - 2) {
+    const code = load<u16>(srcStart);
+
+    if (code == BACK_SLASH || code == QUOTE || code < 32) {
+      const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
+      if ((escaped & 0xffff) != BACK_SLASH) {
+        bs.growSize(10);
+        store<u64>(bs.offset, U00_MARKER);
+        store<u32>(bs.offset, escaped, 8);
+        bs.offset += 12;
+      } else {
+        bs.growSize(2);
+        store<u32>(bs.offset, escaped);
+        bs.offset += 4;
+      }
+      srcStart += 2;
+      continue;
+    }
+
+    if (code < 0xd800 || code > 0xdfff) {
+      store<u16>(bs.offset, code);
+      bs.offset += 2;
+      srcStart += 2;
+      continue;
+    }
+
+    if (code <= 0xdbff && srcStart + 2 <= srcEnd - 2) {
+      const next = load<u16>(srcStart, 2);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        store<u16>(bs.offset, code);
+        store<u16>(bs.offset + 2, next);
+        bs.offset += 4;
+        srcStart += 4;
+        continue;
+      }
+    }
+
+    _write_u_escape_local(code);
+    srcStart += 2;
+    continue;
+  }
+
+  store<u16>(bs.offset, 34);
+  bs.offset += 2;
+}
 import { u16_to_hex4_swar } from "../../util/swar";
 import { bench, blackbox, dumpToFile } from "../lib/bench.ts";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
@@ -14,7 +160,8 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 @lazy const U_MARKER = 7667804;
 
 function makePlainPayload(targetBytes: i32): string {
-  const base = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`~!@#$%^&*()-_=+[]{}|;:,.<>/? ";
+  const base =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`~!@#$%^&*()-_=+[]{}|;:,.<>/? ";
   const repeats = i32(Math.ceil(targetBytes / (base.length << 1)));
   return base.repeat(repeats).slice(0, targetBytes >> 1);
 }
@@ -340,7 +487,11 @@ function serializeString_SWAR_ShortMap(src: string): void {
         } else {
           bs.growSize(10);
           store<u64>(dstIdx, U00_MARKER);
-          store<u32>(dstIdx, load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)), 8);
+          store<u32>(
+            dstIdx,
+            load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)),
+            8,
+          );
           store<u64>(dstIdx, load<u64>(srcIdx, 2), 12);
           bs.offset += 10;
         }
@@ -384,7 +535,11 @@ function serializeString_SWAR_ShortMap(src: string): void {
       } else {
         bs.growSize(10);
         store<u64>(bs.offset, U00_MARKER);
-        store<u32>(bs.offset, load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)), 8);
+        store<u32>(
+          bs.offset,
+          load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)),
+          8,
+        );
         bs.offset += 12;
       }
       srcStart += 2;
@@ -456,7 +611,11 @@ function serializeString_SWAR_SwitchMap(src: string): void {
         } else {
           bs.growSize(10);
           store<u64>(dstIdx, U00_MARKER);
-          store<u32>(dstIdx, load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)), 8);
+          store<u32>(
+            dstIdx,
+            load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)),
+            8,
+          );
           store<u64>(dstIdx, load<u64>(srcIdx, 2), 12);
           bs.offset += 10;
         }
@@ -500,7 +659,11 @@ function serializeString_SWAR_SwitchMap(src: string): void {
       } else {
         bs.growSize(10);
         store<u64>(bs.offset, U00_MARKER);
-        store<u32>(bs.offset, load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)), 8);
+        store<u32>(
+          bs.offset,
+          load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)),
+          8,
+        );
         bs.offset += 12;
       }
       srcStart += 2;
@@ -660,32 +823,102 @@ expect(serializeAdaptiveSampleOut(escapedSample)).toBe(escapedExpected);
 const plainBytes = plainExpected.length << 1;
 const escapedBytes = escapedExpected.length << 1;
 
-bench("Serialize String SWAR Current (plain)", () => blackbox(serializeCurrentLen(plainSample)), 1500, plainBytes);
+bench(
+  "Serialize String SWAR Current (plain)",
+  () => blackbox(serializeCurrentLen(plainSample)),
+  1500,
+  plainBytes,
+);
 dumpToFile("swar-string-serialize-current-plain", "serialize");
-bench("Serialize String SWAR CopyForward (plain)", () => blackbox(serializeCopyForwardLen(plainSample)), 1500, plainBytes);
+bench(
+  "Serialize String SWAR CopyForward (plain)",
+  () => blackbox(serializeCopyForwardLen(plainSample)),
+  1500,
+  plainBytes,
+);
 dumpToFile("swar-string-serialize-copyforward-plain", "serialize");
-bench("Serialize String SWAR UnsafeDetect (plain)", () => blackbox(serializeUnsafeDetectLen(plainSample)), 1500, plainBytes);
+bench(
+  "Serialize String SWAR UnsafeDetect (plain)",
+  () => blackbox(serializeUnsafeDetectLen(plainSample)),
+  1500,
+  plainBytes,
+);
 dumpToFile("swar-string-serialize-unsafe-plain", "serialize");
-bench("Serialize String SWAR ShortMap (plain)", () => blackbox(serializeShortMapLen(plainSample)), 1500, plainBytes);
+bench(
+  "Serialize String SWAR ShortMap (plain)",
+  () => blackbox(serializeShortMapLen(plainSample)),
+  1500,
+  plainBytes,
+);
 dumpToFile("swar-string-serialize-shortmap-plain", "serialize");
-bench("Serialize String SWAR RuntimeExpTable (plain)", () => blackbox(serializeRuntimeExpTableLen(plainSample)), 1500, plainBytes);
+bench(
+  "Serialize String SWAR RuntimeExpTable (plain)",
+  () => blackbox(serializeRuntimeExpTableLen(plainSample)),
+  1500,
+  plainBytes,
+);
 dumpToFile("swar-string-serialize-runtime-exptable-plain", "serialize");
-bench("Serialize String SWAR SwitchMap (plain)", () => blackbox(serializeSwitchMapLen(plainSample)), 1500, plainBytes);
+bench(
+  "Serialize String SWAR SwitchMap (plain)",
+  () => blackbox(serializeSwitchMapLen(plainSample)),
+  1500,
+  plainBytes,
+);
 dumpToFile("swar-string-serialize-switchmap-plain", "serialize");
-bench("Serialize String SWAR AdaptiveSample (plain)", () => blackbox(serializeAdaptiveSampleLen(plainSample)), 1500, plainBytes);
+bench(
+  "Serialize String SWAR AdaptiveSample (plain)",
+  () => blackbox(serializeAdaptiveSampleLen(plainSample)),
+  1500,
+  plainBytes,
+);
 dumpToFile("swar-string-serialize-adaptive-sample-plain", "serialize");
 
-bench("Serialize String SWAR Current (escaped)", () => blackbox(serializeCurrentLen(escapedSample)), 1500, escapedBytes);
+bench(
+  "Serialize String SWAR Current (escaped)",
+  () => blackbox(serializeCurrentLen(escapedSample)),
+  1500,
+  escapedBytes,
+);
 dumpToFile("swar-string-serialize-current-escaped", "serialize");
-bench("Serialize String SWAR CopyForward (escaped)", () => blackbox(serializeCopyForwardLen(escapedSample)), 1500, escapedBytes);
+bench(
+  "Serialize String SWAR CopyForward (escaped)",
+  () => blackbox(serializeCopyForwardLen(escapedSample)),
+  1500,
+  escapedBytes,
+);
 dumpToFile("swar-string-serialize-copyforward-escaped", "serialize");
-bench("Serialize String SWAR UnsafeDetect (escaped)", () => blackbox(serializeUnsafeDetectLen(escapedSample)), 1500, escapedBytes);
+bench(
+  "Serialize String SWAR UnsafeDetect (escaped)",
+  () => blackbox(serializeUnsafeDetectLen(escapedSample)),
+  1500,
+  escapedBytes,
+);
 dumpToFile("swar-string-serialize-unsafe-escaped", "serialize");
-bench("Serialize String SWAR ShortMap (escaped)", () => blackbox(serializeShortMapLen(escapedSample)), 1500, escapedBytes);
+bench(
+  "Serialize String SWAR ShortMap (escaped)",
+  () => blackbox(serializeShortMapLen(escapedSample)),
+  1500,
+  escapedBytes,
+);
 dumpToFile("swar-string-serialize-shortmap-escaped", "serialize");
-bench("Serialize String SWAR RuntimeExpTable (escaped)", () => blackbox(serializeRuntimeExpTableLen(escapedSample)), 1500, escapedBytes);
+bench(
+  "Serialize String SWAR RuntimeExpTable (escaped)",
+  () => blackbox(serializeRuntimeExpTableLen(escapedSample)),
+  1500,
+  escapedBytes,
+);
 dumpToFile("swar-string-serialize-runtime-exptable-escaped", "serialize");
-bench("Serialize String SWAR SwitchMap (escaped)", () => blackbox(serializeSwitchMapLen(escapedSample)), 1500, escapedBytes);
+bench(
+  "Serialize String SWAR SwitchMap (escaped)",
+  () => blackbox(serializeSwitchMapLen(escapedSample)),
+  1500,
+  escapedBytes,
+);
 dumpToFile("swar-string-serialize-switchmap-escaped", "serialize");
-bench("Serialize String SWAR AdaptiveSample (escaped)", () => blackbox(serializeAdaptiveSampleLen(escapedSample)), 1500, escapedBytes);
+bench(
+  "Serialize String SWAR AdaptiveSample (escaped)",
+  () => blackbox(serializeAdaptiveSampleLen(escapedSample)),
+  1500,
+  escapedBytes,
+);
 dumpToFile("swar-string-serialize-adaptive-sample-escaped", "serialize");

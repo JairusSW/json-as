@@ -25,7 +25,11 @@ export function serializeString_SWAR(src: string): void {
       const block = load<u64>(srcStart);
       if ((block & 0xff00_ff00_ff00_ff00) != 0) break;
       const lo = block & 0x00ff_00ff_00ff_00ff;
-      const asciiMask = ((lo - 0x0020_0020_0020_0020) | ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) | ((lo ^ 0x005c_005c_005c_005c) - 0x0001_0001_0001_0001)) & (0x0080_0080_0080_0080 & ~lo);
+      const asciiMask =
+        ((lo - 0x0020_0020_0020_0020) |
+          ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
+          ((lo ^ 0x005c_005c_005c_005c) - 0x0001_0001_0001_0001)) &
+        (0x0080_0080_0080_0080 & ~lo);
       if (asciiMask != 0) break;
       store<u64>(dst, block);
       srcStart += 8;
@@ -35,7 +39,8 @@ export function serializeString_SWAR(src: string): void {
 
     while (srcStart <= srcEnd - 2) {
       const code = load<u16>(srcStart);
-      if (code > 0x7f || code == BACK_SLASH || code == QUOTE || code < 32) break;
+      if (code > 0x7f || code == BACK_SLASH || code == QUOTE || code < 32)
+        break;
       store<u16>(dst, code);
       srcStart += 2;
       dst += 2;
@@ -169,7 +174,9 @@ export function serializeString_SWAR(src: string): void {
   bs.offset += 2;
 }
 
-export function serializeString_SWAR_ExperimentalTableEscapes(src: string): void {
+export function serializeString_SWAR_ExperimentalTableEscapes(
+  src: string,
+): void {
   let srcStart = changetype<usize>(src);
   const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
   const srcEnd = srcStart + srcSize;
@@ -308,9 +315,15 @@ export function serializeString_SWAR_ExperimentalTableEscapes(src: string): void
   // Setting bit 8 of each 16-bit lane (high byte LSB) prevents borrow from a
   // low byte underflow from propagating across lane boundaries into the next lane.
   const loSafe = lo | 0x0100_0100_0100_0100;
-  const ascii_mask = ((loSafe - 0x0020_0020_0020_0020) | ((loSafe ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) | ((loSafe ^ 0x005c_005c_005c_005c) - 0x0001_0001_0001_0001)) & (0x0080_0080_0080_0080 & ~lo);
+  const ascii_mask =
+    ((loSafe - 0x0020_0020_0020_0020) |
+      ((loSafe ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
+      ((loSafe ^ 0x005c_005c_005c_005c) - 0x0001_0001_0001_0001)) &
+    (0x0080_0080_0080_0080 & ~lo);
   if (hi == 0) return ascii_mask;
-  const hi_mask = ((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^ 0x8000_8000_8000_8000;
+  const hi_mask =
+    ((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^
+    0x8000_8000_8000_8000;
   return (ascii_mask & (~hi_mask >> 8)) | hi_mask;
 }
 

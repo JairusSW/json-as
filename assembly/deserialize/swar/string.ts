@@ -42,7 +42,10 @@ import { hex4_to_u16_swar } from "../../util/swar";
  * @returns number of bytes written
  */
 // @ts-expect-error: @inline is a valid decorator
-@inline function copyStringFromSource(srcStart: usize, byteLength: usize): string {
+@inline function copyStringFromSource(
+  srcStart: usize,
+  byteLength: usize,
+): string {
   if (byteLength == 0) return changetype<string>("");
   const out = __new(byteLength, idof<string>());
   memory.copy(out, srcStart, byteLength);
@@ -50,7 +53,11 @@ import { hex4_to_u16_swar } from "../../util/swar";
 }
 
 // @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedString_SWAR(payloadStart: usize, escapeStart: usize, srcEnd: usize): string {
+@inline function deserializeEscapedString_SWAR(
+  payloadStart: usize,
+  escapeStart: usize,
+  srcEnd: usize,
+): string {
   const srcEnd8 = srcEnd - 8;
   const prefixLen = <u32>(escapeStart - payloadStart);
   const outStart = bs.offset - bs.buffer;
@@ -190,7 +197,9 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
       // Detect false positive (code unit where low byte is 0x5C)
       if ((header & 0xffff) !== 0x5c) continue;
 
-      return inline.always(deserializeEscapedString_SWAR(payloadStart, srcIdx, srcEnd));
+      return inline.always(
+        deserializeEscapedString_SWAR(payloadStart, srcIdx, srcEnd),
+      );
     } while (mask !== 0);
 
     srcStart += 8;
@@ -198,7 +207,9 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
 
   while (srcStart < srcEnd) {
     if (load<u16>(srcStart) == BACK_SLASH) {
-      return inline.always(deserializeEscapedString_SWAR(payloadStart, srcStart, srcEnd));
+      return inline.always(
+        deserializeEscapedString_SWAR(payloadStart, srcStart, srcEnd),
+      );
     }
     srcStart += 2;
   }
@@ -208,7 +219,11 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
 
 // Writes into the destination field, reusing or resizing the backing string.
 // @ts-expect-error: @inline is a valid decorator
-@inline function writeStringToField(dstFieldPtr: usize, srcStart: usize, byteLength: u32): void {
+@inline function writeStringToField(
+  dstFieldPtr: usize,
+  srcStart: usize,
+  byteLength: u32,
+): void {
   if (byteLength == 0) {
     store<usize>(dstFieldPtr, changetype<usize>(""));
     return;
@@ -230,101 +245,14 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   memory.copy(stringPtr, srcStart, byteLength);
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedStringContinuation_SWAR(lastPtr: usize, srcStart: usize, srcEnd: usize, dstFieldPtr: usize, outStart: usize): usize {
-  const srcEnd8 = srcEnd - 8;
-
-  while (srcStart <= srcEnd8) {
-    const blockStart = srcStart;
-    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
-    if (mask === 0) {
-      srcStart += 8;
-      continue;
-    }
-
-    do {
-      const laneIdx = usize(ctz(mask) >> 3);
-      mask &= mask - 1;
-      const srcIdx = srcStart + laneIdx;
-      const char = load<u16>(srcIdx);
-      if (char == QUOTE) {
-        const runLen = <u32>(srcIdx - lastPtr);
-        if (runLen != 0) {
-          memory.copy(bs.offset, lastPtr, runLen);
-          bs.offset += runLen;
-        }
-        bs.toField(outStart, dstFieldPtr);
-        return srcIdx + 2;
-      }
-      if (char != BACK_SLASH) continue;
-
-      const runLen = <u32>(srcIdx - lastPtr);
-      if (runLen != 0) {
-        memory.copy(bs.offset, lastPtr, runLen);
-        bs.offset += runLen;
-      }
-
-      const chunk = load<u32>(srcIdx);
-      const code = <u16>(chunk >> 16);
-      if (code !== 0x75) {
-        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
-        bs.offset += 2;
-        lastPtr = srcIdx + 4;
-      } else {
-        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
-        bs.offset += 2;
-        lastPtr = srcIdx + 12;
-      }
-      srcStart = lastPtr;
-      break;
-    } while (mask !== 0);
-
-    if (srcStart == blockStart) srcStart += 8;
-  }
-
-  while (srcStart < srcEnd) {
-    const char = load<u16>(srcStart);
-    if (char == QUOTE) {
-      const runLen = <u32>(srcStart - lastPtr);
-      if (runLen != 0) {
-        memory.copy(bs.offset, lastPtr, runLen);
-        bs.offset += runLen;
-      }
-      bs.toField(outStart, dstFieldPtr);
-      return srcStart + 2;
-    }
-    if (char != BACK_SLASH) {
-      srcStart += 2;
-      continue;
-    }
-
-    const runLen = <u32>(srcStart - lastPtr);
-    if (runLen != 0) {
-      memory.copy(bs.offset, lastPtr, runLen);
-      bs.offset += runLen;
-    }
-
-    const code = load<u16>(srcStart, 2);
-    if (code !== 0x75) {
-      store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
-      bs.offset += 2;
-      srcStart += 4;
-    } else {
-      store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
-      bs.offset += 2;
-      srcStart += 12;
-    }
-    lastPtr = srcStart;
-  }
-
-  bs.offset = bs.buffer + outStart;
-  abort("Unterminated string literal");
-  return srcStart;
-}
-
 // Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
 // @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedStringScan_SWAR_SplitTuned(payloadStart: usize, escapeStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+@inline function deserializeEscapedStringScan_SWAR_SplitTuned(
+  payloadStart: usize,
+  escapeStart: usize,
+  srcEnd: usize,
+  dstFieldPtr: usize,
+): usize {
   const prefixLen = <u32>(escapeStart - payloadStart);
   const srcEnd8 = srcEnd - 8;
   bs.offset = bs.buffer;
@@ -356,7 +284,11 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
           memory.copy(bs.offset, lastPtr, runLen);
           bs.offset += runLen;
         }
-        writeStringToField(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+        writeStringToField(
+          dstFieldPtr,
+          bs.buffer,
+          <u32>(bs.offset - bs.buffer),
+        );
         bs.offset = bs.buffer;
         return srcIdx + 2;
       }
@@ -427,7 +359,12 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
 }
 
 // @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedStringContinuation_SWAR_MergedTuned(lastPtr: usize, srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
+@inline function deserializeEscapedStringContinuation_SWAR_MergedTuned(
+  lastPtr: usize,
+  srcStart: usize,
+  srcEnd: usize,
+  dstFieldPtr: usize,
+): usize {
   const srcEnd8 = srcEnd - 8;
 
   while (srcStart <= srcEnd8) {
@@ -449,7 +386,11 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
           memory.copy(bs.offset, lastPtr, runLen);
           bs.offset += runLen;
         }
-        writeStringToField(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
+        writeStringToField(
+          dstFieldPtr,
+          bs.buffer,
+          <u32>(bs.offset - bs.buffer),
+        );
         bs.offset = bs.buffer;
         return srcIdx + 2;
       }
@@ -518,99 +459,31 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   return srcStart;
 }
 
-function deserializeStringField_SWAR_MergedTuned(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
+export function deserializeStringField_SWAR<T extends string | null>(
+  srcStart: usize,
+  srcEnd: usize,
+  dstFieldPtr: usize,
+): usize {
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
+    abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
-  const srcEnd8 = srcEnd - 8;
   srcStart = payloadStart;
 
-  while (srcStart <= srcEnd8) {
-    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
-    if (mask === 0) {
-      srcStart += 8;
-      continue;
+  // Wide pre-scan: skip 16 bytes per iter while both halves are clean. The
+  // common case (plain ASCII payloads, no escape) hits this loop exclusively
+  // and is bound by load+SWAR throughput, not branch frequency.
+  if (srcEnd >= 16) {
+    const srcEnd16 = srcEnd - 16;
+    while (srcStart <= srcEnd16) {
+      const m0 = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
+      const m1 = inline.always(backslash_or_quote_mask(load<u64>(srcStart, 8)));
+      if ((m0 | m1) != 0) break;
+      srcStart += 16;
     }
-
-    do {
-      const laneIdx = usize(ctz(mask) >> 3);
-      mask &= ~(0xffff << (laneIdx << 3));
-      const srcIdx = srcStart + laneIdx;
-      const char = load<u16>(srcIdx);
-
-      if (char == QUOTE) {
-        writeStringToField(dstFieldPtr, payloadStart, <u32>(srcIdx - payloadStart));
-        return srcIdx + 2;
-      }
-      if (char != BACK_SLASH) continue;
-
-      bs.offset = bs.buffer;
-      bs.ensureSize(<u32>(srcEnd - payloadStart));
-      const prefixLen = <u32>(srcIdx - payloadStart);
-      if (prefixLen != 0) {
-        memory.copy(bs.buffer, payloadStart, prefixLen);
-        bs.offset += prefixLen;
-      }
-
-      const chunk = load<u32>(srcIdx);
-      const code = <u16>(chunk >> 16);
-      let lastPtr: usize;
-      if (code !== 0x75) {
-        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
-        bs.offset += 2;
-        lastPtr = srcIdx + 4;
-      } else {
-        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
-        bs.offset += 2;
-        lastPtr = srcIdx + 12;
-      }
-      return inline.always(deserializeEscapedStringContinuation_SWAR_MergedTuned(lastPtr, lastPtr, srcEnd, dstFieldPtr));
-    } while (mask !== 0);
-
-    srcStart += 8;
   }
 
-  while (srcStart < srcEnd) {
-    const char = load<u16>(srcStart);
-    if (char == QUOTE) {
-      writeStringToField(dstFieldPtr, payloadStart, <u32>(srcStart - payloadStart));
-      return srcStart + 2;
-    }
-    if (char == BACK_SLASH) {
-      bs.offset = bs.buffer;
-      bs.ensureSize(<u32>(srcEnd - payloadStart));
-      const prefixLen = <u32>(srcStart - payloadStart);
-      if (prefixLen != 0) {
-        memory.copy(bs.buffer, payloadStart, prefixLen);
-        bs.offset += prefixLen;
-      }
-
-      const code = load<u16>(srcStart, 2);
-      let lastPtr: usize;
-      if (code !== 0x75) {
-        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
-        bs.offset += 2;
-        lastPtr = srcStart + 4;
-      } else {
-        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
-        bs.offset += 2;
-        lastPtr = srcStart + 12;
-      }
-      return inline.always(deserializeEscapedStringContinuation_SWAR_MergedTuned(lastPtr, lastPtr, srcEnd, dstFieldPtr));
-    }
-    srcStart += 2;
-  }
-
-  return srcStart;
-}
-
-export function deserializeStringField_SWAR<T extends string | null>(srcStart: usize, srcEnd: usize, dstFieldPtr: usize): usize {
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) abort("Expected leading quote");
-
-  const payloadStart = srcStart + 2;
   const srcEnd8 = srcEnd - 8;
-  srcStart = payloadStart;
-
   while (srcStart <= srcEnd8) {
     let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
     if (mask === 0) {
@@ -624,11 +497,22 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
       const srcIdx = srcStart + laneIdx;
       const char = load<u16>(srcIdx);
       if (char == QUOTE) {
-        writeStringToField(dstFieldPtr, payloadStart, <u32>(srcIdx - payloadStart));
+        writeStringToField(
+          dstFieldPtr,
+          payloadStart,
+          <u32>(srcIdx - payloadStart),
+        );
         return srcIdx + 2;
       }
       if (char != BACK_SLASH) continue;
-      return inline.always(deserializeEscapedStringScan_SWAR_SplitTuned(payloadStart, srcIdx, srcEnd, dstFieldPtr));
+      return inline.always(
+        deserializeEscapedStringScan_SWAR_SplitTuned(
+          payloadStart,
+          srcIdx,
+          srcEnd,
+          dstFieldPtr,
+        ),
+      );
     } while (mask !== 0);
 
     srcStart += 8;
@@ -637,11 +521,22 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
   while (srcStart < srcEnd) {
     const char = load<u16>(srcStart);
     if (char == QUOTE) {
-      writeStringToField(dstFieldPtr, payloadStart, <u32>(srcStart - payloadStart));
+      writeStringToField(
+        dstFieldPtr,
+        payloadStart,
+        <u32>(srcStart - payloadStart),
+      );
       return srcStart + 2;
     }
     if (char == BACK_SLASH) {
-      return inline.always(deserializeEscapedStringScan_SWAR_SplitTuned(payloadStart, srcStart, srcEnd, dstFieldPtr));
+      return inline.always(
+        deserializeEscapedStringScan_SWAR_SplitTuned(
+          payloadStart,
+          srcStart,
+          srcEnd,
+          dstFieldPtr,
+        ),
+      );
     }
     srcStart += 2;
   }
@@ -661,7 +556,10 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
 @inline function backslash_or_quote_mask(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
   const q = block ^ 0x0022_0022_0022_0022;
-  return (((q - 0x0001_0001_0001_0001) & ~q) | ((b - 0x0001_0001_0001_0001) & ~b)) & 0x0080_0080_0080_0080;
+  return (
+    (((q - 0x0001_0001_0001_0001) & ~q) | ((b - 0x0001_0001_0001_0001) & ~b)) &
+    0x0080_0080_0080_0080
+  );
 }
 /**
  * Computes a per-lane mask identifying UTF-16 code units whose **low byte**
@@ -677,8 +575,13 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
 // @ts-expect-error: @inline is a valid decorator
 @inline function backslash_mask(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
-  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
-  const high_byte_mask = ~(((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^ 0x8000_8000_8000_8000) >> 8;
+  const backslash_mask =
+    (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
+  const high_byte_mask =
+    ~(
+      ((block - 0x0100_0100_0100_0100) & ~block & 0x8000_8000_8000_8000) ^
+      0x8000_8000_8000_8000
+    ) >> 8;
   return backslash_mask & high_byte_mask;
 }
 
@@ -694,6 +597,7 @@ export function deserializeStringField_SWAR<T extends string | null>(srcStart: u
 // @ts-expect-error: @inline is a valid decorator
 @inline function backslash_mask_unsafe(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
-  const backslash_mask = (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
+  const backslash_mask =
+    (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
   return backslash_mask;
 }

@@ -4,7 +4,15 @@ import { bs } from "../../lib/as-bs";
 import { Vec3 } from "./types";
 
 describe("Should cover JSON.Value type creation broadly", () => {
-  const values = [JSON.Value.from("text"), JSON.Value.from(true), JSON.Value.from(false), JSON.Value.from(0), JSON.Value.from(123), JSON.Value.from(3.5), JSON.Value.from(new Vec3())];
+  const values = [
+    JSON.Value.from("text"),
+    JSON.Value.from(true),
+    JSON.Value.from(false),
+    JSON.Value.from(0),
+    JSON.Value.from(123),
+    JSON.Value.from(3.5),
+    JSON.Value.from(new Vec3()),
+  ];
 
   expect(values[0].type.toString()).toBe(JSON.Types.String.toString());
   expect(values[1].type.toString()).toBe(JSON.Types.Bool.toString());
@@ -43,12 +51,30 @@ describe("Should mutate JSON.Obj instances deeply", () => {
   expect(root.get("name")!.get<string>()).toBe("json-as");
   expect(root.get("enabled")!.get<bool>().toString()).toBe("true");
   expect(root.get("count")!.toString()).toBe("3");
-  expect(root.get("meta")!.get<JSON.Obj>().get("inner")!.get<JSON.Obj>().get("a")!.toString()).toBe("1");
-  expect(root.get("meta")!.get<JSON.Obj>().get("inner")!.get<JSON.Obj>().get("b")!.toString()).toBe("2");
+  expect(
+    root
+      .get("meta")!
+      .get<JSON.Obj>()
+      .get("inner")!
+      .get<JSON.Obj>()
+      .get("a")!
+      .toString(),
+  ).toBe("1");
+  expect(
+    root
+      .get("meta")!
+      .get<JSON.Obj>()
+      .get("inner")!
+      .get<JSON.Obj>()
+      .get("b")!
+      .toString(),
+  ).toBe("2");
 
   root.delete("count");
   expect(root.has("count").toString()).toBe("false");
-  expect(JSON.stringify(root)).toBe('{"name":"json-as","enabled":true,"meta":{"inner":{"a":1,"b":2}}}');
+  expect(JSON.stringify(root)).toBe(
+    '{"name":"json-as","enabled":true,"meta":{"inner":{"a":1,"b":2}}}',
+  );
 });
 
 describe("Should build JSON.Obj values from serializable objects", () => {
@@ -83,7 +109,9 @@ describe("Should preserve JSON.Raw in arrays and maps", () => {
   expect(rawArray[3].toString()).toBe("false");
   expect(rawArray[4].toString()).toBe("null");
 
-  const rawMap = JSON.parse<Map<string, JSON.Raw>>('{"obj":{"x":1},"arr":[1,2],"str":"abc","bool":true}');
+  const rawMap = JSON.parse<Map<string, JSON.Raw>>(
+    '{"obj":{"x":1},"arr":[1,2],"str":"abc","bool":true}',
+  );
   expect(rawMap.get("obj")!.toString()).toBe('{"x":1}');
   expect(rawMap.get("arr")!.toString()).toBe("[1,2]");
   expect(rawMap.get("str")!.toString()).toBe('"abc"');
@@ -91,21 +119,27 @@ describe("Should preserve JSON.Raw in arrays and maps", () => {
 });
 
 describe("Should traverse parsed arbitrary runtime structures", () => {
-  const parsed = JSON.parse<JSON.Value>('{"items":[{"kind":"a","value":1},{"kind":"b","value":[2,3]}],"ok":true}');
+  const parsed = JSON.parse<JSON.Value>(
+    '{"items":[{"kind":"a","value":1},{"kind":"b","value":[2,3]}],"ok":true}',
+  );
   const root = parsed.get<JSON.Obj>();
   const items = root.get("items")!.get<JSON.Value[]>();
 
   expect(root.get("ok")!.get<bool>().toString()).toBe("true");
   expect(items.length.toString()).toBe("2");
   expect(items[0].get<JSON.Obj>().get("kind")!.get<string>()).toBe("a");
-  expect(items[0].get<JSON.Obj>().get("value")!.get<f64>().toString()).toBe("1.0");
+  expect(items[0].get<JSON.Obj>().get("value")!.get<f64>().toString()).toBe(
+    "1.0",
+  );
   expect(items[1].get<JSON.Obj>().get("kind")!.get<string>()).toBe("b");
 
   const nested = items[1].get<JSON.Obj>().get("value")!.get<JSON.Value[]>();
   expect(nested.length.toString()).toBe("2");
   expect(nested[0].get<f64>().toString()).toBe("2.0");
   expect(nested[1].get<f64>().toString()).toBe("3.0");
-  expect(JSON.stringify(parsed)).toBe('{"items":[{"kind":"a","value":1.0},{"kind":"b","value":[2.0,3.0]}],"ok":true}');
+  expect(JSON.stringify(parsed)).toBe(
+    '{"items":[{"kind":"a","value":1.0},{"kind":"b","value":[2.0,3.0]}],"ok":true}',
+  );
 });
 
 describe("Should preserve bs state for JSON.internal helpers", () => {
@@ -116,7 +150,10 @@ describe("Should preserve bs state for JSON.internal helpers", () => {
 
   const beforeStringifyOffset = bs.offset;
   const beforeStringifyStack = bs.stackSize;
-  const serialized = JSON.internal.stringify<JSON.Value[]>([JSON.Value.from(1), JSON.Value.from(true)]);
+  const serialized = JSON.internal.stringify<JSON.Value[]>([
+    JSON.Value.from(1),
+    JSON.Value.from(true),
+  ]);
 
   expect(serialized).toBe("[1,true]");
   expect(bs.offset).toBe(beforeStringifyOffset);

@@ -3,15 +3,23 @@ import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
 import { scanValueEnd } from "../../swar/array/shared";
 
-export function deserializeGenericArray<T extends unknown[]>(srcStart: usize, srcEnd: usize, dst: usize): T {
-  const out = changetype<nonnull<T>>(dst || changetype<usize>(instantiate<T>()));
+export function deserializeGenericArray<T extends unknown[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
+  const out = changetype<nonnull<T>>(
+    dst || changetype<usize>(instantiate<T>()),
+  );
   out.length = 0;
 
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
-  if (srcStart >= srcEnd) throw new Error("Input string had zero length or was all whitespace");
-  if (load<u16>(srcStart) != BRACKET_LEFT) throw new Error("Expected '[' at start of array");
+  if (srcStart >= srcEnd)
+    throw new Error("Input string had zero length or was all whitespace");
+  if (load<u16>(srcStart) != BRACKET_LEFT)
+    throw new Error("Expected '[' at start of array");
   srcStart += 2;
 
   while (srcStart < srcEnd) {

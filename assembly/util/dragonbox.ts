@@ -188,7 +188,12 @@ function computeMul64(u: u64, cacheHigh: u64, cacheLow: u64): void {
 
 
 @inline
-function computeMulParity64(twoF: u64, cacheHigh: u64, cacheLow: u64, beta: i32): void {
+function computeMulParity64(
+  twoF: u64,
+  cacheHigh: u64,
+  cacheLow: u64,
+  beta: i32,
+): void {
   const high = twoF * cacheHigh;
 
   const a = <u32>(twoF >>> 32);
@@ -205,7 +210,8 @@ function computeMulParity64(twoF: u64, cacheHigh: u64, cacheLow: u64, beta: i32)
 
   const rHigh = high + lowHigh;
   _dbParity = ((rHigh >>> (64 - beta)) & 1) != 0;
-  _dbMulIsInteger = (((rHigh << beta) & 0xffffffffffffffff) | (lowLow >>> (64 - beta))) == 0;
+  _dbMulIsInteger =
+    (((rHigh << beta) & 0xffffffffffffffff) | (lowLow >>> (64 - beta))) == 0;
 }
 
 
@@ -298,7 +304,8 @@ function prettify(buffer: usize, length: i32, k: i32): i32 {
 
   const kk = length + k;
   if (length <= kk && kk <= 21) {
-    for (let i = length; i < kk; ++i) store<u16>(buffer + ((<usize>i) << 1), CHAR_0);
+    for (let i = length; i < kk; ++i)
+      store<u16>(buffer + ((<usize>i) << 1), CHAR_0);
     const tail = buffer + ((<usize>kk) << 1);
     store<u16>(tail, CHAR_DOT);
     store<u16>(tail, CHAR_0, 2);
@@ -313,7 +320,8 @@ function prettify(buffer: usize, length: i32, k: i32): i32 {
     memory.copy(buffer + ((<usize>offset) << 1), buffer, (<usize>length) << 1);
     store<u16>(buffer, CHAR_0);
     store<u16>(buffer, CHAR_DOT, 2);
-    for (let i = 2; i < offset; ++i) store<u16>(buffer + ((<usize>i) << 1), CHAR_0);
+    for (let i = 2; i < offset; ++i)
+      store<u16>(buffer + ((<usize>i) << 1), CHAR_0);
     return length + offset;
   } else if (length == 1) {
     store<u16>(buffer, CHAR_E, 2);
@@ -365,7 +373,10 @@ function prettifyFast(buffer: usize, length: i32, k: i32): i32 {
   return -1;
 }
 
-function dragonboxToDecimalF32(binarySignificand: u32, binaryExponent: i32): u32 {
+function dragonboxToDecimalF32(
+  binarySignificand: u32,
+  binaryExponent: i32,
+): u32 {
   const isEven = (binarySignificand & 1) == 0;
   let twoFc = binarySignificand << 1;
 
@@ -374,7 +385,9 @@ function dragonboxToDecimalF32(binarySignificand: u32, binaryExponent: i32): u32
     if (twoFc == 0) {
       const minusK = floor_log10_pow2_minus_log10_4_over_3(binaryExponent);
       const beta = binaryExponent + floor_log2_pow10(-minusK);
-      const cache = load<u64>(DRAGONBOX_F32_CACHE + ((<usize>(31 - minusK)) << 3));
+      const cache = load<u64>(
+        DRAGONBOX_F32_CACHE + ((<usize>(31 - minusK)) << 3),
+      );
       let xi = computeLeftEndpointShorter32(cache, beta);
       const zi = computeRightEndpointShorter32(cache, beta);
       if (!(binaryExponent >= 2 && binaryExponent <= 3)) ++xi;
@@ -387,7 +400,8 @@ function dragonboxToDecimalF32(binarySignificand: u32, binaryExponent: i32): u32
         return decimalSignificand;
       }
       decimalSignificand = computeRoundUpShorter32(cache, beta);
-      if ((decimalSignificand & 1) != 0 && binaryExponent == -35) --decimalSignificand;
+      if ((decimalSignificand & 1) != 0 && binaryExponent == -35)
+        --decimalSignificand;
       else if (decimalSignificand < xi) ++decimalSignificand;
       _dbK = minusK;
       return decimalSignificand;
@@ -444,14 +458,18 @@ function dragonboxToDecimalF32(binarySignificand: u32, binaryExponent: i32): u32
   if ((packedDiv & 1) != 0) {
     computeMulParity32(twoFc, cache, beta);
     if (_dbParity != approxYParity) --decimalSignificand;
-    else if ((decimalSignificand & 1) != 0 && _dbMulIsInteger) --decimalSignificand;
+    else if ((decimalSignificand & 1) != 0 && _dbMulIsInteger)
+      --decimalSignificand;
   }
 
   _dbK = minusK + 1;
   return decimalSignificand;
 }
 
-function dragonboxToDecimalF64(binarySignificand: u64, binaryExponent: i32): u64 {
+function dragonboxToDecimalF64(
+  binarySignificand: u64,
+  binaryExponent: i32,
+): u64 {
   const isEven = (binarySignificand & 1) == 0;
   let twoFc = binarySignificand << 1;
 
@@ -475,7 +493,8 @@ function dragonboxToDecimalF64(binarySignificand: u64, binaryExponent: i32): u64
         return decimalSignificand;
       }
       decimalSignificand = computeRoundUpShorter64(cacheHigh, beta);
-      if ((decimalSignificand & 1) != 0 && binaryExponent == -77) --decimalSignificand;
+      if ((decimalSignificand & 1) != 0 && binaryExponent == -77)
+        --decimalSignificand;
       else if (decimalSignificand < xi) ++decimalSignificand;
       _dbK = minusK;
       return decimalSignificand;
@@ -534,7 +553,8 @@ function dragonboxToDecimalF64(binarySignificand: u64, binaryExponent: i32): u64
   if ((packedDiv & 1) != 0) {
     computeMulParity64(twoFc, cacheHigh, cacheLow, beta);
     if (_dbParity != approxYParity) --decimalSignificand;
-    else if ((decimalSignificand & 1) != 0 && _dbMulIsInteger) --decimalSignificand;
+    else if ((decimalSignificand & 1) != 0 && _dbMulIsInteger)
+      --decimalSignificand;
   }
 
   _dbK = minusK + 2;
@@ -548,7 +568,10 @@ function dragonboxCoreF32(buffer: usize, value: f32): u32 {
     value = -value;
     store<u16>(buffer, CHAR_MINUS);
   }
-  const digits = dragonboxToDecimalF32(reinterpret<u32>(value) & 0x7fffff, (reinterpret<u32>(value) >>> 23) & 0xff);
+  const digits = dragonboxToDecimalF32(
+    reinterpret<u32>(value) & 0x7fffff,
+    (reinterpret<u32>(value) >>> 23) & 0xff,
+  );
   let len = itoa_buffered<u32>(buffer + ((<usize>sign) << 1), digits);
   return <u32>(prettify(buffer + ((<usize>sign) << 1), len, _dbK) + sign);
 }
@@ -561,7 +584,10 @@ function dragonboxCoreF64(buffer: usize, value: f64): u32 {
     store<u16>(buffer, CHAR_MINUS);
   }
   const bits = reinterpret<u64>(value);
-  const digits = dragonboxToDecimalF64(bits & 0x000fffffffffffff, <i32>((bits >>> 52) & 0x7ff));
+  const digits = dragonboxToDecimalF64(
+    bits & 0x000fffffffffffff,
+    <i32>((bits >>> 52) & 0x7ff),
+  );
   let len = itoa_buffered<u64>(buffer + ((<usize>sign) << 1), digits);
   return <u32>(prettify(buffer + ((<usize>sign) << 1), len, _dbK) + sign);
 }
@@ -618,7 +644,10 @@ export function dragonbox_f64_buffered(buffer: usize, value: f64): u32 {
   return dragonboxCoreF64(buffer, value);
 }
 
-export function dragonbox_buffered<T extends number>(buffer: usize, value: T): u32 {
+export function dragonbox_buffered<T extends number>(
+  buffer: usize,
+  value: T,
+): u32 {
   if (sizeof<T>() == 4) return dragonbox_f32_buffered(buffer, <f32>value);
   return dragonbox_f64_buffered(buffer, <f64>value);
 }

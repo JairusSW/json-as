@@ -7,7 +7,10 @@ import { POW_TEN_TABLE_32, POW_TEN_TABLE_64 } from "../globals/tables";
 import { atoi } from "./atoi";
 
 // @ts-ignore: Decorator valid here
-@inline export function snp<T extends number>(srcStart: usize, srcEnd: usize): T {
+@inline export function snp<T extends number>(
+  srcStart: usize,
+  srcEnd: usize,
+): T {
   // @ts-ignore: type
   let val: T = 0;
   let char = load<u16>(srcStart) - 48;

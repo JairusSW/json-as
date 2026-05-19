@@ -1,6 +1,12 @@
 import { bytes } from "../../util";
-export { deserializeArrayBuffer, deserializeTypedArray } from "../simple/typedarray";
-import { deserializeArrayBuffer, deserializeTypedArray } from "../simple/typedarray";
+export {
+  deserializeArrayBuffer,
+  deserializeTypedArray,
+} from "../simple/typedarray";
+import {
+  deserializeArrayBuffer,
+  deserializeTypedArray,
+} from "../simple/typedarray";
 
 
 @inline export function parseArrayBuffer(data: string): ArrayBuffer {
@@ -10,6 +16,10 @@ import { deserializeArrayBuffer, deserializeTypedArray } from "../simple/typedar
 }
 
 
-@inline export function __deserializeArrayBuffer(srcStart: usize, srcEnd: usize, dst: usize = 0): ArrayBuffer {
+@inline export function __deserializeArrayBuffer(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize = 0,
+): ArrayBuffer {
   return deserializeArrayBuffer(srcStart, srcEnd, dst);
 }

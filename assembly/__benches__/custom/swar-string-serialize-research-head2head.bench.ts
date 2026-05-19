@@ -3,7 +3,10 @@ import { bs } from "../../../lib/as-bs";
 import { expect } from "../../__tests__/lib/index.ts";
 import { BACK_SLASH, QUOTE } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
-import { serializeString_SWAR, detect_escapable_u64_swar_safe } from "../../serialize/swar/string";
+import {
+  serializeString_SWAR,
+  detect_escapable_u64_swar_safe,
+} from "../../serialize/swar/string";
 import { u16_to_hex4_swar } from "../../util/swar";
 import { bench, blackbox, dumpToFile } from "../lib/bench.ts";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
@@ -14,7 +17,8 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 @lazy const U_MARKER = 7667804;
 
 function makePlainPayload(targetBytes: i32): string {
-  const base = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`~!@#$%^&*()-_=+[]{}|;:,.<>/? ";
+  const base =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`~!@#$%^&*()-_=+[]{}|;:,.<>/? ";
   const repeats = i32(Math.ceil(targetBytes / (base.length << 1)));
   return base.repeat(repeats).slice(0, targetBytes >> 1);
 }
@@ -47,7 +51,12 @@ const largeEscaped = makeEscapedPayload(1024 * 1024);
 
 // @ts-expect-error: @inline is a valid decorator
 @inline function isEscapableOrSurrogate(code: u16): bool {
-  return code == BACK_SLASH || code == QUOTE || code < 32 || (code >= 0xd800 && code <= 0xdfff);
+  return (
+    code == BACK_SLASH ||
+    code == QUOTE ||
+    code < 32 ||
+    (code >= 0xd800 && code <= 0xdfff)
+  );
 }
 
 // @ts-expect-error: @inline is a valid decorator
@@ -121,7 +130,11 @@ function serializeString_SWAR_ScratchRunCopyShortMap(src: string): void {
       } else {
         bs.growSize(10);
         store<u64>(bs.offset, U00_MARKER);
-        store<u32>(bs.offset, load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)), 8);
+        store<u32>(
+          bs.offset,
+          load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2)),
+          8,
+        );
         bs.offset += 12;
       }
       srcStart += 2;
@@ -391,56 +404,233 @@ const bytesSmallEscaped = JSON.stringify(smallEscaped).length << 1;
 const bytesMediumEscaped = JSON.stringify(mediumEscaped).length << 1;
 const bytesLargeEscaped = JSON.stringify(largeEscaped).length << 1;
 
-bench("Research SWAR Current (small plain)", () => blackbox(lenCurrent(smallPlain)), 30000, bytesSmallPlain);
+bench(
+  "Research SWAR Current (small plain)",
+  () => blackbox(lenCurrent(smallPlain)),
+  30000,
+  bytesSmallPlain,
+);
 dumpToFile("swar-string-serialize-research-current-small-plain", "serialize");
-bench("Research SWAR Scratch RunCopy ShortMap (small plain)", () => blackbox(lenScratchShortMap(smallPlain)), 30000, bytesSmallPlain);
-dumpToFile("swar-string-serialize-research-scratch-shortmap-small-plain", "serialize");
-bench("Research SWAR Scratch RunCopy Table (small plain)", () => blackbox(lenScratchTable(smallPlain)), 30000, bytesSmallPlain);
-dumpToFile("swar-string-serialize-research-scratch-table-small-plain", "serialize");
-bench("Research SWAR Scratch FirstHit Table (small plain)", () => blackbox(lenScratchFirstHit(smallPlain)), 30000, bytesSmallPlain);
-dumpToFile("swar-string-serialize-research-scratch-firsthit-small-plain", "serialize");
+bench(
+  "Research SWAR Scratch RunCopy ShortMap (small plain)",
+  () => blackbox(lenScratchShortMap(smallPlain)),
+  30000,
+  bytesSmallPlain,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-shortmap-small-plain",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch RunCopy Table (small plain)",
+  () => blackbox(lenScratchTable(smallPlain)),
+  30000,
+  bytesSmallPlain,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-table-small-plain",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch FirstHit Table (small plain)",
+  () => blackbox(lenScratchFirstHit(smallPlain)),
+  30000,
+  bytesSmallPlain,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-firsthit-small-plain",
+  "serialize",
+);
 
-bench("Research SWAR Current (medium plain)", () => blackbox(lenCurrent(mediumPlain)), 4000, bytesMediumPlain);
+bench(
+  "Research SWAR Current (medium plain)",
+  () => blackbox(lenCurrent(mediumPlain)),
+  4000,
+  bytesMediumPlain,
+);
 dumpToFile("swar-string-serialize-research-current-medium-plain", "serialize");
-bench("Research SWAR Scratch RunCopy ShortMap (medium plain)", () => blackbox(lenScratchShortMap(mediumPlain)), 4000, bytesMediumPlain);
-dumpToFile("swar-string-serialize-research-scratch-shortmap-medium-plain", "serialize");
-bench("Research SWAR Scratch RunCopy Table (medium plain)", () => blackbox(lenScratchTable(mediumPlain)), 4000, bytesMediumPlain);
-dumpToFile("swar-string-serialize-research-scratch-table-medium-plain", "serialize");
-bench("Research SWAR Scratch FirstHit Table (medium plain)", () => blackbox(lenScratchFirstHit(mediumPlain)), 4000, bytesMediumPlain);
-dumpToFile("swar-string-serialize-research-scratch-firsthit-medium-plain", "serialize");
+bench(
+  "Research SWAR Scratch RunCopy ShortMap (medium plain)",
+  () => blackbox(lenScratchShortMap(mediumPlain)),
+  4000,
+  bytesMediumPlain,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-shortmap-medium-plain",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch RunCopy Table (medium plain)",
+  () => blackbox(lenScratchTable(mediumPlain)),
+  4000,
+  bytesMediumPlain,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-table-medium-plain",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch FirstHit Table (medium plain)",
+  () => blackbox(lenScratchFirstHit(mediumPlain)),
+  4000,
+  bytesMediumPlain,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-firsthit-medium-plain",
+  "serialize",
+);
 
-bench("Research SWAR Current (large plain)", () => blackbox(lenCurrent(largePlain)), 1200, bytesLargePlain);
+bench(
+  "Research SWAR Current (large plain)",
+  () => blackbox(lenCurrent(largePlain)),
+  1200,
+  bytesLargePlain,
+);
 dumpToFile("swar-string-serialize-research-current-large-plain", "serialize");
-bench("Research SWAR Scratch RunCopy ShortMap (large plain)", () => blackbox(lenScratchShortMap(largePlain)), 1200, bytesLargePlain);
-dumpToFile("swar-string-serialize-research-scratch-shortmap-large-plain", "serialize");
-bench("Research SWAR Scratch RunCopy Table (large plain)", () => blackbox(lenScratchTable(largePlain)), 1200, bytesLargePlain);
-dumpToFile("swar-string-serialize-research-scratch-table-large-plain", "serialize");
-bench("Research SWAR Scratch FirstHit Table (large plain)", () => blackbox(lenScratchFirstHit(largePlain)), 1200, bytesLargePlain);
-dumpToFile("swar-string-serialize-research-scratch-firsthit-large-plain", "serialize");
+bench(
+  "Research SWAR Scratch RunCopy ShortMap (large plain)",
+  () => blackbox(lenScratchShortMap(largePlain)),
+  1200,
+  bytesLargePlain,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-shortmap-large-plain",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch RunCopy Table (large plain)",
+  () => blackbox(lenScratchTable(largePlain)),
+  1200,
+  bytesLargePlain,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-table-large-plain",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch FirstHit Table (large plain)",
+  () => blackbox(lenScratchFirstHit(largePlain)),
+  1200,
+  bytesLargePlain,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-firsthit-large-plain",
+  "serialize",
+);
 
-bench("Research SWAR Current (small escaped)", () => blackbox(lenCurrent(smallEscaped)), 30000, bytesSmallEscaped);
+bench(
+  "Research SWAR Current (small escaped)",
+  () => blackbox(lenCurrent(smallEscaped)),
+  30000,
+  bytesSmallEscaped,
+);
 dumpToFile("swar-string-serialize-research-current-small-escaped", "serialize");
-bench("Research SWAR Scratch RunCopy ShortMap (small escaped)", () => blackbox(lenScratchShortMap(smallEscaped)), 30000, bytesSmallEscaped);
-dumpToFile("swar-string-serialize-research-scratch-shortmap-small-escaped", "serialize");
-bench("Research SWAR Scratch RunCopy Table (small escaped)", () => blackbox(lenScratchTable(smallEscaped)), 30000, bytesSmallEscaped);
-dumpToFile("swar-string-serialize-research-scratch-table-small-escaped", "serialize");
-bench("Research SWAR Scratch FirstHit Table (small escaped)", () => blackbox(lenScratchFirstHit(smallEscaped)), 30000, bytesSmallEscaped);
-dumpToFile("swar-string-serialize-research-scratch-firsthit-small-escaped", "serialize");
+bench(
+  "Research SWAR Scratch RunCopy ShortMap (small escaped)",
+  () => blackbox(lenScratchShortMap(smallEscaped)),
+  30000,
+  bytesSmallEscaped,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-shortmap-small-escaped",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch RunCopy Table (small escaped)",
+  () => blackbox(lenScratchTable(smallEscaped)),
+  30000,
+  bytesSmallEscaped,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-table-small-escaped",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch FirstHit Table (small escaped)",
+  () => blackbox(lenScratchFirstHit(smallEscaped)),
+  30000,
+  bytesSmallEscaped,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-firsthit-small-escaped",
+  "serialize",
+);
 
-bench("Research SWAR Current (medium escaped)", () => blackbox(lenCurrent(mediumEscaped)), 4000, bytesMediumEscaped);
-dumpToFile("swar-string-serialize-research-current-medium-escaped", "serialize");
-bench("Research SWAR Scratch RunCopy ShortMap (medium escaped)", () => blackbox(lenScratchShortMap(mediumEscaped)), 4000, bytesMediumEscaped);
-dumpToFile("swar-string-serialize-research-scratch-shortmap-medium-escaped", "serialize");
-bench("Research SWAR Scratch RunCopy Table (medium escaped)", () => blackbox(lenScratchTable(mediumEscaped)), 4000, bytesMediumEscaped);
-dumpToFile("swar-string-serialize-research-scratch-table-medium-escaped", "serialize");
-bench("Research SWAR Scratch FirstHit Table (medium escaped)", () => blackbox(lenScratchFirstHit(mediumEscaped)), 4000, bytesMediumEscaped);
-dumpToFile("swar-string-serialize-research-scratch-firsthit-medium-escaped", "serialize");
+bench(
+  "Research SWAR Current (medium escaped)",
+  () => blackbox(lenCurrent(mediumEscaped)),
+  4000,
+  bytesMediumEscaped,
+);
+dumpToFile(
+  "swar-string-serialize-research-current-medium-escaped",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch RunCopy ShortMap (medium escaped)",
+  () => blackbox(lenScratchShortMap(mediumEscaped)),
+  4000,
+  bytesMediumEscaped,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-shortmap-medium-escaped",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch RunCopy Table (medium escaped)",
+  () => blackbox(lenScratchTable(mediumEscaped)),
+  4000,
+  bytesMediumEscaped,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-table-medium-escaped",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch FirstHit Table (medium escaped)",
+  () => blackbox(lenScratchFirstHit(mediumEscaped)),
+  4000,
+  bytesMediumEscaped,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-firsthit-medium-escaped",
+  "serialize",
+);
 
-bench("Research SWAR Current (large escaped)", () => blackbox(lenCurrent(largeEscaped)), 1200, bytesLargeEscaped);
+bench(
+  "Research SWAR Current (large escaped)",
+  () => blackbox(lenCurrent(largeEscaped)),
+  1200,
+  bytesLargeEscaped,
+);
 dumpToFile("swar-string-serialize-research-current-large-escaped", "serialize");
-bench("Research SWAR Scratch RunCopy ShortMap (large escaped)", () => blackbox(lenScratchShortMap(largeEscaped)), 1200, bytesLargeEscaped);
-dumpToFile("swar-string-serialize-research-scratch-shortmap-large-escaped", "serialize");
-bench("Research SWAR Scratch RunCopy Table (large escaped)", () => blackbox(lenScratchTable(largeEscaped)), 1200, bytesLargeEscaped);
-dumpToFile("swar-string-serialize-research-scratch-table-large-escaped", "serialize");
-bench("Research SWAR Scratch FirstHit Table (large escaped)", () => blackbox(lenScratchFirstHit(largeEscaped)), 1200, bytesLargeEscaped);
-dumpToFile("swar-string-serialize-research-scratch-firsthit-large-escaped", "serialize");
+bench(
+  "Research SWAR Scratch RunCopy ShortMap (large escaped)",
+  () => blackbox(lenScratchShortMap(largeEscaped)),
+  1200,
+  bytesLargeEscaped,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-shortmap-large-escaped",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch RunCopy Table (large escaped)",
+  () => blackbox(lenScratchTable(largeEscaped)),
+  1200,
+  bytesLargeEscaped,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-table-large-escaped",
+  "serialize",
+);
+bench(
+  "Research SWAR Scratch FirstHit Table (large escaped)",
+  () => blackbox(lenScratchFirstHit(largeEscaped)),
+  1200,
+  bytesLargeEscaped,
+);
+dumpToFile(
+  "swar-string-serialize-research-scratch-firsthit-large-escaped",
+  "serialize",
+);

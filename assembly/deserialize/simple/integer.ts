@@ -1,12 +1,20 @@
 import { atoi } from "../../util/atoi";
 
 // @ts-ignore: inline
-@inline export function deserializeInteger<T>(srcStart: usize, srcEnd: usize): T {
+@inline export function deserializeInteger<T>(
+  srcStart: usize,
+  srcEnd: usize,
+): T {
   return atoi<T>(srcStart, srcEnd);
 }
 
 // @ts-ignore: inline
-@inline export function deserializeIntegerField<T extends number>(srcStart: usize, srcEnd: usize, dstObj: usize, dstOffset: usize = 0): usize {
+@inline export function deserializeIntegerField<T extends number>(
+  srcStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
   const fieldPtr = dstObj + dstOffset;
   let negative = false;
   if (load<u16>(srcStart) == 45) {

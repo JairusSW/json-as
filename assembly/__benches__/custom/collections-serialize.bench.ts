@@ -23,16 +23,24 @@ const intArraySmall: Array<i32> = [1, 2, 3, 4, 5, 6, 7, 8];
 const intArraySmallJson = "[1,2,3,4,5,6,7,8]";
 const intArraySmallBytes = String.UTF8.byteLength(intArraySmallJson);
 
-const intArrayMedium: Array<i32> = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34];
-const intArrayMediumJson = "[11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]";
+const intArrayMedium: Array<i32> = [
+  11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+  30, 31, 32, 33, 34,
+];
+const intArrayMediumJson =
+  "[11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]";
 const intArrayMediumBytes = String.UTF8.byteLength(intArrayMediumJson);
 
 const staticArraySmall: StaticArray<i32> = [1, 2, 3, 4, 5, 6, 7, 8];
 const staticArraySmallJson = "[1,2,3,4,5,6,7,8]";
 const staticArraySmallBytes = String.UTF8.byteLength(staticArraySmallJson);
 
-const staticArrayMedium: StaticArray<i32> = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34];
-const staticArrayMediumJson = "[11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]";
+const staticArrayMedium: StaticArray<i32> = [
+  11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+  30, 31, 32, 33, 34,
+];
+const staticArrayMediumJson =
+  "[11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]";
 const staticArrayMediumBytes = String.UTF8.byteLength(staticArrayMediumJson);
 
 const boolSet = new Set<bool>();
@@ -43,7 +51,8 @@ const boolSetBytes = String.UTF8.byteLength(boolSetJson);
 
 const intSet = new Set<i32>();
 for (let i = 0; i < 24; i++) intSet.add(i);
-const intSetJson = "[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]";
+const intSetJson =
+  "[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]";
 const intSetBytes = String.UTF8.byteLength(intSetJson);
 
 const bytes16 = makeUint8Array(16);

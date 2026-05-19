@@ -1,12 +1,21 @@
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { JSON } from "../..";
-export { serializeArrayBufferUnsafe, serializeTypedArray } from "../simple/typedarray";
-import { serializeArrayBufferUnsafe, serializeTypedArray } from "../simple/typedarray";
+export {
+  serializeArrayBufferUnsafe,
+  serializeTypedArray,
+} from "../simple/typedarray";
+import {
+  serializeArrayBufferUnsafe,
+  serializeTypedArray,
+} from "../simple/typedarray";
 
 
 @inline export function serializeDynamic(type: u16, data: usize): void {
   if (type == JSON.Types.ArrayBuffer) {
-    serializeArrayBufferUnsafe(data, changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize);
+    serializeArrayBufferUnsafe(
+      data,
+      changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize,
+    );
   } else if (type == JSON.Types.TypedArray) {
     const id = changetype<OBJECT>(data - TOTAL_OVERHEAD).rtId;
     if (id == idof<Int8Array>()) {
@@ -14,7 +23,9 @@ import { serializeArrayBufferUnsafe, serializeTypedArray } from "../simple/typed
     } else if (id == idof<Uint8Array>()) {
       serializeTypedArray<Uint8Array>(changetype<Uint8Array>(data));
     } else if (id == idof<Uint8ClampedArray>()) {
-      serializeTypedArray<Uint8ClampedArray>(changetype<Uint8ClampedArray>(data));
+      serializeTypedArray<Uint8ClampedArray>(
+        changetype<Uint8ClampedArray>(data),
+      );
     } else if (id == idof<Int16Array>()) {
       serializeTypedArray<Int16Array>(changetype<Int16Array>(data));
     } else if (id == idof<Uint16Array>()) {
@@ -35,8 +46,12 @@ import { serializeArrayBufferUnsafe, serializeTypedArray } from "../simple/typed
       serializeTypedArray<Int8Array>(changetype<Int8Array>(data));
     } else if (changetype<Uint8Array>(data) instanceof Uint8Array) {
       serializeTypedArray<Uint8Array>(changetype<Uint8Array>(data));
-    } else if (changetype<Uint8ClampedArray>(data) instanceof Uint8ClampedArray) {
-      serializeTypedArray<Uint8ClampedArray>(changetype<Uint8ClampedArray>(data));
+    } else if (
+      changetype<Uint8ClampedArray>(data) instanceof Uint8ClampedArray
+    ) {
+      serializeTypedArray<Uint8ClampedArray>(
+        changetype<Uint8ClampedArray>(data),
+      );
     } else if (changetype<Int16Array>(data) instanceof Int16Array) {
       serializeTypedArray<Int16Array>(changetype<Int16Array>(data));
     } else if (changetype<Uint16Array>(data) instanceof Uint16Array) {
@@ -62,5 +77,8 @@ import { serializeArrayBufferUnsafe, serializeTypedArray } from "../simple/typed
 
 @inline export function serializeArrayBuffer(data: ArrayBuffer): void {
   const dataStart = changetype<usize>(data);
-  serializeArrayBufferUnsafe(dataStart, changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize);
+  serializeArrayBufferUnsafe(
+    dataStart,
+    changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize,
+  );
 }

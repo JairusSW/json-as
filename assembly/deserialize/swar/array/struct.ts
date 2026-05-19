@@ -2,7 +2,11 @@ import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 
 
-@inline export function deserializeStructArrayInto<T extends unknown[]>(srcStart: usize, srcEnd: usize, out: T): usize {
+@inline export function deserializeStructArrayInto<T extends unknown[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): usize {
   let index = 0;
 
   do {
@@ -18,7 +22,9 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
       const slot = ensureArrayElementSlot<T>(out, index);
       let value = load<valueof<T>>(slot);
       if (changetype<usize>(value) == 0) {
-        value = changetype<valueof<T>>(__new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()));
+        value = changetype<valueof<T>>(
+          __new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
+        );
         // @ts-ignore: supplied by transform
         if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {
           // @ts-ignore: supplied by transform
@@ -29,12 +35,18 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 
       const valueStart = srcStart;
       // @ts-ignore: supplied by transform
-      if (isDefined(changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST)) {
+      if (
+        isDefined(changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST)
+      ) {
         // @ts-ignore: supplied by transform
-        srcStart = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST<valueof<T>>(valueStart, srcEnd, value);
+        srcStart = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST<
+          valueof<T>
+        >(valueStart, srcEnd, value);
       } else {
         // @ts-ignore: supplied by transform
-        srcStart = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW<valueof<T>>(valueStart, srcEnd, value);
+        srcStart = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW<
+          valueof<T>
+        >(valueStart, srcEnd, value);
       }
       if (!srcStart || srcStart >= srcEnd) break;
 
@@ -56,6 +68,14 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 }
 
 
-@inline export function deserializeStructArrayField<T extends unknown[]>(srcStart: usize, srcEnd: usize, fieldPtr: usize): usize {
-  return deserializeStructArrayInto<T>(srcStart, srcEnd, ensureArrayField<T>(fieldPtr));
+@inline export function deserializeStructArrayField<T extends unknown[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  fieldPtr: usize,
+): usize {
+  return deserializeStructArrayInto<T>(
+    srcStart,
+    srcEnd,
+    ensureArrayField<T>(fieldPtr),
+  );
 }
