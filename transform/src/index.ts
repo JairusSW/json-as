@@ -51,6 +51,36 @@ const STRICT =
   process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
 const DEFAULT_JSON_CACHE_BYTES = 1 << 20;
 
+/**
+ * Normalize the result of computing the relative path from a source file
+ * back to the json-as package root, so emitted runtime imports use the
+ * bare specifier `json-as/...` instead of the install-layout-specific
+ * absolute prefix.
+ *
+ * Layouts encountered in the wild:
+ *   - flat npm:        `../../node_modules/json-as`
+ *   - pnpm / yarn-pnp: `../../.pnpm/json-as@1.3.6_<hash>/node_modules/json-as`
+ *   - workspaces:      `../../../some/path/node_modules/json-as`
+ *
+ * In every case the *trailing* `json-as` segment is the package directory.
+ * Anchoring on `lastIndexOf` collapses the prefix correctly; `indexOf` had
+ * a hard-to-spot bug where pnpm's store directory `json-as@<ver>_<hash>`
+ * matched first and leaked into every emitted import path.
+ */
+export function normalizeJsonAsBaseRel(baseRel: string): string {
+  if (baseRel.endsWith("json-as")) {
+    return "json-as" + baseRel.slice(baseRel.lastIndexOf("json-as") + 7);
+  }
+  if (
+    !baseRel.startsWith(".") &&
+    !baseRel.startsWith("/") &&
+    !baseRel.startsWith("json-as")
+  ) {
+    return "./" + baseRel;
+  }
+  return baseRel;
+}
+
 function envFlagDefaultTrue(value: string | undefined): boolean {
   if (!value) return true;
   switch (value.trim().toLowerCase()) {
@@ -3138,21 +3168,13 @@ export class JSONTransform extends Visitor {
     const hasLocalDeserializeStringFieldSIMD =
       /\bdeserializeStringField_SIMD\b/.test(sourceText);
 
-    let baseRel = path.posix.join(
-      ...path
-        .relative(path.dirname(fromPath), path.join(baseDir))
-        .split(path.sep),
+    const baseRel = normalizeJsonAsBaseRel(
+      path.posix.join(
+        ...path
+          .relative(path.dirname(fromPath), path.join(baseDir))
+          .split(path.sep),
+      ),
     );
-
-    if (baseRel.endsWith("json-as")) {
-      baseRel = "json-as" + baseRel.slice(baseRel.indexOf("json-as") + 7);
-    } else if (
-      !baseRel.startsWith(".") &&
-      !baseRel.startsWith("/") &&
-      !baseRel.startsWith("json-as")
-    ) {
-      baseRel = "./" + baseRel;
-    }
 
     // console.log("relPath", baseRel);
 

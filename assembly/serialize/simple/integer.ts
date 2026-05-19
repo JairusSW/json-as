@@ -1,20 +1,19 @@
 import { bs } from "../../../lib/as-bs";
-import { itoa_buffered } from "util/number";
+import { ensureItoaPairs, itoaFast } from "../../util/itoa-fast";
 
 
 @inline
 export function serializeIntegerUnsafe<T extends number>(data: T): void {
-  const bytesWritten = itoa_buffered(bs.offset, data) << 1;
-  bs.offset += bytesWritten;
+  ensureItoaPairs();
+  const charsWritten = itoaFast<T>(bs.offset, data);
+  bs.offset += (<usize>charsWritten) << 1;
 }
 
 // @ts-ignore: inline
 @inline export function serializeInteger<T extends number>(data: T): void {
+  ensureItoaPairs();
   bs.ensureSize(sizeof<T>() << 3);
-  const bytesWritten = itoa_buffered(bs.offset, data) << 1;
-  bs.growSize(bytesWritten);
-  bs.offset += bytesWritten;
+  const charsWritten = itoaFast<T>(bs.offset, data);
+  bs.growSize((<u32>charsWritten) << 1);
+  bs.offset += (<usize>charsWritten) << 1;
 }
-
-// 32 {"x":,"y":,"z"}
-// 18 3.41.28.3

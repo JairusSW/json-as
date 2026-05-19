@@ -21,6 +21,17 @@ const DEBUG = rawValue === "true"
             : Number(rawValue);
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
 const DEFAULT_JSON_CACHE_BYTES = 1 << 20;
+export function normalizeJsonAsBaseRel(baseRel) {
+    if (baseRel.endsWith("json-as")) {
+        return "json-as" + baseRel.slice(baseRel.lastIndexOf("json-as") + 7);
+    }
+    if (!baseRel.startsWith(".") &&
+        !baseRel.startsWith("/") &&
+        !baseRel.startsWith("json-as")) {
+        return "./" + baseRel;
+    }
+    return baseRel;
+}
 function envFlagDefaultTrue(value) {
     if (!value)
         return true;
@@ -2322,17 +2333,9 @@ export class JSONTransform extends Visitor {
         const hasLocaldeserializeStaticArrayField = /\bdeserializeStaticArrayField\b/.test(sourceText);
         const hasLocalDeserializeStringFieldSWAR = /\bdeserializeStringField_SWAR\b/.test(sourceText);
         const hasLocalDeserializeStringFieldSIMD = /\bdeserializeStringField_SIMD\b/.test(sourceText);
-        let baseRel = path.posix.join(...path
+        const baseRel = normalizeJsonAsBaseRel(path.posix.join(...path
             .relative(path.dirname(fromPath), path.join(baseDir))
-            .split(path.sep));
-        if (baseRel.endsWith("json-as")) {
-            baseRel = "json-as" + baseRel.slice(baseRel.indexOf("json-as") + 7);
-        }
-        else if (!baseRel.startsWith(".") &&
-            !baseRel.startsWith("/") &&
-            !baseRel.startsWith("json-as")) {
-            baseRel = "./" + baseRel;
-        }
+            .split(path.sep)));
         if (!bsImport) {
             const replaceNode = Node.createImportStatement([
                 Node.createImportDeclaration(Node.createIdentifierExpression("bs", node.range, false), null, node.range),

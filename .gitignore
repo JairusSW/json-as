@@ -1,5 +1,6 @@
 node_modules
 .codex
+.DS_Store
 *.lock
 pnpm-lock.yaml
 package-lock.json

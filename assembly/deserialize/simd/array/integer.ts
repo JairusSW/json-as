@@ -41,42 +41,6 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
 @lazy const PAIR_WEIGHTS_100_1 = i16x8(100, 1, 100, 1, 0, 0, 0, 0);
 
 
-@inline function pushSignedInteger<T extends number[]>(
-  out: T,
-  value: i64,
-): void {
-  if (sizeof<valueof<T>>() == sizeof<i8>()) {
-    out.push(<valueof<T>>(<i8>value));
-  } else if (sizeof<valueof<T>>() == sizeof<i16>()) {
-    out.push(<valueof<T>>(<i16>value));
-  } else if (sizeof<valueof<T>>() == sizeof<i32>()) {
-    out.push(<valueof<T>>(<i32>value));
-  } else if (sizeof<valueof<T>>() == sizeof<isize>()) {
-    out.push(<valueof<T>>(<isize>value));
-  } else {
-    out.push(<valueof<T>>value);
-  }
-}
-
-
-@inline function pushUnsignedInteger<T extends number[]>(
-  out: T,
-  value: u64,
-): void {
-  if (sizeof<valueof<T>>() == sizeof<u8>()) {
-    out.push(<valueof<T>>(<u8>value));
-  } else if (sizeof<valueof<T>>() == sizeof<u16>()) {
-    out.push(<valueof<T>>(<u16>value));
-  } else if (sizeof<valueof<T>>() == sizeof<u32>()) {
-    out.push(<valueof<T>>(<u32>value));
-  } else if (sizeof<valueof<T>>() == sizeof<usize>()) {
-    out.push(<valueof<T>>(<usize>value));
-  } else {
-    out.push(<valueof<T>>value);
-  }
-}
-
-
 @inline function storeSignedInteger<T extends number[]>(
   slot: usize,
   value: i64,
@@ -129,11 +93,15 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
   return value * 100000000 + (<u64>lo * 10000 + <u64>hi);
 }
 
+// As in the SWAR variant: the parse helpers take a `slot` (`writePtr`) and
+// store directly. The dispatcher owns `out.length = maxElements` and the
+// per-element `writePtr` advance so `Array.push` is removed for every
+// integer width, not just the narrow-lane fast path.
 
 @inline function parseSignedIntegerSIMD<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
-  out: T,
+  slot: usize,
 ): usize {
   let negative = false;
   let code = load<u16>(srcStart);
@@ -164,7 +132,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
     srcStart += 2;
   }
 
-  pushSignedInteger<T>(out, negative ? -(<i64>value) : <i64>value);
+  storeSignedInteger<T>(slot, negative ? -(<i64>value) : <i64>value);
   return srcStart;
 }
 
@@ -172,7 +140,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
 @inline function parseUnsignedIntegerSIMD<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
-  out: T,
+  slot: usize,
 ): usize {
   let digit = <u32>load<u16>(srcStart) - 48;
   if (digit > 9) return 0;
@@ -194,7 +162,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
     srcStart += 2;
   }
 
-  pushUnsignedInteger<T>(out, value);
+  storeUnsignedInteger<T>(slot, value);
   return srcStart;
 }
 
@@ -545,43 +513,69 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
     srcStart = originalSrcStart;
   }
 
-  out.length = 0;
+  // Worst-case sizing: every element is at least 1 digit + 1 delimiter = 2
+  // UTF-16 chars = 4 bytes. The parse helpers below store through `writePtr`
+  // directly, eliminating `Array.push`'s per-element capacity check + length
+  // write for every integer width.
+  const elementSize = sizeof<valueof<T>>();
+  const maxElements = i32((<usize>(srcEnd - srcStart)) >> 2);
+  if (maxElements > 0) out.length = maxElements;
+  const dataStart = out.dataStart;
+  let writePtr = dataStart;
 
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
     if (srcStart >= srcEnd) break;
-    if (load<u16>(srcStart) == BRACKET_RIGHT) return out;
+    if (load<u16>(srcStart) == BRACKET_RIGHT) {
+      out.length = 0;
+      return out;
+    }
 
     if (isSigned<valueof<T>>()) {
       while (srcStart < srcEnd) {
-        srcStart = parseSignedIntegerSIMD<T>(srcStart, srcEnd, out);
-        if (!srcStart || srcStart >= srcEnd) break;
+        const next = parseSignedIntegerSIMD<T>(srcStart, srcEnd, writePtr);
+        if (!next) break;
+        writePtr += elementSize;
+        srcStart = next;
+        if (srcStart >= srcEnd) break;
 
         const code = load<u16>(srcStart);
         if (code == COMMA) {
           srcStart += 2;
           continue;
         }
-        if (code == BRACKET_RIGHT) return out;
+        if (code == BRACKET_RIGHT) {
+          out.length = i32(<usize>(writePtr - dataStart) / elementSize);
+          return out;
+        }
         break;
       }
     } else {
       while (srcStart < srcEnd) {
-        srcStart = parseUnsignedIntegerSIMD<T>(srcStart, srcEnd, out);
-        if (!srcStart || srcStart >= srcEnd) break;
+        const next = parseUnsignedIntegerSIMD<T>(srcStart, srcEnd, writePtr);
+        if (!next) break;
+        writePtr += elementSize;
+        srcStart = next;
+        if (srcStart >= srcEnd) break;
 
         const code = load<u16>(srcStart);
         if (code == COMMA) {
           srcStart += 2;
           continue;
         }
-        if (code == BRACKET_RIGHT) return out;
+        if (code == BRACKET_RIGHT) {
+          out.length = i32(<usize>(writePtr - dataStart) / elementSize);
+          return out;
+        }
         break;
       }
     }
   } while (false);
 
+  // Fall through to SWAR's SLOW path; it resets `out.length = 0` and
+  // re-parses from the original input. The pre-allocated buffer is retained
+  // so SLOW's per-element `ensureArrayElementSlot` reuses the capacity.
   return deserializeIntegerArray_SLOW<T>(
     originalSrcStart,
     srcEnd,
