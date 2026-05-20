@@ -74,7 +74,11 @@ import { ensureArrayField, scanValueEnd } from "./shared";
         continue;
       }
       if (code == BRACKET_RIGHT) {
-        out.length = index + 1;
+        // Skip the runtime `ensureCapacity` call when the length is already
+        // correct (the array is being reused with the same shape, e.g.
+        // canada's geometry rings across repeated parses).
+        const nextLen = index + 1;
+        if (out.length != nextLen) out.length = nextLen;
         return srcStart + 2;
       }
       break;

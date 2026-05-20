@@ -1,4 +1,15 @@
 import { JSON, JSONMode } from "../..";
+import {
+  getUsedMemorySize,
+  memoryDetail,
+} from "as-heap-analyzer/assembly/index";
+import { bs } from "../../../lib/as-bs";
+
+// Mirrors MEMORY_DETAIL_SIZE (default 1024) inside as-heap-analyzer. The
+// package preallocates a u32-per-runtime-ID table at `memoryDetail`; we keep
+// our own snapshot of it so we can diff fixture state vs post-bench state.
+const HEAP_DETAIL_SLOTS: u32 = 1024;
+const heapDetailSnapshot: usize = memory.data(HEAP_DETAIL_SLOTS * 4);
 // @ts-ignore: decorator allowed
 @external("env", "writeFile")
 export declare function writeFile(fileName: string, data: string): void;
@@ -23,7 +34,15 @@ class BenchResult {
   nsPerOp!: f64;
   mbps!: f64;
   gbps!: f64;
+  memoryBaselineBytes: u64 = 0;
+  memoryPeakBytes: u64 = 0;
+  memoryRetainedBytes: u64 = 0;
+  memoryPostGcMs: f64 = 0;
+  heapDetail: string = "";
 }
+
+// @ts-expect-error: BENCH_TRACK_MEMORY may be undefined.
+const BENCH_MEMORY: bool = isDefined(BENCH_TRACK_MEMORY);
 
 let result: BenchResult | null = null;
 
@@ -59,6 +78,23 @@ export function bench(
   // Run a full GC cycle before timing to reduce cross-bench noise.
   __collect();
   console.log(" - Benchmarking " + description);
+
+  let baselineLiveBytes: u64 = 0;
+  let peakPages: u64 = 0;
+  let bsBaselineSize: u64 = 0;
+  if (BENCH_MEMORY) {
+    // getUsedMemorySize() runs __collect() then walks live blocks, populating
+    // `memoryDetail` with per-runtime-ID byte totals. We snapshot it so the
+    // post-bench diff filters out the fixtures (Large, Canada, u8[], …) that
+    // exist before bench() ran.
+    baselineLiveBytes = u64(getUsedMemorySize());
+    memory.copy(heapDetailSnapshot, memoryDetail, HEAP_DETAIL_SLOTS * 4);
+    peakPages = u64(memory.size());
+    // `bs.bufferSize` is unmanaged (heap.alloc), so it never appears in the
+    // GC-walked classDelta. Track it separately.
+    bsBaselineSize = u64(bs.bufferSize);
+  }
+
   let warmup = ops / 10;
   while (--warmup) {
     routine();
@@ -69,10 +105,30 @@ export function bench(
   let count = ops;
   while (count--) {
     routine();
+    if (BENCH_MEMORY) {
+      const p = u64(memory.size());
+      if (p > peakPages) peakPages = p;
+    }
   }
 
   const end = performance.now();
   const elapsed = Math.max(1, end - start);
+
+  let retainedLiveBytes: u64 = 0;
+  let inflightLiveBytes: u64 = 0;
+  let postGcMs: f64 = 0;
+  let heapDetailJson: string = "";
+  if (BENCH_MEMORY) {
+    // Walk pre-GC: captures in-flight allocations the loop's incremental GC
+    // hasn't reclaimed yet. memoryDetail is populated by this call; diff
+    // against entry snapshot to filter fixtures.
+    inflightLiveBytes = walkHeapNoCollect();
+    heapDetailJson = buildHeapDetailDelta();
+    // Then GC + measure retained.
+    const gcStart = performance.now();
+    retainedLiveBytes = u64(getUsedMemorySize());
+    postGcMs = performance.now() - gcStart;
+  }
 
   const opsPerSecond = f64(ops * 1000) / elapsed;
   const nsPerOp = (elapsed * 1_000_000) / f64(ops);
@@ -84,6 +140,29 @@ export function bench(
     const totalBytes = bytesPerOp * ops;
     mbPerSec = f64(totalBytes) / (elapsed / 1000) / (1000 * 1000);
     log += ` @ ${formatNumber(u64(Math.round(mbPerSec)))}MB/s`;
+  }
+
+  let memBaselineBytes: u64 = 0;
+  let memPeakBytes: u64 = 0;
+  let memRetainedBytes: u64 = 0;
+  if (BENCH_MEMORY) {
+    memBaselineBytes = baselineLiveBytes;
+    memPeakBytes = peakPages * u64(WASM_PAGE_SIZE);
+    memRetainedBytes = retainedLiveBytes;
+    const grewBytes =
+      memPeakBytes > memBaselineBytes ? memPeakBytes - memBaselineBytes : 0;
+    // `net` is JSON-internal live retention: post-GC live minus fixture
+    // baseline. Should hover at 0 for a leak-free bench regardless of fixtures.
+    // `inflight` is what JSON had live at end of loop before the GC ran —
+    // the working-set the routine generated on top of fixtures.
+    const netDelta: i64 = i64(memRetainedBytes) - i64(memBaselineBytes);
+    const inflightDelta: i64 = i64(inflightLiveBytes) - i64(memBaselineBytes);
+    const bsCurrent: u64 = u64(bs.bufferSize);
+    const bsDelta: i64 = i64(bsCurrent) - i64(bsBaselineSize);
+    log += "\n   mem:";
+    if (bytesPerOp > 0) log += ` payload=${formatBytes(bytesPerOp)}`;
+    log += ` base=${formatBytes(memBaselineBytes)} peak=${formatBytes(memPeakBytes)} retained=${formatBytes(memRetainedBytes)} grew=+${formatBytes(grewBytes)} inflight=${formatBytesSigned(inflightDelta)} net=${formatBytesSigned(netDelta)} bs=${formatBytes(bsCurrent)}(${formatBytesSigned(bsDelta)}) postGC=${formatDecimal(postGcMs, 1)}ms`;
+    log += "\n   heap: " + heapDetailJson;
   }
 
   const features: string[] = [];
@@ -99,6 +178,11 @@ export function bench(
     nsPerOp,
     mbps: mbPerSec,
     gbps: mbPerSec / 1000,
+    memoryBaselineBytes: memBaselineBytes,
+    memoryPeakBytes: memPeakBytes,
+    memoryRetainedBytes: memRetainedBytes,
+    memoryPostGcMs: postGcMs,
+    heapDetail: heapDetailJson,
   };
 
   console.log(log + "\n");
@@ -166,6 +250,81 @@ function formatDecimal(n: f64, digits: u32): string {
 function formatDurationPerOp(nsPerOp: f64): string {
   if (nsPerOp >= 1000) return formatDecimal(nsPerOp / 1000, 2) + " us/op";
   return formatDecimal(nsPerOp, 2) + " ns/op";
+}
+
+function formatBytes(n: u64): string {
+  const KiB: u64 = 1024;
+  const MiB: u64 = 1024 * 1024;
+  const GiB: u64 = 1024 * 1024 * 1024;
+  if (n < KiB) return n.toString() + "B";
+  if (n < MiB) return formatDecimal(f64(n) / f64(KiB), 2) + "KiB";
+  if (n < GiB) return formatDecimal(f64(n) / f64(MiB), 2) + "MiB";
+  return formatDecimal(f64(n) / f64(GiB), 2) + "GiB";
+}
+
+function formatBytesSigned(n: i64): string {
+  if (n >= 0) return "+" + formatBytes(u64(n));
+  return "-" + formatBytes(u64(-n));
+}
+
+// Mirror of as-heap-analyzer's getUsedMemorySize() with the leading __collect()
+// removed. We need a pre-GC snapshot to see what JSON had in flight at end of
+// loop; calling the upstream variant would collect everything first and the
+// per-class diff would always come out as zero.
+function walkHeapNoCollect(): u64 {
+  const SLOTS: u32 = HEAP_DETAIL_SLOTS;
+  memory.fill(memoryDetail, 0, SLOTS * 4);
+  const rootOffset: u32 = (u32(__heap_base) + 15) & ~15;
+  const memStart: u32 = ((rootOffset + 1572 + 4 + 15) & ~15) - 4;
+  const totalMemory: u32 = u32(memory.size()) * 64 * 1024;
+  let result: u32 = memStart;
+  let next: u32 = memStart;
+  while (next < totalMemory - 4) {
+    const currentOffset: u32 = next;
+    const memoryInfo: u32 = load<u32>(currentOffset);
+    const blockSize: u32 = (4 + memoryInfo) & ~3;
+    next += blockSize;
+    if (blockSize < 16 || currentOffset + blockSize >= totalMemory) {
+      return u64(u32(-1));
+    }
+    if ((memoryInfo & 1) == 1) continue;
+    result += blockSize;
+    const objectSize: u32 = load<u32>(currentOffset, 4 * 4);
+    if (objectSize + 4 * 4 > memoryInfo) continue;
+    if (
+      load<u32>(currentOffset, 4) == 0 &&
+      load<u32>(currentOffset, 2 * 4) == 0
+    )
+      continue;
+    const runtimeId: u32 = load<u32>(currentOffset, 3 * 4);
+    if (runtimeId < SLOTS) {
+      store<u32>(
+        memoryDetail + runtimeId * 4,
+        load<u32>(memoryDetail + runtimeId * 4) + blockSize,
+      );
+    }
+  }
+  return u64(result);
+}
+
+// Walks the snapshotted and current `memoryDetail` tables in lockstep, emitting
+// only slots whose byte count changed. The snapshot was captured at bench()
+// entry, so the diff is "what JSON allocated/freed during this bench."
+function buildHeapDetailDelta(): string {
+  let parts = "";
+  let totalDelta: i64 = 0;
+  let first = true;
+  for (let i: u32 = 0; i < HEAP_DETAIL_SLOTS; i++) {
+    const cur = load<u32>(memoryDetail + i * 4);
+    const prev = load<u32>(heapDetailSnapshot + i * 4);
+    if (cur == prev) continue;
+    const delta: i64 = i64(cur) - i64(prev);
+    totalDelta += delta;
+    if (!first) parts += ",";
+    parts += `"${i}":${delta}`;
+    first = false;
+  }
+  return `{"totalDelta":${totalDelta},"classDelta":{${parts}}}`;
 }
 
 const blackBoxArea = memory.data(64);

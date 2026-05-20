@@ -1,20 +1,31 @@
-// Fast integer -> UTF-16 stringification (jeaiii-style).
+// Fast integer -> UTF-16 stringification.
 //
-// Background: AS std's `itoa_buffered` runs `decimalCount32` (a width
-// classifier) then `utoa32_dec_lut` (a backward-writing div-by-10000
-// loop). On wasm/V8 the function-call overhead between those steps shows
-// up clearly for short widths (2-4 digits) where the per-element work is
-// otherwise tiny.
+// We tried the "real" jeaiii algorithm (fixed-point magic-multiplication
+// per bucket; `f0 -> f2 -> f4 -> f6` chained fractional-part extractions)
+// and it ran ~5-7% slower on V8/wasm than the div-by-constant variant
+// below. Two reasons:
 //
-// This module ports the jeaiii (James Edward Anhalt III) algorithm:
-//   - One `@inline` function per signed/unsigned u32/u64.
-//   - Width-ladder of `if (v < 10^k)` checks emits digits forward in a
-//     single pass; the same comparisons that would have driven a separate
-//     `decimalCount` are reused as the dispatch.
-//   - Each digit-pair is written as a single `store<u32>` from a 400-byte
-//     LUT (`DIGIT_PAIRS_UTF16`) keyed on `value % 100`.
-//   - All `/` and `%` are by compile-time constants (10 / 100 / 10000 /
-//     10^8) so the wasm tier lowers them to multiply-shift.
+//   1. V8/wasm lowers `v / 100` (and other `/ <const>`s) to a single
+//      multiply-shift, so jeaiii's main selling point — avoiding division
+//      hardware — gives no win on this target. The op counts come out
+//      roughly equal.
+//
+//   2. The div-by-const variant computes each digit pair independently
+//      from `v` (`h = v / 100`, `l = v - h*100`, etc), so V8 schedules
+//      the LUT loads + stores for all pairs in parallel. The jeaiii
+//      chain forces them serial.
+//
+// What we keep from jeaiii here:
+//
+//   - Width-ladder dispatch (`if v < 100 / 10_000 / 1_000_000 / ...`) so
+//     the same comparisons that would drive a separate `decimalCount`
+//     pass become the bucket pick.
+//
+//   - A 100-entry digit-pair LUT keyed on `value % 100`. One `store<u32>`
+//     emits a UTF-16 pair.
+//
+//   - Forward write in one pass — no `decimalCount32` precomputation, no
+//     backward write.
 //
 // Reference H2H bench: `__benches__/custom/itoa-h2h.bench.ts`.
 
@@ -43,7 +54,7 @@ function initPairs(): void {
 }
 
 /**
- * jeaiii-style u32 -> UTF-16 stringification, forward write.
+ * u32 -> UTF-16 stringification, forward write.
  * Returns the number of UTF-16 chars written (caller multiplies by 2 for
  * a byte offset). Caller must ensure the buffer has at least 20 bytes
  * available (max 10 chars).
@@ -169,7 +180,7 @@ function initPairs(): void {
 }
 
 /**
- * jeaiii-style u64 -> UTF-16 stringification.
+ * u64 -> UTF-16 stringification.
  * Small values delegate to `itoaU32`. For 11+ digit values, peel 8 digits
  * from the bottom (always fits in u32), emit the remaining top via the
  * u32 path, then emit the 8 trailing digits with leading-zero padding.
@@ -224,7 +235,7 @@ function initPairs(): void {
       store<u16>(buf, 0x2d); // '-'
       return 1 + itoaU64(buf + 2, <u64>-v);
     }
-    return itoaU64(buf, <u64>v);
+    return itoaU64(buf, <u64>value);
   }
   return itoaU64(buf, <u64>value);
 }

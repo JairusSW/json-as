@@ -25,6 +25,7 @@ BENCH_NAME=""
 ARGS=()
 RUN_V8=0
 RUN_WAVM=0
+BENCH_MEMORY=0
 
 read -r -a WAVM_RUN_FLAGS_ARR <<< "$WAVM_RUN_FLAGS"
 
@@ -41,6 +42,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --wavm|--llvm)
       RUN_WAVM=1
+      shift
+      ;;
+    --memory)
+      BENCH_MEMORY=1
       shift
       ;;
     *)
@@ -90,6 +95,17 @@ if [[ -n "$MODE_FILTER" ]]; then
   esac
 fi
 
+EXTRA_ASC_FLAGS=()
+if [[ $BENCH_MEMORY -eq 1 ]]; then
+  EXTRA_ASC_FLAGS+=(
+    --use BENCH_TRACK_MEMORY=1
+    --use BENCH_PREALLOC_BYTES=0
+    --transform as-heap-analyzer/transform/addHeapAnalyzerInfo.mjs
+  )
+  echo "note: --memory enabled — per-op timings include a memory.size() poll and prealloc is disabled. Rerun without --memory for canonical timings." >&2
+  echo "note: --memory also emits a 'heap: {...}' delta JSON per bench. Run 'npx as-heap-analyzer frame <wasm-path>' and paste the JSON to resolve runtime IDs to class names." >&2
+fi
+
 mkdir -p ./build/logs/as/{swar,simd,naive}
 mkdir -p ./build/logs/charts
 
@@ -109,8 +125,23 @@ if [[ -n "$BENCH_NAME" ]]; then
     CANDIDATES+=( "./assembly/__benches__/custom/$CUSTOM_REL" )
   fi
 
+  # Dedup: `./assembly/__benches__/custom/foo.bench.ts` shows up in both the
+  # base list (CANDIDATES[0] when arg is `custom/foo`) and the explicit
+  # `custom/` branch above, so each mode would otherwise be built and timed
+  # twice. macOS ships bash 3.2 (no associative arrays), so dedup linearly.
   for f in "${CANDIDATES[@]}"; do
-    [[ -f "$f" ]] && FILES+=("$f")
+    [[ -f "$f" ]] || continue
+    already_added=0
+    if [[ ${#FILES[@]} -gt 0 ]]; then
+      for existing in "${FILES[@]}"; do
+        if [[ "$existing" == "$f" ]]; then
+          already_added=1
+          break
+        fi
+      done
+    fi
+    [[ $already_added -eq 1 ]] && continue
+    FILES+=("$f")
   done
 
   if [[ ${#FILES[@]} -eq 0 ]]; then
@@ -202,15 +233,15 @@ build_v8_mode() {
 
   case "$mode" in
     NAIVE)
-      JSON_WRITE="$write_target" JSON_MODE=NAIVE npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime || return 1
+      JSON_WRITE="$write_target" JSON_MODE=NAIVE npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
       optimize_or_fallback "${output}.tmp" "$out_wasm" --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4
       ;;
     SWAR)
-      JSON_WRITE="$write_target" JSON_MODE=SWAR npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime || return 1
+      JSON_WRITE="$write_target" JSON_MODE=SWAR npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
       optimize_or_fallback "${output}.tmp" "$out_wasm" --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4
       ;;
     SIMD)
-      JSON_WRITE="$write_target" JSON_MODE=SIMD npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --enable simd --exportStart start --exportRuntime || return 1
+      JSON_WRITE="$write_target" JSON_MODE=SIMD npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --enable simd --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
       optimize_or_fallback "${output}.tmp" "$out_wasm" --enable-bulk-memory --enable-simd --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4
       ;;
   esac
@@ -228,7 +259,7 @@ build_wavm_mode() {
     features+=(--enable simd)
   fi
 
-  JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.wavm.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --use AS_BENCH_RUNTIME_WAVM=1 --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json "${features[@]}" --exportRuntime || return 1
+  JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.wavm.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --use AS_BENCH_RUNTIME_WAVM=1 --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json "${features[@]}" --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
   mv "${output}.wavm.tmp" "$out_wasm"
 }
 

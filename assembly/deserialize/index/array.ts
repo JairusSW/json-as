@@ -13,6 +13,7 @@ import { deserializeStringArray } from "../simple/array/string";
 import { deserializeStructArray } from "../simple/array/struct";
 import { deserializeIntegerArray_SIMD } from "../simd/array/integer";
 import { deserializeIntegerArray_SWAR } from "../swar/array/integer";
+import { deserializeFloatArray_SWAR } from "../swar/array/float";
 
 export {
   deserializeArrayField,
@@ -40,6 +41,10 @@ export function deserializeArray<T extends unknown[]>(
       return deserializeIntegerArray_NAIVE<T>(srcStart, srcEnd, dst);
     }
   } else if (isFloat<valueof<T>>()) {
+    if (JSON_MODE == JSONMode.SWAR || JSON_MODE == JSONMode.SIMD) {
+      // @ts-ignore: float array branch
+      return deserializeFloatArray_SWAR<T>(srcStart, srcEnd, dst);
+    }
     return deserializeFloatArray<T>(srcStart, srcEnd, dst);
   } else if (isArray<valueof<T>>()) {
     return deserializeArrayArray<T>(srcStart, srcEnd, dst);

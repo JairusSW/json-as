@@ -1,15 +1,14 @@
-import { bs } from "../../lib/as-bs";
-import { expect } from "../__tests__/lib";
+import { bs } from "../../../lib/as-bs";
+import { expect } from "../../__tests__/lib";
 import {
   deserializeString_SWAR,
   deserializeStringField_SWAR,
-} from "../deserialize/swar/string";
-import { BACK_SLASH, QUOTE } from "../custom/chars";
-import { DESERIALIZE_ESCAPE_TABLE } from "../globals/tables";
-import { hex4_to_u16_swar } from "../util/swar";
-import { bench, blackbox, dumpToFile } from "./lib/bench";
+} from "../../deserialize/swar/string";
+import { BACK_SLASH, QUOTE } from "../../custom/chars";
+import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
+import { hex4_to_u16_swar } from "../../util/swar";
+import { bench, blackbox, dumpToFile } from "../lib/bench";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
-
 // @ts-expect-error: @inline is a valid decorator
 @inline function writeStringToFieldMerged(
   dstFieldPtr: usize,

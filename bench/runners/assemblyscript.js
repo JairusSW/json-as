@@ -2,6 +2,12 @@
 // @eslint-disable-next-line
 const bytes = readbuffer("./build/" + arguments[0]);
 
+// Extract the `heapAnalyzerInfo` custom section the as-heap-analyzer transform
+// emits — `{heapBase, classInfo: {<id>: <name>}}`. When --memory is on, every
+// "heap:" line printed by bench.ts is rewritten to substitute names for IDs so
+// the user doesn't have to invoke `npx as-heap-analyzer` afterward.
+const HEAP_CLASS_NAMES = extractHeapAnalyzerClassInfo(new Uint8Array(bytes));
+
 const module = new WebAssembly.Module(bytes);
 let memory = null;
 const ARRAYBUFFER_ID = 1;
@@ -18,7 +24,7 @@ const { exports } = new WebAssembly.Instance(module, {
       );
     },
     "console.log": (ptr) => {
-      console.log(__liftString(ptr));
+      console.log(rewriteHeapLine(__liftString(ptr)));
     },
     "Date.now": () => Date.now(),
     "performance.now": () => performance.now(),
@@ -59,3 +65,75 @@ function __lowerBuffer(value) {
 }
 
 exports.start();
+
+// --- heap-analyzer custom-section parsing ---
+
+// Returns {<runtimeId: number>: <className: string>} when the wasm was built
+// with the `addHeapAnalyzerInfo` transform; returns null otherwise.
+function extractHeapAnalyzerClassInfo(buf) {
+  // Magic (\0asm) + version
+  if (
+    buf.length < 8 ||
+    buf[0] !== 0x00 ||
+    buf[1] !== 0x61 ||
+    buf[2] !== 0x73 ||
+    buf[3] !== 0x6d
+  ) {
+    return null;
+  }
+  let p = 8;
+  while (p < buf.length) {
+    const id = buf[p++];
+    const [size, after] = readVarUint32(buf, p);
+    p = after;
+    const sectionEnd = p + size;
+    if (id === 0) {
+      // Custom section: name length (varuint32) + name + payload
+      const [nameLen, afterNameLen] = readVarUint32(buf, p);
+      const nameStart = afterNameLen;
+      const nameEnd = nameStart + nameLen;
+      const name = bytesToUtf8(buf, nameStart, nameEnd);
+      if (name === "heapAnalyzerInfo") {
+        const payload = bytesToUtf8(buf, nameEnd, sectionEnd);
+        try {
+          const parsed = JSON.parse(payload);
+          return parsed && parsed.classInfo ? parsed.classInfo : null;
+        } catch {
+          return null;
+        }
+      }
+    }
+    p = sectionEnd;
+  }
+  return null;
+}
+
+function readVarUint32(buf, p) {
+  let result = 0;
+  let shift = 0;
+  for (;;) {
+    const b = buf[p++];
+    result |= (b & 0x7f) << shift;
+    if ((b & 0x80) === 0) return [result >>> 0, p];
+    shift += 7;
+  }
+}
+
+// AS class identifiers (module paths + names) are guaranteed ASCII, so a
+// per-byte fromCharCode loop suffices — no TextDecoder needed.
+function bytesToUtf8(buf, start, end) {
+  let s = "";
+  for (let i = start; i < end; i++) s += String.fromCharCode(buf[i]);
+  return s;
+}
+
+// Rewrites '   heap: {...,"classDelta":{"3":1024,"7":-512}}' so numeric IDs
+// become the names from the custom section. Leaves all other lines alone.
+function rewriteHeapLine(line) {
+  if (!HEAP_CLASS_NAMES || !line) return line;
+  if (line.indexOf('"classDelta":{') === -1) return line;
+  return line.replace(/"(\d+)":(-?\d+)/g, (m, id, val) => {
+    const name = HEAP_CLASS_NAMES[id];
+    return name ? `"${name}":${val}` : m;
+  });
+}

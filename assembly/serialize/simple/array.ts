@@ -5,6 +5,10 @@ import { serializeBoolUnsafe } from "./bool";
 import { serializeFloat32Unsafe, serializeFloat64Unsafe } from "./float";
 import { serializeIntegerUnsafe } from "./integer";
 import { serializeString } from "../index/string";
+import {
+  dragonbox_f32_buffered,
+  dragonbox_f64_buffered,
+} from "../../util/dragonbox";
 
 
 @inline
@@ -167,6 +171,69 @@ function serializeU8ArrayFast(src: u8[]): void {
   store<u16>(bs.offset - 2, BRACKET_RIGHT);
 }
 
+// Specialized float-array serializer: dragonbox + trailing comma in a
+// uniform per-iteration body, then overwrite the final comma with `]`. The
+// generic dispatcher splits the loop into "N-1 elements with comma, then
+// last element without, then `]`" — the branch on each `i < end` check
+// stalls the loop's tight bs.offset advance pattern. This variant runs the
+// same number of stores per iteration (dragonbox output + COMMA), but the
+// uniform loop body inlines better and the trailing `]` is a single fixed
+// overwrite outside the loop.
+function serializeF64ArrayFast(src: f64[]): void {
+  const len = src.length;
+  // Worst case per element: ~24 chars for f64 + comma = 50 bytes.
+  // Slight over-reserve (66) matches the existing `reservePrimitiveArray`
+  // budget and keeps a safety margin for any NaN/Inf spelling.
+  bs.proposeSize(4 + <u32>len * 66);
+  store<u16>(bs.offset, BRACKET_LEFT);
+  bs.offset += 2;
+  if (len == 0) {
+    store<u16>(bs.offset, BRACKET_RIGHT);
+    bs.offset += 2;
+    return;
+  }
+
+  // Hoist `bs.offset` into a local so the loop body has a single
+  // monotonically-advancing pointer instead of two reads + two writes back
+  // to the global per iteration.
+  const dataStart = src.dataStart;
+  let offset = bs.offset;
+  for (let i: i32 = 0; i < len; i++) {
+    const v = load<f64>(dataStart + ((<usize>i) << 3));
+    const size = dragonbox_f64_buffered(offset, v) << 1;
+    store<u16>(offset + size, COMMA);
+    offset += size + 2;
+  }
+  // Overwrite the final trailing comma with `]`.
+  store<u16>(offset - 2, BRACKET_RIGHT);
+  bs.offset = offset;
+}
+
+function serializeF32ArrayFast(src: f32[]): void {
+  const len = src.length;
+  // Worst case for f32 is ~16 chars + comma = ~34 bytes; mirror the budget
+  // used by `reservePrimitiveArray`.
+  bs.proposeSize(4 + <u32>len * 34);
+  store<u16>(bs.offset, BRACKET_LEFT);
+  bs.offset += 2;
+  if (len == 0) {
+    store<u16>(bs.offset, BRACKET_RIGHT);
+    bs.offset += 2;
+    return;
+  }
+
+  const dataStart = src.dataStart;
+  let offset = bs.offset;
+  for (let i: i32 = 0; i < len; i++) {
+    const v = load<f32>(dataStart + ((<usize>i) << 2));
+    const size = dragonbox_f32_buffered(offset, v) << 1;
+    store<u16>(offset + size, COMMA);
+    offset += size + 2;
+  }
+  store<u16>(offset - 2, BRACKET_RIGHT);
+  bs.offset = offset;
+}
+
 function serializeI8ArrayFast(src: i8[]): void {
   const len = src.length;
   // Worst case: every element is `-DDD,` = 5 chars = 10 bytes; plus 4 for `[]`.
@@ -224,6 +291,16 @@ export function serializeArray<T extends any[]>(src: T): void {
   ) {
     // @ts-expect-error: T is i8[]
     serializeI8ArrayFast(changetype<i8[]>(src));
+    return;
+  }
+  if (isFloat<valueof<T>>() && sizeof<valueof<T>>() == 8) {
+    // @ts-expect-error: T is f64[]
+    serializeF64ArrayFast(changetype<f64[]>(src));
+    return;
+  }
+  if (isFloat<valueof<T>>() && sizeof<valueof<T>>() == 4) {
+    // @ts-expect-error: T is f32[]
+    serializeF32ArrayFast(changetype<f32[]>(src));
     return;
   }
 

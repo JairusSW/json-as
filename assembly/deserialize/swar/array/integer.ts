@@ -1,27 +1,25 @@
-import { deserializeIntegerField } from "../../index/integer";
-import { deserializeUnsignedField } from "../../index/unsigned";
 import { deserializeIntegerArray as deserializeIntegerArray_NAIVE } from "../../simple/array/integer";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
+import { parse4Digits_PairMul } from "../../../util/swar-int";
 
-const ASCII_LANE_MASK_4: u64 = 0x00ff00ff00ff00ff;
-const ASCII_ZERO_4: u64 = 0x0030003000300030;
-const ASCII_RANGE_MASK_4: u64 = 0xfff0fff0fff0fff0;
-const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
-
-
-@inline function storeSignedInteger<T extends number[]>(
+// Store helpers parameterised on the element type `E` directly, so they
+// serve both `Array<E>` and `TypedArray<E>` callers. The integer-array
+// callers below all pass `valueof<T>` and AS folds the resulting tower of
+// `sizeof<E>` comparisons at compile time — same codegen as the prior
+// `T extends number[]` version, but reusable from `swar/typedarray.ts`.
+@inline function storeSignedIntegerE<E extends number>(
   slot: usize,
   value: i64,
 ): void {
-  if (sizeof<valueof<T>>() == sizeof<i8>()) {
+  if (sizeof<E>() == sizeof<i8>()) {
     store<i8>(slot, <i8>value);
-  } else if (sizeof<valueof<T>>() == sizeof<i16>()) {
+  } else if (sizeof<E>() == sizeof<i16>()) {
     store<i16>(slot, <i16>value);
-  } else if (sizeof<valueof<T>>() == sizeof<i32>()) {
+  } else if (sizeof<E>() == sizeof<i32>()) {
     store<i32>(slot, <i32>value);
-  } else if (sizeof<valueof<T>>() == sizeof<isize>()) {
+  } else if (sizeof<E>() == sizeof<isize>()) {
     store<isize>(slot, <isize>value);
   } else {
     store<i64>(slot, value);
@@ -29,35 +27,21 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 }
 
 
-@inline function storeUnsignedInteger<T extends number[]>(
+@inline function storeUnsignedIntegerE<E extends number>(
   slot: usize,
   value: u64,
 ): void {
-  if (sizeof<valueof<T>>() == sizeof<u8>()) {
+  if (sizeof<E>() == sizeof<u8>()) {
     store<u8>(slot, <u8>value);
-  } else if (sizeof<valueof<T>>() == sizeof<u16>()) {
+  } else if (sizeof<E>() == sizeof<u16>()) {
     store<u16>(slot, <u16>value);
-  } else if (sizeof<valueof<T>>() == sizeof<u32>()) {
+  } else if (sizeof<E>() == sizeof<u32>()) {
     store<u32>(slot, <u32>value);
-  } else if (sizeof<valueof<T>>() == sizeof<usize>()) {
+  } else if (sizeof<E>() == sizeof<usize>()) {
     store<usize>(slot, <usize>value);
   } else {
     store<u64>(slot, value);
   }
-}
-
-
-@inline function parse4DigitsASCII(block: u64): u32 {
-  const digits = (block & ASCII_LANE_MASK_4) - ASCII_ZERO_4;
-  if (((digits | (digits + ASCII_RANGE_ADD_4)) & ASCII_RANGE_MASK_4) != 0)
-    return U32.MAX_VALUE;
-
-  return <u32>(
-    (<u32>(digits & 0xffff) * 1000 +
-      <u32>((digits >> 16) & 0xffff) * 100 +
-      <u32>((digits >> 32) & 0xffff) * 10 +
-      <u32>(digits >> 48))
-  );
 }
 
 // The four parse helpers below take a `slot` pointer (`writePtr`) and store
@@ -66,8 +50,10 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
 // `writePtr` advance, so the per-element `Array.push` capacity check and
 // length write are eliminated for every integer width, not just the u8/i8
 // narrow-lane path.
-
-@inline function parseSignedIntegerScalar<T extends number[]>(
+// Parsers are also E-parameterised so they're shareable with
+// `swar/typedarray.ts`. The body is byte-identical to the prior version
+// modulo s/valueof<T>/E/.
+@inline export function parseSignedIntegerScalar<E extends number>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,
@@ -93,12 +79,12 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
     srcStart += 2;
   }
 
-  storeSignedInteger<T>(slot, negative ? -(<i64>value) : <i64>value);
+  storeSignedIntegerE<E>(slot, negative ? -(<i64>value) : <i64>value);
   return srcStart;
 }
 
 
-@inline function parseUnsignedIntegerScalar<T extends number[]>(
+@inline export function parseUnsignedIntegerScalar<E extends number>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,
@@ -115,12 +101,12 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
     srcStart += 2;
   }
 
-  storeUnsignedInteger<T>(slot, value);
+  storeUnsignedIntegerE<E>(slot, value);
   return srcStart;
 }
 
 
-@inline function parseSignedIntegerSWAR<T extends number[]>(
+@inline export function parseSignedIntegerSWAR<E extends number>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,
@@ -140,12 +126,17 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
   let value: u64 = digit;
   srcStart += 2;
 
+  // Signed scan uses parse4 + scalar only (matches the asymmetric tuning in
+  // swar/integer.ts:deserializeIntegerField_SWAR). The leading minus shifts
+  // the digit run into parse8's "terminator-in-load" zone where validate-fail
+  // is common, so parse4's smaller failure unit wins.
+  //
   // i8 tops out at 3 digits (-128..127), so the 4-digit kernel can never fire
   // and the failing load + range check just burns cycles. Gate on the lane
   // width so AS folds the loop away at compile time.
-  if (sizeof<valueof<T>>() > 1) {
+  if (sizeof<E>() > 1) {
     while (srcStart + 6 < srcEnd) {
-      const parsed = parse4DigitsASCII(load<u64>(srcStart));
+      const parsed = parse4Digits_PairMul(load<u64>(srcStart));
       if (parsed == U32.MAX_VALUE) break;
       value = value * 10000 + parsed;
       srcStart += 8;
@@ -159,12 +150,12 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
     srcStart += 2;
   }
 
-  storeSignedInteger<T>(slot, negative ? -(<i64>value) : <i64>value);
+  storeSignedIntegerE<E>(slot, negative ? -(<i64>value) : <i64>value);
   return srcStart;
 }
 
 
-@inline function parseUnsignedIntegerSWAR<T extends number[]>(
+@inline export function parseUnsignedIntegerSWAR<E extends number>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,
@@ -173,7 +164,7 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
   // the element terminator, then a fixed-count fold with no per-digit break.
   // TurboFan tends to schedule this better than a single combined
   // scan-and-fold loop because the fold has no data-dependent exit.
-  if (sizeof<valueof<T>>() <= 2) {
+  if (sizeof<E>() <= 2) {
     const first = <u32>load<u16>(srcStart) - 48;
     if (first > 9) return 0;
     const lastIndex = srcStart;
@@ -189,7 +180,7 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
       value = value * 10 + (<u32>load<u16>(p) - 48);
       p += 2;
     }
-    storeUnsignedInteger<T>(slot, value);
+    storeUnsignedIntegerE<E>(slot, value);
     return srcStart;
   }
 
@@ -199,8 +190,14 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
   let value: u64 = digit;
   srcStart += 2;
 
+  // Array unsigned path uses parse4 + scalar (not parse8 + scalar as in the
+  // struct-field path swar/integer.ts:deserializeUnsignedField_SWAR). The
+  // bench corpus for arrays mixes element widths (e.g. 1/4/7/10 digits in
+  // u32-64mib), so most parse8 strides hit the `,` separator mid-load and
+  // pay the load+validate cost for a guaranteed miss. parse4 has a smaller
+  // failure unit and matches the typical 1-4 digit run between separators.
   while (srcStart + 6 < srcEnd) {
-    const parsed = parse4DigitsASCII(load<u64>(srcStart));
+    const parsed = parse4Digits_PairMul(load<u64>(srcStart));
     if (parsed == U32.MAX_VALUE) break;
     value = value * 10000 + parsed;
     srcStart += 8;
@@ -213,7 +210,7 @@ const ASCII_RANGE_ADD_4: u64 = 0x0006000600060006;
     srcStart += 2;
   }
 
-  storeUnsignedInteger<T>(slot, value);
+  storeUnsignedIntegerE<E>(slot, value);
   return srcStart;
 }
 
@@ -274,7 +271,7 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
         srcStart += 2;
       }
 
-      storeSignedInteger<T>(
+      storeSignedIntegerE<valueof<T>>(
         ensureArrayElementSlot<T>(out, index),
         negative ? -(<i64>value) : <i64>value,
       );
@@ -291,7 +288,10 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
         srcStart += 2;
       }
 
-      storeUnsignedInteger<T>(ensureArrayElementSlot<T>(out, index), value);
+      storeUnsignedIntegerE<valueof<T>>(
+        ensureArrayElementSlot<T>(out, index),
+        value,
+      );
     }
 
     index++;
@@ -355,7 +355,7 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
 
           if (sizeof<valueof<T>>() > 1) {
             while (srcStart + 6 < srcEnd) {
-              const parsed = parse4DigitsASCII(load<u64>(srcStart));
+              const parsed = parse4Digits_PairMul(load<u64>(srcStart));
               if (parsed == U32.MAX_VALUE) break;
               value = value * 10000 + parsed;
               srcStart += 8;
@@ -370,7 +370,7 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
           }
 
           if (index >= reusableLength) break;
-          storeSignedInteger<T>(
+          storeSignedIntegerE<valueof<T>>(
             dataStart + <usize>index * sizeof<valueof<T>>(),
             negative ? -(<i64>value) : <i64>value,
           );
@@ -398,7 +398,7 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
 
           if (sizeof<valueof<T>>() > 1) {
             while (srcStart + 6 < srcEnd) {
-              const parsed = parse4DigitsASCII(load<u64>(srcStart));
+              const parsed = parse4Digits_PairMul(load<u64>(srcStart));
               if (parsed == U32.MAX_VALUE) break;
               value = value * 10000 + parsed;
               srcStart += 8;
@@ -413,7 +413,7 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
           }
 
           if (index >= reusableLength) break;
-          storeUnsignedInteger<T>(
+          storeUnsignedIntegerE<valueof<T>>(
             dataStart + <usize>index * sizeof<valueof<T>>(),
             value,
           );
@@ -462,8 +462,8 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
     if (isSigned<valueof<T>>()) {
       while (srcStart < srcEnd) {
         const next = useSWAR
-          ? parseSignedIntegerSWAR<T>(srcStart, srcEnd, writePtr)
-          : parseSignedIntegerScalar<T>(srcStart, srcEnd, writePtr);
+          ? parseSignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, writePtr)
+          : parseSignedIntegerScalar<valueof<T>>(srcStart, srcEnd, writePtr);
         if (!next) break;
         writePtr += elementSize;
         srcStart = next;
@@ -483,8 +483,8 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
     } else {
       while (srcStart < srcEnd) {
         const next = useSWAR
-          ? parseUnsignedIntegerSWAR<T>(srcStart, srcEnd, writePtr)
-          : parseUnsignedIntegerScalar<T>(srcStart, srcEnd, writePtr);
+          ? parseUnsignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, writePtr)
+          : parseUnsignedIntegerScalar<valueof<T>>(srcStart, srcEnd, writePtr);
         if (!next) break;
         writePtr += elementSize;
         srcStart = next;
@@ -673,9 +673,21 @@ function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
 
     while (srcStart < srcEnd) {
       const slot = ensureArrayElementSlot<T>(out, index);
+      // Inline the array-optimized SWAR parser directly. The top-level
+      // (`deserializeIntegerArrayImpl`) and the typed-array path
+      // (`swar/typedarray.ts`) already call these — having the field path
+      // call them too means the per-element parser is identical across all
+      // three call sites (parse4 + scalar fold for both signed and
+      // unsigned, narrow-lane special case for i8/u8/i16/u16).
+      //
+      // Why not `deserializeUnsignedField_SWAR` (which uses parse8 + scalar)?
+      // That tuning targets the struct-single-field path where the digit
+      // run is one aligned token. In an array, mixed element widths cause
+      // parse8 to fail-and-retry at element boundaries — see u32-64mib's
+      // 23% regression when parse8 was tried in the array path.
       srcStart = isSigned<valueof<T>>()
-        ? deserializeIntegerField<valueof<T>>(srcStart, srcEnd, slot)
-        : deserializeUnsignedField<valueof<T>>(srcStart, srcEnd, slot);
+        ? parseSignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, slot)
+        : parseUnsignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, slot);
       if (!srcStart || srcStart >= srcEnd) break;
 
       const code = load<u16>(srcStart);
@@ -685,7 +697,8 @@ function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
         continue;
       }
       if (code == BRACKET_RIGHT) {
-        out.length = index + 1;
+        const nextLen = index + 1;
+        if (out.length != nextLen) out.length = nextLen;
         return srcStart + 2;
       }
       break;

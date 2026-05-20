@@ -1,6 +1,6 @@
-import { JSON } from "../../index.ts";
+import { JSON } from "../../../index";
 import { bs } from "../../../lib/as-bs";
-import { expect } from "../../__tests__/lib/index.ts";
+import { expect } from "../../__tests__/lib/index";
 import { BACK_SLASH, QUOTE } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import {
@@ -8,7 +8,7 @@ import {
   detect_escapable_u64_swar_safe,
 } from "../../serialize/swar/string";
 import { u16_to_hex4_swar } from "../../util/swar";
-import { bench, blackbox, dumpToFile } from "../lib/bench.ts";
+import { bench, blackbox, dumpToFile } from "../lib/bench";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 
 // @ts-expect-error: @lazy is a valid decorator

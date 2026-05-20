@@ -45,7 +45,8 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
         continue;
       }
       if (code == BRACKET_RIGHT) {
-        out.length = index + 1;
+        const nextLen = index + 1;
+        if (out.length != nextLen) out.length = nextLen;
         return srcStart + 2;
       }
       break;

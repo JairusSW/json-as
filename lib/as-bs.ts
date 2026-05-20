@@ -21,7 +21,7 @@ export namespace bs {
   export let offset: usize = buffer;
 
   /** Byte length of the buffer. */
-  let bufferSize: usize = MIN_BUFFER_SIZE;
+  export let bufferSize: usize = MIN_BUFFER_SIZE;
 
   /** Proposed size of output */
   export let stackSize: usize = 0;

@@ -1,5 +1,6 @@
 import { DRAGONBOX_F32_CACHE, DRAGONBOX_F64_CACHE } from "./dragonbox-cache";
-import { decimalCount32, itoa_buffered, utoa32_dec_core } from "util/number";
+import { decimalCount32, utoa32_dec_core } from "util/number";
+import { ensureItoaPairs, itoaU32, itoaU64 } from "./itoa-fast";
 
 const CHAR_MINUS: u16 = 45;
 const CHAR_DOT: u16 = 46;
@@ -572,7 +573,11 @@ function dragonboxCoreF32(buffer: usize, value: f32): u32 {
     reinterpret<u32>(value) & 0x7fffff,
     (reinterpret<u32>(value) >>> 23) & 0xff,
   );
-  let len = itoa_buffered<u32>(buffer + ((<usize>sign) << 1), digits);
+  // Use the jeaiii-style itoa (forward write + 2-digit-pair LUT) instead
+  // of AS stdlib's `itoa_buffered`, which runs a separate width classifier
+  // + backward div-by-10000 loop. Saves a function call and ~half the
+  // per-digit work for the typical 7-17 digit dragonbox output.
+  let len = itoaU32(buffer + ((<usize>sign) << 1), digits);
   return <u32>(prettify(buffer + ((<usize>sign) << 1), len, _dbK) + sign);
 }
 
@@ -588,7 +593,7 @@ function dragonboxCoreF64(buffer: usize, value: f64): u32 {
     bits & 0x000fffffffffffff,
     <i32>((bits >>> 52) & 0x7ff),
   );
-  let len = itoa_buffered<u64>(buffer + ((<usize>sign) << 1), digits);
+  let len = itoaU64(buffer + ((<usize>sign) << 1), digits);
   return <u32>(prettify(buffer + ((<usize>sign) << 1), len, _dbK) + sign);
 }
 
@@ -615,6 +620,7 @@ export function dragonbox_f32_buffered(buffer: usize, value: f32): u32 {
     store<u64>(buffer + 8, 0x7900740069006e);
     return 8 + (sign ? 1 : 0);
   }
+  ensureItoaPairs();
   return dragonboxCoreF32(buffer, value);
 }
 
@@ -641,6 +647,7 @@ export function dragonbox_f64_buffered(buffer: usize, value: f64): u32 {
     store<u64>(buffer + 8, 0x7900740069006e);
     return 8 + (sign ? 1 : 0);
   }
+  ensureItoaPairs();
   return dragonboxCoreF64(buffer, value);
 }
 

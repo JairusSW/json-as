@@ -5,19 +5,19 @@ import { isSpace } from "../../../util";
 const ASCII_LANE_MASK_4: u64 = 0x00ff00ff00ff00ff;
 const ASCII_ZERO_4: u64 = 0x0030003000300030;
 
-
+// @ts-expect-error: decorators valid here
 @lazy const SPLAT_30 = i16x8.splat(0x30);
 
-
+// @ts-expect-error: decorators valid here
 @lazy const SPLAT_09 = i16x8.splat(9);
 
-
+// @ts-expect-error: decorators valid here
 @lazy const ZERO_I16X8 = i16x8.splat(0);
 
-
+// @ts-expect-error: decorators valid here
 @lazy const ZERO_I32X4 = i32x4.splat(0);
 
-
+// @ts-expect-error: decorators valid here
 @lazy const PACK_WEIGHTS_10_1 = i8x16(
   10,
   1,
@@ -37,10 +37,10 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
   0,
 );
 
-
+// @ts-expect-error: decorators valid here
 @lazy const PAIR_WEIGHTS_100_1 = i16x8(100, 1, 100, 1, 0, 0, 0, 0);
 
-
+// @ts-expect-error: decorators valid here
 @inline function storeSignedInteger<T extends number[]>(
   slot: usize,
   value: i64,
@@ -58,7 +58,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
   }
 }
 
-
+// @ts-expect-error: decorators valid here
 @inline function storeUnsignedInteger<T extends number[]>(
   slot: usize,
   value: u64,
@@ -76,7 +76,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
   }
 }
 
-
+// @ts-expect-error: decorators valid here
 @inline function tryParseEightDigitsSIMD(srcStart: usize, value: u64): u64 {
   const block = load<v128>(srcStart);
   const digits = i16x8.sub(block, SPLAT_30);
@@ -96,8 +96,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
 // As in the SWAR variant: the parse helpers take a `slot` (`writePtr`) and
 // store directly. The dispatcher owns `out.length = maxElements` and the
 // per-element `writePtr` advance so `Array.push` is removed for every
-// integer width, not just the narrow-lane fast path.
-
+// @ts-expect-error: decorators valid here
 @inline function parseSignedIntegerSIMD<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
@@ -136,7 +135,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
   return srcStart;
 }
 
-
+// @ts-expect-error: decorators valid here
 @inline function parseUnsignedIntegerSIMD<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
@@ -166,7 +165,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
   return srcStart;
 }
 
-
+// @ts-expect-error: decorators valid here
 @lazy const COMMA_SPLAT_8 = i16x8.splat(<i16>COMMA);
 
 // Pair-multiply weights for the common two-element packings in 8-char blocks.
@@ -181,24 +180,25 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
 //   2+2 (`DD,DD,??`)   bitmask 0x24, advance 12
 //   3+1 (`DDD,D,??`)   bitmask 0x28, advance 12
 //   1+3 (`D,DDD,??`)   bitmask 0x22, advance 12
+// @ts-expect-error: decorators valid here
 @lazy const PAIR_WEIGHTS_3_3_8 = i16x8(100, 10, 1, 0, 100, 10, 1, 0);
 
-
+// @ts-expect-error: decorators valid here
 @lazy const PAIR_WEIGHTS_3_2_8 = i16x8(100, 10, 1, 0, 10, 1, 0, 0);
 
-
+// @ts-expect-error: decorators valid here
 @lazy const PAIR_WEIGHTS_2_3_8 = i16x8(10, 1, 0, 100, 10, 1, 0, 0);
 
-
+// @ts-expect-error: decorators valid here
 @lazy const PAIR_WEIGHTS_2_2_8 = i16x8(10, 1, 0, 10, 1, 0, 0, 0);
 
-
+// @ts-expect-error: decorators valid here
 @lazy const PAIR_WEIGHTS_3_1_8 = i16x8(100, 10, 1, 0, 1, 0, 0, 0);
 
-
+// @ts-expect-error: decorators valid here
 @lazy const PAIR_WEIGHTS_1_3_8 = i16x8(1, 0, 100, 10, 1, 0, 0, 0);
 
-
+// @ts-expect-error: decorators valid here
 @lazy const SPLAT_30_8 = i16x8.splat(0x30);
 
 /**
