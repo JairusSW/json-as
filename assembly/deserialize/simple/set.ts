@@ -174,7 +174,7 @@ export function deserializeSet<T extends Set<any>>(
 }
 
 // @ts-expect-error: Decorator valid here
-@inline export function deserializeSetInto<T extends Set<any>>(
+@inline function deserializeSetBody<T extends Set<any>>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
@@ -190,10 +190,11 @@ export function deserializeSet<T extends Set<any>>(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
-  let out = load<T>(dstObj, dstOffset);
+  const fieldPtr = dstObj + dstOffset;
+  let out = load<T>(fieldPtr);
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
-    store<T>(dstObj, out, dstOffset);
+    store<T>(fieldPtr, out);
   }
-  return deserializeSetInto<T>(srcStart, srcEnd, out);
+  return deserializeSetBody<T>(srcStart, srcEnd, out);
 }

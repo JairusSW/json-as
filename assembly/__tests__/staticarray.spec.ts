@@ -39,6 +39,28 @@ describe("Should serialize empty static arrays", () => {
   expect(JSON.stringify(empty)).toBe("[]");
 });
 
+describe("Should serialize and deserialize narrow integer static arrays", () => {
+  expect(JSON.stringify<StaticArray<u8>>([0, 7, 255])).toBe("[0,7,255]");
+  expect(JSON.stringify<StaticArray<i8>>([-128, 0, 127])).toBe("[-128,0,127]");
+  expect(JSON.stringify<StaticArray<u16>>([0, 42, 65535])).toBe("[0,42,65535]");
+  expect(JSON.stringify<StaticArray<i16>>([-32768, 0, 32767])).toBe(
+    "[-32768,0,32767]",
+  );
+
+  expect(JSON.stringify(JSON.parse<StaticArray<u8>>("[0,7,255]"))).toBe(
+    "[0,7,255]",
+  );
+  expect(JSON.stringify(JSON.parse<StaticArray<i8>>("[-128,0,127]"))).toBe(
+    "[-128,0,127]",
+  );
+  expect(JSON.stringify(JSON.parse<StaticArray<u16>>("[0,42,65535]"))).toBe(
+    "[0,42,65535]",
+  );
+  expect(JSON.stringify(JSON.parse<StaticArray<i16>>("[-32768,0,32767]"))).toBe(
+    "[-32768,0,32767]",
+  );
+});
+
 describe("Should deserialize integer static arrays", () => {
   const arr1 = JSON.parse<StaticArray<u32>>("[0,100,101]");
   expect(arr1.length).toBe(3);

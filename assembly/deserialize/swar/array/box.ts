@@ -1,4 +1,5 @@
 import { JSON } from "../../..";
+import { deserializeGenericArrayBody } from "./generic";
 import { ensureArrayField } from "./shared";
 
 
@@ -7,6 +8,9 @@ import { ensureArrayField } from "./shared";
   srcEnd: usize,
   fieldPtr: usize,
 ): usize {
-  ensureArrayField<T>(fieldPtr);
-  throw new Error("Failed to parse JSON!");
+  return deserializeGenericArrayBody<T>(
+    srcStart,
+    srcEnd,
+    ensureArrayField<T>(fieldPtr),
+  );
 }

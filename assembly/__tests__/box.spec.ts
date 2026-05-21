@@ -66,6 +66,15 @@ describe("Should deserialize additional JSON.Box values", () => {
   );
 });
 
+describe("Should deserialize top-level boxed arrays", () => {
+  const ints = JSON.parse<JSON.Box<i32>[]>("[-1,0,2]");
+  expect(ints.length).toBe(3);
+  expect(ints[0].value).toBe(-1);
+  expect(ints[1].value).toBe(0);
+  expect(ints[2].value).toBe(2);
+  expect(JSON.stringify(ints)).toBe("[-1,0,2]");
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");

@@ -1,10 +1,10 @@
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
-import { deserializeFloatArrayInto } from "./float";
+import { deserializeFloatArrayBody } from "./float";
 import { ensureArrayField, scanValueEnd } from "./shared";
 
 
-@inline export function deserializeArrayArrayInto<T extends unknown[][]>(
+@inline export function deserializeArrayArrayBody<T extends unknown[][]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
@@ -29,7 +29,7 @@ import { ensureArrayField, scanValueEnd } from "./shared";
           value = changetype<valueof<T>>(instantiate<valueof<T>>());
           out.push(value);
         }
-        srcStart = deserializeFloatArrayInto<valueof<T>>(
+        srcStart = deserializeFloatArrayBody<valueof<T>>(
           srcStart,
           srcEnd,
           value,
@@ -43,7 +43,7 @@ import { ensureArrayField, scanValueEnd } from "./shared";
           value = changetype<valueof<T>>(instantiate<valueof<T>>());
           out.push(value);
         }
-        srcStart = deserializeArrayArrayInto<valueof<T>>(
+        srcStart = deserializeArrayArrayBody<valueof<T>>(
           srcStart,
           srcEnd,
           value,
@@ -94,7 +94,7 @@ import { ensureArrayField, scanValueEnd } from "./shared";
   srcEnd: usize,
   fieldPtr: usize,
 ): usize {
-  return deserializeArrayArrayInto<T>(
+  return deserializeArrayArrayBody<T>(
     srcStart,
     srcEnd,
     ensureArrayField<T>(fieldPtr),

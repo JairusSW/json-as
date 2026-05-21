@@ -3,6 +3,16 @@ import { deserializeFloatArray as deserializeFloatArray_NAIVE } from "../../simp
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 import { parse4Digits_PairMul } from "../../../util/swar-int";
+import { isSpace } from "../../../util";
+
+
+@inline function skipFloatArrayWhitespace(
+  srcStart: usize,
+  srcEnd: usize,
+): usize {
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  return srcStart;
+}
 
 // @ts-ignore: inline
 @inline function pow10Fast(exponent: u32): f64 {
@@ -249,7 +259,7 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
  * which is where the speedup actually lives (single-pass parse + SWAR
  * 4-digit fold on the fractional accumulator).
  */
-@inline export function deserializeFloatArrayInto<T extends number[]>(
+@inline export function deserializeFloatArrayBody<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
@@ -257,8 +267,10 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
   let index = 0;
 
   do {
+    srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
+    srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
       out.length = 0;
@@ -272,11 +284,14 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
         next = deserializeFloatField<valueof<T>>(srcStart, srcEnd, slot);
       }
       srcStart = next;
-      if (!srcStart || srcStart >= srcEnd) break;
+      if (!srcStart) break;
+      srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);
+      if (srcStart >= srcEnd) break;
 
       const code = load<u16>(srcStart);
       if (code == COMMA) {
         srcStart += 2;
+        srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);
         index++;
         continue;
       }
@@ -303,7 +318,7 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
   srcEnd: usize,
   fieldPtr: usize,
 ): usize {
-  return deserializeFloatArrayInto<T>(
+  return deserializeFloatArrayBody<T>(
     srcStart,
     srcEnd,
     ensureArrayField<T>(fieldPtr),

@@ -655,7 +655,7 @@ function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
 }
 
 
-@inline export function deserializeIntegerArrayInto<T extends number[]>(
+@inline function deserializeIntegerArrayBody<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
@@ -663,8 +663,10 @@ function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
   let index = 0;
 
   do {
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
       out.length = 0;
@@ -688,11 +690,14 @@ function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
       srcStart = isSigned<valueof<T>>()
         ? parseSignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, slot)
         : parseUnsignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, slot);
-      if (!srcStart || srcStart >= srcEnd) break;
+      if (!srcStart) break;
+      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+      if (srcStart >= srcEnd) break;
 
       const code = load<u16>(srcStart);
       if (code == COMMA) {
         srcStart += 2;
+        while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
         index++;
         continue;
       }
@@ -714,7 +719,7 @@ function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
   srcEnd: usize,
   fieldPtr: usize,
 ): usize {
-  return deserializeIntegerArrayInto<T>(
+  return deserializeIntegerArrayBody<T>(
     srcStart,
     srcEnd,
     ensureArrayField<T>(fieldPtr),

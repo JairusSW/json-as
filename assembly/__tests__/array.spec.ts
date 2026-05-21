@@ -97,6 +97,22 @@ describe("Should deserialize integer arrays", () => {
   );
 });
 
+describe("Should serialize and deserialize narrow integer arrays", () => {
+  expect(JSON.stringify<u8[]>([0, 7, 255])).toBe("[0,7,255]");
+  expect(JSON.stringify<i8[]>([-128, 0, 127])).toBe("[-128,0,127]");
+  expect(JSON.stringify<u16[]>([0, 42, 65535])).toBe("[0,42,65535]");
+  expect(JSON.stringify<i16[]>([-32768, 0, 32767])).toBe("[-32768,0,32767]");
+
+  expect(JSON.stringify(JSON.parse<u8[]>("[0,7,255]"))).toBe("[0,7,255]");
+  expect(JSON.stringify(JSON.parse<i8[]>("[-128,0,127]"))).toBe("[-128,0,127]");
+  expect(JSON.stringify(JSON.parse<u16[]>("[0,42,65535]"))).toBe(
+    "[0,42,65535]",
+  );
+  expect(JSON.stringify(JSON.parse<i16[]>("[-32768,0,32767]"))).toBe(
+    "[-32768,0,32767]",
+  );
+});
+
 describe("Should deserialize float arrays", () => {
   expect(
     JSON.stringify(
@@ -128,6 +144,29 @@ describe("Should deserialize string arrays", () => {
       ),
     ),
   ).toBe('["string \\"with random spa\\nces and \\nnewlines\\n\\n\\n"]');
+});
+
+describe("Should deserialize nullable string arrays", () => {
+  const parsed = JSON.parse<Array<string | null>>('[null,"x",null,"y"]');
+  expect(parsed.length).toBe(4);
+  expect((parsed[0] == null).toString()).toBe("true");
+  expect(parsed[1]).toBe("x");
+  expect((parsed[2] == null).toString()).toBe("true");
+  expect(parsed[3]).toBe("y");
+
+  const spaced = JSON.parse<Array<string | null>>(
+    ' [ null , "left" , null , "right" ] ',
+  );
+  expect(spaced.length).toBe(4);
+  expect(spaced[1]).toBe("left");
+  expect(spaced[3]).toBe("right");
+});
+
+describe("Should serialize empty specialized arrays", () => {
+  expect(JSON.stringify<u8[]>([])).toBe("[]");
+  expect(JSON.stringify<i8[]>([])).toBe("[]");
+  expect(JSON.stringify<f32[]>([])).toBe("[]");
+  expect(JSON.stringify<bool[]>([])).toBe("[]");
 });
 
 describe("Should deserialize nested integer arrays", () => {
@@ -163,6 +202,35 @@ describe("Should deserialize object arrays", () => {
       ),
     ),
   ).toBe('[{"x":3.4,"y":1.2,"z":8.3},{"x":3.4,"y":-2.1,"z":9.3}]');
+});
+
+describe("Should deserialize top-level JSON.Obj arrays", () => {
+  const empty = JSON.parse<JSON.Obj[]>("[]");
+  expect(empty.length).toBe(0);
+  expect(JSON.stringify(empty)).toBe("[]");
+
+  const input =
+    '[{"kind":"a","meta":{"x":1}},{"kind":"b","items":[1,true,"x"]}]';
+  const parsed = JSON.parse<JSON.Obj[]>(input);
+  expect(parsed.length).toBe(2);
+  expect(parsed[0].get("kind")!.get<string>()).toBe("a");
+  expect(parsed[0].get("meta")!.get<JSON.Obj>().get("x")!.get<f64>()).toBe(1.0);
+  expect(parsed[1].get("kind")!.get<string>()).toBe("b");
+  const items = parsed[1].get("items")!.get<JSON.Value[]>();
+  expect(items.length).toBe(3);
+  expect(items[0].get<f64>()).toBe(1.0);
+  expect(items[1].toString()).toBe("true");
+  expect(items[2].get<string>()).toBe("x");
+  expect(JSON.stringify(parsed)).toBe(
+    '[{"kind":"a","meta":{"x":1.0}},{"kind":"b","items":[1.0,true,"x"]}]',
+  );
+
+  const spaced = JSON.parse<JSON.Obj[]>(
+    ' [ { "kind" : "a" , "meta" : { "x" : 1 } } , { "kind" : "b" , "items" : [ 1 , true , "x" ] } ] ',
+  );
+  expect(spaced.length).toBe(2);
+  expect(spaced[0].get("kind")!.get<string>()).toBe("a");
+  expect(spaced[1].get("kind")!.get<string>()).toBe("b");
 });
 
 describe("Should serialize and deserialize date arrays", () => {
@@ -209,6 +277,19 @@ describe("Should parse an empty Set array", () => {
   const parsed = JSON.parse<Set<i32>[]>("[]");
   expect(parsed.length).toBe(0);
   expect(JSON.stringify(parsed)).toBe("[]");
+});
+
+describe("Should cover top-level struct array edge cases", () => {
+  const empty = JSON.parse<Vec3[]>("[]");
+  expect(empty.length).toBe(0);
+  expect(JSON.stringify(empty)).toBe("[]");
+
+  const spaced = JSON.parse<Vec3[]>(
+    ' [ { "x" : 1.0 , "y" : 2.0 , "z" : 3.0 } , { "x" : 4.0 , "y" : 5.0 , "z" : 6.0 } ] ',
+  );
+  expect(spaced.length).toBe(2);
+  expect(spaced[0].x.toString()).toBe("1.0");
+  expect(spaced[1].z.toString()).toBe("6.0");
 });
 
 describe("Should deserialize raw arrays", () => {
@@ -326,5 +407,41 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
   );
   expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe(
     '"line\\nbreak"',
+  );
+});
+
+describe("Should serialize (Box<T> | null)[] for every primitive Box element", () => {
+  expect(
+    JSON.stringify<(JSON.Box<i32> | null)[]>([
+      JSON.Box.from<i32>(1),
+      null,
+      JSON.Box.from<i32>(3),
+    ]),
+  ).toBe("[1,null,3]");
+  expect(
+    JSON.stringify<(JSON.Box<bool> | null)[]>([
+      JSON.Box.from<bool>(true),
+      null,
+      JSON.Box.from<bool>(false),
+    ]),
+  ).toBe("[true,null,false]");
+  expect(
+    JSON.stringify<(JSON.Box<f64> | null)[]>([JSON.Box.from<f64>(0.5), null]),
+  ).toBe("[0.5,null]");
+  expect(JSON.stringify<(JSON.Box<i32> | null)[]>([null])).toBe("[null]");
+});
+
+describe("Should deserialize (string | null)[] preserving null slots", () => {
+  const parsed = JSON.parse<(string | null)[]>('["a",null,"c",null]');
+  expect(parsed.length).toBe(4);
+  expect(parsed[0]!).toBe("a");
+  expect((parsed[1] == null).toString()).toBe("true");
+  expect(parsed[2]!).toBe("c");
+  expect((parsed[3] == null).toString()).toBe("true");
+});
+
+describe("Should serialize string[] of non-null elements through nullable type", () => {
+  expect(JSON.stringify<(string | null)[]>(["a", "b", "c"])).toBe(
+    '["a","b","c"]',
   );
 });

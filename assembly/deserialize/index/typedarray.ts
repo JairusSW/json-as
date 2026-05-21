@@ -1,5 +1,4 @@
 import { JSONMode } from "../..";
-import { bytes } from "../../util";
 import {
   deserializeArrayBuffer as deserializeArrayBuffer_NAIVE,
   deserializeTypedArray as deserializeTypedArray_NAIVE,
@@ -33,20 +32,4 @@ export function deserializeArrayBuffer(
     return deserializeArrayBuffer_SWAR(srcStart, srcEnd, dst);
   }
   return deserializeArrayBuffer_NAIVE(srcStart, srcEnd, dst);
-}
-
-
-@inline export function parseArrayBuffer(data: string): ArrayBuffer {
-  const dataSize = bytes(data);
-  const dataPtr = changetype<usize>(data);
-  return deserializeArrayBuffer(dataPtr, dataPtr + dataSize, 0);
-}
-
-
-@inline export function __deserializeArrayBuffer(
-  srcStart: usize,
-  srcEnd: usize,
-  dst: usize = 0,
-): ArrayBuffer {
-  return deserializeArrayBuffer(srcStart, srcEnd, dst);
 }

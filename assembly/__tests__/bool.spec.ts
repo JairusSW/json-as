@@ -18,6 +18,11 @@ describe("Should deserialize booleans", () => {
   expect(JSON.parse<boolean>("false").toString()).toBe("false");
 });
 
+describe("Should preserve the current invalid-boolean fallback contract", () => {
+  expect(JSON.parse<boolean>("truX").toString()).toBe("false");
+  expect(JSON.parse<boolean>("falsX").toString()).toBe("false");
+});
+
 describe("Additional regression coverage - primitives and arrays", () => {
   expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe(
     '"regression"',
@@ -50,6 +55,11 @@ describe("Should handle boolean whitespace and nesting cases", () => {
 });
 
 describe("Should deserialize booleans in object wrappers", () => {
+  // Reaches deserializeBooleanArrayBody / deserializeBooleanArrayField in
+  // SWAR/SIMD mode via the transform-generated __DESERIALIZE_FAST: the
+  // pre-initialized `flags: bool[] = []` field forces the `Into` path on
+  // a populated body, and the empty-body case below forces the
+  // `BRACKET_RIGHT` short-circuit branch.
   const parsed = JSON.parse<BoolEnvelope>(
     '{"value":true,"flags":[false,true,false]}',
   );
@@ -60,6 +70,10 @@ describe("Should deserialize booleans in object wrappers", () => {
   expect(JSON.stringify(parsed)).toBe(
     '{"value":true,"flags":[false,true,false]}',
   );
+
+  const empty = JSON.parse<BoolEnvelope>('{"value":false,"flags":[]}');
+  expect(empty.flags.length).toBe(0);
+  expect(JSON.stringify(empty)).toBe('{"value":false,"flags":[]}');
 });
 
 describe("Extended regression coverage - nested and escaped payloads", () => {

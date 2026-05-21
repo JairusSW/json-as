@@ -1,5 +1,5 @@
 // Targets the unsigned struct-field path for `Array<u32>` to verify the
-// parser choice in `deserializeIntegerArrayInto`. Mirrors the i32 variant
+// parser choice in `deserializeIntegerArrayBody`. Mirrors the i32 variant
 // but covers the unsigned code path (currently routed through
 // `deserializeUnsignedField` -> `deserializeUnsignedField_SWAR`).
 

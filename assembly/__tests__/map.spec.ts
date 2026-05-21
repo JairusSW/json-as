@@ -171,6 +171,27 @@ describe("Should round-trip maps with nested object values", () => {
   );
 });
 
+describe("Should deserialize top-level map arrays", () => {
+  const input = '[{"a":1},{"b":2,"c":3},{}]';
+  const parsed = JSON.parse<Map<string, i32>[]>(input);
+  expect(parsed.length).toBe(3);
+  expect(parsed[0].get("a")).toBe(1);
+  expect(parsed[1].get("b")).toBe(2);
+  expect(parsed[1].get("c")).toBe(3);
+  expect(parsed[2].size).toBe(0);
+  expect(JSON.stringify(parsed)).toBe(input);
+
+  const spaced = JSON.parse<Map<string, i32>[]>(
+    ' [ { "a" : 1 } , { "b" : 2 , "c" : 3 } , { } ] ',
+  );
+  expect(spaced.length).toBe(3);
+  expect(spaced[1].get("c")).toBe(3);
+
+  const empty = JSON.parse<Map<string, i32>[]>("[]");
+  expect(empty.length).toBe(0);
+  expect(JSON.stringify(empty)).toBe("[]");
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
@@ -181,4 +202,34 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe(
     '"line\\nbreak"',
   );
+});
+
+describe("Should parse maps with internal whitespace and mixed nested values", () => {
+  const direct = JSON.parse<Map<string, i32>>('{ "a" : 1 , "b" : 2 }');
+  expect(direct.get("a")).toBe(1);
+  expect(direct.get("b")).toBe(2);
+  expect(JSON.stringify(direct)).toBe('{"a":1,"b":2}');
+
+  const raws = JSON.parse<Map<string, JSON.Raw>>(
+    '{"obj":{"x":1},"arr":[1,2],"str":"abc"}',
+  );
+  expect(raws.size).toBe(3);
+  expect(raws.get("obj")!.toString()).toBe('{"x":1}');
+  expect(raws.get("arr")!.toString()).toBe("[1,2]");
+  expect(raws.get("str")!.toString()).toBe('"abc"');
+});
+
+describe("Should parse Map<string, JSON.Value> across all branches", () => {
+  const direct = JSON.parse<Map<string, JSON.Value>>(
+    ' { "t" : true , "f" : false , "n" : null , "o" : {"x":1} , "a" : [1,2] , "s" : "hi" } ',
+  );
+  expect(direct.get("t").toString()).toBe("true");
+  expect(direct.get("f").toString()).toBe("false");
+  expect(direct.get("n").toString()).toBe("null");
+  expect(direct.get("o").get<JSON.Obj>().get("x")!.toString()).toBe("1.0");
+  expect(direct.get("a").get<JSON.Value[]>()[1].toString()).toBe("2.0");
+  expect(direct.get("s").get<string>()).toBe("hi");
+
+  const empty = JSON.parse<Map<string, JSON.Value>>("{}");
+  expect(empty.size).toBe(0);
 });

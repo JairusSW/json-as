@@ -2,6 +2,62 @@ import { JSON } from "..";
 import { describe, expect } from "as-test";
 import { bs } from "../../lib/as-bs";
 
+function makeArbitraryU8(value: u8): JSON.Value {
+  const out = JSON.Value.empty();
+  out.type = JSON.Types.U8;
+  store<u8>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
+  return out;
+}
+
+function makeArbitraryU16(value: u16): JSON.Value {
+  const out = JSON.Value.empty();
+  out.type = JSON.Types.U16;
+  store<u16>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
+  return out;
+}
+
+function makeArbitraryU32(value: u32): JSON.Value {
+  const out = JSON.Value.empty();
+  out.type = JSON.Types.U32;
+  store<u32>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
+  return out;
+}
+
+function makeArbitraryU64(value: u64): JSON.Value {
+  const out = JSON.Value.empty();
+  out.type = JSON.Types.U64;
+  store<u64>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
+  return out;
+}
+
+function makeArbitraryI8(value: i8): JSON.Value {
+  const out = JSON.Value.empty();
+  out.type = JSON.Types.I8;
+  store<i8>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
+  return out;
+}
+
+function makeArbitraryI16(value: i16): JSON.Value {
+  const out = JSON.Value.empty();
+  out.type = JSON.Types.I16;
+  store<i16>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
+  return out;
+}
+
+function makeArbitraryI64(value: i64): JSON.Value {
+  const out = JSON.Value.empty();
+  out.type = JSON.Types.I64;
+  store<i64>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
+  return out;
+}
+
+function makeArbitraryF32(value: f32): JSON.Value {
+  const out = JSON.Value.empty();
+  out.type = JSON.Types.F32;
+  store<f32>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
+  return out;
+}
+
 function makeInt8Array(): Int8Array {
   const out = new Int8Array(3);
   out[0] = -1;
@@ -430,4 +486,77 @@ describe("Should preserve JSON.internal behavior for typed arrays and ArrayBuffe
 
   expect(JSON.stringify(parsedBytes)).toBe(encodedBytes);
   expect(JSON.stringify(parsedRaw)).toBe(encodedRaw);
+});
+
+describe("Should parse typed arrays and ArrayBuffer with whitespace", () => {
+  // Drives the SWAR Into/field path's whitespace handling and the NAIVE
+  // double-pass scanner — all three modes flow through here via the
+  // index dispatcher.
+  const ints = JSON.parse<Uint8Array>("[ 1 , 255 , 42 ]");
+  expect(ints.length).toBe(3);
+  expect(ints[0]).toBe(1);
+  expect(ints[2]).toBe(42);
+
+  const floats = JSON.parse<Float64Array>("[ 1.5 , -2.25 , 3.125 ]");
+  expect(floats.length).toBe(3);
+  expect(floats[0]).toBe(1.5);
+  expect(floats[2]).toBe(3.125);
+
+  const buffer = JSON.parse<ArrayBuffer>("[ 10 , 20 , 30 , 40 ]");
+  const view = Uint8Array.wrap(buffer);
+  expect(view.length).toBe(4);
+  expect(view[0]).toBe(10);
+  expect(view[3]).toBe(40);
+
+  expect(JSON.parse<Uint8Array>("[]").length).toBe(0);
+  expect(JSON.parse<ArrayBuffer>("[]").byteLength).toBe(0);
+});
+
+describe("Should drive JSON.Value typed-array and arbitrary serialization through JSON.stringify", () => {
+  // Each JSON.Value.from(...) below produces a JSON.Value of a different
+  // type; JSON.stringify routes each through the same serializer the
+  // dispatcher (and JSON.Value.toString) uses.
+  expect(JSON.stringify(JSON.Value.from<i32>(7))).toBe("7");
+  expect(JSON.stringify(makeArbitraryU8(255))).toBe("255");
+  expect(JSON.stringify(makeArbitraryU16(65535))).toBe("65535");
+  expect(JSON.stringify(makeArbitraryU32(4294967295))).toBe("4294967295");
+  expect(JSON.stringify(makeArbitraryU64(18446744073709551615))).toBe(
+    "18446744073709551615",
+  );
+  expect(JSON.stringify(JSON.Value.from<i32>(-12))).toBe("-12");
+  expect(JSON.stringify(makeArbitraryI8(-128))).toBe("-128");
+  expect(JSON.stringify(makeArbitraryI16(-32768))).toBe("-32768");
+  expect(JSON.stringify(makeArbitraryI64(-9223372036854775808))).toBe(
+    "-9223372036854775808",
+  );
+  expect(JSON.stringify(makeArbitraryF32(3.5))).toBe("3.5");
+  expect(JSON.stringify(JSON.Value.from<f64>(1.25))).toBe("1.25");
+  expect(JSON.stringify(JSON.Value.from<string>("x"))).toBe('"x"');
+  expect(JSON.stringify(JSON.Value.from<bool>(true))).toBe("true");
+
+  const arrValue = JSON.Value.from<JSON.Value[]>([
+    JSON.Value.from<i32>(1),
+    JSON.Value.from<string>("a"),
+  ]);
+  expect(JSON.stringify(arrValue)).toBe('[1,"a"]');
+
+  const obj = new JSON.Obj();
+  obj.set("n", 1);
+  expect(JSON.stringify(JSON.Value.from(obj))).toBe('{"n":1}');
+
+  const map = new Map<string, JSON.Value>();
+  map.set("ok", JSON.Value.from<i32>(1));
+  expect(JSON.stringify(JSON.Value.from(map))).toBe('{"ok":1}');
+
+  // TypedArray and ArrayBuffer carried inside JSON.Value go through
+  // serializeDynamic.
+  expect(JSON.stringify(JSON.Value.from(makeUint8Array()))).toBe("[0,1,2,255]");
+  expect(JSON.stringify(JSON.Value.from(makeArrayBuffer()))).toBe(
+    "[10,20,30,40]",
+  );
+
+  // Null primitive boxed in a JSON.Value.
+  expect(JSON.stringify(JSON.Value.from<JSON.Box<i32> | null>(null))).toBe(
+    "null",
+  );
 });

@@ -7,7 +7,7 @@ import {
 } from "./shared";
 
 
-@inline export function deserializeGenericArrayInto<T extends unknown[]>(
+@inline export function deserializeGenericArrayBody<T extends unknown[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
@@ -50,7 +50,7 @@ import {
   srcEnd: usize,
   fieldPtr: usize,
 ): usize {
-  return deserializeGenericArrayInto<T>(
+  return deserializeGenericArrayBody<T>(
     srcStart,
     srcEnd,
     ensureArrayField<T>(fieldPtr),

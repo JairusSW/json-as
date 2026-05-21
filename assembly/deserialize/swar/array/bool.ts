@@ -5,10 +5,11 @@ import {
   FALSE_WORD_U64,
   TRUE_WORD_U64,
 } from "../../../custom/chars";
+import { isSpace } from "../../../util";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 
 
-@inline export function deserializeBooleanArrayInto<T extends boolean[]>(
+@inline function deserializeBooleanArrayBody<T extends boolean[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
@@ -16,8 +17,10 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
   let index = 0;
 
   do {
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
       out.length = 0;
@@ -37,10 +40,12 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
         break;
       }
 
+      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
       if (srcStart >= srcEnd) break;
       const code = load<u16>(srcStart);
       if (code == COMMA) {
         srcStart += 2;
+        while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
         index++;
         continue;
       }
@@ -62,7 +67,7 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
   srcEnd: usize,
   fieldPtr: usize,
 ): usize {
-  return deserializeBooleanArrayInto<T>(
+  return deserializeBooleanArrayBody<T>(
     srcStart,
     srcEnd,
     ensureArrayField<T>(fieldPtr),

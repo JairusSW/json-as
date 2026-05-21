@@ -1,10 +1,10 @@
-// Targets the `deserializeIntegerArrayInto` path used for `Array<i32>`
+// Targets the `deserializeIntegerArrayBody` path used for `Array<i32>`
 // fields on `@json` structs. Element widths span 1-10 digits so the
 // SWAR 4-digit fold inside `parseSignedIntegerSWAR` gets exercised.
 //
 // Pure-array deserialize benches go through `deserializeIntegerArray_SWAR`
 // (the top-level variant); this struct-field shape is the only one that
-// touches `deserializeIntegerArrayInto`.
+// touches `deserializeIntegerArrayBody`.
 
 import { JSON } from "../..";
 import { bench, blackbox, dumpToFile } from "../lib/bench";

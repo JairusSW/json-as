@@ -231,7 +231,7 @@ export function deserializeMap<T extends Map<any, any>>(
 }
 
 
-@inline export function deserializeMapInto<T extends Map<any, any>>(
+@inline function deserializeMapBody<T extends Map<any, any>>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
@@ -285,10 +285,11 @@ export function deserializeMap<T extends Map<any, any>>(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
-  let out = load<T>(dstObj, dstOffset);
+  const fieldPtr = dstObj + dstOffset;
+  let out = load<T>(fieldPtr);
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
-    store<T>(dstObj, out, dstOffset);
+    store<T>(fieldPtr, out);
   }
-  return deserializeMapInto<T>(srcStart, srcEnd, out);
+  return deserializeMapBody<T>(srcStart, srcEnd, out);
 }

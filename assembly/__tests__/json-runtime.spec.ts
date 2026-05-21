@@ -1,4 +1,4 @@
-import { JSON } from "..";
+import { fromRaw, JSON, toBox, toRaw } from "..";
 import { describe, expect } from "as-test";
 import { bs } from "../../lib/as-bs";
 import { Vec3 } from "./types";
@@ -172,4 +172,115 @@ describe("Should preserve bs state for JSON.internal helpers", () => {
 
   bs.offset = bs.buffer;
   bs.stackSize = 0;
+});
+
+describe("Should cover additional JSON runtime helpers", () => {
+  JSON.Memory.shrink();
+
+  const raw = JSON.Raw.from('{"x":1}');
+  expect(raw.toString()).toBe('{"x":1}');
+  raw.set("[1,2,3]");
+  expect(raw.toString()).toBe("[1,2,3]");
+  expect(fromRaw(toRaw("true"))).toBe("true");
+
+  const same = JSON.Value.from(JSON.Value.from("x"));
+  expect(same.get<string>()).toBe("x");
+
+  const nullable = JSON.Value.from<JSON.Box<i32> | null>(null);
+  expect((nullable.asBox<i32>() == null).toString()).toBe("true");
+  expect(JSON.Value.from(42).asBox<i32>()!.value.toString()).toBe("42");
+
+  const missing = new JSON.Obj();
+  expect((missing.get("absent") == null).toString()).toBe("true");
+
+  const baseObj = new JSON.Obj();
+  baseObj.set("k", "v");
+  const fromObj = JSON.Obj.from(baseObj);
+  expect(fromObj.get("k")!.get<string>()).toBe("v");
+
+  const boxed = toBox(12);
+  expect(boxed.value.toString()).toBe("12");
+  boxed.set(34);
+  expect(boxed.toString()).toBe("34");
+
+  const range = '  {"a":[1,"x"]}  ';
+  const start = changetype<usize>(range);
+  const end = start + (range.length << 1);
+  const valueEnd = JSON.Util.scanValueEnd(start, end);
+  expect(valueEnd).toBe(end - 4);
+  expect(JSON.Util.ptrToStr(start + 4, valueEnd)).toBe('{"a":[1,"x"]}');
+});
+
+describe("Should cover JSON.Value type dispatch more broadly", () => {
+  const values = [
+    JSON.Value.from<i8>(-8),
+    JSON.Value.from<i16>(-16),
+    JSON.Value.from<i64>(-64),
+    JSON.Value.from<i32>(8),
+    JSON.Value.from<u32>(16),
+    JSON.Value.from<u32>(32),
+    JSON.Value.from<f64>(64.0),
+    JSON.Value.from<f32>(1.25),
+    JSON.Value.from(new Int8Array(2)),
+    JSON.Value.from(new Uint8ClampedArray(2)),
+    JSON.Value.from(new Int16Array(2)),
+    JSON.Value.from(new Uint16Array(2)),
+    JSON.Value.from(new Int32Array(2)),
+    JSON.Value.from(new Uint32Array(2)),
+    JSON.Value.from(new Int64Array(2)),
+    JSON.Value.from(new Uint64Array(2)),
+    JSON.Value.from(new Float32Array(2)),
+    JSON.Value.from(new Float64Array(2)),
+    JSON.Value.from(JSON.Raw.from("[1,2]")),
+    JSON.Value.from<JSON.Value[]>([JSON.Value.from(1), JSON.Value.from(true)]),
+    JSON.Value.from(new ArrayBuffer(2)),
+    JSON.Value.from(JSON.Obj.from(new Map<string, i32>().set("x", 1))),
+    JSON.Value.from<JSON.Raw | null>(null),
+  ];
+
+  expect(values[0].toString()).toBe("-8");
+  expect(values[1].toString()).toBe("-16");
+  expect(values[2].toString()).toBe("-64");
+  expect(values[3].toString()).toBe("8");
+  expect(values[4].toString()).toBe("16");
+  expect(values[5].toString()).toBe("32");
+  expect(values[6].toString()).toBe("64.0");
+  expect(values[7].toString()).toBe("1.25");
+  expect(values[18].toString()).toBe("[1,2]");
+  expect(values[19].toString()).toBe("[1,true]");
+  expect(values[22].toString()).toBe("null");
+
+  const emptyArray = JSON.Value.from<JSON.Value[]>([]);
+  expect(emptyArray.toString()).toBe("[]");
+
+  const typed = new Uint8Array(0);
+  const typedValue = JSON.Value.from(typed);
+  expect(typedValue.toString()).toBe("[]");
+
+  const rawBuffer = new ArrayBuffer(0);
+  const bufferValue = JSON.Value.from(rawBuffer);
+  expect(bufferValue.toString()).toBe("[]");
+
+  const obj = new JSON.Obj();
+  obj.set("n", 1);
+  expect(JSON.Value.from(obj).toString()).toBe('{"n":1}');
+
+  const quoted = JSON.Value.from("quoted");
+  expect(quoted.toString()).toBe('"quoted"');
+
+  const floating = JSON.Value.from<f64>(6.5);
+  expect(floating.toString()).toBe("6.5");
+});
+
+describe("Should cover runtime error and utility branches", () => {
+  const copied = JSON.internal.stringify<i32[]>([1, 2, 3], "stale");
+  expect(copied).toBe("[1,2,3]");
+
+  const emptyStart = changetype<usize>("");
+  expect(JSON.Util.scanValueEnd(emptyStart, emptyStart)).toBe(0);
+
+  const badString = '"unterminated';
+  const badStart = changetype<usize>(badString);
+  const badEnd = badStart + (badString.length << 1);
+  expect(JSON.Util.scanValueEnd(badStart, badEnd)).toBe(0);
 });

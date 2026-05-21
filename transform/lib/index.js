@@ -1135,6 +1135,10 @@ export class JSONTransform extends Visitor {
             }
             else if (resolvedType.startsWith("Array<")) {
                 const valueType = getArrayValueType(resolvedType);
+                const rawInner = resolvedType
+                    .slice(resolvedType.indexOf("<") + 1, -1)
+                    .trim();
+                const elementNullable = stripNull(rawInner) !== rawInner;
                 out.push("{");
                 if (member.node.type.isNullable) {
                     out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
@@ -1155,8 +1159,19 @@ export class JSONTransform extends Visitor {
                     out.push("    value.length = 0;");
                     out.push(`    ${srcPtr} += 2;`);
                     out.push("  } else while (true) {");
-                    out.push('    if (index >= value.length) value.push("");');
-                    out.push(`    ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${valueType}>(${srcPtr}, srcEnd, value.dataStart + ((<usize>index) << alignof<${valueType}>()));`);
+                    if (elementNullable) {
+                        out.push(`    if (index >= value.length) value.push(changetype<${valueType} | null>(0));`);
+                        out.push(`    if (load<u64>(${srcPtr}) == 30399761348886638) {`);
+                        out.push(`      store<usize>(value.dataStart + ((<usize>index) << alignof<${valueType}>()), 0);`);
+                        out.push(`      ${srcPtr} += 8;`);
+                        out.push("    } else {");
+                        out.push(`      ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${valueType}>(${srcPtr}, srcEnd, value.dataStart + ((<usize>index) << alignof<${valueType}>()));`);
+                        out.push("    }");
+                    }
+                    else {
+                        out.push('    if (index >= value.length) value.push("");');
+                        out.push(`    ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${valueType}>(${srcPtr}, srcEnd, value.dataStart + ((<usize>index) << alignof<${valueType}>()));`);
+                    }
                     out.push("    index++;");
                     out.push(`    const code = load<u16>(${srcPtr});`);
                     out.push("    if (code == 0x2c) {");
@@ -1222,59 +1237,19 @@ export class JSONTransform extends Visitor {
                     out.push("}");
                     return out;
                 }
-                out.push(`  let value = load<${resolvedType}>(${outPtr}, ${fieldOffset});`);
-                out.push(`  if (changetype<usize>(value) == 0) {`);
-                out.push(`    value = changetype<${resolvedType}>(instantiate<nonnull<${resolvedType}>>());`);
-                out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
-                out.push("  }");
-                out.push(`  if (load<u16>(${valuePtr}) == 0x5b && load<u16>(${valuePtr}, 2) == 0x5d) {`);
-                out.push("    value.length = 0;");
-                out.push(`    ${srcPtr} = ${valuePtr} + 4;`);
-                out.push("  } else {");
-                out.push(`    ${srcPtr} = deserializeArrayInto_SWAR<${resolvedType}>(${valuePtr}, srcEnd, value);`);
-                out.push(`    if (!${srcPtr}) break;`);
-                out.push("  }");
+                out.push(`  ${srcPtr} = deserializeArrayField_SWAR<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+                out.push(`  if (!${srcPtr}) break;`);
                 if (member.node.type.isNullable) {
                     out.push("  }");
                 }
                 out.push("}");
             }
             else if (resolvedType.startsWith("Map<")) {
-                if (member.node.type.isNullable) {
-                    out.push(`${srcPtr} = deserializeMapField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
-                }
-                else if (fastPath) {
-                    out.push("{");
-                    out.push(`  let value = load<${resolvedType}>(${outPtr}, ${fieldOffset});`);
-                    out.push("  if (changetype<usize>(value) == 0) {");
-                    out.push(`    value = new ${resolvedType}();`);
-                    out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
-                    out.push("  }");
-                    out.push(`  ${srcPtr} = deserializeMapInto<${resolvedType}>(${srcPtr}, srcEnd, value);`);
-                    out.push("}");
-                }
-                else {
-                    out.push(`${srcPtr} = deserializeMapInto<${resolvedType}>(${srcPtr}, srcEnd, load<${resolvedType}>(${outPtr}, ${fieldOffset}));`);
-                }
+                out.push(`${srcPtr} = deserializeMapField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 out.push(`if (!${srcPtr}) break;`);
             }
             else if (resolvedType.startsWith("Set<")) {
-                if (member.node.type.isNullable) {
-                    out.push(`${srcPtr} = deserializeSetField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
-                }
-                else if (fastPath) {
-                    out.push("{");
-                    out.push(`  let value = load<${resolvedType}>(${outPtr}, ${fieldOffset});`);
-                    out.push("  if (changetype<usize>(value) == 0) {");
-                    out.push(`    value = new ${resolvedType}();`);
-                    out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
-                    out.push("  }");
-                    out.push(`  ${srcPtr} = deserializeSetInto<${resolvedType}>(${srcPtr}, srcEnd, value);`);
-                    out.push("}");
-                }
-                else {
-                    out.push(`${srcPtr} = deserializeSetInto<${resolvedType}>(${srcPtr}, srcEnd, load<${resolvedType}>(${outPtr}, ${fieldOffset}));`);
-                }
+                out.push(`${srcPtr} = deserializeSetField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 out.push(`if (!${srcPtr}) break;`);
             }
             else if (resolvedType.startsWith("StaticArray<")) {
@@ -2303,16 +2278,10 @@ export class JSONTransform extends Visitor {
         const scanValueEndImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "scanValueEnd" || d.name.text == "scanValueEnd"));
         const deserializeArrayField_SWARImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeArrayField_SWAR" ||
             d.name.text == "deserializeArrayField_SWAR"));
-        const deserializeArrayInto_SWARImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeArrayInto_SWAR" ||
-            d.name.text == "deserializeArrayInto_SWAR"));
         const deserializeMapFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeMapField" ||
             d.name.text == "deserializeMapField"));
-        const deserializeMapIntoImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeMapInto" ||
-            d.name.text == "deserializeMapInto"));
         const deserializeSetFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeSetField" ||
             d.name.text == "deserializeSetField"));
-        const deserializeSetIntoImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeSetInto" ||
-            d.name.text == "deserializeSetInto"));
         const deserializeStaticArrayFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeStaticArrayField" ||
             d.name.text == "deserializeStaticArrayField"));
         const deserializeStringFieldSWARImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeStringField_SWAR" ||
@@ -2325,11 +2294,8 @@ export class JSONTransform extends Visitor {
         const hasLocalDeserializeFloatField = /\bdeserializeFloatField\b/.test(sourceText);
         const hasLocalScanValueEnd = /\bscanValueEnd\b/.test(sourceText);
         const hasLocaldeserializeArrayField_SWAR = /\bdeserializeArrayField_SWAR\b/.test(sourceText);
-        const hasLocaldeserializeArrayInto_SWAR = /\bdeserializeArrayInto_SWAR\b/.test(sourceText);
         const hasLocaldeserializeMapField = /\bdeserializeMapField\b/.test(sourceText);
-        const hasLocaldeserializeMapInto = /\bdeserializeMapInto\b/.test(sourceText);
         const hasLocaldeserializeSetField = /\bdeserializeSetField\b/.test(sourceText);
-        const hasLocaldeserializeSetInto = /\bdeserializeSetInto\b/.test(sourceText);
         const hasLocaldeserializeStaticArrayField = /\bdeserializeStaticArrayField\b/.test(sourceText);
         const hasLocalDeserializeStringFieldSWAR = /\bdeserializeStringField_SWAR\b/.test(sourceText);
         const hasLocalDeserializeStringFieldSIMD = /\bdeserializeStringField_SIMD\b/.test(sourceText);
@@ -2424,19 +2390,6 @@ export class JSONTransform extends Visitor {
             !hasLocaldeserializeArrayField_SWAR) {
             const replaceNode = Node.createImportStatement([
                 Node.createImportDeclaration(Node.createIdentifierExpression("deserializeArrayField_SWAR", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "simple", "array"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
-        if (!deserializeArrayInto_SWARImport &&
-            !hasLocaldeserializeArrayInto_SWAR) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeArrayInto_SWAR", node.range, false), null, node.range),
             ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "swar", "array"), node.range), node.range);
             node.range.source.statements.unshift(replaceNode);
             if (DEBUG > 0)
@@ -2458,33 +2411,9 @@ export class JSONTransform extends Visitor {
                     node.range.source.normalizedPath +
                     "\n");
         }
-        if (!deserializeMapIntoImport && !hasLocaldeserializeMapInto) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeMapInto", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "simple", "map"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
         if (!deserializeSetFieldImport && !hasLocaldeserializeSetField) {
             const replaceNode = Node.createImportStatement([
                 Node.createImportDeclaration(Node.createIdentifierExpression("deserializeSetField", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "simple", "set"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
-        if (!deserializeSetIntoImport && !hasLocaldeserializeSetInto) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeSetInto", node.range, false), null, node.range),
             ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "simple", "set"), node.range), node.range);
             node.range.source.statements.unshift(replaceNode);
             if (DEBUG > 0)

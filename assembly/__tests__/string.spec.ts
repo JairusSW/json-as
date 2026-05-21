@@ -8,6 +8,18 @@ class LiteralStringFieldBox {
   value: string = "alpha";
 }
 
+
+@json
+class LiteralStringArrayFieldBox {
+  values: string[] = ["alpha"];
+}
+
+
+@json
+class NullableStringArrayFieldBox {
+  values: Array<string | null> = [];
+}
+
 describe("Should serialize strings - Basic", () => {
   expect(JSON.stringify("abcdefg")).toBe('"abcdefg"');
   expect(JSON.stringify('st"ring" w""ith quotes"')).toBe(
@@ -359,4 +371,105 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe(
     '"line\\nbreak"',
   );
+});
+
+describe("Should round-trip string arrays through JSON.parse", () => {
+  // Reaches deserializeStringArray_SWAR (top-level SWAR path) in SWAR/SIMD
+  // modes and the simple deserializer in NAIVE.
+  expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe(
+    '["a","b","c"]',
+  );
+  expect(JSON.parse<string[]>("[]").length).toBe(0);
+  expect(JSON.stringify(JSON.parse<string[]>('["x","y"]'))).toBe('["x","y"]');
+});
+
+describe("Should populate string array fields and reuse existing arrays", () => {
+  // LiteralStringArrayFieldBox is pre-seeded with ["alpha"], driving the
+  // SWAR/SIMD field-into reuse path. In SIMD mode the transform inlines
+  // the array loop directly (no `Into` dispatch), so whitespace inside
+  // struct-field string arrays is *not* tolerated and is therefore not
+  // exercised here — see deserializeStringArrayBody for the whitespace-
+  // tolerant entry used by top-level `string[]` parses.
+  const populated = JSON.parse<LiteralStringArrayFieldBox>(
+    '{"values":["left","right"]}',
+  );
+  expect(populated.values.length).toBe(2);
+  expect(populated.values[0]).toBe("left");
+  expect(populated.values[1]).toBe("right");
+
+  const empty = JSON.parse<LiteralStringArrayFieldBox>('{"values":[]}');
+  expect(empty.values.length).toBe(0);
+});
+
+describe("Should preserve null elements in (string | null)[] payloads", () => {
+  // Drives the null-fast-path branch in the SWAR string array
+  // deserializer (one u64 compare against the UTF-16 image of 'null').
+  const topLevel = JSON.parse<(string | null)[]>('["a",null,"b",null]');
+  expect(topLevel.length).toBe(4);
+  expect(topLevel[0]).toBe("a");
+  expect(changetype<usize>(topLevel[1])).toBe(0);
+  expect(topLevel[2]).toBe("b");
+  expect(changetype<usize>(topLevel[3])).toBe(0);
+
+  const field = JSON.parse<NullableStringArrayFieldBox>(
+    '{"values":["x",null,"y"]}',
+  );
+  expect(field.values.length).toBe(3);
+  expect(field.values[0]).toBe("x");
+  expect(changetype<usize>(field.values[1])).toBe(0);
+  expect(field.values[2]).toBe("y");
+});
+
+describe("Should populate string fields and grow/reuse the existing slot", () => {
+  // Drives the struct-field string deserializer through the
+  // transform-generated __DESERIALIZE_FAST. Each parse forces a
+  // different branch in the SWAR/SIMD field path:
+  //   - first: plain ASCII, fresh literal allocation
+  //   - second: escaped backslash + unicode escapes
+  //   - third: empty value
+  //   - fourth: longer payload (forces growth)
+  //   - fifth: long escape continuation across SWAR block boundaries
+  const omega = JSON.parse<LiteralStringFieldBox>('{"value":"omega"}');
+  expect(omega.value).toBe("omega");
+  expect(changetype<usize>(omega.value) >= __heap_base).toBe(true);
+
+  const escaped = JSON.parse<LiteralStringFieldBox>(
+    '{"value":"line\\\\twith\\\\u0041"}',
+  );
+  expect(escaped.value).toBe("line\\twith\\u0041");
+
+  const blank = JSON.parse<LiteralStringFieldBox>('{"value":""}');
+  expect(blank.value).toBe("");
+
+  const wider = JSON.parse<LiteralStringFieldBox>(
+    '{"value":"wider-than-five"}',
+  );
+  expect(wider.value).toBe("wider-than-five");
+
+  const continuation = JSON.parse<LiteralStringFieldBox>(
+    '{"value":"alpha-alpha-alpha-\\u263A-beta-beta-\\n-gamma-\\"x\\""}',
+  );
+  expect(continuation.value).toBe(
+    JSON.parse<string>(
+      '"alpha-alpha-alpha-\\u263A-beta-beta-\\n-gamma-\\"x\\""',
+    ),
+  );
+});
+
+describe("Should deserialize long and escape-heavy strings through JSON.parse", () => {
+  // Drives the SWAR/SIMD top-level string deserializer's continuation
+  // branches: escape runs that wrap multiple SWAR blocks, then a tail.
+  expect(
+    JSON.parse<string>(
+      '"prefix-prefix-prefix-\\u0041-middle-\\t-suffix-\\"quoted\\"-tail"',
+    ),
+  ).toBe('prefix-prefix-prefix-A-middle-\t-suffix-"quoted"-tail');
+
+  expect(JSON.parse<string>('"plain-plain-plain-plain-plain-plain"')).toBe(
+    "plain-plain-plain-plain-plain-plain",
+  );
+
+  expect(JSON.parse<string>('"abcŜdef"')).toBe("abcŜdef");
+
+  expect(JSON.parse<string>('"tab\\tA\\u0041\\"q\\""')).toBe('tab\tAA"q"');
 });

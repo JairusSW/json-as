@@ -50,88 +50,23 @@ import {
 ): usize {
   const nextLength = index + 1;
   if (out.length < nextLength) {
-    out.length = nextLength;
-    const slot = out.dataStart + <usize>index * sizeof<valueof<T>>();
-    // Reference arrays can allocate recursively before the caller stores the new element.
-    // Zero the newly exposed slot immediately so incremental GC never observes a garbage pointer.
-    if (isManaged<valueof<T>>() || isReference<valueof<T>>())
-      store<usize>(slot, 0);
-    return slot;
+    // Grow via `push`, not `out.length = nextLength`. AS's `length=`
+    // setter calls `ensureCapacity(canGrow=false)` which reallocates to
+    // *exactly* the requested size — fine for a one-shot resize, but
+    // catastrophic in the per-element loop (every push triggers a full
+    // copy of the array, giving O(N²) growth cost). `push` goes through
+    // `canGrow=true`, doubling capacity geometrically as needed.
+    //
+    // We push a zero-bit default: `0` for primitives, the null reference
+    // for managed/reference element types. The caller overwrites this
+    // slot immediately, so the placeholder is never observed.
+    if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
+      out.push(changetype<valueof<T>>(0));
+    } else {
+      out.push(<valueof<T>>0);
+    }
   }
   return out.dataStart + <usize>index * sizeof<valueof<T>>();
-}
-
-// Shared `Into` body for arrays whose elements are themselves deserialized
-// via `__DESERIALIZE_FAST`/`__DESERIALIZE_SLOW` — i.e. `JSON.Obj[]` and any
-// user-defined `@json` struct array. The two callers (`object.ts` and
-// `struct.ts`) used to ship byte-identical copies of this function; the
-// single helper avoids that duplication without changing codegen since it
-// remains `@inline`.
-@inline export function deserializeObjectStructArrayInto<T extends unknown[]>(
-  srcStart: usize,
-  srcEnd: usize,
-  out: T,
-): usize {
-  let index = 0;
-
-  do {
-    if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
-    srcStart += 2;
-    if (srcStart >= srcEnd) break;
-    if (load<u16>(srcStart) == BRACKET_RIGHT) {
-      out.length = 0;
-      return srcStart + 2;
-    }
-
-    while (srcStart < srcEnd) {
-      const slot = ensureArrayElementSlot<T>(out, index);
-      let value = load<valueof<T>>(slot);
-      if (changetype<usize>(value) == 0) {
-        value = changetype<valueof<T>>(
-          __new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
-        );
-        // @ts-ignore: supplied by transform
-        if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {
-          // @ts-ignore: supplied by transform
-          changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
-        }
-        store<valueof<T>>(slot, value);
-      }
-
-      const valueStart = srcStart;
-      // @ts-ignore: supplied by transform
-      if (
-        isDefined(changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST)
-      ) {
-        // @ts-ignore: supplied by transform
-        srcStart = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST<
-          valueof<T>
-        >(valueStart, srcEnd, value);
-      } else {
-        // @ts-ignore: supplied by transform
-        srcStart = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW<
-          valueof<T>
-        >(valueStart, srcEnd, value);
-      }
-      if (!srcStart || srcStart >= srcEnd) break;
-
-      const code = load<u16>(srcStart);
-      if (code == COMMA) {
-        srcStart += 2;
-        index++;
-        continue;
-      }
-      if (code == BRACKET_RIGHT) {
-        // Skip `ensureCapacity` when reused arrays already have the right length.
-        const nextLen = index + 1;
-        if (out.length != nextLen) out.length = nextLen;
-        return srcStart + 2;
-      }
-      break;
-    }
-  } while (false);
-
-  throw new Error("Failed to parse JSON!");
 }
 
 

@@ -73,12 +73,3 @@ import {
     }
   }
 }
-
-
-@inline export function serializeArrayBuffer(data: ArrayBuffer): void {
-  const dataStart = changetype<usize>(data);
-  serializeArrayBufferUnsafe(
-    dataStart,
-    changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize,
-  );
-}

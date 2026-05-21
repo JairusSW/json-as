@@ -14,6 +14,7 @@ import { deserializeStructArray } from "../simple/array/struct";
 import { deserializeIntegerArray_SIMD } from "../simd/array/integer";
 import { deserializeIntegerArray_SWAR } from "../swar/array/integer";
 import { deserializeFloatArray_SWAR } from "../swar/array/float";
+import { deserializeStringArray_SWAR } from "../swar/array/string";
 
 export {
   deserializeArrayField,
@@ -26,7 +27,16 @@ export function deserializeArray<T extends unknown[]>(
   dst: usize,
 ): T {
   if (isString<valueof<T>>()) {
-    return <T>deserializeStringArray(srcStart, srcEnd, dst);
+    // SWAR/SIMD routes through the same `Into` helper used by the
+    // struct-field path; that helper carries the `null` token fast path
+    // for `(string | null)[]`. NAIVE keeps the simple scanner, which
+    // currently only handles non-nullable string arrays. The simple
+    // variant's static `string[]` return type is bit-identical to
+    // `(string | null)[]` so `changetype<T>` is a runtime no-op.
+    if (JSON_MODE == JSONMode.SWAR || JSON_MODE == JSONMode.SIMD) {
+      return deserializeStringArray_SWAR<T>(srcStart, srcEnd, dst);
+    }
+    return changetype<T>(deserializeStringArray(srcStart, srcEnd, dst));
   } else if (isBoolean<valueof<T>>()) {
     return deserializeBooleanArray<T>(srcStart, srcEnd, dst);
   } else if (isInteger<valueof<T>>()) {

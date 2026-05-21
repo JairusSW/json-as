@@ -54,6 +54,16 @@ function serializeArrayElement<T>(value: T): void {
     else serializeFloat64Unsafe(<f64>value);
     return;
   }
+  if (isManaged<T>() || isReference<T>()) {
+    // Preserve runtime custom serializers for subclass instances stored in
+    // parent-typed arrays before falling back to the static dispatcher.
+    // @ts-ignore: transform-defined at runtime when present
+    if (isDefined(value.__SERIALIZE_CUSTOM)) {
+      // @ts-ignore: transform-defined at runtime when present
+      value.__SERIALIZE_CUSTOM();
+      return;
+    }
+  }
   JSON.__serialize<T>(value);
 }
 

@@ -317,6 +317,18 @@ describe("Should parse additional arbitrary values", () => {
   );
 });
 
+describe("Should parse each arbitrary root token shape", () => {
+  expect(JSON.parse<JSON.Value>('"hello"').get<string>()).toBe("hello");
+  expect(JSON.stringify(JSON.parse<JSON.Value>('{"a":1}'))).toBe('{"a":1.0}');
+  expect(JSON.parse<JSON.Value>("123").get<f64>()).toBe(123.0);
+  expect(JSON.stringify(JSON.parse<JSON.Value>("[1,true,null]"))).toBe(
+    "[1.0,true,null]",
+  );
+  expect(JSON.parse<JSON.Value>("true").toString()).toBe("true");
+  expect(JSON.parse<JSON.Value>("false").toString()).toBe("false");
+  expect(JSON.parse<JSON.Value>("null").toString()).toBe("null");
+});
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");
