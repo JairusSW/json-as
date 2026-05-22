@@ -1,8 +1,11 @@
+import { ptrToStr } from "../../../util/ptrToStr";
+import { scientific } from "../../../util/scientific";
 import { deserializeFloatField } from "../../simple/float";
 import { deserializeFloatArray as deserializeFloatArray_NAIVE } from "../../simple/array/float";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 import { parse4Digits_PairMul } from "../../../util/swar-int";
+import { loadPow10, MAX_EXACT_MANTISSA, MAX_EXACT_POW10 } from "../float";
 import { isSpace } from "../../../util";
 
 
@@ -15,61 +18,33 @@ import { isSpace } from "../../../util";
 }
 
 // @ts-ignore: inline
-@inline function pow10Fast(exponent: u32): f64 {
-  if (exponent == 0) return 1.0;
-  if (exponent == 1) return 10.0;
-  if (exponent == 2) return 100.0;
-  if (exponent == 3) return 1e3;
-  if (exponent == 4) return 1e4;
-  if (exponent == 5) return 1e5;
-  if (exponent == 6) return 1e6;
-  if (exponent == 7) return 1e7;
-  if (exponent == 8) return 1e8;
-  if (exponent == 9) return 1e9;
-  if (exponent == 10) return 1e10;
-  if (exponent == 11) return 1e11;
-  if (exponent == 12) return 1e12;
-  if (exponent == 13) return 1e13;
-  if (exponent == 14) return 1e14;
-  if (exponent == 15) return 1e15;
-  if (exponent == 16) return 1e16;
-  if (exponent == 17) return 1e17;
-  if (exponent == 18) return 1e18;
-  let result = 1.0;
-  if (exponent & 1) result *= 1e1;
-  if (exponent & 2) result *= 1e2;
-  if (exponent & 4) result *= 1e4;
-  if (exponent & 8) result *= 1e8;
-  if (exponent & 16) result *= 1e16;
-  if (exponent & 32) result *= 1e32;
-  if (exponent & 64) result *= 1e64;
-  if (exponent & 128) result *= 1e128;
-  if (exponent & 256) result *= 1e256;
-  return result;
+@inline function fallbackStore<E>(
+  origStart: usize,
+  end: usize,
+  slot: usize,
+): void {
+  const s = ptrToStr(origStart, end);
+  if (sizeof<E>() == sizeof<f32>()) {
+    store<f32>(slot, f32.parse(s));
+  } else {
+    store<f64>(slot, f64.parse(s));
+  }
 }
 
 /**
- * Inline single-pass float element parser.
+ * Inline single-pass Lemire-style float element parser for arrays.
  *
- * Returns the advanced `srcStart` on success, or `0` to signal "bail to the
- * NAIVE path" (no digits, malformed exponent, or fractional-fold overflow).
+ * Bit-identical output to `f64.parse` / `f32.parse`: u64 mantissa
+ * accumulation is exact, and `<f64>mantissa * pow10[exp]` is correctly
+ * rounded for the fast-path range (mantissa <= 2^53, |exp| <= 22).
+ * Pathological inputs (oversized mantissa or exponent) fall back to
+ * `f*.parse` over the float's own substring, again matching the NAIVE
+ * baseline.
  *
- * Semantics mirror `deserializeFloat` from `simple/float.ts` exactly:
- *   - integer part accumulated in `f64` via mul-add (no semantic change)
- *   - fractional part accumulated in a `u64` then `value += frac / 10^k`
- *   - exponent applied as one final mul or div
- *
- * The wins over `deserializeFloat`:
- *   - single pass over the digits (no preliminary "scan to terminator"
- *     loop like `deserializeFloatArray` had)
- *   - direct `store<f32|f64>` to the array slot, no return-by-value
- *   - SWAR 4-digit fold on the fractional `u64` accumulator, which is
- *     where wide payloads (e.g. `3.141592653589793`) spend their cycles
- *
- * Bail (`return 0`) on:
- *   - first character is not a digit / `-`
- *   - `e` / `E` not followed by a digit after the optional sign
- *   - more than 18 fractional digits (would overflow the `u64` accumulator)
+ * Returns the advanced source position on success, or `0` to signal "bail
+ * to the per-element NAIVE path" only for truly malformed input (no leading
+ * digit, lone minus, malformed exponent suffix). Valid-but-out-of-range
+ * numbers are handled inline.
  */
 // @ts-expect-error: decorators valid here
 @inline export function parseFloatElementSWAR<E>(
@@ -77,96 +52,132 @@ import { isSpace } from "../../../util";
   srcEnd: usize,
   slot: usize,
 ): usize {
+  const origStart = srcStart;
+  let p = srcStart;
   let negative = false;
-  let code = load<u16>(srcStart);
+  let code = load<u16>(p);
   if (code == 45) {
     negative = true;
-    srcStart += 2;
-    if (srcStart >= srcEnd) return 0;
-    code = load<u16>(srcStart);
+    p += 2;
+    if (p >= srcEnd) return 0;
+    code = load<u16>(p);
   }
 
-  let digit = <u32>code - 48;
-  if (digit > 9) return 0;
+  let firstDigit = <u32>code - 48;
+  if (firstDigit > 9) return 0;
 
-  let value: f64 = <f64>digit;
-  srcStart += 2;
-  while (srcStart < srcEnd) {
-    digit = <u32>load<u16>(srcStart) - 48;
-    if (digit > 9) break;
-    value = value * 10.0 + <f64>digit;
-    srcStart += 2;
+  // Integer mantissa: scalar (most JSON integers are 1-3 digits).
+  let mantissa: u64 = 0;
+  let intDigits: i32 = 0;
+  while (p < srcEnd) {
+    const d = <u32>load<u16>(p) - 48;
+    if (d > 9) break;
+    mantissa = mantissa * 10 + <u64>d;
+    intDigits++;
+    p += 2;
   }
 
-  if (srcStart < srcEnd && load<u16>(srcStart) == 46) {
-    srcStart += 2;
-    let fraction: u64 = 0;
-    let fracDigits: u32 = 0;
-
-    // SWAR 4-digit fold for the fractional accumulator. Each successful
-    // stride feeds 4 ASCII digits into the u64 with a single load + a
-    // handful of ALU ops, vs. 4 separate `load<u16>` + branch iterations
-    // in the scalar tail below.
-    while (srcStart + 6 < srcEnd) {
-      const parsed = parse4Digits_PairMul(load<u64>(srcStart));
+  // Fractional mantissa: parse4 SWAR stride + scalar tail. Same u64
+  // accumulator as the integer part — exponent compensates for fracDigits.
+  let fracDigits: i32 = 0;
+  if (p < srcEnd && load<u16>(p) == 46) {
+    p += 2;
+    while (p + 6 < srcEnd) {
+      const parsed = parse4Digits_PairMul(load<u64>(p));
       if (parsed == U32.MAX_VALUE) break;
-      fraction = fraction * 10000 + parsed;
+      mantissa = mantissa * 10_000 + <u64>parsed;
       fracDigits += 4;
-      srcStart += 8;
-      // u64 caps at ~19 significant digits; bail if we'd risk overflow on
-      // the next stride. The NAIVE path falls back to `f64.parse` which
-      // handles arbitrarily long fractions.
-      if (fracDigits >= 16) return 0;
+      p += 8;
     }
-    while (srcStart < srcEnd) {
-      digit = <u32>load<u16>(srcStart) - 48;
-      if (digit > 9) break;
-      fraction = fraction * 10 + digit;
-      fracDigits += 1;
-      srcStart += 2;
+    while (p < srcEnd) {
+      const d = <u32>load<u16>(p) - 48;
+      if (d > 9) break;
+      mantissa = mantissa * 10 + <u64>d;
+      fracDigits++;
+      p += 2;
     }
-    if (fracDigits > 18) return 0;
-    if (fracDigits != 0) value += <f64>fraction / pow10Fast(fracDigits);
   }
 
-  if (srcStart < srcEnd) {
-    code = load<u16>(srcStart);
+  const mantDigits = intDigits + fracDigits;
+  let exponent: i32 = -fracDigits;
+
+  // Optional `e[+-]NNN` suffix.
+  if (p < srcEnd) {
+    code = load<u16>(p);
     if (code == 101 || code == 69) {
-      srcStart += 2;
-      if (srcStart >= srcEnd) return 0;
-
+      const expStart = p;
+      p += 2;
+      if (p >= srcEnd) {
+        fallbackStore<E>(origStart, expStart, slot);
+        return expStart;
+      }
       let expNeg = false;
-      code = load<u16>(srcStart);
-      if (code == 45 || code == 43) {
-        expNeg = code == 45;
-        srcStart += 2;
-        if (srcStart >= srcEnd) return 0;
-        code = load<u16>(srcStart);
+      const sc = load<u16>(p);
+      if (sc == 45) {
+        expNeg = true;
+        p += 2;
+      } else if (sc == 43) {
+        p += 2;
       }
-
-      let exponent = <u32>code - 48;
-      if (exponent > 9) return 0;
-      srcStart += 2;
-      while (srcStart < srcEnd) {
-        digit = <u32>load<u16>(srcStart) - 48;
-        if (digit > 9) break;
-        exponent = exponent * 10 + digit;
-        srcStart += 2;
+      if (p >= srcEnd) {
+        fallbackStore<E>(origStart, expStart, slot);
+        return expStart;
       }
-
-      const power = pow10Fast(exponent);
-      value = expNeg ? value / power : value * power;
+      let exp: i32 = 0;
+      let expDigits: i32 = 0;
+      while (p < srcEnd) {
+        const d = <u32>load<u16>(p) - 48;
+        if (d > 9) break;
+        exp = exp * 10 + <i32>d;
+        expDigits++;
+        if (expDigits > 4) {
+          fallbackStore<E>(origStart, p, slot);
+          return p;
+        }
+        p += 2;
+      }
+      if (expDigits == 0) {
+        fallbackStore<E>(origStart, expStart, slot);
+        return expStart;
+      }
+      exponent += expNeg ? -exp : exp;
     }
   }
 
-  if (negative) value = -value;
+  // Lemire fast path: mantissa <= 2^53 and |exp| <= 22 means a single fmul
+  // on two exactly-representable operands, correctly rounded.
+  let result: f64;
+  if (
+    mantDigits <= 19 &&
+    mantissa <= MAX_EXACT_MANTISSA &&
+    exponent <= MAX_EXACT_POW10 &&
+    exponent >= -MAX_EXACT_POW10
+  ) {
+    result = <f64>mantissa;
+    if (exponent > 0) {
+      result *= loadPow10(<u32>exponent);
+    } else if (exponent < 0) {
+      result /= loadPow10(<u32>-exponent);
+    }
+  } else if (mantDigits <= 19) {
+    // Mantissa fits in u64 but the fast-path constraints don't hold. Call
+    // `scientific` directly with our already-parsed mantissa+exp, skipping
+    // the `ptrToStr` allocation + strtod re-parse.
+    result = scientific(mantissa, exponent);
+  } else {
+    // >19 mantissa digits — beyond u64 capacity, may need strtod's sticky-bit
+    // pattern. Hand off to f*.parse on the float's substring.
+    fallbackStore<E>(origStart, p, slot);
+    return p;
+  }
+  if (negative) result = -result;
 
   if (sizeof<E>() == sizeof<f32>()) {
-    store<f32>(slot, <f32>value);
+    store<f32>(slot, <f32>result);
   } else {
-    store<f64>(slot, value);
+    store<f64>(slot, result);
   }
-  return srcStart;
+  return p;
 }
 
 /**
@@ -182,9 +193,9 @@ import { isSpace } from "../../../util";
  * per-element `Array.push` capacity check + length write) and inlines
  * `parseFloatElementSWAR` (eliminating the double-scan that
  * `deserializeFloatArray_NAIVE` performs: scan-to-terminator +
- * `JSON.__deserialize` re-parse). If the inline parser bails (no
- * digits, malformed exponent, wide fraction), we hand off to the NAIVE
- * path with the pre-allocated buffer retained so capacity is reused.
+ * `JSON.__deserialize` re-parse). If the inline parser bails (truly
+ * malformed input), we hand off to the NAIVE path with the pre-allocated
+ * buffer retained so capacity is reused.
  */
 export function deserializeFloatArray_SWAR<T extends number[]>(
   srcStart: usize,
@@ -235,10 +246,6 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
     }
   } while (false);
 
-  // Fast path bailed (whitespace, malformed numbers, or fraction wider than
-  // the u64 accumulator). Hand off to the NAIVE path with the same `dst`;
-  // it resets `out.length` to 0 and re-parses from the original input,
-  // reusing the already-allocated buffer for capacity.
   return deserializeFloatArray_NAIVE<T>(
     originalSrcStart,
     srcEnd,
@@ -254,10 +261,7 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
  * SWAR entry is unsafe here: nested callers pass the *outer* container's
  * `srcEnd`, so on `f64[][][]` payloads like canada.json each tiny inner
  * `[lon,lat]` would over-allocate megabytes of f64 capacity. Instead we
- * use `ensureArrayElementSlot`'s grow-or-reuse strategy and only swap the
- * per-element `deserializeFloatField` call for the inline SWAR parser,
- * which is where the speedup actually lives (single-pass parse + SWAR
- * 4-digit fold on the fractional accumulator).
+ * use `ensureArrayElementSlot`'s grow-or-reuse strategy.
  */
 @inline export function deserializeFloatArrayBody<T extends number[]>(
   srcStart: usize,

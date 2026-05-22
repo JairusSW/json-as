@@ -97,9 +97,9 @@ describe("Should support more exponent forms", () => {
   expect(JSON.stringify(JSON.parse<f64>("3.14E5"))).toBe("314000.0");
   expect(JSON.stringify(JSON.parse<f64>("3.14e5"))).toBe("314000.0");
   expect(JSON.stringify(JSON.parse<f64>("3.15E-5"))).toBe("0.0000315");
-  expect(JSON.parse<f64>("3.14e-5").toString()).toBe("0.000031400000000000004");
+  expect(JSON.parse<f64>("3.14e-5").toString()).toBe("0.0000314");
   expect(JSON.stringify(JSON.parse<f64>("-9.81E+2"))).toBe("-981.0");
-  expect(JSON.parse<f64>("6.022e23").toString()).toBe("6.0219999999999999e+23");
+  expect(JSON.parse<f64>("6.022e23").toString()).toBe("6.022e+23");
 });
 
 describe("Should parse the pow10 lookup table across the f64 range", () => {

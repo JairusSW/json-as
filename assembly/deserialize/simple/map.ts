@@ -13,7 +13,7 @@ import {
   COLON,
 } from "../../custom/chars";
 import { isSpace, isUnescapedQuote, scanStringEnd } from "../../util";
-import { scanValueEnd } from "../swar/array/shared";
+import { scanValueEnd } from "../../util/scanValueEnd";
 
 // @ts-ignore: Decorator is valid here
 @inline function deserializeMapKey<T>(start: usize, end: usize): T {

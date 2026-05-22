@@ -15,7 +15,6 @@ import {
 } from "../../custom/chars";
 import { isSpace, isUnescapedQuote, scanStringEnd } from "../../util";
 import { ptrToStr } from "../../util/ptrToStr";
-import { deserializeString_SWAR } from "../swar/string";
 import { deserializeArray } from "./array";
 import { deserializeBoolean } from "./bool";
 import { deserializeFloat } from "./float";

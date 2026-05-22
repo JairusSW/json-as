@@ -1,7 +1,7 @@
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
-import { scanValueEnd } from "../../swar/array/shared";
+import { scanValueEnd } from "../../../util/scanValueEnd";
 
 export function deserializeGenericArray<T extends unknown[]>(
   srcStart: usize,

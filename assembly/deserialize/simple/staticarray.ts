@@ -15,7 +15,7 @@ import { deserializeStaticArrayBoolean } from "./staticarray/bool";
 import { deserializeStaticArrayFloat } from "./staticarray/float";
 import { deserializeStaticArrayInteger } from "./staticarray/integer";
 import { deserializeStaticArrayString } from "./staticarray/string";
-import { scanValueEnd } from "../swar/array/shared";
+import { scanValueEnd } from "../../util/scanValueEnd";
 
 
 @inline function materializeStaticArray<T extends StaticArray<any>>(
