@@ -1,6 +1,6 @@
 // SWAR-mode TypedArray / ArrayBuffer deserializer.
 //
-// The simple variant in `../simple/typedarray.ts` does two scalar passes
+// The naive variant in `../naive/typedarray.ts` does two scalar passes
 // (count digit-starts, then call `JSON.__deserialize` per element which
 // re-scans the same digits). This rewrite replaces both passes:
 //
@@ -93,7 +93,7 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
 
   // Parse loop. Each element parses into the slot at `writePtr`, then
   // the separator (`,` or `]`) is consumed. Whitespace surrounding the
-  // separator is skipped to match the simple variant's behaviour.
+  // separator is skipped to match the naive variant's behaviour.
   while (srcStart < srcEnd) {
     let next: usize = 0;
     if (isFloat<valueof<T>>()) {

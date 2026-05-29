@@ -3,12 +3,8 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { __heap_base } from "memory";
 import { QUOTE } from "../../custom/chars";
 import { BACK_SLASH } from "../../custom/chars";
-import {
-  DESERIALIZE_ESCAPE_TABLE,
-  ESCAPE_HEX_TABLE,
-} from "../../globals/tables";
+import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
-import { deserializeStringField_SWAR } from "../swar/string";
 
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_5C = i16x8.splat(0x5c); // \
@@ -106,110 +102,95 @@ import { deserializeStringField_SWAR } from "../swar/string";
   memory.copy(stringPtr, srcStart, byteLength);
 }
 
-// @ts-expect-error: @inline is a valid decorator
-
-// todo: optimize and stuff. it works, its not pretty. ideally, i'd like this to be (nearly) branchless
-// @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedString_SIMD(
+// Vectorized escaped scanner for the standalone (whole-value) path. Quotes are
+// already stripped, so `srcEnd` is the payload end and only `\` escapes need
+// handling (no closing-quote search). Same HYBRID strategy as the field path
+// (see deserializeEscapedStringField_SIMD): escape blocks use a free
+// whole-block v128 store for the plain prefix; clean runs stream the first
+// block then bulk-memcpy the remainder. Output is sliced out of `bs` scratch.
+//
+// Deliberately NOT @inline: cold escape path. Inlining the nested-loop v128
+// body at every call site explodes `--converge` compile time on large schemas
+// for no runtime gain (one call per escaped string).
+function deserializeEscapedString_SIMD(
   payloadStart: usize,
   escapeStart: usize,
   srcEnd: usize,
 ): string {
   const prefixLen = <u32>(escapeStart - payloadStart);
-  let srcStart = escapeStart;
-  const srcEnd16 = srcEnd - 16;
   const outStart = bs.offset - bs.buffer;
-  bs.ensureSize(u32(srcEnd - srcStart));
+  bs.ensureSize(<u32>(srcEnd - payloadStart) + 16); // +16 slack for overcopy
   if (prefixLen != 0) {
     memory.copy(bs.offset, payloadStart, prefixLen);
     bs.offset += prefixLen;
   }
 
-  while (srcStart < srcEnd16) {
+  let srcStart = escapeStart;
+  const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
+
+  while (srcStart <= srcEnd16) {
     const block = load<v128>(srcStart);
-    store<v128>(bs.offset, block);
-
-    const eq5C = i16x8.eq(block, SPLAT_5C);
-    let mask = i16x8.bitmask(eq5C);
-
+    const mask = i16x8.bitmask(i16x8.eq(block, SPLAT_5C)); // backslash only
     if (mask == 0) {
-      srcStart += 16;
+      // Stream the first clean block cheaply.
+      store<v128>(bs.offset, block);
       bs.offset += 16;
+      srcStart += 16;
+      // If the clean run continues, bulk-copy the remainder in one shot.
+      if (srcStart <= srcEnd16) {
+        const b2 = load<v128>(srcStart);
+        if (i16x8.bitmask(i16x8.eq(b2, SPLAT_5C)) == 0) {
+          const runStart = srcStart;
+          srcStart += 16;
+          while (srcStart <= srcEnd16) {
+            if (i16x8.bitmask(i16x8.eq(load<v128>(srcStart), SPLAT_5C)) != 0)
+              break;
+            srcStart += 16;
+          }
+          const runLen = <u32>(srcStart - runStart);
+          memory.copy(bs.offset, runStart, runLen);
+          bs.offset += runLen;
+        }
+      }
       continue;
     }
 
-    let srcChg: usize = 0;
-    let lastLane: usize = 0;
-    do {
-      const laneIdx = usize(ctz(mask) << 1); // 0 2 4 6 8 10 12 14
-      mask &= mask - 1;
-      const srcIdx = srcStart + laneIdx;
-      const code = load<u16>(srcIdx, 2);
-
-      bs.offset += laneIdx - lastLane;
-
-      // Hot path (negative bias)
-      if (code !== 0x75) {
-        // Short escapes (\n \t \" \\)
-        const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-        mask &= mask - i32(escaped === 0x5c);
-        store<u16>(bs.offset, escaped);
-        store<v128>(bs.offset, load<v128>(srcIdx, 4), 2);
-
-        const l6 = usize(laneIdx === 14);
-        // bs.offset -= (1 - l6) << 1;
-        bs.offset += 2;
-        srcStart += l6 << 1;
-        lastLane = laneIdx + 4;
-        continue;
-      }
-
-      // Unicode escape (\uXXXX)
-      const block = load<u64>(srcIdx, 4); // XXXX
-      const escaped = hex4_to_u16_swar(block);
-
-      store<u16>(bs.offset, escaped);
-      store<u64>(bs.offset, load<u64>(srcIdx, 12), 2);
-
+    // Escape block: one whole-block store covers the plain prefix.
+    store<v128>(bs.offset, block);
+    const laneIdx = usize(ctz(mask) << 1);
+    bs.offset += laneIdx;
+    const srcIdx = srcStart + laneIdx;
+    const code = load<u16>(srcIdx, 2);
+    if (code !== 0x75) {
+      store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
       bs.offset += 2;
-      if (laneIdx >= 6) {
-        srcStart += laneIdx - 4;
-      }
-      lastLane = laneIdx + 12;
-    } while (mask !== 0);
-
-    if (lastLane < 16) {
-      bs.offset += 16 - lastLane;
+      srcStart = srcIdx + 4;
+    } else {
+      store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
+      bs.offset += 2;
+      srcStart = srcIdx + 12;
     }
-
-    srcStart += 16 + srcChg;
   }
 
+  // scalar tail (< 16 bytes remaining)
   while (srcStart < srcEnd) {
-    const block = load<u16>(srcStart);
-    store<u16>(bs.offset, block);
-    srcStart += 2;
-
-    // Early exit
-    if (block !== 0x5c) {
+    const char = load<u16>(srcStart);
+    if (char != BACK_SLASH) {
+      store<u16>(bs.offset, char);
       bs.offset += 2;
+      srcStart += 2;
       continue;
     }
-
-    const code = load<u16>(srcStart);
+    const code = load<u16>(srcStart, 2);
     if (code !== 0x75) {
-      // Short escapes (\n \t \" \\)
-      const escape = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-      store<u16>(bs.offset, escape);
-      srcStart += 2;
+      store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+      bs.offset += 2;
+      srcStart += 4;
     } else {
-      // Unicode escape (\uXXXX)
-      const block = load<u64>(srcStart, 2); // XXXX
-      const escaped = hex4_to_u16_swar(block);
-      store<u16>(bs.offset, escaped);
-      srcStart += 10;
+      store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
+      bs.offset += 2;
+      srcStart += 12;
     }
-    bs.offset += 2;
   }
 
   return bs.sliceOut<string>(outStart);
@@ -269,54 +250,189 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
   return copyStringFromSource_SIMD(payloadStart, srcEnd - payloadStart);
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline export function deserializeStringField_SIMD<T extends string | null>(
+// Vectorized escaped scanner for the field path. `escapeStart` points at the
+// first `\` located by the caller's v128 scan. Output is assembled in the
+// reused `bs` scratch buffer, then written once via writeStringToField_SIMD.
+//
+// Strategy (validated against run-copy and pure-stream variants across escape
+// densities — see __benches__/custom/simd-string-deser-variants-h2h):
+//   * Escape-bearing block: a single whole-block v128 store copies the plain
+//     prefix for free; then the escape is decoded scalar.
+//   * Clean block: stream the first one cheaply, but if the clean run keeps
+//     going, switch to one bulk memory.copy for the remainder — bandwidth-
+//     optimal on long sparse runs, avoiding a per-block-store cliff on large
+//     inputs. This dominates both alternatives: stream-cheap on dense escapes,
+//     memcpy-fast on long runs.
+//
+// Deliberately NOT @inline: cold escape path. As an @inline it was inlined into
+// deserializeStringField_SIMD at every struct string-field site, exploding
+// `--converge` compile time ~24x on large schemas (4s → 99s) for no runtime
+// gain. The hot no-escape scan + writeStringToField stay inline in the caller.
+function deserializeEscapedStringField_SIMD(
+  payloadStart: usize,
+  escapeStart: usize,
+  srcEnd: usize,
+  dstFieldPtr: usize,
+): usize {
+  const prefixLen = <u32>(escapeStart - payloadStart);
+  bs.offset = bs.buffer;
+  bs.ensureSize(<u32>(srcEnd - payloadStart) + 16); // +16 slack for overcopy
+  if (prefixLen != 0) {
+    memory.copy(bs.buffer, payloadStart, prefixLen);
+    bs.offset += prefixLen;
+  }
+
+  let srcStart = escapeStart;
+  const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
+
+  while (srcStart <= srcEnd16) {
+    const block = load<v128>(srcStart);
+    const mask = i16x8.bitmask(
+      v128.or(i16x8.eq(block, SPLAT_5C), i16x8.eq(block, SPLAT_22)),
+    );
+    if (mask == 0) {
+      // Stream the first clean block cheaply.
+      store<v128>(bs.offset, block);
+      bs.offset += 16;
+      srcStart += 16;
+      // If the clean run continues, bulk-copy the remainder in one shot.
+      if (srcStart <= srcEnd16) {
+        const b2 = load<v128>(srcStart);
+        if (
+          i16x8.bitmask(
+            v128.or(i16x8.eq(b2, SPLAT_5C), i16x8.eq(b2, SPLAT_22)),
+          ) == 0
+        ) {
+          const runStart = srcStart;
+          srcStart += 16;
+          while (srcStart <= srcEnd16) {
+            const b3 = load<v128>(srcStart);
+            if (
+              i16x8.bitmask(
+                v128.or(i16x8.eq(b3, SPLAT_5C), i16x8.eq(b3, SPLAT_22)),
+              ) != 0
+            )
+              break;
+            srcStart += 16;
+          }
+          const runLen = <u32>(srcStart - runStart);
+          memory.copy(bs.offset, runStart, runLen);
+          bs.offset += runLen;
+        }
+      }
+      continue;
+    }
+
+    // Escape/quote block: one whole-block store covers the plain prefix.
+    store<v128>(bs.offset, block);
+    const laneIdx = usize(ctz(mask) << 1);
+    bs.offset += laneIdx;
+    const srcIdx = srcStart + laneIdx;
+    const char = load<u16>(srcIdx);
+    if (char == QUOTE) {
+      writeStringToField_SIMD(
+        dstFieldPtr,
+        bs.buffer,
+        <u32>(bs.offset - bs.buffer),
+      );
+      bs.offset = bs.buffer;
+      return srcIdx + 2;
+    }
+
+    const code = load<u16>(srcIdx, 2);
+    if (code !== 0x75) {
+      store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+      bs.offset += 2;
+      srcStart = srcIdx + 4;
+    } else {
+      store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
+      bs.offset += 2;
+      srcStart = srcIdx + 12;
+    }
+  }
+
+  // scalar tail (< 16 bytes remaining): emit chars directly.
+  while (srcStart < srcEnd) {
+    const char = load<u16>(srcStart);
+    if (char == QUOTE) {
+      writeStringToField_SIMD(
+        dstFieldPtr,
+        bs.buffer,
+        <u32>(bs.offset - bs.buffer),
+      );
+      bs.offset = bs.buffer;
+      return srcStart + 2;
+    }
+    if (char != BACK_SLASH) {
+      store<u16>(bs.offset, char);
+      bs.offset += 2;
+      srcStart += 2;
+      continue;
+    }
+
+    const code = load<u16>(srcStart, 2);
+    if (code !== 0x75) {
+      store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+      bs.offset += 2;
+      srcStart += 4;
+    } else {
+      store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
+      bs.offset += 2;
+      srcStart += 12;
+    }
+  }
+
+  bs.offset = bs.buffer;
+  abort("Unterminated string literal");
+  return srcStart;
+}
+
+// NOT @inline: as an @inline entry, binaryen inlined the (loop-bearing) escaped
+// scanner into every per-field copy, exploding `large` SIMD compile ~24x
+// (4s→99s, 221KB→555KB wasm). Kept as a single shared function — matches
+// deserializeStringField_SWAR (also non-inline) and costs only one call/field.
+export function deserializeStringField_SIMD<T extends string | null>(
   srcStart: usize,
   srcEnd: usize,
-  dstObj: usize,
-  dstOffset: usize = 0,
+  dstFieldPtr: usize,
 ): usize {
-  const dstFieldPtr = dstObj + dstOffset;
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
     abort("Expected leading quote");
 
-  const quotedStart = srcStart;
   const payloadStart = srcStart + 2;
   const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
   srcStart = payloadStart;
 
   while (srcStart <= srcEnd16) {
     const block = load<v128>(srcStart);
-    let mask = i16x8.bitmask(
+    const mask = i16x8.bitmask(
       v128.or(i16x8.eq(block, SPLAT_5C), i16x8.eq(block, SPLAT_22)),
     );
-
     if (mask == 0) {
       srcStart += 16;
       continue;
     }
 
-    do {
-      const laneIdx = usize(ctz(mask) << 1);
-      mask &= mask - 1;
-      const srcIdx = srcStart + laneIdx;
-      const char = load<u16>(srcIdx);
-
-      if (char == QUOTE) {
-        writeStringToField_SIMD(
-          dstFieldPtr,
-          payloadStart,
-          <u32>(srcIdx - payloadStart),
-        );
-        return srcIdx + 2;
-      }
-
-      if (char == BACK_SLASH) {
-        return deserializeStringField_SWAR<T>(quotedStart, srcEnd, dstFieldPtr);
-      }
-    } while (mask != 0);
-
-    srcStart += 16;
+    const laneIdx = usize(ctz(mask) << 1);
+    const srcIdx = srcStart + laneIdx;
+    const char = load<u16>(srcIdx);
+    if (char == QUOTE) {
+      writeStringToField_SIMD(
+        dstFieldPtr,
+        payloadStart,
+        <u32>(srcIdx - payloadStart),
+      );
+      return srcIdx + 2;
+    }
+    // backslash → vectorized escaped scan (no more SWAR fallback)
+    return inline.always(
+      deserializeEscapedStringField_SIMD(
+        payloadStart,
+        srcIdx,
+        srcEnd,
+        dstFieldPtr,
+      ),
+    );
   }
 
   while (srcStart < srcEnd) {
@@ -330,7 +446,14 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
       return srcStart + 2;
     }
     if (char == BACK_SLASH) {
-      return deserializeStringField_SWAR<T>(quotedStart, srcEnd, dstFieldPtr);
+      return inline.always(
+        deserializeEscapedStringField_SIMD(
+          payloadStart,
+          srcStart,
+          srcEnd,
+          dstFieldPtr,
+        ),
+      );
     }
     srcStart += 2;
   }

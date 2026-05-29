@@ -1,1 +1,4 @@
-export { deserializeStaticArray } from "../simple/staticarray";
+export {
+  deserializeStaticArray,
+  deserializeStaticArrayField,
+} from "../naive/staticarray";

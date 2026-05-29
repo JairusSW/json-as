@@ -1,5 +1,5 @@
 import { COMMA, BRACKET_RIGHT } from "../../custom/chars";
-import { deserializeFloat } from "./float";
+import { deserializeFloat_NAIVE } from "./float";
 import { atoi, isSpace } from "../../util";
 
 
@@ -25,7 +25,7 @@ import { atoi, isSpace } from "../../util";
   return count;
 }
 
-export function deserializeTypedArray<T extends ArrayLike<number>>(
+export function deserializeTypedArray_NAIVE<T extends ArrayLike<number>>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize = 0,
@@ -49,7 +49,7 @@ export function deserializeTypedArray<T extends ArrayLike<number>>(
         if (code == COMMA || code == BRACKET_RIGHT || isSpace(code)) {
           if (isFloat<valueof<T>>()) {
             unchecked(
-              (out[index++] = deserializeFloat<valueof<T>>(
+              (out[index++] = deserializeFloat_NAIVE<valueof<T>>(
                 lastIndex,
                 srcStart,
               )),
@@ -69,7 +69,7 @@ export function deserializeTypedArray<T extends ArrayLike<number>>(
   return out;
 }
 
-export function deserializeArrayBuffer(
+export function deserializeArrayBuffer_NAIVE(
   srcStart: usize,
   srcEnd: usize,
   dst: usize = 0,

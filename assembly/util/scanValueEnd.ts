@@ -23,7 +23,7 @@ import { scanStringEnd } from "./stringScan";
  * Returns `0` when the input is empty or no terminator is found.
  *
  * Mirrors the semantics of `deserialize/swar/array/shared.ts:scanValueEnd`
- * but stays scalar so `simple/` callers don't pull SWAR into the correctness
+ * but stays scalar so `naive/` callers don't pull SWAR into the correctness
  * baseline.
  */
 // @ts-ignore: inline

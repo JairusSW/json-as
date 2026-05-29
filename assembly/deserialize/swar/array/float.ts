@@ -1,7 +1,7 @@
 import { ptrToStr } from "../../../util/ptrToStr";
 import { scientific } from "../../../util/scientific";
-import { deserializeFloatField } from "../../simple/float";
-import { deserializeFloatArray as deserializeFloatArray_NAIVE } from "../../simple/array/float";
+import { deserializeFloatField_NAIVE } from "../../naive/float";
+import { deserializeFloatArray_NAIVE } from "../../naive/array/float";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 import { parse4Digits_PairMul } from "../../../util/swar-int";
@@ -285,7 +285,7 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
       const slot = ensureArrayElementSlot<T>(out, index);
       let next = parseFloatElementSWAR<valueof<T>>(srcStart, srcEnd, slot);
       if (!next) {
-        next = deserializeFloatField<valueof<T>>(srcStart, srcEnd, slot);
+        next = deserializeFloatField_NAIVE<valueof<T>>(srcStart, srcEnd, slot);
       }
       srcStart = next;
       if (!srcStart) break;

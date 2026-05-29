@@ -1,1 +1,1 @@
-export { serializeSet } from "../simple/set";
+export { serializeSet } from "../naive/set";

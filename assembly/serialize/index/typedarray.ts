@@ -3,11 +3,11 @@ import { JSON } from "../..";
 export {
   serializeArrayBufferUnsafe,
   serializeTypedArray,
-} from "../simple/typedarray";
+} from "../naive/typedarray";
 import {
   serializeArrayBufferUnsafe,
   serializeTypedArray,
-} from "../simple/typedarray";
+} from "../naive/typedarray";
 
 
 @inline export function serializeDynamic(type: u16, data: usize): void {

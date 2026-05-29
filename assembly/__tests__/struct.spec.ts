@@ -539,7 +539,7 @@ describe("Should deserialize object, arbitrary, raw, map, and box array fields",
 describe("Should round-trip top-level Vec3 arrays through JSON.parse", () => {
   // Drives the SWAR struct-array helper through the top-level array
   // dispatcher (`deserializeStructArray`) in SWAR/SIMD modes and the
-  // simple variant in NAIVE.
+  // naive variant in NAIVE.
   const parsed = JSON.parse<Vec3[]>(
     '[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]',
   );

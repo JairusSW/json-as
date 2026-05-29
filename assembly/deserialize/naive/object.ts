@@ -17,8 +17,8 @@ import { isSpace, isUnescapedQuote, scanStringEnd } from "../../util";
 import { ptrToStr } from "../../util/ptrToStr";
 import { deserializeArray } from "./array";
 import { deserializeBoolean } from "./bool";
-import { deserializeFloat } from "./float";
-import { deserializeString } from "./string";
+import { deserializeFloat_NAIVE } from "./float";
+import { deserializeString_NAIVE } from "./string";
 
 export function deserializeObject(
   srcStart: usize,
@@ -82,7 +82,7 @@ export function deserializeObject(
           throw new Error("Unterminated string in JSON object");
         out.set(
           ptrToStr(keyStart, keyEnd),
-          deserializeString(lastIndex, srcStart + 2),
+          deserializeString_NAIVE(lastIndex, srcStart + 2),
         );
         srcStart += 2;
         keyStart = 0;
@@ -96,7 +96,7 @@ export function deserializeObject(
             // console.log("Value (number): " + ptrToStr(lastIndex, srcStart));
             out.set(
               ptrToStr(keyStart, keyEnd),
-              deserializeFloat<f64>(lastIndex, srcStart),
+              deserializeFloat_NAIVE<f64>(lastIndex, srcStart),
             );
             // while (isSpace(load<u16>((srcStart += 2)))) {
             //   /* empty */

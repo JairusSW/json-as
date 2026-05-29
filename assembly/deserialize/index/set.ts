@@ -1,1 +1,1 @@
-export { deserializeSet } from "../simple/set";
+export { deserializeSet, deserializeSetField } from "../naive/set";

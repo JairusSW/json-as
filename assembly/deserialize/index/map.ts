@@ -1,1 +1,1 @@
-export { deserializeMap } from "../simple/map";
+export { deserializeMap, deserializeMapField } from "../naive/map";

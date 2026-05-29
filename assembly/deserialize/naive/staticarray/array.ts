@@ -19,7 +19,7 @@ export function deserializeStaticArrayArray<T extends StaticArray<any>>(
     ptr += 2;
   }
 
-  const outSize = count << (alignof<valueof<T>>());
+  const outSize = count * sizeof<valueof<T>>();
   const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
 
   // Second pass: populate values

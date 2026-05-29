@@ -1,8 +1,8 @@
 import { JSONMode } from "../..";
 import {
-  deserializeArrayBuffer as deserializeArrayBuffer_NAIVE,
-  deserializeTypedArray as deserializeTypedArray_NAIVE,
-} from "../simple/typedarray";
+  deserializeArrayBuffer_NAIVE,
+  deserializeTypedArray_NAIVE,
+} from "../naive/typedarray";
 import {
   deserializeArrayBuffer_SWAR,
   deserializeTypedArray_SWAR,

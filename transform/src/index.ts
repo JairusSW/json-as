@@ -1329,10 +1329,7 @@ export class JSONTransform extends Visitor {
     const SIGNED_INTEGER_TYPES = ["i8", "i16", "i32", "i64", "isize"];
     const FLOAT_TYPES = ["f32", "f64"];
     const INTEGER_TYPES = [...UNSIGNED_INTEGER_TYPES, ...SIGNED_INTEGER_TYPES];
-    const STRING_FIELD_DESERIALIZER =
-      codegenMode === JSONMode.SIMD
-        ? "deserializeStringField_SIMD"
-        : "deserializeStringField_SWAR";
+    const STRING_FIELD_DESERIALIZER = "deserializeStringField";
 
     const getArrayValueType = (type: string): string | null => {
       if (!type.startsWith("Array<") && !type.startsWith("StaticArray<"))
@@ -3069,18 +3066,11 @@ export class JSONTransform extends Visitor {
           d.name.text == "deserializeStaticArrayField",
       ),
     );
-    const deserializeStringFieldSWARImport = this.imports.find((i) =>
+    const deserializeStringFieldImport = this.imports.find((i) =>
       i.declarations?.find(
         (d) =>
-          d.foreignName.text == "deserializeStringField_SWAR" ||
-          d.name.text == "deserializeStringField_SWAR",
-      ),
-    );
-    const deserializeStringFieldSIMDImport = this.imports.find((i) =>
-      i.declarations?.find(
-        (d) =>
-          d.foreignName.text == "deserializeStringField_SIMD" ||
-          d.name.text == "deserializeStringField_SIMD",
+          d.foreignName.text == "deserializeStringField" ||
+          d.name.text == "deserializeStringField",
       ),
     );
     const sourceText = readFileSync(fromPath).toString();
@@ -3103,10 +3093,9 @@ export class JSONTransform extends Visitor {
     );
     const hasLocaldeserializeStaticArrayField =
       /\bdeserializeStaticArrayField\b/.test(sourceText);
-    const hasLocalDeserializeStringFieldSWAR =
-      /\bdeserializeStringField_SWAR\b/.test(sourceText);
-    const hasLocalDeserializeStringFieldSIMD =
-      /\bdeserializeStringField_SIMD\b/.test(sourceText);
+    const hasLocalDeserializeStringField = /\bdeserializeStringField\b/.test(
+      sourceText,
+    );
 
     const baseRel = normalizeJsonAsBaseRel(
       path.posix.join(
@@ -3282,13 +3271,7 @@ export class JSONTransform extends Visitor {
           ),
         ],
         Node.createStringLiteralExpression(
-          path.posix.join(
-            baseRel,
-            "assembly",
-            "deserialize",
-            "simple",
-            "float",
-          ),
+          path.posix.join(baseRel, "assembly", "deserialize", "index", "float"),
           node.range,
         ),
         node.range,
@@ -3384,7 +3367,7 @@ export class JSONTransform extends Visitor {
           ),
         ],
         Node.createStringLiteralExpression(
-          path.posix.join(baseRel, "assembly", "deserialize", "simple", "map"),
+          path.posix.join(baseRel, "assembly", "deserialize", "index", "map"),
           node.range,
         ),
         node.range,
@@ -3414,7 +3397,7 @@ export class JSONTransform extends Visitor {
           ),
         ],
         Node.createStringLiteralExpression(
-          path.posix.join(baseRel, "assembly", "deserialize", "simple", "set"),
+          path.posix.join(baseRel, "assembly", "deserialize", "index", "set"),
           node.range,
         ),
         node.range,
@@ -3451,7 +3434,7 @@ export class JSONTransform extends Visitor {
             baseRel,
             "assembly",
             "deserialize",
-            "simple",
+            "index",
             "staticarray",
           ),
           node.range,
@@ -3469,18 +3452,12 @@ export class JSONTransform extends Visitor {
         );
     }
 
-    const codegenMode = getCodegenMode(this.program);
-
-    if (
-      codegenMode !== JSONMode.SIMD &&
-      !deserializeStringFieldSWARImport &&
-      !hasLocalDeserializeStringFieldSWAR
-    ) {
+    if (!deserializeStringFieldImport && !hasLocalDeserializeStringField) {
       const replaceNode = Node.createImportStatement(
         [
           Node.createImportDeclaration(
             Node.createIdentifierExpression(
-              "deserializeStringField_SWAR",
+              "deserializeStringField",
               node.range,
               false,
             ),
@@ -3489,41 +3466,13 @@ export class JSONTransform extends Visitor {
           ),
         ],
         Node.createStringLiteralExpression(
-          path.posix.join(baseRel, "assembly", "deserialize", "swar", "string"),
-          node.range,
-        ),
-        node.range,
-      );
-      node.range.source.statements.unshift(replaceNode);
-      if (DEBUG > 0)
-        console.log(
-          "Added import: " +
-            toString(replaceNode) +
-            " to " +
-            node.range.source.normalizedPath +
-            "\n",
-        );
-    }
-
-    if (
-      codegenMode === JSONMode.SIMD &&
-      !deserializeStringFieldSIMDImport &&
-      !hasLocalDeserializeStringFieldSIMD
-    ) {
-      const replaceNode = Node.createImportStatement(
-        [
-          Node.createImportDeclaration(
-            Node.createIdentifierExpression(
-              "deserializeStringField_SIMD",
-              node.range,
-              false,
-            ),
-            null,
-            node.range,
+          path.posix.join(
+            baseRel,
+            "assembly",
+            "deserialize",
+            "index",
+            "string",
           ),
-        ],
-        Node.createStringLiteralExpression(
-          path.posix.join(baseRel, "assembly", "deserialize", "simd", "string"),
           node.range,
         ),
         node.range,

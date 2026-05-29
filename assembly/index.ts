@@ -2,21 +2,43 @@
 
 import { bs } from "../lib/as-bs";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
-import { serializeArray } from "./serialize/index/array";
-import { serializeMap } from "./serialize/index/map";
-import { serializeDate } from "./serialize/index/date";
-import { deserializeBoolean } from "./deserialize/index/bool";
-import { deserializeArray } from "./deserialize/index/array";
-import { deserializeFloat } from "./deserialize/index/float";
-import { deserializeMap } from "./deserialize/index/map";
-import { deserializeDate } from "./deserialize/index/date";
-import { deserializeInteger } from "./deserialize/index/integer";
-import { deserializeUnsigned } from "./deserialize/index/unsigned";
-import { serializeArbitrary } from "./serialize/index/arbitrary";
-import { serializeSet } from "./serialize/index/set";
-import { deserializeSet } from "./deserialize/index/set";
-import { serializeStaticArray } from "./serialize/index/staticarray";
-import { deserializeStaticArray } from "./deserialize/index/staticarray";
+import {
+  serializeArray,
+  serializeMap,
+  serializeDate,
+  serializeArbitrary,
+  serializeSet,
+  serializeStaticArray,
+  serializeBool,
+  serializeInteger,
+  serializeFloat,
+  serializeFloat32,
+  serializeFloat64,
+  serializeStruct,
+  serializeObject,
+  serializeRaw,
+  serializeString,
+  serializeArrayBufferUnsafe,
+  serializeDynamic,
+  serializeTypedArray,
+} from "./serialize";
+import {
+  deserializeBoolean,
+  deserializeArray,
+  deserializeFloat,
+  deserializeMap,
+  deserializeDate,
+  deserializeInteger,
+  deserializeUnsigned,
+  deserializeSet,
+  deserializeStaticArray,
+  deserializeArbitrary,
+  deserializeObject,
+  deserializeRaw,
+  deserializeString,
+  deserializeArrayBuffer,
+  deserializeTypedArray,
+} from "./deserialize";
 import {
   BRACE_LEFT,
   BRACE_RIGHT,
@@ -30,36 +52,12 @@ import {
   FALSE_WORD_U64,
 } from "./custom/chars";
 import { itoa_buffered } from "util/number";
-import { serializeBool } from "./serialize/index/bool";
-import { serializeInteger } from "./serialize/index/integer";
-import {
-  serializeFloat,
-  serializeFloat32,
-  serializeFloat64,
-} from "./serialize/index/float";
 import {
   dragonbox_f32_buffered,
   dragonbox_f64_buffered,
 } from "./util/dragonbox";
-import { serializeStruct } from "./serialize/index/struct";
 import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes, scanStringEnd } from "./util";
-import { deserializeArbitrary } from "./deserialize/index/arbitrary";
-import { serializeObject } from "./serialize/index/object";
-import { deserializeObject } from "./deserialize/index/object";
-import { serializeRaw } from "./serialize/index/raw";
-import { deserializeRaw } from "./deserialize/index/raw";
-import { deserializeString } from "./deserialize/index/string";
-import { serializeString } from "./serialize/index/string";
-import {
-  deserializeArrayBuffer,
-  deserializeTypedArray,
-} from "./deserialize/index/typedarray";
-import {
-  serializeArrayBufferUnsafe,
-  serializeDynamic,
-  serializeTypedArray,
-} from "./serialize/index/typedarray";
 
 /**
  * Offset of the 'storage' property in the JSON.Value class.
@@ -179,79 +177,9 @@ export namespace JSON {
       );
       store<u16>(changetype<usize>(out), QUOTE, 50);
       return changetype<string>(out);
-    } else if (data instanceof Array) {
-      // @ts-expect-error
-      inline.always(serializeArray(changetype<nonnull<T>>(data)));
-      return bs.out<string>();
-    } else if (data instanceof StaticArray) {
-      // @ts-expect-error
-      inline.always(serializeStaticArray(changetype<nonnull<T>>(data)));
-      return bs.out<string>();
-    } else if (data instanceof Int8Array) {
-      inline.always(serializeTypedArray<Int8Array>(data));
-      return bs.out<string>();
-    } else if (data instanceof Uint8Array) {
-      inline.always(serializeTypedArray<Uint8Array>(data));
-      return bs.out<string>();
-    } else if (data instanceof Uint8ClampedArray) {
-      inline.always(serializeTypedArray<Uint8ClampedArray>(data));
-      return bs.out<string>();
-    } else if (data instanceof Int16Array) {
-      inline.always(serializeTypedArray<Int16Array>(data));
-      return bs.out<string>();
-    } else if (data instanceof Uint16Array) {
-      inline.always(serializeTypedArray<Uint16Array>(data));
-      return bs.out<string>();
-    } else if (data instanceof Int32Array) {
-      inline.always(serializeTypedArray<Int32Array>(data));
-      return bs.out<string>();
-    } else if (data instanceof Uint32Array) {
-      inline.always(serializeTypedArray<Uint32Array>(data));
-      return bs.out<string>();
-    } else if (data instanceof Int64Array) {
-      inline.always(serializeTypedArray<Int64Array>(data));
-      return bs.out<string>();
-    } else if (data instanceof Uint64Array) {
-      inline.always(serializeTypedArray<Uint64Array>(data));
-      return bs.out<string>();
-    } else if (data instanceof Float32Array) {
-      inline.always(serializeTypedArray<Float32Array>(data));
-      return bs.out<string>();
-    } else if (data instanceof Float64Array) {
-      inline.always(serializeTypedArray<Float64Array>(data));
-      return bs.out<string>();
-    } else if (data instanceof ArrayBuffer) {
-      const dataStart = changetype<usize>(data);
-      serializeArrayBufferUnsafe(
-        dataStart,
-        changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize,
-      );
-      return bs.out<string>();
-    } else if (data instanceof Set) {
-      // @ts-expect-error
-      inline.always(serializeSet(changetype<nonnull<T>>(data)));
-      return bs.out<string>();
-    } else if (data instanceof Map) {
-      // @ts-expect-error
-      inline.always(serializeMap(changetype<nonnull<T>>(data)));
-      return bs.out<string>();
-    } else if (data instanceof JSON.Raw) {
-      serializeRaw(data);
-      return bs.out<string>();
-    } else if (data instanceof JSON.Value) {
-      inline.always(serializeArbitrary(data));
-      return bs.out<string>();
-    } else if (data instanceof JSON.Obj) {
-      inline.always(serializeObject(data));
-      return bs.out<string>();
-    } else if (data instanceof JSON.Box) {
-      return JSON.stringify(data.value);
     } else {
-      throw new Error(
-        `Could not serialize data of type '${nameof<T>()}'. ` +
-          `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
-          `Supported types: primitives, string, Array, StaticArray, TypedArray, ArrayBuffer, Map, Date, and @json decorated classes.`,
-      );
+      serializeReference<T>(data);
+      return bs.out<string>();
     }
   }
 
@@ -331,67 +259,19 @@ export namespace JSON {
             changetype<usize>(instantiate<T>()),
           ),
         );
-      } else if (type instanceof Int8Array) {
-        return deserializeTypedArray<nonnull<T>>(
-          dataPtr,
-          dataPtr + dataSize,
-          0,
-        ) as T;
-      } else if (type instanceof Uint8Array) {
-        return deserializeTypedArray<nonnull<T>>(
-          dataPtr,
-          dataPtr + dataSize,
-          0,
-        ) as T;
-      } else if (type instanceof Uint8ClampedArray) {
-        return deserializeTypedArray<nonnull<T>>(
-          dataPtr,
-          dataPtr + dataSize,
-          0,
-        ) as T;
-      } else if (type instanceof Int16Array) {
-        return deserializeTypedArray<nonnull<T>>(
-          dataPtr,
-          dataPtr + dataSize,
-          0,
-        ) as T;
-      } else if (type instanceof Uint16Array) {
-        return deserializeTypedArray<nonnull<T>>(
-          dataPtr,
-          dataPtr + dataSize,
-          0,
-        ) as T;
-      } else if (type instanceof Int32Array) {
-        return deserializeTypedArray<nonnull<T>>(
-          dataPtr,
-          dataPtr + dataSize,
-          0,
-        ) as T;
-      } else if (type instanceof Uint32Array) {
-        return deserializeTypedArray<nonnull<T>>(
-          dataPtr,
-          dataPtr + dataSize,
-          0,
-        ) as T;
-      } else if (type instanceof Int64Array) {
-        return deserializeTypedArray<nonnull<T>>(
-          dataPtr,
-          dataPtr + dataSize,
-          0,
-        ) as T;
-      } else if (type instanceof Uint64Array) {
-        return deserializeTypedArray<nonnull<T>>(
-          dataPtr,
-          dataPtr + dataSize,
-          0,
-        ) as T;
-      } else if (type instanceof Float32Array) {
-        return deserializeTypedArray<nonnull<T>>(
-          dataPtr,
-          dataPtr + dataSize,
-          0,
-        ) as T;
-      } else if (type instanceof Float64Array) {
+      } else if (
+        type instanceof Int8Array ||
+        type instanceof Uint8Array ||
+        type instanceof Uint8ClampedArray ||
+        type instanceof Int16Array ||
+        type instanceof Uint16Array ||
+        type instanceof Int32Array ||
+        type instanceof Uint32Array ||
+        type instanceof Int64Array ||
+        type instanceof Uint64Array ||
+        type instanceof Float32Array ||
+        type instanceof Float64Array
+      ) {
         return deserializeTypedArray<nonnull<T>>(
           dataPtr,
           dataPtr + dataSize,
@@ -635,17 +515,20 @@ export namespace JSON {
       // @ts-expect-error: supplied by transform
       if (isDefined(value.__SERIALIZE) && isManaged<T>(value))
         return u16(idof<T>()) + JSON.Types.Struct;
-      if (value instanceof Int8Array) return JSON.Types.TypedArray;
-      if (value instanceof Uint8Array) return JSON.Types.TypedArray;
-      if (value instanceof Uint8ClampedArray) return JSON.Types.TypedArray;
-      if (value instanceof Int16Array) return JSON.Types.TypedArray;
-      if (value instanceof Uint16Array) return JSON.Types.TypedArray;
-      if (value instanceof Int32Array) return JSON.Types.TypedArray;
-      if (value instanceof Uint32Array) return JSON.Types.TypedArray;
-      if (value instanceof Int64Array) return JSON.Types.TypedArray;
-      if (value instanceof Uint64Array) return JSON.Types.TypedArray;
-      if (value instanceof Float32Array) return JSON.Types.TypedArray;
-      if (value instanceof Float64Array) return JSON.Types.TypedArray;
+      if (
+        value instanceof Int8Array ||
+        value instanceof Uint8Array ||
+        value instanceof Uint8ClampedArray ||
+        value instanceof Int16Array ||
+        value instanceof Uint16Array ||
+        value instanceof Int32Array ||
+        value instanceof Uint32Array ||
+        value instanceof Int64Array ||
+        value instanceof Uint64Array ||
+        value instanceof Float32Array ||
+        value instanceof Float64Array
+      )
+        return JSON.Types.TypedArray;
       if (value instanceof ArrayBuffer) return JSON.Types.ArrayBuffer;
       if (value instanceof Map) return JSON.Types.Map;
       if (value instanceof JSON.Raw) return JSON.Types.Raw;
@@ -686,29 +569,20 @@ export namespace JSON {
           changetype<usize>(value),
           STORAGE,
         );
-      } else if (value instanceof Int8Array)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Uint8Array)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Uint8ClampedArray)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Int16Array)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Uint16Array)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Int32Array)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Uint32Array)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Int64Array)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Uint64Array)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Float32Array)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Float64Array)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof ArrayBuffer)
+      } else if (
+        value instanceof Int8Array ||
+        value instanceof Uint8Array ||
+        value instanceof Uint8ClampedArray ||
+        value instanceof Int16Array ||
+        value instanceof Uint16Array ||
+        value instanceof Int32Array ||
+        value instanceof Uint32Array ||
+        value instanceof Int64Array ||
+        value instanceof Uint64Array ||
+        value instanceof Float32Array ||
+        value instanceof Float64Array ||
+        value instanceof ArrayBuffer
+      )
         store<T>(changetype<usize>(this), value, STORAGE);
       else if (value instanceof Map) {
         if (idof<T>() !== idof<Map<string, JSON.Value>>()) {
@@ -1012,7 +886,7 @@ export namespace JSON {
    * @param data - T
    * @returns void
    */
-  export function __serialize<T>(data: T): void {
+  function __serialize<T>(data: T): void {
     if (isBoolean<T>()) {
       serializeBool(data as bool);
     } else if (isInteger<T>() && nameof<T>() == "usize" && data == 0) {
@@ -1044,60 +918,8 @@ export namespace JSON {
     } else if (data instanceof Date) {
       // @ts-expect-error
       inline.always(serializeDate(changetype<nonnull<T>>(data)));
-    } else if (data instanceof Array) {
-      // @ts-expect-error
-      serializeArray(changetype<nonnull<T>>(data));
-    } else if (data instanceof StaticArray) {
-      // @ts-expect-error
-      serializeStaticArray(changetype<nonnull<T>>(data));
-    } else if (data instanceof Int8Array) {
-      serializeTypedArray<Int8Array>(data);
-    } else if (data instanceof Uint8Array) {
-      serializeTypedArray<Uint8Array>(data);
-    } else if (data instanceof Uint8ClampedArray) {
-      serializeTypedArray<Uint8ClampedArray>(data);
-    } else if (data instanceof Int16Array) {
-      serializeTypedArray<Int16Array>(data);
-    } else if (data instanceof Uint16Array) {
-      serializeTypedArray<Uint16Array>(data);
-    } else if (data instanceof Int32Array) {
-      serializeTypedArray<Int32Array>(data);
-    } else if (data instanceof Uint32Array) {
-      serializeTypedArray<Uint32Array>(data);
-    } else if (data instanceof Int64Array) {
-      serializeTypedArray<Int64Array>(data);
-    } else if (data instanceof Uint64Array) {
-      serializeTypedArray<Uint64Array>(data);
-    } else if (data instanceof Float32Array) {
-      serializeTypedArray<Float32Array>(data);
-    } else if (data instanceof Float64Array) {
-      serializeTypedArray<Float64Array>(data);
-    } else if (data instanceof ArrayBuffer) {
-      const dataStart = changetype<usize>(data);
-      serializeArrayBufferUnsafe(
-        dataStart,
-        changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize,
-      );
-    } else if (data instanceof Set) {
-      // @ts-expect-error
-      serializeSet(changetype<nonnull<T>>(data));
-    } else if (data instanceof Map) {
-      // @ts-expect-error
-      serializeMap(changetype<nonnull<T>>(data));
-    } else if (data instanceof JSON.Raw) {
-      serializeRaw(data);
-    } else if (data instanceof JSON.Value) {
-      serializeArbitrary(data);
-    } else if (data instanceof JSON.Obj) {
-      serializeObject(data);
-    } else if (data instanceof JSON.Box) {
-      __serialize(data.value);
     } else {
-      throw new Error(
-        `Could not serialize data of type '${nameof<T>()}'. ` +
-          `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
-          `Supported types: primitives, string, Array, StaticArray, TypedArray, ArrayBuffer, Map, Date, and @json decorated classes.`,
-      );
+      serializeReference<T>(data);
     }
   }
 
@@ -1109,11 +931,7 @@ export namespace JSON {
    * @param dst - usize
    * @returns void
    */
-  export function __deserialize<T>(
-    srcStart: usize,
-    srcEnd: usize,
-    dst: usize = 0,
-  ): T {
+  function __deserialize<T>(srcStart: usize, srcEnd: usize, dst: usize = 0): T {
     if (isBoolean<T>()) {
       // @ts-expect-error: type
       return deserializeBoolean(srcStart, srcEnd);
@@ -1173,27 +991,19 @@ export namespace JSON {
       } else if (type instanceof Array) {
         // @ts-expect-error: type
         return deserializeArray<T>(srcStart, srcEnd, dst);
-      } else if (type instanceof Int8Array) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-      } else if (type instanceof Uint8Array) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-      } else if (type instanceof Uint8ClampedArray) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-      } else if (type instanceof Int16Array) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-      } else if (type instanceof Uint16Array) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-      } else if (type instanceof Int32Array) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-      } else if (type instanceof Uint32Array) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-      } else if (type instanceof Int64Array) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-      } else if (type instanceof Uint64Array) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-      } else if (type instanceof Float32Array) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-      } else if (type instanceof Float64Array) {
+      } else if (
+        type instanceof Int8Array ||
+        type instanceof Uint8Array ||
+        type instanceof Uint8ClampedArray ||
+        type instanceof Int16Array ||
+        type instanceof Uint16Array ||
+        type instanceof Int32Array ||
+        type instanceof Uint32Array ||
+        type instanceof Int64Array ||
+        type instanceof Uint64Array ||
+        type instanceof Float32Array ||
+        type instanceof Float64Array
+      ) {
         return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof ArrayBuffer) {
         return deserializeArrayBuffer(srcStart, srcEnd, dst) as T;
@@ -1302,7 +1112,7 @@ export namespace JSON {
    * Methods for use when using JSON methods inside another JSON method or custom serializer/deserializer
    * Transform will automatically convert JSON.x calls to JSON.internal.x when in a custom (de)serializer
    */
-  export namespace internal {
+  namespace internal {
     /**
      * Serializes JSON data. Don't use this directly, use `JSON.stringify` instead.
      * @param data - T
@@ -1339,6 +1149,71 @@ export namespace JSON {
       bs.loadState();
       return result;
     }
+  }
+}
+
+/**
+ * Shared reference-type serialization chain used by both {@link JSON.stringify}
+ * and {@link JSON.__serialize}. Writes directly to the active buffer. Primitive
+ * and `Date` fast paths are handled by the callers (which have buffer-reuse
+ * optimizations); everything else routes here so the dispatch chain lives once.
+ */
+// @ts-expect-error: @inline is a valid decorator
+@inline function serializeReference<T>(data: T): void {
+  if (data instanceof Array) {
+    // @ts-expect-error
+    serializeArray(changetype<nonnull<T>>(data));
+  } else if (data instanceof StaticArray) {
+    // @ts-expect-error
+    serializeStaticArray(changetype<nonnull<T>>(data));
+  } else if (data instanceof Int8Array) {
+    serializeTypedArray<Int8Array>(data);
+  } else if (data instanceof Uint8Array) {
+    serializeTypedArray<Uint8Array>(data);
+  } else if (data instanceof Uint8ClampedArray) {
+    serializeTypedArray<Uint8ClampedArray>(data);
+  } else if (data instanceof Int16Array) {
+    serializeTypedArray<Int16Array>(data);
+  } else if (data instanceof Uint16Array) {
+    serializeTypedArray<Uint16Array>(data);
+  } else if (data instanceof Int32Array) {
+    serializeTypedArray<Int32Array>(data);
+  } else if (data instanceof Uint32Array) {
+    serializeTypedArray<Uint32Array>(data);
+  } else if (data instanceof Int64Array) {
+    serializeTypedArray<Int64Array>(data);
+  } else if (data instanceof Uint64Array) {
+    serializeTypedArray<Uint64Array>(data);
+  } else if (data instanceof Float32Array) {
+    serializeTypedArray<Float32Array>(data);
+  } else if (data instanceof Float64Array) {
+    serializeTypedArray<Float64Array>(data);
+  } else if (data instanceof ArrayBuffer) {
+    const dataStart = changetype<usize>(data);
+    serializeArrayBufferUnsafe(
+      dataStart,
+      changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize,
+    );
+  } else if (data instanceof Set) {
+    // @ts-expect-error
+    serializeSet(changetype<nonnull<T>>(data));
+  } else if (data instanceof Map) {
+    // @ts-expect-error
+    serializeMap(changetype<nonnull<T>>(data));
+  } else if (data instanceof JSON.Raw) {
+    serializeRaw(data);
+  } else if (data instanceof JSON.Value) {
+    serializeArbitrary(data);
+  } else if (data instanceof JSON.Obj) {
+    serializeObject(data);
+  } else if (data instanceof JSON.Box) {
+    JSON.__serialize(data.value);
+  } else {
+    throw new Error(
+      `Could not serialize data of type '${nameof<T>()}'. ` +
+        `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
+        `Supported types: primitives, string, Array, StaticArray, TypedArray, ArrayBuffer, Map, Date, and @json decorated classes.`,
+    );
   }
 }
 

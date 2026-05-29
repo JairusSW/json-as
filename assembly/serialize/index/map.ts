@@ -1,1 +1,1 @@
-export { serializeMap } from "../simple/map";
+export { serializeMap } from "../naive/map";

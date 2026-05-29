@@ -1,1 +1,1 @@
-export { serializeStruct } from "../simple/struct";
+export { serializeStruct } from "../naive/struct";

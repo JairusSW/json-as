@@ -35,11 +35,17 @@
     "naive": {
       "env": {
         "JSON_MODE": "NAIVE"
+      },
+      "buildOptions": {
+        "args": ["--transform ./"]
       }
     },
     "swar": {
       "env": {
         "JSON_MODE": "SWAR"
+      },
+      "buildOptions": {
+        "args": ["--transform ./"]
       }
     },
     "simd": {
@@ -47,7 +53,7 @@
         "JSON_MODE": "SIMD"
       },
       "buildOptions": {
-        "args": ["--debug", "--enable simd"]
+        "args": ["--debug", "--enable simd", "--transform ./"]
       }
     }
   }

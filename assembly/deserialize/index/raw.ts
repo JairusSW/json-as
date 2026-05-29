@@ -1,1 +1,1 @@
-export { deserializeRaw } from "../simple/raw";
+export { deserializeRaw } from "../naive/raw";

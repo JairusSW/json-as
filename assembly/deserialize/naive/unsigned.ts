@@ -1,7 +1,7 @@
 import { atoi } from "../../util/atoi";
 
 // @ts-ignore: inline
-@inline export function deserializeUnsigned<T>(
+@inline export function deserializeUnsigned_NAIVE<T extends number>(
   srcStart: usize,
   srcEnd: usize,
 ): T {
@@ -9,7 +9,7 @@ import { atoi } from "../../util/atoi";
 }
 
 // @ts-ignore: inline
-@inline export function deserializeUnsignedField<T extends number>(
+@inline export function deserializeUnsignedField_NAIVE<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

@@ -1,7 +1,7 @@
 import { atoi } from "../../util/atoi";
 
 // @ts-ignore: inline
-@inline export function deserializeInteger<T>(
+@inline export function deserializeInteger_NAIVE<T extends number>(
   srcStart: usize,
   srcEnd: usize,
 ): T {
@@ -9,7 +9,7 @@ import { atoi } from "../../util/atoi";
 }
 
 // @ts-ignore: inline
-@inline export function deserializeIntegerField<T extends number>(
+@inline export function deserializeIntegerField_NAIVE<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

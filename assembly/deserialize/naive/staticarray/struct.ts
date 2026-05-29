@@ -44,7 +44,7 @@ export function deserializeStaticArrayStruct<T extends StaticArray<any>>(
   }
 
   // Allocate StaticArray with correct size
-  const outSize = count << (alignof<valueof<T>>());
+  const outSize = count * sizeof<valueof<T>>();
   const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
 
   // Second pass: populate values

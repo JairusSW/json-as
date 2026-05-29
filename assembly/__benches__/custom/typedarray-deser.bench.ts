@@ -1,6 +1,6 @@
 // Throughput bench for `JSON.parse<Float64Array | Int32Array>(...)`.
 //
-// Existing `simple/typedarray.ts` is a two-pass scalar implementation:
+// Existing `naive/typedarray.ts` is a two-pass scalar implementation:
 // a count-pass scans for digit-starts, then the parse pass calls
 // `JSON.__deserialize` per element which scans the digits again. This
 // bench targets the SWAR rewrite (one comma-count SWAR pass + an

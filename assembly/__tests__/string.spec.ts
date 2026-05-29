@@ -375,7 +375,7 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
 
 describe("Should round-trip string arrays through JSON.parse", () => {
   // Reaches deserializeStringArray_SWAR (top-level SWAR path) in SWAR/SIMD
-  // modes and the simple deserializer in NAIVE.
+  // modes and the naive deserializer in NAIVE.
   expect(JSON.stringify(JSON.parse<string[]>('["a","b","c"]'))).toBe(
     '["a","b","c"]',
   );

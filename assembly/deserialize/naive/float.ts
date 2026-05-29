@@ -1,7 +1,10 @@
 import { ptrToStr } from "../../util/ptrToStr";
 
 // @ts-ignore: inline
-@inline export function deserializeFloat<T>(srcStart: usize, srcEnd: usize): T {
+@inline export function deserializeFloat_NAIVE<T>(
+  srcStart: usize,
+  srcEnd: usize,
+): T {
   // @ts-ignore
   const type: T = 0;
   // @ts-ignore
@@ -50,7 +53,7 @@ import { ptrToStr } from "../../util/ptrToStr";
 }
 
 // @ts-ignore: inline
-@inline export function deserializeFloatField<T extends number>(
+@inline export function deserializeFloatField_NAIVE<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

@@ -1,16 +1,16 @@
 import { JSON, JSONMode } from "../..";
-import { deserializeArbitraryArray } from "../simple/array/arbitrary";
-import { deserializeArrayArray } from "../simple/array/array";
-import { deserializeBooleanArray } from "../simple/array/bool";
-import { deserializeBoxArray } from "../simple/array/box";
-import { deserializeFloatArray } from "../simple/array/float";
-import { deserializeGenericArray } from "../simple/array/generic";
-import { deserializeIntegerArray as deserializeIntegerArray_NAIVE } from "../simple/array/integer";
-import { deserializeMapArray } from "../simple/array/map";
-import { deserializeObjectArray } from "../simple/array/object";
-import { deserializeRawArray } from "../simple/array/raw";
-import { deserializeStringArray } from "../simple/array/string";
-import { deserializeStructArray } from "../simple/array/struct";
+import { deserializeArbitraryArray } from "../naive/array/arbitrary";
+import { deserializeArrayArray } from "../naive/array/array";
+import { deserializeBooleanArray } from "../naive/array/bool";
+import { deserializeBoxArray } from "../naive/array/box";
+import { deserializeFloatArray_NAIVE } from "../naive/array/float";
+import { deserializeGenericArray } from "../naive/array/generic";
+import { deserializeIntegerArray_NAIVE } from "../naive/array/integer";
+import { deserializeMapArray } from "../naive/array/map";
+import { deserializeObjectArray } from "../naive/array/object";
+import { deserializeRawArray } from "../naive/array/raw";
+import { deserializeStringArray_NAIVE } from "../naive/array/string";
+import { deserializeStructArray } from "../naive/array/struct";
 import { deserializeIntegerArray_SIMD } from "../simd/array/integer";
 import { deserializeIntegerArray_SWAR } from "../swar/array/integer";
 import { deserializeFloatArray_SWAR } from "../swar/array/float";
@@ -29,14 +29,14 @@ export function deserializeArray<T extends unknown[]>(
   if (isString<valueof<T>>()) {
     // SWAR/SIMD routes through the same `Into` helper used by the
     // struct-field path; that helper carries the `null` token fast path
-    // for `(string | null)[]`. NAIVE keeps the simple scanner, which
-    // currently only handles non-nullable string arrays. The simple
+    // for `(string | null)[]`. NAIVE keeps the naive scanner, which
+    // currently only handles non-nullable string arrays. The naive
     // variant's static `string[]` return type is bit-identical to
     // `(string | null)[]` so `changetype<T>` is a runtime no-op.
     if (JSON_MODE == JSONMode.SWAR || JSON_MODE == JSONMode.SIMD) {
       return deserializeStringArray_SWAR<T>(srcStart, srcEnd, dst);
     }
-    return changetype<T>(deserializeStringArray(srcStart, srcEnd, dst));
+    return changetype<T>(deserializeStringArray_NAIVE(srcStart, srcEnd, dst));
   } else if (isBoolean<valueof<T>>()) {
     return deserializeBooleanArray<T>(srcStart, srcEnd, dst);
   } else if (isInteger<valueof<T>>()) {
@@ -55,7 +55,7 @@ export function deserializeArray<T extends unknown[]>(
       // @ts-ignore: float array branch
       return deserializeFloatArray_SWAR<T>(srcStart, srcEnd, dst);
     }
-    return deserializeFloatArray<T>(srcStart, srcEnd, dst);
+    return deserializeFloatArray_NAIVE<T>(srcStart, srcEnd, dst);
   } else if (isArray<valueof<T>>()) {
     return deserializeArrayArray<T>(srcStart, srcEnd, dst);
   } else if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {

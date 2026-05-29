@@ -1,8 +1,8 @@
 import { JSONMode } from "../..";
 import {
-  deserializeInteger as deserializeInteger_NAIVE,
-  deserializeIntegerField as deserializeIntegerField_NAIVE,
-} from "../simple/integer";
+  deserializeInteger_NAIVE,
+  deserializeIntegerField_NAIVE,
+} from "../naive/integer";
 import {
   deserializeInteger_SWAR,
   deserializeIntegerField_SWAR,

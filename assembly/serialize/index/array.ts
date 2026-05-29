@@ -1,1 +1,1 @@
-export { serializeArray } from "../simple/array";
+export { serializeArray } from "../naive/array";

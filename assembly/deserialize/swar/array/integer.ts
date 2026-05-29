@@ -1,4 +1,4 @@
-import { deserializeIntegerArray as deserializeIntegerArray_NAIVE } from "../../simple/array/integer";
+import { deserializeIntegerArray_NAIVE } from "../../naive/array/integer";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
@@ -513,15 +513,6 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
     srcEnd,
     changetype<usize>(out),
   );
-}
-
-// @ts-ignore: Decorator valid here
-export function deserializeIntegerArray<T extends number[]>(
-  srcStart: usize,
-  srcEnd: usize,
-  dst: usize,
-): T {
-  return deserializeIntegerArrayImpl<T>(srcStart, srcEnd, dst, false);
 }
 
 // @ts-ignore: Decorator valid here

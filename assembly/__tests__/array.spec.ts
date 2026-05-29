@@ -256,7 +256,7 @@ describe("Should serialize and deserialize set arrays", () => {
 
 // The generic-array path (Date[]/Set[]) tolerates whitespace and empty input.
 // These cases exist to keep that behaviour pinned: every other array kind has
-// its own SWAR/SIMD reader, so this is the only place the simple/array/generic
+// its own SWAR/SIMD reader, so this is the only place the naive/array/generic
 // scanner is exercised.
 describe("Should parse an empty Date array", () => {
   const parsed = JSON.parse<Date[]>("[]");

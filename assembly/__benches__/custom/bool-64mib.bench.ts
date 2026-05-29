@@ -1,7 +1,7 @@
 // Throughput bench for `JSON.parse<bool[]>` at 64 MiB of input.
 //
 // All three modes (NAIVE / SWAR / SIMD) route through the shared
-// `deserializeBooleanArray` in `simple/array/bool.ts`, which uses a u64
+// `deserializeBooleanArray` in `naive/array/bool.ts`, which uses a u64
 // magic-constant token match against `TRUE_WORD_U64` / `FALSE_WORD_U64`
 // and writes directly to a pre-sized buffer via `writePtr`.
 

@@ -15,7 +15,7 @@ import { JSON } from "../../..";
  * per-element capacity check + length write. Final `out.length` is trimmed
  * to the actual element count.
  */
-export function deserializeFloatArray<T extends number[]>(
+export function deserializeFloatArray_NAIVE<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,

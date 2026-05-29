@@ -1,1 +1,1 @@
-export { serializeInteger } from "../simple/integer";
+export { serializeInteger } from "../naive/integer";

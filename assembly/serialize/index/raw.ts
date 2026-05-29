@@ -1,1 +1,1 @@
-export { serializeRaw } from "../simple/raw";
+export { serializeRaw } from "../naive/raw";

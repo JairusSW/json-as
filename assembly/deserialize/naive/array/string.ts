@@ -2,7 +2,7 @@ import { JSON } from "../../..";
 import { NULL_WORD_U64, QUOTE } from "../../../custom/chars";
 import { isUnescapedQuote } from "../../../util";
 
-export function deserializeStringArray(
+export function deserializeStringArray_NAIVE(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,

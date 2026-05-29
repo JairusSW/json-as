@@ -13,7 +13,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.1",
     "as-heap-analyzer": "^1.2.0",
-    "as-test": "^1.2.0",
+    "as-test": "^1.5.0",
     "assemblyscript": "^0.28.17",
     "assemblyscript-prettier": "^3.0.4",
     "chartjs-node-canvas": "^5.0.0",
@@ -26,7 +26,7 @@
     "tinybench": "^6.0.2",
     "try-as": "^1.1.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.4"
+    "typescript-eslint": "^8.60.0"
   },
   "bugs": {
     "url": "https://github.com/JairusSW/json-as/issues"

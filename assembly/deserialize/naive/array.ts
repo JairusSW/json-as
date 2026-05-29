@@ -2,12 +2,12 @@ import { JSON } from "../..";
 import { deserializeArbitraryArray } from "./array/arbitrary";
 import { deserializeArrayArray } from "./array/array";
 import { deserializeBooleanArray } from "./array/bool";
-import { deserializeFloatArray } from "./array/float";
+import { deserializeFloatArray_NAIVE } from "./array/float";
 import { deserializeGenericArray } from "./array/generic";
-import { deserializeIntegerArray } from "./array/integer";
+import { deserializeIntegerArray_NAIVE } from "./array/integer";
 import { deserializeMapArray } from "./array/map";
 import { deserializeStructArray } from "./array/struct";
-import { deserializeStringArray } from "./array/string";
+import { deserializeStringArray_NAIVE } from "./array/string";
 import { deserializeObjectArray } from "./array/object";
 import { deserializeBoxArray } from "./array/box";
 import { deserializeRawArray } from "./array/raw";
@@ -18,16 +18,16 @@ export function deserializeArray<T extends unknown[]>(
   dst: usize,
 ): T {
   if (isString<valueof<T>>()) {
-    return <T>deserializeStringArray(srcStart, srcEnd, dst);
+    return <T>deserializeStringArray_NAIVE(srcStart, srcEnd, dst);
   } else if (isBoolean<valueof<T>>()) {
     // @ts-ignore
     return deserializeBooleanArray<T>(srcStart, srcEnd, dst);
   } else if (isInteger<valueof<T>>()) {
     // @ts-ignore
-    return deserializeIntegerArray<T>(srcStart, srcEnd, dst);
+    return deserializeIntegerArray_NAIVE<T>(srcStart, srcEnd, dst);
   } else if (isFloat<valueof<T>>()) {
     // @ts-ignore
-    return deserializeFloatArray<T>(srcStart, srcEnd, dst);
+    return deserializeFloatArray_NAIVE<T>(srcStart, srcEnd, dst);
   } else if (isArray<valueof<T>>()) {
     // @ts-ignore: type
     return deserializeArrayArray<T>(srcStart, srcEnd, dst);

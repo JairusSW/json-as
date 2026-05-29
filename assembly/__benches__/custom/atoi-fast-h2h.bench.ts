@@ -10,8 +10,8 @@
 import { bench, blackbox, dumpToFile } from "../lib/bench";
 import { expect } from "../../__tests__/lib";
 import { atoi as atoi_OLD } from "../../util/atoi";
-import { deserializeUnsignedField } from "../../deserialize/simple/unsigned";
-import { deserializeIntegerField } from "../../deserialize/simple/integer";
+import { deserializeUnsignedField_NAIVE } from "../../deserialize/naive/unsigned";
+import { deserializeIntegerField_NAIVE } from "../../deserialize/naive/integer";
 import {
   atou as atou_NEW,
   atoi as atoi_NEW,
@@ -90,16 +90,16 @@ function atoi_NEW_i64(): void {
 }
 
 function fieldScan_OLD_u32(): void {
-  blackbox(deserializeUnsignedField<u32>(CUR_PTR, CUR_END, SLOT, 0));
+  blackbox(deserializeUnsignedField_NAIVE<u32>(CUR_PTR, CUR_END, SLOT, 0));
 }
 function fieldScan_OLD_u64(): void {
-  blackbox(deserializeUnsignedField<u64>(CUR_PTR, CUR_END, SLOT, 0));
+  blackbox(deserializeUnsignedField_NAIVE<u64>(CUR_PTR, CUR_END, SLOT, 0));
 }
 function fieldScan_OLD_i32(): void {
-  blackbox(deserializeIntegerField<i32>(CUR_PTR, CUR_END, SLOT, 0));
+  blackbox(deserializeIntegerField_NAIVE<i32>(CUR_PTR, CUR_END, SLOT, 0));
 }
 function fieldScan_OLD_i64(): void {
-  blackbox(deserializeIntegerField<i64>(CUR_PTR, CUR_END, SLOT, 0));
+  blackbox(deserializeIntegerField_NAIVE<i64>(CUR_PTR, CUR_END, SLOT, 0));
 }
 
 function fieldScan_NEW_u32(): void {
@@ -144,7 +144,7 @@ function verifyScan(): void {
     const p = changetype<usize>(v);
     const e = p + ((<usize>v.length) << 1);
 
-    const nOld = deserializeUnsignedField<u32>(p, e, slotOld, 0);
+    const nOld = deserializeUnsignedField_NAIVE<u32>(p, e, slotOld, 0);
     const nNew = atouScan<u32>(p, e, slotNew);
     expect<usize>(nNew - p).toBe(nOld - p);
     expect<u32>(load<u32>(slotNew)).toBe(load<u32>(slotOld));
@@ -154,7 +154,7 @@ function verifyScan(): void {
     const p = changetype<usize>(v);
     const e = p + ((<usize>v.length) << 1);
 
-    const nOld = deserializeIntegerField<i32>(p, e, slotOld, 0);
+    const nOld = deserializeIntegerField_NAIVE<i32>(p, e, slotOld, 0);
     const nNew = atoiScan<i32>(p, e, slotNew);
     expect<usize>(nNew - p).toBe(nOld - p);
     expect<i32>(load<i32>(slotNew)).toBe(load<i32>(slotOld));

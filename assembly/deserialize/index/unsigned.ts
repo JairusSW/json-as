@@ -1,8 +1,8 @@
 import { JSONMode } from "../..";
 import {
-  deserializeUnsigned as deserializeUnsigned_NAIVE,
-  deserializeUnsignedField as deserializeUnsignedField_NAIVE,
-} from "../simple/unsigned";
+  deserializeUnsigned_NAIVE,
+  deserializeUnsignedField_NAIVE,
+} from "../naive/unsigned";
 import {
   deserializeUnsigned_SWAR,
   deserializeUnsignedField_SWAR,

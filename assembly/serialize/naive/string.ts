@@ -16,7 +16,7 @@ import { serializeStruct } from "./struct";
  * @returns void
  */
 // @ts-ignore: inline
-@inline export function serializeString(src: string): void {
+@inline export function serializeString_NAIVE(src: string): void {
   const srcSize = bytes(src);
   bs.proposeSize(srcSize + 4);
   let srcPtr = changetype<usize>(src);

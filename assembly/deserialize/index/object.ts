@@ -1,1 +1,1 @@
-export { deserializeObject } from "../simple/object";
+export { deserializeObject } from "../naive/object";

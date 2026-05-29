@@ -1,1 +1,1 @@
-export { deserializeDate } from "../simple/date";
+export { deserializeDate } from "../naive/date";

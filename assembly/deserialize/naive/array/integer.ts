@@ -1,7 +1,7 @@
 import { atoi, isSpace } from "../../../util";
 import { COMMA, BRACKET_RIGHT } from "../../../custom/chars";
 
-export function deserializeIntegerArray<T extends number[]>(
+export function deserializeIntegerArray_NAIVE<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,

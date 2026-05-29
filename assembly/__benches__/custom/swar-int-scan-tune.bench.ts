@@ -9,8 +9,8 @@ import {
   parse8Digits_PairMul,
   parse16Digits_SWAR,
 } from "../../util/swar-int";
-import { deserializeUnsignedField as OLD_uField } from "../../deserialize/simple/unsigned";
-import { deserializeIntegerField as OLD_iField } from "../../deserialize/simple/integer";
+import { deserializeUnsignedField_NAIVE as OLD_uField } from "../../deserialize/naive/unsigned";
+import { deserializeIntegerField_NAIVE as OLD_iField } from "../../deserialize/naive/integer";
 
 const ASCII_MINUS: u16 = 45;
 const ASCII_ZERO: u16 = 48;

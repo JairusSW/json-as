@@ -1,8 +1,8 @@
 import { JSONMode } from "../..";
 import {
-  deserializeFloat as deserializeFloat_NAIVE,
-  deserializeFloatField as deserializeFloatField_NAIVE,
-} from "../simple/float";
+  deserializeFloat_NAIVE,
+  deserializeFloatField_NAIVE,
+} from "../naive/float";
 import {
   deserializeFloat_SWAR,
   deserializeFloatField_SWAR,

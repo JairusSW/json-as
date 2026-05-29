@@ -1,1 +1,1 @@
-export { serializeStaticArray } from "../simple/staticarray";
+export { serializeStaticArray } from "../naive/staticarray";

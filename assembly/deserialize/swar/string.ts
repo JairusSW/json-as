@@ -52,101 +52,103 @@ import { hex4_to_u16_swar } from "../../util/swar";
   return changetype<string>(out);
 }
 
+// Standalone (whole-value) escaped scanner. Quotes are already stripped, so
+// `srcEnd` is the payload end and only `\` escapes are handled. Same HYBRID
+// strategy as the field scanner: escape blocks use a free optimistic u64 store
+// for the plain prefix; clean runs stream the first block then bulk-memcpy the
+// remainder. The `backslash_mask_unsafe` hits are confirmed scalarly.
+//
+// NOTE: vs the prior overflow scanner this is faster on dense and sparse
+// escaping but ~20% slower on sustained moderate-density escaping (escape
+// every ~20 chars), where multi-escape-per-block had an edge.
 // @ts-expect-error: @inline is a valid decorator
 @inline function deserializeEscapedString_SWAR(
   payloadStart: usize,
   escapeStart: usize,
   srcEnd: usize,
 ): string {
-  const srcEnd8 = srcEnd - 8;
   const prefixLen = <u32>(escapeStart - payloadStart);
   const outStart = bs.offset - bs.buffer;
-  bs.ensureSize(<u32>(srcEnd - payloadStart));
+  bs.ensureSize(<u32>(srcEnd - payloadStart) + 8); // +8 slack for u64 overcopy
   if (prefixLen != 0) {
     memory.copy(bs.offset, payloadStart, prefixLen);
     bs.offset += prefixLen;
   }
 
   let srcStart = escapeStart;
+  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
 
-  while (srcStart < srcEnd8) {
+  while (srcStart <= srcEnd8) {
     const block = load<u64>(srcStart);
-    store<u64>(bs.offset, block);
-
     let mask = inline.always(backslash_mask_unsafe(block));
-
-    // Early exit
-    if (mask === 0) {
-      srcStart += 8;
+    if (mask == 0) {
+      store<u64>(bs.offset, block);
       bs.offset += 8;
+      srcStart += 8;
+      if (
+        srcStart <= srcEnd8 &&
+        inline.always(backslash_mask_unsafe(load<u64>(srcStart))) == 0
+      ) {
+        const runStart = srcStart;
+        srcStart += 8;
+        while (
+          srcStart <= srcEnd8 &&
+          inline.always(backslash_mask_unsafe(load<u64>(srcStart))) == 0
+        ) {
+          srcStart += 8;
+        }
+        const runLen = <u32>(srcStart - runStart);
+        memory.copy(bs.offset, runStart, runLen);
+        bs.offset += runLen;
+      }
       continue;
     }
 
+    store<u64>(bs.offset, block);
+    let handled = false;
     do {
-      const laneIdx = usize(ctz(mask) >> 3); // 0 2 4 6
+      const laneIdx = usize(ctz(mask) >> 3);
       mask &= mask - 1;
       const srcIdx = srcStart + laneIdx;
-      const dstIdx = bs.offset + laneIdx;
-      const header = load<u32>(srcIdx);
-      const code = <u16>(header >> 16);
-
-      // Detect false positive (code unit where low byte is 0x5C)
-      if ((header & 0xffff) !== 0x5c) continue;
-
-      // Hot path (negative bias)
+      if ((load<u32>(srcIdx) & 0xffff) !== 0x5c) continue; // false positive
+      bs.offset += laneIdx;
+      const code = load<u16>(srcIdx, 2);
       if (code !== 0x75) {
-        // Short escapes (\n \t \" \\)
-        const escaped = load<u16>(DESERIALIZE_ESCAPE_TABLE + code);
-        mask &= mask - usize(escaped === 0x5c);
-        store<u16>(dstIdx, escaped);
-        store<u32>(dstIdx, load<u32>(srcIdx, 4), 2);
-
-        const l6 = usize(laneIdx === 6);
-        bs.offset -= (1 - l6) << 1;
-        srcStart += l6 << 1;
-        continue;
+        store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+        bs.offset += 2;
+        srcStart = srcIdx + 4;
+      } else {
+        store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
+        bs.offset += 2;
+        srcStart = srcIdx + 12;
       }
-
-      // Unicode escape (\uXXXX)
-      const block = load<u64>(srcIdx, 4); // XXXX
-      const escaped = hex4_to_u16_swar(block);
-      store<u16>(dstIdx, escaped);
-      // store<u64>(dstIdx, load<u32>(srcIdx, 12), 2);
-      srcStart += 4 + laneIdx;
-      bs.offset -= 6 - laneIdx;
-    } while (mask !== 0);
-
-    bs.offset += 8;
-    srcStart += 8;
+      handled = true;
+      break;
+    } while (mask != 0);
+    if (!handled) {
+      bs.offset += 8;
+      srcStart += 8;
+    }
   }
 
   while (srcStart < srcEnd) {
-    const block = load<u16>(srcStart);
-    store<u16>(bs.offset, block);
-    srcStart += 2;
-
-    // Early exit
-    if (block !== 0x5c) {
+    const char = load<u16>(srcStart);
+    if (char != BACK_SLASH) {
+      store<u16>(bs.offset, char);
       bs.offset += 2;
+      srcStart += 2;
       continue;
     }
-
-    const code = load<u16>(srcStart);
+    const code = load<u16>(srcStart, 2);
     if (code !== 0x75) {
-      // Short escapes (\n \t \" \\)
-      const block = load<u16>(srcStart);
-      const escape = load<u16>(DESERIALIZE_ESCAPE_TABLE + block);
-      store<u16>(bs.offset, escape);
-      srcStart += 2;
+      store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
+      bs.offset += 2;
+      srcStart += 4;
     } else {
-      // Unicode escape (\uXXXX)
-      const block = load<u64>(srcStart, 2); // XXXX
-      const escaped = hex4_to_u16_swar(block);
-      store<u16>(bs.offset, escaped);
-      srcStart += 10;
+      store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcStart, 4)));
+      bs.offset += 2;
+      srcStart += 12;
     }
-
-    bs.offset += 2;
   }
   return bs.sliceOut<string>(outStart);
 }
@@ -245,45 +247,72 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   memory.copy(stringPtr, srcStart, byteLength);
 }
 
-// Scans a quoted string value, writes into the destination field, and returns next unread src pointer.
+// Scans a quoted string value, writes into the destination field, and returns
+// the next unread src pointer.
+//
+// HYBRID strategy (validated against the prior run-copy scanner across escape
+// densities — see __benches__/custom/swar-string-deser-hybrid-h2h: +17–70%):
+//   * Escape-bearing block: one optimistic whole-block u64 store copies the
+//     plain prefix for free, then the (scalar-confirmed) escape is decoded.
+//   * Clean block: stream the first one, then if the clean run continues switch
+//     to one bulk memory.copy for the remainder.
+// SWAR masks carry high-byte false positives, so each hit is confirmed
+// scalarly before acting.
 // @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedStringScan_SWAR_SplitTuned(
+@inline function deserializeEscapedStringField_SWAR(
   payloadStart: usize,
   escapeStart: usize,
   srcEnd: usize,
   dstFieldPtr: usize,
 ): usize {
   const prefixLen = <u32>(escapeStart - payloadStart);
-  const srcEnd8 = srcEnd - 8;
   bs.offset = bs.buffer;
-  bs.ensureSize(<u32>(srcEnd - payloadStart));
+  bs.ensureSize(<u32>(srcEnd - payloadStart) + 8); // +8 slack for u64 overcopy
   if (prefixLen != 0) {
     memory.copy(bs.buffer, payloadStart, prefixLen);
     bs.offset += prefixLen;
   }
 
-  let lastPtr = escapeStart;
   let srcStart = escapeStart;
+  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
 
   while (srcStart <= srcEnd8) {
-    const blockStart = srcStart;
-    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
-    if (mask === 0) {
+    const block = load<u64>(srcStart);
+    let mask = inline.always(backslash_or_quote_mask(block));
+    if (mask == 0) {
+      store<u64>(bs.offset, block);
+      bs.offset += 8;
       srcStart += 8;
+      if (
+        srcStart <= srcEnd8 &&
+        inline.always(backslash_or_quote_mask(load<u64>(srcStart))) == 0
+      ) {
+        const runStart = srcStart;
+        srcStart += 8;
+        while (
+          srcStart <= srcEnd8 &&
+          inline.always(backslash_or_quote_mask(load<u64>(srcStart))) == 0
+        ) {
+          srcStart += 8;
+        }
+        const runLen = <u32>(srcStart - runStart);
+        memory.copy(bs.offset, runStart, runLen);
+        bs.offset += runLen;
+      }
       continue;
     }
 
+    // Escape/quote block (mask may carry high-byte false positives).
+    store<u64>(bs.offset, block);
+    let handled = false;
     do {
       const laneIdx = usize(ctz(mask) >> 3);
       mask &= mask - 1;
       const srcIdx = srcStart + laneIdx;
       const char = load<u16>(srcIdx);
+      if (char != QUOTE && char != BACK_SLASH) continue; // false positive
+      bs.offset += laneIdx;
       if (char == QUOTE) {
-        const runLen = <u32>(srcIdx - lastPtr);
-        if (runLen != 0) {
-          memory.copy(bs.offset, lastPtr, runLen);
-          bs.offset += runLen;
-        }
         writeStringToField(
           dstFieldPtr,
           bs.buffer,
@@ -292,54 +321,39 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
         bs.offset = bs.buffer;
         return srcIdx + 2;
       }
-      if (char != BACK_SLASH) continue;
-
-      const runLen = <u32>(srcIdx - lastPtr);
-      if (runLen != 0) {
-        memory.copy(bs.offset, lastPtr, runLen);
-        bs.offset += runLen;
-      }
-
-      const chunk = load<u32>(srcIdx);
-      const code = <u16>(chunk >> 16);
+      const code = load<u16>(srcIdx, 2);
       if (code !== 0x75) {
         store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
         bs.offset += 2;
-        lastPtr = srcIdx + 4;
+        srcStart = srcIdx + 4;
       } else {
         store<u16>(bs.offset, hex4_to_u16_swar(load<u64>(srcIdx, 4)));
         bs.offset += 2;
-        lastPtr = srcIdx + 12;
+        srcStart = srcIdx + 12;
       }
-      srcStart = lastPtr;
+      handled = true;
       break;
-    } while (mask !== 0);
-    if (srcStart == blockStart) srcStart += 8;
+    } while (mask != 0);
+    if (!handled) {
+      bs.offset += 8;
+      srcStart += 8;
+    }
   }
 
+  // scalar tail (< 8 bytes remaining)
   while (srcStart < srcEnd) {
     const char = load<u16>(srcStart);
     if (char == QUOTE) {
-      const runLen = <u32>(srcStart - lastPtr);
-      if (runLen != 0) {
-        memory.copy(bs.offset, lastPtr, runLen);
-        bs.offset += runLen;
-      }
       writeStringToField(dstFieldPtr, bs.buffer, <u32>(bs.offset - bs.buffer));
       bs.offset = bs.buffer;
       return srcStart + 2;
     }
     if (char != BACK_SLASH) {
+      store<u16>(bs.offset, char);
+      bs.offset += 2;
       srcStart += 2;
       continue;
     }
-
-    const runLen = <u32>(srcStart - lastPtr);
-    if (runLen != 0) {
-      memory.copy(bs.offset, lastPtr, runLen);
-      bs.offset += runLen;
-    }
-
     const code = load<u16>(srcStart, 2);
     if (code !== 0x75) {
       store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
@@ -350,7 +364,6 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
       bs.offset += 2;
       srcStart += 12;
     }
-    lastPtr = srcStart;
   }
 
   bs.offset = bs.buffer;
@@ -506,7 +519,7 @@ export function deserializeStringField_SWAR<T extends string | null>(
       }
       if (char != BACK_SLASH) continue;
       return inline.always(
-        deserializeEscapedStringScan_SWAR_SplitTuned(
+        deserializeEscapedStringField_SWAR(
           payloadStart,
           srcIdx,
           srcEnd,
@@ -530,7 +543,7 @@ export function deserializeStringField_SWAR<T extends string | null>(
     }
     if (char == BACK_SLASH) {
       return inline.always(
-        deserializeEscapedStringScan_SWAR_SplitTuned(
+        deserializeEscapedStringField_SWAR(
           payloadStart,
           srcStart,
           srcEnd,

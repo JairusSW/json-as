@@ -1,4 +1,4 @@
-// Head-to-head: existing `deserializeFloat<f64>` (digit-by-digit
+// Head-to-head: existing `deserializeFloat_NAIVE<f64>` (digit-by-digit
 // accumulator + per-fraction fdiv) vs Lemire-lite `parseFloatFast`
 // (single u64 mantissa + one exact pow10 multiply).
 //
@@ -7,7 +7,7 @@
 // exponent, etc. Reports MB/s per (UTF-16 bytes scanned).
 
 import { bench, blackbox, dumpToFile } from "../lib/bench";
-import { deserializeFloat } from "../../deserialize/simple/float";
+import { deserializeFloat_NAIVE } from "../../deserialize/naive/float";
 import { parseFloatFast } from "../../util/parsefloat-fast";
 
 // Build a corpus: each entry is a NUL-terminated UTF-16 view stored in a
@@ -80,7 +80,7 @@ function runStd(): void {
   for (let i = 0; i < CUR_N; i++) {
     const start = load<usize>(CUR_PTRS + ((<usize>i) << alignof<usize>()));
     const end = load<usize>(CUR_ENDS + ((<usize>i) << alignof<usize>()));
-    acc += deserializeFloat<f64>(start, end);
+    acc += deserializeFloat_NAIVE<f64>(start, end);
   }
   blackbox(acc);
 }

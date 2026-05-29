@@ -1,8 +1,7 @@
-import { isSpace } from "../../../util";
+import { atoi, isSpace } from "../../../util";
 import { COMMA, BRACKET_RIGHT } from "../../../custom/chars";
-import { JSON } from "../../..";
 
-export function deserializeStaticArrayFloat<T extends StaticArray<any>>(
+export function deserializeStaticArrayInteger<T extends StaticArray<any>>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
@@ -23,9 +22,10 @@ export function deserializeStaticArrayFloat<T extends StaticArray<any>>(
     ptr += 2;
   }
 
-  const outSize = count << (alignof<valueof<T>>());
+  const outSize = count * sizeof<valueof<T>>();
   const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
 
+  // Second pass: populate values
   let index = 0;
   while (srcStart < srcEnd) {
     const code = load<u16>(srcStart);
@@ -35,12 +35,7 @@ export function deserializeStaticArrayFloat<T extends StaticArray<any>>(
       while (srcStart < srcEnd) {
         const code = load<u16>(srcStart);
         if (code == COMMA || code == BRACKET_RIGHT || isSpace(code)) {
-          unchecked(
-            (out[index++] = JSON.__deserialize<valueof<T>>(
-              lastIndex,
-              srcStart,
-            )),
-          );
+          unchecked((out[index++] = atoi<valueof<T>>(lastIndex, srcStart)));
           break;
         }
         srcStart += 2;

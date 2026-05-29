@@ -1,5 +1,5 @@
 import { JSONMode } from "../..";
-import { serializeString as serializeString_NAIVE } from "../simple/string";
+import { serializeString_NAIVE } from "../naive/string";
 import { serializeString_SIMD } from "../simd/string";
 import { serializeString_SWAR } from "../swar/string";
 
