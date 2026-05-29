@@ -180,6 +180,8 @@ const config: ChartConfiguration<"line"> = {
   plugins: [ChartDataLabels],
 };
 
+// Render at 3x pixel density (1200x700 -> 3600x2100, >= 1440p) for crisp output.
+config.options = { ...(config.options ?? {}), devicePixelRatio: 3 };
 const buffer = canvas.renderToBufferSync(config, "image/png");
 fs.writeFileSync("./build/charts/chart09.png", buffer);
 console.log("> ./build/charts/chart09.png");

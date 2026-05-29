@@ -493,7 +493,7 @@ The `json-as` library is engineered for **multi-GB/s processing speeds**, levera
 
 ### Comparison to JavaScript
 
-The following charts compare JSON-AS (both SWAR and SIMD variants) against JavaScript's native `JSON` implementation. The published charts are generated locally and pushed to the `docs` branch.
+The following charts compare JSON-AS against JavaScript's native `JSON` implementation. It's as fair as possible and runs on V8's turboshaft optimizer. The published charts are generated locally and pushed to the `docs` branch.
 
 > Note: Benchmarks reflect the **latest version**. Older versions may show different performance.
 >

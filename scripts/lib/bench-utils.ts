@@ -112,6 +112,11 @@ export function createBarChart(
       .map((r) => r.mbps),
   );
 
+  // Round up to the next 500 above (tallest bar + 250), so there is always at
+  // least ~250 MB/s of headroom for the value label above the highest bar
+  // (e.g. 4992 -> 5500 instead of a clipped 5000).
+  const yMax = Math.ceil((maxMBps + 250) / 500) * 500;
+
   const datasetNames = options.datasetLabels ?? [
     "Built-in JSON (JS)",
     "JSON-AS (NAIVE)",
@@ -187,7 +192,7 @@ export function createBarChart(
       scales: {
         y: {
           beginAtZero: true,
-          max: Math.ceil(maxMBps / 500) * 500,
+          max: yMax,
           title: {
             display: true,
             text: options.yLabel ?? "Throughput (MB/s)",
@@ -285,16 +290,25 @@ export function createLineChart(
 }
 
 export function generateChart(config: ChartConfiguration, outfile: string) {
+  const isSvg = outfile.endsWith(".svg");
+
+  // Render raster (PNG) charts at 3x pixel density: the logical 1000x600 layout
+  // becomes a crisp 3000x1800 image (>= 1440p) with identical proportions/fonts.
+  // SVG output is vector — resolution-independent — so it's left untouched.
+  if (!isSvg) {
+    config.options = { ...(config.options ?? {}), devicePixelRatio: 3 };
+  }
+
   const canvas = new ChartJSNodeCanvas({
     width: 1000,
     height: 600,
-    type: outfile.endsWith(".svg") ? "svg" : "png",
+    type: isSvg ? "svg" : "png",
     chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
   });
 
   const buffer = canvas.renderToBufferSync(
     config,
-    outfile.endsWith(".svg") ? "image/svg+xml" : "image/png",
+    isSvg ? "image/svg+xml" : "image/png",
   );
 
   fs.writeFileSync(outfile, buffer);
