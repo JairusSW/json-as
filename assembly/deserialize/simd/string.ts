@@ -394,8 +394,10 @@ function deserializeEscapedStringField_SIMD(
 export function deserializeStringField_SIMD<T extends string | null>(
   srcStart: usize,
   srcEnd: usize,
-  dstFieldPtr: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
 ): usize {
+  const dstFieldPtr = dstObj + dstOffset;
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
     abort("Expected leading quote");
 

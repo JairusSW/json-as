@@ -30,13 +30,14 @@ import {
 @inline export function deserializeStringField<T extends string | null>(
   srcStart: usize,
   srcEnd: usize,
-  dstFieldPtr: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
 ): usize {
   if (JSON_MODE == JSONMode.SIMD) {
-    return deserializeStringField_SIMD<T>(srcStart, srcEnd, dstFieldPtr);
+    return deserializeStringField_SIMD<T>(srcStart, srcEnd, dstObj, dstOffset);
   } else if (JSON_MODE == JSONMode.NAIVE) {
-    return deserializeStringField_NAIVE<T>(srcStart, srcEnd, dstFieldPtr);
+    return deserializeStringField_NAIVE<T>(srcStart, srcEnd, dstObj, dstOffset);
   } else {
-    return deserializeStringField_SWAR<T>(srcStart, srcEnd, dstFieldPtr);
+    return deserializeStringField_SWAR<T>(srcStart, srcEnd, dstObj, dstOffset);
   }
 }

@@ -2,6 +2,9 @@
 build/
 transform/lib
 
+# Bench payloads (large fixtures, not worth formatting)
+assembly/__benches__/payloads/
+
 # Tables
 assembly/globals/tables.ts
 

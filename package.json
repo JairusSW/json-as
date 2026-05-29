@@ -87,7 +87,7 @@
   "scripts": {
     "ci": "act",
     "test": "ast test --parallel --enable try-as",
-    "test:transform": "node transform/__tests__/normalize-base-rel.test.mjs",
+    "test:transform": "node transform/__tests__/normalize-base-rel.test.mjs && node transform/__tests__/compute-base-rel.test.mjs && node transform/__tests__/resolve-imports.test.mjs",
     "test:fast": "npm run build:transform && JSON_USE_FAST_PATH=1 ast test --parallel --mode swar,simd --enable try-as",
     "fuzz": "ast fuzz",
     "test:fuzz": "ast test --fuzz --parallel",

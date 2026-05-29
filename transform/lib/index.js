@@ -32,6 +32,9 @@ export function normalizeJsonAsBaseRel(baseRel) {
     }
     return baseRel;
 }
+export function computeImportBaseRel(fromDir, packageDir, p = path) {
+    return normalizeJsonAsBaseRel(path.posix.join(...p.relative(fromDir, packageDir).split(p.sep)));
+}
 function envFlagDefaultTrue(value) {
     if (!value)
         return true;
@@ -937,7 +940,7 @@ export class JSONTransform extends Visitor {
         const SIGNED_INTEGER_TYPES = ["i8", "i16", "i32", "i64", "isize"];
         const FLOAT_TYPES = ["f32", "f64"];
         const INTEGER_TYPES = [...UNSIGNED_INTEGER_TYPES, ...SIGNED_INTEGER_TYPES];
-        const STRING_FIELD_DESERIALIZER = "deserializeStringField";
+        const STRING_FIELD_DESERIALIZER = "__deserializeStringField";
         const getArrayValueType = (type) => {
             if (!type.startsWith("Array<") && !type.startsWith("StaticArray<"))
                 return null;
@@ -951,8 +954,8 @@ export class JSONTransform extends Visitor {
             const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
             if (INTEGER_TYPES.includes(resolvedType)) {
                 const helper = SIGNED_INTEGER_TYPES.includes(resolvedType)
-                    ? "deserializeIntegerField"
-                    : "deserializeUnsignedField";
+                    ? "__deserializeIntegerField"
+                    : "__deserializeUnsignedField";
                 out.push(`${srcPtr} = ${helper}<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
             }
             else if (["string", "String"].includes(resolvedType)) {
@@ -963,7 +966,7 @@ export class JSONTransform extends Visitor {
                     out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
                     out.push("  } else {");
                 }
-                out.push(`  ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${member.type}>(${valuePtr}, srcEnd, ${outPtr} + ${fieldOffset});`);
+                out.push(`  ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${member.type}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 if (member.node.type.isNullable) {
                     out.push("  }");
                 }
@@ -1081,7 +1084,7 @@ export class JSONTransform extends Visitor {
                 out.push("} else break;");
             }
             else if (FLOAT_TYPES.includes(resolvedType)) {
-                out.push(`${srcPtr} = deserializeFloatField<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+                out.push(`${srcPtr} = __deserializeFloatField<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
             }
             else if (resolvedSchema && !resolvedSchema.custom) {
                 if (fastPath) {
@@ -1235,7 +1238,7 @@ export class JSONTransform extends Visitor {
                     out.push("}");
                     return out;
                 }
-                out.push(`  ${srcPtr} = deserializeArrayField_SWAR<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+                out.push(`  ${srcPtr} = __deserializeArrayField_SWAR<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 out.push(`  if (!${srcPtr}) break;`);
                 if (member.node.type.isNullable) {
                     out.push("  }");
@@ -1243,15 +1246,15 @@ export class JSONTransform extends Visitor {
                 out.push("}");
             }
             else if (resolvedType.startsWith("Map<")) {
-                out.push(`${srcPtr} = deserializeMapField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+                out.push(`${srcPtr} = __deserializeMapField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 out.push(`if (!${srcPtr}) break;`);
             }
             else if (resolvedType.startsWith("Set<")) {
-                out.push(`${srcPtr} = deserializeSetField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+                out.push(`${srcPtr} = __deserializeSetField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 out.push(`if (!${srcPtr}) break;`);
             }
             else if (resolvedType.startsWith("StaticArray<")) {
-                out.push(`${srcPtr} = deserializeStaticArrayField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+                out.push(`${srcPtr} = __deserializeStaticArrayField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 out.push(`if (!${srcPtr}) break;`);
             }
             else if (resolvedType == "JSON.Value" ||
@@ -2267,36 +2270,11 @@ export class JSONTransform extends Visitor {
         const bsImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "bs" || d.name.text == "bs"));
         const jsonImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "JSON" || d.name.text == "JSON"));
         const atoiImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "atoi" || d.name.text == "atoi"));
-        const deserializeIntegerFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeIntegerField" ||
-            d.name.text == "deserializeIntegerField"));
-        const deserializeUnsignedFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeUnsignedField" ||
-            d.name.text == "deserializeUnsignedField"));
-        const deserializeFloatFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeFloatField" ||
-            d.name.text == "deserializeFloatField"));
         const scanValueEndImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "scanValueEnd" || d.name.text == "scanValueEnd"));
-        const deserializeArrayField_SWARImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeArrayField_SWAR" ||
-            d.name.text == "deserializeArrayField_SWAR"));
-        const deserializeMapFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeMapField" ||
-            d.name.text == "deserializeMapField"));
-        const deserializeSetFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeSetField" ||
-            d.name.text == "deserializeSetField"));
-        const deserializeStaticArrayFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeStaticArrayField" ||
-            d.name.text == "deserializeStaticArrayField"));
-        const deserializeStringFieldImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "deserializeStringField" ||
-            d.name.text == "deserializeStringField"));
+        const fieldHelpersImport = this.imports.find((i) => i.declarations?.find((d) => d.name.text == "__deserializeStringField"));
         const sourceText = readFileSync(fromPath).toString();
-        const hasLocalDeserializeIntegerField = /\bdeserializeIntegerField\b/.test(sourceText);
-        const hasLocalDeserializeUnsignedField = /\bdeserializeUnsignedField\b/.test(sourceText);
-        const hasLocalDeserializeFloatField = /\bdeserializeFloatField\b/.test(sourceText);
         const hasLocalScanValueEnd = /\bscanValueEnd\b/.test(sourceText);
-        const hasLocaldeserializeArrayField_SWAR = /\bdeserializeArrayField_SWAR\b/.test(sourceText);
-        const hasLocaldeserializeMapField = /\bdeserializeMapField\b/.test(sourceText);
-        const hasLocaldeserializeSetField = /\bdeserializeSetField\b/.test(sourceText);
-        const hasLocaldeserializeStaticArrayField = /\bdeserializeStaticArrayField\b/.test(sourceText);
-        const hasLocalDeserializeStringField = /\bdeserializeStringField\b/.test(sourceText);
-        const baseRel = normalizeJsonAsBaseRel(path.posix.join(...path
-            .relative(path.dirname(fromPath), path.join(baseDir))
-            .split(path.sep)));
+        const baseRel = computeImportBaseRel(path.dirname(fromPath), path.join(baseDir));
         if (!bsImport) {
             const replaceNode = Node.createImportStatement([
                 Node.createImportDeclaration(Node.createIdentifierExpression("bs", node.range, false), null, node.range),
@@ -2333,42 +2311,6 @@ export class JSONTransform extends Visitor {
                     node.range.source.normalizedPath +
                     "\n");
         }
-        if (!deserializeIntegerFieldImport && !hasLocalDeserializeIntegerField) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeIntegerField", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "index", "integer"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
-        if (!deserializeUnsignedFieldImport && !hasLocalDeserializeUnsignedField) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeUnsignedField", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "index", "unsigned"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
-        if (!deserializeFloatFieldImport && !hasLocalDeserializeFloatField) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeFloatField", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "index", "float"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
         if (!scanValueEndImport && !hasLocalScanValueEnd) {
             const replaceNode = Node.createImportStatement([
                 Node.createImportDeclaration(Node.createIdentifierExpression("scanValueEnd", node.range, false), null, node.range),
@@ -2381,60 +2323,18 @@ export class JSONTransform extends Visitor {
                     node.range.source.normalizedPath +
                     "\n");
         }
-        if (!deserializeArrayField_SWARImport &&
-            !hasLocaldeserializeArrayField_SWAR) {
+        if (!fieldHelpersImport) {
+            const fieldHelper = (real, alias) => Node.createImportDeclaration(Node.createIdentifierExpression(real, node.range, false), Node.createIdentifierExpression(alias, node.range, false), node.range);
             const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeArrayField_SWAR", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "swar", "array"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
-        if (!deserializeMapFieldImport && !hasLocaldeserializeMapField) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeMapField", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "index", "map"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
-        if (!deserializeSetFieldImport && !hasLocaldeserializeSetField) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeSetField", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "index", "set"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
-        if (!deserializeStaticArrayFieldImport &&
-            !hasLocaldeserializeStaticArrayField) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeStaticArrayField", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "index", "staticarray"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
-        if (!deserializeStringFieldImport && !hasLocalDeserializeStringField) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("deserializeStringField", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "index", "string"), node.range), node.range);
+                fieldHelper("deserializeIntegerField", "__deserializeIntegerField"),
+                fieldHelper("deserializeUnsignedField", "__deserializeUnsignedField"),
+                fieldHelper("deserializeFloatField", "__deserializeFloatField"),
+                fieldHelper("deserializeStringField", "__deserializeStringField"),
+                fieldHelper("deserializeArrayField_SWAR", "__deserializeArrayField_SWAR"),
+                fieldHelper("deserializeMapField", "__deserializeMapField"),
+                fieldHelper("deserializeSetField", "__deserializeSetField"),
+                fieldHelper("deserializeStaticArrayField", "__deserializeStaticArrayField"),
+            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize"), node.range), node.range);
             node.range.source.statements.unshift(replaceNode);
             if (DEBUG > 0)
                 console.log("Added import: " +

@@ -3,6 +3,10 @@ import { Transform } from "assemblyscript/dist/transform.js";
 import { Schema, SourceSet, Src } from "./types.js";
 import { Visitor } from "./visitor.js";
 export declare function normalizeJsonAsBaseRel(baseRel: string): string;
+export declare function computeImportBaseRel(fromDir: string, packageDir: string, p?: {
+    relative(from: string, to: string): string;
+    sep: string;
+}): string;
 export declare class JSONTransform extends Visitor {
     static SN: JSONTransform;
     program: Program;
