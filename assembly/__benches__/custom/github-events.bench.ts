@@ -2,7 +2,7 @@ import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import { blackbox, bench, dumpToFile, readFile } from "../lib/bench";
 const payloadData = readFile(
-  "./assembly/__benches__/payloads/github-events.json",
+  "./assembly/__benches__/payloads/github-events.pretty.json",
 );
 const payloadChars = payloadData.length;
 
