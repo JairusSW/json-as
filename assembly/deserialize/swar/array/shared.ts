@@ -7,6 +7,14 @@ import {
   COMMA,
   QUOTE,
 } from "../../../custom/chars";
+import { isSpace } from "../../../util";
+
+/** Advance past JSON whitespace (space, tab, LF, CR). */
+// @ts-expect-error: @inline is a valid decorator
+@inline export function skipWhitespace(srcStart: usize, srcEnd: usize): usize {
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  return srcStart;
+}
 
 
 @inline export function ensureArrayField<T extends Array<any>>(
@@ -135,7 +143,15 @@ import {
 
   while (srcStart < srcEnd) {
     const code = load<u16>(srcStart);
-    if (code == COMMA || code == BRACKET_RIGHT || code == BRACE_RIGHT)
+    // Stop at the structural terminator OR trailing whitespace, so the returned
+    // range is the exact value (scalar parsers assume no trailing whitespace).
+    // Callers skip whitespace to reach the following `,`/`]`/`}`.
+    if (
+      code == COMMA ||
+      code == BRACKET_RIGHT ||
+      code == BRACE_RIGHT ||
+      isSpace(code)
+    )
       return srcStart;
     srcStart += 2;
   }

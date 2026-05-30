@@ -4,6 +4,7 @@ import {
   ensureArrayElementSlot,
   ensureArrayField,
   scanValueEnd,
+  skipWhitespace,
 } from "./shared";
 
 
@@ -15,6 +16,7 @@ import {
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT)
     throw new Error("Failed to parse JSON!");
   srcStart += 2;
+  srcStart = skipWhitespace(srcStart, srcEnd);
   if (srcStart >= srcEnd) throw new Error("Failed to parse JSON!");
   if (load<u16>(srcStart) == BRACKET_RIGHT) return srcStart + 2;
 
@@ -28,10 +30,12 @@ import {
     store<valueof<T>>(slot, JSON.__deserialize<valueof<T>>(srcStart, valueEnd));
     srcStart = valueEnd;
 
+    srcStart = skipWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd) break;
     const code = load<u16>(srcStart);
     if (code == COMMA) {
       srcStart += 2;
+      srcStart = skipWhitespace(srcStart, srcEnd);
       continue;
     }
     if (code == BRACKET_RIGHT) {

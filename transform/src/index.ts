@@ -1643,10 +1643,16 @@ export class JSONTransform extends Visitor {
           out.push("  }");
           out.push("  let index = 0;");
           out.push(`  ${srcPtr} = ${valuePtr} + 2;`);
+          out.push(
+            `  ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`,
+          );
           out.push(`  if (load<u16>(${srcPtr}) == 0x5d) {`);
           out.push("    value.length = 0;");
           out.push(`    ${srcPtr} += 2;`);
           out.push("  } else while (true) {");
+          out.push(
+            `    ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`,
+          );
           // For nullable elements we push a null reference to grow the array;
           // for non-nullable we push the interned empty string. Either way
           // the slot is overwritten by the per-element parse below.
@@ -1674,6 +1680,9 @@ export class JSONTransform extends Visitor {
             );
           }
           out.push("    index++;");
+          out.push(
+            `    ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`,
+          );
           out.push(`    const code = load<u16>(${srcPtr});`);
           out.push("    if (code == 0x2c) {");
           out.push(`      ${srcPtr} += 2;`);
@@ -1706,6 +1715,9 @@ export class JSONTransform extends Visitor {
           out.push("  }");
           out.push("  let index = 0;");
           out.push(`  ${srcPtr} = ${valuePtr} + 2;`);
+          out.push(
+            `  ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`,
+          );
           out.push(`  if (load<u16>(${srcPtr}) == 0x5d) {`);
           out.push("    value.length = 0;");
           out.push(`    ${srcPtr} += 2;`);
@@ -1730,6 +1742,9 @@ export class JSONTransform extends Visitor {
           );
           out.push(`    if (!${srcPtr}) break;`);
           out.push("    index++;");
+          out.push(
+            `    ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`,
+          );
           out.push(`    const code = load<u16>(${srcPtr});`);
           out.push("    if (code == 0x2c) {");
           out.push(`      ${srcPtr} += 2;`);
@@ -1921,6 +1936,125 @@ export class JSONTransform extends Visitor {
     DESERIALIZE_FAST += indent + "return srcStart;\n";
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "} while (false);\n\n";
+
+    // ---- tier 2: whitespace-tolerant fast path ----
+    // The tier-1 block above is an exact packed-byte template that assumes the
+    // canonical/minified layout; any inter-token whitespace (pretty-printed
+    // input) makes its packed compares miss and it `break`s to here. Rather
+    // than dump the whole object to the naive scalar `__DESERIALIZE_SLOW`
+    // (~5x slower), tier 2 re-matches per field with the SAME packed-u64 key
+    // constants (key names are fixed) but skips whitespace between every
+    // structural token. Minified input never reaches here, so tier 1 keeps its
+    // peak speed.
+    const tier2Desers = this.schema.members.map((member) =>
+      getDeserializer(member.type, "srcStart", "dst", member, 0, true),
+    );
+    const tier2Ok = tier2Desers.every(
+      (d) => d.length && !(d.length === 1 && d[0].trim() === "break;"),
+    );
+    if (tier2Ok && !supportsFastOptionalPath) {
+      // Straight-line variant: every field is required and present in
+      // declaration order. The common, fastest shape.
+      const i1 = "  ";
+      const i2 = "    ";
+      const skip =
+        i2 + "srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
+      DESERIALIZE_FAST += i1 + "srcStart = start;\n";
+      DESERIALIZE_FAST += i1 + "do {\n";
+      DESERIALIZE_FAST += skip;
+      DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7b) break; // {\n";
+      DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+      for (let i = 0; i < this.schema.members.length; i++) {
+        const member = this.schema.members[i];
+        const key = JSON.stringify(member.alias || member.name);
+        const keyBytes = key.length << 1;
+        DESERIALIZE_FAST += "\n";
+        DESERIALIZE_FAST += skip;
+        DESERIALIZE_FAST +=
+          i2 +
+          `if ( // ${key}\n${i2}  ` +
+          getComparisions(key, "srcStart", "!=").join("\n" + i2 + "  || ") +
+          `\n${i2}) break;\n`;
+        DESERIALIZE_FAST += i2 + `srcStart += ${keyBytes};\n`;
+        DESERIALIZE_FAST += skip;
+        DESERIALIZE_FAST +=
+          i2 + "if (load<u16>(srcStart) != 0x3a) break; // :\n";
+        DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+        DESERIALIZE_FAST += skip;
+        DESERIALIZE_FAST += i2 + tier2Desers[i].join("\n" + i2) + "\n";
+        if (i < this.schema.members.length - 1) {
+          DESERIALIZE_FAST += skip;
+          DESERIALIZE_FAST +=
+            i2 + "if (load<u16>(srcStart) != 0x2c) break; // ,\n";
+          DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+        }
+      }
+      DESERIALIZE_FAST += "\n";
+      DESERIALIZE_FAST += skip;
+      DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7d) break; // }\n";
+      DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+      DESERIALIZE_FAST += i2 + "return srcStart;\n";
+      DESERIALIZE_FAST += i1 + "} while (false);\n\n";
+    } else if (tier2Ok && supportsFastOptionalPath) {
+      // Probe-and-commit variant: fields may be omitted (@omitnull/@omitif) or
+      // simply absent (json-as keeps the field default when a key is missing).
+      // Fields are still matched in declaration order, but each is optional: we
+      // probe the next key with `kp`, and only commit `srcStart` past the
+      // separator + key + `:` when that field's key actually matches. A field
+      // whose key isn't next is skipped without consuming input, so the
+      // following field re-probes the same position (and re-consumes the comma).
+      // `seenAny` tracks whether a prior field was emitted, so we know when a
+      // leading comma must precede the key. Unknown/extra keys aren't handled
+      // here — they leave a non-`}` token after the last field and fall to slow.
+      const multi = this.schema.members.length > 1;
+      const i1 = "  ";
+      const i2 = "    ";
+      const i3 = "      ";
+      DESERIALIZE_FAST += i1 + "srcStart = start;\n";
+      DESERIALIZE_FAST += i1 + "do {\n";
+      DESERIALIZE_FAST +=
+        i2 + "srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
+      DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7b) break; // {\n";
+      DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+      DESERIALIZE_FAST += i2 + "let kp: usize = 0;\n";
+      if (multi) DESERIALIZE_FAST += i2 + "let seenAny = false;\n";
+      for (let i = 0; i < this.schema.members.length; i++) {
+        const member = this.schema.members[i];
+        const key = JSON.stringify(member.alias || member.name);
+        const keyBytes = key.length << 1;
+        DESERIALIZE_FAST += "\n";
+        DESERIALIZE_FAST +=
+          i2 + "kp = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
+        // Only fields after the first can be preceded by a comma, and only when
+        // something was already emitted (seenAny).
+        if (multi && i > 0) {
+          DESERIALIZE_FAST +=
+            i2 +
+            "if (seenAny && load<u16>(kp) == 0x2c) kp = JSON.Util.skipWhitespace(kp + 2, srcEnd);\n";
+        }
+        DESERIALIZE_FAST +=
+          i2 +
+          `if ( // ${key}\n${i2}  ` +
+          getComparisions(key, "kp", "==").join("\n" + i2 + "  && ") +
+          `\n${i2}) {\n`;
+        DESERIALIZE_FAST += i3 + `kp += ${keyBytes};\n`;
+        DESERIALIZE_FAST += i3 + "kp = JSON.Util.skipWhitespace(kp, srcEnd);\n";
+        DESERIALIZE_FAST += i3 + "if (load<u16>(kp) != 0x3a) break; // :\n";
+        DESERIALIZE_FAST +=
+          i3 + "srcStart = JSON.Util.skipWhitespace(kp + 2, srcEnd);\n";
+        DESERIALIZE_FAST += i3 + tier2Desers[i].join("\n" + i3) + "\n";
+        if (multi) DESERIALIZE_FAST += i3 + "seenAny = true;\n";
+        DESERIALIZE_FAST += i2 + "}\n";
+      }
+      DESERIALIZE_FAST += "\n";
+      DESERIALIZE_FAST +=
+        i2 + "srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
+      DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7d) break; // }\n";
+      DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+      DESERIALIZE_FAST += i2 + "return srcStart;\n";
+      DESERIALIZE_FAST += i1 + "} while (false);\n\n";
+    }
+
     if (THROW_FAST_PATH) {
       DESERIALIZE_FAST +=
         indent + "const failAt = srcStart ? srcStart : start;\n";

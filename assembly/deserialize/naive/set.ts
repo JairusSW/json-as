@@ -54,20 +54,17 @@ function deserializeSetDirect<T extends Set<any>>(
   srcStart: usize,
   srcEnd: usize,
   out: nonnull<T>,
-  allowWhitespace: bool = false,
 ): usize {
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT)
     throw new Error("Expected '[' at start of set");
 
   srcStart += 2;
-  if (allowWhitespace)
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   if (srcStart >= srcEnd) throw new Error("Unterminated set");
   if (load<u16>(srcStart) == BRACKET_RIGHT) return srcStart + 2;
 
   while (srcStart < srcEnd) {
-    if (allowWhitespace)
-      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     const code = load<u16>(srcStart);
 
     // @ts-ignore: type
@@ -97,12 +94,7 @@ function deserializeSetDirect<T extends Set<any>>(
       let ptr = srcStart + 2;
       while (ptr < srcEnd) {
         const next = load<u16>(ptr);
-        if (
-          next == COMMA ||
-          next == BRACKET_RIGHT ||
-          (allowWhitespace && isSpace(next))
-        )
-          break;
+        if (next == COMMA || next == BRACKET_RIGHT || isSpace(next)) break;
         ptr += 2;
       }
       // @ts-ignore: type
@@ -114,12 +106,7 @@ function deserializeSetDirect<T extends Set<any>>(
       let ptr = srcStart + 2;
       while (ptr < srcEnd) {
         const next = load<u16>(ptr);
-        if (
-          next == COMMA ||
-          next == BRACKET_RIGHT ||
-          (allowWhitespace && isSpace(next))
-        )
-          break;
+        if (next == COMMA || next == BRACKET_RIGHT || isSpace(next)) break;
         ptr += 2;
       }
       // @ts-ignore: type
@@ -136,14 +123,12 @@ function deserializeSetDirect<T extends Set<any>>(
       break;
     }
 
-    if (allowWhitespace)
-      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;
     const next = load<u16>(srcStart);
     if (next == COMMA) {
       srcStart += 2;
-      if (allowWhitespace)
-        while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
       continue;
     }
     if (next == BRACKET_RIGHT) return srcStart + 2;
@@ -163,12 +148,11 @@ export function deserializeSet<T extends Set<any>>(
   );
   out.clear();
 
-  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
   if (srcStart >= srcEnd)
     throw new Error("Input string had zero length or was all whitespace");
-  const end = deserializeSetDirect<T>(srcStart, srcEnd, out, true);
+  const end = deserializeSetDirect<T>(srcStart, srcEnd, out);
   if (end != srcEnd) throw new Error("Expected ']' at end of set");
   return out;
 }

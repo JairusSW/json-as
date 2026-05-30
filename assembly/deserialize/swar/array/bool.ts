@@ -17,7 +17,6 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
   let index = 0;
 
   do {
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;

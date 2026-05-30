@@ -237,7 +237,6 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
   let index = 0;
 
   out.length = 0;
-  srcStart = skipIntegerArrayWhitespace(srcStart, srcEnd);
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) {
     throw new Error("Failed to parse JSON!");
   }
@@ -654,7 +653,6 @@ function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
   let index = 0;
 
   do {
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;

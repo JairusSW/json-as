@@ -193,8 +193,16 @@ export namespace JSON {
    */
   // @ts-expect-error: inline
   @inline export function parse<T>(data: string): T {
-    const dataSize = bytes(data);
-    const dataPtr = changetype<usize>(data);
+    let dataPtr = changetype<usize>(data);
+    const dataEnd = dataPtr + bytes(data);
+    // Entry point skips leading whitespace: every deserialize handler may then
+    // assume srcStart points at the first non-whitespace char. Handlers must
+    // NOT re-skip leading whitespace themselves. (Trailing whitespace is left
+    // intact — scalars stop at the value end, composites self-trim, and
+    // JSON.Raw intentionally preserves trailing bytes.)
+    while (dataPtr < dataEnd && JSON.Util.isSpace(load<u16>(dataPtr)))
+      dataPtr += 2;
+    const dataSize = dataEnd - dataPtr;
     if (isBoolean<T>()) {
       return deserializeBoolean(dataPtr, dataPtr + dataSize) as T;
     } else if (isInteger<T>()) {
@@ -229,12 +237,20 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST)) {
           // @ts-expect-error: Defined by transform
+          const fastEnd = out.__DESERIALIZE_FAST(
+            dataPtr,
+            dataPtr + dataSize,
+            out,
+          );
+          // A non-zero return means the fast path matched; accept it when only
+          // trailing whitespace remains (pretty-printed input ends with a
+          // newline, so the cursor stops just past `}` rather than at srcEnd).
           if (
-            out.__DESERIALIZE_FAST(dataPtr, dataPtr + dataSize, out) ==
-            dataPtr + dataSize
+            fastEnd != 0 &&
+            JSON.Util.skipWhitespace(fastEnd, dataPtr + dataSize) ==
+              dataPtr + dataSize
           )
             return out;
-          // @ts-expect-error: Defined by transform
         }
         if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
@@ -932,6 +948,11 @@ export namespace JSON {
    * @returns void
    */
   function __deserialize<T>(srcStart: usize, srcEnd: usize, dst: usize = 0): T {
+    // Skip leading whitespace once here so every handler below may assume
+    // srcStart is at the first non-whitespace char. (Trailing whitespace is
+    // left intact — composites self-trim and JSON.Raw preserves it.)
+    while (srcStart < srcEnd && JSON.Util.isSpace(load<u16>(srcStart)))
+      srcStart += 2;
     if (isBoolean<T>()) {
       // @ts-expect-error: type
       return deserializeBoolean(srcStart, srcEnd);
@@ -972,7 +993,12 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST)) {
           // @ts-expect-error: Defined by transform
-          if (out.__DESERIALIZE_FAST(srcStart, srcEnd, out) == srcEnd)
+          const fastEnd = out.__DESERIALIZE_FAST(srcStart, srcEnd, out);
+          // Accept the fast path when only trailing whitespace remains.
+          if (
+            fastEnd != 0 &&
+            JSON.Util.skipWhitespace(fastEnd, srcEnd) == srcEnd
+          )
             return out;
         }
         // @ts-expect-error: Defined by transform
@@ -1048,6 +1074,15 @@ export namespace JSON {
     // @ts-expect-error: decorator
     @inline export function isSpace(code: u16): boolean {
       return code == 0x20 || code - 9 <= 4;
+    }
+    /** Advance past JSON whitespace (space, tab, LF, VT, FF, CR). */
+    // @ts-expect-error: decorator
+    @inline export function skipWhitespace(
+      srcStart: usize,
+      srcEnd: usize,
+    ): usize {
+      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+      return srcStart;
     }
     // @ts-expect-error: decorator
     @inline export function scanValueEnd(

@@ -216,6 +216,7 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
+    srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
       out.length = 0;
@@ -230,12 +231,13 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
       );
       if (!next) break;
       writePtr += elementSize;
-      srcStart = next;
+      srcStart = skipFloatArrayWhitespace(next, srcEnd);
       if (srcStart >= srcEnd) break;
 
       const code = load<u16>(srcStart);
       if (code == COMMA) {
         srcStart += 2;
+        srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);
         continue;
       }
       if (code == BRACKET_RIGHT) {
@@ -271,7 +273,6 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
   let index = 0;
 
   do {
-    srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
     srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);

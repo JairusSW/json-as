@@ -13,7 +13,6 @@ export function deserializeGenericArray<T extends unknown[]>(
   );
   out.length = 0;
 
-  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
   if (srcStart >= srcEnd)

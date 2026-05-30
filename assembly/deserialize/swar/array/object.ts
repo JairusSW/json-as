@@ -4,6 +4,7 @@ import {
   ensureArrayElementSlot,
   ensureArrayField,
   scanValueEnd,
+  skipWhitespace,
 } from "./shared";
 
 
@@ -17,6 +18,7 @@ import {
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
+    srcStart = skipWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
       out.length = 0;
@@ -37,9 +39,11 @@ import {
       store<valueof<T>>(slot, value);
       srcStart = valueEnd;
 
+      srcStart = skipWhitespace(srcStart, srcEnd);
       const code = load<u16>(srcStart);
       if (code == COMMA) {
         srcStart += 2;
+        srcStart = skipWhitespace(srcStart, srcEnd);
         index++;
         continue;
       }

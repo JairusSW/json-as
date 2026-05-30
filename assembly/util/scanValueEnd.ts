@@ -6,6 +6,7 @@ import {
   COMMA,
   QUOTE,
 } from "../custom/chars";
+import { isSpace } from "./isSpace";
 import { scanStringEnd } from "./stringScan";
 
 /**
@@ -59,7 +60,16 @@ import { scanStringEnd } from "./stringScan";
 
   while (srcStart < srcEnd) {
     const code = load<u16>(srcStart);
-    if (code == COMMA || code == BRACKET_RIGHT || code == BRACE_RIGHT)
+    // Stop at the structural terminator OR trailing whitespace, so the returned
+    // range is the exact value (scalar parsers assume [srcStart,srcEnd) is the
+    // value with no trailing whitespace). Callers skip whitespace to reach the
+    // following `,`/`]`/`}`.
+    if (
+      code == COMMA ||
+      code == BRACKET_RIGHT ||
+      code == BRACE_RIGHT ||
+      isSpace(code)
+    )
       return srcStart;
     srcStart += 2;
   }

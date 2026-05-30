@@ -37,7 +37,6 @@ export function deserializeMap<T extends Map<any, any>>(
   let depth = 0;
   let lastIndex: usize = 0;
 
-  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2; // would like to optimize this later
 
   if (srcStart - srcEnd == 0)
@@ -241,10 +240,12 @@ export function deserializeMap<T extends Map<any, any>>(
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACE_LEFT)
     throw new Error("Failed to parse JSON!");
   srcStart += 2;
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   if (srcStart >= srcEnd) throw new Error("Failed to parse JSON!");
   if (load<u16>(srcStart) == BRACE_RIGHT) return srcStart + 2;
 
   while (srcStart < srcEnd) {
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (load<u16>(srcStart) != QUOTE) break;
 
     const keyStart = srcStart + 2;
@@ -252,8 +253,10 @@ export function deserializeMap<T extends Map<any, any>>(
     if (keyEnd >= srcEnd) break;
 
     srcStart = keyEnd + 2;
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd || load<u16>(srcStart) != COLON) break;
     srcStart += 2;
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
 
     const valueEnd = scanValueEnd(srcStart, srcEnd);
     if (!valueEnd || valueEnd <= srcStart) break;
@@ -265,10 +268,12 @@ export function deserializeMap<T extends Map<any, any>>(
     );
     srcStart = valueEnd;
 
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;
     const code = load<u16>(srcStart);
     if (code == COMMA) {
       srcStart += 2;
+      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
       continue;
     }
     if (code == BRACE_RIGHT) return srcStart + 2;

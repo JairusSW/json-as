@@ -1,7 +1,7 @@
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { deserializeFloatArrayBody } from "./float";
-import { ensureArrayField, scanValueEnd } from "./shared";
+import { ensureArrayField, scanValueEnd, skipWhitespace } from "./shared";
 
 
 @inline export function deserializeArrayArrayBody<T extends unknown[][]>(
@@ -14,6 +14,7 @@ import { ensureArrayField, scanValueEnd } from "./shared";
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
+    srcStart = skipWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
       out.length = 0;
@@ -67,9 +68,11 @@ import { ensureArrayField, scanValueEnd } from "./shared";
         srcStart = valueEnd;
       }
 
+      srcStart = skipWhitespace(srcStart, srcEnd);
       const code = load<u16>(srcStart);
       if (code == COMMA) {
         srcStart += 2;
+        srcStart = skipWhitespace(srcStart, srcEnd);
         index++;
         continue;
       }

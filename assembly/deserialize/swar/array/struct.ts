@@ -34,7 +34,6 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
   let index = 0;
 
   do {
-    srcStart = skipStructArrayWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
     srcStart = skipStructArrayWhitespace(srcStart, srcEnd);

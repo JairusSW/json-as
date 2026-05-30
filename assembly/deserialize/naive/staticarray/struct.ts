@@ -12,7 +12,6 @@ export function deserializeStaticArrayStruct<T extends StaticArray<any>>(
   srcEnd: usize,
   dst: usize,
 ): T {
-  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
   if (srcStart - srcEnd == 0)

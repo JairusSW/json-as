@@ -26,7 +26,6 @@ import { deserializeStringField_SWAR } from "../string";
   let index = 0;
 
   do {
-    srcStart = skipStringArrayWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
     srcStart = skipStringArrayWhitespace(srcStart, srcEnd);
@@ -130,8 +129,7 @@ export function deserializeStringArray_SWAR<T extends string[]>(
   let writePtr: usize = dataStart;
   const writePtrLimit: usize = dataStart + <usize>maxElements * elementSize;
 
-  // Find `[`, skip whitespace.
-  srcStart = skipStringArrayWhitespace(srcStart, srcEnd);
+  // Caller guarantees srcStart is at the opening `[`.
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) {
     out.length = 0;
     return out;
