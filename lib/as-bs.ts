@@ -105,6 +105,19 @@ export namespace bs {
   }
 
   /**
+   * Resets the buffer to a clean, empty state. Call this after a throw aborts a
+   * serialize/deserialize op mid-flight: a partial run can leave `offset`
+   * advanced and the pause stacks non-empty, which would corrupt the next op.
+   */
+  // @ts-expect-error: @inline is a valid decorator
+  @inline export function reset(): void {
+    offset = buffer;
+    stackSize = 0;
+    pauseOffsets.length = 0;
+    pauseStackSizes.length = 0;
+  }
+
+  /**
    * Proposes that the buffer size is should be greater than or equal to the proposed size.
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to propose.

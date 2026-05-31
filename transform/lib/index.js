@@ -1319,6 +1319,9 @@ export class JSONTransform extends Visitor {
                 if (!inlineStringValue)
                     DESERIALIZE_FAST += indent + `srcStart += ${firstKeyOffset};\n`;
                 DESERIALIZE_FAST +=
+                    indent +
+                        `if (JSON.Util.isSpace(load<u16>(${inlineStringValue ? `srcStart + ${firstKeyOffset}` : "srcStart"}))) break;\n`;
+                DESERIALIZE_FAST +=
                     indent + deserializerFirst.join("\n" + indent) + "\n";
                 DESERIALIZE_FAST += indent + "seenAny = true;\n";
                 indent = indent.slice(0, -2);
@@ -1341,6 +1344,9 @@ export class JSONTransform extends Visitor {
                 indent += "  ";
                 if (!inlineStringValue)
                     DESERIALIZE_FAST += indent + `srcStart += ${nextKeyOffset};\n`;
+                DESERIALIZE_FAST +=
+                    indent +
+                        `if (JSON.Util.isSpace(load<u16>(${inlineStringValue ? `srcStart + ${nextKeyOffset}` : "srcStart"}))) break;\n`;
                 DESERIALIZE_FAST +=
                     indent + deserializerNext.join("\n" + indent) + "\n";
                 indent = indent.slice(0, -2);
@@ -1370,6 +1376,9 @@ export class JSONTransform extends Visitor {
                     DESERIALIZE_FAST += indent + "break;\n\n";
                     continue;
                 }
+                DESERIALIZE_FAST +=
+                    indent +
+                        `if (JSON.Util.isSpace(load<u16>(${inlineStringValue ? `srcStart + ${keyOffset}` : "srcStart"}))) break;\n`;
                 DESERIALIZE_FAST += indent + deserializer.join("\n" + indent) + "\n\n";
             }
         }

@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/as-test/as-test.config.schema.json",
+  "input": ["./assembly/__tests__/rfc/*.spec.ts"],
+  "outDir": "./.as-test/build",
+  "logs": "./.as-test/logs",
+  "snapshotDir": "./.as-test/snapshots",
+  "config": "none",
+  "coverage": {
+    "enabled": false
+  },
+  "buildOptions": {
+    "args": ["--debug"],
+    "target": "wasi"
+  },
+  "runOptions": {
+    "runtime": {
+      "cmd": "wasmtime <file>"
+    }
+  },
+  "modes": {
+    "naive": {
+      "env": {
+        "JSON_MODE": "NAIVE"
+      },
+      "buildOptions": {
+        "args": ["--transform ./"]
+      }
+    },
+    "swar": {
+      "env": {
+        "JSON_MODE": "SWAR"
+      },
+      "buildOptions": {
+        "args": ["--transform ./"]
+      }
+    },
+    "simd": {
+      "env": {
+        "JSON_MODE": "SIMD"
+      },
+      "buildOptions": {
+        "args": ["--debug", "--enable simd", "--transform ./"]
+      }
+    }
+  }
+}
