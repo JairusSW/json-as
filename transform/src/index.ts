@@ -22,7 +22,7 @@ import {
   Type,
 } from "assemblyscript/dist/assemblyscript.js";
 import { Transform } from "assemblyscript/dist/transform.js";
-import { readFileSync, writeFileSync } from "fs";
+import { writeFileSync } from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { CustomTransform } from "./linkers/custom.js";
@@ -3210,7 +3210,12 @@ export class JSONTransform extends Visitor {
     const fieldHelpersImport = this.imports.find((i) =>
       i.declarations?.find((d) => d.name.text == "__deserializeStringField"),
     );
-    const sourceText = readFileSync(fromPath).toString();
+    // Read the source text from the in-memory Source node rather than from disk.
+    // Under a virtual filesystem (e.g. asbuilder's in-memory compile, where a
+    // module's normalizedPath does not map to a real on-disk file) readFileSync
+    // throws ENOENT. The parsed Source already carries its full text, which is
+    // exactly what we're scanning for a local `scanValueEnd` definition.
+    const sourceText = node.text;
     const hasLocalScanValueEnd = /\bscanValueEnd\b/.test(sourceText);
 
     const baseRel = computeImportBaseRel(

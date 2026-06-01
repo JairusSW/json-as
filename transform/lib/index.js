@@ -1,6 +1,6 @@
 import { Node, Type, } from "assemblyscript/dist/assemblyscript.js";
 import { Transform } from "assemblyscript/dist/transform.js";
-import { readFileSync, writeFileSync } from "fs";
+import { writeFileSync } from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { CustomTransform } from "./linkers/custom.js";
@@ -2382,7 +2382,7 @@ export class JSONTransform extends Visitor {
         const atoiImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "atoi" || d.name.text == "atoi"));
         const scanValueEndImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "scanValueEnd" || d.name.text == "scanValueEnd"));
         const fieldHelpersImport = this.imports.find((i) => i.declarations?.find((d) => d.name.text == "__deserializeStringField"));
-        const sourceText = readFileSync(fromPath).toString();
+        const sourceText = node.text;
         const hasLocalScanValueEnd = /\bscanValueEnd\b/.test(sourceText);
         const baseRel = computeImportBaseRel(path.dirname(fromPath), path.join(baseDir));
         if (!bsImport) {
