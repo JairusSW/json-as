@@ -20,7 +20,8 @@
   "modes": {
     "naive": {
       "env": {
-        "JSON_MODE": "NAIVE"
+        "JSON_MODE": "NAIVE",
+        "JSON_STRICT": "true"
       },
       "buildOptions": {
         "args": ["--transform ./"]
@@ -28,7 +29,8 @@
     },
     "swar": {
       "env": {
-        "JSON_MODE": "SWAR"
+        "JSON_MODE": "SWAR",
+        "JSON_STRICT": "true"
       },
       "buildOptions": {
         "args": ["--transform ./"]
@@ -36,7 +38,8 @@
     },
     "simd": {
       "env": {
-        "JSON_MODE": "SIMD"
+        "JSON_MODE": "SIMD",
+        "JSON_STRICT": "true"
       },
       "buildOptions": {
         "args": ["--debug", "--enable simd", "--transform ./"]

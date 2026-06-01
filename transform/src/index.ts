@@ -2136,6 +2136,15 @@ export class JSONTransform extends Visitor {
     DESERIALIZE += indent + "          lastIndex = srcStart + 2;\n";
     DESERIALIZE += indent + "        }\n";
     DESERIALIZE += indent + "      }\n";
+    // STRICT: at a key position (between pairs, not mid-key) the only legal
+    // characters are a string-opening quote, a comma, or the closing brace.
+    // Anything else — an unquoted/single-quoted/numeric key, or garbage after a
+    // value with no separating comma — is malformed JSON. (Whitespace is already
+    // consumed above, so `code` here is the first non-space character.)
+    if (STRICT)
+      DESERIALIZE +=
+        indent +
+        '      else if (!isKey && code != 44 && code != 125) throw new Error("Expected \'\\"\' to start key in JSON object at position " + (srcEnd - srcStart).toString());\n';
     DESERIALIZE += indent + "      srcStart += 2;\n";
     DESERIALIZE += indent + "    } else {\n";
     // if (shouldGroup) DESERIALIZE += "    const keySize = keyEnd - keyStart;\n";

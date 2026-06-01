@@ -22,10 +22,63 @@ import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 }
 
 // @ts-ignore: inline
+@inline function isHexDigit(c: u16): bool {
+  return (
+    (c >= 0x30 && c <= 0x39) ||
+    (c >= 0x41 && c <= 0x46) ||
+    (c >= 0x61 && c <= 0x66)
+  );
+}
+
+// Strict RFC 8259 check for the char following a backslash, at [escPtr, srcEnd).
+// Legal escapes: " \ / b f n r t and \uXXXX (4 hex digits). Throws otherwise:
+// unknown escape letter, a trailing backslash, or a short / non-hex \u.
+// @ts-ignore: inline
+@inline function validateEscape(escPtr: usize, srcEnd: usize): void {
+  if (escPtr >= srcEnd)
+    throw new Error("Invalid JSON string: incomplete escape");
+  const code = load<u16>(escPtr);
+  if (code == 0x75) {
+    // \uXXXX
+    if (escPtr + 10 > srcEnd)
+      throw new Error("Invalid JSON string: incomplete \\u escape");
+    if (
+      !isHexDigit(load<u16>(escPtr, 2)) ||
+      !isHexDigit(load<u16>(escPtr, 4)) ||
+      !isHexDigit(load<u16>(escPtr, 6)) ||
+      !isHexDigit(load<u16>(escPtr, 8))
+    )
+      throw new Error("Invalid JSON string: \\u escape needs 4 hex digits");
+    return;
+  }
+  // short escapes: " \ / b f n r t
+  if (
+    code != 0x22 &&
+    code != 0x5c &&
+    code != 0x2f &&
+    code != 0x62 &&
+    code != 0x66 &&
+    code != 0x6e &&
+    code != 0x72 &&
+    code != 0x74
+  )
+    throw new Error("Invalid JSON string: illegal escape");
+}
+
+// @ts-ignore: inline
 @inline export function deserializeString_NAIVE(
   srcStart: usize,
   srcEnd: usize,
 ): string {
+  // RFC 8259: a string is quote-framed. All callers pass quote-inclusive
+  // bounds, so the first and last chars must be `"` (rejects `"` alone and
+  // trailing garbage like `""x`).
+  if (
+    srcEnd - srcStart < 4 ||
+    load<u16>(srcStart) != QUOTE ||
+    load<u16>(srcEnd - 2) != QUOTE
+  )
+    throw new Error("Invalid JSON string: missing surrounding quotes");
   // Strip quotes
   srcStart += 2;
   srcEnd -= 2;
@@ -39,10 +92,14 @@ import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 
     // Early exit
     if (block !== 0x5c) {
+      // RFC 8259: literal control chars (U+0000..U+001F) must be escaped.
+      if (block < 0x20)
+        throw new Error("Invalid JSON string: unescaped control character");
       bs.offset += 2;
       continue;
     }
 
+    validateEscape(srcStart, srcEnd);
     const code = load<u16>(srcStart);
     if (code !== 0x75) {
       // Short escapes (\n \t \" \\)

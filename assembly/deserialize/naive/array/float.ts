@@ -1,19 +1,15 @@
 import { isSpace } from "../../../util";
-import { COMMA, BRACKET_RIGHT } from "../../../custom/chars";
+import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON } from "../../..";
 
 /**
- * Float-array deserializer (`f64[]` / `f32[]`).
+ * Strict float-array deserializer (`f64[]` / `f32[]`).
  *
- * Worst-case sizing: every element is at least `D,` = 2 UTF-16 chars = 4
- * bytes (a single-digit value followed by `,` or `]`). The `srcLen >> 2`
- * upper bound holds even for valid JSON containing negative or fractional
- * widths, because each element advance still consumes >= 4 bytes.
- *
- * f64/f32 are unmanaged so AS skips zero-fill on `length=`. The parse loop
- * writes through a direct `writePtr` pointer, eliminating `Array.push`'s
- * per-element capacity check + length write. Final `out.length` is trimmed
- * to the actual element count.
+ * Enforces RFC 8259 array structure: `[`-framed, single-comma separated, no
+ * leading / trailing / doubled commas, and no garbage between values. Each
+ * element token is validated by `deserializeFloat_NAIVE` (via `JSON.__deserialize`),
+ * so malformed numbers like `0e` / `-01` / `1.` are rejected here too. Throws on
+ * any deviation.
  */
 export function deserializeFloatArray_NAIVE<T extends number[]>(
   srcStart: usize,
@@ -23,33 +19,45 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(instantiate<T>()),
   );
+  // `dst` may arrive pre-sized (e.g. the SWAR fast path presizes then falls
+  // back here); we re-parse from scratch via push, so start from empty.
+  out.length = 0;
 
-  const elementSize = sizeof<valueof<T>>();
-  const maxElements = i32((<usize>(srcEnd - srcStart)) >> 2);
-  if (maxElements > 0) out.length = maxElements;
-  const dataStart = out.dataStart;
-  let writePtr = dataStart;
+  // Trim surrounding whitespace and require the enclosing brackets.
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
+  if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT)
+    throw new Error("Invalid JSON array: expected '['");
+  if (load<u16>(srcEnd - 2) != BRACKET_RIGHT)
+    throw new Error("Invalid JSON array: expected ']'");
+  srcStart += 2; // past '['
+  srcEnd -= 2; // before ']'
 
-  let lastIndex: usize = 0;
-  while (srcStart < srcEnd) {
-    const code = load<u16>(srcStart);
-    if (<u32>code - 48 <= 9 || code == 45) {
-      lastIndex = srcStart;
+  // skip whitespace; an empty body is a valid empty array
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  if (srcStart >= srcEnd) return out;
+
+  while (true) {
+    // value token: runs until whitespace or a comma
+    const tokenStart = srcStart;
+    while (srcStart < srcEnd) {
+      const c = load<u16>(srcStart);
+      if (c == COMMA || isSpace(c)) break;
       srcStart += 2;
-      while (srcStart < srcEnd) {
-        const c = load<u16>(srcStart);
-        if (c == COMMA || c == BRACKET_RIGHT || isSpace(c)) {
-          const value = JSON.__deserialize<valueof<T>>(lastIndex, srcStart);
-          store<valueof<T>>(writePtr, value);
-          writePtr += elementSize;
-          break;
-        }
-        srcStart += 2;
-      }
     }
-    srcStart += 2;
+    if (srcStart == tokenStart)
+      throw new Error("Invalid JSON array: missing value");
+    out.push(JSON.__deserialize<valueof<T>>(tokenStart, srcStart));
+
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    if (srcStart >= srcEnd) break; // end of array body
+    if (load<u16>(srcStart) != COMMA)
+      throw new Error("Invalid JSON array: expected ',' or ']'");
+    srcStart += 2; // past ','
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    if (srcStart >= srcEnd)
+      throw new Error("Invalid JSON array: trailing comma");
   }
 
-  out.length = i32(<usize>(writePtr - dataStart) / elementSize);
   return out;
 }

@@ -233,10 +233,12 @@ describe("Should deserialize strings - Empty and whitespace", () => {
 });
 
 describe("Should deserialize strings - Special characters", () => {
-  expect(JSON.parse<string>('"\\"')).toBe('"');
+  // NOTE: '"\\"' and '"\\\\\\"' are malformed — a trailing escaped quote with no
+  // closing quote (unterminated). Under strict naive parsing they now reject
+  // (uncatchable abort until try-as traces the value path; enumerated in
+  // assembly/__tests__/rfc). Only the well-formed escape cases stay asserted.
   expect(JSON.parse<string>('"\\\\"')).toBe("\\");
   expect(JSON.parse<string>('"\\"\\\\"')).toBe('"\\');
-  expect(JSON.parse<string>('"\\\\\\"')).toBe('\\"');
   expect(JSON.parse<string>('"/"')).toBe("/");
   expect(JSON.parse<string>('"\\b"')).toBe("\b");
   expect(JSON.parse<string>('"\\f"')).toBe("\f");
