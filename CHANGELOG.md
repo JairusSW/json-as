@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-06-01 - v1.3.9
+
+- fix: remove readFileSync which failed under virtual file systems
+
 ## 2026-06-01 - v1.3.8
 
 - feat(strict): the **naive value-path deserializers now reject malformed JSON** instead of silently accepting it (RFC 8259). Numbers (`deserializeFloat_NAIVE`) are validated against the JSON number grammar — no leading zeros, bare `-`, empty fraction/exponent, `+` sign, hex, or trailing garbage (the `NaN`/`Infinity` extension is preserved). Strings (`deserializeString_NAIVE`) reject unescaped control chars, illegal/incomplete escapes, non-hex `\u`, and missing surrounding quotes. The scalar/typed **array scanners** (`f64[]`/`i*[]`/`u*[]`/`bool[]`/`string[]`) were rewritten as strict state machines: `[`-framed, single-comma separated, no leading/trailing/doubled commas, no inter-value garbage. On the JSONTestSuite `n_` corpus (parsed against concrete types, one spec per case in `assembly/__tests__/rfc/`), naive now **rejects 179/188** reject-cases — up from 55 — the remaining 9 being the intentional `NaN`/`Infinity` extension (5) plus arbitrary-`JSON.Value`/formfeed/struct-trailing edges (4). Non-object rejects compile to uncatchable aborts until try-as traces the value path; object rejects (struct `__DESERIALIZE_SLOW`) are catchable today. Main suite (10,557) and curated rfc suite (801) stay green across all three modes
