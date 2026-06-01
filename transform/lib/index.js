@@ -1547,7 +1547,7 @@ export class JSONTransform extends Visitor {
         if (STRICT)
             DESERIALIZE +=
                 indent +
-                    "      else if (!isKey && code != 44 && code != 125) throw new Error(\"Expected '\\\"' to start key in JSON object at position \" + (srcEnd - srcStart).toString());\n";
+                    '      else if (!isKey && code != 44 && code != 125) throw new Error("Expected \'\\"\' to start key in JSON object at position " + (srcEnd - srcStart).toString());\n';
         DESERIALIZE += indent + "      srcStart += 2;\n";
         DESERIALIZE += indent + "    } else {\n";
         const groupMembers = (members) => {
