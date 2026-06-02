@@ -1,7 +1,5 @@
 import { JSON } from "../..";
-import { bs } from "../../../lib/as-bs";
 import {
-  BACK_SLASH,
   COMMA,
   CHAR_F,
   BRACE_LEFT,
@@ -13,12 +11,52 @@ import {
   CHAR_T,
   COLON,
 } from "../../custom/chars";
-import { isSpace, isUnescapedQuote, scanStringEnd } from "../../util";
+import { isSpace, scanStringEnd } from "../../util";
 import { ptrToStr } from "../../util/ptrToStr";
-import { deserializeArray } from "./array";
-import { deserializeBoolean } from "./bool";
-import { deserializeFloat_NAIVE } from "./float";
-import { deserializeString_NAIVE } from "./string";
+import { deserializeArray } from "../index/array";
+import { deserializeFloat } from "../index/float";
+import { deserializeString } from "../index/string";
+
+// "true"  as a u64 of UTF-16 code units (LE).
+// @ts-ignore: inline
+@inline const TRUE_WORD: u64 = 28429475166421108;
+// "alse"  — the tail of "false", read at +2 so the leading 'f' is skipped.
+// @ts-ignore: inline
+@inline const ALSE_WORD: u64 = 28429466576093281;
+// "null"  as a u64 of UTF-16 code units (LE).
+// @ts-ignore: inline
+@inline const NULL_WORD: u64 = 30399761348886638;
+
+/**
+ * Scans past a balanced `{...}` or `[...]` container and returns the offset
+ * just after its closing delimiter. Strings are skipped wholesale so that
+ * delimiters appearing inside them are not counted. Only the requested
+ * delimiter pair is tracked for depth — JSON is balanced, so the matching
+ * close is reached without inspecting the other bracket type.
+ */
+// @ts-ignore: inline
+@inline function scanContainerEnd(
+  ptr: usize,
+  srcEnd: usize,
+  open: u32,
+  close: u32,
+): usize {
+  let depth = 1;
+  ptr += 2;
+  while (ptr < srcEnd) {
+    const code = load<u16>(ptr);
+    if (code == QUOTE) {
+      ptr = scanStringEnd(ptr, srcEnd);
+      if (ptr >= srcEnd) throw new Error("Unterminated string in JSON object");
+    } else if (code == close) {
+      if (--depth == 0) return ptr + 2;
+    } else if (code == open) {
+      depth++;
+    }
+    ptr += 2;
+  }
+  return srcEnd;
+}
 
 export function deserializeObject(
   srcStart: usize,
@@ -27,15 +65,9 @@ export function deserializeObject(
 ): JSON.Obj {
   const out = changetype<JSON.Obj>(dst || changetype<usize>(new JSON.Obj()));
 
-  let keyStart: usize = 0;
-  let keyEnd: usize = 0;
-  let isKey = false;
-  let depth = 0;
-  let lastIndex: usize = 0;
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
-  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2; // would like to optimize this later
-
-  if (srcStart - srcEnd == 0)
+  if (srcEnd == srcStart)
     throw new Error("Input string had zero length or was all whitespace");
   if (load<u16>(srcStart) != BRACE_LEFT)
     throw new Error(
@@ -50,163 +82,94 @@ export function deserializeObject(
 
   srcStart += 2;
   while (srcStart < srcEnd) {
-    let code = load<u16>(srcStart); // while (isSpace(code)) code = load<u16>(srcStart += 2);
-    if (keyStart == 0) {
-      if (code == QUOTE && isUnescapedQuote(srcStart)) {
-        if (isKey) {
-          keyStart = lastIndex;
-          keyEnd = srcStart;
-          // console.log("Key: " + ptrToStr(lastIndex, srcStart));
-          // console.log("Next: " + String.fromCharCode(load<u16>(srcStart + 2)));
-          while (isSpace((code = load<u16>((srcStart += 2))))) {}
-          if (code !== COLON)
-            throw new Error(
-              "Expected ':' after key at position " +
-                (srcEnd - srcStart).toString(),
-            );
-          isKey = false;
-        } else {
-          // console.log("Got key start");
-          isKey = true; // i don't like this
-          lastIndex = srcStart + 2;
-        }
-      }
-      // isKey = !isKey;
+    let code = load<u16>(srcStart);
+
+    // Skip insignificant whitespace and member separators before each key.
+    if (isSpace(code) || code == COMMA) {
       srcStart += 2;
-    } else {
-      if (code == QUOTE) {
-        lastIndex = srcStart;
-        srcStart = scanStringEnd(srcStart, srcEnd);
-        if (srcStart >= srcEnd)
-          throw new Error("Unterminated string in JSON object");
-        out.set(
-          ptrToStr(keyStart, keyEnd),
-          deserializeString_NAIVE(lastIndex, srcStart + 2),
-        );
+      continue;
+    }
+    if (code == BRACE_RIGHT) break;
+
+    // --- key ---
+    if (code != QUOTE)
+      throw new Error(
+        "Unexpected character in JSON object '" +
+          String.fromCharCode(code) +
+          "' at position " +
+          (srcEnd - srcStart).toString(),
+      );
+    const keyStart = srcStart + 2;
+    srcStart = scanStringEnd(srcStart, srcEnd);
+    if (srcStart >= srcEnd)
+      throw new Error("Unterminated string in JSON object");
+    const key = ptrToStr(keyStart, srcStart);
+    srcStart += 2;
+
+    // --- colon ---
+    while (srcStart < srcEnd && isSpace((code = load<u16>(srcStart))))
+      srcStart += 2;
+    if (srcStart >= srcEnd || code != COLON)
+      throw new Error(
+        "Expected ':' after key at position " + (srcEnd - srcStart).toString(),
+      );
+    srcStart += 2;
+
+    // --- value ---
+    while (srcStart < srcEnd && isSpace((code = load<u16>(srcStart))))
+      srcStart += 2;
+
+    if (code == QUOTE) {
+      const valStart = srcStart;
+      srcStart = scanStringEnd(srcStart, srcEnd);
+      if (srcStart >= srcEnd)
+        throw new Error("Unterminated string in JSON object");
+      out.set(key, deserializeString(valStart, srcStart + 2));
+      srcStart += 2;
+    } else if (code - 48 <= 9 || code == 45) {
+      const valStart = srcStart;
+      srcStart += 2;
+      while (srcStart < srcEnd) {
+        code = load<u16>(srcStart);
+        if (code == COMMA || code == BRACE_RIGHT || isSpace(code)) break;
         srcStart += 2;
-        keyStart = 0;
-        continue;
-      } else if (code - 48 <= 9 || code == 45) {
-        lastIndex = srcStart;
-        srcStart += 2;
-        while (srcStart < srcEnd) {
-          const code = load<u16>(srcStart);
-          if (code == COMMA || code == BRACE_RIGHT || isSpace(code)) {
-            // console.log("Value (number): " + ptrToStr(lastIndex, srcStart));
-            out.set(
-              ptrToStr(keyStart, keyEnd),
-              deserializeFloat_NAIVE<f64>(lastIndex, srcStart),
-            );
-            // while (isSpace(load<u16>((srcStart += 2)))) {
-            //   /* empty */
-            // }
-            srcStart += 2;
-            // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
-            keyStart = 0;
-            break;
-          }
-          srcStart += 2;
-        }
-      } else if (code == BRACE_LEFT) {
-        lastIndex = srcStart;
-        depth++;
-        srcStart += 2;
-        while (srcStart < srcEnd) {
-          const code = load<u16>(srcStart);
-          if (code == QUOTE) {
-            srcStart = scanStringEnd(srcStart, srcEnd);
-            if (srcStart >= srcEnd)
-              throw new Error("Unterminated string in JSON object");
-          } else if (code == BRACE_RIGHT) {
-            if (--depth == 0) {
-              // console.log("Value (object): " + ptrToStr(lastIndex, srcStart + 2));
-              out.set(
-                ptrToStr(keyStart, keyEnd),
-                deserializeObject(lastIndex, (srcStart += 2), 0),
-              );
-              // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
-              keyStart = 0;
-              // while (isSpace(load<u16>(srcStart))) {
-              //   /* empty */
-              // }
-              break;
-            }
-          } else if (code == BRACE_LEFT) depth++;
-          srcStart += 2;
-        }
-      } else if (code == BRACKET_LEFT) {
-        lastIndex = srcStart;
-        depth++;
-        srcStart += 2;
-        while (srcStart < srcEnd) {
-          const code = load<u16>(srcStart);
-          if (code == QUOTE) {
-            srcStart = scanStringEnd(srcStart, srcEnd);
-            if (srcStart >= srcEnd)
-              throw new Error("Unterminated string in JSON object");
-          } else if (code == BRACKET_RIGHT) {
-            if (--depth == 0) {
-              // console.log("Value (array): " + ptrToStr(lastIndex, srcStart + 2));
-              out.set(
-                ptrToStr(keyStart, keyEnd),
-                deserializeArray<JSON.Value[]>(lastIndex, (srcStart += 2), 0),
-              );
-              // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
-              keyStart = 0;
-              // while (isSpace(load<u16>((srcStart += 2)))) {
-              //   /* empty */
-              // }
-              break;
-            }
-          } else if (code == BRACKET_LEFT) depth++;
-          srcStart += 2;
-        }
-      } else if (code == CHAR_T) {
-        if (load<u64>(srcStart) == 28429475166421108) {
-          // console.log("Value (bool): " + ptrToStr(srcStart, srcStart + 8));
-          out.set(ptrToStr(keyStart, keyEnd), true);
-          srcStart += 8;
-          // while (isSpace(load<u16>((srcStart += 2)))) {
-          //   /* empty */
-          // }
-          srcStart += 2;
-          // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)) + "  " + (srcStart < srcEnd).toString());
-          keyStart = 0;
-        }
-      } else if (code == CHAR_F) {
-        if (load<u64>(srcStart, 2) == 28429466576093281) {
-          // console.log("Value (bool): " + ptrToStr(srcStart, srcStart + 10));
-          out.set(ptrToStr(keyStart, keyEnd), false);
-          srcStart += 10;
-          // while (isSpace(load<u16>((srcStart += 2)))) {
-          //   /* empty */
-          // }
-          srcStart += 2;
-          // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
-          keyStart = 0;
-        }
-      } else if (code == CHAR_N) {
-        if (load<u64>(srcStart) == 30399761348886638) {
-          // console.log("Value (null): " + ptrToStr(srcStart, srcStart + 8));
-          out.set(ptrToStr(keyStart, keyEnd), JSON.Value.from<usize>(0));
-          srcStart += 8;
-          // while (isSpace(load<u16>((srcStart += 2)))) {
-          /* empty */
-          // }
-          srcStart += 2;
-          // console.log("Next: " + String.fromCharCode(load<u16>(srcStart)));
-          keyStart = 0;
-        }
-      } else if (isSpace(code)) {
-        srcStart += 2;
-      } else {
-        throw new Error(
-          "Unexpected character in JSON object '" +
-            String.fromCharCode(code) +
-            "' at position " +
-            (srcEnd - srcStart).toString(),
-        );
       }
+      out.set(key, deserializeFloat<f64>(valStart, srcStart));
+    } else if (code == BRACE_LEFT) {
+      const valStart = srcStart;
+      srcStart = scanContainerEnd(srcStart, srcEnd, BRACE_LEFT, BRACE_RIGHT);
+      out.set(key, deserializeObject(valStart, srcStart, 0));
+    } else if (code == BRACKET_LEFT) {
+      const valStart = srcStart;
+      srcStart = scanContainerEnd(
+        srcStart,
+        srcEnd,
+        BRACKET_LEFT,
+        BRACKET_RIGHT,
+      );
+      out.set(key, deserializeArray<JSON.Value[]>(valStart, srcStart, 0));
+    } else if (code == CHAR_T) {
+      if (load<u64>(srcStart) != TRUE_WORD)
+        throw new Error("Expected 'true' in JSON object");
+      out.set(key, true);
+      srcStart += 8;
+    } else if (code == CHAR_F) {
+      if (load<u64>(srcStart, 2) != ALSE_WORD)
+        throw new Error("Expected 'false' in JSON object");
+      out.set(key, false);
+      srcStart += 10;
+    } else if (code == CHAR_N) {
+      if (load<u64>(srcStart) != NULL_WORD)
+        throw new Error("Expected 'null' in JSON object");
+      out.set(key, JSON.Value.from<usize>(0));
+      srcStart += 8;
+    } else {
+      throw new Error(
+        "Unexpected character in JSON object '" +
+          String.fromCharCode(code) +
+          "' at position " +
+          (srcEnd - srcStart).toString(),
+      );
     }
   }
   return out;

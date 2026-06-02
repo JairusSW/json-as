@@ -59,11 +59,66 @@ import {
 import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes, scanStringEnd } from "./util";
 
-/**
- * Offset of the 'storage' property in the JSON.Value class.
- */
+// --- NaN-boxing encoding for JSON.Value ----------------------------------
+// JSON.Value packs its type tag and payload into a single 8-byte word.
+// Real f64 values are stored as their raw IEEE-754 bits; every other type is
+// encoded inside a quiet-NaN ("boxed") word: a 5-bit tag (the JSON.Types id,
+// or Struct for @json classes) plus a 45-bit payload holding a 32-bit pointer
+// or a small scalar. 64-bit ints that don't fit the payload are spilled to a
+// heap StaticArray<u64> referenced by the payload pointer and flagged in the
+// sign bit. Only quiet-NaN doubles whose top two mantissa bits are both set
+// collide with the box signature; hardware NaN is 0x7FF8.. so finite/Inf/NaN
+// doubles all pass through untouched.
+//
+// The managed reference packed into the word is traced by JSON.Value.__visit;
+// AssemblyScript only wires that hook for library-declared classes, so the
+// json-as transform marks this source as a library source (see afterParse).
 // @ts-expect-error: Decorator valid here
-@inline const STORAGE = offsetof<JSON.Value>("storage");
+@inline const VAL_QNAN: u64 = 0x7ffc000000000000; // boxed signature (quiet NaN)
+// @ts-expect-error: Decorator valid here
+@inline const VAL_TAG_SHIFT: u8 = 45;
+// @ts-expect-error: Decorator valid here
+@inline const VAL_PAYLOAD_MASK: u64 = 0x00001fffffffffff; // low 45 bits
+// @ts-expect-error: Decorator valid here
+@inline const VAL_PTR_MASK: u64 = 0xffffffff; // wasm32 pointer
+// @ts-expect-error: Decorator valid here
+@inline const VAL_BOX64: u64 = 0x8000000000000000; // sign bit: 64-bit int spilled to heap
+// @ts-expect-error: Decorator valid here
+@inline const VAL_NULL: u64 = VAL_QNAN; // tag 0 (Null), payload 0
+// @ts-expect-error: Decorator valid here
+@inline const VAL_I64_LIMIT: i64 = 17592186044416; // 2^44 — inline range is [-2^44, 2^44)
+// @ts-expect-error: Decorator valid here
+@inline const VAL_U64_LIMIT: u64 = 35184372088832; // 2^45 — inline range is [0, 2^45)
+
+// @ts-expect-error: Decorator valid here
+@inline function valBoxed(w: u64): bool {
+  return (w & VAL_QNAN) == VAL_QNAN;
+}
+// @ts-expect-error: Decorator valid here
+@inline function valTag(w: u64): u32 {
+  return <u32>((w >> VAL_TAG_SHIFT) & 0x1f);
+}
+// @ts-expect-error: Decorator valid here
+@inline function valPayload(w: u64): u64 {
+  return w & VAL_PAYLOAD_MASK;
+}
+// @ts-expect-error: Decorator valid here
+@inline function valPtr(w: u64): usize {
+  return <usize>(w & VAL_PTR_MASK);
+}
+// @ts-expect-error: Decorator valid here
+@inline function valBox(tag: u32, payload: u64): u64 {
+  return (
+    VAL_QNAN | ((<u64>tag) << VAL_TAG_SHIFT) | (payload & VAL_PAYLOAD_MASK)
+  );
+}
+// @ts-expect-error: Decorator valid here
+@inline function valIntTag<T>(): u32 {
+  if (sizeof<T>() == 1) return isSigned<T>() ? JSON.Types.I8 : JSON.Types.U8;
+  if (sizeof<T>() == 2) return isSigned<T>() ? JSON.Types.I16 : JSON.Types.U16;
+  if (sizeof<T>() == 4) return isSigned<T>() ? JSON.Types.I32 : JSON.Types.U32;
+  return isSigned<T>() ? JSON.Types.I64 : JSON.Types.U64;
+}
 
 export namespace JSON {
   /**
@@ -463,14 +518,27 @@ export namespace JSON {
     /** Map of struct type IDs to their serialization function indices */
     @lazy static METHODS: Map<u32, u32> = new Map<u32, u32>();
 
-    /** The runtime type identifier (see JSON.Types) */
-    public type: u16;
-
-    /** Internal storage for the value (8 bytes, can hold any primitive or pointer) */
-    private storage: u64;
+    /** NaN-boxed word holding both the type tag and the value (8 bytes). */
+    private bits: u64;
 
     private constructor() {
       unreachable();
+    }
+
+    /**
+     * The runtime type identifier (see JSON.Types), decoded from the boxed word.
+     * Struct values report `idof<T>() + JSON.Types.Struct`, recovered from the
+     * stored object's runtime header.
+     */
+    get type(): u16 {
+      const w = this.bits;
+      if (!valBoxed(w)) return JSON.Types.F64;
+      const tag = valTag(w);
+      if (tag == JSON.Types.Struct) {
+        const rtId = changetype<OBJECT>(valPtr(w) - TOTAL_OVERHEAD).rtId;
+        return <u16>rtId + JSON.Types.Struct;
+      }
+      return <u16>tag;
     }
 
     /**
@@ -478,9 +546,11 @@ export namespace JSON {
      * @returns An instance of JSON.Value.
      */
     @inline static empty(): JSON.Value {
-      return changetype<JSON.Value>(
+      const out = changetype<JSON.Value>(
         __new(offsetof<JSON.Value>(), idof<JSON.Value>()),
       );
+      out.bits = VAL_NULL;
+      return out;
     }
 
     /**
@@ -556,35 +626,37 @@ export namespace JSON {
      * @param value - The value to be set.
      */
     @inline set<T>(value: T): void {
-      this.type = this.getType<T>(value);
-
-      if (value instanceof JSON.Box) this.set(value.value);
-      else if (isBoolean<T>())
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (
-        isInteger<T>() &&
-        !isSigned<T>() &&
-        changetype<usize>(value) == 0 &&
-        nameof<T>() == "usize"
-      )
-        store<usize>(changetype<usize>(this), 0, STORAGE);
-      else if (isInteger<T>() || isFloat<T>())
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (isNullable<T>() && changetype<usize>(value) === 0)
-        store<usize>(changetype<usize>(this), 0, STORAGE);
-      else if (isString<T>()) store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof JSON.Raw)
-        store<T>(changetype<usize>(this), value, STORAGE);
-      // @ts-expect-error: supplied by transform
-      else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
+      if (value instanceof JSON.Box) {
+        this.set(value.value);
+      } else if (isBoolean<T>()) {
+        this.bits = valBox(JSON.Types.Bool, value ? 1 : 0);
+      } else if (isInteger<T>() && nameof<T>() == "usize") {
+        // A `usize` of 0 is the null sentinel (see deserializeArbitrary);
+        // any other usize is an ordinary 32-bit unsigned integer.
+        this.bits = value ? valBox(valIntTag<T>(), <u64>value) : VAL_NULL;
+      } else if (isFloat<T>()) {
+        if (sizeof<T>() == 4) {
+          this.bits = valBox(JSON.Types.F32, <u64>reinterpret<u32>(<f32>value));
+        } else {
+          const f = <f64>value;
+          // Canonicalize NaN so it never collides with the box signature.
+          this.bits = isNaN(f) ? 0x7ff8000000000000 : reinterpret<u64>(f);
+        }
+      } else if (isInteger<T>()) {
+        if (sizeof<T>() == 8) this.setWide<T>(value);
+        else this.bits = valBox(valIntTag<T>(), <u64>value);
+      } else if (isNullable<T>() && changetype<usize>(value) === 0) {
+        this.bits = VAL_NULL;
+      } else if (isString<T>()) {
+        this.bits = valBox(JSON.Types.String, <u64>changetype<usize>(value));
+      } else if (value instanceof JSON.Raw) {
+        this.bits = valBox(JSON.Types.Raw, <u64>changetype<usize>(value));
+        // @ts-expect-error: supplied by transform
+      } else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
         // @ts-expect-error
         if (!JSON.Value.METHODS.has(idof<T>()))
           JSON.Value.METHODS.set(idof<T>(), value.__SERIALIZE.index);
-        store<usize>(
-          changetype<usize>(this),
-          changetype<usize>(value),
-          STORAGE,
-        );
+        this.bits = valBox(JSON.Types.Struct, <u64>changetype<usize>(value));
       } else if (
         value instanceof Int8Array ||
         value instanceof Uint8Array ||
@@ -596,20 +668,52 @@ export namespace JSON {
         value instanceof Int64Array ||
         value instanceof Uint64Array ||
         value instanceof Float32Array ||
-        value instanceof Float64Array ||
-        value instanceof ArrayBuffer
-      )
-        store<T>(changetype<usize>(this), value, STORAGE);
-      else if (value instanceof Map) {
+        value instanceof Float64Array
+      ) {
+        this.bits = valBox(
+          JSON.Types.TypedArray,
+          <u64>changetype<usize>(value),
+        );
+      } else if (value instanceof ArrayBuffer) {
+        this.bits = valBox(
+          JSON.Types.ArrayBuffer,
+          <u64>changetype<usize>(value),
+        );
+      } else if (value instanceof Map) {
         if (idof<T>() !== idof<Map<string, JSON.Value>>()) {
           abort("Maps must be of type Map<string, JSON.Value>!");
         }
-        store<T>(changetype<usize>(this), value, STORAGE);
+        this.bits = valBox(JSON.Types.Map, <u64>changetype<usize>(value));
       } else if (value instanceof JSON.Obj) {
-        store<T>(changetype<usize>(this), value, STORAGE);
+        this.bits = valBox(JSON.Types.Object, <u64>changetype<usize>(value));
         // @ts-expect-error
       } else if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) {
-        store<T>(changetype<usize>(this), value, STORAGE);
+        this.bits = valBox(JSON.Types.Array, <u64>changetype<usize>(value));
+      }
+    }
+
+    /** Encodes a 64-bit integer, spilling to the heap when it exceeds the payload. */
+    @inline private setWide<T>(value: T): void {
+      if (isSigned<T>()) {
+        const v = <i64>value;
+        if (v >= -VAL_I64_LIMIT && v < VAL_I64_LIMIT) {
+          this.bits = valBox(JSON.Types.I64, <u64>v);
+        } else {
+          const box = new StaticArray<u64>(1);
+          unchecked((box[0] = <u64>v));
+          this.bits =
+            valBox(JSON.Types.I64, <u64>changetype<usize>(box)) | VAL_BOX64;
+        }
+      } else {
+        const v = <u64>value;
+        if (v < VAL_U64_LIMIT) {
+          this.bits = valBox(JSON.Types.U64, v);
+        } else {
+          const box = new StaticArray<u64>(1);
+          unchecked((box[0] = v));
+          this.bits =
+            valBox(JSON.Types.U64, <u64>changetype<usize>(box)) | VAL_BOX64;
+        }
       }
     }
 
@@ -618,7 +722,23 @@ export namespace JSON {
      * @returns The encapsulated value.
      */
     @inline get<T>(): T {
-      return load<T>(changetype<usize>(this), STORAGE);
+      const w = this.bits;
+      if (isFloat<T>()) {
+        if (sizeof<T>() == 4) return <T>reinterpret<f32>(<u32>valPayload(w));
+        return <T>reinterpret<f64>(w);
+      } else if (isInteger<T>()) {
+        if (sizeof<T>() == 8) {
+          if (w & VAL_BOX64) return load<T>(valPtr(w));
+          if (isSigned<T>()) return <T>((<i64>(valPayload(w) << 19)) >> 19);
+          return <T>valPayload(w);
+        }
+        return <T>valPayload(w);
+      } else if (isBoolean<T>()) {
+        return <T>valPayload(w);
+      } else if (isReference<T>()) {
+        return changetype<T>(valPtr(w));
+      }
+      return unreachable();
     }
 
     /**
@@ -627,7 +747,7 @@ export namespace JSON {
      * @returns The encapsulated value.
      */
     @inline as<T>(): T {
-      return load<T>(changetype<usize>(this), STORAGE);
+      return this.get<T>();
     }
 
     /**
@@ -709,8 +829,18 @@ export namespace JSON {
 
 
     @unsafe private __visit(cookie: u32): void {
-      if (this.type >= JSON.Types.String) {
-        __visit(load<usize>(changetype<usize>(this), STORAGE), cookie);
+      const w = this.bits;
+      if (!valBoxed(w)) return; // raw f64 holds no reference
+      const tag = valTag(w);
+      // String(13)..ArrayBuffer(19) and Struct all carry a managed pointer;
+      // Raw(1) is intentionally not traced (matches prior behavior).
+      if (tag >= JSON.Types.String) {
+        __visit(valPtr(w), cookie);
+      } else if (
+        (tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
+        w & VAL_BOX64
+      ) {
+        __visit(valPtr(w), cookie); // heap-spilled 64-bit int
       }
     }
   }

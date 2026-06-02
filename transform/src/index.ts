@@ -3607,6 +3607,20 @@ export default class Transformer extends Transform {
         );
       }
     }
+
+    // AssemblyScript only wires a class's custom `__visit` GC hook when that
+    // class is declared in a *library* source (see Compiler: the `__visit`
+    // member is honored only when `isDeclaredInLibrary`). JSON.Value defines
+    // such a hook to trace the managed reference packed into its storage word,
+    // so mark json-as's own index as a library source. This is done after the
+    // processing above so the transform's source ordering is unaffected; the
+    // compiler reads `isLibrary` later, during compilation.
+    for (const source of parser.sources) {
+      const p = source.internalPath;
+      if (p === "assembly/index" || p.endsWith("/json-as/assembly/index")) {
+        source.sourceKind = SourceKind.Library;
+      }
+    }
   }
 }
 

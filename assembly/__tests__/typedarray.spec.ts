@@ -3,59 +3,35 @@ import { describe, expect } from "as-test";
 import { bs } from "../../lib/as-bs";
 
 function makeArbitraryU8(value: u8): JSON.Value {
-  const out = JSON.Value.empty();
-  out.type = JSON.Types.U8;
-  store<u8>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
-  return out;
+  return JSON.Value.from<u8>(value);
 }
 
 function makeArbitraryU16(value: u16): JSON.Value {
-  const out = JSON.Value.empty();
-  out.type = JSON.Types.U16;
-  store<u16>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
-  return out;
+  return JSON.Value.from<u16>(value);
 }
 
 function makeArbitraryU32(value: u32): JSON.Value {
-  const out = JSON.Value.empty();
-  out.type = JSON.Types.U32;
-  store<u32>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
-  return out;
+  return JSON.Value.from<u32>(value);
 }
 
 function makeArbitraryU64(value: u64): JSON.Value {
-  const out = JSON.Value.empty();
-  out.type = JSON.Types.U64;
-  store<u64>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
-  return out;
+  return JSON.Value.from<u64>(value);
 }
 
 function makeArbitraryI8(value: i8): JSON.Value {
-  const out = JSON.Value.empty();
-  out.type = JSON.Types.I8;
-  store<i8>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
-  return out;
+  return JSON.Value.from<i8>(value);
 }
 
 function makeArbitraryI16(value: i16): JSON.Value {
-  const out = JSON.Value.empty();
-  out.type = JSON.Types.I16;
-  store<i16>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
-  return out;
+  return JSON.Value.from<i16>(value);
 }
 
 function makeArbitraryI64(value: i64): JSON.Value {
-  const out = JSON.Value.empty();
-  out.type = JSON.Types.I64;
-  store<i64>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
-  return out;
+  return JSON.Value.from<i64>(value);
 }
 
 function makeArbitraryF32(value: f32): JSON.Value {
-  const out = JSON.Value.empty();
-  out.type = JSON.Types.F32;
-  store<f32>(changetype<usize>(out), value, offsetof<JSON.Value>("storage"));
-  return out;
+  return JSON.Value.from<f32>(value);
 }
 
 function makeInt8Array(): Int8Array {

@@ -2648,6 +2648,12 @@ export default class Transformer extends Transform {
                 writeFileSync(path.join(process.cwd(), this.baseDir, removeExtension(source.normalizedPath) + ".tmp.ts"), toString(source));
             }
         }
+        for (const source of parser.sources) {
+            const p = source.internalPath;
+            if (p === "assembly/index" || p.endsWith("/json-as/assembly/index")) {
+                source.sourceKind = 2;
+            }
+        }
     }
 }
 function sortMembers(members) {
