@@ -56,7 +56,7 @@ function buildBigU8Json(targetChars: i32): string {
 // comfortably under BLOCK_MAXSIZE (~1 GiB - 16 bytes).
 const TARGET_CHARS: i32 = 512 * 1024 * 1024;
 let bigJson: string = buildBigU8Json(TARGET_CHARS);
-const jsonBytes: u64 = u64(bigJson.length);
+const jsonBytes: u64 = String.UTF8.byteLength(bigJson);
 
 bench(
   "Deserialize Uint8Array (~512MiB)",

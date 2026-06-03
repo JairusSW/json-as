@@ -50,7 +50,7 @@ function buildNullsJson(targetChars: i32): string {
 // wide so rounding can drift by a few bytes; slack is noise at this scale.
 const TARGET_CHARS: i32 = 512 * 1024 * 1024 - 1024;
 const json: string = buildNullsJson(TARGET_CHARS);
-const jsonBytes: u64 = u64(json.length);
+const jsonBytes: u64 = String.UTF8.byteLength(json);
 
 bench(
   "Deserialize (string | null)[] (~512MiB nulls)",

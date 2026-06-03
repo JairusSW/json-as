@@ -27,3 +27,5 @@ export function blackbox<T>(x: T): T;
 export function dumpToFile(suite: string, type: string): void;
 
 export function readFile(path: string): string;
+
+export function utf8ByteLength(value: string): number;

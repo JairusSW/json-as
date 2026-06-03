@@ -1265,167 +1265,167 @@ bench(
   "Serialize String SIMD plain (current)",
   () => blackbox(serializeCurrent(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (short-map)",
   () => blackbox(serializeShortMap(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (lane-surrogate)",
   () => blackbox(serializeLaneSurrogate(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (plain-fastpath)",
   () => blackbox(serializePlainFastpath(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (mask-once)",
   () => blackbox(serializeMaskOnce(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (mask-combine)",
   () => blackbox(serializeMaskCombine(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (first-hit)",
   () => blackbox(serializeFirstHit(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (first-hit-pregrow)",
   () => blackbox(serializeFirstHitPregrow(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (first-hit-shortmap)",
   () => blackbox(serializeFirstHitShortMap(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (dense-scalar)",
   () => blackbox(serializeDenseScalar(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (dense-scalar-shortmap)",
   () => blackbox(serializeDenseScalarShortMap(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (run-copy)",
   () => blackbox(serializeRunCopy(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (run-copy-shortmap)",
   () => blackbox(serializeRunCopyShortMap(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD plain (current-pregrow)",
   () => blackbox(serializeCurrentPregrow(plain)),
   4_000,
-  expectedPlain.length << 1,
+  String.UTF8.byteLength(expectedPlain),
 );
 bench(
   "Serialize String SIMD escaped (current)",
   () => blackbox(serializeCurrent(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (short-map)",
   () => blackbox(serializeShortMap(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (lane-surrogate)",
   () => blackbox(serializeLaneSurrogate(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (plain-fastpath)",
   () => blackbox(serializePlainFastpath(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (mask-once)",
   () => blackbox(serializeMaskOnce(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (mask-combine)",
   () => blackbox(serializeMaskCombine(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (first-hit)",
   () => blackbox(serializeFirstHit(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (first-hit-pregrow)",
   () => blackbox(serializeFirstHitPregrow(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (first-hit-shortmap)",
   () => blackbox(serializeFirstHitShortMap(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (dense-scalar)",
   () => blackbox(serializeDenseScalar(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (dense-scalar-shortmap)",
   () => blackbox(serializeDenseScalarShortMap(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (run-copy)",
   () => blackbox(serializeRunCopy(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (run-copy-shortmap)",
   () => blackbox(serializeRunCopyShortMap(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );
 bench(
   "Serialize String SIMD escaped (current-pregrow)",
   () => blackbox(serializeCurrentPregrow(escaped)),
   4_000,
-  expectedEscaped.length << 1,
+  String.UTF8.byteLength(expectedEscaped),
 );

@@ -1,4 +1,4 @@
-import { bench, blackbox, dumpToFile } from "./lib/bench.js";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench.js";
 
 class UserPreferences {
   theme: string = "dark";
@@ -81,7 +81,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   500_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("medium", "serialize");
 
@@ -91,6 +91,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   500_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("medium", "deserialize");

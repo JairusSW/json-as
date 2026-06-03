@@ -343,7 +343,7 @@ function runProfile(
     const label = unchecked(labels[i]);
     const value = unchecked(corpus[i]);
     const op = unchecked(ops[i]);
-    const bytes = <u64>(value.length << 1);
+    const bytes = String.UTF8.byteLength(value);
     CUR_PTR = changetype<usize>(value);
     CUR_END = CUR_PTR + (value.length << 1);
 

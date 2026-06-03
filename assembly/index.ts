@@ -120,6 +120,11 @@ import { atoi, bytes, scanStringEnd } from "./util";
   return isSigned<T>() ? JSON.Types.I64 : JSON.Types.U64;
 }
 
+// Shared zero-length sentinel for JSON.Obj's key buffer, so an empty object
+// allocates no key storage until its first key is inserted. Never mutated.
+// @ts-expect-error: Decorator valid here
+@lazy const EMPTY_KEYS: StaticArray<u16> = new StaticArray<u16>(0);
+
 export namespace JSON {
   /**
    * Memory management utilities for the JSON serialization buffer.
@@ -208,17 +213,17 @@ export namespace JSON {
       return NULL_WORD;
     } else if (isString<nonnull<T>>()) {
       serializeString(data as string);
-      return bs.out<string>();
+      return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
       // @ts-expect-error: Defined by transform
     } else if (isDefined(data.__SERIALIZE_CUSTOM)) {
       // @ts-expect-error: Defined by transform
       data.__SERIALIZE_CUSTOM();
-      return bs.out<string>();
+      return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
       // @ts-expect-error: Defined by transform
     } else if (isDefined(data.__SERIALIZE)) {
       // @ts-expect-error: Defined by transform
       inline.always(data.__SERIALIZE(changetype<usize>(data)));
-      return bs.out<string>();
+      return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
     } else if (data instanceof Date) {
       out = out
         ? changetype<string>(__renew(changetype<usize>(out), 52))
@@ -234,7 +239,7 @@ export namespace JSON {
       return changetype<string>(out);
     } else {
       serializeReference<T>(data);
-      return bs.out<string>();
+      return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
     }
   }
 
@@ -243,11 +248,27 @@ export namespace JSON {
    * ```js
    * JSON.parse<T>(data)
    * ```
+   * Pass an existing object as `out` to deserialize into it, reusing its
+   * allocations (symmetric with `stringify<T>(data, out)`). On the fast path the
+   * per-field reuse logic (nested structs reused as `dst`, strings `__renew`d in
+   * place when sizes match, arrays keeping capacity) makes a steady-state
+   * re-parse of the same shape allocate ~nothing after the first call.
    * @param data string
+   * @param out optional existing object to reuse (structs/composites only)
    * @returns T
    */
+  // A type-correct "zero" for any T: null pointer for references, 0/false for
+  // value types. `changetype<T>(0)` alone fails for bool/f64 (size mismatch),
+  // so branch on isReference at compile time.
+  // @ts-ignore: inline
+  @inline function __zero<T>(): T {
+    // @ts-ignore: compile-time intrinsic
+    if (isReference<T>() || isManaged<T>()) return changetype<T>(0);
+    return <T>0;
+  }
+
   // @ts-expect-error: inline
-  @inline export function parse<T>(data: string): T {
+  @inline export function parse<T>(data: string, out: T = __zero<T>()): T {
     let dataPtr = changetype<usize>(data);
     const dataEnd = dataPtr + bytes(data);
     // Entry point skips leading whitespace: every deserialize handler may then
@@ -278,24 +299,27 @@ export namespace JSON {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
       // @ts-expect-error: Defined by transform
       if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-        const out = changetype<nonnull<T>>(0);
+        const obj = changetype<nonnull<T>>(0);
         // @ts-expect-error
-        return out.__DESERIALIZE_CUSTOM(data);
+        return obj.__DESERIALIZE_CUSTOM(data);
         // @ts-expect-error: Defined by transform
       } else if (
         isDefined(type.__DESERIALIZE_SLOW) ||
         isDefined(type.__DESERIALIZE_FAST)
       ) {
-        const out = changetype<nonnull<T>>(
-          __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
-        );
+        // Reuse the caller-supplied `out` graph when given; otherwise allocate.
+        const obj = changetype<usize>(out)
+          ? changetype<nonnull<T>>(changetype<usize>(out))
+          : changetype<nonnull<T>>(
+              __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
+            );
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST)) {
           // @ts-expect-error: Defined by transform
-          const fastEnd = out.__DESERIALIZE_FAST(
+          const fastEnd = obj.__DESERIALIZE_FAST(
             dataPtr,
             dataPtr + dataSize,
-            out,
+            obj,
           );
           // A non-zero return means the fast path matched; accept it when only
           // trailing whitespace remains (pretty-printed input ends with a
@@ -305,14 +329,14 @@ export namespace JSON {
             JSON.Util.skipWhitespace(fastEnd, dataPtr + dataSize) ==
               dataPtr + dataSize
           )
-            return out;
+            return obj;
         }
-        if (isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        if (isDefined(type.__INITIALIZE)) obj.__INITIALIZE();
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_SLOW)) {
           // @ts-expect-error: Defined by transform
-          out.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, out);
-          return out;
+          obj.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, obj);
+          return obj;
         }
         throw new Error(`No deserialize method defined for type ${type}`);
       }
@@ -865,8 +889,16 @@ export namespace JSON {
    * ```
    */
   export class Obj {
-    /** Internal storage map */
-    storage: Map<string, JSON.Value> = new Map<string, JSON.Value>();
+    // Keys are packed into one growable buffer, each prefixed by a u16 length
+    // (UTF-16 code units), instead of allocating a heap string per key. Values
+    // are a parallel array. A key -> position index is built lazily on the
+    // first keyed access (never during parsing). Per-object allocation count
+    // matches the previous Map-based storage, while deserialization avoids the
+    // per-key string allocation and hashing entirely.
+    _kbuf: StaticArray<u16> = EMPTY_KEYS;
+    _kused: i32 = 0;
+    _vals: JSON.Value[] = [];
+    private _index: Map<string, i32> | null = null;
 
     constructor() {}
 
@@ -874,16 +906,106 @@ export namespace JSON {
      * Gets the number of key-value pairs in the object.
      */
     @inline get size(): i32 {
-      return this.storage.size;
+      return this._vals.length;
+    }
+
+    /** Grows the key buffer to hold at least `need` code units. */
+    private ensureKeyCap(need: i32): void {
+      const cap = this._kbuf.length;
+      if (cap >= need) return;
+      let n = cap ? cap : 16;
+      while (n < need) n <<= 1;
+      const nb = new StaticArray<u16>(n);
+      if (this._kused)
+        memory.copy(
+          changetype<usize>(nb),
+          changetype<usize>(this._kbuf),
+          (<usize>this._kused) << 1,
+        );
+      this._kbuf = nb;
+    }
+
+    /** Appends a length-prefixed key (from a source memory range). */
+    private pushKeyBytes(keyStart: usize, keyEnd: usize): void {
+      const len = <i32>((keyEnd - keyStart) >> 1);
+      const pos = this._kused;
+      this.ensureKeyCap(pos + 1 + len);
+      const buf = changetype<usize>(this._kbuf);
+      store<u16>(buf + ((<usize>pos) << 1), <u16>len);
+      if (len)
+        memory.copy(
+          buf + ((<usize>(pos + 1)) << 1),
+          keyStart,
+          (<usize>len) << 1,
+        );
+      this._kused = pos + 1 + len;
+    }
+
+    /** Materializes a key string from `len` code units starting at slot `at`. */
+    private makeKey(at: i32, len: i32): string {
+      const out = changetype<string>(__new((<usize>len) << 1, idof<string>()));
+      if (len)
+        memory.copy(
+          changetype<usize>(out),
+          changetype<usize>(this._kbuf) + ((<usize>at) << 1),
+          (<usize>len) << 1,
+        );
+      return out;
     }
 
     /**
-     * Sets a key-value pair in the object.
+     * Appends a key (from a source memory range) and value without a
+     * duplicate-key check. Used by the deserializer — no per-key string
+     * allocation, no hashing.
+     */
+    @inline appendRaw<T>(keyStart: usize, keyEnd: usize, value: T): void {
+      this.pushKeyBytes(keyStart, keyEnd);
+      this._vals.push(JSON.Value.from<T>(value));
+      const idx = this._index;
+      if (idx !== null) {
+        const len = <i32>((keyEnd - keyStart) >> 1);
+        const k = changetype<string>(__new((<usize>len) << 1, idof<string>()));
+        if (len) memory.copy(changetype<usize>(k), keyStart, (<usize>len) << 1);
+        idx.set(k, this._vals.length - 1);
+      }
+    }
+
+    /** Builds (once) and returns the lazy key -> position index. */
+    private buildIndex(): Map<string, i32> {
+      let idx = this._index;
+      if (idx === null) {
+        idx = new Map<string, i32>();
+        const buf = changetype<usize>(this._kbuf);
+        const used = this._kused;
+        let pos = 0;
+        let i = 0;
+        while (pos < used) {
+          const len = <i32>load<u16>(buf + ((<usize>pos) << 1));
+          idx.set(this.makeKey(pos + 1, len), i++);
+          pos += 1 + len;
+        }
+        this._index = idx;
+      }
+      return idx;
+    }
+
+    /**
+     * Sets a key-value pair in the object, overwriting any existing value.
      * @param key - The string key
      * @param value - The value (will be wrapped in JSON.Value)
      */
     @inline set<T>(key: string, value: T): void {
-      this.storage.set(key, JSON.Value.from<T>(value));
+      const idx = this.buildIndex();
+      if (idx.has(key)) {
+        unchecked((this._vals[idx.get(key)] = JSON.Value.from<T>(value)));
+      } else {
+        this.pushKeyBytes(
+          changetype<usize>(key),
+          changetype<usize>(key) + ((<usize>key.length) << 1),
+        );
+        this._vals.push(JSON.Value.from<T>(value));
+        idx.set(key, this._vals.length - 1);
+      }
     }
 
     /**
@@ -892,8 +1014,8 @@ export namespace JSON {
      * @returns The JSON.Value or null if not found
      */
     @inline get(key: string): JSON.Value | null {
-      if (!this.storage.has(key)) return null;
-      return this.storage.get(key);
+      const idx = this.buildIndex();
+      return idx.has(key) ? unchecked(this._vals[idx.get(key)]) : null;
     }
 
     /**
@@ -902,7 +1024,7 @@ export namespace JSON {
      * @returns true if the key exists
      */
     @inline has(key: string): bool {
-      return this.storage.has(key);
+      return this.buildIndex().has(key);
     }
 
     /**
@@ -910,24 +1032,53 @@ export namespace JSON {
      * @param key - The key to delete
      * @returns true if the key was found and deleted
      */
-    @inline delete(key: string): bool {
-      return this.storage.delete(key);
+    delete(key: string): bool {
+      const idx = this.buildIndex();
+      if (!idx.has(key)) return false;
+      const removed = idx.get(key);
+      const keys = this.keys();
+      const vals = this._vals;
+      this._kbuf = EMPTY_KEYS;
+      this._kused = 0;
+      const newVals = new Array<JSON.Value>();
+      for (let j = 0; j < keys.length; j++) {
+        if (j == removed) continue;
+        const k = unchecked(keys[j]);
+        this.pushKeyBytes(
+          changetype<usize>(k),
+          changetype<usize>(k) + ((<usize>k.length) << 1),
+        );
+        newVals.push(unchecked(vals[j]));
+      }
+      this._vals = newVals;
+      this._index = null;
+      return true;
     }
 
     /**
      * Gets all keys in the object.
-     * @returns Array of string keys
+     * @returns Array of string keys (in insertion order)
      */
     @inline keys(): string[] {
-      return this.storage.keys();
+      const out = new Array<string>(this._vals.length);
+      const buf = changetype<usize>(this._kbuf);
+      const used = this._kused;
+      let pos = 0;
+      let i = 0;
+      while (pos < used) {
+        const len = <i32>load<u16>(buf + ((<usize>pos) << 1));
+        unchecked((out[i++] = this.makeKey(pos + 1, len)));
+        pos += 1 + len;
+      }
+      return out;
     }
 
     /**
      * Gets all values in the object.
-     * @returns Array of JSON.Value instances
+     * @returns Array of JSON.Value instances (in insertion order)
      */
     @inline values(): JSON.Value[] {
-      return this.storage.values();
+      return this._vals.slice();
     }
 
     /**

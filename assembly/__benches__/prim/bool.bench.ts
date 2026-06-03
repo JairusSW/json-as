@@ -1,6 +1,6 @@
-import { JSON } from "..";
-import { expect } from "../__tests__/lib";
-import { bench, blackbox, dumpToFile } from "./lib/bench";
+import { JSON } from "../..";
+import { expect } from "../../__tests__/lib";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "../lib/bench";
 
 const v1: bool = true;
 const v2 = "true";
@@ -11,19 +11,19 @@ expect(JSON.stringify(JSON.parse<bool>(v2))).toBe(v2);
 bench(
   "Serialize bool",
   () => {
-    blackbox(inline.always(JSON.stringify(v1)));
+    blackbox(JSON.stringify(v1));
   },
   20_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("prim-bool", "serialize");
 
 bench(
   "Deserialize bool",
   () => {
-    blackbox(inline.always(JSON.parse<bool>(v2)));
+    blackbox(JSON.parse<bool>(v2));
   },
   20_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("prim-bool", "deserialize");

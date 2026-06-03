@@ -128,7 +128,7 @@ function sweep_SIMD(): void {
 for (let i = 0; i < SWEEP.length; i++) {
   const lbl = unchecked(SWEEP_LBL[i]);
   CUR = makePlain(unchecked(SWEEP[i]));
-  const bytes = <u64>(CUR.length << 1);
+  const bytes = String.UTF8.byteLength(CUR);
   const op = unchecked(SWEEP_OPS[i]);
   bench("Plain sweep SWAR (" + lbl + ")", sweep_SWAR, op, bytes);
   dumpToFile("serialize-string-safety-sweep-swar-" + lbl, "serialize");

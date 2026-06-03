@@ -1,6 +1,6 @@
 import { JSON } from "../";
 import { expect } from "../__tests__/lib";
-import { bench, blackbox, dumpToFile } from "./lib/bench";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench";
 
 
 @json
@@ -15,18 +15,18 @@ expect(JSON.stringify(JSON.parse<Token>(v2))).toBe(v2);
 bench(
   "Serialize Token Object",
   () => {
-    blackbox<string>(inline.always(JSON.stringify(v1)));
+    blackbox<string>(JSON.stringify(v1));
   },
   10_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("token", "serialize");
 bench(
   "Deserialize Token Object",
   () => {
-    blackbox<Token>(inline.always(JSON.parse<Token>(v2)));
+    blackbox<Token>(JSON.parse<Token>(v2));
   },
   10_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("token", "deserialize");

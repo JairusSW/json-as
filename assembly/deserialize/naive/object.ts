@@ -12,8 +12,6 @@ import {
   COLON,
 } from "../../custom/chars";
 import { isSpace, scanStringEnd } from "../../util";
-import { ptrToStr } from "../../util/ptrToStr";
-import { deserializeArray } from "../index/array";
 import { deserializeFloat } from "../index/float";
 import { deserializeString } from "../index/string";
 
@@ -27,36 +25,12 @@ import { deserializeString } from "../index/string";
 // @ts-ignore: inline
 @inline const NULL_WORD: u64 = 30399761348886638;
 
-/**
- * Scans past a balanced `{...}` or `[...]` container and returns the offset
- * just after its closing delimiter. Strings are skipped wholesale so that
- * delimiters appearing inside them are not counted. Only the requested
- * delimiter pair is tracked for depth — JSON is balanced, so the matching
- * close is reached without inspecting the other bracket type.
- */
-// @ts-ignore: inline
-@inline function scanContainerEnd(
-  ptr: usize,
-  srcEnd: usize,
-  open: u32,
-  close: u32,
-): usize {
-  let depth = 1;
-  ptr += 2;
-  while (ptr < srcEnd) {
-    const code = load<u16>(ptr);
-    if (code == QUOTE) {
-      ptr = scanStringEnd(ptr, srcEnd);
-      if (ptr >= srcEnd) throw new Error("Unterminated string in JSON object");
-    } else if (code == close) {
-      if (--depth == 0) return ptr + 2;
-    } else if (code == open) {
-      depth++;
-    }
-    ptr += 2;
-  }
-  return srcEnd;
-}
+// End offset (just past the value) of the most recent parseValue() call. The
+// recursive-descent parser reports each value's end through this single cursor
+// so containers can resume after a child without a separate bounds scan. It is
+// only read immediately after parseValue() returns, before any other
+// parseValue() runs, so recursion never clobbers a still-needed value.
+let parseValueEnd: usize = 0;
 
 export function deserializeObject(
   srcStart: usize,
@@ -80,7 +54,100 @@ export function deserializeObject(
         (srcEnd - srcStart).toString(),
     );
 
-  srcStart += 2;
+  parseObjectBody(out, srcStart + 2, srcEnd);
+  return out;
+}
+
+/**
+ * Parses a single JSON value whose first character is at `srcStart` (`srcEnd`
+ * is an upper bound). Returns the value and sets {@link parseValueEnd} to the
+ * offset just after it. Nested objects and arrays recurse here, so every byte
+ * is scanned exactly once.
+ */
+/** Offset just past the value returned by the most recent {@link parseValue}. */
+export function lastValueEnd(): usize {
+  return parseValueEnd;
+}
+
+export function parseValue(srcStart: usize, srcEnd: usize): JSON.Value {
+  const code = load<u16>(srcStart);
+  if (code == QUOTE) {
+    const end = scanStringEnd(srcStart, srcEnd);
+    if (end >= srcEnd) throw new Error("Unterminated string in JSON");
+    parseValueEnd = end + 2;
+    return JSON.Value.from(deserializeString(srcStart, end + 2));
+  } else if (code == BRACE_LEFT) {
+    const obj = new JSON.Obj();
+    parseValueEnd = parseObjectBody(obj, srcStart + 2, srcEnd);
+    return JSON.Value.from(obj);
+  } else if (code == BRACKET_LEFT) {
+    const arr = instantiate<JSON.Value[]>();
+    parseValueEnd = parseArrayBody(arr, srcStart + 2, srcEnd);
+    return JSON.Value.from(arr);
+  } else if (code - 48 <= 9 || code == 45) {
+    let p = srcStart + 2;
+    while (p < srcEnd) {
+      const c = load<u16>(p);
+      if (c == COMMA || c == BRACKET_RIGHT || c == BRACE_RIGHT || isSpace(c))
+        break;
+      p += 2;
+    }
+    parseValueEnd = p;
+    return JSON.Value.from(deserializeFloat<f64>(srcStart, p));
+  } else if (code == CHAR_T) {
+    if (load<u64>(srcStart) != TRUE_WORD)
+      throw new Error("Expected 'true' in JSON");
+    parseValueEnd = srcStart + 8;
+    return JSON.Value.from(true);
+  } else if (code == CHAR_F) {
+    if (load<u64>(srcStart, 2) != ALSE_WORD)
+      throw new Error("Expected 'false' in JSON");
+    parseValueEnd = srcStart + 10;
+    return JSON.Value.from(false);
+  } else if (code == CHAR_N) {
+    if (load<u64>(srcStart) != NULL_WORD)
+      throw new Error("Expected 'null' in JSON");
+    parseValueEnd = srcStart + 8;
+    return JSON.Value.from<usize>(0);
+  }
+  throw new Error(
+    "Unexpected character in JSON '" + String.fromCharCode(code) + "'",
+  );
+}
+
+/**
+ * Parses array elements starting at `srcStart` (just past the opening `[`)
+ * until the matching `]`, returning the offset just after that `]`. Nested
+ * values are parsed in the same pass.
+ */
+export function parseArrayBody(
+  out: JSON.Value[],
+  srcStart: usize,
+  srcEnd: usize,
+): usize {
+  while (srcStart < srcEnd) {
+    const code = load<u16>(srcStart);
+    if (isSpace(code) || code == COMMA) {
+      srcStart += 2;
+      continue;
+    }
+    if (code == BRACKET_RIGHT) return srcStart + 2;
+    out.push(parseValue(srcStart, srcEnd));
+    srcStart = parseValueEnd;
+  }
+  return srcEnd;
+}
+
+/**
+ * Parses object members starting at `srcStart` (just past the opening `{`)
+ * until the matching `}`, returning the offset just after that `}`. `srcEnd`
+ * is an upper bound (end of the enclosing buffer), not the object's exact end.
+ */
+export function parseObjectBody(
+  out: JSON.Obj,
+  srcStart: usize,
+  srcEnd: usize,
+): usize {
   while (srcStart < srcEnd) {
     let code = load<u16>(srcStart);
 
@@ -89,7 +156,7 @@ export function deserializeObject(
       srcStart += 2;
       continue;
     }
-    if (code == BRACE_RIGHT) break;
+    if (code == BRACE_RIGHT) return srcStart + 2;
 
     // --- key ---
     if (code != QUOTE)
@@ -103,7 +170,7 @@ export function deserializeObject(
     srcStart = scanStringEnd(srcStart, srcEnd);
     if (srcStart >= srcEnd)
       throw new Error("Unterminated string in JSON object");
-    const key = ptrToStr(keyStart, srcStart);
+    const keyEnd = srcStart;
     srcStart += 2;
 
     // --- colon ---
@@ -118,59 +185,8 @@ export function deserializeObject(
     // --- value ---
     while (srcStart < srcEnd && isSpace((code = load<u16>(srcStart))))
       srcStart += 2;
-
-    if (code == QUOTE) {
-      const valStart = srcStart;
-      srcStart = scanStringEnd(srcStart, srcEnd);
-      if (srcStart >= srcEnd)
-        throw new Error("Unterminated string in JSON object");
-      out.set(key, deserializeString(valStart, srcStart + 2));
-      srcStart += 2;
-    } else if (code - 48 <= 9 || code == 45) {
-      const valStart = srcStart;
-      srcStart += 2;
-      while (srcStart < srcEnd) {
-        code = load<u16>(srcStart);
-        if (code == COMMA || code == BRACE_RIGHT || isSpace(code)) break;
-        srcStart += 2;
-      }
-      out.set(key, deserializeFloat<f64>(valStart, srcStart));
-    } else if (code == BRACE_LEFT) {
-      const valStart = srcStart;
-      srcStart = scanContainerEnd(srcStart, srcEnd, BRACE_LEFT, BRACE_RIGHT);
-      out.set(key, deserializeObject(valStart, srcStart, 0));
-    } else if (code == BRACKET_LEFT) {
-      const valStart = srcStart;
-      srcStart = scanContainerEnd(
-        srcStart,
-        srcEnd,
-        BRACKET_LEFT,
-        BRACKET_RIGHT,
-      );
-      out.set(key, deserializeArray<JSON.Value[]>(valStart, srcStart, 0));
-    } else if (code == CHAR_T) {
-      if (load<u64>(srcStart) != TRUE_WORD)
-        throw new Error("Expected 'true' in JSON object");
-      out.set(key, true);
-      srcStart += 8;
-    } else if (code == CHAR_F) {
-      if (load<u64>(srcStart, 2) != ALSE_WORD)
-        throw new Error("Expected 'false' in JSON object");
-      out.set(key, false);
-      srcStart += 10;
-    } else if (code == CHAR_N) {
-      if (load<u64>(srcStart) != NULL_WORD)
-        throw new Error("Expected 'null' in JSON object");
-      out.set(key, JSON.Value.from<usize>(0));
-      srcStart += 8;
-    } else {
-      throw new Error(
-        "Unexpected character in JSON object '" +
-          String.fromCharCode(code) +
-          "' at position " +
-          (srcEnd - srcStart).toString(),
-      );
-    }
+    out.appendRaw(keyStart, keyEnd, parseValue(srcStart, srcEnd));
+    srcStart = parseValueEnd;
   }
-  return out;
+  return srcEnd;
 }

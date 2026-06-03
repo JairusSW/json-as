@@ -37,3 +37,5 @@ JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart09.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart10.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart11.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart12.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart13.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart14.ts

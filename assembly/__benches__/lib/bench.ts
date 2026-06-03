@@ -226,6 +226,10 @@ export function readFile(path: string): string {
   return String.UTF8.decode(readFileBuffer(path));
 }
 
+export function utf8ByteLength(value: string): usize {
+  return usize(String.UTF8.byteLength(value));
+}
+
 function formatNumber(n: u64): string {
   let str = n.toString();
   let len = str.length;

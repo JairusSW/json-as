@@ -113,16 +113,36 @@ FILES=()
 
 if [[ -n "$BENCH_NAME" ]]; then
   RAW_BENCH_NAME="$BENCH_NAME"
+
+  if [[ "$RAW_BENCH_NAME" == */ ]]; then
+    # Directory form (`multilib/`, `custom/`, `throughput/`): run every bench in
+    # that subdir.
+    DIR_REL="${RAW_BENCH_NAME%/}"
+    for f in ./assembly/__benches__/$DIR_REL/*.bench.ts; do
+      [[ -f "$f" ]] && FILES+=("$f")
+    done
+
+    if [[ ${#FILES[@]} -eq 0 ]]; then
+      echo "❌ No benchmarks found in '$RAW_BENCH_NAME'"
+      exit 1
+    fi
+  else
   [[ "$BENCH_NAME" != *.bench.ts ]] && BENCH_NAME="$BENCH_NAME.bench.ts"
 
   CANDIDATES=(
     "./assembly/__benches__/$BENCH_NAME"
+    "./assembly/__benches__/multilib/$BENCH_NAME"
     "./assembly/__benches__/throughput/$BENCH_NAME"
   )
 
   if [[ "$RAW_BENCH_NAME" == custom/* ]]; then
     CUSTOM_REL="${BENCH_NAME#custom/}"
     CANDIDATES+=( "./assembly/__benches__/custom/$CUSTOM_REL" )
+  fi
+
+  if [[ "$RAW_BENCH_NAME" == multilib/* ]]; then
+    MULTILIB_REL="${BENCH_NAME#multilib/}"
+    CANDIDATES+=( "./assembly/__benches__/multilib/$MULTILIB_REL" )
   fi
 
   # Dedup: `./assembly/__benches__/custom/foo.bench.ts` shows up in both the
@@ -148,10 +168,12 @@ if [[ -n "$BENCH_NAME" ]]; then
     echo "❌ No benchmark found for '$RAW_BENCH_NAME'"
     exit 1
   fi
+  fi
 else
+  # Default run: top-level benches only. Subfolders (custom/, multilib/,
+  # throughput/) are opt-in — pass `multilib/` or `multilib/<name>` to run them.
   FILES=(
     ./assembly/__benches__/*.bench.ts
-    ./assembly/__benches__/throughput/*.bench.ts
   )
 fi
 
@@ -233,15 +255,15 @@ build_v8_mode() {
 
   case "$mode" in
     NAIVE)
-      JSON_WRITE="$write_target" JSON_MODE=NAIVE npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
+      JSON_WRITE="$write_target" JSON_MODE=NAIVE npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
       optimize_or_fallback "${output}.tmp" "$out_wasm" --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4
       ;;
     SWAR)
-      JSON_WRITE="$write_target" JSON_MODE=SWAR npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
+      JSON_WRITE="$write_target" JSON_MODE=SWAR npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
       optimize_or_fallback "${output}.tmp" "$out_wasm" --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4
       ;;
     SIMD)
-      JSON_WRITE="$write_target" JSON_MODE=SIMD npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --enable simd --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
+      JSON_WRITE="$write_target" JSON_MODE=SIMD npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --enable simd --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
       optimize_or_fallback "${output}.tmp" "$out_wasm" --enable-bulk-memory --enable-simd --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4
       ;;
   esac
@@ -259,7 +281,7 @@ build_wavm_mode() {
     features+=(--enable simd)
   fi
 
-  JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.wavm.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --use AS_BENCH_RUNTIME_WAVM=1 --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json "${features[@]}" --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
+  JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.wavm.tmp" -O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --use AS_BENCH_RUNTIME_WAVM=1 --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json "${features[@]}" --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
   mv "${output}.wavm.tmp" "$out_wasm"
 }
 

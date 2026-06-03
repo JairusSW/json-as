@@ -914,7 +914,7 @@ const escapedInputs: string[] = [
 function totalBytesOf(values: string[]): u64 {
   let total: u64 = 0;
   for (let i = 0; i < values.length; i++)
-    total += <u64>(unchecked(values[i]).length << 1);
+    total += String.UTF8.byteLength(unchecked(values[i]));
   return total;
 }
 
@@ -963,27 +963,27 @@ runCorpus(escapedInputs, escapedMergedTuned, VARIANT_TUNED_MERGED);
 const plainDirect = deserializeString_SWAR(
   changetype<usize>(unchecked(plainInputs[0])),
   changetype<usize>(unchecked(plainInputs[0])) +
-    (unchecked(plainInputs[0]).length << 1),
+    String.UTF8.byteLength(unchecked(plainInputs[0])),
 );
 const escapedDirect = deserializeString_SWAR(
   changetype<usize>(unchecked(escapedInputs[0])),
   changetype<usize>(unchecked(escapedInputs[0])) +
-    (unchecked(escapedInputs[0]).length << 1),
+    String.UTF8.byteLength(unchecked(escapedInputs[0])),
 );
 const plainDirectOriginal = deserializeString_SWAR_Original(
   changetype<usize>(unchecked(plainInputs[0])),
   changetype<usize>(unchecked(plainInputs[0])) +
-    (unchecked(plainInputs[0]).length << 1),
+    String.UTF8.byteLength(unchecked(plainInputs[0])),
 );
 const escapedDirectOriginal = deserializeString_SWAR_Original(
   changetype<usize>(unchecked(escapedInputs[0])),
   changetype<usize>(unchecked(escapedInputs[0])) +
-    (unchecked(escapedInputs[0]).length << 1),
+    String.UTF8.byteLength(unchecked(escapedInputs[0])),
 );
 const plainMemcpy = deserializeStringMemcpy_NoEscape(
   changetype<usize>(unchecked(plainInputs[0])),
   changetype<usize>(unchecked(plainInputs[0])) +
-    (unchecked(plainInputs[0]).length << 1),
+    String.UTF8.byteLength(unchecked(plainInputs[0])),
 );
 
 for (let i = 0; i < plainInputs.length; i++) {
@@ -1053,7 +1053,7 @@ bench(
       deserializeString_SWAR(
         changetype<usize>(unchecked(plainInputs[0])),
         changetype<usize>(unchecked(plainInputs[0])) +
-          (unchecked(plainInputs[0]).length << 1),
+          String.UTF8.byteLength(unchecked(plainInputs[0])),
       ),
     );
   },
@@ -1069,7 +1069,7 @@ bench(
       deserializeString_SWAR_Original(
         changetype<usize>(unchecked(plainInputs[0])),
         changetype<usize>(unchecked(plainInputs[0])) +
-          (unchecked(plainInputs[0]).length << 1),
+          String.UTF8.byteLength(unchecked(plainInputs[0])),
       ),
     );
   },
@@ -1085,7 +1085,7 @@ bench(
       deserializeStringMemcpy_NoEscape(
         changetype<usize>(unchecked(plainInputs[0])),
         changetype<usize>(unchecked(plainInputs[0])) +
-          (unchecked(plainInputs[0]).length << 1),
+          String.UTF8.byteLength(unchecked(plainInputs[0])),
       ),
     );
   },
@@ -1141,7 +1141,7 @@ bench(
       deserializeString_SWAR(
         changetype<usize>(unchecked(escapedInputs[0])),
         changetype<usize>(unchecked(escapedInputs[0])) +
-          (unchecked(escapedInputs[0]).length << 1),
+          String.UTF8.byteLength(unchecked(escapedInputs[0])),
       ),
     );
   },
@@ -1157,7 +1157,7 @@ bench(
       deserializeString_SWAR_Original(
         changetype<usize>(unchecked(escapedInputs[0])),
         changetype<usize>(unchecked(escapedInputs[0])) +
-          (unchecked(escapedInputs[0]).length << 1),
+          String.UTF8.byteLength(unchecked(escapedInputs[0])),
       ),
     );
   },

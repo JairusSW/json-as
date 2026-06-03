@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench, blackbox, dumpToFile } from "./lib/bench";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench";
 
 
 @json
@@ -58,9 +58,9 @@ class MediumAPIResponse {
 
 const v1 = new MediumAPIResponse();
 const v2: string = JSON.stringify<MediumAPIResponse>(v1);
-const byteLength: usize = v2.length << 1;
+const byteLength: usize = utf8ByteLength(v2);
 const v2Ptr: usize = changetype<usize>(v2);
-const v2End: usize = v2Ptr + byteLength;
+const v2End: usize = v2Ptr + (v2.length << 1);
 const reusable = new MediumAPIResponse();
 reusable.preferences = new UserPreferences();
 reusable.tags = new Array<string>(6);
@@ -75,7 +75,7 @@ expect(JSON.stringify(JSON.parse<MediumAPIResponse>(v2))).toBe(v2);
 bench(
   "Serialize Medium API Response",
   () => {
-    blackbox(inline.always(JSON.stringify<MediumAPIResponse>(v1)));
+    blackbox(JSON.stringify<MediumAPIResponse>(v1));
   },
   500_000,
   byteLength,
@@ -84,7 +84,7 @@ dumpToFile("medium", "serialize");
 bench(
   "Deserialize Medium API Response",
   () => {
-    blackbox(inline.always(JSON.parse<MediumAPIResponse>(v2)));
+    blackbox(JSON.parse<MediumAPIResponse>(v2));
   },
   500_000,
   byteLength,

@@ -820,8 +820,8 @@ expect(serializeRuntimeExpTableOut(escapedSample)).toBe(escapedExpected);
 expect(serializeSwitchMapOut(escapedSample)).toBe(escapedExpected);
 expect(serializeAdaptiveSampleOut(escapedSample)).toBe(escapedExpected);
 
-const plainBytes = plainExpected.length << 1;
-const escapedBytes = escapedExpected.length << 1;
+const plainBytes = String.UTF8.byteLength(plainExpected);
+const escapedBytes = String.UTF8.byteLength(escapedExpected);
 
 bench(
   "Serialize String SWAR Current (plain)",

@@ -5,6 +5,7 @@
   "logs": "./.as-test/logs",
   "snapshotDir": "./.as-test/snapshots",
   "config": "none",
+  "cache": true,
   "coverage": {
     "enabled": false
   },

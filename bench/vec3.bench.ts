@@ -1,4 +1,4 @@
-import { bench, blackbox, dumpToFile } from "./lib/bench.js";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench.js";
 
 class Vec3 {
   public x!: number;
@@ -15,7 +15,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   12_800_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("vec3", "serialize");
 
@@ -25,6 +25,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   12_800_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("vec3", "deserialize");

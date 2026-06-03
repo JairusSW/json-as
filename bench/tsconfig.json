@@ -6,9 +6,18 @@
     "ignoreDeprecations": "6.0",
     "removeComments": true,
     "types": ["node"],
+    "rootDir": ".",
     "outDir": "../build",
     "sourceMap": false,
     "allowJs": true
   },
-  "include": ["./*.ts", "./lib/*.ts", "lib/bench.js"]
+  "include": [
+    "./*.ts",
+    "./lib/*.ts",
+    "./prim/*.bench.ts",
+    "./multilib/*.bench.ts",
+    "./multilib/shared.ts",
+    "./multilib/*.d.ts",
+    "lib/bench.js"
+  ]
 }

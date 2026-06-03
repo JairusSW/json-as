@@ -148,23 +148,27 @@ import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
   memory.copy(stringPtr, srcStart, byteLength);
 }
 
+// Escape-bearing tail of the field parse: the clean prefix [payloadStart,
+// escPos) is bulk-copied into the scratch buffer, then escapes are decoded into
+// it, and the result is written to the field. Only reached when a backslash is
+// actually present — the common escape-free case never touches `bs`.
 // @ts-ignore: inline
-@inline export function deserializeStringField_NAIVE<T extends string | null>(
-  srcStart: usize,
+@inline function deserializeEscapedStringField_NAIVE(
+  payloadStart: usize,
+  escPos: usize,
   srcEnd: usize,
-  dstObj: usize,
-  dstOffset: usize = 0,
+  dstFieldPtr: usize,
 ): usize {
-  const dstFieldPtr = dstObj + dstOffset;
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
-    abort("Expected leading quote");
-
-  const payloadStart = srcStart + 2;
-  srcStart = payloadStart;
-
   bs.offset = bs.buffer;
   bs.ensureSize(<u32>(srcEnd - payloadStart));
 
+  const prefixLen = escPos - payloadStart;
+  if (prefixLen) {
+    memory.copy(bs.offset, payloadStart, prefixLen);
+    bs.offset += prefixLen;
+  }
+
+  let srcStart = escPos;
   while (srcStart < srcEnd) {
     const block = load<u16>(srcStart);
 
@@ -192,6 +196,53 @@ import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
       srcStart += 12;
     }
     bs.offset += 2;
+  }
+
+  abort("Expected closing quote");
+  return 0;
+}
+
+// NOT @inline: this is a loop-bearing scanner called per string field. As an
+// always-inline entry it gets inlined into every field call site inside the
+// @inline __DESERIALIZE_FAST, exploding binaryen's optimize phase on large
+// schemas (~118s on the `large` bench). Kept as a single shared function — one
+// call per field — matching the non-inline SWAR/SIMD field deserializers.
+export function deserializeStringField_NAIVE<T extends string | null>(
+  srcStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
+  const dstFieldPtr = dstObj + dstOffset;
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
+    abort("Expected leading quote");
+
+  const payloadStart = srcStart + 2;
+  srcStart = payloadStart;
+
+  // Scan for the closing quote without touching the scratch buffer. For the
+  // common escape-free case the bytes are a verbatim slice of the source, so we
+  // copy source -> field directly (mirrors the SWAR/SIMD field paths). Only a
+  // backslash diverts to the escape-decoding tail above.
+  while (srcStart < srcEnd) {
+    const block = load<u16>(srcStart);
+    if (block == QUOTE) {
+      writeStringToField(
+        dstFieldPtr,
+        payloadStart,
+        <u32>(srcStart - payloadStart),
+      );
+      return srcStart + 2;
+    }
+    if (block == BACK_SLASH) {
+      return deserializeEscapedStringField_NAIVE(
+        payloadStart,
+        srcStart,
+        srcEnd,
+        dstFieldPtr,
+      );
+    }
+    srcStart += 2;
   }
 
   abort("Expected closing quote");

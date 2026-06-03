@@ -14,7 +14,7 @@ function buildU32Json(targetBytes: i32): string {
   for (let i = 0; i < 16; i++) {
     block += "7,1234,9876543,4294967295,";
   }
-  const blockBytes = block.length;
+  const blockBytes = String.UTF8.byteLength(block);
   const repeats = i32(
     Math.max(1, Math.floor(f64(targetBytes - 2 + 1) / f64(blockBytes))),
   );

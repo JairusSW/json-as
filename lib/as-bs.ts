@@ -287,6 +287,43 @@ export namespace bs {
     }
     return changetype<T>(out);
   }
+
+  /**
+   * Like `out<T>()`, but writes the finished bytes into the existing object
+   * `target`, reusing its allocation: an in-place overwrite when the size
+   * already matches, `__renew` when it differs. Falls back to a fresh
+   * `out<T>()` when `target` is null or a static (`< __heap_base`), so callers
+   * can pass an empty/uninitialized target on the first call. Mirrors the reuse
+   * policy of `toField`, but for the top-level return value.
+   */
+  // @ts-expect-error: @inline is a valid decorator
+  @inline export function outTo<T>(target: usize): T {
+    if (target < __heap_base) return out<T>();
+    let len: usize;
+    let src: usize;
+    if (cacheOutput === 0) {
+      len = offset - buffer;
+      src = buffer;
+    } else {
+      len = cacheOutputLen;
+      src = cacheOutput;
+    }
+    let dst = target;
+    if (changetype<OBJECT>(target - TOTAL_OVERHEAD).rtSize != len) {
+      // @ts-expect-error: __renew is a runtime builtin
+      dst = __renew(target, len);
+    }
+    memory.copy(dst, src, len);
+    if (cacheOutput === 0) {
+      finalizeDynamicOutput(len);
+    } else {
+      cacheOutput = 0;
+      cacheOutputLen = 0;
+      offset = buffer;
+      stackSize = 0;
+    }
+    return changetype<T>(dst);
+  }
 }
 
 /**

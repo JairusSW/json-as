@@ -1,5 +1,5 @@
 import { dumpToFile } from "./lib/bench.js";
-import { bench, blackbox } from "./lib/bench.js";
+import { bench, blackbox, utf8ByteLength } from "./lib/bench.js";
 
 const v1 = "75a60587-c4d7-4764-91ac-9fd1d6baf07e";
 const v2 = '"75a60587-c4d7-4764-91ac-9fd1d6baf07e"';
@@ -10,7 +10,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   25_000_000,
-  v1.length,
+  utf8ByteLength(v1),
 );
 dumpToFile("uuidv4", "serialize");
 
@@ -20,6 +20,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   25_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("uuidv4", "deserialize");

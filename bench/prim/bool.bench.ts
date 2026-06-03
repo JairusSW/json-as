@@ -1,4 +1,4 @@
-import { bench, blackbox, dumpToFile } from "./lib/bench.js";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "../lib/bench.js";
 
 const v1: boolean = true;
 const v2 = "true";
@@ -9,7 +9,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   20_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("prim-bool", "serialize");
 
@@ -19,6 +19,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   20_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("prim-bool", "deserialize");

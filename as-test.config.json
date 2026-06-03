@@ -6,6 +6,10 @@
   "coverageDir": "./.as-test/coverage",
   "snapshotDir": "./.as-test/snapshots",
   "config": "none",
+  "cache": {
+    "type": "reachable",
+    "maxTime": "1d"
+  },
   "coverage": {
     "enabled": true,
     "mode": "project",

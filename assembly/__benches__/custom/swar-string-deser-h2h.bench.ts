@@ -467,7 +467,7 @@ for (let i = 0; i < SIZES_PLAIN.length; i++) {
   const label = unchecked(LABELS_PLAIN[i]);
   const value = unchecked(plainCorpus[i]);
   const ops = unchecked(OPS_PLAIN[i]);
-  const bytes = <u64>(value.length << 1);
+  const bytes = String.UTF8.byteLength(value);
   CUR_PTR = changetype<usize>(value);
   CUR_END = CUR_PTR + (value.length << 1);
 
@@ -485,7 +485,7 @@ for (let i = 0; i < SIZES_ESCAPED.length; i++) {
   const label = unchecked(LABELS_ESCAPED[i]);
   const value = unchecked(escapedCorpus[i]);
   const ops = unchecked(OPS_ESCAPED[i]);
-  const bytes = <u64>(value.length << 1);
+  const bytes = String.UTF8.byteLength(value);
   CUR_PTR = changetype<usize>(value);
   CUR_END = CUR_PTR + (value.length << 1);
 

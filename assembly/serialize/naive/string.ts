@@ -17,9 +17,20 @@ import { serializeStruct } from "./struct";
  */
 // @ts-ignore: inline
 @inline export function serializeString_NAIVE(src: string): void {
-  const srcSize = bytes(src);
+  serializeStringRange(changetype<usize>(src), bytes(src));
+}
+
+/**
+ * Serializes a raw UTF-16 range as a quoted, escaped JSON string. Lets callers
+ * (e.g. JSON.Obj key serialization) emit a string straight from a buffer slice
+ * without first materializing a heap `string`.
+ */
+// @ts-ignore: inline
+@inline export function serializeStringRange(
+  srcPtr: usize,
+  srcSize: usize,
+): void {
   bs.proposeSize(srcSize + 4);
-  let srcPtr = changetype<usize>(src);
   const srcEnd = srcPtr + srcSize;
 
   store<u16>(bs.offset, QUOTE);

@@ -18,7 +18,7 @@ function buildBoolJson(targetBytes: i32): string {
   for (let i = 0; i < 32; i++) {
     block += i % 2 == 0 ? "true," : "false,";
   }
-  const blockBytes = block.length;
+  const blockBytes = String.UTF8.byteLength(block);
   const repeats = i32(
     Math.max(1, Math.floor(f64(targetBytes - 2 + 1) / f64(blockBytes))),
   );

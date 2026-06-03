@@ -760,7 +760,7 @@ for (let i = 0; i < SIZES_PLAIN.length; i++) {
   const label = unchecked(LABELS_PLAIN[i]);
   const value = unchecked(plainCorpus[i]);
   const ops = unchecked(OPS_PLAIN[i]);
-  const bytes = <u64>(value.length << 1);
+  const bytes = String.UTF8.byteLength(value);
   CUR = value;
 
   bench("Ser SWAR PROD Plain (" + label + ")", bench_PROD, ops, bytes);
@@ -774,7 +774,7 @@ for (let i = 0; i < SIZES_ESCAPED.length; i++) {
   const label = unchecked(LABELS_ESCAPED[i]);
   const value = unchecked(escapedCorpus[i]);
   const ops = unchecked(OPS_ESCAPED[i]);
-  const bytes = <u64>(value.length << 1);
+  const bytes = String.UTF8.byteLength(value);
   CUR = value;
 
   bench("Ser SWAR PROD Escaped (" + label + ")", bench_PROD, ops, bytes);
@@ -788,7 +788,7 @@ for (let i = 0; i < SIZES_SPARSE.length; i++) {
   const label = unchecked(LABELS_SPARSE[i]);
   const value = unchecked(sparseCorpus[i]);
   const ops = unchecked(OPS_SPARSE[i]);
-  const bytes = <u64>(value.length << 1);
+  const bytes = String.UTF8.byteLength(value);
   CUR = value;
 
   bench("Ser SWAR PROD Sparse (" + label + ")", bench_PROD, ops, bytes);

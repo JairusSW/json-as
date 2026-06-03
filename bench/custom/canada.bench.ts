@@ -12,7 +12,7 @@ bench(
     blackbox(JSON.parse(objStr));
   },
   500,
-  objStr.length,
+  utf8ByteLength(objStr),
 );
 dumpToFile("canada", "deserialize");
 
@@ -22,6 +22,6 @@ bench(
     blackbox(JSON.stringify(parsed));
   },
   500,
-  objStr.length,
+  utf8ByteLength(objStr),
 );
 dumpToFile("canada", "deserialize");

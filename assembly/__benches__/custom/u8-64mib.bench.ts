@@ -8,7 +8,7 @@ function buildU8Json(targetBytes: i32): string {
     block += i.toString();
     block += ",";
   }
-  const blockBytes = block.length;
+  const blockBytes = String.UTF8.byteLength(block);
   const repeats = i32(
     Math.max(1, Math.floor(f64(targetBytes - 2 + 1) / f64(blockBytes))),
   );

@@ -1,5 +1,5 @@
 import { dumpToFile } from "./lib/bench.js";
-import { bench, blackbox } from "./lib/bench.js";
+import { bench, blackbox, utf8ByteLength } from "./lib/bench.js";
 
 const v1 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const v2 = '"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"';
@@ -10,7 +10,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   24_000_00,
-  v1.length,
+  utf8ByteLength(v1),
 );
 dumpToFile("abc", "serialize");
 
@@ -20,6 +20,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   24_000_00,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("abc", "deserialize");

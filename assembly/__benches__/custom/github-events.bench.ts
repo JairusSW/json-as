@@ -1,10 +1,16 @@
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
-import { blackbox, bench, dumpToFile, readFile } from "../lib/bench";
+import {
+  blackbox,
+  bench,
+  dumpToFile,
+  readFile,
+  utf8ByteLength,
+} from "../lib/bench";
 const payloadData = readFile(
   "./assembly/__benches__/payloads/github-events.pretty.json",
 );
-const payloadChars = payloadData.length;
+const payloadBytes = utf8ByteLength(payloadData);
 
 
 @json
@@ -67,7 +73,7 @@ bench(
     );
   },
   40,
-  payloadChars,
+  payloadBytes,
 );
 dumpToFile("github-events", "deserialize");
 bench(
@@ -76,6 +82,6 @@ bench(
     blackbox(JSON.stringify(typed));
   },
   40,
-  payloadChars,
+  payloadBytes,
 );
 dumpToFile("github-events", "serialize");

@@ -12,7 +12,7 @@ bench(
     blackbox(JSON.parse(objStr));
   },
   100,
-  objStr.length,
+  utf8ByteLength(objStr),
 );
 dumpToFile("github-events", "deserialize");
 
@@ -22,6 +22,6 @@ bench(
     blackbox(JSON.stringify(parsed));
   },
   100,
-  objStr.length,
+  utf8ByteLength(objStr),
 );
 dumpToFile("github-events", "deserialize");

@@ -1,11 +1,7 @@
-import {
-  BRACE_LEFT,
-  BRACE_RIGHT,
-  BRACKET_LEFT,
-  BRACKET_RIGHT,
-} from "../../../custom/chars";
+import { BRACE_LEFT, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON } from "../../..";
 import { isSpace } from "util/string";
+import { parseObjectBody } from "../object";
 
 export function deserializeObjectArray<T extends unknown[]>(
   srcStart: usize,
@@ -15,8 +11,6 @@ export function deserializeObjectArray<T extends unknown[]>(
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(instantiate<T>()),
   );
-  let lastIndex: usize = 0;
-  let depth: u32 = 0;
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
@@ -34,14 +28,16 @@ export function deserializeObjectArray<T extends unknown[]>(
         (srcEnd - srcStart).toString(),
     );
 
+  // Each `{...}` element is parsed in a single pass via parseObjectBody, which
+  // reports where it ended — no separate scan to find the closing brace.
   while (srcStart < srcEnd) {
-    const code = load<u16>(srcStart);
-    if (code == BRACE_LEFT && depth++ == 0) {
-      lastIndex = srcStart;
-    } else if (code == BRACE_RIGHT && --depth == 0) {
-      out.push(JSON.__deserialize<valueof<T>>(lastIndex, (srcStart += 2)));
+    if (load<u16>(srcStart) == BRACE_LEFT) {
+      const obj = new JSON.Obj();
+      srcStart = parseObjectBody(obj, srcStart + 2, srcEnd);
+      out.push(changetype<valueof<T>>(changetype<usize>(obj)));
+    } else {
+      srcStart += 2;
     }
-    srcStart += 2;
   }
   return out;
 }

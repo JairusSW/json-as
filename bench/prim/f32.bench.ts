@@ -1,4 +1,4 @@
-import { bench, blackbox, dumpToFile } from "./lib/bench.js";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "../lib/bench.js";
 
 // JS numbers are f64; we still emit the same 7-digit value for shape parity
 // with the AS f32 bench.
@@ -11,7 +11,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   20_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("prim-f32", "serialize");
 
@@ -21,6 +21,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   20_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("prim-f32", "deserialize");

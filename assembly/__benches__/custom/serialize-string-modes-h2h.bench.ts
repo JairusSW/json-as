@@ -70,7 +70,7 @@ for (let p = 0; p < PROFILES.length; p++) {
     const label = unchecked(LABELS[i]);
     const value = unchecked(arr[i]);
     const op = unchecked(OPS[i]);
-    const bytes = <u64>(value.length << 1);
+    const bytes = String.UTF8.byteLength(value);
     CUR = value;
 
     bench(

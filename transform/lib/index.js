@@ -549,8 +549,7 @@ export class JSONTransform extends Visitor {
         this.schemas.get(source.internalPath).push(schema);
         this.schema = schema;
         this.visitedClasses.add(fullClassPath);
-        const codegenMode = getCodegenMode(this.program);
-        const requestedFastPath = USE_FAST_PATH && codegenMode !== JSONMode.NAIVE;
+        const requestedFastPath = USE_FAST_PATH;
         let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
         let INITIALIZE = "@inline __INITIALIZE(): this {\n";
         let DESERIALIZE = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
@@ -2552,25 +2551,6 @@ var JSONMode;
     JSONMode[JSONMode["NAIVE"] = 2] = "NAIVE";
 })(JSONMode || (JSONMode = {}));
 let MODE = JSONMode.SWAR;
-function getCodegenMode(program) {
-    let mode = program.options.hasFeature(16)
-        ? JSONMode.SIMD
-        : JSONMode.SWAR;
-    if (process.env["JSON_MODE"]) {
-        switch (process.env["JSON_MODE"].toLowerCase().trim()) {
-            case "simd":
-                mode = JSONMode.SIMD;
-                break;
-            case "swar":
-                mode = JSONMode.SWAR;
-                break;
-            case "naive":
-                mode = JSONMode.NAIVE;
-                break;
-        }
-    }
-    return mode;
-}
 export default class Transformer extends Transform {
     afterInitialize(program) {
         if (program.options.hasFeature(16))

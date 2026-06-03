@@ -1,4 +1,4 @@
-import { bench, blackbox, dumpToFile } from "./lib/bench.js";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench.js";
 
 class Token {
   public id!: number;
@@ -18,7 +18,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   5_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("token", "serialize");
 
@@ -28,6 +28,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   5_000_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("token", "deserialize");

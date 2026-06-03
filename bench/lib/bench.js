@@ -1,6 +1,25 @@
 let result = {};
+const printFn =
+  typeof globalThis.print === "function"
+    ? globalThis.print.bind(globalThis)
+    : console.log.bind(console);
+
+function writeFileCompat(path, data) {
+  if (typeof globalThis.writeFile === "function") {
+    return globalThis.writeFile(path, data);
+  }
+  throw new Error("writeFile is not available in this runtime");
+}
+
+function readFileCompat(path) {
+  if (typeof globalThis.read === "function") {
+    return globalThis.read(path);
+  }
+  throw new Error("read is not available in this runtime");
+}
+
 export function bench(description, routine, ops = 1_000_000, bytesPerOp = 0) {
-  print(" - Benchmarking " + description);
+  printFn(" - Benchmarking " + description);
   let warmup = Math.floor(ops / 10);
   while (warmup-- > 0) {
     routine();
@@ -31,17 +50,39 @@ export function bench(description, routine, ops = 1_000_000, bytesPerOp = 0) {
     nsPerOp,
     mbps: mbPerSec,
   };
-  print(log + "\n");
+  printFn(log + "\n");
 }
 export function dumpToFile(suite, type) {
-  writeFile(
+  writeFileCompat(
     "./build/logs/js/" + suite + "." + type + ".js.json",
     JSON.stringify(result),
   );
 }
 
 export function readFile(path) {
-  return read(path);
+  return readFileCompat(path);
+}
+
+export function utf8ByteLength(value) {
+  if (typeof Buffer !== "undefined") return Buffer.byteLength(value, "utf8");
+  // d8 (the V8 shell these benches run in) has neither Buffer nor TextEncoder,
+  // so count UTF-8 bytes from the UTF-16 code units directly.
+  let len = 0;
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if (c < 0x80) len += 1;
+    else if (c < 0x800) len += 2;
+    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < value.length) {
+      const lo = value.charCodeAt(i + 1);
+      if (lo >= 0xdc00 && lo <= 0xdfff) {
+        len += 4; // surrogate pair -> one 4-byte code point
+        i++;
+        continue;
+      }
+      len += 3; // lone high surrogate
+    } else len += 3;
+  }
+  return len;
 }
 
 function formatNumber(n) {

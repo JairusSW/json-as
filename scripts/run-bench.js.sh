@@ -51,10 +51,25 @@ FILES=()
 if [[ -n "$BENCH_NAME" ]]; then
   # Allow passing `abc` or `abc.bench.ts`
   RAW_BENCH_NAME="$BENCH_NAME"
+
+  if [[ "$RAW_BENCH_NAME" == */ ]]; then
+    # Directory form (`multilib/`, `custom/`, `throughput/`): run every bench in
+    # that subdir.
+    DIR_REL="${RAW_BENCH_NAME%/}"
+    for f in ./bench/$DIR_REL/*.bench.ts; do
+      [[ -f "$f" ]] && FILES+=("$f")
+    done
+
+    if [[ ${#FILES[@]} -eq 0 ]]; then
+      echo "❌ No benchmarks found in '$RAW_BENCH_NAME'"
+      exit 1
+    fi
+  else
   [[ "$BENCH_NAME" != *.bench.ts ]] && BENCH_NAME="$BENCH_NAME.bench.ts"
 
   CANDIDATES=(
     "./bench/$BENCH_NAME"
+    "./bench/multilib/$BENCH_NAME"
     "./bench/throughput/$BENCH_NAME"
   )
 
@@ -71,24 +86,35 @@ if [[ -n "$BENCH_NAME" ]]; then
     echo "❌ No benchmark found for '$1'"
     exit 1
   fi
+  fi
 else
+  # Default run: top-level benches only. Subfolders (multilib/, throughput/) are
+  # opt-in — pass `multilib/` or `multilib/<name>` to run them.
   FILES=(
     ./bench/*.bench.ts
-    ./bench/throughput/*.bench.ts
   )
 fi
 
 for file in "${FILES[@]}"; do
   filename="${file##*/}"
 
-  if [[ "$file" == *throughput/* ]]; then
-      file_js="./build/throughput/${filename%.ts}.js"
-  else
-      file_js="./build/${filename%.ts}.js"
-  fi
+  # tsc compiles bench/ with rootDir "." -> ../build, preserving subfolders, so
+  # the built JS mirrors the source path under ./build (prim/, multilib/,
+  # throughput/, or top-level).
+  rel="${file#./bench/}"
+  file_js="./build/${rel%.ts}.js"
 
   for engine in $ENGINES; do
     printf '%s\n\n' "$filename (js/$engine)"
+
+    if [[ "$file" == *multilib/* ]]; then
+      if [[ "$engine" != "turbofan" ]]; then
+        echo "Skipping $filename: multilib benches require the Node runner"
+        continue
+      fi
+      node ./bench/multilib/node-runner.mjs "$file_js"
+      continue
+    fi
 
     if [[ "$engine" == "ignition" ]]; then
       "$D8_BIN" --no-opt --allow-natives-syntax --module "$file_js"

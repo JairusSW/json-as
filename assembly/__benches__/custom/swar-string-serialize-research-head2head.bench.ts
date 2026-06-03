@@ -397,12 +397,14 @@ verify(smallEscaped);
 verify(mediumEscaped);
 verify(largeEscaped);
 
-const bytesSmallPlain = JSON.stringify(smallPlain).length << 1;
-const bytesMediumPlain = JSON.stringify(mediumPlain).length << 1;
-const bytesLargePlain = JSON.stringify(largePlain).length << 1;
-const bytesSmallEscaped = JSON.stringify(smallEscaped).length << 1;
-const bytesMediumEscaped = JSON.stringify(mediumEscaped).length << 1;
-const bytesLargeEscaped = JSON.stringify(largeEscaped).length << 1;
+const bytesSmallPlain = String.UTF8.byteLength(JSON.stringify(smallPlain));
+const bytesMediumPlain = String.UTF8.byteLength(JSON.stringify(mediumPlain));
+const bytesLargePlain = String.UTF8.byteLength(JSON.stringify(largePlain));
+const bytesSmallEscaped = String.UTF8.byteLength(JSON.stringify(smallEscaped));
+const bytesMediumEscaped = String.UTF8.byteLength(
+  JSON.stringify(mediumEscaped),
+);
+const bytesLargeEscaped = String.UTF8.byteLength(JSON.stringify(largeEscaped));
 
 bench(
   "Research SWAR Current (small plain)",

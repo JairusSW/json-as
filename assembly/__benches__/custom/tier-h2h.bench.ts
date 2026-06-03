@@ -211,7 +211,7 @@ bench(
     blackbox(inline.always(JSON.parse<MediumAPIResponse>(min)));
   },
   N,
-  min.length << 1,
+  String.UTF8.byteLength(min),
 );
 
 bench(
@@ -220,7 +220,7 @@ bench(
     blackbox(inline.always(JSON.parse<MediumAPIResponse>(lead)));
   },
   N,
-  lead.length << 1,
+  String.UTF8.byteLength(lead),
 );
 
 bench(
@@ -229,7 +229,7 @@ bench(
     blackbox(inline.always(JSON.parse<MediumAPIResponse>(pretty)));
   },
   N,
-  pretty.length << 1,
+  String.UTF8.byteLength(pretty),
 );
 
 bench(
@@ -238,7 +238,7 @@ bench(
     blackbox(inline.always(JSON.parse<FieldDense>(dmin)));
   },
   N,
-  dmin.length << 1,
+  String.UTF8.byteLength(dmin),
 );
 
 bench(
@@ -247,7 +247,7 @@ bench(
     blackbox(inline.always(JSON.parse<FieldDense>(dlead)));
   },
   N,
-  dlead.length << 1,
+  String.UTF8.byteLength(dlead),
 );
 
 bench(
@@ -256,7 +256,7 @@ bench(
     blackbox(inline.always(JSON.parse<FieldDense>(dpretty)));
   },
   N,
-  dpretty.length << 1,
+  String.UTF8.byteLength(dpretty),
 );
 
 bench(
@@ -265,7 +265,7 @@ bench(
     blackbox(inline.always(JSON.parse<NonOptMedium>(nomin)));
   },
   N,
-  nomin.length << 1,
+  String.UTF8.byteLength(nomin),
 );
 
 bench(
@@ -274,7 +274,7 @@ bench(
     blackbox(inline.always(JSON.parse<OptMedium>(omin)));
   },
   N,
-  omin.length << 1,
+  String.UTF8.byteLength(omin),
 );
 
 bench(
@@ -283,5 +283,5 @@ bench(
     blackbox(inline.always(JSON.parse<OptMedium>(opretty)));
   },
   N,
-  opretty.length << 1,
+  String.UTF8.byteLength(opretty),
 );

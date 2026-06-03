@@ -1,4 +1,4 @@
-import { bench, blackbox, dumpToFile } from "./lib/bench.js";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench.js";
 
 class RepoOwner {
   login: string = "octocat";
@@ -162,7 +162,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   10_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("large", "serialize");
 
@@ -172,6 +172,6 @@ bench(
     blackbox(JSON.parse(v2));
   },
   10_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("large", "deserialize");

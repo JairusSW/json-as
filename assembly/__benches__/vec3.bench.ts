@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench, blackbox, dumpToFile } from "./lib/bench";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench";
 
 
 @json
@@ -16,18 +16,18 @@ expect(JSON.stringify(JSON.parse<Vec3>(v2))).toBe(v2);
 bench(
   "Serialize Vec3",
   () => {
-    blackbox(inline.always(JSON.stringify(v1)));
+    blackbox(JSON.stringify(v1));
   },
   12_800_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("vec3", "serialize");
 bench(
   "Deserialize Vec3",
   () => {
-    blackbox(inline.always(JSON.parse<Vec3>(v2)));
+    blackbox(JSON.parse<Vec3>(v2));
   },
   12_800_000,
-  v2.length,
+  utf8ByteLength(v2),
 );
 dumpToFile("vec3", "deserialize");

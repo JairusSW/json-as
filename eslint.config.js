@@ -13,7 +13,7 @@ export default tseslint.config(
       "transform/lib/**",
       "build/**",
       ".as-test/**",
-      "assembly/**/*.tmp.ts",
+      "**/*.tmp.ts",
     ],
   },
   eslint.configs.recommended,

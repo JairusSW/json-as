@@ -1,6 +1,12 @@
 import { JSON } from "../../index.ts";
 import { expect } from "../../__tests__/lib/index.ts";
-import { blackbox, bench, dumpToFile, readFile } from "../lib/bench.ts";
+import {
+  blackbox,
+  bench,
+  dumpToFile,
+  readFile,
+  utf8ByteLength,
+} from "../lib/bench.ts";
 
 
 @json
@@ -56,10 +62,20 @@ function benchCanada(variant: string, json: string): void {
   curEnd = curStart + (json.length << 1);
   curTyped = JSON.parse<Canada>(json);
 
-  bench("Deserialize Canada (" + variant + ")", deserRoutine, 40, json.length);
+  bench(
+    "Deserialize Canada (" + variant + ")",
+    deserRoutine,
+    40,
+    utf8ByteLength(json),
+  );
   dumpToFile("canada-" + variant, "deserialize");
 
-  bench("Serialize Canada (" + variant + ")", serRoutine, 40, json.length);
+  bench(
+    "Serialize Canada (" + variant + ")",
+    serRoutine,
+    40,
+    utf8ByteLength(json),
+  );
   dumpToFile("canada-" + variant, "serialize");
 }
 

@@ -13,7 +13,7 @@ function buildF64Json(targetBytes: i32): string {
   for (let i = 0; i < 16; i++) {
     block += "0,1.5,-2.25,3.141592653589793,1e-7,6.022e23,1000.0,-0.125,";
   }
-  const blockBytes = block.length;
+  const blockBytes = String.UTF8.byteLength(block);
   const repeats = i32(
     Math.max(1, Math.floor(f64(targetBytes - 2 + 1) / f64(blockBytes))),
   );

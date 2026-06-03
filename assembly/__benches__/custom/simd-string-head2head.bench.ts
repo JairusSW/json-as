@@ -50,7 +50,7 @@ if (largeEscapedLen < i32(LARGE_TARGET_BYTES >> 1) - LARGE_ESCAPED_BASE.length)
 function totalBytesOf(values: string[]): u64 {
   let total: u64 = 0;
   for (let i = 0; i < values.length; i++)
-    total += <u64>(unchecked(values[i]).length << 1);
+    total += String.UTF8.byteLength(unchecked(values[i]));
   return total;
 }
 
@@ -97,22 +97,22 @@ runFieldCorpus(largeEscapedInputs, largeEscapedSWAR, VARIANT_SWAR_FIELD);
 const plainDirectSIMD = deserializeString_SIMD(
   changetype<usize>(unchecked(plainInputs[0])),
   changetype<usize>(unchecked(plainInputs[0])) +
-    (unchecked(plainInputs[0]).length << 1),
+    String.UTF8.byteLength(unchecked(plainInputs[0])),
 );
 const escapedDirectSIMD = deserializeString_SIMD(
   changetype<usize>(unchecked(escapedInputs[0])),
   changetype<usize>(unchecked(escapedInputs[0])) +
-    (unchecked(escapedInputs[0]).length << 1),
+    String.UTF8.byteLength(unchecked(escapedInputs[0])),
 );
 const plainDirectSWAR = deserializeString_SWAR(
   changetype<usize>(unchecked(plainInputs[0])),
   changetype<usize>(unchecked(plainInputs[0])) +
-    (unchecked(plainInputs[0]).length << 1),
+    String.UTF8.byteLength(unchecked(plainInputs[0])),
 );
 const escapedDirectSWAR = deserializeString_SWAR(
   changetype<usize>(unchecked(escapedInputs[0])),
   changetype<usize>(unchecked(escapedInputs[0])) +
-    (unchecked(escapedInputs[0]).length << 1),
+    String.UTF8.byteLength(unchecked(escapedInputs[0])),
 );
 
 for (let i = 0; i < plainInputs.length; i++) {
@@ -154,7 +154,7 @@ function benchDirectPlainSIMD(): void {
     deserializeString_SIMD(
       changetype<usize>(unchecked(plainInputs[0])),
       changetype<usize>(unchecked(plainInputs[0])) +
-        (unchecked(plainInputs[0]).length << 1),
+        String.UTF8.byteLength(unchecked(plainInputs[0])),
     ),
   );
 }
@@ -163,7 +163,7 @@ function benchDirectPlainSWAR(): void {
     deserializeString_SWAR(
       changetype<usize>(unchecked(plainInputs[0])),
       changetype<usize>(unchecked(plainInputs[0])) +
-        (unchecked(plainInputs[0]).length << 1),
+        String.UTF8.byteLength(unchecked(plainInputs[0])),
     ),
   );
 }
@@ -172,7 +172,7 @@ function benchDirectEscapedSIMD(): void {
     deserializeString_SIMD(
       changetype<usize>(unchecked(escapedInputs[0])),
       changetype<usize>(unchecked(escapedInputs[0])) +
-        (unchecked(escapedInputs[0]).length << 1),
+        String.UTF8.byteLength(unchecked(escapedInputs[0])),
     ),
   );
 }
@@ -181,7 +181,7 @@ function benchDirectEscapedSWAR(): void {
     deserializeString_SWAR(
       changetype<usize>(unchecked(escapedInputs[0])),
       changetype<usize>(unchecked(escapedInputs[0])) +
-        (unchecked(escapedInputs[0]).length << 1),
+        String.UTF8.byteLength(unchecked(escapedInputs[0])),
     ),
   );
 }
