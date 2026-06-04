@@ -143,16 +143,27 @@ export namespace JSON {
    * `@inline`: `parse<T>` is inline, so calling it directly from each generated
    * getter would copy the whole parser into every accessor. Funnelling through
    * this one (per-T) function emits the parser once per type and shares it
-   * across all lazy getters of that type — large code-size win for `lazy:
-   * "auto"/"all"`. Called only on first access (the slow path), so the extra
-   * call is free relative to the parse it performs. `lz` is the packed range
-   * slot: high32 = start ptr, low32 = end ptr, 0 = absent (parsed as null).
+   * across all lazy getters of that type. Called only on first access (the slow
+   * path), with a real range (`lz` = high32 start ptr, low32 end ptr).
+   *
+   * Scalars and strings dispatch straight from the (already whitespace-trimmed)
+   * slice pointers, skipping the intermediate substring that `parse<T>(string)`
+   * would allocate. Containers/structs/maps/custom and nested-lazy types go
+   * through `parse` via a substring, which they need: custom `T` reads the
+   * string in `__DESERIALIZE_CUSTOM`, and a nested lazy struct anchors (via
+   * `__SET_SRC`) the substring its own stored ranges point into.
    */
   export function __materializeLazy<T>(lz: u64): T {
-    const hi = <usize>(lz >>> 32);
-    return hi != 0
-      ? parse<T>(ptrToStr(hi, <usize>(<u32>lz)))
-      : parse<T>("null");
+    const start = <usize>(lz >>> 32);
+    const end = <usize>(<u32>lz);
+    if (isBoolean<T>()) return deserializeBoolean(start, end) as T;
+    if (isInteger<T>())
+      return isSigned<T>()
+        ? deserializeInteger<T>(start, end)
+        : deserializeUnsigned<T>(start, end);
+    if (isFloat<T>()) return deserializeFloat<T>(start, end);
+    if (isString<T>()) return deserializeString(start, end) as T;
+    return parse<T>(ptrToStr(start, end));
   }
 
   /**
