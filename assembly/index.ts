@@ -127,6 +127,15 @@ import { atoi, bytes, scanStringEnd } from "./util";
 
 export namespace JSON {
   /**
+   * On-demand field marker. `JSON.Lazy<T>` is structurally just `T` (a no-op
+   * type alias), so a field declared `JSON.Lazy<T>` is typed and accessed
+   * exactly like `T`. The transform detects the annotation and defers that
+   * field: its raw JSON slice is stored at parse time and parsed into `T` on
+   * first access (a generated get accessor).
+   */
+  export type Lazy<T> = T;
+
+  /**
    * Memory management utilities for the JSON serialization buffer.
    */
   export namespace Memory {
@@ -328,14 +337,20 @@ export namespace JSON {
             fastEnd != 0 &&
             JSON.Util.skipWhitespace(fastEnd, dataPtr + dataSize) ==
               dataPtr + dataSize
-          )
+          ) {
+            // @ts-expect-error: Defined by transform for @lazy-field structs —
+            // pins the source so stored slice ranges stay valid.
+            if (isDefined(obj.__SET_SRC)) obj.__SET_SRC(data);
             return obj;
+          }
         }
         if (isDefined(type.__INITIALIZE)) obj.__INITIALIZE();
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_SLOW)) {
           // @ts-expect-error: Defined by transform
           obj.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, obj);
+          // @ts-expect-error: Defined by transform for @lazy-field structs.
+          if (isDefined(obj.__SET_SRC)) obj.__SET_SRC(data);
           return obj;
         }
         throw new Error(`No deserialize method defined for type ${type}`);

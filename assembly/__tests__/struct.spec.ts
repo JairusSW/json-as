@@ -383,6 +383,26 @@ describe("Should round-trip a struct mixing every nullable shape side-by-side", 
   );
 });
 
+describe("Should work with nested classed declared as a literal", () => {
+  const nestedA: ClassWithNestedClass = { a: 0, inner: null };
+  const nestedB: ClassWithNestedClass = { a: 1, inner: { b: 2 } };
+  expect(JSON.stringify(nestedA)).toBe('{"a":0,"inner":null}');
+  expect(JSON.stringify(nestedB)).toBe('{"a":1,"inner":{"b":2}}');
+});
+
+
+@json
+class ClassWithNestedClass {
+  a: i32 = 0;
+  inner: InnerClass | null = null;
+}
+
+
+@json
+class InnerClass {
+  b: i32 = 1;
+}
+
 
 @json
 class NullableInner {

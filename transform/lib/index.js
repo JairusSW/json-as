@@ -301,6 +301,61 @@ export class JSONTransform extends Visitor {
             return;
         if (!this.schemas.has(source.internalPath))
             this.schemas.set(source.internalPath, []);
+        const lazyInner = new Map();
+        let __hasLazy = false;
+        for (let i = node.members.length - 1; i >= 0; i--) {
+            const fd = node.members[i];
+            if (fd.kind !== NodeKind.FieldDeclaration ||
+                fd.is(32) ||
+                fd.is(512) ||
+                fd.is(1024) ||
+                !fd.type)
+                continue;
+            const written = toString(fd.type).trim();
+            let inner = null;
+            if (written.startsWith("JSON.Lazy<") && written.endsWith(">"))
+                inner = written.slice("JSON.Lazy<".length, written.length - 1).trim();
+            else if (written.startsWith("Lazy<") && written.endsWith(">"))
+                inner = written.slice("Lazy<".length, written.length - 1).trim();
+            if (inner === null)
+                continue;
+            const fname = fd.name.text;
+            const key = JSON.stringify(fname);
+            const T = inner;
+            const baseT = stripNull(T);
+            const storesScalar = isPrimitive(baseT) || isEnum(baseT, source, this.parser);
+            const valueType = storesScalar || baseT != T ? T : `${T} | null`;
+            const valueDefault = isBoolean(baseT)
+                ? "false"
+                : storesScalar
+                    ? "0"
+                    : "null";
+            __hasLazy = true;
+            lazyInner.set("__" + fname + "_lz", { inner: T, valueType });
+            const lowered = [
+                `@alias(${key}) __${fname}_lz: u64 = 0;`,
+                `@omit __${fname}_has: bool = false;`,
+                `@omit __${fname}_val: ${valueType} = ${valueDefault};`,
+                `get ${fname}(): ${T} {\n` +
+                    `  if (this.__${fname}_has) return this.__${fname}_val as ${T};\n` +
+                    `  const __s = this.__${fname}_lz;\n` +
+                    `  const __hi = <usize>(__s >>> 32);\n` +
+                    `  const __v = __hi != 0\n` +
+                    `    ? JSON.parse<${T}>(JSON.Util.ptrToStr(__hi, <usize>(<u32>__s)))\n` +
+                    `    : JSON.parse<${T}>("null");\n` +
+                    `  this.__${fname}_val = __v;\n` +
+                    `  this.__${fname}_has = true;\n` +
+                    `  return __v;\n}`,
+                `set ${fname}(value: ${T}) {\n` +
+                    `  this.__${fname}_lz = 0;\n` +
+                    `  this.__${fname}_val = value;\n` +
+                    `  this.__${fname}_has = true;\n}`,
+            ].map((src) => SimpleParser.parseClassMember(src, node));
+            node.members.splice(i, 1, ...lowered);
+        }
+        if (__hasLazy) {
+            node.members.push(SimpleParser.parseClassMember(`@omit __src: string = "";`, node), SimpleParser.parseClassMember(`__SET_SRC(s: string): void { this.__src = s; }`, node));
+        }
         const members = [
             ...node.members.filter((v) => v.kind === NodeKind.FieldDeclaration &&
                 !v.is(32) &&
@@ -688,6 +743,11 @@ export class JSONTransform extends Visitor {
             mem.node = member;
             mem.byteSize = estimatedSerializedByteSize(mem.type, source, this.parser);
             mem.custom = schema.deps.some((dep) => dep?.name == stripNull(type) && dep.custom);
+            const lzInner = lazyInner.get(name.text);
+            if (lzInner !== undefined) {
+                mem.flags.set(PropertyFlags.Lazy, null);
+                mem.lazyInner = lzInner.inner;
+            }
             this.schema.byteSize += mem.byteSize;
             if (member.decorators) {
                 for (const decorator of member.decorators) {
@@ -754,6 +814,31 @@ export class JSONTransform extends Visitor {
         const isPure = this.schema.static;
         let isRegular = isPure;
         let isFirst = true;
+        const serValue = (member, realName) => {
+            if (!member.flags.has(PropertyFlags.Lazy))
+                return getSerializeCall(member.type, realName);
+            const T = member.lazyInner;
+            const baseName = realName.slice(0, -3);
+            const hasName = baseName + "_has";
+            return (`{\n` +
+                `  if (this.${hasName}) {\n` +
+                `    JSON.__serialize<${T}>(this.${baseName}_val as ${T});\n` +
+                `  } else {\n` +
+                `    const __s = this.${realName};\n` +
+                `    const __hi = <usize>(__s >>> 32);\n` +
+                `    if (__hi != 0) {\n` +
+                `      const __len = (<usize>(<u32>__s)) - __hi;\n` +
+                `      bs.ensureSize(<u32>__len);\n` +
+                `      memory.copy(bs.offset, __hi, __len);\n` +
+                `      bs.offset += __len;\n` +
+                `    } else {\n` +
+                `      bs.ensureSize(8);\n` +
+                `      store<u64>(bs.offset, 0x006c006c0075006e);\n` +
+                `      bs.offset += 8;\n` +
+                `    }\n` +
+                `  }\n` +
+                `}\n`);
+        };
         for (let i = 0; i < this.schema.members.length; i++) {
             const member = this.schema.members[i];
             const aliasName = JSON.stringify(member.alias || member.name);
@@ -803,7 +888,7 @@ export class JSONTransform extends Visitor {
                 SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
                     .map((v) => indent + v + "\n")
                     .join("");
-                SERIALIZE += indent + getSerializeCall(member.type, realName);
+                SERIALIZE += indent + serValue(member, realName);
                 if (isFirst)
                     isFirst = false;
             }
@@ -813,7 +898,7 @@ export class JSONTransform extends Visitor {
                 SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
                     .map((v) => indent + v + "\n")
                     .join("");
-                SERIALIZE += indent + getSerializeCall(member.type, realName);
+                SERIALIZE += indent + serValue(member, realName);
                 if (isFirst)
                     isFirst = false;
             }
@@ -828,7 +913,7 @@ export class JSONTransform extends Visitor {
                     SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
                         .map((v) => indent + v + "\n")
                         .join("");
-                    SERIALIZE += indent + getSerializeCall(member.type, realName);
+                    SERIALIZE += indent + serValue(member, realName);
                     if (!isLast) {
                         this.schema.byteSize += 2;
                         SERIALIZE += indent + `store<u16>(bs.offset, 44, 0); // ,\n`;
@@ -862,7 +947,7 @@ export class JSONTransform extends Visitor {
                     SERIALIZE += this.getStores(aliasName + ":", SIMD_ENABLED)
                         .map((v) => indent + v + "\n")
                         .join("");
-                    SERIALIZE += indent + getSerializeCall(member.type, realName);
+                    SERIALIZE += indent + serValue(member, realName);
                     if (!isLast) {
                         this.schema.byteSize += 2;
                         SERIALIZE += indent + `store<u16>(bs.offset, 44, 0); // ,\n`;
@@ -911,6 +996,23 @@ export class JSONTransform extends Visitor {
                     sortedMembers.object.push(member);
             }
         }
+        const lazyMembers = this.schema.members.filter((member) => member.flags.has(PropertyFlags.Lazy));
+        const withLazyMembers = (members) => {
+            if (!lazyMembers.length)
+                return members;
+            const out = members.slice();
+            for (const member of lazyMembers) {
+                if (!out.includes(member))
+                    out.push(member);
+            }
+            return out;
+        };
+        const slowStringMembers = withLazyMembers(sortedMembers.string);
+        const slowNumberMembers = withLazyMembers(sortedMembers.number);
+        const slowObjectMembers = withLazyMembers(sortedMembers.object);
+        const slowArrayMembers = withLazyMembers(sortedMembers.array);
+        const slowBooleanMembers = withLazyMembers(sortedMembers.boolean);
+        const slowNullMembers = withLazyMembers(sortedMembers.null);
         const getComparisions = (data, ptr, operator) => {
             const dataBytes = data.length << 1;
             let offset = 0;
@@ -951,6 +1053,19 @@ export class JSONTransform extends Visitor {
             const resolvedSchema = this.getSchema(resolvedType);
             const fieldOffset = `offsetof<this>(${JSON.stringify(member.name)})`;
             const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
+            if (member.flags.has(PropertyFlags.Lazy)) {
+                const hasName = member.name.slice(0, -3) + "_has";
+                const hasOffset = `offsetof<this>(${JSON.stringify(hasName)})`;
+                out.push("{");
+                out.push(`  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`);
+                out.push("  const valueEnd = JSON.Util.scanValueEnd(valueStart, srcEnd);");
+                out.push("  if (!valueEnd) break;");
+                out.push(`  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`);
+                out.push(`  store<bool>(${outPtr}, false, ${hasOffset});`);
+                out.push(`  ${srcPtr} = valueEnd;`);
+                out.push("}");
+                return out;
+            }
             if (INTEGER_TYPES.includes(resolvedType)) {
                 const helper = SIGNED_INTEGER_TYPES.includes(resolvedType)
                     ? "__deserializeIntegerField"
@@ -1497,7 +1612,7 @@ export class JSONTransform extends Visitor {
         DESERIALIZE += indent + "  let keyStart: usize = 0;\n";
         DESERIALIZE += indent + "  let keyEnd: usize = 0;\n";
         DESERIALIZE += indent + "  let isKey = false;\n";
-        if (!STRICT || sortedMembers.object.length || sortedMembers.array.length)
+        if (!STRICT || slowObjectMembers.length || slowArrayMembers.length)
             DESERIALIZE += indent + "  let depth: i32 = 0;\n";
         DESERIALIZE += indent + "  let lastIndex: usize = 0;\n\n";
         DESERIALIZE +=
@@ -1642,8 +1757,40 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE += toMemCDecl(Math.max(...members.map((m) => (m.alias || m.name).length << 1)), "            ");
             }
         };
+        const getLazyRangeStore = (member, valueStart, valueEnd, prefix) => {
+            const hasName = member.name.slice(0, -3) + "_has";
+            return (prefix +
+                `store<u64>(changetype<usize>(out), ((<u64>${valueStart}) << 32) | (<u64>(<u32>${valueEnd})), offsetof<this>(${JSON.stringify(member.name)}));\n` +
+                prefix +
+                `store<bool>(changetype<usize>(out), false, offsetof<this>(${JSON.stringify(hasName)}));\n`);
+        };
+        const getSlowValueStore = (member, valueStart, valueEnd, prefix) => {
+            if (member.flags.has(PropertyFlags.Lazy))
+                return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+            return (prefix +
+                `store<${member.type}>(changetype<usize>(out), JSON.__deserialize<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${JSON.stringify(member.name)}));\n`);
+        };
+        const getSlowBooleanStore = (member, value, valueStart, valueEnd, prefix) => {
+            if (member.flags.has(PropertyFlags.Lazy))
+                return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+            if (member.type.startsWith("JSON.Box<bool") ||
+                member.type.startsWith("JSON.Box<boolean") ||
+                member.type.startsWith("Box<bool") ||
+                member.type.startsWith("Box<boolean")) {
+                return (prefix +
+                    `store<${member.type}>(changetype<usize>(out), changetype<${member.type}>(JSON.Box.from<bool>(${value})), offsetof<this>(${JSON.stringify(member.name)}));\n`);
+            }
+            return (prefix +
+                `store<boolean>(changetype<usize>(out), ${value}, offsetof<this>(${JSON.stringify(member.name)}));\n`);
+        };
+        const getSlowNullStore = (member, valueStart, valueEnd, prefix) => {
+            if (member.flags.has(PropertyFlags.Lazy))
+                return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+            return (prefix +
+                `store<usize>(changetype<usize>(out), 0, offsetof<this>(${JSON.stringify(member.name)}));\n`);
+        };
         let mbElse = "      ";
-        if (!STRICT || sortedMembers.string.length) {
+        if (!STRICT || slowStringMembers.length) {
             DESERIALIZE += mbElse + "if (code == 34) {\n";
             DESERIALIZE += "          lastIndex = srcStart;\n";
             DESERIALIZE += "          srcStart += 2;\n";
@@ -1656,7 +1803,7 @@ export class JSONTransform extends Visitor {
                     '              console.log("Value (string, ' +
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart + 2));';
-            generateGroups(sortedMembers.string, (group) => {
+            generateGroups(slowStringMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias || first.name;
@@ -1668,15 +1815,7 @@ export class JSONTransform extends Visitor {
                         ") { // " +
                         fName +
                         "\n";
-                DESERIALIZE +=
-                    indent +
-                        "              store<" +
-                        first.type +
-                        ">(changetype<usize>(out), JSON.__deserialize<" +
-                        first.type +
-                        ">(lastIndex, srcStart + 2), offsetof<this>(" +
-                        JSON.stringify(first.name) +
-                        "));\n";
+                DESERIALIZE += getSlowValueStore(first, "lastIndex", "srcStart + 2", indent + "              ");
                 DESERIALIZE += indent + "              srcStart += 4;\n";
                 DESERIALIZE += indent + "              keyStart = 0;\n";
                 DESERIALIZE += indent + "              break;\n";
@@ -1692,15 +1831,7 @@ export class JSONTransform extends Visitor {
                             ") { // " +
                             memName +
                             "\n";
-                    DESERIALIZE +=
-                        indent +
-                            "              store<" +
-                            mem.type +
-                            ">(changetype<usize>(out), JSON.__deserialize<" +
-                            mem.type +
-                            ">(lastIndex, srcStart + 2), offsetof<this>(" +
-                            JSON.stringify(mem.name) +
-                            "));\n";
+                    DESERIALIZE += getSlowValueStore(mem, "lastIndex", "srcStart + 2", indent + "              ");
                     DESERIALIZE += indent + "              srcStart += 4;\n";
                     DESERIALIZE += indent + "              keyStart = 0;\n";
                     DESERIALIZE += indent + "              break;\n";
@@ -1727,7 +1858,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "      }\n";
             mbElse = " else ";
         }
-        if (!STRICT || sortedMembers.number.length) {
+        if (!STRICT || slowNumberMembers.length) {
             DESERIALIZE += mbElse + "if (code - 48 <= 9 || code == 45) {\n";
             DESERIALIZE += "        lastIndex = srcStart;\n";
             DESERIALIZE += "        srcStart += 2;\n";
@@ -1740,7 +1871,7 @@ export class JSONTransform extends Visitor {
                     '              console.log("Value (number, ' +
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart));';
-            generateGroups(sortedMembers.number, (group) => {
+            generateGroups(slowNumberMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias || first.name;
@@ -1758,15 +1889,7 @@ export class JSONTransform extends Visitor {
                         ") { // " +
                         fName +
                         "\n";
-                DESERIALIZE +=
-                    indent +
-                        "              store<" +
-                        first.type +
-                        ">(changetype<usize>(out), JSON.__deserialize<" +
-                        first.type +
-                        ">(lastIndex, srcStart), offsetof<this>(" +
-                        JSON.stringify(first.name) +
-                        "));\n";
+                DESERIALIZE += getSlowValueStore(first, "lastIndex", "srcStart", indent + "              ");
                 DESERIALIZE += indent + "              srcStart += 2;\n";
                 DESERIALIZE += indent + "              keyStart = 0;\n";
                 DESERIALIZE += indent + "              break;\n";
@@ -1788,15 +1911,7 @@ export class JSONTransform extends Visitor {
                             ") { // " +
                             memName +
                             "\n";
-                    DESERIALIZE +=
-                        indent +
-                            "              store<" +
-                            mem.type +
-                            ">(changetype<usize>(out), JSON.__deserialize<" +
-                            mem.type +
-                            ">(lastIndex, srcStart), offsetof<this>(" +
-                            JSON.stringify(mem.name) +
-                            "));\n";
+                    DESERIALIZE += getSlowValueStore(mem, "lastIndex", "srcStart", indent + "              ");
                     DESERIALIZE += indent + "              srcStart += 2;\n";
                     DESERIALIZE += indent + "              keyStart = 0;\n";
                     DESERIALIZE += indent + "              break;\n";
@@ -1823,7 +1938,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "      }";
             mbElse = " else ";
         }
-        if (!STRICT || sortedMembers.object.length) {
+        if (!STRICT || slowObjectMembers.length) {
             DESERIALIZE += mbElse + "if (code == 123) {\n";
             DESERIALIZE += "        lastIndex = srcStart;\n";
             DESERIALIZE += "        depth++;\n";
@@ -1843,7 +1958,7 @@ export class JSONTransform extends Visitor {
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart));';
             indent = "  ";
-            generateGroups(sortedMembers.object, (group) => {
+            generateGroups(slowObjectMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias || first.name;
@@ -1854,15 +1969,7 @@ export class JSONTransform extends Visitor {
                         ") { // " +
                         fName +
                         "\n";
-                DESERIALIZE +=
-                    indent +
-                        "              store<" +
-                        first.type +
-                        ">(changetype<usize>(out), JSON.__deserialize<" +
-                        first.type +
-                        ">(lastIndex, srcStart), offsetof<this>(" +
-                        JSON.stringify(first.name) +
-                        "));\n";
+                DESERIALIZE += getSlowValueStore(first, "lastIndex", "srcStart", indent + "              ");
                 DESERIALIZE += indent + "              keyStart = 0;\n";
                 DESERIALIZE += indent + "              break;\n";
                 DESERIALIZE += indent + "            }";
@@ -1876,15 +1983,7 @@ export class JSONTransform extends Visitor {
                             ") { // " +
                             memName +
                             "\n";
-                    DESERIALIZE +=
-                        indent +
-                            "              store<" +
-                            mem.type +
-                            ">(changetype<usize>(out), JSON.__deserialize<" +
-                            mem.type +
-                            ">(lastIndex, srcStart), offsetof<this>(" +
-                            JSON.stringify(mem.name) +
-                            "));\n";
+                    DESERIALIZE += getSlowValueStore(mem, "lastIndex", "srcStart", indent + "              ");
                     DESERIALIZE += indent + "              keyStart = 0;\n";
                     DESERIALIZE += indent + "              break;\n";
                     DESERIALIZE += indent + "            }";
@@ -1911,7 +2010,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "      }";
             mbElse = " else ";
         }
-        if (!STRICT || sortedMembers.array.length) {
+        if (!STRICT || slowArrayMembers.length) {
             DESERIALIZE += mbElse + "if (code == 91) {\n";
             DESERIALIZE += "        lastIndex = srcStart;\n";
             DESERIALIZE += "        depth++;\n";
@@ -1931,7 +2030,7 @@ export class JSONTransform extends Visitor {
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart));';
             indent = "  ";
-            generateGroups(sortedMembers.array, (group) => {
+            generateGroups(slowArrayMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias || first.name;
@@ -1943,15 +2042,7 @@ export class JSONTransform extends Visitor {
                         ") { // " +
                         fName +
                         "\n";
-                DESERIALIZE +=
-                    indent +
-                        "              store<" +
-                        first.type +
-                        ">(changetype<usize>(out), JSON.__deserialize<" +
-                        first.type +
-                        ">(lastIndex, srcStart), offsetof<this>(" +
-                        JSON.stringify(first.name) +
-                        "));\n";
+                DESERIALIZE += getSlowValueStore(first, "lastIndex", "srcStart", indent + "              ");
                 DESERIALIZE += indent + "              keyStart = 0;\n";
                 DESERIALIZE += indent + "              break;\n";
                 DESERIALIZE += indent + "            }";
@@ -1966,15 +2057,7 @@ export class JSONTransform extends Visitor {
                             ") { // " +
                             memName +
                             "\n";
-                    DESERIALIZE +=
-                        indent +
-                            "              store<" +
-                            mem.type +
-                            ">(changetype<usize>(out), JSON.__deserialize<" +
-                            mem.type +
-                            ">(lastIndex, srcStart), offsetof<this>(" +
-                            JSON.stringify(mem.name) +
-                            "));\n";
+                    DESERIALIZE += getSlowValueStore(mem, "lastIndex", "srcStart", indent + "              ");
                     DESERIALIZE += indent + "              keyStart = 0;\n";
                     DESERIALIZE += indent + "              break;\n";
                     DESERIALIZE += indent + "            }";
@@ -2001,7 +2084,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "      }";
             mbElse = " else ";
         }
-        if (!STRICT || sortedMembers.boolean.length) {
+        if (!STRICT || slowBooleanMembers.length) {
             DESERIALIZE += mbElse + "if (code == 116) {\n";
             DESERIALIZE +=
                 "        if (load<u64>(srcStart) == 28429475166421108) {\n";
@@ -2011,7 +2094,7 @@ export class JSONTransform extends Visitor {
                     '              console.log("Value (bool, ' +
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart - 8));';
-            generateGroups(sortedMembers.boolean, (group) => {
+            generateGroups(slowBooleanMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias || first.name;
@@ -2023,27 +2106,7 @@ export class JSONTransform extends Visitor {
                         ") { // " +
                         fName +
                         "\n";
-                if (first.type.startsWith("JSON.Box<bool") ||
-                    first.type.startsWith("JSON.Box<boolean") ||
-                    first.type.startsWith("Box<bool") ||
-                    first.type.startsWith("Box<boolean")) {
-                    DESERIALIZE +=
-                        indent +
-                            "            store<" +
-                            first.type +
-                            ">(changetype<usize>(out), changetype<" +
-                            first.type +
-                            ">(JSON.Box.from<bool>(true)), offsetof<this>(" +
-                            JSON.stringify(first.name) +
-                            "));\n";
-                }
-                else {
-                    DESERIALIZE +=
-                        indent +
-                            "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" +
-                            JSON.stringify(first.name) +
-                            "));\n";
-                }
+                DESERIALIZE += getSlowBooleanStore(first, "true", "srcStart - 8", "srcStart", indent + "            ");
                 DESERIALIZE += indent + "            srcStart += 2;\n";
                 DESERIALIZE += indent + "            keyStart = 0;\n";
                 DESERIALIZE += indent + "            break;\n";
@@ -2059,27 +2122,7 @@ export class JSONTransform extends Visitor {
                             ") { // " +
                             memName +
                             "\n";
-                    if (mem.type.startsWith("JSON.Box<bool") ||
-                        mem.type.startsWith("JSON.Box<boolean") ||
-                        mem.type.startsWith("Box<bool") ||
-                        mem.type.startsWith("Box<boolean")) {
-                        DESERIALIZE +=
-                            indent +
-                                "            store<" +
-                                mem.type +
-                                ">(changetype<usize>(out), changetype<" +
-                                mem.type +
-                                ">(JSON.Box.from<bool>(true)), offsetof<this>(" +
-                                JSON.stringify(mem.name) +
-                                "));\n";
-                    }
-                    else {
-                        DESERIALIZE +=
-                            indent +
-                                "            store<boolean>(changetype<usize>(out), true, offsetof<this>(" +
-                                JSON.stringify(mem.name) +
-                                "));\n";
-                    }
+                    DESERIALIZE += getSlowBooleanStore(mem, "true", "srcStart - 8", "srcStart", indent + "            ");
                     DESERIALIZE += indent + "            srcStart += 2;\n";
                     DESERIALIZE += indent + "            keyStart = 0;\n";
                     DESERIALIZE += indent + "            break;\n";
@@ -2115,7 +2158,7 @@ export class JSONTransform extends Visitor {
                     '              console.log("Value (bool, ' +
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart - 10));';
-            generateGroups(sortedMembers.boolean, (group) => {
+            generateGroups(slowBooleanMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias || first.name;
@@ -2127,27 +2170,7 @@ export class JSONTransform extends Visitor {
                         ") { // " +
                         fName +
                         "\n";
-                if (first.type.startsWith("JSON.Box<bool") ||
-                    first.type.startsWith("JSON.Box<boolean") ||
-                    first.type.startsWith("Box<bool") ||
-                    first.type.startsWith("Box<boolean")) {
-                    DESERIALIZE +=
-                        indent +
-                            "            store<" +
-                            first.type +
-                            ">(changetype<usize>(out), changetype<" +
-                            first.type +
-                            ">(JSON.Box.from<bool>(false)), offsetof<this>(" +
-                            JSON.stringify(first.name) +
-                            "));\n";
-                }
-                else {
-                    DESERIALIZE +=
-                        indent +
-                            "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" +
-                            JSON.stringify(first.name) +
-                            "));\n";
-                }
+                DESERIALIZE += getSlowBooleanStore(first, "false", "srcStart - 10", "srcStart", indent + "            ");
                 DESERIALIZE += indent + "            srcStart += 2;\n";
                 DESERIALIZE += indent + "            keyStart = 0;\n";
                 DESERIALIZE += indent + "            break;\n";
@@ -2163,27 +2186,7 @@ export class JSONTransform extends Visitor {
                             ") { // " +
                             memName +
                             "\n";
-                    if (mem.type.startsWith("JSON.Box<bool") ||
-                        mem.type.startsWith("JSON.Box<boolean") ||
-                        mem.type.startsWith("Box<bool") ||
-                        mem.type.startsWith("Box<boolean")) {
-                        DESERIALIZE +=
-                            indent +
-                                "            store<" +
-                                mem.type +
-                                ">(changetype<usize>(out), changetype<" +
-                                mem.type +
-                                ">(JSON.Box.from<bool>(false)), offsetof<this>(" +
-                                JSON.stringify(mem.name) +
-                                "));\n";
-                    }
-                    else {
-                        DESERIALIZE +=
-                            indent +
-                                "            store<boolean>(changetype<usize>(out), false, offsetof<this>(" +
-                                JSON.stringify(mem.name) +
-                                "));\n";
-                    }
+                    DESERIALIZE += getSlowBooleanStore(mem, "false", "srcStart - 10", "srcStart", indent + "            ");
                     DESERIALIZE += indent + "            srcStart += 2;\n";
                     DESERIALIZE += indent + "            keyStart = 0;\n";
                     DESERIALIZE += indent + "            break;\n";
@@ -2208,7 +2211,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "\n      }";
             mbElse = " else ";
         }
-        if (!STRICT || sortedMembers.null.length) {
+        if (!STRICT || slowNullMembers.length) {
             DESERIALIZE += mbElse + "if (code == 110) {\n";
             DESERIALIZE +=
                 "        if (load<u64>(srcStart) == 30399761348886638) {\n";
@@ -2218,7 +2221,7 @@ export class JSONTransform extends Visitor {
                     '              console.log("Value (null, ' +
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart - 8));';
-            generateGroups(sortedMembers.null, (group) => {
+            generateGroups(slowNullMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias || first.name;
@@ -2230,11 +2233,7 @@ export class JSONTransform extends Visitor {
                         ") { // " +
                         fName +
                         "\n";
-                DESERIALIZE +=
-                    indent +
-                        "            store<usize>(changetype<usize>(out), 0, offsetof<this>(" +
-                        JSON.stringify(first.name) +
-                        "));\n";
+                DESERIALIZE += getSlowNullStore(first, "srcStart - 8", "srcStart", indent + "            ");
                 DESERIALIZE += indent + "            srcStart += 2;\n";
                 DESERIALIZE += indent + "            keyStart = 0;\n";
                 DESERIALIZE += indent + "            break;\n";
@@ -2250,11 +2249,7 @@ export class JSONTransform extends Visitor {
                             ") { // " +
                             memName +
                             "\n";
-                    DESERIALIZE +=
-                        indent +
-                            "            store<usize>(changetype<usize>(out), 0, offsetof<this>(" +
-                            JSON.stringify(mem.name) +
-                            "));\n";
+                    DESERIALIZE += getSlowNullStore(mem, "srcStart - 8", "srcStart", indent + "            ");
                     DESERIALIZE += indent + "            srcStart += 2;\n";
                     DESERIALIZE += indent + "            keyStart = 0;\n";
                     DESERIALIZE += indent + "            break;\n";
