@@ -165,6 +165,16 @@ describe('@json({ lazy: "all" }) defers every field', () => {
   @omitif((self: OmitIfLazy) => self.count == 0) count: JSON.Lazy<i32> = 0;
 }
 
+describe("lazy fields on a fresh (unparsed) instance return defaults", () => {
+  // Regression: an unset lazy slot (lz==0) must NOT run parse<T>("null") —
+  // that garbles scalars. The getter returns the type default instead.
+  const d = new LazyPrimitives();
+  expect(d.count.toString()).toBe("0");
+  expect(d.enabled.toString()).toBe("false");
+  const n = new NullableOwner();
+  expect(changetype<usize>(n.owner) == 0 ? "null" : "set").toBe("null");
+});
+
 describe("@omitnull works on lazy fields (omits null without materializing)", () => {
   // @omitnull triggers the optional-field sort, so the optional field leads —
   // same ordering as a non-lazy @omitnull class.

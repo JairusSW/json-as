@@ -357,10 +357,10 @@ export class JSONTransform extends Visitor {
                 `@omit __${fname}_val: ${valueType} = ${valueDefault};`,
                 `get ${fname}(): ${T} {\n` +
                     `  if (this.__${fname}_has) return this.__${fname}_val as ${T};\n` +
-                    `  const __v = JSON.__materializeLazy<${T}>(this.__${fname}_lz);\n` +
-                    `  this.__${fname}_val = __v;\n` +
+                    `  const __lz = this.__${fname}_lz;\n` +
+                    `  if (__lz != 0) this.__${fname}_val = JSON.__materializeLazy<${T}>(__lz);\n` +
                     `  this.__${fname}_has = true;\n` +
-                    `  return __v;\n}`,
+                    `  return this.__${fname}_val as ${T};\n}`,
                 `set ${fname}(value: ${T}) {\n` +
                     `  this.__${fname}_lz = 0;\n` +
                     `  this.__${fname}_val = value;\n` +

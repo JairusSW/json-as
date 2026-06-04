@@ -584,10 +584,12 @@ export class JSONTransform extends Visitor {
         // so the parser is emitted once per type, not inlined into every getter.
         `get ${fname}(): ${T} {\n` +
           `  if (this.__${fname}_has) return this.__${fname}_val as ${T};\n` +
-          `  const __v = JSON.__materializeLazy<${T}>(this.__${fname}_lz);\n` +
-          `  this.__${fname}_val = __v;\n` +
+          `  const __lz = this.__${fname}_lz;\n` +
+          // lz == 0 means absent/unset (a fresh instance or an omitted source
+          // field) -> keep the type default; only parse a real stored range.
+          `  if (__lz != 0) this.__${fname}_val = JSON.__materializeLazy<${T}>(__lz);\n` +
           `  this.__${fname}_has = true;\n` +
-          `  return __v;\n}`,
+          `  return this.__${fname}_val as ${T};\n}`,
         `set ${fname}(value: ${T}) {\n` +
           `  this.__${fname}_lz = 0;\n` +
           `  this.__${fname}_val = value;\n` +
