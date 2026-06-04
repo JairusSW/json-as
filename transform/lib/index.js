@@ -351,20 +351,50 @@ export class JSONTransform extends Visitor {
                 omitNull: hasDeco("omitnull"),
                 omitIf: omitIfDeco?.args?.[0] ?? null,
             });
-            const lowered = [
-                `@alias(${key}) __${fname}_lz: u64 = 0;`,
-                `@omit __${fname}_val: ${valueType} = ${valueDefault};`,
-                `get ${fname}(): ${T} {\n` +
-                    `  const __lz = this.__${fname}_lz;\n` +
-                    `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +
-                    `    this.__${fname}_val = JSON.__materializeLazy<${T}>(__lz);\n` +
-                    `    this.__${fname}_lz = u64.MAX_VALUE;\n` +
-                    `  }\n` +
-                    `  return this.__${fname}_val as ${T};\n}`,
-                `set ${fname}(value: ${T}) {\n` +
-                    `  this.__${fname}_val = value;\n` +
-                    `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
-            ].map((src) => SimpleParser.parseClassMember(src, node));
+            const packScalar = baseT === "i8" ||
+                baseT === "u8" ||
+                baseT === "i16" ||
+                baseT === "u16" ||
+                baseT === "i32" ||
+                baseT === "u32" ||
+                baseT === "bool" ||
+                baseT === "boolean" ||
+                baseT === "f32";
+            const encVal = (v) => baseT === "f32"
+                ? `(<u64>reinterpret<u32>(${v}))`
+                : `(<u64><u32>(${v}))`;
+            const decSlot = (lz) => baseT === "f32"
+                ? `reinterpret<f32>(<u32>(${lz}))`
+                : `(<${T}>(<u32>(${lz})))`;
+            const lowered = (packScalar
+                ? [
+                    `@alias(${key}) __${fname}_lz: u64 = 0;`,
+                    `get ${fname}(): ${T} {\n` +
+                        `  const __lz = this.__${fname}_lz;\n` +
+                        `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
+                        `  if (__lz != 0) {\n` +
+                        `    const __v = JSON.__materializeLazy<${T}>(__lz);\n` +
+                        `    this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("__v")};\n` +
+                        `    return __v;\n` +
+                        `  }\n` +
+                        `  return ${valueDefault};\n}`,
+                    `set ${fname}(value: ${T}) {\n` +
+                        `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
+                ]
+                : [
+                    `@alias(${key}) __${fname}_lz: u64 = 0;`,
+                    `@omit __${fname}_val: ${valueType} = ${valueDefault};`,
+                    `get ${fname}(): ${T} {\n` +
+                        `  const __lz = this.__${fname}_lz;\n` +
+                        `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +
+                        `    this.__${fname}_val = JSON.__materializeLazy<${T}>(__lz);\n` +
+                        `    this.__${fname}_lz = u64.MAX_VALUE;\n` +
+                        `  }\n` +
+                        `  return this.__${fname}_val as ${T};\n}`,
+                    `set ${fname}(value: ${T}) {\n` +
+                        `  this.__${fname}_val = value;\n` +
+                        `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
+                ]).map((src) => SimpleParser.parseClassMember(src, node));
             node.members.splice(i, 1, ...lowered);
         }
         if (__hasLazy) {
@@ -841,6 +871,36 @@ export class JSONTransform extends Visitor {
                 return getSerializeCall(member.type, realName);
             const T = member.lazyInner;
             const baseName = realName.slice(0, -3);
+            const baseT = stripNull(T);
+            const packScalar = baseT === "i8" ||
+                baseT === "u8" ||
+                baseT === "i16" ||
+                baseT === "u16" ||
+                baseT === "i32" ||
+                baseT === "u32" ||
+                baseT === "bool" ||
+                baseT === "boolean" ||
+                baseT === "f32";
+            if (packScalar) {
+                const dec = baseT === "f32"
+                    ? `reinterpret<f32>(<u32>(__s))`
+                    : `(<${T}>(<u32>(__s)))`;
+                const def = baseT === "bool" || baseT === "boolean" ? "false" : "0";
+                return (`{\n` +
+                    `  const __s = this.${realName};\n` +
+                    `  if ((__s >>> 32) == 0xffffffff) {\n` +
+                    `    JSON.__serialize<${T}>(${dec});\n` +
+                    `  } else if (__s != 0) {\n` +
+                    `    const __hi = <usize>(__s >>> 32);\n` +
+                    `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
+                    `    bs.ensureSize(<u32>__len);\n` +
+                    `    memory.copy(bs.offset, __hi, __len);\n` +
+                    `    bs.offset += __len;\n` +
+                    `  } else {\n` +
+                    `    JSON.__serialize<${T}>(${def});\n` +
+                    `  }\n` +
+                    `}\n`);
+            }
             return (`{\n` +
                 `  const __s = this.${realName};\n` +
                 `  if (__s == u64.MAX_VALUE) {\n` +
@@ -852,9 +912,11 @@ export class JSONTransform extends Visitor {
                 `    memory.copy(bs.offset, __hi, __len);\n` +
                 `    bs.offset += __len;\n` +
                 `  } else {\n` +
-                `    bs.ensureSize(8);\n` +
-                `    store<u64>(bs.offset, 0x006c006c0075006e);\n` +
-                `    bs.offset += 8;\n` +
+                (isPrimitive(baseT)
+                    ? `    JSON.__serialize<${T}>(0);\n`
+                    : `    bs.ensureSize(8);\n` +
+                        `    store<u64>(bs.offset, 0x006c006c0075006e);\n` +
+                        `    bs.offset += 8;\n`) +
                 `  }\n` +
                 `}\n`);
         };
