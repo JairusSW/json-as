@@ -58,6 +58,29 @@ import {
 } from "./util/dragonbox";
 import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes, scanStringEnd } from "./util";
+import {
+  Kind as LazyKind,
+  lazyBind,
+  docRootLoc,
+  locKind,
+  locGet,
+  locGetLast,
+  locAt,
+  locLength,
+  locAsBool,
+  locAsNum,
+  locAsI64,
+  locAsI32,
+  locAsF64,
+  locAsString,
+  locStringLength,
+  locStringEq,
+  locReadStringInto,
+  skipWs as lazySkipWs,
+  scanKeyEnd as lazyScanKeyEnd,
+  scanValueEnd as lazyScanValueEnd,
+  memEq as lazyMemEq,
+} from "./lazy";
 
 // --- NaN-boxing encoding for JSON.Value ----------------------------------
 // JSON.Value packs its type tag and payload into a single 8-byte word.
@@ -145,6 +168,188 @@ export namespace JSON {
       bs.shrink();
     }
   }
+
+  /**
+   * On-demand (lazy) JSON access. Instead of materializing a document, `bind`
+   * (or `parse`) pins a source slice and returns a value-cursor (a packed
+   * `[start,end)` word); navigation scans into the source only along the path
+   * walked, and scalars decode on read. This is the runtime the `@lazy @json`
+   * struct codegen lowers to: `JSON.parse<T>` binds the cursor, and each field
+   * getter calls a `get*` here.
+   *
+   * @example
+   * ```typescript
+   * const c = JSON.Lazy.parse('{"id":7,"name":"ada","tags":[1,2,3]}');
+   * JSON.Lazy.getI32(c, "id");        // 7  — scans to "id", decodes
+   * JSON.Lazy.getString(c, "name");   // "ada"
+   * JSON.Lazy.length(JSON.Lazy.get(c, "tags")); // 3
+   * ```
+   */
+  export namespace Lazy {
+    /** Structural kind of a value-cursor (object/array/string/number/...). */
+    export type Kind = LazyKind;
+
+    /** Bind a cursor over a raw `[srcStart, srcEnd)` slice (pointers). O(1). */
+    // @ts-expect-error: inline
+    @inline export function bind(srcStart: usize, srcEnd: usize): u64 {
+      return lazyBind(srcStart, srcEnd);
+    }
+    /** Bind a cursor over a source string. O(1) — nothing is scanned. */
+    // @ts-expect-error: inline
+    @inline export function parse(data: string): u64 {
+      return docRootLoc(data);
+    }
+
+    // --- navigation (no allocation) ----------------------------------------
+    /** Structural kind, by peeking the first byte. */
+    // @ts-expect-error: inline
+    @inline export function kind(cursor: u64): LazyKind {
+      return locKind(cursor);
+    }
+    /** Value-cursor at object member `key`, or 0 if absent (first match). */
+    // @ts-expect-error: inline
+    @inline export function get(cursor: u64, key: string): u64 {
+      return locGet(cursor, key);
+    }
+    /** Like `get`, but the LAST match — matches eager last-wins on duplicate keys. */
+    // @ts-expect-error: inline
+    @inline export function getLast(cursor: u64, key: string): u64 {
+      return locGetLast(cursor, key);
+    }
+    /** Value-cursor at array index `i`, or 0 if out of range. */
+    // @ts-expect-error: inline
+    @inline export function at(cursor: u64, i: i32): u64 {
+      return locAt(cursor, i);
+    }
+    /** Member/element count of an object/array (one shallow pass). */
+    // @ts-expect-error: inline
+    @inline export function length(cursor: u64): i32 {
+      return locLength(cursor);
+    }
+
+    // --- decode a value-cursor ---------------------------------------------
+    // @ts-expect-error: inline
+    @inline export function asBool(cursor: u64): bool {
+      return locAsBool(cursor);
+    }
+    // @ts-expect-error: inline
+    @inline export function asI64(cursor: u64): i64 {
+      return locAsI64(cursor);
+    }
+    // @ts-expect-error: inline
+    @inline export function asI32(cursor: u64): i32 {
+      return locAsI32(cursor);
+    }
+    /** Decode a numeric value-cursor as any integer/float type `T`. */
+    // @ts-expect-error: inline
+    @inline export function asNum<T>(cursor: u64): T {
+      return locAsNum<T>(cursor);
+    }
+    /** Scan an object for `key` and decode the number as `T`. */
+    // @ts-expect-error: inline
+    @inline export function getNum<T>(cursor: u64, key: string): T {
+      return locAsNum<T>(locGet(cursor, key));
+    }
+    // @ts-expect-error: inline
+    @inline export function asF64(cursor: u64): f64 {
+      return locAsF64(cursor);
+    }
+    // @ts-expect-error: inline
+    @inline export function asString(cursor: u64): string {
+      return locAsString(cursor);
+    }
+    /** Code-unit length of a string value WITHOUT allocating it. */
+    // @ts-expect-error: inline
+    @inline export function stringLength(cursor: u64): i32 {
+      return locStringLength(cursor);
+    }
+    /** String equality WITHOUT allocating (routing/filtering on a field). */
+    // @ts-expect-error: inline
+    @inline export function stringEq(cursor: u64, s: string): bool {
+      return locStringEq(cursor, s);
+    }
+    /** Decode a string into the caller's reused buffer (amortizes allocation). */
+    // @ts-expect-error: inline
+    @inline export function readStringInto(cursor: u64, out: string): string {
+      return locReadStringInto(cursor, out);
+    }
+
+    // --- field decoders: scan an object for `key`, then decode (codegen) ----
+    // @ts-expect-error: inline
+    @inline export function getBool(cursor: u64, key: string): bool {
+      return locAsBool(locGet(cursor, key));
+    }
+    // @ts-expect-error: inline
+    @inline export function getI64(cursor: u64, key: string): i64 {
+      return locAsI64(locGet(cursor, key));
+    }
+    // @ts-expect-error: inline
+    @inline export function getI32(cursor: u64, key: string): i32 {
+      return locAsI32(locGet(cursor, key));
+    }
+    // @ts-expect-error: inline
+    @inline export function getF64(cursor: u64, key: string): f64 {
+      return locAsF64(locGet(cursor, key));
+    }
+    // @ts-expect-error: inline
+    @inline export function getString(cursor: u64, key: string): string {
+      return locAsString(locGet(cursor, key));
+    }
+
+    /**
+     * Forward member iterator — simdjson's on-demand object iteration. A single
+     * advancing pass over an object's `"key": value` members (O(N), not the
+     * O(N²) of re-scanning per field). The lazy struct fill uses this: each
+     * member is matched against the field set and assigned, so duplicate keys
+     * are last-wins (a later member overwrites an earlier one), matching eager.
+     */
+    export class Iter {
+      private p: usize = 0;
+      private e: usize = 0;
+      private kStart: usize = 0;
+      private kEnd: usize = 0;
+      private vLoc: u64 = 0;
+
+      constructor(srcStart: usize, srcEnd: usize) {
+        this.e = srcEnd;
+        const s = lazySkipWs(srcStart, srcEnd);
+        this.p = s < srcEnd && load<u16>(s) == 0x7b ? s + 2 : srcEnd; // past '{'
+      }
+
+      /** Advance to the next member; false at the closing '}'. */
+      next(): bool {
+        const e = this.e;
+        let p = lazySkipWs(this.p, e);
+        if (p >= e || load<u16>(p) != 0x22) return false; // '}' or done
+        const kc = lazyScanKeyEnd(p, e);
+        this.kStart = p + 2;
+        this.kEnd = kc;
+        p = lazySkipWs(kc + 2, e);
+        if (p < e && load<u16>(p) == 0x3a) p += 2; // ':'
+        p = lazySkipWs(p, e);
+        const vEnd = lazyScanValueEnd(p, e);
+        this.vLoc = ((<u64>p) << 32) | (<u64>vEnd);
+        p = lazySkipWs(vEnd, e);
+        if (p < e && load<u16>(p) == 0x2c) p += 2; // ','
+        this.p = p;
+        return true;
+      }
+
+      /** Whether the current member's key equals `s` (no allocation). */
+      keyEq(s: string): bool {
+        const bytes = this.kEnd - this.kStart;
+        if (bytes != (<usize>s.length) << 1) return false;
+        return lazyMemEq(this.kStart, changetype<usize>(s), bytes);
+      }
+
+      /** The current member's value as a value-cursor (for `JSON.Lazy.as*`). */
+      // @ts-expect-error: inline
+      @inline value(): u64 {
+        return this.vLoc;
+      }
+    }
+  }
+
   /**
    * Serializes valid JSON data
    * ```js

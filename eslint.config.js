@@ -14,6 +14,7 @@ export default tseslint.config(
       "build/**",
       ".as-test/**",
       "**/*.tmp.ts",
+      "assembly/playground/**",
     ],
   },
   eslint.configs.recommended,

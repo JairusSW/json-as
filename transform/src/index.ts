@@ -126,6 +126,11 @@ function envFlagDefaultTrue(value: string | undefined): boolean {
 
 const USE_FAST_PATH = envFlagDefaultTrue(process.env["JSON_USE_FAST_PATH"]);
 const THROW_FAST_PATH = process.env["JSON_FAST_PATH_THROW"]?.trim() === "1";
+// When set, every @json class is treated as @lazy (on-demand) where eligible —
+// a test switch to run the whole suite through the JSON.Lazy decode path.
+const FORCE_LAZY =
+  process.env["JSON_FORCE_LAZY"]?.trim() === "1" ||
+  process.env["JSON_FORCE_LAZY"]?.trim().toLowerCase() === "true";
 type JSONCacheConfig = {
   enabled: boolean;
   bytes: number;
@@ -330,6 +335,9 @@ export class JSONTransform extends Visitor {
   public simdStatements: string[] = [];
 
   public visitedClasses: Set<string> = new Set<string>();
+  // Classes marked @lazy (recorded before the decorator is stripped, so the
+  // mark survives the extends-driven re-entry of visitClassDeclaration).
+  public lazyClasses: Set<string> = new Set<string>();
 
   private collectInheritedFieldMembers(
     node: ClassDeclaration,
@@ -465,6 +473,22 @@ export class JSONTransform extends Visitor {
     const source = this.sources.get(node.range.source);
 
     const fullClassPath = source.getFullPath(node);
+
+    // On-demand opt-in: `@lazy` stacked on `@json`. Record it (survives the
+    // extends re-entry below) and strip the decorator so AssemblyScript doesn't
+    // reject `@lazy` on a class (AS212) — scoped to this class declaration, so
+    // `@lazy const` globals elsewhere are untouched.
+    if (
+      node.decorators?.some(
+        (d) => (<IdentifierExpression>d.name).text.toLowerCase() === "lazy",
+      )
+    ) {
+      this.lazyClasses.add(fullClassPath);
+      node.decorators = node.decorators.filter(
+        (d) => (<IdentifierExpression>d.name).text.toLowerCase() !== "lazy",
+      );
+    }
+    const markedLazy = FORCE_LAZY || this.lazyClasses.has(fullClassPath);
 
     if (this.visitedClasses.has(fullClassPath)) return;
     if (!this.schemas.has(source.internalPath))
@@ -1100,10 +1124,28 @@ export class JSONTransform extends Visitor {
     const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
     const hasTypeParams =
       !!node.typeParameters && node.typeParameters.length > 0;
-    const useFastPath =
+    let useFastPath =
       requestedFastPath &&
       !hasTypeParams &&
       (this.schema.static || supportsFastOptionalPath);
+
+    // On-demand eligibility: a marked class whose fields are all scalar/string
+    // (the types JSON.Lazy can decode), with no optionals/custom/generics. Other
+    // classes fall back to the eager path even under JSON_FORCE_LAZY.
+    const lazyEligible =
+      markedLazy &&
+      !this.schema.custom &&
+      !hasTypeParams &&
+      !hasOptionalMembers &&
+      this.schema.members.length > 0 &&
+      this.schema.members.every((m) => {
+        const t = m.type;
+        return (
+          isBoolean(t) ||
+          t === "string" ||
+          (isPrimitive(t) && !t.includes("null"))
+        );
+      });
 
     indent = "  ";
 
@@ -3033,6 +3075,43 @@ export class JSONTransform extends Visitor {
     // if (DESERIALIZE_CUSTOM) {
     //   DESERIALIZE = "__DESERIALIZE(keyStart: usize, keyEnd: usize, valStart: usize, valEnd: usize, ptr: usize): usize {\n  if (isDefined(this.__DESERIALIZE_CUSTOM) return changetype<usize>(this." + deserializers[0].name + "(changetype<switch (<u32>keyEnd - <u32>keyStart) {\n"
     // }
+    // On-demand override: replace the eager deserializers with a lazy bind +
+    // field fill through JSON.Lazy. Serialization and the struct layout are
+    // untouched — only the deserialize path changes — so round-trips match
+    // eager. (Deferred-on-read field getters are a later increment.)
+    if (lazyEligible) {
+      // simdjson on-demand object iteration: one advancing forward pass over
+      // members (O(N)), dispatching each to its field. Duplicate keys are
+      // last-wins (a later member overwrites), matching the eager deserializer.
+      const lazyBody = (sig: string): string => {
+        let b = sig;
+        b += "    this.__INITIALIZE();\n";
+        b += "    const __it = new JSON.Lazy.Iter(srcStart, srcEnd);\n";
+        b += "    while (__it.next()) {\n";
+        let first = true;
+        for (const m of this.schema.members) {
+          const key = JSON.stringify(m.alias || m.name);
+          const decode = isBoolean(m.type)
+            ? "JSON.Lazy.asBool(__it.value())"
+            : m.type === "string"
+              ? "JSON.Lazy.asString(__it.value())"
+              : `JSON.Lazy.asNum<${m.type}>(__it.value())`;
+          b += `      ${first ? "if" : "else if"} (__it.keyEq(${key})) this.${m.name} = ${decode};\n`;
+          first = false;
+        }
+        b += "    }\n";
+        b += "    return srcEnd;\n  }\n";
+        return b;
+      };
+      DESERIALIZE_FAST = lazyBody(
+        "@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n",
+      );
+      DESERIALIZE = lazyBody(
+        "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n",
+      );
+      useFastPath = true;
+    }
+
     if (DEBUG > 0) {
       console.log(SERIALIZE_CUSTOM || SERIALIZE);
       console.log(INITIALIZE);

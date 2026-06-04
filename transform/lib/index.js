@@ -50,6 +50,8 @@ function envFlagDefaultTrue(value) {
 }
 const USE_FAST_PATH = envFlagDefaultTrue(process.env["JSON_USE_FAST_PATH"]);
 const THROW_FAST_PATH = process.env["JSON_FAST_PATH_THROW"]?.trim() === "1";
+const FORCE_LAZY = process.env["JSON_FORCE_LAZY"]?.trim() === "1" ||
+    process.env["JSON_FORCE_LAZY"]?.trim().toLowerCase() === "true";
 function parseJSONCacheConfig(value) {
     if (!value)
         return { enabled: false, bytes: 0 };
@@ -198,6 +200,7 @@ export class JSONTransform extends Visitor {
     imports = [];
     simdStatements = [];
     visitedClasses = new Set();
+    lazyClasses = new Set();
     collectInheritedFieldMembers(node, source, members, visited = new Set()) {
         if (!node.extendsType)
             return;
@@ -297,6 +300,11 @@ export class JSONTransform extends Visitor {
             return;
         const source = this.sources.get(node.range.source);
         const fullClassPath = source.getFullPath(node);
+        if (node.decorators?.some((d) => d.name.text.toLowerCase() === "lazy")) {
+            this.lazyClasses.add(fullClassPath);
+            node.decorators = node.decorators.filter((d) => d.name.text.toLowerCase() !== "lazy");
+        }
+        const markedLazy = FORCE_LAZY || this.lazyClasses.has(fullClassPath);
         if (this.visitedClasses.has(fullClassPath))
             return;
         if (!this.schemas.has(source.internalPath))
@@ -739,9 +747,20 @@ export class JSONTransform extends Visitor {
         const hasOptionalMembers = hasOmitIfMembers || hasOmitNullMembers;
         const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
         const hasTypeParams = !!node.typeParameters && node.typeParameters.length > 0;
-        const useFastPath = requestedFastPath &&
+        let useFastPath = requestedFastPath &&
             !hasTypeParams &&
             (this.schema.static || supportsFastOptionalPath);
+        const lazyEligible = markedLazy &&
+            !this.schema.custom &&
+            !hasTypeParams &&
+            !hasOptionalMembers &&
+            this.schema.members.length > 0 &&
+            this.schema.members.every((m) => {
+                const t = m.type;
+                return (isBoolean(t) ||
+                    t === "string" ||
+                    (isPrimitive(t) && !t.includes("null")));
+            });
         indent = "  ";
         if (this.schema.static == false) {
             if (this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull))) {
@@ -2302,6 +2321,31 @@ export class JSONTransform extends Visitor {
                 SERIALIZE.slice(32);
         INITIALIZE += "  return this;\n";
         INITIALIZE += "}";
+        if (lazyEligible) {
+            const lazyBody = (sig) => {
+                let b = sig;
+                b += "    this.__INITIALIZE();\n";
+                b += "    const __it = new JSON.Lazy.Iter(srcStart, srcEnd);\n";
+                b += "    while (__it.next()) {\n";
+                let first = true;
+                for (const m of this.schema.members) {
+                    const key = JSON.stringify(m.alias || m.name);
+                    const decode = isBoolean(m.type)
+                        ? "JSON.Lazy.asBool(__it.value())"
+                        : m.type === "string"
+                            ? "JSON.Lazy.asString(__it.value())"
+                            : `JSON.Lazy.asNum<${m.type}>(__it.value())`;
+                    b += `      ${first ? "if" : "else if"} (__it.keyEq(${key})) this.${m.name} = ${decode};\n`;
+                    first = false;
+                }
+                b += "    }\n";
+                b += "    return srcEnd;\n  }\n";
+                return b;
+            };
+            DESERIALIZE_FAST = lazyBody("@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n");
+            DESERIALIZE = lazyBody("__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n");
+            useFastPath = true;
+        }
         if (DEBUG > 0) {
             console.log(SERIALIZE_CUSTOM || SERIALIZE);
             console.log(INITIALIZE);
