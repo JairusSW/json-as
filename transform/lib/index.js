@@ -2912,7 +2912,7 @@ function classLazyMode(node) {
     return "none";
 }
 const LAZY_AUTO_THRESHOLD = 10;
-function lazyAutoCost(type, source, parser) {
+function lazyTypeCost(type, source, parser) {
     const base = stripNull(type);
     if (isPrimitive(base) || isBoolean(base) || isEnum(base, source, parser))
         return 1;
@@ -2928,6 +2928,30 @@ function lazyAutoCost(type, source, parser) {
         base === "Raw")
         return 15;
     return 20;
+}
+function lazyAutoCost(type, source, parser) {
+    const direct = lazyTypeCost(type, source, parser);
+    if (direct < 20)
+        return direct;
+    const decl = source.getClass(stripNull(type));
+    if (!decl)
+        return 20;
+    let sum = 0;
+    for (let i = 0; i < decl.members.length; i++) {
+        const m = decl.members[i];
+        if (m.kind !== NodeKind.FieldDeclaration)
+            continue;
+        const fd = m;
+        if (fd.is(32) ||
+            fd.is(512) ||
+            fd.is(1024) ||
+            !fd.type)
+            continue;
+        sum += lazyTypeCost(toString(fd.type), source, parser);
+        if (sum >= LAZY_AUTO_THRESHOLD)
+            return sum;
+    }
+    return sum;
 }
 function lazyWrapperInner(typeNode) {
     if (!typeNode || typeNode.kind !== NodeKind.NamedType)

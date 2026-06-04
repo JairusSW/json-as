@@ -4145,7 +4145,10 @@ function classLazyMode(node: ClassDeclaration): LazyMode {
 // from heavy allocating/recursive values — categorize by type instead. Fields
 // at or above LAZY_AUTO_THRESHOLD are deferred; primitives/enums/Date stay eager.
 const LAZY_AUTO_THRESHOLD = 10;
-function lazyAutoCost(type: string, source: Src, parser: Parser): number {
+
+// One-level category cost of a type (does NOT recurse into nested structs —
+// they count as a flat "heavy" 20 here, so there is no cycle risk).
+function lazyTypeCost(type: string, source: Src, parser: Parser): number {
   const base = stripNull(type);
   if (isPrimitive(base) || isBoolean(base) || isEnum(base, source, parser))
     return 1;
@@ -4161,6 +4164,33 @@ function lazyAutoCost(type: string, source: Src, parser: Parser): number {
   )
     return 15;
   return 20; // array / map / set / typed-array / buffer / nested @json struct
+}
+
+function lazyAutoCost(type: string, source: Src, parser: Parser): number {
+  const direct = lazyTypeCost(type, source, parser);
+  if (direct < 20) return direct; // scalar / Date / string / Value / Obj / Raw
+  // direct == 20: an array/map/etc OR a nested @json struct. Refine a struct by
+  // summing its direct fields' costs (one level) — a tiny all-scalar struct is
+  // cheap to parse, so keep it eager. Containers and cross-source/unresolved
+  // types fall back to "defer" (20).
+  const decl = source.getClass(stripNull(type));
+  if (!decl) return 20;
+  let sum = 0;
+  for (let i = 0; i < decl.members.length; i++) {
+    const m = decl.members[i];
+    if (m.kind !== NodeKind.FieldDeclaration) continue;
+    const fd = m as FieldDeclaration;
+    if (
+      fd.is(CommonFlags.Static) ||
+      fd.is(CommonFlags.Private) ||
+      fd.is(CommonFlags.Protected) ||
+      !fd.type
+    )
+      continue;
+    sum += lazyTypeCost(toString(fd.type), source, parser);
+    if (sum >= LAZY_AUTO_THRESHOLD) return sum; // already heavy enough to defer
+  }
+  return sum; // small struct -> low cost -> stays eager
 }
 
 // Detect a `Lazy<T>` type wrapper from the AST rather than the raw spelling, so
