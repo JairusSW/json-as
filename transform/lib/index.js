@@ -303,6 +303,12 @@ export class JSONTransform extends Visitor {
             this.schemas.set(source.internalPath, []);
         const lazyInner = new Map();
         const lazyMode = classLazyMode(node);
+        const hasCustomSerde = node.members.some((m) => m.kind === NodeKind.MethodDeclaration &&
+            (m.decorators?.some((d) => {
+                const t = d.name.text.toLowerCase();
+                return t === "serializer" || t === "deserializer";
+            }) ??
+                false));
         let __hasLazy = false;
         for (let i = node.members.length - 1; i >= 0; i--) {
             const fd = node.members[i];
@@ -332,6 +338,11 @@ export class JSONTransform extends Visitor {
             }
             if (inner === null)
                 continue;
+            if (hasCustomSerde)
+                throwError("Lazy fields (@lazy / JSON.Lazy<T> / @json({ lazy })) are not supported " +
+                    "on a class with a custom @serializer/@deserializer — the custom methods " +
+                    "bypass the generated (de)serializer, so the deferred slot is never filled. " +
+                    "Remove the lazy marker or the custom (de)serializer.", fd.range);
             const fname = fd.name.text;
             const key = JSON.stringify(fname);
             const T = inner;

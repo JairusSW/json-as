@@ -488,6 +488,19 @@ export class JSONTransform extends Visitor {
     // an explicit marker; `@eager` opts an individual field back out.
     const lazyMode = classLazyMode(node as ClassDeclaration);
 
+    // A whole-class custom @serializer/@deserializer takes over via
+    // __SERIALIZE_CUSTOM/__DESERIALIZE_CUSTOM, bypassing the generated codegen
+    // (and the lazy slots) entirely — so lazy fields can't be honored here.
+    const hasCustomSerde = node.members.some(
+      (m) =>
+        m.kind === NodeKind.MethodDeclaration &&
+        (m.decorators?.some((d) => {
+          const t = (<IdentifierExpression>d.name).text.toLowerCase();
+          return t === "serializer" || t === "deserializer";
+        }) ??
+          false),
+    );
+
     // On-demand field lowering. Rewrite each `JSON.Lazy<T>` field into a single
     // packed `u64` range slot + traced/scalar backing value + materialized flag.
     // The range slot encodes:
@@ -544,6 +557,15 @@ export class JSONTransform extends Visitor {
         }
       }
       if (inner === null) continue;
+
+      if (hasCustomSerde)
+        throwError(
+          "Lazy fields (@lazy / JSON.Lazy<T> / @json({ lazy })) are not supported " +
+            "on a class with a custom @serializer/@deserializer — the custom methods " +
+            "bypass the generated (de)serializer, so the deferred slot is never filled. " +
+            "Remove the lazy marker or the custom (de)serializer.",
+          fd.range,
+        );
 
       const fname = fd.name.text;
       const key = JSON.stringify(fname);
