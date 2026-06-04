@@ -19,3 +19,6 @@ build/
 *.map
 # Include essential as-test artifacts
 !.as-test/
+
+# local scratch (kept untracked; explore via npm run pg)
+assembly/playground.ts

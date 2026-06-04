@@ -157,19 +157,15 @@ export namespace JSON {
 
   /**
    * Whether a lazy slot's value is JSON null — for `@omitnull` on lazy fields,
-   * without forcing materialization: a materialized null, an absent field, or a
-   * not-yet-parsed slice that is literally `null`.
-   * @param has   the slot's `__x_has` flag
+   * without forcing materialization. The slot encodes the state: `u64.MAX_VALUE`
+   * = materialized (null iff the value pointer is 0), `0` = absent (null), any
+   * other value = a not-yet-parsed slice range (null iff it is literally `null`).
    * @param valPtr pointer of the materialized value (0 when null)
-   * @param lz    the packed range slot
+   * @param lz    the packed slot
    */
   // @ts-expect-error: inline
-  @inline export function __lazyIsNull(
-    has: bool,
-    valPtr: usize,
-    lz: u64,
-  ): bool {
-    if (has) return valPtr == 0;
+  @inline export function __lazyIsNull(valPtr: usize, lz: u64): bool {
+    if (lz == u64.MAX_VALUE) return valPtr == 0;
     if (lz == 0) return true;
     const hi = <usize>(lz >>> 32);
     // raw slice of length 4 (8 bytes) equal to the UTF-16 word "null"

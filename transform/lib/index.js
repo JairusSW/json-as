@@ -353,18 +353,17 @@ export class JSONTransform extends Visitor {
             });
             const lowered = [
                 `@alias(${key}) __${fname}_lz: u64 = 0;`,
-                `@omit __${fname}_has: bool = false;`,
                 `@omit __${fname}_val: ${valueType} = ${valueDefault};`,
                 `get ${fname}(): ${T} {\n` +
-                    `  if (this.__${fname}_has) return this.__${fname}_val as ${T};\n` +
                     `  const __lz = this.__${fname}_lz;\n` +
-                    `  if (__lz != 0) this.__${fname}_val = JSON.__materializeLazy<${T}>(__lz);\n` +
-                    `  this.__${fname}_has = true;\n` +
+                    `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +
+                    `    this.__${fname}_val = JSON.__materializeLazy<${T}>(__lz);\n` +
+                    `    this.__${fname}_lz = u64.MAX_VALUE;\n` +
+                    `  }\n` +
                     `  return this.__${fname}_val as ${T};\n}`,
                 `set ${fname}(value: ${T}) {\n` +
-                    `  this.__${fname}_lz = 0;\n` +
                     `  this.__${fname}_val = value;\n` +
-                    `  this.__${fname}_has = true;\n}`,
+                    `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
             ].map((src) => SimpleParser.parseClassMember(src, node));
             node.members.splice(i, 1, ...lowered);
         }
@@ -842,23 +841,20 @@ export class JSONTransform extends Visitor {
                 return getSerializeCall(member.type, realName);
             const T = member.lazyInner;
             const baseName = realName.slice(0, -3);
-            const hasName = baseName + "_has";
             return (`{\n` +
-                `  if (this.${hasName}) {\n` +
+                `  const __s = this.${realName};\n` +
+                `  if (__s == u64.MAX_VALUE) {\n` +
                 `    JSON.__serialize<${T}>(this.${baseName}_val as ${T});\n` +
-                `  } else {\n` +
-                `    const __s = this.${realName};\n` +
+                `  } else if (__s != 0) {\n` +
                 `    const __hi = <usize>(__s >>> 32);\n` +
-                `    if (__hi != 0) {\n` +
-                `      const __len = (<usize>(<u32>__s)) - __hi;\n` +
-                `      bs.ensureSize(<u32>__len);\n` +
-                `      memory.copy(bs.offset, __hi, __len);\n` +
-                `      bs.offset += __len;\n` +
-                `    } else {\n` +
-                `      bs.ensureSize(8);\n` +
-                `      store<u64>(bs.offset, 0x006c006c0075006e);\n` +
-                `      bs.offset += 8;\n` +
-                `    }\n` +
+                `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
+                `    bs.ensureSize(<u32>__len);\n` +
+                `    memory.copy(bs.offset, __hi, __len);\n` +
+                `    bs.offset += __len;\n` +
+                `  } else {\n` +
+                `    bs.ensureSize(8);\n` +
+                `    store<u64>(bs.offset, 0x006c006c0075006e);\n` +
+                `    bs.offset += 8;\n` +
                 `  }\n` +
                 `}\n`);
         };
@@ -932,7 +928,6 @@ export class JSONTransform extends Visitor {
                         const base = realName.slice(0, -3);
                         omitNullCond =
                             `!JSON.__lazyIsNull(` +
-                                `load<bool>(ptr, offsetof<this>(${JSON.stringify(base + "_has")})), ` +
                                 `load<usize>(ptr, offsetof<this>(${JSON.stringify(base + "_val")})), ` +
                                 `load<u64>(ptr, offsetof<this>(${JSON.stringify(realName)})))`;
                     }
@@ -1088,14 +1083,11 @@ export class JSONTransform extends Visitor {
             const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
             if (member.flags.has(PropertyFlags.Lazy)) {
                 const lazyInner = member.lazyInner;
-                const hasName = member.name.slice(0, -3) + "_has";
-                const hasOffset = `offsetof<this>(${JSON.stringify(hasName)})`;
                 out.push("{");
                 out.push(`  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`);
                 out.push(`  const valueEnd = JSON.Util.scanValueEnd<${lazyInner}>(valueStart, srcEnd);`);
                 out.push("  if (!valueEnd) break;");
                 out.push(`  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`);
-                out.push(`  store<bool>(${outPtr}, false, ${hasOffset});`);
                 out.push(`  ${srcPtr} = valueEnd;`);
                 out.push("}");
                 return out;
@@ -1792,11 +1784,8 @@ export class JSONTransform extends Visitor {
             }
         };
         const getLazyRangeStore = (member, valueStart, valueEnd, prefix) => {
-            const hasName = member.name.slice(0, -3) + "_has";
             return (prefix +
-                `store<u64>(changetype<usize>(out), ((<u64>${valueStart}) << 32) | (<u64>(<u32>${valueEnd})), offsetof<this>(${JSON.stringify(member.name)}));\n` +
-                prefix +
-                `store<bool>(changetype<usize>(out), false, offsetof<this>(${JSON.stringify(hasName)}));\n`);
+                `store<u64>(changetype<usize>(out), ((<u64>${valueStart}) << 32) | (<u64>(<u32>${valueEnd})), offsetof<this>(${JSON.stringify(member.name)}));\n`);
         };
         const getSlowValueStore = (member, valueStart, valueEnd, prefix) => {
             if (member.flags.has(PropertyFlags.Lazy))

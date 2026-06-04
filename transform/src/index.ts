@@ -570,30 +570,30 @@ export class JSONTransform extends Visitor {
         omitNull: hasDeco("omitnull"),
         omitIf: omitIfDeco?.args?.[0] ?? null,
       });
-      // `__name_lz` (u64) holds the slice RANGE only (an interior pointer kept
-      // valid by `__src`); the materialized value lives in `__name_val`, a
-      // TRACED reference field or a scalar field, so the GC keeps managed values
-      // alive (a managed pointer in the u64 would be invisible to the precise
-      // GC -> use-after-free). `__name_has` distinguishes an explicit
-      // materialized null from "not materialized yet".
+      // `__name_lz` (u64) packs the slot state into one word — no separate
+      // materialized flag needed: a real slice range is (start<<32)|end with
+      // `start` a live heap pointer, so it can never be `u64.MAX_VALUE` (that
+      // would need a 4GB pointer with no body). Thus:
+      //   0              -> absent/unset (return the type default)
+      //   u64.MAX_VALUE  -> materialized (use `__name_val`)
+      //   anything else  -> a slice range to parse on first read
+      // The materialized value lives in the TRACED `__name_val` (GC keeps it
+      // alive; a managed pointer in the u64 would be invisible to the GC).
       const lowered = [
         `@alias(${key}) __${fname}_lz: u64 = 0;`,
-        `@omit __${fname}_has: bool = false;`,
         `@omit __${fname}_val: ${valueType} = ${valueDefault};`,
         // Slow path goes through the shared (non-inline) JSON.__materializeLazy<T>
         // so the parser is emitted once per type, not inlined into every getter.
         `get ${fname}(): ${T} {\n` +
-          `  if (this.__${fname}_has) return this.__${fname}_val as ${T};\n` +
           `  const __lz = this.__${fname}_lz;\n` +
-          // lz == 0 means absent/unset (a fresh instance or an omitted source
-          // field) -> keep the type default; only parse a real stored range.
-          `  if (__lz != 0) this.__${fname}_val = JSON.__materializeLazy<${T}>(__lz);\n` +
-          `  this.__${fname}_has = true;\n` +
+          `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` + // a range -> parse once
+          `    this.__${fname}_val = JSON.__materializeLazy<${T}>(__lz);\n` +
+          `    this.__${fname}_lz = u64.MAX_VALUE;\n` +
+          `  }\n` + // (0 -> default, MAX -> already materialized): return __val
           `  return this.__${fname}_val as ${T};\n}`,
         `set ${fname}(value: ${T}) {\n` +
-          `  this.__${fname}_lz = 0;\n` +
           `  this.__${fname}_val = value;\n` +
-          `  this.__${fname}_has = true;\n}`,
+          `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
       ].map((src) => SimpleParser.parseClassMember(src, node));
       node.members.splice(i, 1, ...lowered);
     }
@@ -1285,24 +1285,21 @@ export class JSONTransform extends Visitor {
         return getSerializeCall(member.type, realName);
       const T = member.lazyInner!;
       const baseName = realName.slice(0, -3); // "__x_lz" -> "__x"
-      const hasName = baseName + "_has";
       return (
         `{\n` +
-        `  if (this.${hasName}) {\n` + // materialized -> serialize typed value
+        `  const __s = this.${realName};\n` +
+        `  if (__s == u64.MAX_VALUE) {\n` + // materialized -> serialize typed value
         `    JSON.__serialize<${T}>(this.${baseName}_val as ${T});\n` +
-        `  } else {\n` +
-        `    const __s = this.${realName};\n` +
+        `  } else if (__s != 0) {\n` + // range -> raw bytes verbatim (zero-copy)
         `    const __hi = <usize>(__s >>> 32);\n` +
-        `    if (__hi != 0) {\n` + // range -> raw bytes verbatim (zero-copy)
-        `      const __len = (<usize>(<u32>__s)) - __hi;\n` +
-        `      bs.ensureSize(<u32>__len);\n` +
-        `      memory.copy(bs.offset, __hi, __len);\n` +
-        `      bs.offset += __len;\n` +
-        `    } else {\n` + // absent -> null
-        `      bs.ensureSize(8);\n` +
-        `      store<u64>(bs.offset, 0x006c006c0075006e);\n` +
-        `      bs.offset += 8;\n` +
-        `    }\n` +
+        `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
+        `    bs.ensureSize(<u32>__len);\n` +
+        `    memory.copy(bs.offset, __hi, __len);\n` +
+        `    bs.offset += __len;\n` +
+        `  } else {\n` + // absent -> null
+        `    bs.ensureSize(8);\n` +
+        `    store<u64>(bs.offset, 0x006c006c0075006e);\n` +
+        `    bs.offset += 8;\n` +
         `  }\n` +
         `}\n`
       );
@@ -1372,12 +1369,11 @@ export class JSONTransform extends Visitor {
         if (member.flags.has(PropertyFlags.OmitNull)) {
           let omitNullCond: string;
           if (member.flags.has(PropertyFlags.Lazy)) {
-            // A lazy slot's null-ness lives in __x_has/__x_val/__x_lz, not the
-            // raw word — test it without materializing.
+            // A lazy slot's null-ness is encoded in __x_val + __x_lz (the slot
+            // state) — test it without materializing.
             const base = realName.slice(0, -3); // drop "_lz"
             omitNullCond =
               `!JSON.__lazyIsNull(` +
-              `load<bool>(ptr, offsetof<this>(${JSON.stringify(base + "_has")})), ` +
               `load<usize>(ptr, offsetof<this>(${JSON.stringify(base + "_val")})), ` +
               `load<u64>(ptr, offsetof<this>(${JSON.stringify(realName)})))`;
           } else {
@@ -1600,8 +1596,6 @@ export class JSONTransform extends Visitor {
         // containers use) but store the packed range (start<<32)|end into the
         // u64 slot — no copy.
         const lazyInner = member.lazyInner!;
-        const hasName = member.name.slice(0, -3) + "_has";
-        const hasOffset = `offsetof<this>(${JSON.stringify(hasName)})`;
         out.push("{");
         out.push(
           `  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`,
@@ -1613,7 +1607,6 @@ export class JSONTransform extends Visitor {
         out.push(
           `  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`,
         );
-        out.push(`  store<bool>(${outPtr}, false, ${hasOffset});`);
         out.push(`  ${srcPtr} = valueEnd;`);
         out.push("}");
         return out;
@@ -2543,12 +2536,9 @@ export class JSONTransform extends Visitor {
       valueEnd: string,
       prefix: string,
     ): string => {
-      const hasName = member.name.slice(0, -3) + "_has";
       return (
         prefix +
-        `store<u64>(changetype<usize>(out), ((<u64>${valueStart}) << 32) | (<u64>(<u32>${valueEnd})), offsetof<this>(${JSON.stringify(member.name)}));\n` +
-        prefix +
-        `store<bool>(changetype<usize>(out), false, offsetof<this>(${JSON.stringify(hasName)}));\n`
+        `store<u64>(changetype<usize>(out), ((<u64>${valueStart}) << 32) | (<u64>(<u32>${valueEnd})), offsetof<this>(${JSON.stringify(member.name)}));\n`
       );
     };
 
