@@ -9,6 +9,7 @@ export var PropertyFlags;
     PropertyFlags[PropertyFlags["OmitIf"] = 1] = "OmitIf";
     PropertyFlags[PropertyFlags["Raw"] = 2] = "Raw";
     PropertyFlags[PropertyFlags["Custom"] = 3] = "Custom";
+    PropertyFlags[PropertyFlags["Lazy"] = 4] = "Lazy";
 })(PropertyFlags || (PropertyFlags = {}));
 export class Property {
     name = "";
@@ -18,6 +19,7 @@ export class Property {
     flags = new Map();
     node;
     byteSize = 0;
+    lazyInner = null;
     _generic = false;
     _custom = false;
     parent;

@@ -5,7 +5,8 @@ export declare enum PropertyFlags {
     OmitNull = 0,
     OmitIf = 1,
     Raw = 2,
-    Custom = 3
+    Custom = 3,
+    Lazy = 4
 }
 export declare class Property {
     name: string;
@@ -15,6 +16,7 @@ export declare class Property {
     flags: Map<PropertyFlags, Expression | null>;
     node: FieldDeclaration;
     byteSize: number;
+    lazyInner: string | null;
     _generic: boolean;
     _custom: boolean;
     parent: Schema;

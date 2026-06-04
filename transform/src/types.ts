@@ -24,6 +24,7 @@ export enum PropertyFlags {
   OmitIf,
   Raw,
   Custom,
+  Lazy,
 }
 
 export class Property {
@@ -37,6 +38,9 @@ export class Property {
   >();
   public node!: FieldDeclaration;
   public byteSize: number = 0;
+  // For `JSON.Lazy<T>` slot members: the inner type T, used by the
+  // deserialize (range store) and serialize (raw emit / materialized) codegen.
+  public lazyInner: string | null = null;
   public _generic: boolean = false;
   public _custom: boolean = false;
   public parent: Schema;

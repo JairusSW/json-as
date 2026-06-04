@@ -28,7 +28,10 @@ import { scanStringEnd } from "./stringScan";
  * baseline.
  */
 // @ts-ignore: inline
-@inline export function scanValueEnd(srcStart: usize, srcEnd: usize): usize {
+@inline export function scanValueEnd<T = usize>(
+  srcStart: usize,
+  srcEnd: usize,
+): usize {
   if (srcStart >= srcEnd) return 0;
   const first = load<u16>(srcStart);
 
