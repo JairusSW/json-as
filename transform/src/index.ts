@@ -13,6 +13,7 @@ import {
   MethodDeclaration,
   NamedTypeNode,
   Node,
+  ObjectLiteralExpression,
   Parser,
   Program,
   Range,
@@ -474,6 +475,10 @@ export class JSONTransform extends Visitor {
     // consumed by the schema loop + deserialize/serialize codegen below.
     const lazyInner = new Map<string, { inner: string; valueType: string }>();
 
+    // Class-level default: `@json({ lazy: "auto" | "all" })` defers fields without
+    // an explicit marker; `@eager` opts an individual field back out.
+    const lazyMode = classLazyMode(node as ClassDeclaration);
+
     // On-demand field lowering. Rewrite each `JSON.Lazy<T>` field into a single
     // packed `u64` range slot + traced/scalar backing value + materialized flag.
     // The range slot encodes:
@@ -495,11 +500,40 @@ export class JSONTransform extends Visitor {
       )
         continue;
       const written = toString((fd as FieldDeclaration).type!).trim();
-      let inner: string | null = null;
-      if (written.startsWith("JSON.Lazy<") && written.endsWith(">"))
-        inner = written.slice("JSON.Lazy<".length, written.length - 1).trim();
-      else if (written.startsWith("Lazy<") && written.endsWith(">"))
-        inner = written.slice("Lazy<".length, written.length - 1).trim();
+      // Two equivalent ways to mark a field on-demand:
+      //   - `JSON.Lazy<T>` type wrapper (transparent alias, T preserved), or
+      //   - a bare `@lazy` decorator (then the written type IS the inner type).
+      // The `@lazy` field is spliced out below and replaced by the lowered
+      // members, so AS never validates the decorator (it's invalid on instance
+      // fields); static fields are skipped above, leaving their lazy-init intact.
+      const decos = (fd as FieldDeclaration).decorators;
+      const hasDeco = (name: string): boolean =>
+        decos?.some((d) => (<IdentifierExpression>d.name).text === name) ??
+        false;
+      // `Lazy<T>` wrapper (AST-detected, alias-safe), else explicit `@lazy`,
+      // else the class-level mode (with `@eager`/`@omit` opting out).
+      let inner: string | null = lazyWrapperInner(
+        (fd as FieldDeclaration).type,
+      );
+      if (inner === null) {
+        if (hasDeco("lazy")) {
+          inner = written; // explicit @lazy decorator
+        } else if (
+          lazyMode !== "none" &&
+          !hasDeco("eager") &&
+          !hasDeco("omit")
+        ) {
+          if (lazyMode === "all") inner = written;
+          else if (
+            lazyAutoCost(
+              this.resolveType(written, source),
+              source,
+              this.parser,
+            ) >= LAZY_AUTO_THRESHOLD
+          )
+            inner = written;
+        }
+      }
       if (inner === null) continue;
 
       const fname = fd.name.text;
@@ -3939,6 +3973,77 @@ function sizeof(type: string): number {
     return 66; // max dtoa length used by runtime reserve
   else if (type == "bool" || type == "boolean") return 10;
   else return 0;
+}
+
+// Class-level lazy mode from `@json({ lazy: "auto" | "all" | "none" })`.
+type LazyMode = "none" | "auto" | "all";
+function classLazyMode(node: ClassDeclaration): LazyMode {
+  const dec = node.decorators?.find((d) => {
+    const n = (<IdentifierExpression>d.name).text;
+    return n === "json" || n === "serializable";
+  });
+  if (!dec || !dec.args || dec.args.length === 0) return "none";
+  const arg = dec.args[0];
+  if (
+    arg.kind !== NodeKind.Literal ||
+    (arg as LiteralExpression).literalKind !== LiteralKind.Object
+  )
+    return "none";
+  const obj = arg as ObjectLiteralExpression;
+  for (let i = 0; i < obj.names.length; i++) {
+    if (obj.names[i].text !== "lazy") continue;
+    const v = obj.values[i];
+    if (
+      v.kind === NodeKind.Literal &&
+      (v as LiteralExpression).literalKind === LiteralKind.String
+    ) {
+      const s = (v as StringLiteralExpression).value;
+      if (s === "none" || s === "auto" || s === "all") return s as LazyMode;
+    }
+    throwError(`@json lazy must be "none", "auto", or "all"`, v.range);
+  }
+  return "none";
+}
+
+// Structural parse-cost score for `lazy: "auto"`. byteSize is a buffer-prealloc
+// estimate (string/array/object all ~4), so it can't separate cheap scalars
+// from heavy allocating/recursive values — categorize by type instead. Fields
+// at or above LAZY_AUTO_THRESHOLD are deferred; primitives/enums/Date stay eager.
+const LAZY_AUTO_THRESHOLD = 10;
+function lazyAutoCost(type: string, source: Src, parser: Parser): number {
+  const base = stripNull(type);
+  if (isPrimitive(base) || isBoolean(base) || isEnum(base, source, parser))
+    return 1;
+  if (base === "Date") return 4;
+  if (isString(base)) return 10;
+  if (
+    base === "JSON.Value" ||
+    base === "Value" ||
+    base === "JSON.Obj" ||
+    base === "Obj" ||
+    base === "JSON.Raw" ||
+    base === "Raw"
+  )
+    return 15;
+  return 20; // array / map / set / typed-array / buffer / nested @json struct
+}
+
+// Detect a `Lazy<T>` type wrapper from the AST rather than the raw spelling, so
+// it survives namespace aliasing: `JSON.Lazy<T>`, `J.Lazy<T>` (import { JSON as
+// J }), `ns.JSON.Lazy<T>`, or a bare imported `Lazy<T>` all match — we read the
+// terminal name segment and take the inner type from the type argument node.
+// Returns the inner type T (string, with outer nullability folded in) or null.
+function lazyWrapperInner(typeNode: Node | null): string | null {
+  if (!typeNode || typeNode.kind !== NodeKind.NamedType) return null;
+  const named = typeNode as NamedTypeNode;
+  let seg = named.name;
+  while (seg.next) seg = seg.next;
+  if (seg.identifier.text !== "Lazy") return null;
+  if (!named.typeArguments || named.typeArguments.length !== 1) return null;
+  let inner = toString(named.typeArguments[0]).trim();
+  // `Lazy<T> | null`: the alias is transparent, so fold the outer null in.
+  if (named.isNullable && !inner.endsWith("null")) inner += " | null";
+  return inner;
 }
 
 function estimatedSerializedByteSize(

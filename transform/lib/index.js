@@ -302,6 +302,7 @@ export class JSONTransform extends Visitor {
         if (!this.schemas.has(source.internalPath))
             this.schemas.set(source.internalPath, []);
         const lazyInner = new Map();
+        const lazyMode = classLazyMode(node);
         let __hasLazy = false;
         for (let i = node.members.length - 1; i >= 0; i--) {
             const fd = node.members[i];
@@ -312,11 +313,23 @@ export class JSONTransform extends Visitor {
                 !fd.type)
                 continue;
             const written = toString(fd.type).trim();
-            let inner = null;
-            if (written.startsWith("JSON.Lazy<") && written.endsWith(">"))
-                inner = written.slice("JSON.Lazy<".length, written.length - 1).trim();
-            else if (written.startsWith("Lazy<") && written.endsWith(">"))
-                inner = written.slice("Lazy<".length, written.length - 1).trim();
+            const decos = fd.decorators;
+            const hasDeco = (name) => decos?.some((d) => d.name.text === name) ??
+                false;
+            let inner = lazyWrapperInner(fd.type);
+            if (inner === null) {
+                if (hasDeco("lazy")) {
+                    inner = written;
+                }
+                else if (lazyMode !== "none" &&
+                    !hasDeco("eager") &&
+                    !hasDeco("omit")) {
+                    if (lazyMode === "all")
+                        inner = written;
+                    else if (lazyAutoCost(this.resolveType(written, source), source, this.parser) >= LAZY_AUTO_THRESHOLD)
+                        inner = written;
+                }
+            }
             if (inner === null)
                 continue;
             const fname = fd.name.text;
@@ -2789,6 +2802,66 @@ function sizeof(type) {
         return 10;
     else
         return 0;
+}
+function classLazyMode(node) {
+    const dec = node.decorators?.find((d) => {
+        const n = d.name.text;
+        return n === "json" || n === "serializable";
+    });
+    if (!dec || !dec.args || dec.args.length === 0)
+        return "none";
+    const arg = dec.args[0];
+    if (arg.kind !== NodeKind.Literal ||
+        arg.literalKind !== 6)
+        return "none";
+    const obj = arg;
+    for (let i = 0; i < obj.names.length; i++) {
+        if (obj.names[i].text !== "lazy")
+            continue;
+        const v = obj.values[i];
+        if (v.kind === NodeKind.Literal &&
+            v.literalKind === 2) {
+            const s = v.value;
+            if (s === "none" || s === "auto" || s === "all")
+                return s;
+        }
+        throwError(`@json lazy must be "none", "auto", or "all"`, v.range);
+    }
+    return "none";
+}
+const LAZY_AUTO_THRESHOLD = 10;
+function lazyAutoCost(type, source, parser) {
+    const base = stripNull(type);
+    if (isPrimitive(base) || isBoolean(base) || isEnum(base, source, parser))
+        return 1;
+    if (base === "Date")
+        return 4;
+    if (isString(base))
+        return 10;
+    if (base === "JSON.Value" ||
+        base === "Value" ||
+        base === "JSON.Obj" ||
+        base === "Obj" ||
+        base === "JSON.Raw" ||
+        base === "Raw")
+        return 15;
+    return 20;
+}
+function lazyWrapperInner(typeNode) {
+    if (!typeNode || typeNode.kind !== NodeKind.NamedType)
+        return null;
+    const named = typeNode;
+    let seg = named.name;
+    while (seg.next)
+        seg = seg.next;
+    if (seg.identifier.text !== "Lazy")
+        return null;
+    if (!named.typeArguments || named.typeArguments.length !== 1)
+        return null;
+    let inner = toString(named.typeArguments[0]).trim();
+    if (named.isNullable && !inner.endsWith("null"))
+        inner += " | null";
+    return inner;
 }
 function estimatedSerializedByteSize(type, source, parser) {
     const trimmed = type.trim();
