@@ -139,6 +139,23 @@ export namespace JSON {
   export type Lazy<T> = T;
 
   /**
+   * Materializes a lazy field's stored slice range into `T`. Deliberately NOT
+   * `@inline`: `parse<T>` is inline, so calling it directly from each generated
+   * getter would copy the whole parser into every accessor. Funnelling through
+   * this one (per-T) function emits the parser once per type and shares it
+   * across all lazy getters of that type — large code-size win for `lazy:
+   * "auto"/"all"`. Called only on first access (the slow path), so the extra
+   * call is free relative to the parse it performs. `lz` is the packed range
+   * slot: high32 = start ptr, low32 = end ptr, 0 = absent (parsed as null).
+   */
+  export function __materializeLazy<T>(lz: u64): T {
+    const hi = <usize>(lz >>> 32);
+    return hi != 0
+      ? parse<T>(ptrToStr(hi, <usize>(<u32>lz)))
+      : parse<T>("null");
+  }
+
+  /**
    * Memory management utilities for the JSON serialization buffer.
    */
   export namespace Memory {

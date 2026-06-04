@@ -560,13 +560,11 @@ export class JSONTransform extends Visitor {
         `@alias(${key}) __${fname}_lz: u64 = 0;`,
         `@omit __${fname}_has: bool = false;`,
         `@omit __${fname}_val: ${valueType} = ${valueDefault};`,
+        // Slow path goes through the shared (non-inline) JSON.__materializeLazy<T>
+        // so the parser is emitted once per type, not inlined into every getter.
         `get ${fname}(): ${T} {\n` +
           `  if (this.__${fname}_has) return this.__${fname}_val as ${T};\n` +
-          `  const __s = this.__${fname}_lz;\n` +
-          `  const __hi = <usize>(__s >>> 32);\n` +
-          `  const __v = __hi != 0\n` +
-          `    ? JSON.parse<${T}>(JSON.Util.ptrToStr(__hi, <usize>(<u32>__s)))\n` +
-          `    : JSON.parse<${T}>("null");\n` +
+          `  const __v = JSON.__materializeLazy<${T}>(this.__${fname}_lz);\n` +
           `  this.__${fname}_val = __v;\n` +
           `  this.__${fname}_has = true;\n` +
           `  return __v;\n}`,
