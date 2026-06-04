@@ -149,6 +149,57 @@ describe('@json({ lazy: "all" }) defers every field', () => {
   expect(JSON.stringify(JSON.parse<AllRepo>(SRC))).toBe(SRC);
 });
 
+
+@json class OmitNullLazy {
+  name: string = "x";
+
+
+  @omitnull owner: JSON.Lazy<Owner | null> = null;
+}
+
+
+@json class OmitIfLazy {
+  name: string = "x";
+
+
+  @omitif((self: OmitIfLazy) => self.count == 0) count: JSON.Lazy<i32> = 0;
+}
+
+describe("@omitnull works on lazy fields (omits null without materializing)", () => {
+  // @omitnull triggers the optional-field sort, so the optional field leads —
+  // same ordering as a non-lazy @omitnull class.
+  const set = new OmitNullLazy();
+  const w = new Owner();
+  w.login = "z";
+  set.owner = w;
+  // materialized owner re-serializes all its fields (incl. id, lazy deep=null)
+  expect(JSON.stringify(set)).toBe(
+    '{"owner":{"login":"z","id":0,"deep":null},"name":"x"}',
+  ); // kept
+  const nul = new OmitNullLazy();
+  nul.owner = null;
+  expect(JSON.stringify(nul)).toBe('{"name":"x"}'); // omitted (materialized null)
+  // passthrough: a raw `null` slice is omitted without ever parsing it
+  expect(
+    JSON.stringify(JSON.parse<OmitNullLazy>('{"name":"x","owner":null}')),
+  ).toBe('{"name":"x"}');
+  // passthrough: a non-null slice is kept verbatim
+  expect(
+    JSON.stringify(
+      JSON.parse<OmitNullLazy>('{"name":"x","owner":{"login":"q"}}'),
+    ),
+  ).toBe('{"owner":{"login":"q"},"name":"x"}');
+});
+
+describe("@omitif works on lazy fields", () => {
+  const omit = new OmitIfLazy();
+  omit.count = 0;
+  expect(JSON.stringify(omit)).toBe('{"name":"x"}'); // predicate true -> omit
+  const keep = new OmitIfLazy();
+  keep.count = 5;
+  expect(JSON.stringify(keep)).toBe('{"count":5,"name":"x"}'); // kept
+});
+
 describe("@lazy decorator marks fields like JSON.Lazy<T>", () => {
   const SRC =
     '{"name":"r","owner":{"login":"octo","id":7},"tags":[1,2,3],"count":42}';

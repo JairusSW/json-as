@@ -344,7 +344,13 @@ export class JSONTransform extends Visitor {
                     ? "0"
                     : "null";
             __hasLazy = true;
-            lazyInner.set("__" + fname + "_lz", { inner: T, valueType });
+            const omitIfDeco = decos?.find((d) => d.name.text === "omitif");
+            lazyInner.set("__" + fname + "_lz", {
+                inner: T,
+                valueType,
+                omitNull: hasDeco("omitnull"),
+                omitIf: omitIfDeco?.args?.[0] ?? null,
+            });
             const lowered = [
                 `@alias(${key}) __${fname}_lz: u64 = 0;`,
                 `@omit __${fname}_has: bool = false;`,
@@ -756,6 +762,14 @@ export class JSONTransform extends Visitor {
             if (lzInner !== undefined) {
                 mem.flags.set(PropertyFlags.Lazy, null);
                 mem.lazyInner = lzInner.inner;
+                if (lzInner.omitNull) {
+                    mem.flags.set(PropertyFlags.OmitNull, null);
+                    this.schema.static = false;
+                }
+                if (lzInner.omitIf) {
+                    mem.flags.set(PropertyFlags.OmitIf, lzInner.omitIf);
+                    this.schema.static = false;
+                }
             }
             this.schema.byteSize += mem.byteSize;
             if (member.decorators) {
@@ -913,9 +927,19 @@ export class JSONTransform extends Visitor {
             }
             else {
                 if (member.flags.has(PropertyFlags.OmitNull)) {
-                    SERIALIZE +=
-                        indent +
-                            `if ((block = load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))) !== 0) {\n`;
+                    let omitNullCond;
+                    if (member.flags.has(PropertyFlags.Lazy)) {
+                        const base = realName.slice(0, -3);
+                        omitNullCond =
+                            `!JSON.__lazyIsNull(` +
+                                `load<bool>(ptr, offsetof<this>(${JSON.stringify(base + "_has")})), ` +
+                                `load<usize>(ptr, offsetof<this>(${JSON.stringify(base + "_val")})), ` +
+                                `load<u64>(ptr, offsetof<this>(${JSON.stringify(realName)})))`;
+                    }
+                    else {
+                        omitNullCond = `(block = load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))) !== 0`;
+                    }
+                    SERIALIZE += indent + `if (${omitNullCond}) {\n`;
                     indentInc();
                     const keyPart = aliasName + ":";
                     this.schema.byteSize += keyPart.length << 1;

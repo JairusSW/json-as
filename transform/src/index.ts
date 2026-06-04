@@ -3,6 +3,7 @@ import {
   CommonFlags,
   Feature,
   FieldDeclaration,
+  Expression,
   FloatLiteralExpression,
   FunctionExpression,
   IdentifierExpression,
@@ -473,7 +474,15 @@ export class JSONTransform extends Visitor {
 
     // Inner type T + backing-value type for each lowered lazy slot field,
     // consumed by the schema loop + deserialize/serialize codegen below.
-    const lazyInner = new Map<string, { inner: string; valueType: string }>();
+    const lazyInner = new Map<
+      string,
+      {
+        inner: string;
+        valueType: string;
+        omitNull: boolean;
+        omitIf: Expression | null;
+      }
+    >();
 
     // Class-level default: `@json({ lazy: "auto" | "all" })` defers fields without
     // an explicit marker; `@eager` opts an individual field back out.
@@ -549,7 +558,18 @@ export class JSONTransform extends Visitor {
           ? "0"
           : "null";
       __hasLazy = true;
-      lazyInner.set("__" + fname + "_lz", { inner: T, valueType });
+      // Carry @omitnull/@omitif from the original field onto the lowered slot
+      // (they can't ride the u64 slot directly — @omitnull rejects primitives —
+      // so the member loop sets the flags from here).
+      const omitIfDeco = decos?.find(
+        (d) => (<IdentifierExpression>d.name).text === "omitif",
+      );
+      lazyInner.set("__" + fname + "_lz", {
+        inner: T,
+        valueType,
+        omitNull: hasDeco("omitnull"),
+        omitIf: omitIfDeco?.args?.[0] ?? null,
+      });
       // `__name_lz` (u64) holds the slice RANGE only (an interior pointer kept
       // valid by `__src`); the materialized value lives in `__name_val`, a
       // TRACED reference field or a scalar field, so the GC keeps managed values
@@ -1142,6 +1162,17 @@ export class JSONTransform extends Visitor {
       if (lzInner !== undefined) {
         mem.flags.set(PropertyFlags.Lazy, null);
         mem.lazyInner = lzInner.inner; // inner type T for the deser/ser codegen
+        // @omitnull/@omitif carried from the original (pre-lowering) field.
+        // Must also clear `schema.static` (as the decorator handler does) — it
+        // gates the optional/omit serialize path; leaving it set skips omission.
+        if (lzInner.omitNull) {
+          mem.flags.set(PropertyFlags.OmitNull, null);
+          this.schema.static = false;
+        }
+        if (lzInner.omitIf) {
+          mem.flags.set(PropertyFlags.OmitIf, lzInner.omitIf);
+          this.schema.static = false;
+        }
       }
 
       this.schema.byteSize += mem.byteSize;
@@ -1337,9 +1368,20 @@ export class JSONTransform extends Visitor {
         if (isFirst) isFirst = false;
       } else {
         if (member.flags.has(PropertyFlags.OmitNull)) {
-          SERIALIZE +=
-            indent +
-            `if ((block = load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))) !== 0) {\n`;
+          let omitNullCond: string;
+          if (member.flags.has(PropertyFlags.Lazy)) {
+            // A lazy slot's null-ness lives in __x_has/__x_val/__x_lz, not the
+            // raw word — test it without materializing.
+            const base = realName.slice(0, -3); // drop "_lz"
+            omitNullCond =
+              `!JSON.__lazyIsNull(` +
+              `load<bool>(ptr, offsetof<this>(${JSON.stringify(base + "_has")})), ` +
+              `load<usize>(ptr, offsetof<this>(${JSON.stringify(base + "_val")})), ` +
+              `load<u64>(ptr, offsetof<this>(${JSON.stringify(realName)})))`;
+          } else {
+            omitNullCond = `(block = load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))) !== 0`;
+          }
+          SERIALIZE += indent + `if (${omitNullCond}) {\n`;
           indentInc();
           const keyPart = aliasName + ":";
           this.schema.byteSize += keyPart.length << 1;
