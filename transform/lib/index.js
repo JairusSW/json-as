@@ -379,7 +379,7 @@ export class JSONTransform extends Visitor {
                 : `(<${T}>(<u32>(${lz})))`;
             const lowered = (packScalar
                 ? [
-                    `@alias(${key}) __${fname}_lz: u64 = 0;`,
+                    `@alias(${key}) private __${fname}_lz: u64 = 0;`,
                     `get ${fname}(): ${T} {\n` +
                         `  const __lz = this.__${fname}_lz;\n` +
                         `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
@@ -393,8 +393,8 @@ export class JSONTransform extends Visitor {
                         `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
                 ]
                 : [
-                    `@alias(${key}) __${fname}_lz: u64 = 0;`,
-                    `@omit __${fname}_val: ${valueType} = ${valueDefault};`,
+                    `@alias(${key}) private __${fname}_lz: u64 = 0;`,
+                    `private __${fname}_val: ${valueType} = ${valueDefault};`,
                     `get ${fname}(): ${T} {\n` +
                         `  const __lz = this.__${fname}_lz;\n` +
                         `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +
@@ -409,12 +409,12 @@ export class JSONTransform extends Visitor {
             node.members.splice(i, 1, ...lowered);
         }
         if (__hasLazy) {
-            node.members.push(SimpleParser.parseClassMember(`@omit __src: string = "";`, node), SimpleParser.parseClassMember(`__SET_SRC(s: string): void { this.__src = s; }`, node));
+            node.members.push(SimpleParser.parseClassMember(`private __src: string = "";`, node), SimpleParser.parseClassMember(`__SET_SRC(s: string): void { this.__src = s; }`, node));
         }
         const members = [
             ...node.members.filter((v) => v.kind === NodeKind.FieldDeclaration &&
                 !v.is(32) &&
-                !v.is(512) &&
+                (!v.is(512) || lazyInner.has(v.name.text)) &&
                 !v.is(1024) &&
                 !v.decorators?.some((decorator) => decorator.name.text === "omit")),
         ];

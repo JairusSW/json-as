@@ -628,7 +628,7 @@ export class JSONTransform extends Visitor {
       const lowered = (
         packScalar
           ? [
-              `@alias(${key}) __${fname}_lz: u64 = 0;`,
+              `@alias(${key}) private __${fname}_lz: u64 = 0;`,
               `get ${fname}(): ${T} {\n` +
                 `  const __lz = this.__${fname}_lz;\n` +
                 `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
@@ -642,8 +642,8 @@ export class JSONTransform extends Visitor {
                 `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
             ]
           : [
-              `@alias(${key}) __${fname}_lz: u64 = 0;`,
-              `@omit __${fname}_val: ${valueType} = ${valueDefault};`,
+              `@alias(${key}) private __${fname}_lz: u64 = 0;`,
+              `private __${fname}_val: ${valueType} = ${valueDefault};`,
               // Slow path goes through the shared (non-inline) JSON.__materializeLazy<T>
               // so the parser is emitted once per type, not inlined into every getter.
               `get ${fname}(): ${T} {\n` +
@@ -664,7 +664,7 @@ export class JSONTransform extends Visitor {
       // Single GC-anchor for the source string + the hook JSON.parse calls so
       // the range pointers stay valid for this struct's lifetime.
       node.members.push(
-        SimpleParser.parseClassMember(`@omit __src: string = "";`, node),
+        SimpleParser.parseClassMember(`private __src: string = "";`, node),
         SimpleParser.parseClassMember(
           `__SET_SRC(s: string): void { this.__src = s; }`,
           node,
@@ -677,7 +677,9 @@ export class JSONTransform extends Visitor {
         (v) =>
           v.kind === NodeKind.FieldDeclaration &&
           !v.is(CommonFlags.Static) &&
-          !v.is(CommonFlags.Private) &&
+          // Lazy slot fields (`__name_lz`) are emitted `private` for
+          // encapsulation but must still (de)serialize — keep them.
+          (!v.is(CommonFlags.Private) || lazyInner.has(v.name.text)) &&
           !v.is(CommonFlags.Protected) &&
           !v.decorators?.some(
             (decorator) =>
