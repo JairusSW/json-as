@@ -40,6 +40,7 @@ import {
   deserializeTypedArray,
 } from "./deserialize";
 import {
+  BACK_SLASH,
   BRACE_LEFT,
   BRACE_RIGHT,
   BRACKET_LEFT,
@@ -58,6 +59,8 @@ import {
 } from "./util/dragonbox";
 import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes, scanStringEnd } from "./util";
+import { scanValueEnd_SIMD } from "./util/scanValueEndSimd";
+import { scanValueEnd_SWAR } from "./util/scanValueEndSwar";
 
 // --- NaN-boxing encoding for JSON.Value ----------------------------------
 // JSON.Value packs its type tag and payload into a single 8-byte word.
@@ -1381,55 +1384,76 @@ export namespace JSON {
       return srcStart;
     }
     // @ts-expect-error: decorator
-    @inline export function scanValueEnd(
+    @inline function scanQuotedValueEnd(srcStart: usize, srcEnd: usize): usize {
+      const endQuote = scanStringEnd(srcStart, srcEnd);
+      return endQuote >= srcEnd ? 0 : endQuote + 2;
+    }
+    // @ts-expect-error: decorator
+    @inline function scanCompositeValueEnd(
       srcStart: usize,
       srcEnd: usize,
     ): usize {
-      if (srcStart >= srcEnd) return 0;
-      let ptr = srcStart;
-      while (ptr < srcEnd && isSpace(load<u16>(ptr))) ptr += 2;
-      if (ptr >= srcEnd) return 0;
-      const first = load<u16>(ptr);
-
-      if (first == QUOTE) {
-        const endQuote = scanStringEnd(ptr, srcEnd);
-        return endQuote >= srcEnd ? 0 : endQuote + 2;
-      }
-
-      if (first == BRACE_LEFT || first == BRACKET_LEFT) {
-        let depth: i32 = 1;
-        ptr += 2;
-        while (ptr < srcEnd) {
-          const code = load<u16>(ptr);
-          if (code == QUOTE) {
-            const endQuote = scanStringEnd(ptr, srcEnd);
-            if (endQuote >= srcEnd) return 0;
-            ptr = endQuote + 2;
-            continue;
-          }
-          if (code == BRACE_LEFT || code == BRACKET_LEFT) {
-            depth++;
-          } else if (code == BRACE_RIGHT || code == BRACKET_RIGHT) {
-            if (--depth == 0) return ptr + 2;
-          }
-          ptr += 2;
-        }
-        return 0;
-      }
-
+      let depth: i32 = 1;
+      let ptr = srcStart + 2;
       while (ptr < srcEnd) {
         const code = load<u16>(ptr);
+        if (code == QUOTE) {
+          ptr = scanQuotedValueEnd(ptr, srcEnd);
+          if (!ptr) return 0;
+          continue;
+        }
+        if (code == BRACE_LEFT || code == BRACKET_LEFT) {
+          depth++;
+        } else if (code == BRACE_RIGHT || code == BRACKET_RIGHT) {
+          if (--depth == 0) return ptr + 2;
+        }
+        ptr += 2;
+      }
+      return 0;
+    }
+    // @ts-expect-error: decorator
+    @inline function scanScalarValueEnd(srcStart: usize, srcEnd: usize): usize {
+      while (srcStart < srcEnd) {
+        const code = load<u16>(srcStart);
         if (
           code == COMMA ||
           code == BRACKET_RIGHT ||
           code == BRACE_RIGHT ||
           isSpace(code)
         )
-          return ptr;
-        ptr += 2;
+          return srcStart;
+        srcStart += 2;
       }
 
-      return ptr;
+      return srcStart;
+    }
+    // @ts-expect-error: decorator
+    @inline export function scanValueEnd<T = JSON.Value>(
+      srcStart: usize,
+      srcEnd: usize,
+    ): usize {
+      if (srcStart >= srcEnd) return 0;
+      let ptr = skipWhitespace(srcStart, srcEnd);
+      if (ptr >= srcEnd) return 0;
+
+      if (ASC_FEATURE_SIMD) return scanValueEnd_SIMD<T>(ptr, srcEnd);
+      if (JSON_MODE == JSONMode.SWAR) return scanValueEnd_SWAR<T>(ptr, srcEnd);
+
+      const first = load<u16>(ptr);
+      if (isString<nonnull<T>>() && first == QUOTE)
+        return scanQuotedValueEnd(ptr, srcEnd);
+      if (isArray<nonnull<T>>() && first == BRACKET_LEFT)
+        return scanCompositeValueEnd(ptr, srcEnd);
+      if (
+        (isManaged<nonnull<T>>() || isReference<nonnull<T>>()) &&
+        first == BRACE_LEFT
+      )
+        return scanCompositeValueEnd(ptr, srcEnd);
+
+      if (first == QUOTE) return scanQuotedValueEnd(ptr, srcEnd);
+      if (first == BRACE_LEFT || first == BRACKET_LEFT)
+        return scanCompositeValueEnd(ptr, srcEnd);
+      return scanScalarValueEnd(ptr, srcEnd);
     }
     // @ts-expect-error: decorator
     @inline export function ptrToStr(start: usize, end: usize): string {

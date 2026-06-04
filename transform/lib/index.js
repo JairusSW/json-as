@@ -1054,11 +1054,12 @@ export class JSONTransform extends Visitor {
             const fieldOffset = `offsetof<this>(${JSON.stringify(member.name)})`;
             const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
             if (member.flags.has(PropertyFlags.Lazy)) {
+                const lazyInner = member.lazyInner;
                 const hasName = member.name.slice(0, -3) + "_has";
                 const hasOffset = `offsetof<this>(${JSON.stringify(hasName)})`;
                 out.push("{");
                 out.push(`  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`);
-                out.push("  const valueEnd = JSON.Util.scanValueEnd(valueStart, srcEnd);");
+                out.push(`  const valueEnd = JSON.Util.scanValueEnd<${lazyInner}>(valueStart, srcEnd);`);
                 out.push("  if (!valueEnd) break;");
                 out.push(`  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`);
                 out.push(`  store<bool>(${outPtr}, false, ${hasOffset});`);
@@ -1235,7 +1236,7 @@ export class JSONTransform extends Visitor {
                 out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                 out.push("  }");
                 out.push(`  const valueStart = ${valuePtr};`);
-                out.push(`  const valueEnd = JSON.Util.scanValueEnd(valueStart, srcEnd);`);
+                out.push(`  const valueEnd = JSON.Util.scanValueEnd<${resolvedType}>(valueStart, srcEnd);`);
                 out.push("  if (!valueEnd) break;");
                 if (fastPath) {
                     out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(valueStart, valueEnd, value);`);

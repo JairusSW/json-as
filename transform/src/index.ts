@@ -1523,6 +1523,7 @@ export class JSONTransform extends Visitor {
         // On-demand slot: scan the value's extent (same scanner JSON.Raw and
         // containers use) but store the packed range (start<<32)|end into the
         // u64 slot — no copy.
+        const lazyInner = member.lazyInner!;
         const hasName = member.name.slice(0, -3) + "_has";
         const hasOffset = `offsetof<this>(${JSON.stringify(hasName)})`;
         out.push("{");
@@ -1530,7 +1531,7 @@ export class JSONTransform extends Visitor {
           `  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`,
         );
         out.push(
-          "  const valueEnd = JSON.Util.scanValueEnd(valueStart, srcEnd);",
+          `  const valueEnd = JSON.Util.scanValueEnd<${lazyInner}>(valueStart, srcEnd);`,
         );
         out.push("  if (!valueEnd) break;");
         out.push(
@@ -1756,7 +1757,7 @@ export class JSONTransform extends Visitor {
         out.push("  }");
         out.push(`  const valueStart = ${valuePtr};`);
         out.push(
-          `  const valueEnd = JSON.Util.scanValueEnd(valueStart, srcEnd);`,
+          `  const valueEnd = JSON.Util.scanValueEnd<${resolvedType}>(valueStart, srcEnd);`,
         );
         out.push("  if (!valueEnd) break;");
         if (fastPath) {

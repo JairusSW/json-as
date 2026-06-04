@@ -206,9 +206,34 @@ describe("Should cover additional JSON runtime helpers", () => {
   const range = '  {"a":[1,"x"]}  ';
   const start = changetype<usize>(range);
   const end = start + (range.length << 1);
-  const valueEnd = JSON.Util.scanValueEnd(start, end);
+  const valueEnd = JSON.Util.scanValueEnd<JSON.Value>(start, end);
   expect(valueEnd).toBe(end - 4);
   expect(JSON.Util.ptrToStr(start + 4, valueEnd)).toBe('{"a":[1,"x"]}');
+
+  const quoted = '  "a\\\\\\"b" ,';
+  const quotedStart = changetype<usize>(quoted);
+  const quotedEnd = quotedStart + (quoted.length << 1);
+  const quotedValueStart = JSON.Util.skipWhitespace(quotedStart, quotedEnd);
+  const quotedValueEnd = JSON.Util.scanValueEnd<string>(quotedStart, quotedEnd);
+  expect(JSON.Util.ptrToStr(quotedValueStart, quotedValueEnd)).toBe(
+    '"a\\\\\\"b"',
+  );
+
+  const array = ' [1,{"x":"}"}] }';
+  const arrayStart = changetype<usize>(array);
+  const arrayEnd = arrayStart + (array.length << 1);
+  const arrayValueStart = JSON.Util.skipWhitespace(arrayStart, arrayEnd);
+  const arrayValueEnd = JSON.Util.scanValueEnd<i32[]>(arrayStart, arrayEnd);
+  expect(JSON.Util.ptrToStr(arrayValueStart, arrayValueEnd)).toBe(
+    '[1,{"x":"}"}]',
+  );
+
+  const scalar = "  12345,";
+  const scalarStart = changetype<usize>(scalar);
+  const scalarEnd = scalarStart + (scalar.length << 1);
+  const scalarValueStart = JSON.Util.skipWhitespace(scalarStart, scalarEnd);
+  const scalarValueEnd = JSON.Util.scanValueEnd<i32>(scalarStart, scalarEnd);
+  expect(JSON.Util.ptrToStr(scalarValueStart, scalarValueEnd)).toBe("12345");
 });
 
 describe("Should cover JSON.Value type dispatch more broadly", () => {
@@ -277,10 +302,10 @@ describe("Should cover runtime error and utility branches", () => {
   expect(copied).toBe("[1,2,3]");
 
   const emptyStart = changetype<usize>("");
-  expect(JSON.Util.scanValueEnd(emptyStart, emptyStart)).toBe(0);
+  expect(JSON.Util.scanValueEnd<JSON.Value>(emptyStart, emptyStart)).toBe(0);
 
   const badString = '"unterminated';
   const badStart = changetype<usize>(badString);
   const badEnd = badStart + (badString.length << 1);
-  expect(JSON.Util.scanValueEnd(badStart, badEnd)).toBe(0);
+  expect(JSON.Util.scanValueEnd<string>(badStart, badEnd)).toBe(0);
 });
