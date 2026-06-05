@@ -1,9 +1,12 @@
+// Lazy variant — same payloads/sizes as the eager obj throughput bench,
+// but the classes use @json({ lazy: "auto" }). Results dump to "obj-lazy-*"
+// so charts can plot lazy vs eager side by side.
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import { bench, dumpToFile } from "../lib/bench";
 
 
-@json // 1 KB
+@json({ lazy: "auto" }) // 1 KB
 class ObjLarge {
   lorum: u32 = U32.MAX_VALUE;
   ipsum: boolean = true;
@@ -27,7 +30,7 @@ class ObjLarge {
 }
 
 
-@json // tiny object for sub-1MB scaling
+@json({ lazy: "auto" }) // tiny object for sub-1MB scaling
 class ObjSmall {
   id: i32 = 42;
   ok: boolean = true;
@@ -117,7 +120,7 @@ bench(
   200000,
   objSmallStrBytes * opsForSmallBytes(smallBytes0),
 );
-dumpToFile("obj-1kb", "deserialize");
+dumpToFile("obj-lazy-1kb", "deserialize");
 
 bench(
   "Deserialize Object (100kb)",
@@ -136,7 +139,7 @@ bench(
   30000,
   objSmallStrBytes * opsForSmallBytes(smallBytes2),
 );
-dumpToFile("obj-100kb", "deserialize");
+dumpToFile("obj-lazy-100kb", "deserialize");
 
 bench(
   "Deserialize Object (200kb)",
@@ -155,7 +158,7 @@ bench(
   15000,
   objSmallStrBytes * opsForSmallBytes(smallBytes4),
 );
-dumpToFile("obj-200kb", "deserialize");
+dumpToFile("obj-lazy-200kb", "deserialize");
 
 bench(
   "Deserialize Object (300kb)",
@@ -174,7 +177,7 @@ bench(
   10000,
   objSmallStrBytes * opsForSmallBytes(smallBytes6),
 );
-dumpToFile("obj-300kb", "deserialize");
+dumpToFile("obj-lazy-300kb", "deserialize");
 
 bench(
   "Deserialize Object (400kb)",
@@ -193,7 +196,7 @@ bench(
   7500,
   objSmallStrBytes * opsForSmallBytes(smallBytes8),
 );
-dumpToFile("obj-400kb", "deserialize");
+dumpToFile("obj-lazy-400kb", "deserialize");
 
 bench(
   "Deserialize Object (500kb)",
@@ -212,7 +215,7 @@ bench(
   6000,
   objSmallStrBytes * opsForSmallBytes(smallBytes10),
 );
-dumpToFile("obj-500kb", "deserialize");
+dumpToFile("obj-lazy-500kb", "deserialize");
 
 bench(
   "Deserialize Object (600kb)",
@@ -231,7 +234,7 @@ bench(
   5000,
   objSmallStrBytes * opsForSmallBytes(smallBytes12),
 );
-dumpToFile("obj-600kb", "deserialize");
+dumpToFile("obj-lazy-600kb", "deserialize");
 
 bench(
   "Deserialize Object (700kb)",
@@ -250,7 +253,7 @@ bench(
   4286,
   objSmallStrBytes * opsForSmallBytes(smallBytes14),
 );
-dumpToFile("obj-700kb", "deserialize");
+dumpToFile("obj-lazy-700kb", "deserialize");
 
 bench(
   "Deserialize Object (800kb)",
@@ -269,7 +272,7 @@ bench(
   3750,
   objSmallStrBytes * opsForSmallBytes(smallBytes16),
 );
-dumpToFile("obj-800kb", "deserialize");
+dumpToFile("obj-lazy-800kb", "deserialize");
 
 bench(
   "Deserialize Object (900kb)",
@@ -288,7 +291,7 @@ bench(
   3334,
   objSmallStrBytes * opsForSmallBytes(smallBytes18),
 );
-dumpToFile("obj-900kb", "deserialize");
+dumpToFile("obj-lazy-900kb", "deserialize");
 
 bench(
   "Deserialize Object (1mb)",
@@ -303,7 +306,7 @@ bench(
   500,
   objStrBytes * opsForBytes(bytes1),
 );
-dumpToFile("obj-1mb", "deserialize");
+dumpToFile("obj-lazy-1mb", "deserialize");
 
 bench(
   "Deserialize Object (2mb)",
@@ -318,7 +321,7 @@ bench(
   250,
   objStrBytes * opsForBytes(bytes2),
 );
-dumpToFile("obj-2mb", "deserialize");
+dumpToFile("obj-lazy-2mb", "deserialize");
 
 bench(
   "Deserialize Object (3mb)",
@@ -333,7 +336,7 @@ bench(
   166,
   objStrBytes * opsForBytes(bytes3),
 );
-dumpToFile("obj-3mb", "deserialize");
+dumpToFile("obj-lazy-3mb", "deserialize");
 
 bench(
   "Deserialize Object (4mb)",
@@ -348,7 +351,7 @@ bench(
   125,
   objStrBytes * opsForBytes(bytes4),
 );
-dumpToFile("obj-4mb", "deserialize");
+dumpToFile("obj-lazy-4mb", "deserialize");
 
 bench(
   "Deserialize Object (5mb)",
@@ -363,7 +366,7 @@ bench(
   100,
   objStrBytes * opsForBytes(bytes5),
 );
-dumpToFile("obj-5mb", "deserialize");
+dumpToFile("obj-lazy-5mb", "deserialize");
 
 bench(
   "Deserialize Object (6mb)",
@@ -378,7 +381,7 @@ bench(
   83,
   objStrBytes * opsForBytes(bytes6),
 );
-dumpToFile("obj-6mb", "deserialize");
+dumpToFile("obj-lazy-6mb", "deserialize");
 
 bench(
   "Deserialize Object (7mb)",
@@ -393,7 +396,7 @@ bench(
   71,
   objStrBytes * opsForBytes(bytes7),
 );
-dumpToFile("obj-7mb", "deserialize");
+dumpToFile("obj-lazy-7mb", "deserialize");
 
 bench(
   "Deserialize Object (8mb)",
@@ -408,7 +411,7 @@ bench(
   62,
   objStrBytes * opsForBytes(bytes8),
 );
-dumpToFile("obj-8mb", "deserialize");
+dumpToFile("obj-lazy-8mb", "deserialize");
 
 bench(
   "Deserialize Object (9mb)",
@@ -423,7 +426,7 @@ bench(
   55,
   objStrBytes * opsForBytes(bytes9),
 );
-dumpToFile("obj-9mb", "deserialize");
+dumpToFile("obj-lazy-9mb", "deserialize");
 
 bench(
   "Deserialize Object (10mb)",
@@ -438,4 +441,4 @@ bench(
   50,
   objStrBytes * opsForBytes(bytes10),
 );
-dumpToFile("obj-10mb", "deserialize");
+dumpToFile("obj-lazy-10mb", "deserialize");

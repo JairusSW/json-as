@@ -20,25 +20,15 @@ function getBenchData(filePath: string) {
 
 const payloads = [
   "obj-1kb",
-  "obj-50kb",
   "obj-100kb",
-  "obj-150kb",
   "obj-200kb",
-  "obj-250kb",
   "obj-300kb",
-  "obj-350kb",
   "obj-400kb",
-  "obj-450kb",
   "obj-500kb",
-  "obj-550kb",
   "obj-600kb",
-  "obj-650kb",
   "obj-700kb",
-  "obj-750kb",
   "obj-800kb",
-  "obj-850kb",
   "obj-900kb",
-  "obj-950kb",
   "obj-1mb",
 ];
 const engines = ["js", "naive", "swar", "simd"];
@@ -73,6 +63,23 @@ for (const payload of payloads) {
   }
 }
 
+// Lazy variants (@json({ lazy: "auto" })) — AS-only; there is no JS lazy mode.
+// Same payload sizes, dumped to "obj-lazy-*" by the *.lazy.bench.ts files.
+const lazyPayloads = payloads.map((p) => p.replace("obj-", "obj-lazy-"));
+const lazyEngines = ["naive", "swar", "simd"];
+
+for (const payload of lazyPayloads) {
+  for (const engine of lazyEngines) {
+    for (const mode of modes) {
+      const key = `${payload}-${engine}-${mode}`;
+      const data = getBenchData(logPath(payload, engine, mode));
+
+      if (!chartData[key]) chartData[key] = [];
+      chartData[key].push({ x: data.bytes / 1024, y: data.mbps });
+    }
+  }
+}
+
 const canvas = new ChartJSNodeCanvas({
   width: 1200,
   height: 700,
@@ -102,6 +109,27 @@ for (const mode of modes) {
   }
 }
 
+// Lazy series: same engine colors, drawn dashed with triangle markers so the
+// lazy-vs-eager pairing is readable per engine.
+for (const mode of modes) {
+  for (const engine of lazyEngines) {
+    const data: ChartPoint[] = lazyPayloads.map(
+      (p) => chartData[`${p}-${engine}-${mode}`][0],
+    );
+    datasets.push({
+      label: `${engine.toUpperCase()} (lazy)`,
+      data,
+      borderColor: `rgba(${colors[engine]},0.9)`,
+      backgroundColor: `rgba(${colors[engine]},0.2)`,
+      fill: false,
+      tension: 0.2,
+      pointStyle: "triangle",
+      pointRadius: 6,
+      borderDash: [8, 4],
+    });
+  }
+}
+
 let maxX = 0;
 let maxY = 0;
 
@@ -120,7 +148,7 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "Object Deserialization Throughput vs Payload Size (<=1MB)",
+        text: "Object Deserialization Throughput vs Payload Size (<=1MB) — eager vs lazy",
         font: { size: 20, weight: "bold" },
       },
       legend: {

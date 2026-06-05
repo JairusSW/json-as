@@ -52,25 +52,15 @@ function opsForSmallBytes(targetBytes: i32): i32 {
 }
 
 const smallBytes0 = 1 * 1024;
-const smallBytes1 = 50 * 1024;
 const smallBytes2 = 100 * 1024;
-const smallBytes3 = 150 * 1024;
 const smallBytes4 = 200 * 1024;
-const smallBytes5 = 250 * 1024;
 const smallBytes6 = 300 * 1024;
-const smallBytes7 = 350 * 1024;
 const smallBytes8 = 400 * 1024;
-const smallBytes9 = 450 * 1024;
 const smallBytes10 = 500 * 1024;
-const smallBytes11 = 550 * 1024;
 const smallBytes12 = 600 * 1024;
-const smallBytes13 = 650 * 1024;
 const smallBytes14 = 700 * 1024;
-const smallBytes15 = 750 * 1024;
 const smallBytes16 = 800 * 1024;
-const smallBytes17 = 850 * 1024;
 const smallBytes18 = 900 * 1024;
-const smallBytes19 = 950 * 1024;
 
 const bytes1 = 1 * 1024 * 1024;
 const bytes2 = 2 * 1024 * 1024;
@@ -104,22 +94,6 @@ bench(
 dumpToFile("obj-1kb", "serialize");
 
 bench(
-  "Serialize Object (50kb)",
-  () => {
-    let count = opsForSmallBytes(smallBytes1);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  60000,
-  objSmallStrBytes * opsForSmallBytes(smallBytes1),
-);
-dumpToFile("obj-50kb", "serialize");
-
-bench(
   "Serialize Object (100kb)",
   () => {
     let count = opsForSmallBytes(smallBytes2);
@@ -134,22 +108,6 @@ bench(
   objSmallStrBytes * opsForSmallBytes(smallBytes2),
 );
 dumpToFile("obj-100kb", "serialize");
-
-bench(
-  "Serialize Object (150kb)",
-  () => {
-    let count = opsForSmallBytes(smallBytes3);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  20000,
-  objSmallStrBytes * opsForSmallBytes(smallBytes3),
-);
-dumpToFile("obj-150kb", "serialize");
 
 bench(
   "Serialize Object (200kb)",
@@ -168,22 +126,6 @@ bench(
 dumpToFile("obj-200kb", "serialize");
 
 bench(
-  "Serialize Object (250kb)",
-  () => {
-    let count = opsForSmallBytes(smallBytes5);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  12000,
-  objSmallStrBytes * opsForSmallBytes(smallBytes5),
-);
-dumpToFile("obj-250kb", "serialize");
-
-bench(
   "Serialize Object (300kb)",
   () => {
     let count = opsForSmallBytes(smallBytes6);
@@ -198,22 +140,6 @@ bench(
   objSmallStrBytes * opsForSmallBytes(smallBytes6),
 );
 dumpToFile("obj-300kb", "serialize");
-
-bench(
-  "Serialize Object (350kb)",
-  () => {
-    let count = opsForSmallBytes(smallBytes7);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  8571,
-  objSmallStrBytes * opsForSmallBytes(smallBytes7),
-);
-dumpToFile("obj-350kb", "serialize");
 
 bench(
   "Serialize Object (400kb)",
@@ -232,22 +158,6 @@ bench(
 dumpToFile("obj-400kb", "serialize");
 
 bench(
-  "Serialize Object (450kb)",
-  () => {
-    let count = opsForSmallBytes(smallBytes9);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  6667,
-  objSmallStrBytes * opsForSmallBytes(smallBytes9),
-);
-dumpToFile("obj-450kb", "serialize");
-
-bench(
   "Serialize Object (500kb)",
   () => {
     let count = opsForSmallBytes(smallBytes10);
@@ -262,22 +172,6 @@ bench(
   objSmallStrBytes * opsForSmallBytes(smallBytes10),
 );
 dumpToFile("obj-500kb", "serialize");
-
-bench(
-  "Serialize Object (550kb)",
-  () => {
-    let count = opsForSmallBytes(smallBytes11);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  5454,
-  objSmallStrBytes * opsForSmallBytes(smallBytes11),
-);
-dumpToFile("obj-550kb", "serialize");
 
 bench(
   "Serialize Object (600kb)",
@@ -296,22 +190,6 @@ bench(
 dumpToFile("obj-600kb", "serialize");
 
 bench(
-  "Serialize Object (650kb)",
-  () => {
-    let count = opsForSmallBytes(smallBytes13);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  4615,
-  objSmallStrBytes * opsForSmallBytes(smallBytes13),
-);
-dumpToFile("obj-650kb", "serialize");
-
-bench(
   "Serialize Object (700kb)",
   () => {
     let count = opsForSmallBytes(smallBytes14);
@@ -326,22 +204,6 @@ bench(
   objSmallStrBytes * opsForSmallBytes(smallBytes14),
 );
 dumpToFile("obj-700kb", "serialize");
-
-bench(
-  "Serialize Object (750kb)",
-  () => {
-    let count = opsForSmallBytes(smallBytes15);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  4000,
-  objSmallStrBytes * opsForSmallBytes(smallBytes15),
-);
-dumpToFile("obj-750kb", "serialize");
 
 bench(
   "Serialize Object (800kb)",
@@ -360,22 +222,6 @@ bench(
 dumpToFile("obj-800kb", "serialize");
 
 bench(
-  "Serialize Object (850kb)",
-  () => {
-    let count = opsForSmallBytes(smallBytes17);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  3529,
-  objSmallStrBytes * opsForSmallBytes(smallBytes17),
-);
-dumpToFile("obj-850kb", "serialize");
-
-bench(
   "Serialize Object (900kb)",
   () => {
     let count = opsForSmallBytes(smallBytes18);
@@ -390,22 +236,6 @@ bench(
   objSmallStrBytes * opsForSmallBytes(smallBytes18),
 );
 dumpToFile("obj-900kb", "serialize");
-
-bench(
-  "Serialize Object (950kb)",
-  () => {
-    let count = opsForSmallBytes(smallBytes19);
-    while (count > 0) {
-      // @ts-ignore
-      smallObj.__SERIALIZE(changetype<usize>(smallObj));
-      count--;
-    }
-    blackbox(bs.out<string>());
-  },
-  3158,
-  objSmallStrBytes * opsForSmallBytes(smallBytes19),
-);
-dumpToFile("obj-950kb", "serialize");
 
 bench(
   "Serialize Object (1mb)",
