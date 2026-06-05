@@ -57,13 +57,13 @@ export const EAGER = { bg: rgba("sandDune", 0.85), border: BASE.sandDune };
 export const LAZY = { bg: rgba("jungleGreen", 0.85), border: BASE.jungleGreen };
 
 // Multi-library comparison (chart13/14): one bar per family (the three scan
-// modes are averaged), each a solid family hue. JS baselines recede in neutral
-// sand (darkened so the bars read on white); strawberry red marks the
+// modes are averaged), each a solid hue. The two JS baselines get their own
+// distinct hues (native JSON copper, fast-json teal); strawberry red marks the
 // non-json-as competitor.
 export const MULTILIB_COLORS: Record<string, string> = {
-  "native JSON (JS)": "#ABA68D", // sand dune, darkened
-  "fast-json-parse (JS)": "#C5C0A3", // sand dune, mid
-  "fast-json-stringify (JS)": "#C5C0A3", // sand dune, mid
+  "native JSON (JS)": BASE.fadedCopper,
+  "fast-json-parse (JS)": BASE.mutedTeal,
+  "fast-json-stringify (JS)": BASE.mutedTeal,
   "assemblyscript-json": BASE.strawberryRed,
   "json-as struct": BASE.pacificBlue,
   "json-as struct lazy": BASE.jungleGreen,
