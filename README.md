@@ -607,6 +607,14 @@ npm run bench:as
 npm run bench:js
 ```
 
+The AS suite includes **lazy variants** — `small.lazy.bench.ts`, `medium.lazy.bench.ts`, `token.lazy.bench.ts`, and `vec3.lazy.bench.ts` — which mark their structs `@json({ lazy: "auto" })` and dump to `<name>-lazy` logs, so eager and lazy can be compared side by side. Run one on its own with:
+
+```bash
+bun run bench:as medium.lazy --mode simd
+```
+
+> Note: there's no `large.lazy` variant — `lazy: "auto"` on the ~150-field `Repo` generates a getter and serialize branch per field, which overruns the Binaryen optimizer. Prefer per-field `@lazy` (or `auto`) on very wide schemas.
+
 5. Build charts from the latest local logs:
 
 ```bash
