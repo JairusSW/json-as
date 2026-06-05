@@ -1,41 +1,83 @@
 import { JSON } from ".";
 
+// Fast-path (non-lazy, eager) deserialize micro-bench. Edit the generated
+// assembly/playground.tmp.ts to hand-tune __DESERIALIZE_FAST, then:
+//   bun run build:playground      # regenerate tmp (runs the transform)
+//   bun run playground:tmp        # build + run the tmp WITHOUT the transform
 
 @json
-class Owner {
-  login: string = "";
-  id: i32 = 0;
-}
-
-
-@json
-class Repo {
+class Obj {
+  id: u32 = 0;
+  active: boolean = false;
   name: string = "";
-  owner!: JSON.Lazy<Owner>; // typed/accessed as Owner, parsed only when read
+  email: string = "";
+  role: string = "";
+  count: i32 = 0;
+  score: f64 = 0;
+  created: string = "";
 }
 
-// NOTE: object-literal init (`const r: Repo = { … }`) does NOT work with lazy
-// fields — lazy lowers the field to a get/set accessor, and AssemblyScript's
-// object-literal class init doesn't support accessors (it fails the same way for
-// any hand-written getter/setter). Construct with `new` + assignment (which goes
-// through the setter), or just use `JSON.parse`.
-const owner = new Owner();
-owner.login = "bar";
-owner.id = 97;
+// @inline so the call site is exactly what the throughput benches emit: a
+// direct __DESERIALIZE_FAST into a reused `out`, no per-op allocation.
+// @ts-expect-error: @inline is a valid decorator here
+@inline function deserializeInto<T>(
+  srcStart: usize,
+  srcEnd: usize,
+  out: T,
+): void {
+  // @ts-ignore: supplied by transform
+  if (isDefined(out.__DESERIALIZE_FAST)) {
+    // @ts-ignore: supplied by transform
+    out.__DESERIALIZE_FAST(srcStart, srcEnd, out);
+    return;
+  }
+  // @ts-ignore: supplied by transform
+  out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
+}
 
-const repo = new Repo();
-repo.name = "foo";
-repo.owner = owner; // setter
+const json = `{"id":4294967295,"active":true,"name":"jairus tanaka","email":"me@jairus.dev","role":"administrator","count":-123456,"score":3.1415926535,"created":"2025-01-02T03:04:05Z"}`;
+const srcStart = changetype<usize>(json);
+const srcEnd = srcStart + ((<usize>json.length) << 1);
+const bytes = <f64>String.UTF8.byteLength(json);
 
-const serialized = JSON.stringify(repo);
-console.log(serialized);
+const out = new Obj();
 
-const deserialized = JSON.parse<Repo>(serialized);
-console.log("name  = " + deserialized.name);
-console.log("login = " + deserialized.owner.login); // owner parsed on first read
-console.log("id    = " + deserialized.owner.id.toString());
+// Correctness check before timing.
+deserializeInto<Obj>(srcStart, srcEnd, out);
+console.log("re-serialized: " + JSON.stringify(out));
 
-JSON.parse<Repo>('{"name":"goo","owner":{"login":"gar","id":13}}', repo);
-console.log("name  = " + repo.name);
-console.log("login = " + repo.owner.login); // owner parsed on first read
-console.log("id    = " + repo.owner.id.toString());
+// Report the MIN ns/op across many rounds — the least-noisy estimator of the
+// underlying cost (scheduler/CPU-frequency noise only ever makes a round
+// slower, never faster).
+function timeit(label: string, iters: i32, rounds: i32): void {
+  // warmup
+  let w = iters;
+  while (w-- > 0) deserializeInto<Obj>(srcStart, srcEnd, out);
+
+  let bestNs = Infinity;
+  let r = rounds;
+  while (r-- > 0) {
+    const start = performance.now();
+    let i = iters;
+    while (i-- > 0) deserializeInto<Obj>(srcStart, srcEnd, out);
+    const elapsed = Math.max(0.0001, performance.now() - start);
+    const nsPerOp = (elapsed * 1.0e6) / <f64>iters;
+    if (nsPerOp < bestNs) bestNs = nsPerOp;
+  }
+
+  console.log(
+    label +
+      ":  best " +
+      bestNs.toString() +
+      " ns/op   " +
+      ((bytes / bestNs) * 1.0e3).toString() +
+      " MB/s   (" +
+      iters.toString() +
+      " ops x " +
+      rounds.toString() +
+      " rounds)",
+  );
+}
+
+const ITERS = 2_000_000;
+timeit("deser Obj", ITERS, 12);
