@@ -39,3 +39,5 @@ JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart11.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart12.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart13.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart14.ts
+# Lazy-fields charts (eager vs @json({ lazy: "auto" }))
+bun ./scripts/build-chart15.ts
