@@ -537,6 +537,26 @@ The following charts compare JSON-AS against JavaScript's native `JSON` implemen
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart10.png" alt="Performance Chart 10">
 </details>
 
+### Lazy Fields
+
+Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "auto" })`) to defer it: its raw JSON slice is stored at parse time and parsed only on first access. Fields you skip are never parsed, and untouched fields pass through their original bytes on serialize. See the [Lazy Fields guide](https://docs.jairus.dev/json-as/guide/lazy-fields) for the full API and trade-offs.
+
+Skipping the deferred fields makes deserialization several times faster, and the win grows with payload size:
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-deserialize.png" alt="Lazy deserialize: eager vs lazy by payload size">
+
+The proxy / filter / forward case — parse then re-serialize without reading the deferred fields — copies their raw bytes straight through:
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-roundtrip.png" alt="Lazy round-trip: eager vs lazy by payload size">
+
+<details>
+<summary>Access-pattern comparison (click to expand)</summary>
+
+Lazy stays at or below eager for every access pattern — skip, read one, read all, or pass through:
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-access-pattern.png" alt="Lazy access pattern: eager vs lazy">
+</details>
+
 ### Performance Tuning
 
 Instead of using flags for setting options, `json-as` is configured by environmental variables.
