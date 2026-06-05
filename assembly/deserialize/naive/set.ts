@@ -11,8 +11,7 @@ import {
 } from "../../custom/chars";
 import { isSpace, atoi, scanStringEnd } from "../../util";
 
-// @ts-expect-error: Decorator valid here
-@inline function scanSetElementEnd(srcStart: usize, srcEnd: usize): usize {
+function scanSetElementEnd(srcStart: usize, srcEnd: usize): usize {
   const first = load<u16>(srcStart);
 
   if (first == QUOTE) {

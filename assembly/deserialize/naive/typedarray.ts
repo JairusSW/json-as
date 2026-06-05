@@ -2,8 +2,7 @@ import { COMMA, BRACKET_RIGHT } from "../../custom/chars";
 import { deserializeFloat_NAIVE } from "./float";
 import { atoi, isSpace } from "../../util";
 
-
-@inline function countTypedArrayElements(srcStart: usize, srcEnd: usize): i32 {
+function countTypedArrayElements(srcStart: usize, srcEnd: usize): i32 {
   let count = 0;
 
   while (srcStart < srcEnd) {

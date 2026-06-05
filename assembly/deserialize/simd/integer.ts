@@ -88,8 +88,7 @@ const ASCII_ZERO: u16 = 48;
  * @param srcEnd   Pointer just past the last code unit.
  * @returns The parsed value, two's-complement truncated to `T`.
  */
-// @ts-expect-error: decorator valid here
-@inline export function deserializeInteger_SIMD<T extends number>(
+export function deserializeInteger_SIMD<T extends number>(
   srcStart: usize,
   srcEnd: usize,
 ): T {
@@ -130,8 +129,7 @@ const ASCII_ZERO: u16 = 48;
  * @param dstOffset Byte offset of the field within `dstObj`.
  * @returns The source position immediately after the last digit consumed.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function deserializeIntegerField_SIMD<T extends number>(
+export function deserializeIntegerField_SIMD<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,
@@ -170,8 +168,7 @@ const ASCII_ZERO: u16 = 48;
  * @param srcEnd   Pointer just past the last code unit.
  * @returns The parsed value, truncated to `T`.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function deserializeUnsigned_SIMD<T extends number>(
+export function deserializeUnsigned_SIMD<T extends number>(
   srcStart: usize,
   srcEnd: usize,
 ): T {
@@ -207,8 +204,7 @@ const ASCII_ZERO: u16 = 48;
  * @param dstOffset Byte offset of the field within `dstObj`.
  * @returns The source position immediately after the last digit consumed.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function deserializeUnsignedField_SIMD<T extends number>(
+export function deserializeUnsignedField_SIMD<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

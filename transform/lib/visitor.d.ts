@@ -81,4 +81,3 @@ export declare class Visitor {
     visitModuleDeclaration(_node: ModuleDeclaration, _ref?: Node | null): void;
     visitOmittedExpression(_node: OmittedExpression, _ref?: Node | null): void;
 }
-//# sourceMappingURL=visitor.d.ts.map

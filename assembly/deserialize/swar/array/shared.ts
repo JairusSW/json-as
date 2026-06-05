@@ -77,16 +77,12 @@ import { isSpace } from "../../../util";
   return out.dataStart + <usize>index * sizeof<valueof<T>>();
 }
 
-
-@inline export function scanQuotedValueEnd_SWAR(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+export function scanQuotedValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
   srcStart += 2;
   const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
 
   while (srcStart <= srcEnd8) {
-    let mask = inline.always(backslashOrQuoteMask(load<u64>(srcStart)));
+    let mask = backslashOrQuoteMask(load<u64>(srcStart));
     if (mask === 0) {
       srcStart += 8;
       continue;
@@ -114,11 +110,7 @@ import { isSpace } from "../../../util";
   return 0;
 }
 
-
-@inline export function scanValueEnd<T = usize>(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+export function scanValueEnd<T = usize>(srcStart: usize, srcEnd: usize): usize {
   if (srcStart >= srcEnd) return 0;
   const first = load<u16>(srcStart);
 

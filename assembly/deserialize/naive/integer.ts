@@ -8,8 +8,7 @@ import { atoi } from "../../util/atoi";
   return atoi<T>(srcStart, srcEnd);
 }
 
-// @ts-ignore: inline
-@inline export function deserializeIntegerField_NAIVE<T extends number>(
+export function deserializeIntegerField_NAIVE<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

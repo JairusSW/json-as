@@ -497,7 +497,7 @@ The following charts compare JSON-AS against JavaScript's native `JSON` implemen
 
 > Note: Benchmarks reflect the **latest version**. Older versions may show different performance.
 >
-> Current local benchmark machine: AMD Ryzen 7 7800X3D (8 cores, 8 threads), 96 MB L3 cache, 32 GB RAM.
+> Current local benchmark machine: Apple M4 Max (16 cores — 12 performance + 4 efficiency), 64 GB RAM, macOS 26.
 >
 > Benchmark results include normal end-to-end work such as allocating the destination object or array before deserializing into it. Raw parser throughput is higher than the published figures because these numbers intentionally include that allocation/setup cost.
 
@@ -535,6 +535,46 @@ The following charts compare JSON-AS against JavaScript's native `JSON` implemen
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart06.png" alt="Performance Chart 6">
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart10.png" alt="Performance Chart 10">
+</details>
+
+<details>
+<summary>Primitive (de)serialize charts (click to expand)</summary>
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart11.svg" alt="Primitive serialization performance">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart12.svg" alt="Primitive deserialization performance">
+</details>
+
+### Library comparison
+
+How `json-as` stacks up against other JSON libraries on a ~5 KiB GitHub-repo payload: JavaScript's native `JSON` and `fast-json` (each in a fresh V8), plus the `assemblyscript-json` package. The `json-as` bars (generated struct, lazy struct, and dynamic `JSON.Obj`) are averaged across the NAIVE / SWAR / SIMD scan modes.
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart14.png" alt="Library comparison - deserialize throughput">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart13.png" alt="Library comparison - serialize throughput">
+
+### Lazy Fields
+
+Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "auto" })`) to defer it: its raw JSON slice is stored at parse time and parsed only on first access. Fields you skip are never parsed, and untouched fields pass through their original bytes on serialize. See the [Lazy Fields guide](https://docs.jairus.dev/json-as/guide/lazy-fields) for the full API and trade-offs.
+
+Skipping the deferred fields makes deserialization several times faster, and the win grows with payload size:
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-deserialize.svg" alt="Lazy deserialize: eager vs lazy by payload size">
+
+The proxy / filter / forward case - parse then re-serialize without reading the deferred fields - copies their raw bytes straight through:
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-roundtrip.svg" alt="Lazy round-trip: eager vs lazy by payload size">
+
+Re-emitting a parsed object forwards the untouched fields' raw bytes instead of rebuilding them:
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-serialize.svg" alt="Lazy serialize: eager vs lazy by payload size">
+
+<details>
+<summary>Access-pattern comparison (click to expand)</summary>
+
+Skipping, reading one field, or forwarding is far faster than eager; reading every deferred field costs a little more (the work is deferred, not removed):
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-access-pattern.svg" alt="Lazy access pattern: eager vs lazy">
 </details>
 
 ### Performance Tuning
@@ -582,6 +622,14 @@ npm install
 npm run bench:as
 npm run bench:js
 ```
+
+The AS suite includes **lazy variants** — `small.lazy.bench.ts`, `medium.lazy.bench.ts`, `large.lazy.bench.ts`, `token.lazy.bench.ts`, and `vec3.lazy.bench.ts` — which mark their structs `@json({ lazy: "auto" })` and dump to `<name>-lazy` logs, so eager and lazy can be compared side by side. Run one on its own with:
+
+```bash
+bun run bench:as medium.lazy --mode simd
+```
+
+> Note: `large.lazy.bench.ts` stresses the optimizer — `lazy: "auto"` on the ~150-field `Repo` generates a getter and serialize branch per field, which can overrun **stock** Binaryen (it crashes during optimize). Build it with a patched/larger-budget Binaryen, or prefer per-field `@lazy` on very wide schemas.
 
 5. Build charts from the latest local logs:
 

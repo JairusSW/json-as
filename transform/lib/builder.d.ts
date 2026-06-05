@@ -84,4 +84,3 @@ export declare class ASTBuilder extends Visitor {
     serializeAccessModifiers(node: DeclarationStatement): void;
     finish(): string;
 }
-//# sourceMappingURL=builder.d.ts.map

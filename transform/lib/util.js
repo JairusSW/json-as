@@ -119,4 +119,3 @@ export function removeExtension(filePath) {
     const parsed = path.parse(filePath);
     return path.join(parsed.dir, parsed.name);
 }
-//# sourceMappingURL=util.js.map

@@ -7,4 +7,3 @@ export declare class CustomTransform extends Visitor {
     static visit(node: Node | Node[], ref?: Node | null): void;
     static hasCall(node: Node | Node[]): boolean;
 }
-//# sourceMappingURL=custom.d.ts.map

@@ -17,8 +17,7 @@ import { deserializeStaticArrayInteger } from "./staticarray/integer";
 import { deserializeStaticArrayString } from "./staticarray/string";
 import { scanValueEnd } from "../../util/scanValueEnd";
 
-
-@inline function materializeStaticArray<T extends StaticArray<any>>(
+function materializeStaticArray<T extends StaticArray<any>>(
   src: valueof<T>[],
   dst: usize,
 ): T {

@@ -139,6 +139,23 @@ export namespace JSON {
   export type Lazy<T> = T;
 
   /**
+   * Whether a lazy slot's value is JSON null — for `@omitnull` on lazy fields,
+   * without forcing materialization. The slot encodes the state: `u64.MAX_VALUE`
+   * = materialized (null iff the value pointer is 0), `0` = absent (null), any
+   * other value = a not-yet-parsed slice range (null iff it is literally `null`).
+   * @param valPtr pointer of the materialized value (0 when null)
+   * @param lz    the packed slot
+   */
+  // @ts-expect-error: inline
+  @inline export function __lazyIsNull(valPtr: usize, lz: u64): bool {
+    if (lz == u64.MAX_VALUE) return valPtr == 0;
+    if (lz == 0) return true;
+    const hi = <usize>(lz >>> 32);
+    // raw slice of length 4 (8 bytes) equal to the UTF-16 word "null"
+    return <usize>(<u32>lz) - hi == 8 && load<u64>(hi) == 0x006c006c0075006e;
+  }
+
+  /**
    * Memory management utilities for the JSON serialization buffer.
    */
   export namespace Memory {
@@ -234,7 +251,7 @@ export namespace JSON {
       // @ts-expect-error: Defined by transform
     } else if (isDefined(data.__SERIALIZE)) {
       // @ts-expect-error: Defined by transform
-      inline.always(data.__SERIALIZE(changetype<usize>(data)));
+      data.__SERIALIZE(changetype<usize>(data));
       return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
     } else if (data instanceof Date) {
       out = out
@@ -360,17 +377,17 @@ export namespace JSON {
       }
       if (type instanceof StaticArray) {
         // @ts-expect-error
-        return inline.always(
-          deserializeStaticArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0),
+        return deserializeStaticArray<nonnull<T>>(
+          dataPtr,
+          dataPtr + dataSize,
+          0,
         );
       } else if (type instanceof Array) {
         // @ts-expect-error
-        return inline.always(
-          deserializeArray<nonnull<T>>(
-            dataPtr,
-            dataPtr + dataSize,
-            changetype<usize>(instantiate<T>()),
-          ),
+        return deserializeArray<nonnull<T>>(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(instantiate<T>()),
         );
       } else if (
         type instanceof Int8Array ||
@@ -394,14 +411,10 @@ export namespace JSON {
         return deserializeArrayBuffer(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Set) {
         // @ts-expect-error
-        return inline.always(
-          deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0),
-        );
+        return deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0);
       } else if (type instanceof Map) {
         // @ts-expect-error
-        return inline.always(
-          deserializeMap<nonnull<T>>(dataPtr, dataPtr + dataSize, 0),
-        );
+        return deserializeMap<nonnull<T>>(dataPtr, dataPtr + dataSize, 0);
       } else if (type instanceof Date) {
         // @ts-expect-error
         return deserializeDate(dataPtr, dataPtr + dataSize);
@@ -410,12 +423,10 @@ export namespace JSON {
         return deserializeRaw(dataPtr, dataPtr + dataSize);
       } else if (type instanceof JSON.Value) {
         // @ts-expect-error
-        return inline.always(
-          deserializeArbitrary(dataPtr, dataPtr + dataSize, 0),
-        );
+        return deserializeArbitrary(dataPtr, dataPtr + dataSize, 0);
       } else if (type instanceof JSON.Obj) {
         // @ts-expect-error
-        return inline.always(deserializeObject(dataPtr, dataPtr + dataSize, 0));
+        return deserializeObject(dataPtr, dataPtr + dataSize, 0);
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error
         return new JSON.Box(parseBox(data, changetype<nonnull<T>>(0).value));
@@ -735,7 +746,7 @@ export namespace JSON {
     }
 
     /** Encodes a 64-bit integer, spilling to the heap when it exceeds the payload. */
-    @inline private setWide<T>(value: T): void {
+    private setWide<T>(value: T): void {
       if (isSigned<T>()) {
         const v = <i64>value;
         if (v >= -VAL_I64_LIMIT && v < VAL_I64_LIMIT) {
@@ -976,7 +987,7 @@ export namespace JSON {
      * duplicate-key check. Used by the deserializer — no per-key string
      * allocation, no hashing.
      */
-    @inline appendRaw<T>(keyStart: usize, keyEnd: usize, value: T): void {
+    appendRaw<T>(keyStart: usize, keyEnd: usize, value: T): void {
       this.pushKeyBytes(keyStart, keyEnd);
       this._vals.push(JSON.Value.from<T>(value));
       const idx = this._index;
@@ -1012,7 +1023,7 @@ export namespace JSON {
      * @param key - The string key
      * @param value - The value (will be wrapped in JSON.Value)
      */
-    @inline set<T>(key: string, value: T): void {
+    set<T>(key: string, value: T): void {
       const idx = this.buildIndex();
       if (idx.has(key)) {
         unchecked((this._vals[idx.get(key)] = JSON.Value.from<T>(value)));
@@ -1077,7 +1088,7 @@ export namespace JSON {
      * Gets all keys in the object.
      * @returns Array of string keys (in insertion order)
      */
-    @inline keys(): string[] {
+    keys(): string[] {
       const out = new Array<string>(this._vals.length);
       const buf = changetype<usize>(this._kbuf);
       const used = this._kused;
@@ -1112,7 +1123,7 @@ export namespace JSON {
      * @param value - The value to convert
      * @returns A new JSON.Obj instance
      */
-    @inline static from<T>(value: T): JSON.Obj {
+    static from<T>(value: T): JSON.Obj {
       if (value instanceof JSON.Obj) return value;
       if (value instanceof Map) {
         const out = new JSON.Obj();
@@ -1232,7 +1243,7 @@ export namespace JSON {
       serializeStruct(changetype<nonnull<T>>(data));
     } else if (data instanceof Date) {
       // @ts-expect-error
-      inline.always(serializeDate(changetype<nonnull<T>>(data)));
+      serializeDate(changetype<nonnull<T>>(data));
     } else {
       serializeReference<T>(data);
     }
@@ -1388,11 +1399,7 @@ export namespace JSON {
       const endQuote = scanStringEnd(srcStart, srcEnd);
       return endQuote >= srcEnd ? 0 : endQuote + 2;
     }
-    // @ts-expect-error: decorator
-    @inline function scanCompositeValueEnd(
-      srcStart: usize,
-      srcEnd: usize,
-    ): usize {
+    function scanCompositeValueEnd(srcStart: usize, srcEnd: usize): usize {
       let depth: i32 = 1;
       let ptr = srcStart + 2;
       while (ptr < srcEnd) {
@@ -1411,8 +1418,7 @@ export namespace JSON {
       }
       return 0;
     }
-    // @ts-expect-error: decorator
-    @inline function scanScalarValueEnd(srcStart: usize, srcEnd: usize): usize {
+    function scanScalarValueEnd(srcStart: usize, srcEnd: usize): usize {
       while (srcStart < srcEnd) {
         const code = load<u16>(srcStart);
         if (
@@ -1474,11 +1480,7 @@ export namespace JSON {
      * @param out - string | null
      * @returns - string
      */
-    // @ts-expect-error: inline
-    @inline export function stringify<T>(
-      data: T,
-      out: string | null = null,
-    ): string {
+    export function stringify<T>(data: T, out: string | null = null): string {
       bs.saveState();
       JSON.__serialize<T>(data);
       const result = bs.cpyOut<string>();

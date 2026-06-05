@@ -3,34 +3,16 @@ import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
 import { benchLogPath, subtitle, type BenchKind } from "./bench-utils";
+import { MULTILIB_COLORS as COLORS, INK } from "./palette";
 
 // Renders one multi-library throughput chart (chart13 = deserialize,
 // chart14 = serialize). Both pull from the standard bench logs written by the
 // multilib `*.bench.ts` files (AS via run-bench.as.sh in NAIVE/SWAR/SIMD,
 // JS via run-bench.js.sh), so they ride the normal bench → chart pipeline
-// instead of a bespoke runner.
+// instead of a bespoke runner. Colours come from the shared palette (grouped by
+// family, NAIVE→SIMD as a light→dark opacity ramp).
 
 const MODES = ["NAIVE", "SWAR", "SIMD"] as const;
-
-// Grouped by family, blue-vs-amber for the two json-as families (the classic
-// colourblind-safe contrast), slate for the recede-able JS baselines, rose for
-// the competitor. NAIVE→SIMD shades light→dark within each json-as family.
-//   • json-as struct   → blue
-//   • json-as JSON.Obj → forest green
-//   • JS baselines     → slate
-//   • assemblyscript-json → rose
-const COLORS: Record<string, string> = {
-  "native JSON (JS)": "#cbd5e1", // slate-300
-  "fast-json-parse (JS)": "#94a3b8", // slate-400
-  "fast-json-stringify (JS)": "#94a3b8", // slate-400
-  "assemblyscript-json": "#e11d48", // rose-600
-  "json-as struct (NAIVE)": "#93c5fd", // blue-300
-  "json-as struct (SWAR)": "#3b82f6", // blue-500
-  "json-as struct (SIMD)": "#1e40af", // blue-800
-  "json-as JSON.Obj (NAIVE)": "#4ade80", // green-400
-  "json-as JSON.Obj (SWAR)": "#16a34a", // green-600
-  "json-as JSON.Obj (SIMD)": "#166534", // green-800 (forest)
-};
 
 function mbps(payload: string, kind: BenchKind, engine = ""): number {
   const file = benchLogPath(payload, kind, engine ? "as" : "js", engine);
@@ -56,28 +38,17 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
     ]);
   }
 
-  // json-as generated struct + dynamic JSON.Obj, one bar per mode.
-  for (const mode of MODES) {
-    const m = mode.toLowerCase();
-    entries.push([
-      `json-as struct (${mode})`,
-      mbps("multilib-json-as-struct", kind, m),
-    ]);
-    entries.push([
-      `json-as JSON.Obj (${mode})`,
-      mbps("multilib-json-obj", kind, m),
-    ]);
-  }
-
-  // assemblyscript-json is mode-independent (it doesn't use json-as's parser);
-  // average its three identical runs so it shows as a single bar.
-  const asj = MODES.map((mode) =>
-    mbps("multilib-assemblyscript-json", kind, mode.toLowerCase()),
-  );
-  entries.push([
-    "assemblyscript-json",
-    asj.reduce((a, b) => a + b, 0) / asj.length,
-  ]);
+  // One bar per family, averaged across the three scan modes (NAIVE/SWAR/SIMD)
+  // so the comparison stays readable. assemblyscript-json is mode-independent,
+  // so averaging its three identical runs just collapses them.
+  const avgModes = (suite: string): number => {
+    const v = MODES.map((mode) => mbps(suite, kind, mode.toLowerCase()));
+    return v.reduce((a, b) => a + b, 0) / v.length;
+  };
+  entries.push(["json-as struct", avgModes("multilib-json-as-struct")]);
+  entries.push(["json-as struct lazy", avgModes("multilib-json-as-struct-lazy")]);
+  entries.push(["json-as JSON.Obj", avgModes("multilib-json-obj")]);
+  entries.push(["assemblyscript-json", avgModes("multilib-assemblyscript-json")]);
 
   entries.sort((a, b) => b[1] - a[1]);
 
@@ -107,7 +78,7 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
         datalabels: {
           anchor: "end",
           align: "end",
-          color: "#374151",
+          color: INK.label,
           font: { size: 12, weight: "bold" },
           formatter: (v: number) => Math.round(v).toLocaleString() + " MB/s",
         },
@@ -120,7 +91,7 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
           display: true,
           text: subtitle(),
           font: { size: 14, weight: "bold" },
-          color: "#6b7280",
+          color: INK.subtitle,
           padding: 16,
         },
       },

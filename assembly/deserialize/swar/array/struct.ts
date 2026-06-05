@@ -26,7 +26,7 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 //   - Whitespace is skipped at each separator boundary so struct-array
 //     fields tolerate the same `[ {...} , {...} ]` shape that top-level
 //     `JSON.parse` does.
-@inline function deserializeStructArrayBody<T extends unknown[]>(
+function deserializeStructArrayBody<T extends unknown[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,

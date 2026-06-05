@@ -64,8 +64,7 @@ const MAX_EXACT_MANTISSA: u64 = 1 << 53;
  * exact through accumulation and only loses precision at the final
  * `<f64>` cast.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parseFloatFast<T>(srcStart: usize, srcEnd: usize): T {
+export function parseFloatFast<T>(srcStart: usize, srcEnd: usize): T {
   const origStart = srcStart;
   let p = srcStart;
   let negative = false;

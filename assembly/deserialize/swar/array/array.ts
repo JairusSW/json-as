@@ -3,8 +3,7 @@ import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { deserializeFloatArrayBody } from "./float";
 import { ensureArrayField, scanValueEnd, skipWhitespace } from "./shared";
 
-
-@inline export function deserializeArrayArrayBody<T extends unknown[][]>(
+export function deserializeArrayArrayBody<T extends unknown[][]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,

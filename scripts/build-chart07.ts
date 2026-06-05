@@ -3,6 +3,7 @@ import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
 import { benchLogPath, subtitle } from "./lib/bench-utils";
+import { MODE_RGB, INK } from "./lib/palette";
 
 function loadJSON(file: string) {
   const text = fs.readFileSync(file, "utf-8");
@@ -78,12 +79,7 @@ const canvas = new ChartJSNodeCanvas({
   chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
 });
 
-const colors: Record<string, string> = {
-  js: "99,102,241",
-  naive: "255,241,49",
-  swar: "34,197,94",
-  simd: "239,68,68",
-};
+const colors = MODE_RGB;
 
 const datasets = [];
 
@@ -134,17 +130,12 @@ const config: ChartConfiguration<"line"> = {
           padding: 20,
         },
       },
-      datalabels: {
-        anchor: "end",
-        align: "top",
-        font: { size: 12, weight: "bold" },
-        formatter: (value) => value.y.toFixed(0) + " MB/s",
-      },
+      datalabels: { display: false },
       subtitle: {
         display: true,
         text: subtitle(),
         font: { size: 14, weight: "bold" },
-        color: "#6b7280",
+        color: INK.subtitle,
         padding: 16,
         position: "right",
       },
@@ -159,11 +150,13 @@ const config: ChartConfiguration<"line"> = {
         },
         type: "linear",
         grid: {
-          color: "rgba(0, 0, 0, 0.08)",
+          color: INK.grid,
           lineWidth: 1,
         },
       },
       y: {
+        // 500 MB/s headroom above the tallest line for the value labels
+        max: maxY + 500,
         title: {
           display: true,
           text: "Throughput (MB/s)",
@@ -171,7 +164,7 @@ const config: ChartConfiguration<"line"> = {
         },
         beginAtZero: false,
         grid: {
-          color: "rgba(0, 0, 0, 0.08)",
+          color: INK.grid,
           lineWidth: 1,
         },
       },

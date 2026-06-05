@@ -7,8 +7,7 @@ import {
   skipWhitespace,
 } from "./shared";
 
-
-@inline export function deserializeGenericArrayBody<T extends unknown[]>(
+export function deserializeGenericArrayBody<T extends unknown[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,

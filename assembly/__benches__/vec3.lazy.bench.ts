@@ -1,0 +1,33 @@
+import { JSON } from "..";
+import { expect } from "../__tests__/lib";
+import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench";
+
+
+@json({ lazy: "auto" })
+class Vec3 {
+  public x!: i32;
+  public y!: i32;
+  public z!: i32;
+}
+const v1: Vec3 = { x: 1, y: 2, z: 3 };
+const v2 = JSON.stringify(v1);
+expect(JSON.stringify(v1)).toBe(v2);
+expect(JSON.stringify(JSON.parse<Vec3>(v2))).toBe(v2);
+bench(
+  "Serialize Vec3",
+  () => {
+    blackbox(JSON.stringify(v1));
+  },
+  12_800_000,
+  utf8ByteLength(v2),
+);
+dumpToFile("vec3-lazy", "serialize");
+bench(
+  "Deserialize Vec3",
+  () => {
+    blackbox(JSON.parse<Vec3>(v2));
+  },
+  12_800_000,
+  utf8ByteLength(v2),
+);
+dumpToFile("vec3-lazy", "deserialize");

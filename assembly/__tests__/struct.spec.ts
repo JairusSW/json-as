@@ -257,6 +257,72 @@ describe("Should apply omitif and omitnull behavior across values", () => {
   expect(JSON.stringify(b)).toBe('{"y":7,"foo":"ok","x":1,"z":1}');
 });
 
+// Regression: @omitnull/@omitif fields emit a LEADING comma gated on a runtime
+// "wrote" flag. Before, a present field followed by omitted ones left a dangling
+// trailing comma (e.g. `{"a":"1",}` — invalid JSON).
+describe("Should not leave a trailing comma when later optional fields are omitted", () => {
+  // first present, the rest omitted (the original bug: produced `{"a":"1",}`)
+  const o1 = new OmitTail();
+  o1.a = "1";
+  expect(JSON.stringify(o1)).toBe('{"a":"1"}');
+
+  // a gap: first and last present, middle omitted
+  const o2 = new OmitTail();
+  o2.a = "1";
+  o2.c = "3";
+  expect(JSON.stringify(o2)).toBe('{"a":"1","c":"3"}');
+
+  // all omitted -> empty object
+  expect(JSON.stringify(new OmitTail())).toBe("{}");
+
+  // only the last present -> no leading comma
+  const o3 = new OmitTail();
+  o3.c = "3";
+  expect(JSON.stringify(o3)).toBe('{"c":"3"}');
+
+  // all present
+  const o4 = new OmitTail();
+  o4.a = "1";
+  o4.b = "2";
+  o4.c = "3";
+  expect(JSON.stringify(o4)).toBe('{"a":"1","b":"2","c":"3"}');
+
+  // round-trips through parse
+  expect(JSON.stringify(JSON.parse<OmitTail>('{"a":"1","c":"3"}'))).toBe(
+    '{"a":"1","c":"3"}',
+  );
+
+  // mixed with a regular field after the optionals
+  const m1 = new OmitTailMixed();
+  m1.id = 5;
+  expect(JSON.stringify(m1)).toBe('{"id":5}');
+  const m2 = new OmitTailMixed();
+  m2.opt = "x";
+  m2.id = 5;
+  expect(JSON.stringify(m2)).toBe('{"opt":"x","id":5}');
+});
+
+
+@json
+class OmitTail {
+
+  @omitnull() a: string | null = null;
+
+
+  @omitnull() b: string | null = null;
+
+
+  @omitnull() c: string | null = null;
+}
+
+
+@json
+class OmitTailMixed {
+
+  @omitnull() opt: string | null = null;
+  id: i32 = 0;
+}
+
 describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<i32>("0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<bool>("true"))).toBe("true");

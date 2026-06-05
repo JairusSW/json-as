@@ -33,6 +33,39 @@ import { describe, expect } from "as-test";
   owner!: JSON.Lazy<Owner | null>;
 }
 
+// Class-level lazy modes.
+@json({ lazy: "auto" })
+class AutoRepo {
+  id: i32 = 0; // cheap -> stays eager
+  name: string = ""; // deferred
+  owner!: Owner; // deferred
+  tags!: i32[]; // deferred
+
+
+  @eager note: string = ""; // override -> eager
+}
+
+
+@json({ lazy: "all" })
+class AllRepo {
+  id: i32 = 0; // deferred (all)
+  owner!: Owner;
+}
+
+// Equivalent marker: a bare `@lazy` decorator (type stays the inner type).
+@json class DecoRepo {
+  name: string = "";
+
+
+  @lazy owner!: Owner;
+
+
+  @lazy tags!: i32[];
+
+
+  @lazy count: i32 = 0;
+}
+
 const SRC =
   '{"name":"r","owner":{"login":"octo","id":7,"deep":{"v":9}},"tags":[1,2,3]}';
 
@@ -94,4 +127,103 @@ describe("JSON.Lazy<T> setter clears stale raw range for null", () => {
   );
   r.owner = null;
   expect(JSON.stringify(r)).toBe('{"owner":null}');
+});
+
+describe('@json({ lazy: "auto" }) defers heavy fields, keeps scalars eager', () => {
+  const SRC =
+    '{"id":1,"name":"r","owner":{"login":"octo","id":7},"tags":[1,2,3],"note":"n"}';
+  const r = JSON.parse<AutoRepo>(SRC);
+  expect(r.id.toString()).toBe("1"); // eager scalar
+  expect(r.name).toBe("r"); // deferred string
+  expect(r.owner.login).toBe("octo"); // deferred struct
+  expect(r.tags[2].toString()).toBe("3"); // deferred array
+  expect(r.note).toBe("n"); // @eager override
+  expect(JSON.stringify(JSON.parse<AutoRepo>(SRC))).toBe(SRC); // untouched passthrough
+});
+
+describe('@json({ lazy: "all" }) defers every field', () => {
+  const SRC = '{"id":5,"owner":{"login":"a","id":2}}';
+  const r = JSON.parse<AllRepo>(SRC);
+  expect(r.id.toString()).toBe("5");
+  expect(r.owner.login).toBe("a");
+  expect(JSON.stringify(JSON.parse<AllRepo>(SRC))).toBe(SRC);
+});
+
+
+@json class OmitNullLazy {
+  name: string = "x";
+
+
+  @omitnull owner: JSON.Lazy<Owner | null> = null;
+}
+
+
+@json class OmitIfLazy {
+  name: string = "x";
+
+
+  @omitif((self: OmitIfLazy) => self.count == 0) count: JSON.Lazy<i32> = 0;
+}
+
+describe("lazy fields on a fresh (unparsed) instance return defaults", () => {
+  // Regression: an unset lazy slot (lz==0) must NOT run parse<T>("null") —
+  // that garbles scalars. The getter returns the type default instead.
+  const d = new LazyPrimitives();
+  expect(d.count.toString()).toBe("0");
+  expect(d.enabled.toString()).toBe("false");
+  const n = new NullableOwner();
+  expect(changetype<usize>(n.owner) == 0 ? "null" : "set").toBe("null");
+});
+
+describe("@omitnull works on lazy fields (omits null without materializing)", () => {
+  // @omitnull triggers the optional-field sort, so the optional field leads —
+  // same ordering as a non-lazy @omitnull class.
+  const set = new OmitNullLazy();
+  const w = new Owner();
+  w.login = "z";
+  set.owner = w;
+  // materialized owner re-serializes all its fields (incl. id, lazy deep=null)
+  expect(JSON.stringify(set)).toBe(
+    '{"owner":{"login":"z","id":0,"deep":null},"name":"x"}',
+  ); // kept
+  const nul = new OmitNullLazy();
+  nul.owner = null;
+  expect(JSON.stringify(nul)).toBe('{"name":"x"}'); // omitted (materialized null)
+  // passthrough: a raw `null` slice is omitted without ever parsing it
+  expect(
+    JSON.stringify(JSON.parse<OmitNullLazy>('{"name":"x","owner":null}')),
+  ).toBe('{"name":"x"}');
+  // passthrough: a non-null slice is kept verbatim
+  expect(
+    JSON.stringify(
+      JSON.parse<OmitNullLazy>('{"name":"x","owner":{"login":"q"}}'),
+    ),
+  ).toBe('{"owner":{"login":"q"},"name":"x"}');
+});
+
+describe("@omitif works on lazy fields", () => {
+  const omit = new OmitIfLazy();
+  omit.count = 0;
+  expect(JSON.stringify(omit)).toBe('{"name":"x"}'); // predicate true -> omit
+  const keep = new OmitIfLazy();
+  keep.count = 5;
+  expect(JSON.stringify(keep)).toBe('{"count":5,"name":"x"}'); // kept
+});
+
+describe("@lazy decorator marks fields like JSON.Lazy<T>", () => {
+  const SRC =
+    '{"name":"r","owner":{"login":"octo","id":7},"tags":[1,2,3],"count":42}';
+  const r = JSON.parse<DecoRepo>(SRC);
+  expect(r.name).toBe("r");
+  expect(r.owner.login).toBe("octo"); // @lazy reference
+  expect(r.tags[2].toString()).toBe("3"); // @lazy array
+  expect(r.count.toString()).toBe("42"); // @lazy primitive
+  // untouched -> raw passthrough
+  expect(JSON.stringify(JSON.parse<DecoRepo>(SRC))).toBe(SRC);
+  // mutate -> reflected. owner/tags were read above so they're materialized;
+  // owner re-serializes with its own (absent) lazy `deep` field as null.
+  r.count = 99;
+  expect(JSON.stringify(r)).toBe(
+    '{"name":"r","owner":{"login":"octo","id":7,"deep":null},"tags":[1,2,3],"count":99}',
+  );
 });

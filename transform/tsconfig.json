@@ -7,7 +7,6 @@
     "removeComments": true,
     "types": ["node"],
     "outDir": "./lib",
-    "sourceMap": true,
 
     "strict": true,
     "noImplicitAny": true,
@@ -28,8 +27,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
 
-    "declaration": true,
-    "declarationMap": true
+    "declaration": true
   },
   "include": ["./src/**/*.ts"],
   "exclude": ["./lib", "node_modules"]

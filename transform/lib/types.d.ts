@@ -72,4 +72,3 @@ export declare class Src {
     private getNamespaceOrClassName;
     private getIdentifier;
 }
-//# sourceMappingURL=types.d.ts.map

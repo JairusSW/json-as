@@ -97,8 +97,7 @@ const FINAL_4_MAGIC: u64 = 0x0000_0064_0000_0001;
  * @param hi The second `u64`, four UTF-16 code units.
  * @returns The parsed 8-digit value, or `U32.MAX_VALUE` on invalid input.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse8Digits_PairMul(lo: u64, hi: u64): u32 {
+export function parse8Digits_PairMul(lo: u64, hi: u64): u32 {
   const loDigits = lo - ZERO_4;
   const hiDigits = hi - ZERO_4;
   const bad =
@@ -174,8 +173,7 @@ const FINAL_4_MAGIC: u64 = 0x0000_0064_0000_0001;
  * @param srcStart Pointer to the start of 32 source bytes (16 UTF-16 chars).
  * @returns The parsed 16-digit value, or `U64.MAX_VALUE` on invalid input.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse16Digits_SWAR(srcStart: usize): u64 {
+export function parse16Digits_SWAR(srcStart: usize): u64 {
   const b0 = load<u64>(srcStart);
   const b1 = load<u64>(srcStart, 8);
   const b2 = load<u64>(srcStart, 16);
@@ -220,8 +218,7 @@ const FINAL_4_MAGIC: u64 = 0x0000_0064_0000_0001;
  * @param srcStart Pointer to the start of 32 source bytes (16 UTF-16 chars).
  * @returns The parsed 16-digit value.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse16Digits_SWAR_Unsafe(srcStart: usize): u64 {
+export function parse16Digits_SWAR_Unsafe(srcStart: usize): u64 {
   const b0 = load<u64>(srcStart);
   const b1 = load<u64>(srcStart, 8);
   const b2 = load<u64>(srcStart, 16);

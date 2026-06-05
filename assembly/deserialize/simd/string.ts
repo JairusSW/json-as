@@ -75,8 +75,7 @@ import { hex4_to_u16_swar } from "../../util/swar";
   return changetype<string>(out);
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function writeStringToField_SIMD(
+function writeStringToField_SIMD(
   dstFieldPtr: usize,
   srcStart: usize,
   byteLength: u32,
@@ -233,16 +232,16 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
     }
 
     const laneIdx = usize(ctz(mask) << 1);
-    return inline.always(
-      deserializeEscapedString_SIMD(payloadStart, srcStart + laneIdx, srcEnd),
+    return deserializeEscapedString_SIMD(
+      payloadStart,
+      srcStart + laneIdx,
+      srcEnd,
     );
   }
 
   while (srcStart < srcEnd) {
     if (load<u16>(srcStart) == BACK_SLASH) {
-      return inline.always(
-        deserializeEscapedString_SIMD(payloadStart, srcStart, srcEnd),
-      );
+      return deserializeEscapedString_SIMD(payloadStart, srcStart, srcEnd);
     }
     srcStart += 2;
   }
@@ -427,13 +426,11 @@ export function deserializeStringField_SIMD<T extends string | null>(
       return srcIdx + 2;
     }
     // backslash → vectorized escaped scan (no more SWAR fallback)
-    return inline.always(
-      deserializeEscapedStringField_SIMD(
-        payloadStart,
-        srcIdx,
-        srcEnd,
-        dstFieldPtr,
-      ),
+    return deserializeEscapedStringField_SIMD(
+      payloadStart,
+      srcIdx,
+      srcEnd,
+      dstFieldPtr,
     );
   }
 
@@ -448,13 +445,11 @@ export function deserializeStringField_SIMD<T extends string | null>(
       return srcStart + 2;
     }
     if (char == BACK_SLASH) {
-      return inline.always(
-        deserializeEscapedStringField_SIMD(
-          payloadStart,
-          srcStart,
-          srcEnd,
-          dstFieldPtr,
-        ),
+      return deserializeEscapedStringField_SIMD(
+        payloadStart,
+        srcStart,
+        srcEnd,
+        dstFieldPtr,
       );
     }
     srcStart += 2;

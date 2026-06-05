@@ -320,4 +320,3 @@ export class Src {
         return names.join(".");
     }
 }
-//# sourceMappingURL=types.js.map

@@ -182,8 +182,7 @@ export function serializeString_SWAR(src: string): void {
   bs.offset += 12;
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline export function detect_escapable_u64_swar_safe(block: u64): u64 {
+export function detect_escapable_u64_swar_safe(block: u64): u64 {
   const hi = block & 0xff00_ff00_ff00_ff00;
   const lo = block & 0x00ff_00ff_00ff_00ff;
   // Setting bit 8 of each 16-bit lane (high byte LSB) prevents borrow from a

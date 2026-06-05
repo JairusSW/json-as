@@ -4,6 +4,7 @@ import { execSync } from "child_process";
 import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
+import { MODE_BARS, INK } from "./palette";
 
 export interface BenchResult {
   language: "as" | "js";
@@ -101,6 +102,10 @@ export function createBarChart(
     yLabel?: string;
     xLabel?: string;
     datasetLabels?: string[];
+    /** Per-dataset colors; defaults to the JS/NAIVE/SWAR/SIMD palette. */
+    colors?: { bg: string; border: string }[];
+    /** Override the y-axis tick step (default 500). */
+    yStep?: number;
   },
 ): ChartConfiguration<"bar"> {
   const payloadKeys = Object.keys(data);
@@ -112,10 +117,11 @@ export function createBarChart(
       .map((r) => r.mbps),
   );
 
-  // Round up to the next 500 above (tallest bar + 250), so there is always at
-  // least ~250 MB/s of headroom for the value label above the highest bar
+  // Round up to the next step above (tallest bar + half a step), so there is
+  // always headroom for the value label above the highest bar
   // (e.g. 4992 -> 5500 instead of a clipped 5000).
-  const yMax = Math.ceil((maxMBps + 250) / 500) * 500;
+  const yStep = options.yStep ?? 500;
+  const yMax = Math.ceil((maxMBps + yStep / 2) / yStep) * yStep;
 
   const datasetNames = options.datasetLabels ?? [
     "Built-in JSON (JS)",
@@ -124,40 +130,21 @@ export function createBarChart(
     "JSON-AS (SIMD)",
   ];
 
+  const palette = options.colors ?? MODE_BARS;
+  const numDatasets = Math.max(...payloadKeys.map((k) => data[k].length));
+
   return {
     type: "bar",
     data: {
       labels,
-      datasets: [
-        {
-          label: datasetNames[0],
-          data: payloadKeys.map((k) => data[k][0].mbps),
-          backgroundColor: "rgba(99,102,241,0.85)",
-          borderColor: "#6366f1",
-          borderWidth: 1,
-        },
-        {
-          label: datasetNames[1],
-          data: payloadKeys.map((k) => data[k][1].mbps),
-          backgroundColor: "rgba(255, 241, 49, 0.85)", // vibrant purple
-          borderColor: "rgb(255, 241, 49)",
-          borderWidth: 1,
-        },
-        {
-          label: datasetNames[2],
-          data: payloadKeys.map((k) => data[k][2].mbps),
-          backgroundColor: "rgba(34,197,94,0.85)",
-          borderColor: "#22c55e",
-          borderWidth: 1,
-        },
-        {
-          label: datasetNames[3],
-          data: payloadKeys.map((k) => data[k][3].mbps),
-          backgroundColor: "rgba(239,68,68,0.9)",
-          borderColor: "#ef4444",
-          borderWidth: 2,
-        },
-      ],
+      datasets: Array.from({ length: numDatasets }, (_, i) => ({
+        label: datasetNames[i] ?? `Series ${i + 1}`,
+        data: payloadKeys.map((k) => data[k][i]?.mbps ?? 0),
+        backgroundColor: palette[i % palette.length].bg,
+        borderColor: palette[i % palette.length].border,
+        // Preserve the original chart01 look: the 4th (SIMD) bar had a 2px border.
+        borderWidth: !options.colors && i === 3 ? 2 : 1,
+      })),
     },
     options: {
       responsive: true,
@@ -184,7 +171,7 @@ export function createBarChart(
           display: true,
           text: subtitle(),
           font: { size: 14, weight: "bold" },
-          color: "#6b7280",
+          color: INK.subtitle,
           padding: 16,
           position: "right",
         },
@@ -199,7 +186,7 @@ export function createBarChart(
             font: { size: 16, weight: "bold" },
           },
           ticks: {
-            stepSize: 500,
+            stepSize: yStep,
             font: { size: 14, weight: "bold" },
           },
         },
@@ -263,7 +250,7 @@ export function createLineChart(
           display: true,
           text: subtitle(),
           font: { size: 14, weight: "bold" },
-          color: "#6b7280",
+          color: INK.subtitle,
           padding: { bottom: 16 },
         },
       },

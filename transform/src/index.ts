@@ -3,6 +3,7 @@ import {
   CommonFlags,
   Feature,
   FieldDeclaration,
+  Expression,
   FloatLiteralExpression,
   FunctionExpression,
   IdentifierExpression,
@@ -13,6 +14,7 @@ import {
   MethodDeclaration,
   NamedTypeNode,
   Node,
+  ObjectLiteralExpression,
   Parser,
   Program,
   Range,
@@ -472,7 +474,32 @@ export class JSONTransform extends Visitor {
 
     // Inner type T + backing-value type for each lowered lazy slot field,
     // consumed by the schema loop + deserialize/serialize codegen below.
-    const lazyInner = new Map<string, { inner: string; valueType: string }>();
+    const lazyInner = new Map<
+      string,
+      {
+        inner: string;
+        valueType: string;
+        omitNull: boolean;
+        omitIf: Expression | null;
+      }
+    >();
+
+    // Class-level default: `@json({ lazy: "auto" | "all" })` defers fields without
+    // an explicit marker; `@eager` opts an individual field back out.
+    const lazyMode = classLazyMode(node as ClassDeclaration);
+
+    // A whole-class custom @serializer/@deserializer takes over via
+    // __SERIALIZE_CUSTOM/__DESERIALIZE_CUSTOM, bypassing the generated codegen
+    // (and the lazy slots) entirely — so lazy fields can't be honored here.
+    const hasCustomSerde = node.members.some(
+      (m) =>
+        m.kind === NodeKind.MethodDeclaration &&
+        (m.decorators?.some((d) => {
+          const t = (<IdentifierExpression>d.name).text.toLowerCase();
+          return t === "serializer" || t === "deserializer";
+        }) ??
+          false),
+    );
 
     // On-demand field lowering. Rewrite each `JSON.Lazy<T>` field into a single
     // packed `u64` range slot + traced/scalar backing value + materialized flag.
@@ -495,12 +522,50 @@ export class JSONTransform extends Visitor {
       )
         continue;
       const written = toString((fd as FieldDeclaration).type!).trim();
-      let inner: string | null = null;
-      if (written.startsWith("JSON.Lazy<") && written.endsWith(">"))
-        inner = written.slice("JSON.Lazy<".length, written.length - 1).trim();
-      else if (written.startsWith("Lazy<") && written.endsWith(">"))
-        inner = written.slice("Lazy<".length, written.length - 1).trim();
+      // Two equivalent ways to mark a field on-demand:
+      //   - `JSON.Lazy<T>` type wrapper (transparent alias, T preserved), or
+      //   - a bare `@lazy` decorator (then the written type IS the inner type).
+      // The `@lazy` field is spliced out below and replaced by the lowered
+      // members, so AS never validates the decorator (it's invalid on instance
+      // fields); static fields are skipped above, leaving their lazy-init intact.
+      const decos = (fd as FieldDeclaration).decorators;
+      const hasDeco = (name: string): boolean =>
+        decos?.some((d) => (<IdentifierExpression>d.name).text === name) ??
+        false;
+      // `Lazy<T>` wrapper (AST-detected, alias-safe), else explicit `@lazy`,
+      // else the class-level mode (with `@eager`/`@omit` opting out).
+      let inner: string | null = lazyWrapperInner(
+        (fd as FieldDeclaration).type,
+      );
+      if (inner === null) {
+        if (hasDeco("lazy")) {
+          inner = written; // explicit @lazy decorator
+        } else if (
+          lazyMode !== "none" &&
+          !hasDeco("eager") &&
+          !hasDeco("omit")
+        ) {
+          if (lazyMode === "all") inner = written;
+          else if (
+            lazyAutoCost(
+              this.resolveType(written, source),
+              source,
+              this.parser,
+            ) >= LAZY_AUTO_THRESHOLD
+          )
+            inner = written;
+        }
+      }
       if (inner === null) continue;
+
+      if (hasCustomSerde)
+        throwError(
+          "Lazy fields (@lazy / JSON.Lazy<T> / @json({ lazy })) are not supported " +
+            "on a class with a custom @serializer/@deserializer — the custom methods " +
+            "bypass the generated (de)serializer, so the deferred slot is never filled. " +
+            "Remove the lazy marker or the custom (de)serializer.",
+          fd.range,
+        );
 
       const fname = fd.name.text;
       const key = JSON.stringify(fname);
@@ -514,40 +579,106 @@ export class JSONTransform extends Visitor {
         : storesScalar
           ? "0"
           : "null";
+      // The original field's declared default (e.g. `name: string = "x"`). Lazy
+      // lowering replaces the field with a slot, so without this the default is
+      // lost: a constructed (not parsed) object would serialize the type default.
+      // We seed the slot in the "materialized default" state. `JSON.parse` builds
+      // via `__new` (no field initializers) then fills the slots, so this only
+      // affects constructed instances.
+      const fdInit = (fd as FieldDeclaration).initializer;
+      const fieldDefault = fdInit ? toString(fdInit) : null;
       __hasLazy = true;
-      lazyInner.set("__" + fname + "_lz", { inner: T, valueType });
-      // `__name_lz` (u64) holds the slice RANGE only (an interior pointer kept
-      // valid by `__src`); the materialized value lives in `__name_val`, a
-      // TRACED reference field or a scalar field, so the GC keeps managed values
-      // alive (a managed pointer in the u64 would be invisible to the precise
-      // GC -> use-after-free). `__name_has` distinguishes an explicit
-      // materialized null from "not materialized yet".
-      const lowered = [
-        `@alias(${key}) __${fname}_lz: u64 = 0;`,
-        `@omit __${fname}_has: bool = false;`,
-        `@omit __${fname}_val: ${valueType} = ${valueDefault};`,
-        `get ${fname}(): ${T} {\n` +
-          `  if (this.__${fname}_has) return this.__${fname}_val as ${T};\n` +
-          `  const __s = this.__${fname}_lz;\n` +
-          `  const __hi = <usize>(__s >>> 32);\n` +
-          `  const __v = __hi != 0\n` +
-          `    ? JSON.parse<${T}>(JSON.Util.ptrToStr(__hi, <usize>(<u32>__s)))\n` +
-          `    : JSON.parse<${T}>("null");\n` +
-          `  this.__${fname}_val = __v;\n` +
-          `  this.__${fname}_has = true;\n` +
-          `  return __v;\n}`,
-        `set ${fname}(value: ${T}) {\n` +
-          `  this.__${fname}_lz = 0;\n` +
-          `  this.__${fname}_val = value;\n` +
-          `  this.__${fname}_has = true;\n}`,
-      ].map((src) => SimpleParser.parseClassMember(src, node));
+      // Carry @omitnull/@omitif from the original field onto the lowered slot
+      // (they can't ride the u64 slot directly — @omitnull rejects primitives —
+      // so the member loop sets the flags from here).
+      const omitIfDeco = decos?.find(
+        (d) => (<IdentifierExpression>d.name).text === "omitif",
+      );
+      lazyInner.set("__" + fname + "_lz", {
+        inner: T,
+        valueType,
+        omitNull: hasDeco("omitnull"),
+        omitIf: omitIfDeco?.args?.[0] ?? null,
+      });
+      // `__name_lz` (u64) packs the slot state into one word — no separate
+      // materialized flag needed: a real slice range is (start<<32)|end with
+      // `start` a live heap pointer, so it can never be `u64.MAX_VALUE` (that
+      // would need a 4GB pointer with no body). Thus:
+      //   0              -> absent/unset (return the type default)
+      //   u64.MAX_VALUE  -> materialized (use `__name_val`)
+      //   anything else  -> a slice range to parse on first read
+      // The materialized value lives in the TRACED `__name_val` (GC keeps it
+      // alive; a managed pointer in the u64 would be invisible to the GC).
+      // A <=32-bit scalar value is not a pointer, so it can live directly in the
+      // slot's low 32 bits — no traced __name_val field needed. State for these:
+      //   0                    -> absent (type default)
+      //   high32 == 0xffffffff -> materialized scalar, value bits in low32
+      //   anything else        -> a slice range to parse on first read
+      // (0xffffffff in high32 can't be a range — `start` is never a 4GB ptr.)
+      const packScalar =
+        baseT === "i8" ||
+        baseT === "u8" ||
+        baseT === "i16" ||
+        baseT === "u16" ||
+        baseT === "i32" ||
+        baseT === "u32" ||
+        baseT === "bool" ||
+        baseT === "boolean" ||
+        baseT === "f32";
+      const encVal = (v: string): string =>
+        baseT === "f32"
+          ? `(<u64>reinterpret<u32>(${v}))`
+          : `(<u64><u32>(${v}))`;
+      const decSlot = (lz: string): string =>
+        baseT === "f32"
+          ? `reinterpret<f32>(<u32>(${lz}))`
+          : `(<${T}>(<u32>(${lz})))`;
+      const lowered = (
+        packScalar
+          ? [
+              `@alias(${key}) private __${fname}_lz: u64 = ${
+                fieldDefault != null
+                  ? `(((<u64>0xffffffff) << 32) | ${encVal(`<${T}>(${fieldDefault})`)})`
+                  : "0"
+              };`,
+              `get ${fname}(): ${T} {\n` +
+                `  const __lz = this.__${fname}_lz;\n` +
+                `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
+                `  if (__lz != 0) {\n` + // a range -> parse once, then pack
+                `    const __v = JSON.__deserialize<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz));\n` +
+                `    this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("__v")};\n` +
+                `    return __v;\n` +
+                `  }\n` +
+                `  return ${valueDefault};\n}`, // absent -> default
+              `set ${fname}(value: ${T}) {\n` +
+                `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
+            ]
+          : [
+              `@alias(${key}) private __${fname}_lz: u64 = ${
+                fieldDefault != null ? "u64.MAX_VALUE" : "0"
+              };`,
+              `private __${fname}_val: ${valueType} = ${fieldDefault ?? valueDefault};`,
+              // Slow path goes through the shared (non-inline) JSON.__deserialize<T>
+              // so the parser is emitted once per type, not inlined into every getter.
+              `get ${fname}(): ${T} {\n` +
+                `  const __lz = this.__${fname}_lz;\n` +
+                `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` + // a range -> parse once
+                `    this.__${fname}_val = JSON.__deserialize<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz));\n` +
+                `    this.__${fname}_lz = u64.MAX_VALUE;\n` +
+                `  }\n` + // (0 -> default, MAX -> already materialized): return __val
+                `  return this.__${fname}_val as ${T};\n}`,
+              `set ${fname}(value: ${T}) {\n` +
+                `  this.__${fname}_val = value;\n` +
+                `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
+            ]
+      ).map((src) => SimpleParser.parseClassMember(src, node));
       node.members.splice(i, 1, ...lowered);
     }
     if (__hasLazy) {
       // Single GC-anchor for the source string + the hook JSON.parse calls so
       // the range pointers stay valid for this struct's lifetime.
       node.members.push(
-        SimpleParser.parseClassMember(`@omit __src: string = "";`, node),
+        SimpleParser.parseClassMember(`private __src: string = "";`, node),
         SimpleParser.parseClassMember(
           `__SET_SRC(s: string): void { this.__src = s; }`,
           node,
@@ -560,7 +691,9 @@ export class JSONTransform extends Visitor {
         (v) =>
           v.kind === NodeKind.FieldDeclaration &&
           !v.is(CommonFlags.Static) &&
-          !v.is(CommonFlags.Private) &&
+          // Lazy slot fields (`__name_lz`) are emitted `private` for
+          // encapsulation but must still (de)serialize — keep them.
+          (!v.is(CommonFlags.Private) || lazyInner.has(v.name.text)) &&
           !v.is(CommonFlags.Protected) &&
           !v.decorators?.some(
             (decorator) =>
@@ -1073,9 +1206,7 @@ export class JSONTransform extends Visitor {
       DESERIALIZE_CUSTOM +=
         "  @inline __DESERIALIZE_CUSTOM(data: string): this {\n";
       DESERIALIZE_CUSTOM +=
-        "    return inline.always(this." +
-        deserializer.name.text +
-        "(data));\n";
+        "    return this." + deserializer.name.text + "(data);\n";
       DESERIALIZE_CUSTOM += "  }\n";
     }
 
@@ -1110,6 +1241,17 @@ export class JSONTransform extends Visitor {
       if (lzInner !== undefined) {
         mem.flags.set(PropertyFlags.Lazy, null);
         mem.lazyInner = lzInner.inner; // inner type T for the deser/ser codegen
+        // @omitnull/@omitif carried from the original (pre-lowering) field.
+        // Must also clear `schema.static` (as the decorator handler does) — it
+        // gates the optional/omit serialize path; leaving it set skips omission.
+        if (lzInner.omitNull) {
+          mem.flags.set(PropertyFlags.OmitNull, null);
+          this.schema.static = false;
+        }
+        if (lzInner.omitIf) {
+          mem.flags.set(PropertyFlags.OmitIf, lzInner.omitIf);
+          this.schema.static = false;
+        }
       }
 
       this.schema.byteSize += mem.byteSize;
@@ -1187,9 +1329,21 @@ export class JSONTransform extends Visitor {
       v.flags.has(PropertyFlags.OmitNull),
     );
     const hasOptionalMembers = hasOmitIfMembers || hasOmitNullMembers;
+    // Lazy passthrough reserves exactly the slice bytes (unlike eager string
+    // serialization, which over-reserves for quotes/escaping and leaves slack).
+    // The structural key writes that follow don't `ensureSize`, so for a struct
+    // with lazy fields they can overrun the buffer once a passthrough leaves it
+    // nearly full. Guard each key write when any field is lazy.
+    const hasLazyMembers = this.schema.members.some((v) =>
+      v.flags.has(PropertyFlags.Lazy),
+    );
     const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
     const hasTypeParams =
       !!node.typeParameters && node.typeParameters.length > 0;
+    // Both FAST tiers — the straight-line one and the seenAny-stateful optional
+    // path — are chunked into helper methods (see chunkFastBlocks /
+    // chunkFastBlocksOptional), so a wide struct no longer emits a single
+    // oversized function: the fast path stays compilable at any field count.
     const useFastPath =
       requestedFastPath &&
       !hasTypeParams &&
@@ -1202,6 +1356,12 @@ export class JSONTransform extends Visitor {
         this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull))
       ) {
         SERIALIZE += indent + "let block: usize = 0;\n";
+      }
+      if (hasOptionalMembers) {
+        // Conditional (@omitnull/@omitif) fields emit a LEADING comma gated on
+        // this flag — set true once any field has been written — so trailing
+        // omitted fields never leave a dangling comma (invalid JSON).
+        SERIALIZE += indent + "let wrote = false;\n";
       }
       this.schema.byteSize += 2;
       SERIALIZE += indent + "store<u16>(bs.offset, 123, 0); // {\n";
@@ -1220,24 +1380,61 @@ export class JSONTransform extends Visitor {
         return getSerializeCall(member.type, realName);
       const T = member.lazyInner!;
       const baseName = realName.slice(0, -3); // "__x_lz" -> "__x"
-      const hasName = baseName + "_has";
+      const baseT = stripNull(T);
+      // Packed scalar slot (see the rewrite): materialized state is
+      // high32 == 0xffffffff with the value bits in low32; there is no
+      // __x_val field, and an absent scalar serializes its default (not null).
+      const packScalar =
+        baseT === "i8" ||
+        baseT === "u8" ||
+        baseT === "i16" ||
+        baseT === "u16" ||
+        baseT === "i32" ||
+        baseT === "u32" ||
+        baseT === "bool" ||
+        baseT === "boolean" ||
+        baseT === "f32";
+      if (packScalar) {
+        const dec =
+          baseT === "f32"
+            ? `reinterpret<f32>(<u32>(__s))`
+            : `(<${T}>(<u32>(__s)))`;
+        const def = baseT === "bool" || baseT === "boolean" ? "false" : "0";
+        return (
+          `{\n` +
+          `  const __s = this.${realName};\n` +
+          `  if ((__s >>> 32) == 0xffffffff) {\n` + // materialized scalar
+          `    JSON.__serialize<${T}>(${dec});\n` +
+          `  } else if (__s != 0) {\n` + // range -> raw bytes verbatim
+          `    const __hi = <usize>(__s >>> 32);\n` +
+          `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
+          `    bs.ensureSize(<u32>__len);\n` +
+          `    memory.copy(bs.offset, __hi, __len);\n` +
+          `    bs.offset += __len;\n` +
+          `  } else {\n` + // absent -> default scalar
+          `    JSON.__serialize<${T}>(${def});\n` +
+          `  }\n` +
+          `}\n`
+        );
+      }
       return (
         `{\n` +
-        `  if (this.${hasName}) {\n` + // materialized -> serialize typed value
+        `  const __s = this.${realName};\n` +
+        `  if (__s == u64.MAX_VALUE) {\n` + // materialized -> serialize typed value
         `    JSON.__serialize<${T}>(this.${baseName}_val as ${T});\n` +
-        `  } else {\n` +
-        `    const __s = this.${realName};\n` +
+        `  } else if (__s != 0) {\n` + // range -> raw bytes verbatim (zero-copy)
         `    const __hi = <usize>(__s >>> 32);\n` +
-        `    if (__hi != 0) {\n` + // range -> raw bytes verbatim (zero-copy)
-        `      const __len = (<usize>(<u32>__s)) - __hi;\n` +
-        `      bs.ensureSize(<u32>__len);\n` +
-        `      memory.copy(bs.offset, __hi, __len);\n` +
-        `      bs.offset += __len;\n` +
-        `    } else {\n` + // absent -> null
-        `      bs.ensureSize(8);\n` +
-        `      store<u64>(bs.offset, 0x006c006c0075006e);\n` +
-        `      bs.offset += 8;\n` +
-        `    }\n` +
+        `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
+        `    bs.ensureSize(<u32>__len);\n` +
+        `    memory.copy(bs.offset, __hi, __len);\n` +
+        `    bs.offset += __len;\n` +
+        `  } else {\n` + // absent
+        // A 64-bit scalar (i64/u64/f64/...) defaults to 0, not null; refs to null.
+        (isPrimitive(baseT)
+          ? `    JSON.__serialize<${T}>(0);\n`
+          : `    bs.ensureSize(8);\n` +
+            `    store<u64>(bs.offset, 0x006c006c0075006e);\n` +
+            `    bs.offset += 8;\n`) +
         `  }\n` +
         `}\n`
       );
@@ -1247,7 +1444,6 @@ export class JSONTransform extends Visitor {
       const member = this.schema.members[i];
       const aliasName = JSON.stringify(member.alias || member.name);
       const realName = member.name;
-      const isLast = i == this.schema.members.length - 1;
 
       if (member.value) {
         if (
@@ -1290,37 +1486,69 @@ export class JSONTransform extends Visitor {
       if (isRegular && isPure) {
         const keyPart = (isFirst ? "{" : ",") + aliasName + ":";
         this.schema.byteSize += keyPart.length << 1;
+        if (hasLazyMembers)
+          SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
         SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
           .map((v) => indent + v + "\n")
           .join("");
         SERIALIZE += indent + serValue(member, realName);
         if (isFirst) isFirst = false;
       } else if (isRegular && !isPure) {
-        const keyPart = (isFirst ? "" : ",") + aliasName + ":";
-        this.schema.byteSize += keyPart.length << 1;
-        SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
-          .map((v) => indent + v + "\n")
-          .join("");
-        SERIALIZE += indent + serValue(member, realName);
-        if (isFirst) isFirst = false;
-      } else {
-        if (member.flags.has(PropertyFlags.OmitNull)) {
+        // Optional fields sort ahead of regular ones, so the first regular field
+        // can't tell at compile time whether anything precedes it — gate its
+        // comma on `wrote`. Later regulars always follow a field, so they keep
+        // the static leading comma.
+        if (isFirst && hasOptionalMembers) {
+          const keyPart = aliasName + ":";
+          this.schema.byteSize += 2 + (keyPart.length << 1);
           SERIALIZE +=
             indent +
-            `if ((block = load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))) !== 0) {\n`;
-          indentInc();
-          const keyPart = aliasName + ":";
-          this.schema.byteSize += keyPart.length << 1;
+            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
+          if (hasLazyMembers)
+            SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
           SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
             .map((v) => indent + v + "\n")
             .join("");
           SERIALIZE += indent + serValue(member, realName);
-
-          if (!isLast) {
-            this.schema.byteSize += 2;
-            SERIALIZE += indent + `store<u16>(bs.offset, 44, 0); // ,\n`;
-            SERIALIZE += indent + `bs.offset += 2;\n`;
+        } else {
+          const keyPart = (isFirst ? "" : ",") + aliasName + ":";
+          this.schema.byteSize += keyPart.length << 1;
+          if (hasLazyMembers)
+            SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
+          SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+            .map((v) => indent + v + "\n")
+            .join("");
+          SERIALIZE += indent + serValue(member, realName);
+        }
+        if (isFirst) isFirst = false;
+      } else {
+        if (member.flags.has(PropertyFlags.OmitNull)) {
+          let omitNullCond: string;
+          if (member.flags.has(PropertyFlags.Lazy)) {
+            // A lazy slot's null-ness is encoded in __x_val + __x_lz (the slot
+            // state) — test it without materializing.
+            const base = realName.slice(0, -3); // drop "_lz"
+            omitNullCond =
+              `!JSON.__lazyIsNull(` +
+              `load<usize>(ptr, offsetof<this>(${JSON.stringify(base + "_val")})), ` +
+              `load<u64>(ptr, offsetof<this>(${JSON.stringify(realName)})))`;
+          } else {
+            omitNullCond = `(block = load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))) !== 0`;
           }
+          SERIALIZE += indent + `if (${omitNullCond}) {\n`;
+          indentInc();
+          const keyPart = aliasName + ":";
+          this.schema.byteSize += 2 + (keyPart.length << 1);
+          SERIALIZE +=
+            indent +
+            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
+          if (hasLazyMembers)
+            SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
+          SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+            .map((v) => indent + v + "\n")
+            .join("");
+          SERIALIZE += indent + serValue(member, realName);
+          SERIALIZE += indent + "wrote = true;\n";
 
           indentDec();
           this.schema.byteSize += 2;
@@ -1361,16 +1589,15 @@ export class JSONTransform extends Visitor {
             SERIALIZE += indent + `if (!(${rendered})) {\n`;
           }
           indentInc();
+          this.schema.byteSize += 2;
+          SERIALIZE +=
+            indent +
+            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
           SERIALIZE += this.getStores(aliasName + ":", SIMD_ENABLED)
             .map((v) => indent + v + "\n")
             .join("");
           SERIALIZE += indent + serValue(member, realName);
-
-          if (!isLast) {
-            this.schema.byteSize += 2;
-            SERIALIZE += indent + `store<u16>(bs.offset, 44, 0); // ,\n`;
-            SERIALIZE += indent + `bs.offset += 2;\n`;
-          }
+          SERIALIZE += indent + "wrote = true;\n";
 
           indentDec();
           SERIALIZE += indent + `}\n`;
@@ -1524,8 +1751,6 @@ export class JSONTransform extends Visitor {
         // containers use) but store the packed range (start<<32)|end into the
         // u64 slot — no copy.
         const lazyInner = member.lazyInner!;
-        const hasName = member.name.slice(0, -3) + "_has";
-        const hasOffset = `offsetof<this>(${JSON.stringify(hasName)})`;
         out.push("{");
         out.push(
           `  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`,
@@ -1537,7 +1762,6 @@ export class JSONTransform extends Visitor {
         out.push(
           `  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`,
         );
-        out.push(`  store<bool>(${outPtr}, false, ${hasOffset});`);
         out.push(`  ${srcPtr} = valueEnd;`);
         out.push("}");
         return out;
@@ -1967,6 +2191,74 @@ export class JSONTransform extends Visitor {
 
     indent = "  ";
 
+    // Chunked FAST deserialization. A wide struct would otherwise emit one
+    // enormous __DESERIALIZE_FAST — large enough to crash the Binaryen optimizer
+    // past a few hundred fields. Split the per-field blocks across helper methods
+    // so every generated function stays small; the main path calls them in order
+    // and bails (to tier 2 / slow) the moment one returns 0. A pointer srcStart is
+    // never 0, so it doubles as the bail sentinel. Only the straight-line (no
+    // optional fields) tiers are chunked; the seenAny-stateful optional tiers
+    // stay inline and route wide structs to slow via the useFastPath gate.
+    const FAST_CHUNK_SIZE = 32;
+    const fastChunkMethods: string[] = [];
+    let fastChunkId = 0;
+    const chunkFastBlocks = (
+      blocks: string[],
+      tag: string,
+      callIndent: string,
+    ): string => {
+      if (blocks.length <= FAST_CHUNK_SIZE) return blocks.join("");
+      let calls = "";
+      for (let c = 0; c < blocks.length; c += FAST_CHUNK_SIZE) {
+        const name = `__DESERIALIZE_FAST_${tag}_${fastChunkId++}`;
+        const body = blocks
+          .slice(c, c + FAST_CHUNK_SIZE)
+          .join("")
+          .replace(/\bbreak;/g, "return 0;");
+        fastChunkMethods.push(
+          `${name}(srcStart: usize, srcEnd: usize, dst: usize): usize {\n${body}\n  return srcStart;\n}`,
+        );
+        calls +=
+          `${callIndent}srcStart = this.${name}(srcStart, srcEnd, dst);\n` +
+          `${callIndent}if (srcStart == 0) break;\n`;
+      }
+      return calls;
+    };
+    // Same idea for the seenAny-stateful optional tiers, but seenAny has to cross
+    // chunk boundaries: pass it in as a bool param and return it packed into the
+    // high 32 bits of a u64 alongside srcStart (low 32). A 0 return is still the
+    // bail sentinel. tier2 also needs a chunk-local `kp` scratch.
+    const chunkFastBlocksOptional = (
+      blocks: string[],
+      tag: string,
+      callIndent: string,
+      needsKp: boolean,
+    ): string => {
+      if (blocks.length <= FAST_CHUNK_SIZE) return blocks.join("");
+      let calls = "";
+      for (let c = 0; c < blocks.length; c += FAST_CHUNK_SIZE) {
+        const name = `__DESERIALIZE_FAST_${tag}_${fastChunkId++}`;
+        const body = blocks
+          .slice(c, c + FAST_CHUNK_SIZE)
+          .join("")
+          .replace(/\bbreak;/g, "return 0;");
+        fastChunkMethods.push(
+          `${name}(srcStart: usize, srcEnd: usize, dst: usize, seenAny: bool): u64 {\n` +
+            (needsKp ? "  let kp: usize = 0;\n" : "") +
+            `${body}\n` +
+            `  return (<u64>srcStart) | ((<u64>(seenAny ? 1 : 0)) << 32);\n}`,
+        );
+        calls +=
+          `${callIndent}{\n` +
+          `${callIndent}  const __r = this.${name}(srcStart, srcEnd, dst, seenAny);\n` +
+          `${callIndent}  if (__r == 0) break;\n` +
+          `${callIndent}  srcStart = <usize>(<u32>__r);\n` +
+          `${callIndent}  seenAny = (<u32>(__r >>> 32)) != 0;\n` +
+          `${callIndent}}\n`;
+      }
+      return calls;
+    };
+
     DESERIALIZE_FAST += indent + "const start = srcStart;\n";
     DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
     DESERIALIZE_FAST += indent + "do {\n";
@@ -1978,6 +2270,7 @@ export class JSONTransform extends Visitor {
       DESERIALIZE_FAST += indent + "srcStart += 2;\n";
       DESERIALIZE_FAST += indent + "let seenAny = false;\n\n";
 
+      const t1opt: string[] = [];
       for (let i = 0; i < this.schema.members.length; i++) {
         const member = this.schema.members[i];
         const key = JSON.stringify(member.alias || member.name);
@@ -2010,76 +2303,77 @@ export class JSONTransform extends Visitor {
           member.flags.has(PropertyFlags.OmitIf);
 
         if (!deserializerFirst.length || !deserializerNext.length) {
-          DESERIALIZE_FAST += indent + "break;\n\n";
+          t1opt.push(indent + "break;\n\n");
           continue;
         }
 
-        DESERIALIZE_FAST += indent + "if (!seenAny) {\n";
+        let blk = indent + "if (!seenAny) {\n";
         indent += "  ";
-        DESERIALIZE_FAST +=
+        blk +=
           indent +
           `if ( // ${firstKeySection}\n${(indent += "  ")}${getComparisions(firstKeySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) {\n`;
         indent += "  ";
         if (isOptional) {
-          DESERIALIZE_FAST += indent + "// optional @omitnull field omitted\n";
+          blk += indent + "// optional @omitnull field omitted\n";
         } else {
-          DESERIALIZE_FAST += indent + "break;\n";
+          blk += indent + "break;\n";
         }
         indent = indent.slice(0, -2);
-        DESERIALIZE_FAST += indent + "} else {\n";
+        blk += indent + "} else {\n";
         indent += "  ";
         if (!inlineStringValue)
-          DESERIALIZE_FAST += indent + `srcStart += ${firstKeyOffset};\n`;
-        DESERIALIZE_FAST +=
+          blk += indent + `srcStart += ${firstKeyOffset};\n`;
+        blk +=
           indent +
           `if (JSON.Util.isSpace(load<u16>(${inlineStringValue ? `srcStart + ${firstKeyOffset}` : "srcStart"}))) break;\n`;
-        DESERIALIZE_FAST +=
-          indent + deserializerFirst.join("\n" + indent) + "\n";
-        DESERIALIZE_FAST += indent + "seenAny = true;\n";
+        blk += indent + deserializerFirst.join("\n" + indent) + "\n";
+        blk += indent + "seenAny = true;\n";
         indent = indent.slice(0, -2);
-        DESERIALIZE_FAST += indent + "}\n";
+        blk += indent + "}\n";
         indent = indent.slice(0, -2);
-        DESERIALIZE_FAST += indent + "} else {\n";
+        blk += indent + "} else {\n";
         indent += "  ";
-        DESERIALIZE_FAST +=
+        blk +=
           indent +
           `if ( // ${nextKeySection}\n${(indent += "  ")}${getComparisions(nextKeySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) {\n`;
         indent += "  ";
         if (isOptional) {
-          DESERIALIZE_FAST += indent + "// optional @omitnull field omitted\n";
+          blk += indent + "// optional @omitnull field omitted\n";
         } else {
-          DESERIALIZE_FAST += indent + "break;\n";
+          blk += indent + "break;\n";
         }
         indent = indent.slice(0, -2);
-        DESERIALIZE_FAST += indent + "} else {\n";
+        blk += indent + "} else {\n";
         indent += "  ";
         if (!inlineStringValue)
-          DESERIALIZE_FAST += indent + `srcStart += ${nextKeyOffset};\n`;
-        DESERIALIZE_FAST +=
+          blk += indent + `srcStart += ${nextKeyOffset};\n`;
+        blk +=
           indent +
           `if (JSON.Util.isSpace(load<u16>(${inlineStringValue ? `srcStart + ${nextKeyOffset}` : "srcStart"}))) break;\n`;
-        DESERIALIZE_FAST +=
-          indent + deserializerNext.join("\n" + indent) + "\n";
+        blk += indent + deserializerNext.join("\n" + indent) + "\n";
         indent = indent.slice(0, -2);
-        DESERIALIZE_FAST += indent + "}\n";
+        blk += indent + "}\n";
         indent = indent.slice(0, -2);
-        DESERIALIZE_FAST += indent + "}\n\n";
+        blk += indent + "}\n\n";
+        t1opt.push(blk);
       }
+      DESERIALIZE_FAST += chunkFastBlocksOptional(t1opt, "T1O", indent, false);
     } else {
+      const t1blocks: string[] = [];
       for (let i = 0; i < this.schema.members.length; i++) {
         const member = this.schema.members[i];
         const key = JSON.stringify(member.alias || member.name);
         if (key.length <= 2) throw new Error("Key cannot be empty!");
 
         const keySection = (i == 0 ? "{" : ",") + key + ":";
-        DESERIALIZE_FAST +=
+        let blk =
           indent +
           `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
         const keyOffset = keySection.length << 1;
         const resolvedType = stripNull(member.type);
         const inlineStringValue = ["string", "String"].includes(resolvedType);
         if (!inlineStringValue) {
-          DESERIALIZE_FAST += indent + `srcStart += ${keyOffset};\n\n`;
+          blk += indent + `srcStart += ${keyOffset};\n\n`;
         }
         const deserializer = getDeserializer(
           member.type,
@@ -2090,7 +2384,8 @@ export class JSONTransform extends Visitor {
           true,
         );
         if (!deserializer.length) {
-          DESERIALIZE_FAST += indent + "break;\n\n";
+          blk += indent + "break;\n\n";
+          t1blocks.push(blk);
           continue;
         }
         // Tier 1 is the exact, no-whitespace template: the value sits at a fixed
@@ -2098,11 +2393,13 @@ export class JSONTransform extends Visitor {
         // Python-style `{"k": v}`), that offset is shifted, so bail to tier 2
         // instead of feeding a misaligned pointer to the value deserializer
         // (string/float deserializers hard-fault on a non-value start).
-        DESERIALIZE_FAST +=
+        blk +=
           indent +
           `if (JSON.Util.isSpace(load<u16>(${inlineStringValue ? `srcStart + ${keyOffset}` : "srcStart"}))) break;\n`;
-        DESERIALIZE_FAST += indent + deserializer.join("\n" + indent) + "\n\n";
+        blk += indent + deserializer.join("\n" + indent) + "\n\n";
+        t1blocks.push(blk);
       }
+      DESERIALIZE_FAST += chunkFastBlocks(t1blocks, "T1", indent);
     }
 
     DESERIALIZE_FAST +=
@@ -2139,31 +2436,32 @@ export class JSONTransform extends Visitor {
       DESERIALIZE_FAST += skip;
       DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7b) break; // {\n";
       DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+      const t2blocks: string[] = [];
       for (let i = 0; i < this.schema.members.length; i++) {
         const member = this.schema.members[i];
         const key = JSON.stringify(member.alias || member.name);
         const keyBytes = key.length << 1;
-        DESERIALIZE_FAST += "\n";
-        DESERIALIZE_FAST += skip;
-        DESERIALIZE_FAST +=
+        let blk = "\n";
+        blk += skip;
+        blk +=
           i2 +
           `if ( // ${key}\n${i2}  ` +
           getComparisions(key, "srcStart", "!=").join("\n" + i2 + "  || ") +
           `\n${i2}) break;\n`;
-        DESERIALIZE_FAST += i2 + `srcStart += ${keyBytes};\n`;
-        DESERIALIZE_FAST += skip;
-        DESERIALIZE_FAST +=
-          i2 + "if (load<u16>(srcStart) != 0x3a) break; // :\n";
-        DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
-        DESERIALIZE_FAST += skip;
-        DESERIALIZE_FAST += i2 + tier2Desers[i].join("\n" + i2) + "\n";
+        blk += i2 + `srcStart += ${keyBytes};\n`;
+        blk += skip;
+        blk += i2 + "if (load<u16>(srcStart) != 0x3a) break; // :\n";
+        blk += i2 + "srcStart += 2;\n";
+        blk += skip;
+        blk += i2 + tier2Desers[i].join("\n" + i2) + "\n";
         if (i < this.schema.members.length - 1) {
-          DESERIALIZE_FAST += skip;
-          DESERIALIZE_FAST +=
-            i2 + "if (load<u16>(srcStart) != 0x2c) break; // ,\n";
-          DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+          blk += skip;
+          blk += i2 + "if (load<u16>(srcStart) != 0x2c) break; // ,\n";
+          blk += i2 + "srcStart += 2;\n";
         }
+        t2blocks.push(blk);
       }
+      DESERIALIZE_FAST += chunkFastBlocks(t2blocks, "T2", i2);
       DESERIALIZE_FAST += "\n";
       DESERIALIZE_FAST += skip;
       DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7d) break; // }\n";
@@ -2193,34 +2491,35 @@ export class JSONTransform extends Visitor {
       DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
       DESERIALIZE_FAST += i2 + "let kp: usize = 0;\n";
       if (multi) DESERIALIZE_FAST += i2 + "let seenAny = false;\n";
+      const t2opt: string[] = [];
       for (let i = 0; i < this.schema.members.length; i++) {
         const member = this.schema.members[i];
         const key = JSON.stringify(member.alias || member.name);
         const keyBytes = key.length << 1;
-        DESERIALIZE_FAST += "\n";
-        DESERIALIZE_FAST +=
-          i2 + "kp = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
+        let blk = "\n";
+        blk += i2 + "kp = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
         // Only fields after the first can be preceded by a comma, and only when
         // something was already emitted (seenAny).
         if (multi && i > 0) {
-          DESERIALIZE_FAST +=
+          blk +=
             i2 +
             "if (seenAny && load<u16>(kp) == 0x2c) kp = JSON.Util.skipWhitespace(kp + 2, srcEnd);\n";
         }
-        DESERIALIZE_FAST +=
+        blk +=
           i2 +
           `if ( // ${key}\n${i2}  ` +
           getComparisions(key, "kp", "==").join("\n" + i2 + "  && ") +
           `\n${i2}) {\n`;
-        DESERIALIZE_FAST += i3 + `kp += ${keyBytes};\n`;
-        DESERIALIZE_FAST += i3 + "kp = JSON.Util.skipWhitespace(kp, srcEnd);\n";
-        DESERIALIZE_FAST += i3 + "if (load<u16>(kp) != 0x3a) break; // :\n";
-        DESERIALIZE_FAST +=
-          i3 + "srcStart = JSON.Util.skipWhitespace(kp + 2, srcEnd);\n";
-        DESERIALIZE_FAST += i3 + tier2Desers[i].join("\n" + i3) + "\n";
-        if (multi) DESERIALIZE_FAST += i3 + "seenAny = true;\n";
-        DESERIALIZE_FAST += i2 + "}\n";
+        blk += i3 + `kp += ${keyBytes};\n`;
+        blk += i3 + "kp = JSON.Util.skipWhitespace(kp, srcEnd);\n";
+        blk += i3 + "if (load<u16>(kp) != 0x3a) break; // :\n";
+        blk += i3 + "srcStart = JSON.Util.skipWhitespace(kp + 2, srcEnd);\n";
+        blk += i3 + tier2Desers[i].join("\n" + i3) + "\n";
+        if (multi) blk += i3 + "seenAny = true;\n";
+        blk += i2 + "}\n";
+        t2opt.push(blk);
       }
+      DESERIALIZE_FAST += chunkFastBlocksOptional(t2opt, "T2O", i2, true);
       DESERIALIZE_FAST += "\n";
       DESERIALIZE_FAST +=
         i2 + "srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
@@ -2467,12 +2766,9 @@ export class JSONTransform extends Visitor {
       valueEnd: string,
       prefix: string,
     ): string => {
-      const hasName = member.name.slice(0, -3) + "_has";
       return (
         prefix +
-        `store<u64>(changetype<usize>(out), ((<u64>${valueStart}) << 32) | (<u64>(<u32>${valueEnd})), offsetof<this>(${JSON.stringify(member.name)}));\n` +
-        prefix +
-        `store<bool>(changetype<usize>(out), false, offsetof<this>(${JSON.stringify(hasName)}));\n`
+        `store<u64>(changetype<usize>(out), ((<u64>${valueStart}) << 32) | (<u64>(<u32>${valueEnd})), offsetof<this>(${JSON.stringify(member.name)}));\n`
       );
     };
 
@@ -3188,6 +3484,20 @@ export class JSONTransform extends Visitor {
       console.log(DESERIALIZE_CUSTOM || DESERIALIZE);
     }
 
+    // `__DESERIALIZE_FAST` / `__INITIALIZE` are emitted `@inline` so small
+    // structs specialize into their call sites. For a wide struct that function
+    // is huge (one parse branch + range-store per field), and inlining copies it
+    // into every call site (parse<T>, array/element deserialize, nested structs).
+    // Past ~100 fields the duplicated code can overwhelm the Binaryen optimizer
+    // ("crashed during optimize"). Above the limit, emit them as shared (called)
+    // functions instead — one copy, far less code, and a single `call` of
+    // overhead per object that the per-field work dwarfs.
+    const WIDE_STRUCT_FIELD_LIMIT = 32;
+    if (this.schema.members.length > WIDE_STRUCT_FIELD_LIMIT) {
+      INITIALIZE = INITIALIZE.replace(/^@inline /, "");
+      DESERIALIZE_FAST = DESERIALIZE_FAST.replace(/^@inline /, "");
+    }
+
     const SERIALIZE_METHOD = SimpleParser.parseClassMember(
       SERIALIZE_CUSTOM || SERIALIZE,
       node,
@@ -3229,6 +3539,13 @@ export class JSONTransform extends Visitor {
       !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")
     )
       node.members.push(DESERIALIZE_FAST_METHOD);
+    if (useFastPath && !DESERIALIZE_CUSTOM) {
+      for (const chunk of fastChunkMethods) {
+        const chunkMethod = SimpleParser.parseClassMember(chunk, node);
+        if (!node.members.find((v) => v.name.text == chunkMethod.name.text))
+          node.members.push(chunkMethod);
+      }
+    }
     super.visitClassDeclaration(node);
   }
   getSchema(name: string): Schema | null {
@@ -3939,6 +4256,107 @@ function sizeof(type: string): number {
     return 66; // max dtoa length used by runtime reserve
   else if (type == "bool" || type == "boolean") return 10;
   else return 0;
+}
+
+// Class-level lazy mode from `@json({ lazy: "auto" | "all" | "none" })`.
+type LazyMode = "none" | "auto" | "all";
+function classLazyMode(node: ClassDeclaration): LazyMode {
+  const dec = node.decorators?.find((d) => {
+    const n = (<IdentifierExpression>d.name).text;
+    return n === "json" || n === "serializable";
+  });
+  if (!dec || !dec.args || dec.args.length === 0) return "none";
+  const arg = dec.args[0];
+  if (
+    arg.kind !== NodeKind.Literal ||
+    (arg as LiteralExpression).literalKind !== LiteralKind.Object
+  )
+    return "none";
+  const obj = arg as ObjectLiteralExpression;
+  for (let i = 0; i < obj.names.length; i++) {
+    if (obj.names[i].text !== "lazy") continue;
+    const v = obj.values[i];
+    if (
+      v.kind === NodeKind.Literal &&
+      (v as LiteralExpression).literalKind === LiteralKind.String
+    ) {
+      const s = (v as StringLiteralExpression).value;
+      if (s === "none" || s === "auto" || s === "all") return s as LazyMode;
+    }
+    throwError(`@json lazy must be "none", "auto", or "all"`, v.range);
+  }
+  return "none";
+}
+
+// Structural parse-cost score for `lazy: "auto"`. byteSize is a buffer-prealloc
+// estimate (string/array/object all ~4), so it can't separate cheap scalars
+// from heavy allocating/recursive values — categorize by type instead. Fields
+// at or above LAZY_AUTO_THRESHOLD are deferred; primitives/enums/Date stay eager.
+const LAZY_AUTO_THRESHOLD = 10;
+
+// One-level category cost of a type (does NOT recurse into nested structs —
+// they count as a flat "heavy" 20 here, so there is no cycle risk).
+function lazyTypeCost(type: string, source: Src, parser: Parser): number {
+  const base = stripNull(type);
+  if (isPrimitive(base) || isBoolean(base) || isEnum(base, source, parser))
+    return 1;
+  if (base === "Date") return 4;
+  if (isString(base)) return 10;
+  if (
+    base === "JSON.Value" ||
+    base === "Value" ||
+    base === "JSON.Obj" ||
+    base === "Obj" ||
+    base === "JSON.Raw" ||
+    base === "Raw"
+  )
+    return 15;
+  return 20; // array / map / set / typed-array / buffer / nested @json struct
+}
+
+function lazyAutoCost(type: string, source: Src, parser: Parser): number {
+  const direct = lazyTypeCost(type, source, parser);
+  if (direct < 20) return direct; // scalar / Date / string / Value / Obj / Raw
+  // direct == 20: an array/map/etc OR a nested @json struct. Refine a struct by
+  // summing its direct fields' costs (one level) — a tiny all-scalar struct is
+  // cheap to parse, so keep it eager. Containers and cross-source/unresolved
+  // types fall back to "defer" (20).
+  const decl = source.getClass(stripNull(type));
+  if (!decl) return 20;
+  let sum = 0;
+  for (let i = 0; i < decl.members.length; i++) {
+    const m = decl.members[i];
+    if (m.kind !== NodeKind.FieldDeclaration) continue;
+    const fd = m as FieldDeclaration;
+    if (
+      fd.is(CommonFlags.Static) ||
+      fd.is(CommonFlags.Private) ||
+      fd.is(CommonFlags.Protected) ||
+      !fd.type
+    )
+      continue;
+    sum += lazyTypeCost(toString(fd.type), source, parser);
+    if (sum >= LAZY_AUTO_THRESHOLD) return sum; // already heavy enough to defer
+  }
+  return sum; // small struct -> low cost -> stays eager
+}
+
+// Detect a `Lazy<T>` type wrapper from the AST rather than the raw spelling, so
+// it survives namespace aliasing: `JSON.Lazy<T>`, `J.Lazy<T>` (import { JSON as
+// J }), `ns.JSON.Lazy<T>`, or a bare imported `Lazy<T>` all match — we read the
+// terminal name segment and take the inner type from the type argument node.
+// Returns the inner type T (string, with outer nullability folded in) or null.
+function lazyWrapperInner(typeNode: Node | null): string | null {
+  if (!typeNode || typeNode.kind !== NodeKind.NamedType) return null;
+  const named = typeNode as NamedTypeNode;
+  let seg = named.name;
+  while (seg.next) seg = seg.next;
+  if (seg.identifier.text !== "Lazy") return null;
+  if (!named.typeArguments || named.typeArguments.length !== 1) return null;
+  let inner = toString(named.typeArguments[0]).trim();
+  // `Lazy<T> | null`: the alias is transparent, so fold the outer null in.
+  if (named.isNullable && !inner.endsWith("null")) inner += " | null";
+  return inner;
 }
 
 function estimatedSerializedByteSize(
