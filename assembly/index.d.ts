@@ -50,9 +50,9 @@ declare class JSONConfig {
  * JSON.parse<Vec3>('{"x":1,"y":2,"z":3}');
  * ```
  */
-// @ts-ignore: type
 declare function json(config?: JSONConfig): Function;
-
+// @ts-expect-error: type
+declare function json(..._): void;
 /**
  * Alias for {@link json}. `@serializable` and `@json` are interchangeable.
  */
