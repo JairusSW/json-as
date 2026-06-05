@@ -44,9 +44,17 @@ function chartShell(
         labels: { font: { size: 16, weight: "bold" }, padding: 20 },
       },
       datalabels: {
-        anchor: "end",
-        align: "end",
-        font: { weight: "bold", size: 12 },
+        // Centered inside each bar: the SVG backend's above-bar placement
+        // (anchor/align "end"/"top") is unreliable for some data shapes and
+        // drops labels to the baseline. Center is geometry-based (no clamping)
+        // and always correct; the white text + dark halo stays readable on the
+        // grey/indigo/red bars.
+        anchor: "center",
+        align: "center",
+        color: "#ffffff",
+        textStrokeColor: "rgba(0,0,0,0.55)",
+        textStrokeWidth: 3,
+        font: { weight: "bold", size: 13 },
         formatter: (v: number) => v.toFixed(0),
       },
       subtitle: {
