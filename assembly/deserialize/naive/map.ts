@@ -51,8 +51,7 @@ export function deserializeMap<T extends Map<any, any>>(
  * {@link parseValue}; typed values are bounds-scanned with {@link scanValueEnd}
  * because their generated deserializers take exact `(start, end)` bounds.
  */
-// @ts-ignore: Decorator is valid here
-@inline export function deserializeMapBody<T extends Map<any, any>>(
+export function deserializeMapBody<T extends Map<any, any>>(
   srcStart: usize,
   srcEnd: usize,
   out: T,

@@ -75,8 +75,7 @@ import { hex4_to_u16_swar } from "../../util/swar";
   return changetype<string>(out);
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function writeStringToField_SIMD(
+function writeStringToField_SIMD(
   dstFieldPtr: usize,
   srcStart: usize,
   byteLength: u32,

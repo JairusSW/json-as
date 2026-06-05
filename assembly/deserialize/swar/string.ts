@@ -61,8 +61,7 @@ import { hex4_to_u16_swar } from "../../util/swar";
 // NOTE: vs the prior overflow scanner this is faster on dense and sparse
 // escaping but ~20% slower on sustained moderate-density escaping (escape
 // every ~20 chars), where multi-escape-per-block had an edge.
-// @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedString_SWAR(
+function deserializeEscapedString_SWAR(
   payloadStart: usize,
   escapeStart: usize,
   srcEnd: usize,
@@ -220,8 +219,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
 }
 
 // Writes into the destination field, reusing or resizing the backing string.
-// @ts-expect-error: @inline is a valid decorator
-@inline function writeStringToField(
+function writeStringToField(
   dstFieldPtr: usize,
   srcStart: usize,
   byteLength: u32,
@@ -258,8 +256,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
 //     to one bulk memory.copy for the remainder.
 // SWAR masks carry high-byte false positives, so each hit is confirmed
 // scalarly before acting.
-// @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedStringField_SWAR(
+function deserializeEscapedStringField_SWAR(
   payloadStart: usize,
   escapeStart: usize,
   srcEnd: usize,
@@ -371,8 +368,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
   return srcStart;
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function deserializeEscapedStringContinuation_SWAR_MergedTuned(
+function deserializeEscapedStringContinuation_SWAR_MergedTuned(
   lastPtr: usize,
   srcStart: usize,
   srcEnd: usize,

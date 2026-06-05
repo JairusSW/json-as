@@ -33,8 +33,7 @@ import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 // Strict RFC 8259 check for the char following a backslash, at [escPtr, srcEnd).
 // Legal escapes: " \ / b f n r t and \uXXXX (4 hex digits). Throws otherwise:
 // unknown escape letter, a trailing backslash, or a short / non-hex \u.
-// @ts-ignore: inline
-@inline function validateEscape(escPtr: usize, srcEnd: usize): void {
+function validateEscape(escPtr: usize, srcEnd: usize): void {
   if (escPtr >= srcEnd)
     throw new Error("Invalid JSON string: incomplete escape");
   const code = load<u16>(escPtr);
@@ -65,8 +64,7 @@ import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
     throw new Error("Invalid JSON string: illegal escape");
 }
 
-// @ts-ignore: inline
-@inline export function deserializeString_NAIVE(
+export function deserializeString_NAIVE(
   srcStart: usize,
   srcEnd: usize,
 ): string {
@@ -121,8 +119,7 @@ import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 
 // Writes into the destination field, reusing or resizing the backing string.
 // Mirrors `writeStringToField` in ../swar/string.ts.
-// @ts-ignore: inline
-@inline function writeStringToField(
+function writeStringToField(
   dstFieldPtr: usize,
   srcStart: usize,
   byteLength: u32,
@@ -152,8 +149,7 @@ import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 // escPos) is bulk-copied into the scratch buffer, then escapes are decoded into
 // it, and the result is written to the field. Only reached when a backslash is
 // actually present — the common escape-free case never touches `bs`.
-// @ts-ignore: inline
-@inline function deserializeEscapedStringField_NAIVE(
+function deserializeEscapedStringField_NAIVE(
   payloadStart: usize,
   escPos: usize,
   srcEnd: usize,

@@ -8,8 +8,7 @@ import {
 import { isSpace } from "../../../util";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 
-
-@inline function deserializeBooleanArrayBody<T extends boolean[]>(
+function deserializeBooleanArrayBody<T extends boolean[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,

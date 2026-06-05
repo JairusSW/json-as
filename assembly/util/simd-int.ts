@@ -82,8 +82,7 @@
  * @param srcStart Pointer to 16 source bytes (8 UTF-16 chars).
  * @returns The parsed 8-digit value, or `U32.MAX_VALUE` on invalid input.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse8Digits_SIMD(srcStart: usize): u32 {
+export function parse8Digits_SIMD(srcStart: usize): u32 {
   const block = load<v128>(srcStart);
   const digits = i16x8.sub(block, SPLAT_30);
   if (v128.any_true(i16x8.gt_u(digits, SPLAT_09))) return U32.MAX_VALUE;
@@ -104,8 +103,7 @@
  * @param srcStart Pointer to 16 source bytes (8 UTF-16 chars).
  * @returns The parsed 8-digit value.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse8Digits_SIMD_Unsafe(srcStart: usize): u32 {
+export function parse8Digits_SIMD_Unsafe(srcStart: usize): u32 {
   const block = load<v128>(srcStart);
   const digits = i16x8.sub(block, SPLAT_30);
   const packed = i8x16.narrow_i16x8_u(digits, ZERO_I16X8);
@@ -132,8 +130,7 @@
  * @param srcStart Pointer to 32 source bytes (16 UTF-16 chars).
  * @returns The parsed 16-digit value, or `U64.MAX_VALUE` on invalid input.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse16Digits_SIMD(srcStart: usize): u64 {
+export function parse16Digits_SIMD(srcStart: usize): u64 {
   const block0 = load<v128>(srcStart);
   const block1 = load<v128>(srcStart, 16);
 
@@ -168,8 +165,7 @@
  * @param srcStart Pointer to 32 source bytes (16 UTF-16 chars).
  * @returns The parsed 16-digit value.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse16Digits_SIMD_Unsafe(srcStart: usize): u64 {
+export function parse16Digits_SIMD_Unsafe(srcStart: usize): u64 {
   const block0 = load<v128>(srcStart);
   const block1 = load<v128>(srcStart, 16);
   const digits0 = i16x8.sub(block0, SPLAT_30);

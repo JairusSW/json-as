@@ -7,8 +7,7 @@ import { isSpace } from "../../util";
 // garbage. f64.parse alone is lenient (parses a numeric prefix and ignores the
 // rest), so this guard is what makes the naive value path reject malformed
 // numbers like `0e`, `-01`, `1.`, `2.e3`, `0x42`.
-// @ts-ignore: inline
-@inline function validateJSONNumber(srcStart: usize, srcEnd: usize): void {
+function validateJSONNumber(srcStart: usize, srcEnd: usize): void {
   let ptr = srcStart;
   while (ptr < srcEnd && isSpace(load<u16>(ptr))) ptr += 2;
   let end = srcEnd;
@@ -76,8 +75,7 @@ import { isSpace } from "../../util";
   return f32.parse(ptrToStr(srcStart, srcEnd));
 }
 
-// @ts-ignore: inline
-@inline function scanFloatEnd(srcStart: usize, srcEnd: usize): usize {
+function scanFloatEnd(srcStart: usize, srcEnd: usize): usize {
   let ptr = srcStart;
   if (ptr < srcEnd && load<u16>(ptr) == 45) ptr += 2; // optional minus
 

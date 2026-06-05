@@ -752,7 +752,7 @@ export namespace JSON {
     }
 
     /** Encodes a 64-bit integer, spilling to the heap when it exceeds the payload. */
-    @inline private setWide<T>(value: T): void {
+    private setWide<T>(value: T): void {
       if (isSigned<T>()) {
         const v = <i64>value;
         if (v >= -VAL_I64_LIMIT && v < VAL_I64_LIMIT) {
@@ -993,7 +993,7 @@ export namespace JSON {
      * duplicate-key check. Used by the deserializer — no per-key string
      * allocation, no hashing.
      */
-    @inline appendRaw<T>(keyStart: usize, keyEnd: usize, value: T): void {
+    appendRaw<T>(keyStart: usize, keyEnd: usize, value: T): void {
       this.pushKeyBytes(keyStart, keyEnd);
       this._vals.push(JSON.Value.from<T>(value));
       const idx = this._index;
@@ -1029,7 +1029,7 @@ export namespace JSON {
      * @param key - The string key
      * @param value - The value (will be wrapped in JSON.Value)
      */
-    @inline set<T>(key: string, value: T): void {
+    set<T>(key: string, value: T): void {
       const idx = this.buildIndex();
       if (idx.has(key)) {
         unchecked((this._vals[idx.get(key)] = JSON.Value.from<T>(value)));
@@ -1094,7 +1094,7 @@ export namespace JSON {
      * Gets all keys in the object.
      * @returns Array of string keys (in insertion order)
      */
-    @inline keys(): string[] {
+    keys(): string[] {
       const out = new Array<string>(this._vals.length);
       const buf = changetype<usize>(this._kbuf);
       const used = this._kused;
@@ -1129,7 +1129,7 @@ export namespace JSON {
      * @param value - The value to convert
      * @returns A new JSON.Obj instance
      */
-    @inline static from<T>(value: T): JSON.Obj {
+    static from<T>(value: T): JSON.Obj {
       if (value instanceof JSON.Obj) return value;
       if (value instanceof Map) {
         const out = new JSON.Obj();
@@ -1405,11 +1405,7 @@ export namespace JSON {
       const endQuote = scanStringEnd(srcStart, srcEnd);
       return endQuote >= srcEnd ? 0 : endQuote + 2;
     }
-    // @ts-expect-error: decorator
-    @inline function scanCompositeValueEnd(
-      srcStart: usize,
-      srcEnd: usize,
-    ): usize {
+    function scanCompositeValueEnd(srcStart: usize, srcEnd: usize): usize {
       let depth: i32 = 1;
       let ptr = srcStart + 2;
       while (ptr < srcEnd) {
@@ -1428,8 +1424,7 @@ export namespace JSON {
       }
       return 0;
     }
-    // @ts-expect-error: decorator
-    @inline function scanScalarValueEnd(srcStart: usize, srcEnd: usize): usize {
+    function scanScalarValueEnd(srcStart: usize, srcEnd: usize): usize {
       while (srcStart < srcEnd) {
         const code = load<u16>(srcStart);
         if (
@@ -1491,11 +1486,7 @@ export namespace JSON {
      * @param out - string | null
      * @returns - string
      */
-    // @ts-expect-error: inline
-    @inline export function stringify<T>(
-      data: T,
-      out: string | null = null,
-    ): string {
+    export function stringify<T>(data: T, out: string | null = null): string {
       bs.saveState();
       JSON.__serialize<T>(data);
       const result = bs.cpyOut<string>();

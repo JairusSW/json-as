@@ -25,11 +25,7 @@ import { serializeStruct } from "./struct";
  * (e.g. JSON.Obj key serialization) emit a string straight from a buffer slice
  * without first materializing a heap `string`.
  */
-// @ts-ignore: inline
-@inline export function serializeStringRange(
-  srcPtr: usize,
-  srcSize: usize,
-): void {
+export function serializeStringRange(srcPtr: usize, srcSize: usize): void {
   bs.proposeSize(srcSize + 4);
   const srcEnd = srcPtr + srcSize;
 

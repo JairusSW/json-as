@@ -38,11 +38,7 @@ import { isSpace } from "./isSpace";
   return (eqPart(block, S_QUOTE) | eqPart(block, S_BACK_SLASH)) & HI;
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function scanQuotedValueEnd_SWAR(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+function scanQuotedValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
   srcStart += 2;
   const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
 
@@ -76,11 +72,7 @@ import { isSpace } from "./isSpace";
   return 0;
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function scanCompositeValueEnd_SWAR(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+function scanCompositeValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
   // Scalar depth tracking (structural tokens are sparse; a bulk token-mask scan
   // loses to a tight loop on token-dense objects) with SWAR quoted-skip for
   // nested string values — where the long runs are.
@@ -103,11 +95,7 @@ import { isSpace } from "./isSpace";
   return 0;
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function scanScalarValueEnd_SWAR(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+function scanScalarValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
   // Scalars (number/true/false/null) are short, so a plain scalar terminator
   // scan beats setting up SWAR masks per word.
   while (srcStart < srcEnd) {

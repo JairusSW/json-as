@@ -53,7 +53,7 @@ import { parse4Digits_PairMul } from "../../../util/swar-int";
 // Parsers are also E-parameterised so they're shareable with
 // `swar/typedarray.ts`. The body is byte-identical to the prior version
 // modulo s/valueof<T>/E/.
-@inline export function parseSignedIntegerScalar<E extends number>(
+export function parseSignedIntegerScalar<E extends number>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,
@@ -83,8 +83,7 @@ import { parse4Digits_PairMul } from "../../../util/swar-int";
   return srcStart;
 }
 
-
-@inline export function parseUnsignedIntegerScalar<E extends number>(
+export function parseUnsignedIntegerScalar<E extends number>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,
@@ -105,8 +104,7 @@ import { parse4Digits_PairMul } from "../../../util/swar-int";
   return srcStart;
 }
 
-
-@inline export function parseSignedIntegerSWAR<E extends number>(
+export function parseSignedIntegerSWAR<E extends number>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,
@@ -154,8 +152,7 @@ import { parse4Digits_PairMul } from "../../../util/swar-int";
   return srcStart;
 }
 
-
-@inline export function parseUnsignedIntegerSWAR<E extends number>(
+export function parseUnsignedIntegerSWAR<E extends number>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,
@@ -309,8 +306,7 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
   throw new Error("Failed to parse JSON!");
 }
 
-
-@inline function deserializeIntegerArrayImpl<T extends number[]>(
+function deserializeIntegerArrayImpl<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
@@ -644,8 +640,7 @@ function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
   return out;
 }
 
-
-@inline function deserializeIntegerArrayBody<T extends number[]>(
+function deserializeIntegerArrayBody<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,

@@ -76,8 +76,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
   }
 }
 
-// @ts-expect-error: decorators valid here
-@inline function tryParseEightDigitsSIMD(srcStart: usize, value: u64): u64 {
+function tryParseEightDigitsSIMD(srcStart: usize, value: u64): u64 {
   const block = load<v128>(srcStart);
   const digits = i16x8.sub(block, SPLAT_30);
   if (v128.any_true(i16x8.gt_u(digits, SPLAT_09))) return 0;
@@ -96,8 +95,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
 // As in the SWAR variant: the parse helpers take a `slot` (`writePtr`) and
 // store directly. The dispatcher owns `out.length = maxElements` and the
 // per-element `writePtr` advance so `Array.push` is removed for every
-// @ts-expect-error: decorators valid here
-@inline function parseSignedIntegerSIMD<T extends number[]>(
+function parseSignedIntegerSIMD<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,
@@ -135,8 +133,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
   return srcStart;
 }
 
-// @ts-expect-error: decorators valid here
-@inline function parseUnsignedIntegerSIMD<T extends number[]>(
+function parseUnsignedIntegerSIMD<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,

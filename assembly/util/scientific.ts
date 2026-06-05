@@ -54,8 +54,7 @@ const POWERS5: usize = memory.data<i32>([
   );
 }
 
-// @ts-ignore: inline
-@inline function scaledown(significand: u64, exp: i32): f64 {
+function scaledown(significand: u64, exp: i32): f64 {
   const denom: u64 = 6103515625; // 1e14 * 0x1p-14
   const scale = reinterpret<f64>(0x3f06849b86a12b9b); // 1e-14 * 0x1p32
 
@@ -82,8 +81,7 @@ const POWERS5: usize = memory.data<i32>([
   return NativeMath.scalbn(<f64>significand, <i32>shift);
 }
 
-// @ts-ignore: inline
-@inline function scaleup(significand: u64, exp: i32): f64 {
+function scaleup(significand: u64, exp: i32): f64 {
   const coeff: u32 = 1220703125; // 1e13 * 0x1p-13;
   let shift = ctz(significand);
   significand >>= shift;
@@ -111,8 +109,7 @@ const POWERS5: usize = memory.data<i32>([
  * @param exp Decimal exponent (e.g. for "12.34" pass 1234 and -2)
  * @returns The correctly rounded f64, or 0 / Infinity at the extremes.
  */
-// @ts-ignore: inline
-@inline export function scientific(significand: u64, exp: i32): f64 {
+export function scientific(significand: u64, exp: i32): f64 {
   if (!significand || exp < -342) return 0;
   if (exp > 308) return Infinity;
   let significandf = <f64>significand;

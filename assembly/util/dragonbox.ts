@@ -118,8 +118,6 @@ function computeRoundUpShorter32(cache: u64, beta: i32): u32 {
   return (<u32>(cache >>> (39 - beta)) + 1) >>> 1;
 }
 
-
-@inline
 function removeTrailingZeros32(significand: u32): u32 {
   let exponent = 0;
   let r = rotr32(significand * 184254097, 4);
@@ -161,8 +159,6 @@ function checkDivisibilityAndDivideByPow10_32_1(n: u32): u64 {
   return ((<u64>(prod >>> 16)) << 32) | ((prod & 0xffff) < 6554 ? 1 : 0);
 }
 
-
-@inline
 function computeMul64(u: u64, cacheHigh: u64, cacheLow: u64): void {
   const high = umul128_upper64(u, cacheHigh);
 
@@ -187,8 +183,6 @@ function computeMul64(u: u64, cacheHigh: u64, cacheLow: u64): void {
   _dbMulIsInteger = rLow == 0;
 }
 
-
-@inline
 function computeMulParity64(
   twoF: u64,
   cacheHigh: u64,
@@ -233,8 +227,6 @@ function computeRoundUpShorter64(cacheHigh: u64, beta: i32): u64 {
   return ((cacheHigh >>> (10 - beta)) + 1) >>> 1;
 }
 
-
-@inline
 function removeTrailingZeros64(significand: u64): u64 {
   let exponent = 0;
   let r = rotr64(significand * 28999941890838049, 8);

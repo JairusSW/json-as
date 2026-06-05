@@ -59,8 +59,7 @@ function initPairs(): void {
  * a byte offset). Caller must ensure the buffer has at least 20 bytes
  * available (max 10 chars).
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function itoaU32(buf: usize, v: u32): u32 {
+export function itoaU32(buf: usize, v: u32): u32 {
   if (v < 10) {
     store<u16>(buf, <u16>(v + 0x30));
     return 1;
@@ -165,8 +164,7 @@ function initPairs(): void {
  * Writes a u32 in the range 0..99_999_999 as exactly 8 UTF-16 chars with
  * leading zeros. Used by the u64 path to emit trailing groups of 8 digits.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline function writeU32Padded8(buf: usize, v: u32): void {
+function writeU32Padded8(buf: usize, v: u32): void {
   const a = v / 1_000_000;
   let rest = v - a * 1_000_000;
   const b = rest / 10_000;
@@ -187,8 +185,7 @@ function initPairs(): void {
  * For 17+ digit values (which still fit in u64 < 1.8e19), repeat.
  * Caller must ensure the buffer has at least 40 bytes available.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function itoaU64(buf: usize, v: u64): u32 {
+export function itoaU64(buf: usize, v: u64): u32 {
   if (v <= <u64>u32.MAX_VALUE) {
     return itoaU32(buf, <u32>v);
   }

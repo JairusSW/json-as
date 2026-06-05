@@ -48,11 +48,7 @@ const ASCII_E_LO: u16 = 101;
   }
 }
 
-// @ts-ignore: inline
-@inline export function deserializeFloat_SIMD<T>(
-  srcStart: usize,
-  srcEnd: usize,
-): T {
+export function deserializeFloat_SIMD<T>(srcStart: usize, srcEnd: usize): T {
   const origStart = srcStart;
   let p = srcStart;
   let negative = false;
@@ -168,8 +164,7 @@ const ASCII_E_LO: u16 = 101;
   return <T>(<f32>result);
 }
 
-// @ts-ignore: inline
-@inline export function deserializeFloatField_SIMD<T extends number>(
+export function deserializeFloatField_SIMD<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

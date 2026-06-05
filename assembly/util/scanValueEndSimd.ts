@@ -51,11 +51,7 @@ import { isSpace } from "./isSpace";
   return i16x8.bitmask(v128.or(structural, whitespace));
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function scanQuotedValueEnd_SIMD(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+function scanQuotedValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
   srcStart += 2;
   const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
 
@@ -89,11 +85,7 @@ import { isSpace } from "./isSpace";
   return 0;
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function scanCompositeValueEnd_SIMD(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+function scanCompositeValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
   // Track object/array depth scalar-side (structural tokens are sparse and a
   // bulk token-mask scan loses to a tight loop on token-dense objects), but
   // skip nested string VALUES with the vectorized quoted scan — that's where
@@ -117,11 +109,7 @@ import { isSpace } from "./isSpace";
   return 0;
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function scanScalarValueEnd_SIMD(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+function scanScalarValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
   const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
   while (srcStart <= srcEnd16) {
     const mask = scalarTerminatorMask(load<v128>(srcStart));

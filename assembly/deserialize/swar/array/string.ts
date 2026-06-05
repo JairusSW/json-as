@@ -17,8 +17,7 @@ import { deserializeStringField_SWAR } from "../string";
   return srcStart;
 }
 
-
-@inline function deserializeStringArrayBody<T extends string[]>(
+function deserializeStringArrayBody<T extends string[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,

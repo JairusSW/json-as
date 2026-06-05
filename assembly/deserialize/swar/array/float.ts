@@ -46,8 +46,7 @@ import { isSpace } from "../../../util";
  * digit, lone minus, malformed exponent suffix). Valid-but-out-of-range
  * numbers are handled inline.
  */
-// @ts-expect-error: decorators valid here
-@inline export function parseFloatElementSWAR<E>(
+export function parseFloatElementSWAR<E>(
   srcStart: usize,
   srcEnd: usize,
   slot: usize,
@@ -265,7 +264,7 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
  * `[lon,lat]` would over-allocate megabytes of f64 capacity. Instead we
  * use `ensureArrayElementSlot`'s grow-or-reuse strategy.
  */
-@inline export function deserializeFloatArrayBody<T extends number[]>(
+export function deserializeFloatArrayBody<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,

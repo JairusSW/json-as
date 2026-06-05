@@ -3,8 +3,7 @@
  * @param str
  * @returns
  */
-// @ts-ignore: inline
-@inline export function atoi<T>(srcStart: usize, srcEnd: usize): T {
+export function atoi<T>(srcStart: usize, srcEnd: usize): T {
   // @ts-ignore: type
   let val: T = 0;
   if (isSigned<T>()) {
