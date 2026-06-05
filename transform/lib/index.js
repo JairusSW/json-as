@@ -868,8 +868,9 @@ export class JSONTransform extends Visitor {
         const WIDE_STRUCT_NO_FAST_LIMIT = 128;
         const useFastPath = requestedFastPath &&
             !hasTypeParams &&
-            this.schema.members.length <= WIDE_STRUCT_NO_FAST_LIMIT &&
-            (this.schema.static || supportsFastOptionalPath);
+            (this.schema.static ||
+                (supportsFastOptionalPath &&
+                    this.schema.members.length <= WIDE_STRUCT_NO_FAST_LIMIT));
         indent = "  ";
         if (this.schema.static == false) {
             if (this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull))) {
@@ -1497,6 +1498,26 @@ export class JSONTransform extends Visitor {
             return out;
         };
         indent = "  ";
+        const FAST_CHUNK_SIZE = 32;
+        const fastChunkMethods = [];
+        let fastChunkId = 0;
+        const chunkFastBlocks = (blocks, tag, callIndent) => {
+            if (blocks.length <= FAST_CHUNK_SIZE)
+                return blocks.join("");
+            let calls = "";
+            for (let c = 0; c < blocks.length; c += FAST_CHUNK_SIZE) {
+                const name = `__DESERIALIZE_FAST_${tag}_${fastChunkId++}`;
+                const body = blocks
+                    .slice(c, c + FAST_CHUNK_SIZE)
+                    .join("")
+                    .replace(/\bbreak;/g, "return 0;");
+                fastChunkMethods.push(`${name}(srcStart: usize, srcEnd: usize, dst: usize): usize {\n${body}\n  return srcStart;\n}`);
+                calls +=
+                    `${callIndent}srcStart = this.${name}(srcStart, srcEnd, dst);\n` +
+                        `${callIndent}if (srcStart == 0) break;\n`;
+            }
+            return calls;
+        };
         DESERIALIZE_FAST += indent + "const start = srcStart;\n";
         DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
         DESERIALIZE_FAST += indent + "do {\n";
@@ -1580,31 +1601,34 @@ export class JSONTransform extends Visitor {
             }
         }
         else {
+            const t1blocks = [];
             for (let i = 0; i < this.schema.members.length; i++) {
                 const member = this.schema.members[i];
                 const key = JSON.stringify(member.alias || member.name);
                 if (key.length <= 2)
                     throw new Error("Key cannot be empty!");
                 const keySection = (i == 0 ? "{" : ",") + key + ":";
-                DESERIALIZE_FAST +=
-                    indent +
-                        `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
+                let blk = indent +
+                    `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
                 const keyOffset = keySection.length << 1;
                 const resolvedType = stripNull(member.type);
                 const inlineStringValue = ["string", "String"].includes(resolvedType);
                 if (!inlineStringValue) {
-                    DESERIALIZE_FAST += indent + `srcStart += ${keyOffset};\n\n`;
+                    blk += indent + `srcStart += ${keyOffset};\n\n`;
                 }
                 const deserializer = getDeserializer(member.type, "srcStart", "dst", member, inlineStringValue ? keyOffset : 0, true);
                 if (!deserializer.length) {
-                    DESERIALIZE_FAST += indent + "break;\n\n";
+                    blk += indent + "break;\n\n";
+                    t1blocks.push(blk);
                     continue;
                 }
-                DESERIALIZE_FAST +=
+                blk +=
                     indent +
                         `if (JSON.Util.isSpace(load<u16>(${inlineStringValue ? `srcStart + ${keyOffset}` : "srcStart"}))) break;\n`;
-                DESERIALIZE_FAST += indent + deserializer.join("\n" + indent) + "\n\n";
+                blk += indent + deserializer.join("\n" + indent) + "\n\n";
+                t1blocks.push(blk);
             }
+            DESERIALIZE_FAST += chunkFastBlocks(t1blocks, "T1", indent);
         }
         DESERIALIZE_FAST +=
             indent + "if (load<u16>(srcStart) !== 0x7d) break; // }\n";
@@ -1623,31 +1647,32 @@ export class JSONTransform extends Visitor {
             DESERIALIZE_FAST += skip;
             DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7b) break; // {\n";
             DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+            const t2blocks = [];
             for (let i = 0; i < this.schema.members.length; i++) {
                 const member = this.schema.members[i];
                 const key = JSON.stringify(member.alias || member.name);
                 const keyBytes = key.length << 1;
-                DESERIALIZE_FAST += "\n";
-                DESERIALIZE_FAST += skip;
-                DESERIALIZE_FAST +=
+                let blk = "\n";
+                blk += skip;
+                blk +=
                     i2 +
                         `if ( // ${key}\n${i2}  ` +
                         getComparisions(key, "srcStart", "!=").join("\n" + i2 + "  || ") +
                         `\n${i2}) break;\n`;
-                DESERIALIZE_FAST += i2 + `srcStart += ${keyBytes};\n`;
-                DESERIALIZE_FAST += skip;
-                DESERIALIZE_FAST +=
-                    i2 + "if (load<u16>(srcStart) != 0x3a) break; // :\n";
-                DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
-                DESERIALIZE_FAST += skip;
-                DESERIALIZE_FAST += i2 + tier2Desers[i].join("\n" + i2) + "\n";
+                blk += i2 + `srcStart += ${keyBytes};\n`;
+                blk += skip;
+                blk += i2 + "if (load<u16>(srcStart) != 0x3a) break; // :\n";
+                blk += i2 + "srcStart += 2;\n";
+                blk += skip;
+                blk += i2 + tier2Desers[i].join("\n" + i2) + "\n";
                 if (i < this.schema.members.length - 1) {
-                    DESERIALIZE_FAST += skip;
-                    DESERIALIZE_FAST +=
-                        i2 + "if (load<u16>(srcStart) != 0x2c) break; // ,\n";
-                    DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+                    blk += skip;
+                    blk += i2 + "if (load<u16>(srcStart) != 0x2c) break; // ,\n";
+                    blk += i2 + "srcStart += 2;\n";
                 }
+                t2blocks.push(blk);
             }
+            DESERIALIZE_FAST += chunkFastBlocks(t2blocks, "T2", i2);
             DESERIALIZE_FAST += "\n";
             DESERIALIZE_FAST += skip;
             DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7d) break; // }\n";
@@ -2440,6 +2465,13 @@ export class JSONTransform extends Visitor {
             DESERIALIZE_FAST_METHOD &&
             !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST"))
             node.members.push(DESERIALIZE_FAST_METHOD);
+        if (useFastPath && !DESERIALIZE_CUSTOM) {
+            for (const chunk of fastChunkMethods) {
+                const chunkMethod = SimpleParser.parseClassMember(chunk, node);
+                if (!node.members.find((v) => v.name.text == chunkMethod.name.text))
+                    node.members.push(chunkMethod);
+            }
+        }
         super.visitClassDeclaration(node);
     }
     getSchema(name) {

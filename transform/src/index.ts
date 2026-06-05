@@ -1340,17 +1340,18 @@ export class JSONTransform extends Visitor {
     const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
     const hasTypeParams =
       !!node.typeParameters && node.typeParameters.length > 0;
-    // Very wide structs: the unrolled per-field FAST deserializer becomes a
-    // single function too large for the Binaryen optimizer (it crashes during
-    // optimize a few hundred fields in). Fall back to the leaner SLOW path,
-    // which stays compilable at any width. Conservative threshold — real-world
-    // structs are far smaller and keep the fast path.
+    // The straight-line (no-optional) FAST tiers are chunked into helper methods
+    // (see chunkFastBlocks), so they stay compilable at any width. The optional
+    // (seenAny-stateful) tier is still emitted as one unrolled function, which
+    // the Binaryen optimizer can't digest past a few hundred fields — cap it and
+    // route wider optional structs to the SLOW path.
     const WIDE_STRUCT_NO_FAST_LIMIT = 128;
     const useFastPath =
       requestedFastPath &&
       !hasTypeParams &&
-      this.schema.members.length <= WIDE_STRUCT_NO_FAST_LIMIT &&
-      (this.schema.static || supportsFastOptionalPath);
+      (this.schema.static ||
+        (supportsFastOptionalPath &&
+          this.schema.members.length <= WIDE_STRUCT_NO_FAST_LIMIT));
 
     indent = "  ";
 
@@ -2174,6 +2175,40 @@ export class JSONTransform extends Visitor {
 
     indent = "  ";
 
+    // Chunked FAST deserialization. A wide struct would otherwise emit one
+    // enormous __DESERIALIZE_FAST — large enough to crash the Binaryen optimizer
+    // past a few hundred fields. Split the per-field blocks across helper methods
+    // so every generated function stays small; the main path calls them in order
+    // and bails (to tier 2 / slow) the moment one returns 0. A pointer srcStart is
+    // never 0, so it doubles as the bail sentinel. Only the straight-line (no
+    // optional fields) tiers are chunked; the seenAny-stateful optional tiers
+    // stay inline and route wide structs to slow via the useFastPath gate.
+    const FAST_CHUNK_SIZE = 32;
+    const fastChunkMethods: string[] = [];
+    let fastChunkId = 0;
+    const chunkFastBlocks = (
+      blocks: string[],
+      tag: string,
+      callIndent: string,
+    ): string => {
+      if (blocks.length <= FAST_CHUNK_SIZE) return blocks.join("");
+      let calls = "";
+      for (let c = 0; c < blocks.length; c += FAST_CHUNK_SIZE) {
+        const name = `__DESERIALIZE_FAST_${tag}_${fastChunkId++}`;
+        const body = blocks
+          .slice(c, c + FAST_CHUNK_SIZE)
+          .join("")
+          .replace(/\bbreak;/g, "return 0;");
+        fastChunkMethods.push(
+          `${name}(srcStart: usize, srcEnd: usize, dst: usize): usize {\n${body}\n  return srcStart;\n}`,
+        );
+        calls +=
+          `${callIndent}srcStart = this.${name}(srcStart, srcEnd, dst);\n` +
+          `${callIndent}if (srcStart == 0) break;\n`;
+      }
+      return calls;
+    };
+
     DESERIALIZE_FAST += indent + "const start = srcStart;\n";
     DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
     DESERIALIZE_FAST += indent + "do {\n";
@@ -2273,20 +2308,21 @@ export class JSONTransform extends Visitor {
         DESERIALIZE_FAST += indent + "}\n\n";
       }
     } else {
+      const t1blocks: string[] = [];
       for (let i = 0; i < this.schema.members.length; i++) {
         const member = this.schema.members[i];
         const key = JSON.stringify(member.alias || member.name);
         if (key.length <= 2) throw new Error("Key cannot be empty!");
 
         const keySection = (i == 0 ? "{" : ",") + key + ":";
-        DESERIALIZE_FAST +=
+        let blk =
           indent +
           `if ( // ${keySection}\n${(indent += "  ")}${getComparisions(keySection, "srcStart", "!=").join("\n" + indent + "|| ")}\n${(indent = indent.slice(0, -2))}) break;\n`;
         const keyOffset = keySection.length << 1;
         const resolvedType = stripNull(member.type);
         const inlineStringValue = ["string", "String"].includes(resolvedType);
         if (!inlineStringValue) {
-          DESERIALIZE_FAST += indent + `srcStart += ${keyOffset};\n\n`;
+          blk += indent + `srcStart += ${keyOffset};\n\n`;
         }
         const deserializer = getDeserializer(
           member.type,
@@ -2297,7 +2333,8 @@ export class JSONTransform extends Visitor {
           true,
         );
         if (!deserializer.length) {
-          DESERIALIZE_FAST += indent + "break;\n\n";
+          blk += indent + "break;\n\n";
+          t1blocks.push(blk);
           continue;
         }
         // Tier 1 is the exact, no-whitespace template: the value sits at a fixed
@@ -2305,11 +2342,13 @@ export class JSONTransform extends Visitor {
         // Python-style `{"k": v}`), that offset is shifted, so bail to tier 2
         // instead of feeding a misaligned pointer to the value deserializer
         // (string/float deserializers hard-fault on a non-value start).
-        DESERIALIZE_FAST +=
+        blk +=
           indent +
           `if (JSON.Util.isSpace(load<u16>(${inlineStringValue ? `srcStart + ${keyOffset}` : "srcStart"}))) break;\n`;
-        DESERIALIZE_FAST += indent + deserializer.join("\n" + indent) + "\n\n";
+        blk += indent + deserializer.join("\n" + indent) + "\n\n";
+        t1blocks.push(blk);
       }
+      DESERIALIZE_FAST += chunkFastBlocks(t1blocks, "T1", indent);
     }
 
     DESERIALIZE_FAST +=
@@ -2346,31 +2385,32 @@ export class JSONTransform extends Visitor {
       DESERIALIZE_FAST += skip;
       DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7b) break; // {\n";
       DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+      const t2blocks: string[] = [];
       for (let i = 0; i < this.schema.members.length; i++) {
         const member = this.schema.members[i];
         const key = JSON.stringify(member.alias || member.name);
         const keyBytes = key.length << 1;
-        DESERIALIZE_FAST += "\n";
-        DESERIALIZE_FAST += skip;
-        DESERIALIZE_FAST +=
+        let blk = "\n";
+        blk += skip;
+        blk +=
           i2 +
           `if ( // ${key}\n${i2}  ` +
           getComparisions(key, "srcStart", "!=").join("\n" + i2 + "  || ") +
           `\n${i2}) break;\n`;
-        DESERIALIZE_FAST += i2 + `srcStart += ${keyBytes};\n`;
-        DESERIALIZE_FAST += skip;
-        DESERIALIZE_FAST +=
-          i2 + "if (load<u16>(srcStart) != 0x3a) break; // :\n";
-        DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
-        DESERIALIZE_FAST += skip;
-        DESERIALIZE_FAST += i2 + tier2Desers[i].join("\n" + i2) + "\n";
+        blk += i2 + `srcStart += ${keyBytes};\n`;
+        blk += skip;
+        blk += i2 + "if (load<u16>(srcStart) != 0x3a) break; // :\n";
+        blk += i2 + "srcStart += 2;\n";
+        blk += skip;
+        blk += i2 + tier2Desers[i].join("\n" + i2) + "\n";
         if (i < this.schema.members.length - 1) {
-          DESERIALIZE_FAST += skip;
-          DESERIALIZE_FAST +=
-            i2 + "if (load<u16>(srcStart) != 0x2c) break; // ,\n";
-          DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+          blk += skip;
+          blk += i2 + "if (load<u16>(srcStart) != 0x2c) break; // ,\n";
+          blk += i2 + "srcStart += 2;\n";
         }
+        t2blocks.push(blk);
       }
+      DESERIALIZE_FAST += chunkFastBlocks(t2blocks, "T2", i2);
       DESERIALIZE_FAST += "\n";
       DESERIALIZE_FAST += skip;
       DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7d) break; // }\n";
@@ -3447,6 +3487,13 @@ export class JSONTransform extends Visitor {
       !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")
     )
       node.members.push(DESERIALIZE_FAST_METHOD);
+    if (useFastPath && !DESERIALIZE_CUSTOM) {
+      for (const chunk of fastChunkMethods) {
+        const chunkMethod = SimpleParser.parseClassMember(chunk, node);
+        if (!node.members.find((v) => v.name.text == chunkMethod.name.text))
+          node.members.push(chunkMethod);
+      }
+    }
     super.visitClassDeclaration(node);
   }
   getSchema(name: string): Schema | null {
