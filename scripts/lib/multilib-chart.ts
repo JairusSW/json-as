@@ -115,7 +115,7 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
   const canvas = new ChartJSNodeCanvas({
     width: 1150,
     height: 640,
-    backgroundColour: "white",
+    // no backgroundColour -> transparent PNG (charts 13/14)
     chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
   });
   const buffer = canvas.renderToBufferSync(config, "image/png");
