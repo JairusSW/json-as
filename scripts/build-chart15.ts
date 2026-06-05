@@ -100,8 +100,8 @@ sizeChart(
 
 // Lazy mode access patterns. SWAR only (the mode the lazy fast-path is showcased
 // in) — read swar logs directly regardless of the size-chart MODE above. Each
-// payload group shows lazy reads of a growing slice of its deferred fields
-// (none/one/half/all) plus the eager full-parse baseline. Backed by
+// payload group leads with the eager full-parse baseline, then lazy reads of a
+// growing slice of its deferred fields (none/one/half/all). Backed by
 // assembly/__benches__/lazy/access-pattern.bench.ts (run `bun run bench:as
 // lazy/` to regenerate every mode's logs).
 const SWAR_READ = (suite: string, type: string): BenchResult =>
@@ -116,22 +116,22 @@ const ACCESS_SETS: [string, string][] = [
   ["medium", "Medium\n(1.1kb)"],
   ["large", "Large\n(5.5kb)"],
 ];
-const READ_LEVELS = ["none", "one", "half", "all", "base"];
+const READ_LEVELS = ["base", "none", "one", "half", "all"];
 const READ_LABELS = [
+  "baseline (eager)",
   "read none",
   "read one",
   "read half",
   "read all",
-  "baseline (eager)",
 ];
-// A distinct hue per access mode: blue→green→orange→red as lazy does more work,
-// then a neutral copper for the eager baseline reference.
+// A neutral copper for the eager baseline reference, then a distinct hue per
+// lazy access mode: blue→green→orange→red as it does more work.
 const ACCESS_COLORS = [
+  { bg: rgba("fadedCopper", 0.85), border: BASE.fadedCopper },
   { bg: rgba("pacificBlue", 0.85), border: BASE.pacificBlue },
   { bg: rgba("jungleGreen", 0.85), border: BASE.jungleGreen },
   { bg: rgba("orange", 0.85), border: BASE.orange },
   { bg: rgba("strawberryRed", 0.85), border: BASE.strawberryRed },
-  { bg: rgba("fadedCopper", 0.85), border: BASE.fadedCopper },
 ];
 
 const accData: Record<string, BenchResult[]> = {};
