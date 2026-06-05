@@ -251,7 +251,7 @@ export namespace JSON {
       // @ts-expect-error: Defined by transform
     } else if (isDefined(data.__SERIALIZE)) {
       // @ts-expect-error: Defined by transform
-      inline.always(data.__SERIALIZE(changetype<usize>(data)));
+      data.__SERIALIZE(changetype<usize>(data));
       return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
     } else if (data instanceof Date) {
       out = out
@@ -377,17 +377,17 @@ export namespace JSON {
       }
       if (type instanceof StaticArray) {
         // @ts-expect-error
-        return inline.always(
-          deserializeStaticArray<nonnull<T>>(dataPtr, dataPtr + dataSize, 0),
+        return deserializeStaticArray<nonnull<T>>(
+          dataPtr,
+          dataPtr + dataSize,
+          0,
         );
       } else if (type instanceof Array) {
         // @ts-expect-error
-        return inline.always(
-          deserializeArray<nonnull<T>>(
-            dataPtr,
-            dataPtr + dataSize,
-            changetype<usize>(instantiate<T>()),
-          ),
+        return deserializeArray<nonnull<T>>(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(instantiate<T>()),
         );
       } else if (
         type instanceof Int8Array ||
@@ -411,14 +411,10 @@ export namespace JSON {
         return deserializeArrayBuffer(dataPtr, dataPtr + dataSize, 0) as T;
       } else if (type instanceof Set) {
         // @ts-expect-error
-        return inline.always(
-          deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0),
-        );
+        return deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0);
       } else if (type instanceof Map) {
         // @ts-expect-error
-        return inline.always(
-          deserializeMap<nonnull<T>>(dataPtr, dataPtr + dataSize, 0),
-        );
+        return deserializeMap<nonnull<T>>(dataPtr, dataPtr + dataSize, 0);
       } else if (type instanceof Date) {
         // @ts-expect-error
         return deserializeDate(dataPtr, dataPtr + dataSize);
@@ -427,12 +423,10 @@ export namespace JSON {
         return deserializeRaw(dataPtr, dataPtr + dataSize);
       } else if (type instanceof JSON.Value) {
         // @ts-expect-error
-        return inline.always(
-          deserializeArbitrary(dataPtr, dataPtr + dataSize, 0),
-        );
+        return deserializeArbitrary(dataPtr, dataPtr + dataSize, 0);
       } else if (type instanceof JSON.Obj) {
         // @ts-expect-error
-        return inline.always(deserializeObject(dataPtr, dataPtr + dataSize, 0));
+        return deserializeObject(dataPtr, dataPtr + dataSize, 0);
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error
         return new JSON.Box(parseBox(data, changetype<nonnull<T>>(0).value));
@@ -1249,7 +1243,7 @@ export namespace JSON {
       serializeStruct(changetype<nonnull<T>>(data));
     } else if (data instanceof Date) {
       // @ts-expect-error
-      inline.always(serializeDate(changetype<nonnull<T>>(data)));
+      serializeDate(changetype<nonnull<T>>(data));
     } else {
       serializeReference<T>(data);
     }

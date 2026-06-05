@@ -82,7 +82,7 @@ export function scanQuotedValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
   const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
 
   while (srcStart <= srcEnd8) {
-    let mask = inline.always(backslashOrQuoteMask(load<u64>(srcStart)));
+    let mask = backslashOrQuoteMask(load<u64>(srcStart));
     if (mask === 0) {
       srcStart += 8;
       continue;

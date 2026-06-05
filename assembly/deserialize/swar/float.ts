@@ -94,7 +94,7 @@ export function deserializeFloat_SWAR<T>(srcStart: usize, srcEnd: usize): T {
   if (p < srcEnd && load<u16>(p) == ASCII_DOT) {
     p += 2;
     while (p + 6 < srcEnd) {
-      const parsed = inline.always(parse4Digits_PairMul(load<u64>(p)));
+      const parsed = parse4Digits_PairMul(load<u64>(p));
       if (parsed == U32.MAX_VALUE) break;
       mantissa = mantissa * 10_000 + <u64>parsed;
       fracDigits += 4;

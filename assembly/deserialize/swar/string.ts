@@ -79,20 +79,20 @@ function deserializeEscapedString_SWAR(
 
   while (srcStart <= srcEnd8) {
     const block = load<u64>(srcStart);
-    let mask = inline.always(backslash_mask_unsafe(block));
+    let mask = backslash_mask_unsafe(block);
     if (mask == 0) {
       store<u64>(bs.offset, block);
       bs.offset += 8;
       srcStart += 8;
       if (
         srcStart <= srcEnd8 &&
-        inline.always(backslash_mask_unsafe(load<u64>(srcStart))) == 0
+        backslash_mask_unsafe(load<u64>(srcStart)) == 0
       ) {
         const runStart = srcStart;
         srcStart += 8;
         while (
           srcStart <= srcEnd8 &&
-          inline.always(backslash_mask_unsafe(load<u64>(srcStart))) == 0
+          backslash_mask_unsafe(load<u64>(srcStart)) == 0
         ) {
           srcStart += 8;
         }
@@ -161,8 +161,8 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
     const srcEnd16Fast = srcEnd - 16;
 
     while (srcStart < srcEnd16Fast) {
-      const m0 = inline.always(backslash_mask_unsafe(load<u64>(srcStart)));
-      const m1 = inline.always(backslash_mask_unsafe(load<u64>(srcStart, 8)));
+      const m0 = backslash_mask_unsafe(load<u64>(srcStart));
+      const m1 = backslash_mask_unsafe(load<u64>(srcStart, 8));
       if ((m0 | m1) != 0) break;
       srcStart += 16;
     }
@@ -182,7 +182,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
 
   while (srcStart < srcEnd8) {
     const block = load<u64>(srcStart);
-    let mask = inline.always(backslash_mask_unsafe(block));
+    let mask = backslash_mask_unsafe(block);
 
     if (mask === 0) {
       srcStart += 8;
@@ -198,9 +198,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
       // Detect false positive (code unit where low byte is 0x5C)
       if ((header & 0xffff) !== 0x5c) continue;
 
-      return inline.always(
-        deserializeEscapedString_SWAR(payloadStart, srcIdx, srcEnd),
-      );
+      return deserializeEscapedString_SWAR(payloadStart, srcIdx, srcEnd);
     } while (mask !== 0);
 
     srcStart += 8;
@@ -208,9 +206,7 @@ export function deserializeString_SWAR(srcStart: usize, srcEnd: usize): string {
 
   while (srcStart < srcEnd) {
     if (load<u16>(srcStart) == BACK_SLASH) {
-      return inline.always(
-        deserializeEscapedString_SWAR(payloadStart, srcStart, srcEnd),
-      );
+      return deserializeEscapedString_SWAR(payloadStart, srcStart, srcEnd);
     }
     srcStart += 2;
   }
@@ -275,20 +271,20 @@ function deserializeEscapedStringField_SWAR(
 
   while (srcStart <= srcEnd8) {
     const block = load<u64>(srcStart);
-    let mask = inline.always(backslash_or_quote_mask(block));
+    let mask = backslash_or_quote_mask(block);
     if (mask == 0) {
       store<u64>(bs.offset, block);
       bs.offset += 8;
       srcStart += 8;
       if (
         srcStart <= srcEnd8 &&
-        inline.always(backslash_or_quote_mask(load<u64>(srcStart))) == 0
+        backslash_or_quote_mask(load<u64>(srcStart)) == 0
       ) {
         const runStart = srcStart;
         srcStart += 8;
         while (
           srcStart <= srcEnd8 &&
-          inline.always(backslash_or_quote_mask(load<u64>(srcStart))) == 0
+          backslash_or_quote_mask(load<u64>(srcStart)) == 0
         ) {
           srcStart += 8;
         }
@@ -378,7 +374,7 @@ function deserializeEscapedStringContinuation_SWAR_MergedTuned(
 
   while (srcStart <= srcEnd8) {
     const blockStart = srcStart;
-    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
+    let mask = backslash_or_quote_mask(load<u64>(srcStart));
     if (mask === 0) {
       srcStart += 8;
       continue;
@@ -487,8 +483,8 @@ export function deserializeStringField_SWAR<T extends string | null>(
   if (srcEnd >= 16) {
     const srcEnd16 = srcEnd - 16;
     while (srcStart <= srcEnd16) {
-      const m0 = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
-      const m1 = inline.always(backslash_or_quote_mask(load<u64>(srcStart, 8)));
+      const m0 = backslash_or_quote_mask(load<u64>(srcStart));
+      const m1 = backslash_or_quote_mask(load<u64>(srcStart, 8));
       if ((m0 | m1) != 0) break;
       srcStart += 16;
     }
@@ -496,7 +492,7 @@ export function deserializeStringField_SWAR<T extends string | null>(
 
   const srcEnd8 = srcEnd - 8;
   while (srcStart <= srcEnd8) {
-    let mask = inline.always(backslash_or_quote_mask(load<u64>(srcStart)));
+    let mask = backslash_or_quote_mask(load<u64>(srcStart));
     if (mask === 0) {
       srcStart += 8;
       continue;
@@ -516,13 +512,11 @@ export function deserializeStringField_SWAR<T extends string | null>(
         return srcIdx + 2;
       }
       if (char != BACK_SLASH) continue;
-      return inline.always(
-        deserializeEscapedStringField_SWAR(
-          payloadStart,
-          srcIdx,
-          srcEnd,
-          dstFieldPtr,
-        ),
+      return deserializeEscapedStringField_SWAR(
+        payloadStart,
+        srcIdx,
+        srcEnd,
+        dstFieldPtr,
       );
     } while (mask !== 0);
 
@@ -540,13 +534,11 @@ export function deserializeStringField_SWAR<T extends string | null>(
       return srcStart + 2;
     }
     if (char == BACK_SLASH) {
-      return inline.always(
-        deserializeEscapedStringField_SWAR(
-          payloadStart,
-          srcStart,
-          srcEnd,
-          dstFieldPtr,
-        ),
+      return deserializeEscapedStringField_SWAR(
+        payloadStart,
+        srcStart,
+        srcEnd,
+        dstFieldPtr,
       );
     }
     srcStart += 2;

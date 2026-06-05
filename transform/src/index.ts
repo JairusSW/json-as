@@ -1206,9 +1206,7 @@ export class JSONTransform extends Visitor {
       DESERIALIZE_CUSTOM +=
         "  @inline __DESERIALIZE_CUSTOM(data: string): this {\n";
       DESERIALIZE_CUSTOM +=
-        "    return inline.always(this." +
-        deserializer.name.text +
-        "(data));\n";
+        "    return this." + deserializer.name.text + "(data);\n";
       DESERIALIZE_CUSTOM += "  }\n";
     }
 
