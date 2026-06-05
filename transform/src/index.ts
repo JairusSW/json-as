@@ -1317,6 +1317,14 @@ export class JSONTransform extends Visitor {
       v.flags.has(PropertyFlags.OmitNull),
     );
     const hasOptionalMembers = hasOmitIfMembers || hasOmitNullMembers;
+    // Lazy passthrough reserves exactly the slice bytes (unlike eager string
+    // serialization, which over-reserves for quotes/escaping and leaves slack).
+    // The structural key writes that follow don't `ensureSize`, so for a struct
+    // with lazy fields they can overrun the buffer once a passthrough leaves it
+    // nearly full. Guard each key write when any field is lazy.
+    const hasLazyMembers = this.schema.members.some((v) =>
+      v.flags.has(PropertyFlags.Lazy),
+    );
     const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
     const hasTypeParams =
       !!node.typeParameters && node.typeParameters.length > 0;
@@ -1457,6 +1465,8 @@ export class JSONTransform extends Visitor {
       if (isRegular && isPure) {
         const keyPart = (isFirst ? "{" : ",") + aliasName + ":";
         this.schema.byteSize += keyPart.length << 1;
+        if (hasLazyMembers)
+          SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
         SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
           .map((v) => indent + v + "\n")
           .join("");
@@ -1465,6 +1475,8 @@ export class JSONTransform extends Visitor {
       } else if (isRegular && !isPure) {
         const keyPart = (isFirst ? "" : ",") + aliasName + ":";
         this.schema.byteSize += keyPart.length << 1;
+        if (hasLazyMembers)
+          SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
         SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
           .map((v) => indent + v + "\n")
           .join("");
@@ -1488,6 +1500,8 @@ export class JSONTransform extends Visitor {
           indentInc();
           const keyPart = aliasName + ":";
           this.schema.byteSize += keyPart.length << 1;
+          if (hasLazyMembers)
+            SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
           SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
             .map((v) => indent + v + "\n")
             .join("");
