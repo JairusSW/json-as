@@ -543,18 +543,18 @@ Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "a
 
 Skipping the deferred fields makes deserialization several times faster, and the win grows with payload size:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-deserialize.png" alt="Lazy deserialize: eager vs lazy by payload size">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-deserialize.svg" alt="Lazy deserialize: eager vs lazy by payload size">
 
 The proxy / filter / forward case — parse then re-serialize without reading the deferred fields — copies their raw bytes straight through:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-roundtrip.png" alt="Lazy round-trip: eager vs lazy by payload size">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-roundtrip.svg" alt="Lazy round-trip: eager vs lazy by payload size">
 
 <details>
 <summary>Access-pattern comparison (click to expand)</summary>
 
 Lazy stays at or below eager for every access pattern — skip, read one, read all, or pass through:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-access-pattern.png" alt="Lazy access pattern: eager vs lazy">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-access-pattern.svg" alt="Lazy access pattern: eager vs lazy">
 </details>
 
 ### Performance Tuning
