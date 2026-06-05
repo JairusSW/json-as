@@ -354,6 +354,8 @@ export class JSONTransform extends Visitor {
                 : storesScalar
                     ? "0"
                     : "null";
+            const fdInit = fd.initializer;
+            const fieldDefault = fdInit ? toString(fdInit) : null;
             __hasLazy = true;
             const omitIfDeco = decos?.find((d) => d.name.text === "omitif");
             lazyInner.set("__" + fname + "_lz", {
@@ -379,7 +381,9 @@ export class JSONTransform extends Visitor {
                 : `(<${T}>(<u32>(${lz})))`;
             const lowered = (packScalar
                 ? [
-                    `@alias(${key}) private __${fname}_lz: u64 = 0;`,
+                    `@alias(${key}) private __${fname}_lz: u64 = ${fieldDefault != null
+                        ? `(((<u64>0xffffffff) << 32) | ${encVal(`<${T}>(${fieldDefault})`)})`
+                        : "0"};`,
                     `get ${fname}(): ${T} {\n` +
                         `  const __lz = this.__${fname}_lz;\n` +
                         `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
@@ -393,8 +397,8 @@ export class JSONTransform extends Visitor {
                         `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
                 ]
                 : [
-                    `@alias(${key}) private __${fname}_lz: u64 = 0;`,
-                    `private __${fname}_val: ${valueType} = ${valueDefault};`,
+                    `@alias(${key}) private __${fname}_lz: u64 = ${fieldDefault != null ? "u64.MAX_VALUE" : "0"};`,
+                    `private __${fname}_val: ${valueType} = ${fieldDefault ?? valueDefault};`,
                     `get ${fname}(): ${T} {\n` +
                         `  const __lz = this.__${fname}_lz;\n` +
                         `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +

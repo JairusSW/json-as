@@ -579,6 +579,14 @@ export class JSONTransform extends Visitor {
         : storesScalar
           ? "0"
           : "null";
+      // The original field's declared default (e.g. `name: string = "x"`). Lazy
+      // lowering replaces the field with a slot, so without this the default is
+      // lost: a constructed (not parsed) object would serialize the type default.
+      // We seed the slot in the "materialized default" state. `JSON.parse` builds
+      // via `__new` (no field initializers) then fills the slots, so this only
+      // affects constructed instances.
+      const fdInit = (fd as FieldDeclaration).initializer;
+      const fieldDefault = fdInit ? toString(fdInit) : null;
       __hasLazy = true;
       // Carry @omitnull/@omitif from the original field onto the lowered slot
       // (they can't ride the u64 slot directly — @omitnull rejects primitives —
@@ -628,7 +636,11 @@ export class JSONTransform extends Visitor {
       const lowered = (
         packScalar
           ? [
-              `@alias(${key}) private __${fname}_lz: u64 = 0;`,
+              `@alias(${key}) private __${fname}_lz: u64 = ${
+                fieldDefault != null
+                  ? `(((<u64>0xffffffff) << 32) | ${encVal(`<${T}>(${fieldDefault})`)})`
+                  : "0"
+              };`,
               `get ${fname}(): ${T} {\n` +
                 `  const __lz = this.__${fname}_lz;\n` +
                 `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
@@ -642,8 +654,10 @@ export class JSONTransform extends Visitor {
                 `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
             ]
           : [
-              `@alias(${key}) private __${fname}_lz: u64 = 0;`,
-              `private __${fname}_val: ${valueType} = ${valueDefault};`,
+              `@alias(${key}) private __${fname}_lz: u64 = ${
+                fieldDefault != null ? "u64.MAX_VALUE" : "0"
+              };`,
+              `private __${fname}_val: ${valueType} = ${fieldDefault ?? valueDefault};`,
               // Slow path goes through the shared (non-inline) JSON.__deserialize<T>
               // so the parser is emitted once per type, not inlined into every getter.
               `get ${fname}(): ${T} {\n` +
