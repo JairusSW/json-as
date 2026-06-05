@@ -497,7 +497,7 @@ The following charts compare JSON-AS against JavaScript's native `JSON` implemen
 
 > Note: Benchmarks reflect the **latest version**. Older versions may show different performance.
 >
-> Current local benchmark machine: AMD Ryzen 7 7800X3D (8 cores, 8 threads), 96 MB L3 cache, 32 GB RAM.
+> Current local benchmark machine: Apple M4 Max (16 cores — 12 performance + 4 efficiency), 64 GB RAM, macOS 26.
 >
 > Benchmark results include normal end-to-end work such as allocating the destination object or array before deserializing into it. Raw parser throughput is higher than the published figures because these numbers intentionally include that allocation/setup cost.
 
