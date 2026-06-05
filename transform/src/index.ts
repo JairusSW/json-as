@@ -1357,6 +1357,12 @@ export class JSONTransform extends Visitor {
       ) {
         SERIALIZE += indent + "let block: usize = 0;\n";
       }
+      if (hasOptionalMembers) {
+        // Conditional (@omitnull/@omitif) fields emit a LEADING comma gated on
+        // this flag — set true once any field has been written — so trailing
+        // omitted fields never leave a dangling comma (invalid JSON).
+        SERIALIZE += indent + "let wrote = false;\n";
+      }
       this.schema.byteSize += 2;
       SERIALIZE += indent + "store<u16>(bs.offset, 123, 0); // {\n";
       SERIALIZE += indent + "bs.offset += 2;\n";
@@ -1438,7 +1444,6 @@ export class JSONTransform extends Visitor {
       const member = this.schema.members[i];
       const aliasName = JSON.stringify(member.alias || member.name);
       const realName = member.name;
-      const isLast = i == this.schema.members.length - 1;
 
       if (member.value) {
         if (
@@ -1489,14 +1494,32 @@ export class JSONTransform extends Visitor {
         SERIALIZE += indent + serValue(member, realName);
         if (isFirst) isFirst = false;
       } else if (isRegular && !isPure) {
-        const keyPart = (isFirst ? "" : ",") + aliasName + ":";
-        this.schema.byteSize += keyPart.length << 1;
-        if (hasLazyMembers)
-          SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
-        SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
-          .map((v) => indent + v + "\n")
-          .join("");
-        SERIALIZE += indent + serValue(member, realName);
+        // Optional fields sort ahead of regular ones, so the first regular field
+        // can't tell at compile time whether anything precedes it — gate its
+        // comma on `wrote`. Later regulars always follow a field, so they keep
+        // the static leading comma.
+        if (isFirst && hasOptionalMembers) {
+          const keyPart = aliasName + ":";
+          this.schema.byteSize += 2 + (keyPart.length << 1);
+          SERIALIZE +=
+            indent +
+            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
+          if (hasLazyMembers)
+            SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
+          SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+            .map((v) => indent + v + "\n")
+            .join("");
+          SERIALIZE += indent + serValue(member, realName);
+        } else {
+          const keyPart = (isFirst ? "" : ",") + aliasName + ":";
+          this.schema.byteSize += keyPart.length << 1;
+          if (hasLazyMembers)
+            SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
+          SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+            .map((v) => indent + v + "\n")
+            .join("");
+          SERIALIZE += indent + serValue(member, realName);
+        }
         if (isFirst) isFirst = false;
       } else {
         if (member.flags.has(PropertyFlags.OmitNull)) {
@@ -1515,19 +1538,17 @@ export class JSONTransform extends Visitor {
           SERIALIZE += indent + `if (${omitNullCond}) {\n`;
           indentInc();
           const keyPart = aliasName + ":";
-          this.schema.byteSize += keyPart.length << 1;
+          this.schema.byteSize += 2 + (keyPart.length << 1);
+          SERIALIZE +=
+            indent +
+            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
           if (hasLazyMembers)
             SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
           SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
             .map((v) => indent + v + "\n")
             .join("");
           SERIALIZE += indent + serValue(member, realName);
-
-          if (!isLast) {
-            this.schema.byteSize += 2;
-            SERIALIZE += indent + `store<u16>(bs.offset, 44, 0); // ,\n`;
-            SERIALIZE += indent + `bs.offset += 2;\n`;
-          }
+          SERIALIZE += indent + "wrote = true;\n";
 
           indentDec();
           this.schema.byteSize += 2;
@@ -1568,16 +1589,15 @@ export class JSONTransform extends Visitor {
             SERIALIZE += indent + `if (!(${rendered})) {\n`;
           }
           indentInc();
+          this.schema.byteSize += 2;
+          SERIALIZE +=
+            indent +
+            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
           SERIALIZE += this.getStores(aliasName + ":", SIMD_ENABLED)
             .map((v) => indent + v + "\n")
             .join("");
           SERIALIZE += indent + serValue(member, realName);
-
-          if (!isLast) {
-            this.schema.byteSize += 2;
-            SERIALIZE += indent + `store<u16>(bs.offset, 44, 0); // ,\n`;
-            SERIALIZE += indent + `bs.offset += 2;\n`;
-          }
+          SERIALIZE += indent + "wrote = true;\n";
 
           indentDec();
           SERIALIZE += indent + `}\n`;
