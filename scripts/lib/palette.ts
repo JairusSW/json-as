@@ -56,8 +56,8 @@ export const MODE_BARS = [
 export const EAGER = { bg: rgba("sandDune", 0.85), border: BASE.sandDune };
 export const LAZY = { bg: rgba("jungleGreen", 0.85), border: BASE.jungleGreen };
 
-// Multi-library comparison (chart13/14): grouped by family hue, NAIVE→SIMD as a
-// light→dark opacity ramp within each family. JS baselines recede in neutral
+// Multi-library comparison (chart13/14): one bar per family (the three scan
+// modes are averaged), each a solid family hue. JS baselines recede in neutral
 // sand (darkened so the bars read on white); strawberry red marks the
 // non-json-as competitor.
 export const MULTILIB_COLORS: Record<string, string> = {
@@ -65,15 +65,9 @@ export const MULTILIB_COLORS: Record<string, string> = {
   "fast-json-parse (JS)": "#C5C0A3", // sand dune, mid
   "fast-json-stringify (JS)": "#C5C0A3", // sand dune, mid
   "assemblyscript-json": BASE.strawberryRed,
-  "json-as struct (NAIVE)": rgba("pacificBlue", 0.45),
-  "json-as struct (SWAR)": rgba("pacificBlue", 0.7),
-  "json-as struct (SIMD)": rgba("pacificBlue", 1),
-  "json-as struct lazy (NAIVE)": rgba("jungleGreen", 0.45),
-  "json-as struct lazy (SWAR)": rgba("jungleGreen", 0.7),
-  "json-as struct lazy (SIMD)": rgba("jungleGreen", 1),
-  "json-as JSON.Obj (NAIVE)": rgba("orange", 0.5),
-  "json-as JSON.Obj (SWAR)": rgba("orange", 0.75),
-  "json-as JSON.Obj (SIMD)": rgba("orange", 1),
+  "json-as struct": BASE.pacificBlue,
+  "json-as struct lazy": BASE.jungleGreen,
+  "json-as JSON.Obj": BASE.orange,
 };
 
 // Shared neutral inks (axis ticks, subtitle, value labels, gridlines).

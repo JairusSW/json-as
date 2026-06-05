@@ -38,32 +38,17 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
     ]);
   }
 
-  // json-as generated struct + dynamic JSON.Obj, one bar per mode.
-  for (const mode of MODES) {
-    const m = mode.toLowerCase();
-    entries.push([
-      `json-as struct (${mode})`,
-      mbps("multilib-json-as-struct", kind, m),
-    ]);
-    entries.push([
-      `json-as struct lazy (${mode})`,
-      mbps("multilib-json-as-struct-lazy", kind, m),
-    ]);
-    entries.push([
-      `json-as JSON.Obj (${mode})`,
-      mbps("multilib-json-obj", kind, m),
-    ]);
-  }
-
-  // assemblyscript-json is mode-independent (it doesn't use json-as's parser);
-  // average its three identical runs so it shows as a single bar.
-  const asj = MODES.map((mode) =>
-    mbps("multilib-assemblyscript-json", kind, mode.toLowerCase()),
-  );
-  entries.push([
-    "assemblyscript-json",
-    asj.reduce((a, b) => a + b, 0) / asj.length,
-  ]);
+  // One bar per family, averaged across the three scan modes (NAIVE/SWAR/SIMD)
+  // so the comparison stays readable. assemblyscript-json is mode-independent,
+  // so averaging its three identical runs just collapses them.
+  const avgModes = (suite: string): number => {
+    const v = MODES.map((mode) => mbps(suite, kind, mode.toLowerCase()));
+    return v.reduce((a, b) => a + b, 0) / v.length;
+  };
+  entries.push(["json-as struct", avgModes("multilib-json-as-struct")]);
+  entries.push(["json-as struct lazy", avgModes("multilib-json-as-struct-lazy")]);
+  entries.push(["json-as JSON.Obj", avgModes("multilib-json-obj")]);
+  entries.push(["assemblyscript-json", avgModes("multilib-assemblyscript-json")]);
 
   entries.sort((a, b) => b[1] - a[1]);
 
