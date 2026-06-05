@@ -1342,9 +1342,16 @@ export class JSONTransform extends Visitor {
     const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
     const hasTypeParams =
       !!node.typeParameters && node.typeParameters.length > 0;
+    // Very wide structs: the unrolled per-field FAST deserializer becomes a
+    // single function too large for the Binaryen optimizer (it crashes during
+    // optimize a few hundred fields in). Fall back to the leaner SLOW path,
+    // which stays compilable at any width. Conservative threshold — real-world
+    // structs are far smaller and keep the fast path.
+    const WIDE_STRUCT_NO_FAST_LIMIT = 128;
     const useFastPath =
       requestedFastPath &&
       !hasTypeParams &&
+      this.schema.members.length <= WIDE_STRUCT_NO_FAST_LIMIT &&
       (this.schema.static || supportsFastOptionalPath);
 
     indent = "  ";
@@ -3385,6 +3392,20 @@ export class JSONTransform extends Visitor {
       console.log(SERIALIZE_CUSTOM || SERIALIZE);
       console.log(INITIALIZE);
       console.log(DESERIALIZE_CUSTOM || DESERIALIZE);
+    }
+
+    // `__DESERIALIZE_FAST` / `__INITIALIZE` are emitted `@inline` so small
+    // structs specialize into their call sites. For a wide struct that function
+    // is huge (one parse branch + range-store per field), and inlining copies it
+    // into every call site (parse<T>, array/element deserialize, nested structs).
+    // Past ~100 fields the duplicated code can overwhelm the Binaryen optimizer
+    // ("crashed during optimize"). Above the limit, emit them as shared (called)
+    // functions instead — one copy, far less code, and a single `call` of
+    // overhead per object that the per-field work dwarfs.
+    const WIDE_STRUCT_FIELD_LIMIT = 32;
+    if (this.schema.members.length > WIDE_STRUCT_FIELD_LIMIT) {
+      INITIALIZE = INITIALIZE.replace(/^@inline /, "");
+      DESERIALIZE_FAST = DESERIALIZE_FAST.replace(/^@inline /, "");
     }
 
     const SERIALIZE_METHOD = SimpleParser.parseClassMember(

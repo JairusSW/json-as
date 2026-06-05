@@ -867,8 +867,10 @@ export class JSONTransform extends Visitor {
         const hasLazyMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.Lazy));
         const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
         const hasTypeParams = !!node.typeParameters && node.typeParameters.length > 0;
+        const WIDE_STRUCT_NO_FAST_LIMIT = 128;
         const useFastPath = requestedFastPath &&
             !hasTypeParams &&
+            this.schema.members.length <= WIDE_STRUCT_NO_FAST_LIMIT &&
             (this.schema.static || supportsFastOptionalPath);
         indent = "  ";
         if (this.schema.static == false) {
@@ -2408,6 +2410,11 @@ export class JSONTransform extends Visitor {
             console.log(SERIALIZE_CUSTOM || SERIALIZE);
             console.log(INITIALIZE);
             console.log(DESERIALIZE_CUSTOM || DESERIALIZE);
+        }
+        const WIDE_STRUCT_FIELD_LIMIT = 32;
+        if (this.schema.members.length > WIDE_STRUCT_FIELD_LIMIT) {
+            INITIALIZE = INITIALIZE.replace(/^@inline /, "");
+            DESERIALIZE_FAST = DESERIALIZE_FAST.replace(/^@inline /, "");
         }
         const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
         const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
