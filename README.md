@@ -545,14 +545,18 @@ Skipping the deferred fields makes deserialization several times faster, and the
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-deserialize.svg" alt="Lazy deserialize: eager vs lazy by payload size">
 
-The proxy / filter / forward case — parse then re-serialize without reading the deferred fields — copies their raw bytes straight through:
+The proxy / filter / forward case - parse then re-serialize without reading the deferred fields - copies their raw bytes straight through:
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-roundtrip.svg" alt="Lazy round-trip: eager vs lazy by payload size">
+
+Re-emitting a parsed object forwards the untouched fields' raw bytes instead of rebuilding them:
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-serialize.svg" alt="Lazy serialize: eager vs lazy by payload size">
 
 <details>
 <summary>Access-pattern comparison (click to expand)</summary>
 
-Lazy stays at or below eager for every access pattern — skip, read one, read all, or pass through:
+Skipping, reading one field, or forwarding is far faster than eager; reading every deferred field costs a little more (the work is deferred, not removed):
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-access-pattern.svg" alt="Lazy access pattern: eager vs lazy">
 </details>
