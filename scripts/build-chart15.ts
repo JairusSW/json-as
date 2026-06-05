@@ -6,6 +6,7 @@ import {
 } from "./lib/bench-utils";
 import type { ChartConfiguration, Plugin } from "chart.js";
 import type {} from "chartjs-plugin-datalabels";
+import { EAGER as EAGER_BAR, LAZY as LAZY_BAR, INK } from "./lib/palette";
 
 // Lazy-fields charts (eager vs `@json({ lazy: "auto" })`), SIMD. Backed by the
 // committed benchmark in assembly/__benches__/lazy/lazy.bench.ts — regenerate
@@ -19,11 +20,9 @@ const read = (suite: string, type: string): BenchResult =>
     ),
   );
 
-const GREY = { bg: "rgba(148,163,184,0.85)", border: "#94a3b8" };
-const BLUE = { bg: "rgba(99,102,241,0.85)", border: "#6366f1" };
 const MBPS = "Throughput (MB/s, higher is better)";
 const LAZY = ["eager", 'lazy ("auto")'];
-const PAIR = [GREY, BLUE];
+const PAIR = [EAGER_BAR, LAZY_BAR];
 
 // Geometry-based labels (the datalabels plugin mis-places above-bar labels in
 // the SVG backend for some data shapes; bar.x/bar.y are always correct).
@@ -33,7 +32,7 @@ const valueLabels: Plugin<"bar"> = {
     const ctx = chart.ctx;
     ctx.save();
     ctx.font = "bold 12px sans-serif";
-    ctx.fillStyle = "#374151";
+    ctx.fillStyle = INK.label;
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     for (let di = 0; di < chart.data.datasets.length; di++) {

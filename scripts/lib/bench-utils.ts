@@ -4,6 +4,7 @@ import { execSync } from "child_process";
 import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
+import { MODE_BARS, INK } from "./palette";
 
 export interface BenchResult {
   language: "as" | "js";
@@ -129,13 +130,7 @@ export function createBarChart(
     "JSON-AS (SIMD)",
   ];
 
-  const PALETTE = [
-    { bg: "rgba(99,102,241,0.85)", border: "#6366f1" }, // indigo
-    { bg: "rgba(255, 241, 49, 0.85)", border: "rgb(255, 241, 49)" }, // yellow
-    { bg: "rgba(34,197,94,0.85)", border: "#22c55e" }, // green
-    { bg: "rgba(239,68,68,0.9)", border: "#ef4444" }, // red
-  ];
-  const palette = options.colors ?? PALETTE;
+  const palette = options.colors ?? MODE_BARS;
   const numDatasets = Math.max(...payloadKeys.map((k) => data[k].length));
 
   return {
@@ -176,7 +171,7 @@ export function createBarChart(
           display: true,
           text: subtitle(),
           font: { size: 14, weight: "bold" },
-          color: "#6b7280",
+          color: INK.subtitle,
           padding: 16,
           position: "right",
         },
@@ -255,7 +250,7 @@ export function createLineChart(
           display: true,
           text: subtitle(),
           font: { size: 14, weight: "bold" },
-          color: "#6b7280",
+          color: INK.subtitle,
           padding: { bottom: 16 },
         },
       },
