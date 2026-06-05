@@ -15,10 +15,11 @@ const MODES = ["NAIVE", "SWAR", "SIMD"] as const;
 // Grouped by family, blue-vs-amber for the two json-as families (the classic
 // colourblind-safe contrast), slate for the recede-able JS baselines, rose for
 // the competitor. NAIVE→SIMD shades light→dark within each json-as family.
-//   • json-as struct   → blue
-//   • json-as JSON.Obj → forest green
-//   • JS baselines     → slate
-//   • assemblyscript-json → rose
+//   • json-as struct        → blue
+//   • json-as struct (lazy) → amber
+//   • json-as JSON.Obj      → forest green
+//   • JS baselines          → slate
+//   • assemblyscript-json   → rose
 const COLORS: Record<string, string> = {
   "native JSON (JS)": "#cbd5e1", // slate-300
   "fast-json-parse (JS)": "#94a3b8", // slate-400
@@ -27,6 +28,9 @@ const COLORS: Record<string, string> = {
   "json-as struct (NAIVE)": "#93c5fd", // blue-300
   "json-as struct (SWAR)": "#3b82f6", // blue-500
   "json-as struct (SIMD)": "#1e40af", // blue-800
+  "json-as struct lazy (NAIVE)": "#fcd34d", // amber-300
+  "json-as struct lazy (SWAR)": "#f59e0b", // amber-500
+  "json-as struct lazy (SIMD)": "#b45309", // amber-700
   "json-as JSON.Obj (NAIVE)": "#4ade80", // green-400
   "json-as JSON.Obj (SWAR)": "#16a34a", // green-600
   "json-as JSON.Obj (SIMD)": "#166534", // green-800 (forest)
@@ -62,6 +66,10 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
     entries.push([
       `json-as struct (${mode})`,
       mbps("multilib-json-as-struct", kind, m),
+    ]);
+    entries.push([
+      `json-as struct lazy (${mode})`,
+      mbps("multilib-json-as-struct-lazy", kind, m),
     ]);
     entries.push([
       `json-as JSON.Obj (${mode})`,
