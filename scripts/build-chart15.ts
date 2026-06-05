@@ -6,7 +6,13 @@ import {
 } from "./lib/bench-utils";
 import type { ChartConfiguration, Plugin } from "chart.js";
 import type {} from "chartjs-plugin-datalabels";
-import { EAGER as EAGER_BAR, LAZY as LAZY_BAR, INK } from "./lib/palette";
+import {
+  EAGER as EAGER_BAR,
+  LAZY as LAZY_BAR,
+  INK,
+  BASE,
+  rgba,
+} from "./lib/palette";
 
 // Lazy-fields charts (eager vs `@json({ lazy: "auto" })`), SIMD. Backed by the
 // committed benchmark in assembly/__benches__/lazy/lazy.bench.ts — regenerate
@@ -92,29 +98,58 @@ sizeChart(
   `${OUT}/lazy-roundtrip.svg`,
 );
 
-// Access pattern (medium struct): eager parse cost is flat across read patterns;
-// the round-trip group compares against eager round-trip.
-const accEager = read("lz-access", "eager");
-const accEagerRT = read("lz-medium-eager", "roundtrip");
-const accData: Record<string, BenchResult[]> = {
-  none: [accEager, read("lz-access", "none")],
-  one: [accEager, read("lz-access", "one")],
-  all: [accEager, read("lz-access", "all")],
-  pass: [accEagerRT, read("lz-access", "pass")],
-};
-const accLabels: Record<string, string> = {
-  none: "read none",
-  one: "read 1 field",
-  all: "read all",
-  pass: "round-trip\n(passthru)",
-};
+// Lazy mode access patterns. SWAR only (the mode the lazy fast-path is showcased
+// in) — read swar logs directly regardless of the size-chart MODE above. Each
+// payload group is one eager (full-parse) baseline bar plus five lazy bars at an
+// increasing share of deferred fields read. Backed by
+// assembly/__benches__/lazy/access-pattern.bench.ts (run `bun run bench:as
+// lazy/` to regenerate every mode's logs).
+const SWAR_READ = (suite: string, type: string): BenchResult =>
+  JSON.parse(
+    fs.readFileSync(`./build/logs/as/swar/${suite}.${type}.as.json`, "utf-8"),
+  );
+
+const ACCESS_SETS: [string, string][] = [
+  ["vec3", "Vec3\n(19b)"],
+  ["token", "Token\n(49b)"],
+  ["small", "Small\n(108b)"],
+  ["medium", "Medium\n(1.1kb)"],
+  ["large", "Large\n(5.5kb)"],
+];
+const READ_LEVELS = ["eager", "r0", "r25", "r50", "r75", "r100"];
+const READ_LABELS = [
+  "eager (swar)",
+  "lazy 0% read",
+  "lazy 25% read",
+  "lazy 50% read",
+  "lazy 75% read",
+  "lazy 100% read",
+];
+// Neutral eager baseline, then a jungle-green opacity ramp so the cost of
+// reading more deferred fields reads as a darkening gradient.
+const ACCESS_COLORS = [
+  EAGER_BAR,
+  { bg: rgba("jungleGreen", 0.3), border: BASE.jungleGreen },
+  { bg: rgba("jungleGreen", 0.45), border: BASE.jungleGreen },
+  { bg: rgba("jungleGreen", 0.6), border: BASE.jungleGreen },
+  { bg: rgba("jungleGreen", 0.78), border: BASE.jungleGreen },
+  { bg: rgba("jungleGreen", 0.95), border: BASE.jungleGreen },
+];
+
+const accData: Record<string, BenchResult[]> = {};
+const accLabels: Record<string, string> = {};
+for (const [key, label] of ACCESS_SETS) {
+  accData[key] = READ_LEVELS.map((lvl) => SWAR_READ(`lzap-${key}`, lvl));
+  accLabels[key] = label;
+}
 emit(
   createBarChart(accData, accLabels, {
-    title: "Access pattern — a struct with deferrable fields",
+    title:
+      "Lazy mode access patterns (SWAR) — eager baseline vs % of deferred fields read",
     yLabel: MBPS,
     xLabel: "",
-    datasetLabels: LAZY,
-    colors: PAIR,
+    datasetLabels: READ_LABELS,
+    colors: ACCESS_COLORS,
   }),
   `${OUT}/lazy-access-pattern.svg`,
 );

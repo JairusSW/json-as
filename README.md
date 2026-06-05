@@ -572,9 +572,9 @@ Re-emitting a parsed object forwards the untouched fields' raw bytes instead of 
 <details>
 <summary>Access-pattern comparison (click to expand)</summary>
 
-Skipping, reading one field, or forwarding is far faster than eager; reading every deferred field costs a little more (the work is deferred, not removed):
+Lazy cost scales with how much you actually read. For each payload (vec3 → large) the chart compares a full eager SWAR parse against a lazy parse that touches an increasing share of its deferred fields — 0% (skeleton only), 25, 50, 75, then 100%. Reading nothing or a couple of fields is far faster than eager; reading everything approaches it (the work is deferred, not removed). SWAR only, since that's the mode the lazy fast-path is showcased in:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-access-pattern.svg" alt="Lazy access pattern: eager vs lazy">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/lazy-access-pattern.svg" alt="Lazy mode access patterns: eager baseline vs % of deferred fields read">
 </details>
 
 ### Performance Tuning
