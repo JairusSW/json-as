@@ -166,26 +166,80 @@ declare function lazy(..._): void;
 declare function eager(..._): void;
 
 /**
- * Method decorator marking a member as the class's custom serializer. The
- * method receives the instance and returns the JSON string for it, replacing
- * the generated serialization. Pairs with {@link deserializer}.
+ * Method decorator marking a member as the class's custom serializer, replacing
+ * the generated serialization. The method receives the instance and must return
+ * a **valid JSON string**. Pair with {@link deserializer}.
+ *
+ * @param shape - Optional JSON value shape the output conforms to — one of
+ *   `"any"` (default), `"string"`, `"number"`, `"object"`, `"array"`,
+ *   `"boolean"`, or `"null"`.
+ *
+ * @example
+ * ```ts
+ * @json
+ * class Point {
+ *   x: f64 = 0;
+ *   y: f64 = 0;
+ *   constructor(x: f64, y: f64) {
+ *     this.x = x;
+ *     this.y = y;
+ *   }
+ *
+ *   // Serialize a Point to a single JSON string.
+ *   @serializer("string")
+ *   serializer(self: Point): string {
+ *     return JSON.stringify(`${self.x},${self.y}`);
+ *   }
+ *
+ *   // ...and back. Always return a fresh instance.
+ *   @deserializer("string")
+ *   deserializer(data: string): Point {
+ *     const raw = JSON.parse<string>(data);
+ *     const c = raw.indexOf(",");
+ *     return new Point(f64.parse(raw.slice(0, c)), f64.parse(raw.slice(c + 1)));
+ *   }
+ * }
+ *
+ * JSON.stringify(new Point(3.5, -9.2)); // '"3.5,-9.2"'
+ * JSON.parse<Point>('"3.5,-9.2"'); // Point { x: 3.5, y: -9.2 }
+ * ```
  */
 // @ts-ignore: type
-declare function serializer(..._): any;
+declare function serializer(
+  shape?: "any" | "string" | "number" | "object" | "array" | "boolean" | "null",
+): any;
 
 /**
- * Method decorator marking a member as the class's custom deserializer. The
- * method receives the JSON string and returns an instance, replacing the
- * generated deserialization. Pairs with {@link serializer}.
+ * Method decorator marking a member as the class's custom deserializer,
+ * replacing the generated deserialization. The method receives the raw JSON
+ * string and must return a **new** instance — never assume an existing
+ * destination is reused. Pair with {@link serializer} (see it for a full,
+ * round-tripping example).
+ *
+ * @param shape - Optional JSON value shape the input conforms to — one of
+ *   `"any"` (default), `"string"`, `"number"`, `"object"`, `"array"`,
+ *   `"boolean"`, or `"null"`.
+ *
+ * @example
+ * ```ts
+ * @deserializer("string")
+ * deserializer(data: string): Point {
+ *   const raw = JSON.parse<string>(data); // unwrap the JSON string
+ *   const c = raw.indexOf(",");
+ *   return new Point(f64.parse(raw.slice(0, c)), f64.parse(raw.slice(c + 1)));
+ * }
+ * ```
  */
 // @ts-ignore: type
-declare function deserializer(..._): any;
+declare function deserializer(
+  shape?: "any" | "string" | "number" | "object" | "array" | "boolean" | "null",
+): any;
 
 /**
  * Parsing/serialization strategy selected at build time via the `JSON_MODE`
  * environment variable and exposed as {@link JSON_MODE}.
  */
-declare enum JSONMode {
+declare const enum JSONMode {
   /** Scalar/word-at-a-time (SWAR) scanning. The default; no extra flags. */
   SWAR = 0,
   /** 128-bit SIMD scanning. Fastest on larger payloads; needs `--enable simd`. */
@@ -196,20 +250,41 @@ declare enum JSONMode {
 
 /**
  * The active {@link JSONMode}, injected by the transform from the `JSON_MODE`
- * build-time environment variable (default `SWAR`).
+ * build-time environment variable (default `SWAR`). Set it on the `asc`
+ * command/build env; `SIMD` additionally requires `--enable simd`.
+ *
+ * @example
+ * ```sh
+ * JSON_MODE=SIMD  asc app.ts --transform json-as/transform --enable simd
+ * JSON_MODE=SWAR  asc app.ts --transform json-as/transform   # default
+ * JSON_MODE=NAIVE asc app.ts --transform json-as/transform
+ * ```
  */
 declare const JSON_MODE: JSONMode;
 
 /**
- * Whether the string cache is enabled, injected from the `JSON_CACHE`
- * environment variable. When on, repeated strings can be reused to speed up
- * string-heavy serialization.
+ * Whether the string cache is enabled (default off). Injected from the
+ * `JSON_CACHE` build-time environment variable. When on, repeated strings are
+ * reused to speed up string-heavy serialization.
+ *
+ * @example
+ * ```sh
+ * JSON_CACHE=true  asc app.ts --transform json-as/transform # default size
+ * JSON_CACHE=512kb asc app.ts --transform json-as/transform # enable + size
+ * JSON_CACHE=false asc app.ts --transform json-as/transform # off (default)
+ * ```
  */
 declare const JSON_CACHE: bool;
 
 /**
- * The string-cache size in bytes when {@link JSON_CACHE} is enabled, injected
- * from the `JSON_CACHE` environment variable (accepts raw bytes, `512kb`,
- * `2mb`, `1gb`, etc.).
+ * The string-cache size in bytes when {@link JSON_CACHE} is enabled. Both this
+ * and {@link JSON_CACHE} are derived from the single `JSON_CACHE` build-time
+ * environment variable, which accepts raw bytes (`JSON_CACHE=1048576`), bit
+ * units (`512kb`, `2mb`, `1gb`), or byte units (`64KB`, `2MB`, `1GB`).
+ *
+ * @example
+ * ```sh
+ * JSON_CACHE=1mb asc app.ts --transform json-as/transform # JSON_CACHE_SIZE == 1048576
+ * ```
  */
 declare const JSON_CACHE_SIZE: usize;
