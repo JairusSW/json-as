@@ -1,12 +1,13 @@
 import type { ChartConfiguration } from "chart.js";
-import { generateChart } from "./lib/bench-utils";
+import ChartDataLabels from "chartjs-plugin-datalabels";
+import { generateChart, subtitle } from "./lib/bench-utils";
 
 // Lazy-fields charts: eager vs `@json({ lazy: "auto" })`. Numbers are ns/op
 // (best-of-3, 2M iters, SIMD, -O3) from the eager-vs-lazy micro-bench over the
 // small/medium/large bench payloads plus a synthetic struct for the access
 // pattern. Re-measure and update DATA below if the implementation changes.
 const DATA = {
-  size: ["Small\n~120 B", "Medium\n~700 B", "Large\n~5 KB"],
+  size: ["Small\n(~120b)", "Medium\n(~700b)", "Large\n(~5kb)"],
   deserialize: { eager: [132, 1531, 2595], lazy: [41, 158, 701] },
   roundtrip: { eager: [185, 1890, 3816], lazy: [89, 286, 1252] },
   access: {
@@ -25,35 +26,54 @@ const GREY = { bg: "rgba(148,163,184,0.85)", border: "#94a3b8" };
 const BLUE = { bg: "rgba(99,102,241,0.85)", border: "#6366f1" };
 const RED = { bg: "rgba(239,68,68,0.9)", border: "#ef4444" };
 
-function baseOptions(title: string, yLabel: string, legend: boolean) {
+// Mirror the chart01 (createBarChart) look: bold title, legend on top, value
+// labels above the bars, and the build-info sidebar on the right.
+function chartShell(
+  title: string,
+  yLabel: string,
+  yMax: number,
+  showLegend: boolean,
+): ChartConfiguration<"bar">["options"] {
   return {
+    responsive: true,
     plugins: {
-      title: {
-        display: true,
-        text: title,
-        font: { size: 20, weight: "bold" as const },
-      },
+      title: { display: true, text: title, font: { size: 20, weight: "bold" } },
       legend: {
-        display: legend,
-        position: "top" as const,
-        labels: { font: { size: 16, weight: "bold" as const }, padding: 20 },
+        display: showLegend,
+        position: "top",
+        labels: { font: { size: 16, weight: "bold" }, padding: 20 },
+      },
+      datalabels: {
+        anchor: "end",
+        align: "end",
+        font: { weight: "bold", size: 12 },
+        formatter: (v: number) => v.toFixed(0),
+      },
+      subtitle: {
+        display: true,
+        text: subtitle(),
+        font: { size: 14, weight: "bold" },
+        color: "#6b7280",
+        padding: 16,
+        position: "right",
       },
     },
     scales: {
       y: {
         beginAtZero: true,
+        max: yMax,
         title: {
           display: true,
           text: yLabel,
-          font: { size: 16, weight: "bold" as const },
+          font: { size: 16, weight: "bold" },
         },
-        ticks: { font: { size: 14, weight: "bold" as const } },
+        ticks: { font: { size: 14, weight: "bold" } },
       },
       x: {
         ticks: {
           maxRotation: 0,
           minRotation: 0,
-          font: { size: 14, weight: "bold" as const },
+          font: { size: 14, weight: "bold" },
         },
       },
     },
@@ -67,6 +87,7 @@ function eagerVsLazy(
   lazy: number[],
   yLabel = "ns / op  (lower is better)",
 ): ChartConfiguration<"bar"> {
+  const yMax = Math.ceil((Math.max(...eager, ...lazy) * 1.18) / 100) * 100;
   return {
     type: "bar",
     data: {
@@ -88,11 +109,13 @@ function eagerVsLazy(
         },
       ],
     },
-    options: baseOptions(title, yLabel, true),
+    options: chartShell(title, yLabel, yMax, true),
+    plugins: [ChartDataLabels],
   };
 }
 
 function moduleSize(): ChartConfiguration<"bar"> {
+  const yMax = Math.ceil((Math.max(...DATA.size_kb.data) * 1.18) / 100) * 100;
   return {
     type: "bar",
     data: {
@@ -107,11 +130,13 @@ function moduleSize(): ChartConfiguration<"bar"> {
         },
       ],
     },
-    options: baseOptions(
+    options: chartShell(
       "Code-size cost of lazy-everywhere",
       "module size (KB)",
+      yMax,
       false,
     ),
+    plugins: [ChartDataLabels],
   };
 }
 
@@ -124,7 +149,7 @@ generateChart(
     DATA.deserialize.eager,
     DATA.deserialize.lazy,
   ),
-  `${OUT}/lazy-deserialize.png`,
+  `${OUT}/lazy-deserialize.svg`,
 );
 generateChart(
   eagerVsLazy(
@@ -133,7 +158,7 @@ generateChart(
     DATA.roundtrip.eager,
     DATA.roundtrip.lazy,
   ),
-  `${OUT}/lazy-roundtrip.png`,
+  `${OUT}/lazy-roundtrip.svg`,
 );
 generateChart(
   eagerVsLazy(
@@ -142,6 +167,6 @@ generateChart(
     DATA.access.eager,
     DATA.access.lazy,
   ),
-  `${OUT}/lazy-access-pattern.png`,
+  `${OUT}/lazy-access-pattern.svg`,
 );
-generateChart(moduleSize(), `${OUT}/lazy-module-size.png`);
+generateChart(moduleSize(), `${OUT}/lazy-module-size.svg`);
