@@ -537,6 +537,22 @@ The following charts compare JSON-AS against JavaScript's native `JSON` implemen
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart10.png" alt="Performance Chart 10">
 </details>
 
+<details>
+<summary>Primitive (de)serialize charts (click to expand)</summary>
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart11.svg" alt="Primitive serialization performance">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart12.svg" alt="Primitive deserialization performance">
+</details>
+
+### Library comparison
+
+How `json-as` stacks up against other JSON libraries on a ~5 KiB GitHub-repo payload: JavaScript's native `JSON` and `fast-json` (each in a fresh V8), plus the `assemblyscript-json` package. The `json-as` bars (generated struct, lazy struct, and dynamic `JSON.Obj`) are averaged across the NAIVE / SWAR / SIMD scan modes.
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart14.png" alt="Library comparison - deserialize throughput">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/chart13.png" alt="Library comparison - serialize throughput">
+
 ### Lazy Fields
 
 Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "auto" })`) to defer it: its raw JSON slice is stored at parse time and parsed only on first access. Fields you skip are never parsed, and untouched fields pass through their original bytes on serialize. See the [Lazy Fields guide](https://docs.jairus.dev/json-as/guide/lazy-fields) for the full API and trade-offs.
