@@ -1,6 +1,11 @@
 import { JSON } from "../..";
 import { blackbox, bench, dumpToFile } from "../lib/bench";
-import { RepoLazy, payload, payloadBytes, STRUCT_DESERIALIZE_OPS } from "./shared";
+import {
+  RepoLazy,
+  payload,
+  payloadBytes,
+  STRUCT_DESERIALIZE_OPS,
+} from "./shared";
 
 bench(
   "Deserialize Multilib Payload (json-as struct, lazy auto)",

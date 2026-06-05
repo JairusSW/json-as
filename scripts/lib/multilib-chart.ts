@@ -46,9 +46,15 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
     return v.reduce((a, b) => a + b, 0) / v.length;
   };
   entries.push(["json-as struct", avgModes("multilib-json-as-struct")]);
-  entries.push(["json-as struct lazy", avgModes("multilib-json-as-struct-lazy")]);
+  entries.push([
+    "json-as struct lazy",
+    avgModes("multilib-json-as-struct-lazy"),
+  ]);
   entries.push(["json-as JSON.Obj", avgModes("multilib-json-obj")]);
-  entries.push(["assemblyscript-json", avgModes("multilib-assemblyscript-json")]);
+  entries.push([
+    "assemblyscript-json",
+    avgModes("multilib-assemblyscript-json"),
+  ]);
 
   entries.sort((a, b) => b[1] - a[1]);
 

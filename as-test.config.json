@@ -8,7 +8,7 @@
   "config": "none",
   "cache": {
     "type": "reachable",
-    "maxTime": "1d"
+    "ttl": "1d"
   },
   "coverage": {
     "enabled": true,

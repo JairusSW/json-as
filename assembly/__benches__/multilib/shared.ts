@@ -364,5 +364,4 @@ export class RepoLazy {
   public default_branch: string = "master";
 }
 
-
 export const structValueLazy = JSON.parse<RepoLazy>(payload);
