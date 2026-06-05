@@ -315,3 +315,44 @@ DX and prevents subpath-resolution surprises in mixed toolchains.
 A streaming/incremental API would cut peak memory for huge inputs.
 
 **Effort:** large (real feature). Lowest priority.
+
+---
+
+## 11. Shorter compile times / less Binaryen pressure  — PLANNED
+
+**Why.** `asc`'s Binaryen `optimize` pass dominates build time. Measured on the
+multilib `Repo` bench (~80-field struct) at `-O3`: optimize **8332 ms** vs compile
+237 ms, parse 79 ms, emit 64 ms, transform 51 ms. So every lever is "feed Binaryen
+less, or run fewer passes." By impact:
+
+**a) Opt level (free, no code change).** `-O3` buys ~0% size over `-O2` and only
++2% over `-O1`, for 4× the time:
+
+| opt | optimize | module    |
+|-----|----------|-----------|
+| -O3 | 8332 ms  | 356,860 b |
+| -O2 | 5013 ms  | 356,860 b (identical) |
+| -O1 | 2019 ms  | 364,751 b (+2%) |
+
+Keep `-O3` for published benchmarks (runtime matters); document `-O1`/`-O2` for dev
+iteration, CI, and end users who don't need peak parse throughput. The test suite
+already builds `--debug` (no `-O`), so it isn't the bottleneck.
+
+**b) Chunk the SLOW deserializer** like the FAST tiers already are (`chunkFastBlocks`
+/ `chunkFastBlocksOptional`). `__DESERIALIZE_SLOW` is the last big unrolled per-field
+function; Binaryen's per-function passes are superlinear, so splitting it into
+helpers cuts optimize time and dodges the crash ceiling FAST hit. Overlaps with #1c.
+
+**c) `minified-only` flag to skip FAST tier-2.** Each struct emits two unrolled FAST
+deserializers — tier-1 (minified) and tier-2 (whitespace-tolerant). json-as's own
+output is minified and most wire JSON is too, so a `JSON_FAST_MINIFIED_ONLY` build
+flag (falling to SLOW on whitespace) roughly halves the FAST code.
+
+**d) Optional SLOW path.** SLOW is always emitted as the FAST fallback even though
+FAST handles all valid input; a flag to drop it shrinks size-sensitive builds.
+
+**Already banked:** `@inline` + `inline.always` removal, FAST chunking, and
+width-tiering all cut exactly this optimize input.
+
+**Effort:** (a) trivial/docs; (b) medium (mirror the FAST chunking); (c)/(d) small
+(flag-gated codegen).
