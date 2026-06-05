@@ -4,7 +4,8 @@ import {
   generateChart,
   type BenchResult,
 } from "./lib/bench-utils";
-import type { ChartConfiguration } from "chart.js";
+import type { ChartConfiguration, Plugin } from "chart.js";
+import type {} from "chartjs-plugin-datalabels";
 
 // Lazy-fields charts (eager vs `@json({ lazy: "auto" })`), SIMD. Backed by the
 // committed benchmark in assembly/__benches__/lazy/lazy.bench.ts — regenerate
@@ -26,9 +27,9 @@ const PAIR = [GREY, BLUE];
 
 // Geometry-based labels (the datalabels plugin mis-places above-bar labels in
 // the SVG backend for some data shapes; bar.x/bar.y are always correct).
-const valueLabels = {
+const valueLabels: Plugin<"bar"> = {
   id: "valueLabels",
-  afterDatasetsDraw(chart: any) {
+  afterDatasetsDraw(chart) {
     const ctx = chart.ctx;
     ctx.save();
     ctx.font = "bold 12px sans-serif";
@@ -38,7 +39,7 @@ const valueLabels = {
     for (let di = 0; di < chart.data.datasets.length; di++) {
       const meta = chart.getDatasetMeta(di);
       const values = chart.data.datasets[di].data as number[];
-      meta.data.forEach((bar: any, i: number) =>
+      meta.data.forEach((bar, i) =>
         ctx.fillText(String(Math.round(values[i])), bar.x, bar.y - 4),
       );
     }
@@ -47,8 +48,10 @@ const valueLabels = {
 };
 
 function emit(cfg: ChartConfiguration<"bar">, file: string) {
-  (cfg.options as any).plugins.datalabels = { display: false };
-  (cfg as any).plugins = [valueLabels];
+  cfg.options ??= {};
+  cfg.options.plugins ??= {};
+  cfg.options.plugins.datalabels = { display: false };
+  cfg.plugins = [valueLabels];
   generateChart(cfg, file);
 }
 

@@ -302,15 +302,23 @@ describe("Should not leave a trailing comma when later optional fields are omitt
   expect(JSON.stringify(m2)).toBe('{"opt":"x","id":5}');
 });
 
+
 @json
 class OmitTail {
+
   @omitnull() a: string | null = null;
+
+
   @omitnull() b: string | null = null;
+
+
   @omitnull() c: string | null = null;
 }
 
+
 @json
 class OmitTailMixed {
+
   @omitnull() opt: string | null = null;
   id: i32 = 0;
 }
