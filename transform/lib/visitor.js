@@ -530,4 +530,3 @@ export class Visitor {
     visitModuleDeclaration(_node, _ref = null) { }
     visitOmittedExpression(_node, _ref = null) { }
 }
-//# sourceMappingURL=visitor.js.map

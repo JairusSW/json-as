@@ -35,4 +35,3 @@ export class CustomTransform extends Visitor {
         return CustomTransform.SN.modify;
     }
 }
-//# sourceMappingURL=custom.js.map

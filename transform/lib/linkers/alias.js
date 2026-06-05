@@ -46,4 +46,3 @@ export class TypeAlias {
         return [...this.aliases.values()];
     }
 }
-//# sourceMappingURL=alias.js.map

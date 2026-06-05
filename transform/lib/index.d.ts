@@ -35,4 +35,3 @@ export default class Transformer extends Transform {
     afterParse(parser: Parser): void;
 }
 export declare function stripNull(type: string): string;
-//# sourceMappingURL=index.d.ts.map

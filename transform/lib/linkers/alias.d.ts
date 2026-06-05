@@ -9,4 +9,3 @@ export declare class TypeAlias {
     static add(name: string, type: TypeNode): void;
     static getAliases(source: Source): TypeAlias[];
 }
-//# sourceMappingURL=alias.d.ts.map

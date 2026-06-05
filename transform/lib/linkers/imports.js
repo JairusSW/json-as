@@ -14,4 +14,3 @@ class ImportGetter extends Visitor {
 export function getImports(source) {
     return ImportGetter.getImports(source);
 }
-//# sourceMappingURL=imports.js.map
