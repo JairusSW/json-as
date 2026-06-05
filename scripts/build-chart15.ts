@@ -100,8 +100,8 @@ sizeChart(
 
 // Lazy mode access patterns. SWAR only (the mode the lazy fast-path is showcased
 // in) — read swar logs directly regardless of the size-chart MODE above. Each
-// payload group is one eager (full-parse) baseline bar plus five lazy bars at an
-// increasing share of deferred fields read. Backed by
+// payload group shows lazy reads of a growing slice of its deferred fields
+// (none/one/half/all) plus the eager full-parse baseline. Backed by
 // assembly/__benches__/lazy/access-pattern.bench.ts (run `bun run bench:as
 // lazy/` to regenerate every mode's logs).
 const SWAR_READ = (suite: string, type: string): BenchResult =>
@@ -116,24 +116,22 @@ const ACCESS_SETS: [string, string][] = [
   ["medium", "Medium\n(1.1kb)"],
   ["large", "Large\n(5.5kb)"],
 ];
-const READ_LEVELS = ["eager", "r0", "r25", "r50", "r75", "r100"];
+const READ_LEVELS = ["none", "one", "half", "all", "base"];
 const READ_LABELS = [
-  "eager (swar)",
-  "lazy 0% read",
-  "lazy 25% read",
-  "lazy 50% read",
-  "lazy 75% read",
-  "lazy 100% read",
+  "read none",
+  "read one",
+  "read half",
+  "read all",
+  "baseline (eager)",
 ];
-// Neutral eager baseline, then a jungle-green opacity ramp so the cost of
-// reading more deferred fields reads as a darkening gradient.
+// A distinct hue per access mode: blue→green→orange→red as lazy does more work,
+// then a neutral copper for the eager baseline reference.
 const ACCESS_COLORS = [
-  EAGER_BAR,
-  { bg: rgba("jungleGreen", 0.3), border: BASE.jungleGreen },
-  { bg: rgba("jungleGreen", 0.45), border: BASE.jungleGreen },
-  { bg: rgba("jungleGreen", 0.6), border: BASE.jungleGreen },
-  { bg: rgba("jungleGreen", 0.78), border: BASE.jungleGreen },
-  { bg: rgba("jungleGreen", 0.95), border: BASE.jungleGreen },
+  { bg: rgba("pacificBlue", 0.85), border: BASE.pacificBlue },
+  { bg: rgba("jungleGreen", 0.85), border: BASE.jungleGreen },
+  { bg: rgba("orange", 0.85), border: BASE.orange },
+  { bg: rgba("strawberryRed", 0.85), border: BASE.strawberryRed },
+  { bg: rgba("fadedCopper", 0.85), border: BASE.fadedCopper },
 ];
 
 const accData: Record<string, BenchResult[]> = {};
@@ -145,7 +143,7 @@ for (const [key, label] of ACCESS_SETS) {
 emit(
   createBarChart(accData, accLabels, {
     title:
-      "Lazy mode access patterns (SWAR) — eager baseline vs % of deferred fields read",
+      "Lazy mode access patterns (SWAR) — deferred-field reads vs eager baseline",
     yLabel: MBPS,
     xLabel: "",
     datasetLabels: READ_LABELS,

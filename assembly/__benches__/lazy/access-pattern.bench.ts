@@ -3,20 +3,21 @@ import { bench, blackbox, dumpToFile, utf8ByteLength } from "../lib/bench";
 
 // Lazy mode access patterns. For each canonical payload (vec3/token/small/
 // medium/large) we compare a fully-eager SWAR parse (the baseline) against a
-// lazy parse that reads an increasing fraction of its deferred fields:
-//   0% read   -> parse skeleton only, never materialize a deferred field
-//   25/50/75% -> read round(p * N) of the N deferred fields
-//   100% read -> touch every deferred field (work is deferred, not removed)
+// lazy parse that reads a growing slice of its N deferred fields:
+//   none -> parse skeleton only, never materialize a deferred field
+//   one  -> read a single deferred field
+//   half -> read round(N / 2) deferred fields
+//   all  -> touch every deferred field (work is deferred, not removed)
 //
 // Fields are marked deferrable with explicit `@lazy` (per the maintainer's
 // request) rather than class-level `lazy: "auto"`, so each payload has a known
 // deferred-field count regardless of the auto threshold. The dedicated chart
 // (build-chart15.ts) reads the SWAR logs only — lazy is showcased in SWAR.
 //
-// Dumps: lzap-<payload>.{eager,r0,r25,r50,r75,r100}.
+// Dumps: lzap-<payload>.{base,none,one,half,all}.
 
 // ============================= vec3 (19b, N=3) ============================
-// Deferred: x, y, z. Reads: 0 / 1 / 2 / 2 / 3.
+// Deferred: x, y, z. none=0, one=1, half=2, all=3.
 
 @json
 class Vec3E {
@@ -43,34 +44,34 @@ const vec3Bytes = utf8ByteLength(vec3Json);
 const VEC3_ITER: u32 = 5_000_000;
 
 bench(
-  "vec3 eager",
+  "vec3 baseline",
   () => {
     blackbox(changetype<usize>(JSON.parse<Vec3E>(vec3Json)));
   },
   VEC3_ITER,
   vec3Bytes,
 );
-dumpToFile("lzap-vec3", "eager");
+dumpToFile("lzap-vec3", "base");
 bench(
-  "vec3 lazy 0%",
+  "vec3 read none",
   () => {
     blackbox(changetype<usize>(JSON.parse<Vec3L>(vec3Json)));
   },
   VEC3_ITER,
   vec3Bytes,
 );
-dumpToFile("lzap-vec3", "r0");
+dumpToFile("lzap-vec3", "none");
 bench(
-  "vec3 lazy 25%",
+  "vec3 read one",
   () => {
     blackbox(JSON.parse<Vec3L>(vec3Json).x);
   },
   VEC3_ITER,
   vec3Bytes,
 );
-dumpToFile("lzap-vec3", "r25");
+dumpToFile("lzap-vec3", "one");
 bench(
-  "vec3 lazy 50%",
+  "vec3 read half",
   () => {
     const o = JSON.parse<Vec3L>(vec3Json);
     blackbox(o.x + o.y);
@@ -78,19 +79,9 @@ bench(
   VEC3_ITER,
   vec3Bytes,
 );
-dumpToFile("lzap-vec3", "r50");
+dumpToFile("lzap-vec3", "half");
 bench(
-  "vec3 lazy 75%",
-  () => {
-    const o = JSON.parse<Vec3L>(vec3Json);
-    blackbox(o.x + o.y);
-  },
-  VEC3_ITER,
-  vec3Bytes,
-);
-dumpToFile("lzap-vec3", "r75");
-bench(
-  "vec3 lazy 100%",
+  "vec3 read all",
   () => {
     const o = JSON.parse<Vec3L>(vec3Json);
     blackbox(o.x + o.y + o.z);
@@ -98,10 +89,10 @@ bench(
   VEC3_ITER,
   vec3Bytes,
 );
-dumpToFile("lzap-vec3", "r100");
+dumpToFile("lzap-vec3", "all");
 
 // ============================ token (49b, N=2) ============================
-// Deferred: uid, token. Reads: 0 / 1 / 1 / 2 / 2.
+// Deferred: uid, token. none=0, one=1, half=1, all=2.
 
 @json
 class TokenE {
@@ -124,43 +115,43 @@ const tokenBytes = utf8ByteLength(tokenJson);
 const TOKEN_ITER: u32 = 5_000_000;
 
 bench(
-  "token eager",
+  "token baseline",
   () => {
     blackbox(changetype<usize>(JSON.parse<TokenE>(tokenJson)));
   },
   TOKEN_ITER,
   tokenBytes,
 );
-dumpToFile("lzap-token", "eager");
+dumpToFile("lzap-token", "base");
 bench(
-  "token lazy 0%",
+  "token read none",
   () => {
     blackbox(changetype<usize>(JSON.parse<TokenL>(tokenJson)));
   },
   TOKEN_ITER,
   tokenBytes,
 );
-dumpToFile("lzap-token", "r0");
+dumpToFile("lzap-token", "none");
 bench(
-  "token lazy 25%",
+  "token read one",
   () => {
     blackbox(JSON.parse<TokenL>(tokenJson).uid);
   },
   TOKEN_ITER,
   tokenBytes,
 );
-dumpToFile("lzap-token", "r25");
+dumpToFile("lzap-token", "one");
 bench(
-  "token lazy 50%",
+  "token read half",
   () => {
     blackbox(JSON.parse<TokenL>(tokenJson).uid);
   },
   TOKEN_ITER,
   tokenBytes,
 );
-dumpToFile("lzap-token", "r50");
+dumpToFile("lzap-token", "half");
 bench(
-  "token lazy 75%",
+  "token read all",
   () => {
     const o = JSON.parse<TokenL>(tokenJson);
     blackbox(o.uid + o.token.length);
@@ -168,21 +159,11 @@ bench(
   TOKEN_ITER,
   tokenBytes,
 );
-dumpToFile("lzap-token", "r75");
-bench(
-  "token lazy 100%",
-  () => {
-    const o = JSON.parse<TokenL>(tokenJson);
-    blackbox(o.uid + o.token.length);
-  },
-  TOKEN_ITER,
-  tokenBytes,
-);
-dumpToFile("lzap-token", "r100");
+dumpToFile("lzap-token", "all");
 
 // ============================ small (108b, N=4) ===========================
 // Deferred: user_id, username, role, expires_at (authenticated stays eager).
-// Reads: 0 / 1 / 2 / 3 / 4.
+// none=0, one=1, half=2, all=4.
 
 @json
 class SmallE {
@@ -216,34 +197,34 @@ const smallBytes = utf8ByteLength(smallJson);
 const SMALL_ITER: u32 = 2_000_000;
 
 bench(
-  "small eager",
+  "small baseline",
   () => {
     blackbox(changetype<usize>(JSON.parse<SmallE>(smallJson)));
   },
   SMALL_ITER,
   smallBytes,
 );
-dumpToFile("lzap-small", "eager");
+dumpToFile("lzap-small", "base");
 bench(
-  "small lazy 0%",
+  "small read none",
   () => {
     blackbox(changetype<usize>(JSON.parse<SmallL>(smallJson)));
   },
   SMALL_ITER,
   smallBytes,
 );
-dumpToFile("lzap-small", "r0");
+dumpToFile("lzap-small", "none");
 bench(
-  "small lazy 25%",
+  "small read one",
   () => {
     blackbox(JSON.parse<SmallL>(smallJson).user_id);
   },
   SMALL_ITER,
   smallBytes,
 );
-dumpToFile("lzap-small", "r25");
+dumpToFile("lzap-small", "one");
 bench(
-  "small lazy 50%",
+  "small read half",
   () => {
     const o = JSON.parse<SmallL>(smallJson);
     blackbox(o.user_id + o.username.length);
@@ -251,19 +232,9 @@ bench(
   SMALL_ITER,
   smallBytes,
 );
-dumpToFile("lzap-small", "r50");
+dumpToFile("lzap-small", "half");
 bench(
-  "small lazy 75%",
-  () => {
-    const o = JSON.parse<SmallL>(smallJson);
-    blackbox(o.user_id + o.username.length + o.role.length);
-  },
-  SMALL_ITER,
-  smallBytes,
-);
-dumpToFile("lzap-small", "r75");
-bench(
-  "small lazy 100%",
+  "small read all",
   () => {
     const o = JSON.parse<SmallL>(smallJson);
     blackbox(
@@ -273,10 +244,10 @@ bench(
   SMALL_ITER,
   smallBytes,
 );
-dumpToFile("lzap-small", "r100");
+dumpToFile("lzap-small", "all");
 
 // =========================== medium (1.1kb, N=4) ==========================
-// Deferred: bio, website, tags, recent_activity. Reads: 0 / 1 / 2 / 3 / 4.
+// Deferred: bio, website, tags, recent_activity. none=0, one=1, half=2, all=4.
 
 @json
 class UserPreferences {
@@ -379,34 +350,34 @@ const mediumBytes = utf8ByteLength(mediumJson);
 const MEDIUM_ITER: u32 = 1_000_000;
 
 bench(
-  "medium eager",
+  "medium baseline",
   () => {
     blackbox(changetype<usize>(JSON.parse<MediumE>(mediumJson)));
   },
   MEDIUM_ITER,
   mediumBytes,
 );
-dumpToFile("lzap-medium", "eager");
+dumpToFile("lzap-medium", "base");
 bench(
-  "medium lazy 0%",
+  "medium read none",
   () => {
     blackbox(changetype<usize>(JSON.parse<MediumL>(mediumJson)));
   },
   MEDIUM_ITER,
   mediumBytes,
 );
-dumpToFile("lzap-medium", "r0");
+dumpToFile("lzap-medium", "none");
 bench(
-  "medium lazy 25%",
+  "medium read one",
   () => {
     blackbox(JSON.parse<MediumL>(mediumJson).bio.length);
   },
   MEDIUM_ITER,
   mediumBytes,
 );
-dumpToFile("lzap-medium", "r25");
+dumpToFile("lzap-medium", "one");
 bench(
-  "medium lazy 50%",
+  "medium read half",
   () => {
     const o = JSON.parse<MediumL>(mediumJson);
     blackbox(o.bio.length + o.website.length);
@@ -414,19 +385,9 @@ bench(
   MEDIUM_ITER,
   mediumBytes,
 );
-dumpToFile("lzap-medium", "r50");
+dumpToFile("lzap-medium", "half");
 bench(
-  "medium lazy 75%",
-  () => {
-    const o = JSON.parse<MediumL>(mediumJson);
-    blackbox(o.bio.length + o.website.length + o.tags.length);
-  },
-  MEDIUM_ITER,
-  mediumBytes,
-);
-dumpToFile("lzap-medium", "r75");
-bench(
-  "medium lazy 100%",
+  "medium read all",
   () => {
     const o = JSON.parse<MediumL>(mediumJson);
     blackbox(
@@ -439,10 +400,10 @@ bench(
   MEDIUM_ITER,
   mediumBytes,
 );
-dumpToFile("lzap-medium", "r100");
+dumpToFile("lzap-medium", "all");
 
 // ============================ large (5.5kb, N=4) ==========================
-// Deferred: owner, html_url, topics, default_branch. Reads: 0 / 1 / 2 / 3 / 4.
+// Deferred: owner, html_url, topics, default_branch. none=0, one=1, half=2, all=4.
 
 @json
 class RepoOwner {
@@ -550,34 +511,34 @@ const largeBytes = utf8ByteLength(largeJson);
 const LARGE_ITER: u32 = 500_000;
 
 bench(
-  "large eager",
+  "large baseline",
   () => {
     blackbox(changetype<usize>(JSON.parse<RepoE>(largeJson)));
   },
   LARGE_ITER,
   largeBytes,
 );
-dumpToFile("lzap-large", "eager");
+dumpToFile("lzap-large", "base");
 bench(
-  "large lazy 0%",
+  "large read none",
   () => {
     blackbox(changetype<usize>(JSON.parse<RepoL>(largeJson)));
   },
   LARGE_ITER,
   largeBytes,
 );
-dumpToFile("lzap-large", "r0");
+dumpToFile("lzap-large", "none");
 bench(
-  "large lazy 25%",
+  "large read one",
   () => {
     blackbox(JSON.parse<RepoL>(largeJson).owner.id);
   },
   LARGE_ITER,
   largeBytes,
 );
-dumpToFile("lzap-large", "r25");
+dumpToFile("lzap-large", "one");
 bench(
-  "large lazy 50%",
+  "large read half",
   () => {
     const o = JSON.parse<RepoL>(largeJson);
     blackbox(o.owner.id + o.html_url.length);
@@ -585,19 +546,9 @@ bench(
   LARGE_ITER,
   largeBytes,
 );
-dumpToFile("lzap-large", "r50");
+dumpToFile("lzap-large", "half");
 bench(
-  "large lazy 75%",
-  () => {
-    const o = JSON.parse<RepoL>(largeJson);
-    blackbox(o.owner.id + o.html_url.length + o.topics.length);
-  },
-  LARGE_ITER,
-  largeBytes,
-);
-dumpToFile("lzap-large", "r75");
-bench(
-  "large lazy 100%",
+  "large read all",
   () => {
     const o = JSON.parse<RepoL>(largeJson);
     blackbox(
@@ -610,4 +561,4 @@ bench(
   LARGE_ITER,
   largeBytes,
 );
-dumpToFile("lzap-large", "r100");
+dumpToFile("lzap-large", "all");
