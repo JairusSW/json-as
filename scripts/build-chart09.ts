@@ -130,14 +130,7 @@ const config: ChartConfiguration<"line"> = {
           padding: 20,
         },
       },
-      datalabels: {
-        anchor: "end",
-        align: "top",
-        // label every other point to cut clutter
-        display: (ctx) => ctx.dataIndex % 2 === 0,
-        font: { size: 12, weight: "bold" },
-        formatter: (value) => value.y.toFixed(0) + " MB/s",
-      },
+      datalabels: { display: false },
       subtitle: {
         display: true,
         text: subtitle(),
