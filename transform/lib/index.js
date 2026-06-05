@@ -384,7 +384,7 @@ export class JSONTransform extends Visitor {
                         `  const __lz = this.__${fname}_lz;\n` +
                         `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
                         `  if (__lz != 0) {\n` +
-                        `    const __v = JSON.__materializeLazy<${T}>(__lz);\n` +
+                        `    const __v = JSON.__deserialize<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz));\n` +
                         `    this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("__v")};\n` +
                         `    return __v;\n` +
                         `  }\n` +
@@ -398,7 +398,7 @@ export class JSONTransform extends Visitor {
                     `get ${fname}(): ${T} {\n` +
                         `  const __lz = this.__${fname}_lz;\n` +
                         `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +
-                        `    this.__${fname}_val = JSON.__materializeLazy<${T}>(__lz);\n` +
+                        `    this.__${fname}_val = JSON.__deserialize<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz));\n` +
                         `    this.__${fname}_lz = u64.MAX_VALUE;\n` +
                         `  }\n` +
                         `  return this.__${fname}_val as ${T};\n}`,

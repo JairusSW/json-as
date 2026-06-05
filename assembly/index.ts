@@ -139,34 +139,6 @@ export namespace JSON {
   export type Lazy<T> = T;
 
   /**
-   * Materializes a lazy field's stored slice range into `T`. Deliberately NOT
-   * `@inline`: `parse<T>` is inline, so calling it directly from each generated
-   * getter would copy the whole parser into every accessor. Funnelling through
-   * this one (per-T) function emits the parser once per type and shares it
-   * across all lazy getters of that type. Called only on first access (the slow
-   * path), with a real range (`lz` = high32 start ptr, low32 end ptr).
-   *
-   * Scalars and strings dispatch straight from the (already whitespace-trimmed)
-   * slice pointers, skipping the intermediate substring that `parse<T>(string)`
-   * would allocate. Containers/structs/maps/custom and nested-lazy types go
-   * through `parse` via a substring, which they need: custom `T` reads the
-   * string in `__DESERIALIZE_CUSTOM`, and a nested lazy struct anchors (via
-   * `__SET_SRC`) the substring its own stored ranges point into.
-   */
-  export function __materializeLazy<T>(lz: u64): T {
-    const start = <usize>(lz >>> 32);
-    const end = <usize>(<u32>lz);
-    if (isBoolean<T>()) return deserializeBoolean(start, end) as T;
-    if (isInteger<T>())
-      return isSigned<T>()
-        ? deserializeInteger<T>(start, end)
-        : deserializeUnsigned<T>(start, end);
-    if (isFloat<T>()) return deserializeFloat<T>(start, end);
-    if (isString<T>()) return deserializeString(start, end) as T;
-    return parse<T>(ptrToStr(start, end));
-  }
-
-  /**
    * Whether a lazy slot's value is JSON null — for `@omitnull` on lazy fields,
    * without forcing materialization. The slot encodes the state: `u64.MAX_VALUE`
    * = materialized (null iff the value pointer is 0), `0` = absent (null), any

@@ -633,7 +633,7 @@ export class JSONTransform extends Visitor {
                 `  const __lz = this.__${fname}_lz;\n` +
                 `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
                 `  if (__lz != 0) {\n` + // a range -> parse once, then pack
-                `    const __v = JSON.__materializeLazy<${T}>(__lz);\n` +
+                `    const __v = JSON.__deserialize<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz));\n` +
                 `    this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("__v")};\n` +
                 `    return __v;\n` +
                 `  }\n` +
@@ -644,12 +644,12 @@ export class JSONTransform extends Visitor {
           : [
               `@alias(${key}) private __${fname}_lz: u64 = 0;`,
               `private __${fname}_val: ${valueType} = ${valueDefault};`,
-              // Slow path goes through the shared (non-inline) JSON.__materializeLazy<T>
+              // Slow path goes through the shared (non-inline) JSON.__deserialize<T>
               // so the parser is emitted once per type, not inlined into every getter.
               `get ${fname}(): ${T} {\n` +
                 `  const __lz = this.__${fname}_lz;\n` +
                 `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` + // a range -> parse once
-                `    this.__${fname}_val = JSON.__materializeLazy<${T}>(__lz);\n` +
+                `    this.__${fname}_val = JSON.__deserialize<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz));\n` +
                 `    this.__${fname}_lz = u64.MAX_VALUE;\n` +
                 `  }\n` + // (0 -> default, MAX -> already materialized): return __val
                 `  return this.__${fname}_val as ${T};\n}`,

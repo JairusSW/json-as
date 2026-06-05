@@ -34,3 +34,8 @@ const deserialized = JSON.parse<Repo>(serialized);
 console.log("name  = " + deserialized.name);
 console.log("login = " + deserialized.owner.login); // owner parsed on first read
 console.log("id    = " + deserialized.owner.id.toString());
+
+JSON.parse<Repo>('{"name":"goo","owner":{"login":"gar","id":13}}', repo);
+console.log("name  = " + repo.name);
+console.log("login = " + repo.owner.login); // owner parsed on first read
+console.log("id    = " + repo.owner.id.toString());
