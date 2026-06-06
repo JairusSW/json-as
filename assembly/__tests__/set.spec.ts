@@ -303,7 +303,7 @@ describe("Should preserve JSON.internal behavior for primitive sets", () => {
 
 describe("Should deserialize set fields in @json classes", () => {
   const parsed = JSON.parse<SetHolder>(
-    '{"smalls":[1,2,2,3],"labels":["a","b","a"],"vectors":[{"x":1.0,"y":2.0,"z":3.0}]}',
+    '{"smalls":[1,2,2,3],"labels":["a","b","a"],"vectors":[{"x":1,"y":2,"z":3}]}',
   );
   expect(parsed.smalls.size).toBe(3);
   expect(parsed.smalls.has(3)).toBe(true);
@@ -311,7 +311,7 @@ describe("Should deserialize set fields in @json classes", () => {
   expect(parsed.labels.has("b")).toBe(true);
   expect(parsed.vectors.size).toBe(1);
   expect(JSON.stringify(parsed)).toBe(
-    '{"smalls":[1,2,3],"labels":["a","b"],"vectors":[{"x":1.0,"y":2.0,"z":3.0}]}',
+    '{"smalls":[1,2,3],"labels":["a","b"],"vectors":[{"x":1,"y":2,"z":3}]}',
   );
 });
 

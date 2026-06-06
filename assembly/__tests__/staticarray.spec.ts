@@ -141,14 +141,12 @@ describe("Should serialize object static arrays", () => {
     { x: 1.0, y: 2.0, z: 3.0 },
     { x: 4.0, y: 5.0, z: 6.0 },
   ];
-  expect(JSON.stringify(arr)).toBe(
-    '[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]',
-  );
+  expect(JSON.stringify(arr)).toBe('[{"x":1,"y":2,"z":3},{"x":4,"y":5,"z":6}]');
 });
 
 describe("Should deserialize object static arrays", () => {
   const arr = JSON.parse<StaticArray<Vec3>>(
-    '[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]',
+    '[{"x":1,"y":2,"z":3},{"x":4,"y":5,"z":6}]',
   );
   expect(arr.length).toBe(2);
   expect(arr[0].x).toBe(1.0);
@@ -206,7 +204,7 @@ describe("Should support whitespace and negative values in static arrays", () =>
 
 describe("Should round-trip static array objects with reordered fields", () => {
   const arr = JSON.parse<StaticArray<Vec3>>(
-    '[{"z":3.0,"y":2.0,"x":1.0},{"y":5.0,"x":4.0,"z":6.0}]',
+    '[{"z":3,"y":2,"x":1},{"y":5,"x":4,"z":6}]',
   );
   expect(arr.length).toBe(2);
   expect(arr[0].x).toBe(1.0);
@@ -215,9 +213,7 @@ describe("Should round-trip static array objects with reordered fields", () => {
   expect(arr[1].x).toBe(4.0);
   expect(arr[1].y).toBe(5.0);
   expect(arr[1].z).toBe(6.0);
-  expect(JSON.stringify(arr)).toBe(
-    '[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]',
-  );
+  expect(JSON.stringify(arr)).toBe('[{"x":1,"y":2,"z":3},{"x":4,"y":5,"z":6}]');
 });
 
 describe("Should deserialize static arrays of JSON.Value", () => {

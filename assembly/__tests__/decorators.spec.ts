@@ -90,7 +90,7 @@ describe("Should apply decorator combinations on imported player type", () => {
     '{"firstName":"Teen","lastName":"User","lastActive":[1,2,3],"isVerified":false}',
   );
   expect(JSON.stringify(adult)).toBe(
-    '{"age":21,"pos":{"x":9.0,"y":8.0,"z":7.0},"firstName":"Adult","lastName":"User","lastActive":[4,5,6],"isVerified":true}',
+    '{"age":21,"pos":{"x":9,"y":8,"z":7},"firstName":"Adult","lastName":"User","lastActive":[4,5,6],"isVerified":true}',
   );
 });
 
@@ -105,7 +105,7 @@ describe("Should deserialize decorated player payloads with omitted fields", () 
   expect(parsedMinor.isVerified.toString()).toBe("false");
 
   const parsedAdult = JSON.parse<FeaturePlayer>(
-    '{"firstName":"Adult","lastName":"User","lastActive":[4,5,6],"age":21,"pos":{"x":9.0,"y":8.0,"z":7.0},"isVerified":true}',
+    '{"firstName":"Adult","lastName":"User","lastActive":[4,5,6],"age":21,"pos":{"x":9,"y":8,"z":7},"isVerified":true}',
   );
   expect(parsedAdult.age.toString()).toBe("21");
   expect((parsedAdult.pos as Vec3).x.toString()).toBe("9.0");

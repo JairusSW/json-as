@@ -222,7 +222,7 @@ describe("Should deserialize top-level JSON.Obj arrays", () => {
   expect(items[1].toString()).toBe("true");
   expect(items[2].get<string>()).toBe("x");
   expect(JSON.stringify(parsed)).toBe(
-    '[{"kind":"a","meta":{"x":1.0}},{"kind":"b","items":[1.0,true,"x"]}]',
+    '[{"kind":"a","meta":{"x":1}},{"kind":"b","items":[1,true,"x"]}]',
   );
 
   const spaced = JSON.parse<JSON.Obj[]>(

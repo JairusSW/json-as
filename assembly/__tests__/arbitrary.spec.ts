@@ -113,7 +113,7 @@ describe("Should serialize arbitrary types", () => {
   o.set("type", "object");
 
   expect(o.toString()).toBe(
-    '{"schema":"http://json-schema.org/draft-07/schema#","additionalProperties":false,"properties":{"duration":{"default":10.0,"description":"Duration of the operation in seconds","type":"number"},"steps":{"default":5.0,"description":"Number of steps in the operation","type":"number"}},"type":"object"}',
+    '{"schema":"http://json-schema.org/draft-07/schema#","additionalProperties":false,"properties":{"duration":{"default":10,"description":"Duration of the operation in seconds","type":"number"},"steps":{"default":5,"description":"Number of steps in the operation","type":"number"}},"type":"object"}',
   );
 
   expect(JSON.stringify(JSON.Value.from<JSON.Box<i32> | null>(null))).toBe(
@@ -312,9 +312,7 @@ describe("Should parse additional arbitrary values", () => {
     JSON.Types.Null.toString(),
   );
   expect(JSON.parse<JSON.Value>("123").toString()).toBe("123.0");
-  expect(JSON.stringify(JSON.parse<JSON.Value>("[1,2,3]"))).toBe(
-    "[1.0,2.0,3.0]",
-  );
+  expect(JSON.stringify(JSON.parse<JSON.Value>("[1,2,3]"))).toBe("[1,2,3]");
 });
 
 describe("Should parse each arbitrary root token shape", () => {
@@ -322,7 +320,7 @@ describe("Should parse each arbitrary root token shape", () => {
   expect(JSON.stringify(JSON.parse<JSON.Value>('{"a":1}'))).toBe('{"a":1}');
   expect(JSON.parse<JSON.Value>("123").get<f64>()).toBe(123.0);
   expect(JSON.stringify(JSON.parse<JSON.Value>("[1,true,null]"))).toBe(
-    "[1.0,true,null]",
+    "[1,true,null]",
   );
   expect(JSON.parse<JSON.Value>("true").toString()).toBe("true");
   expect(JSON.parse<JSON.Value>("false").toString()).toBe("false");

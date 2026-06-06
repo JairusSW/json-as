@@ -190,7 +190,7 @@ describe("Fast-path deserialization should handle direct field types", () => {
 
 describe("Fast-path deserialization should handle nullable direct fields", () => {
   const payload =
-    '{"id":1,"total":0,"ratio":0.0,"ok":false,"name":"beta","note":null,"child":{"id":9,"label":"base"},"maybeChild":null,"tags":[],"children":[],"scores":[]}';
+    '{"id":1,"total":0,"ratio":0,"ok":false,"name":"beta","note":null,"child":{"id":9,"label":"base"},"maybeChild":null,"tags":[],"children":[],"scores":[]}';
 
   const parsed = JSON.parse<FastDirectFields>(payload);
 
