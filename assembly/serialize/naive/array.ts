@@ -178,12 +178,12 @@ function serializeU8ArrayFast(src: u8[]): void {
   store<u16>(bs.offset - 2, BRACKET_RIGHT);
 }
 
-// Specialized float-array serializer: dragonbox + trailing comma in a
+// Specialized float-array serializer: Żmij writer + trailing comma in a
 // uniform per-iteration body, then overwrite the final comma with `]`. The
 // generic dispatcher splits the loop into "N-1 elements with comma, then
 // last element without, then `]`" — the branch on each `i < end` check
 // stalls the loop's tight bs.offset advance pattern. This variant runs the
-// same number of stores per iteration (dragonbox output + COMMA), but the
+// same number of stores per iteration (Żmij output + COMMA), but the
 // uniform loop body inlines better and the trailing `]` is a single fixed
 // overwrite outside the loop.
 function serializeF64ArrayFast(src: f64[]): void {

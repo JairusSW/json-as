@@ -1,6 +1,6 @@
 // Throughput head-to-head for `JSON.stringify<f64[]>` at ~64 MiB of output.
 //
-// Cycles a representative mix of float widths so dragonbox sees small
+// Cycles a representative mix of float widths so the Żmij writer sees small
 // integer-shaped floats, fractions, negative values, and exponent forms —
 // mirroring the `f64-64mib` deserialize bench.
 
