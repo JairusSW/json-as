@@ -153,6 +153,27 @@ ${dtoaLines.join("\n")}
   expect(dtoa(NaN)).toBe("NaN");
 });
 
+// Values AssemblyScript's own stdlib dtoa (Grisu) rounds incorrectly — see the
+// commented "FIXME: imprecise rounding issues for Grisu algorithm" block in
+// assemblyscript/tests/compiler/std/string.ts. Schubfach (Żmij) is correctly
+// rounded, so these produce the true shortest decimal (ECMAScript-formatted).
+describe("Żmij handles AssemblyScript Grisu rounding-failure cases", () => {
+  expect(dtoa(1.2345e21)).toBe("1.2345e+21");
+  expect(JSON.stringify<f64>(1.2345e21)).toBe("1.2345e+21");
+  expect(dtoa(2.98023223876953125e-8)).toBe("2.9802322387695312e-8");
+  expect(JSON.stringify<f64>(2.98023223876953125e-8)).toBe(
+    "2.9802322387695312e-8",
+  );
+  expect(dtoa(-2.109808898695963e16)).toBe("-21098088986959630");
+  expect(JSON.stringify<f64>(-2.109808898695963e16)).toBe("-21098088986959630");
+  expect(dtoa(-0.0000010471975511965976)).toBe("-0.0000010471975511965976");
+  expect(JSON.stringify<f64>(-0.0000010471975511965976)).toBe(
+    "-0.0000010471975511965976",
+  );
+  expect(dtoa(0.1 + 0.2)).toBe("0.30000000000000004");
+  expect(JSON.stringify<f64>(0.1 + 0.2)).toBe("0.30000000000000004");
+});
+
 describe("Żmij f32 output matches the shortest decimal (exact)", () => {
 ${f32Lines.join("\n")}
 });
