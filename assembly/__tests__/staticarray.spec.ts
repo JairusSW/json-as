@@ -17,7 +17,7 @@ describe("Should serialize integer static arrays", () => {
 
 describe("Should serialize float static arrays", () => {
   expect(JSON.stringify<StaticArray<f64>>([7.23, 1000.0, 0.0])).toBe(
-    "[7.23,1000.0,0.0]",
+    "[7.23,1000,0]",
   );
   expect(JSON.stringify<StaticArray<f32>>([-1.5, 0.25, 3.75])).toBe(
     "[-1.5,0.25,3.75]",
@@ -229,8 +229,8 @@ describe("Should deserialize static arrays of JSON.Value", () => {
   expect(arr[1].get<string>()).toBe("x");
   expect(arr[2].get<bool>().toString()).toBe("false");
   expect(arr[3].type.toString()).toBe(JSON.Types.Null.toString());
-  expect(JSON.stringify(arr[4].get<JSON.Value[]>())).toBe("[1.0,2.0]");
-  expect(JSON.stringify(arr)).toBe('[{"a":1.0},"x",false,null,[1.0,2.0]]');
+  expect(JSON.stringify(arr[4].get<JSON.Value[]>())).toBe("[1,2]");
+  expect(JSON.stringify(arr)).toBe('[{"a":1},"x",false,null,[1,2]]');
 });
 
 describe("Should deserialize static arrays of maps and boxed values", () => {

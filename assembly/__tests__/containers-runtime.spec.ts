@@ -44,7 +44,7 @@ describe("Should round-trip JSON.Value arrays containing objects, raw, and array
   expect(values[2].get<bool>().toString()).toBe("true");
   expect(values[3].get<string>()).toBe("x");
   expect(values[4].type.toString()).toBe(JSON.Types.Null.toString());
-  expect(JSON.stringify(values)).toBe('[{"a":1.0},[2.0,3.0],true,"x",null]');
+  expect(JSON.stringify(values)).toBe('[{"a":1},[2,3],true,"x",null]');
 });
 
 describe("Should mutate JSON.Obj with replacement values", () => {

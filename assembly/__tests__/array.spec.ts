@@ -18,7 +18,7 @@ describe("Should serialize integer arrays", () => {
 describe("Should serialize float arrays", () => {
   expect(
     JSON.stringify<f64[]>([7.23, 10e2, 10e2, 123456e-5, 123456e-5, 0.0, 7.23]),
-  ).toBe("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]");
+  ).toBe("[7.23,1000,1000,1.23456,1.23456,0,7.23]");
 
   expect(JSON.stringify<f64[]>([1e21, 1e22, 1e-7, 1e-8, 1e-9])).toBe(
     "[1e+21,1e+22,1e-7,1e-8,1e-9]",
@@ -58,7 +58,7 @@ describe("Should serialize nested float arrays", () => {
       [0.0],
       [7.23],
     ]),
-  ).toBe("[[7.23],[1000.0],[1000.0],[1.23456],[1.23456],[0.0],[7.23]]");
+  ).toBe("[[7.23],[1000],[1000],[1.23456],[1.23456],[0],[7.23]]");
 });
 
 describe("Should serialize nested boolean arrays", () => {
@@ -116,9 +116,9 @@ describe("Should serialize and deserialize narrow integer arrays", () => {
 describe("Should deserialize float arrays", () => {
   expect(
     JSON.stringify(
-      JSON.parse<f64[]>("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]"),
+      JSON.parse<f64[]>("[7.23,1000,1000,1.23456,1.23456,0,7.23]"),
     ),
-  ).toBe("[7.23,1000.0,1000.0,1.23456,1.23456,0.0,7.23]");
+  ).toBe("[7.23,1000,1000,1.23456,1.23456,0,7.23]");
   expect(
     JSON.stringify(JSON.parse<f64[]>("[1e+21,1e+22,1e-7,1e-8,1e-9]")),
   ).toBe("[1e+21,1e+22,1e-7,1e-8,1e-9]");
@@ -179,10 +179,10 @@ describe("Should deserialize nested float arrays", () => {
   expect(
     JSON.stringify(
       JSON.parse<f64[][]>(
-        "[[7.23],[1000.0],[1000.0],[1.23456],[1.23456],[0.0],[7.23]]",
+        "[[7.23],[1000],[1000],[1.23456],[1.23456],[0],[7.23]]",
       ),
     ),
-  ).toBe("[[7.23],[1000.0],[1000.0],[1.23456],[1.23456],[0.0],[7.23]]");
+  ).toBe("[[7.23],[1000],[1000],[1.23456],[1.23456],[0],[7.23]]");
 });
 
 describe("Should deserialize nested boolean arrays", () => {

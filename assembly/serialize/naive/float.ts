@@ -1,39 +1,39 @@
 import { bs } from "../../../lib/as-bs";
-import {
-  dragonbox_f32_buffered,
-  dragonbox_f64_buffered,
-} from "../../util/dragonbox";
+import { writeFloatUnsafe, writeDoubleUnsafe } from "../../util/zmij";
 
+// Float serialization is backed by Żmij (a Schubfach/xjb shortest-decimal
+// writer with SWAR + WASM-SIMD digit kernels). The writers emit UTF-16
+// straight into the `bs` buffer and return a pointer past the last char.
 
 @inline
 export function serializeFloat32Unsafe(data: f32): void {
-  const size = dragonbox_f32_buffered(bs.offset, data) << 1;
-  bs.offset += size;
+  bs.offset = writeFloatUnsafe(bs.offset, data);
 }
 
 
 @inline
 export function serializeFloat64Unsafe(data: f64): void {
-  const size = dragonbox_f64_buffered(bs.offset, data) << 1;
-  bs.offset += size;
+  bs.offset = writeDoubleUnsafe(bs.offset, data);
 }
 
 
 @inline
 export function serializeFloat32(data: f32): void {
-  bs.ensureSize(64);
-  const size = dragonbox_f32_buffered(bs.offset, data) << 1;
-  bs.stackSize += size;
-  bs.offset += size;
+  bs.ensureSize(128);
+  const start = bs.offset;
+  const end = writeFloatUnsafe(start, data);
+  bs.stackSize += end - start;
+  bs.offset = end;
 }
 
 
 @inline
 export function serializeFloat64(data: f64): void {
-  bs.ensureSize(64);
-  const size = dragonbox_f64_buffered(bs.offset, data) << 1;
-  bs.stackSize += size;
-  bs.offset += size;
+  bs.ensureSize(128);
+  const start = bs.offset;
+  const end = writeDoubleUnsafe(start, data);
+  bs.stackSize += end - start;
+  bs.offset = end;
 }
 
 // @ts-ignore: inline

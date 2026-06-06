@@ -166,7 +166,7 @@ describe("Should preserve bs state for JSON.internal helpers", () => {
 
   expect(parsedObj.get("x")!.get<f64>().toString()).toBe("1.0");
   expect(parsedObj.get("y")!.get<bool>().toString()).toBe("true");
-  expect(JSON.internal.stringify(parsed)).toBe('{"x":1.0,"y":true}');
+  expect(JSON.internal.stringify(parsed)).toBe('{"x":1,"y":true}');
   expect(bs.offset).toBe(beforeParseOffset);
   expect(bs.stackSize).toBe(beforeParseStack);
 

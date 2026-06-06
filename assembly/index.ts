@@ -53,10 +53,7 @@ import {
   FALSE_WORD_U64,
 } from "./custom/chars";
 import { itoa_buffered } from "util/number";
-import {
-  dragonbox_f32_buffered,
-  dragonbox_f64_buffered,
-} from "./util/dragonbox";
+import { writeFloatUnsafe, writeDoubleUnsafe } from "./util/zmij";
 import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes, scanStringEnd } from "./util";
 import { scanValueEnd_SIMD } from "./util/scanValueEndSimd";
@@ -226,13 +223,14 @@ export namespace JSON {
       return data.toString();
     } else if (isFloat<T>(data)) {
       out = out
-        ? changetype<string>(__renew(changetype<usize>(out), 64))
-        : changetype<string>(__new(64, idof<string>()));
-      const bytes =
-        (sizeof<T>() == 4
-          ? dragonbox_f32_buffered(changetype<usize>(out), <f32>data)
-          : dragonbox_f64_buffered(changetype<usize>(out), <f64>data)) << 1;
-      return changetype<string>(__renew(changetype<usize>(out), bytes));
+        ? changetype<string>(__renew(changetype<usize>(out), 128))
+        : changetype<string>(__new(128, idof<string>()));
+      const startPtr = changetype<usize>(out);
+      const endPtr =
+        sizeof<T>() == 4
+          ? writeFloatUnsafe(startPtr, <f32>data)
+          : writeDoubleUnsafe(startPtr, <f64>data);
+      return changetype<string>(__renew(startPtr, endPtr - startPtr));
     } else if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
       if (out) {
         out = changetype<string>(__renew(changetype<usize>(out), 8));

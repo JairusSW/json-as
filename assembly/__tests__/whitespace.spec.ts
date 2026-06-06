@@ -132,14 +132,14 @@ describe("Should deserialize array-like types with whitespace in values and obje
         '[ { "x" : 1 , "y" : 2 , "z" : 3 } , { "x" : 4 , "y" : 5 , "z" : 6 } ]',
       ),
     ),
-  ).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]');
+  ).toBe('[{"x":1,"y":2,"z":3},{"x":4,"y":5,"z":6}]');
   expect(
     JSON.stringify(
       JSON.parse<WhitespaceBox<Vec3[]>>(
         '{ "value" : [ { "x" : 1 , "y" : 2 , "z" : 3 } , { "x" : 4 , "y" : 5 , "z" : 6 } ] }',
       ),
     ),
-  ).toBe('{"value":[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]}');
+  ).toBe('{"value":[{"x":1,"y":2,"z":3},{"x":4,"y":5,"z":6}]}');
 });
 
 describe("Should preserve escaped backslashes and quotes inside whitespace-heavy nested values", () => {

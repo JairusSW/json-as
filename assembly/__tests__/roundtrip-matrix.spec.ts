@@ -33,15 +33,15 @@ describe("Should round-trip a broad integer matrix", () => {
 });
 
 describe("Should round-trip a broad float matrix", () => {
-  expect(JSON.stringify(JSON.parse<f64>("0.0"))).toBe("0.0");
+  expect(JSON.stringify(JSON.parse<f64>("0.0"))).toBe("0");
   expect(JSON.stringify(JSON.parse<f64>("1.5"))).toBe("1.5");
   expect(JSON.stringify(JSON.parse<f64>("-1.5"))).toBe("-1.5");
   expect(JSON.stringify(JSON.parse<f64>("12.125"))).toBe("12.125");
   expect(JSON.stringify(JSON.parse<f64>("-12.125"))).toBe("-12.125");
-  expect(JSON.stringify(JSON.parse<f64>("3.14e5"))).toBe("314000.0");
-  expect(JSON.stringify(JSON.parse<f64>("3.14E5"))).toBe("314000.0");
+  expect(JSON.stringify(JSON.parse<f64>("3.14e5"))).toBe("314000");
+  expect(JSON.stringify(JSON.parse<f64>("3.14E5"))).toBe("314000");
   expect(JSON.parse<f64>("3.14e-5").toString()).toBe("0.0000314");
-  expect(JSON.stringify(JSON.parse<f64>("-9.81E+2"))).toBe("-981.0");
+  expect(JSON.stringify(JSON.parse<f64>("-9.81E+2"))).toBe("-981");
   expect(JSON.parse<f64>("6.022e23").toString()).toBe("6.022e+23");
 });
 

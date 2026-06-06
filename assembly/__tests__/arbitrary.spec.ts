@@ -63,7 +63,7 @@ describe("Should serialize arbitrary types", () => {
   expect(JSON.stringify(JSON.Value.from(typed))).toBe("[1,2,3]");
   expect(JSON.stringify(JSON.Value.from(typed.buffer))).toBe("[1,2,3]");
   expect(JSON.stringify(JSON.Value.from(new Vec3()))).toBe(
-    '{"x":1.0,"y":2.0,"z":3.0}',
+    '{"x":1,"y":2,"z":3}',
   );
   expect(
     JSON.stringify([
@@ -72,7 +72,7 @@ describe("Should serialize arbitrary types", () => {
       JSON.Value.from(3.14),
       JSON.Value.from(new Vec3()),
     ]),
-  ).toBe('["string",true,3.14,{"x":1.0,"y":2.0,"z":3.0}]');
+  ).toBe('["string",true,3.14,{"x":1,"y":2,"z":3}]');
 
   const o = new JSON.Obj();
   o.set("schema", "http://json-schema.org/draft-07/schema#");
@@ -163,16 +163,16 @@ describe("Should deserialize arbitrary types", () => {
   );
   expect(JSON.parse<JSON.Value>("0.0").toString()).toBe("0.0");
   expect(JSON.parse<JSON.Value>("true").toString()).toBe("true");
-  expect(
-    JSON.stringify(JSON.parse<JSON.Value>('{"x":1.0,"y":2.0,"z":3.0}')),
-  ).toBe('{"x":1.0,"y":2.0,"z":3.0}');
+  expect(JSON.stringify(JSON.parse<JSON.Value>('{"x":1,"y":2,"z":3}'))).toBe(
+    '{"x":1,"y":2,"z":3}',
+  );
   expect(
     JSON.stringify(
       JSON.parse<JSON.Value[]>(
-        '["string",true,3.14,{"x":1.0,"y":2.0,"z":3.0},[1.0,2.0,3,true]]',
+        '["string",true,3.14,{"x":1,"y":2,"z":3},[1.0,2.0,3,true]]',
       ),
     ),
-  ).toBe('["string",true,3.14,{"x":1.0,"y":2.0,"z":3.0},[1.0,2.0,3.0,true]]');
+  ).toBe('["string",true,3.14,{"x":1,"y":2,"z":3},[1,2,3,true]]');
 
   let x = JSON.Box.fromValue<i32>(JSON.parse<JSON.Value>("null"));
   expect(x ? x.toString() : "null").toBe("null");
@@ -198,7 +198,7 @@ describe("Should deserialize nested arbitrary arrays with element access", () =>
   expect(inner1[0].get<f64>()).toBe(3.0);
   expect(inner1[1].get<f64>()).toBe(4.0);
 
-  expect(JSON.stringify(parsed)).toBe("[[1.0,2.0],[3.0,4.0]]");
+  expect(JSON.stringify(parsed)).toBe("[[1,2],[3,4]]");
 });
 
 describe("Should deserialize nested arrays in mixed arbitrary arrays", () => {
@@ -215,7 +215,7 @@ describe("Should deserialize nested arrays in mixed arbitrary arrays", () => {
   expect(nestedArr[2].get<f64>()).toBe(3.0);
   expect(nestedArr[3].get<f64>()).toBe(4.0);
 
-  expect(JSON.stringify(parsed)).toBe('["string",true,[1.0,2.0,3.0,4.0]]');
+  expect(JSON.stringify(parsed)).toBe('["string",true,[1,2,3,4]]');
 });
 
 describe("Should deserialize deeply nested arbitrary arrays", () => {
@@ -239,7 +239,7 @@ describe("Should deserialize deeply nested arbitrary arrays", () => {
   expect(secondInnerArray[0].get<f64>()).toBe(3.0);
   expect(secondInnerArray[1].get<f64>()).toBe(4.0);
 
-  expect(JSON.stringify(parsed)).toBe("[[[1.0,2.0]],[[3.0,4.0]]]");
+  expect(JSON.stringify(parsed)).toBe("[[[1,2]],[[3,4]]]");
 });
 
 describe("Should deserialize nested arrays in JSON obj", () => {
@@ -260,7 +260,7 @@ describe("Should deserialize nested arrays in JSON obj", () => {
   expect(inner1[0].get<f64>()).toBe(3.0);
   expect(inner1[1].get<f64>()).toBe(4.0);
 
-  expect(JSON.stringify(parsed)).toBe('{"data":[[1.0,2.0],[3.0,4.0]]}');
+  expect(JSON.stringify(parsed)).toBe('{"data":[[1,2],[3,4]]}');
 });
 
 describe("Should deserialize nested objects in arbitrary arrays", () => {
@@ -279,7 +279,7 @@ describe("Should deserialize nested objects in arbitrary arrays", () => {
   expect(obj1.get("c")!.get<f64>()).toBe(3.0);
   expect(obj1.get("d")!.get<f64>()).toBe(4.0);
 
-  expect(JSON.stringify(parsed)).toBe('[{"a":1.0,"b":2.0},{"c":3.0,"d":4.0}]');
+  expect(JSON.stringify(parsed)).toBe('[{"a":1,"b":2},{"c":3,"d":4}]');
 });
 
 describe("Additional regression coverage - primitives and arrays", () => {
@@ -319,7 +319,7 @@ describe("Should parse additional arbitrary values", () => {
 
 describe("Should parse each arbitrary root token shape", () => {
   expect(JSON.parse<JSON.Value>('"hello"').get<string>()).toBe("hello");
-  expect(JSON.stringify(JSON.parse<JSON.Value>('{"a":1}'))).toBe('{"a":1.0}');
+  expect(JSON.stringify(JSON.parse<JSON.Value>('{"a":1}'))).toBe('{"a":1}');
   expect(JSON.parse<JSON.Value>("123").get<f64>()).toBe(123.0);
   expect(JSON.stringify(JSON.parse<JSON.Value>("[1,true,null]"))).toBe(
     "[1.0,true,null]",

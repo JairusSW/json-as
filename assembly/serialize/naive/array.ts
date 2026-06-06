@@ -5,10 +5,7 @@ import { serializeBoolUnsafe } from "./bool";
 import { serializeFloat32Unsafe, serializeFloat64Unsafe } from "./float";
 import { serializeIntegerUnsafe } from "./integer";
 import { serializeString } from "../index/string";
-import {
-  dragonbox_f32_buffered,
-  dragonbox_f64_buffered,
-} from "../../util/dragonbox";
+import { writeFloatUnsafe, writeDoubleUnsafe } from "../../util/zmij";
 
 
 @inline
@@ -210,9 +207,9 @@ function serializeF64ArrayFast(src: f64[]): void {
   let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
     const v = load<f64>(dataStart + ((<usize>i) << 3));
-    const size = dragonbox_f64_buffered(offset, v) << 1;
-    store<u16>(offset + size, COMMA);
-    offset += size + 2;
+    offset = writeDoubleUnsafe(offset, v);
+    store<u16>(offset, COMMA);
+    offset += 2;
   }
   // Overwrite the final trailing comma with `]`.
   store<u16>(offset - 2, BRACKET_RIGHT);
@@ -236,9 +233,9 @@ function serializeF32ArrayFast(src: f32[]): void {
   let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
     const v = load<f32>(dataStart + ((<usize>i) << 2));
-    const size = dragonbox_f32_buffered(offset, v) << 1;
-    store<u16>(offset + size, COMMA);
-    offset += size + 2;
+    offset = writeFloatUnsafe(offset, v);
+    store<u16>(offset, COMMA);
+    offset += 2;
   }
   store<u16>(offset - 2, BRACKET_RIGHT);
   bs.offset = offset;
