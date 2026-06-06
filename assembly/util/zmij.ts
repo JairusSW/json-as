@@ -172,9 +172,15 @@ const POW10_FIXUPS = StaticArray.fromArray<u32>([
 let gPow10Hi: u64 = 0;
 let gPow10Lo: u64 = 0;
 
-// Computes the 128-bit significand of 10**i (i in [0, 618)).
-function loadPow10(negIndex: i32): void {
-  const i = negIndex + 293; // dec_exp_min = -293
+// The 128-bit significand of 10**i (Dougall Johnson's method) is the same for
+// every conversion at a given decimal exponent, but recomputing it on demand
+// costs ~10 multiplies on the hot path. Precompute all of them once at module
+// init into a flat table (~9.7 KB); the conversion path then does a single load.
+// Observed index range over the full f64/f32 domain is [0, 616]; 618 covers it.
+const POW10_COUNT = 618;
+const POW10_TABLE = memory.data(POW10_COUNT * 16);
+
+for (let i = 0; i < POW10_COUNT; i++) {
   const stride = 28;
   const m = POW10_MINOR[(i + 10) % stride];
   const hj = ((i + 10) / stride) << 1;
@@ -195,8 +201,16 @@ function loadPow10(negIndex: i32): void {
     rlo = (c1 << 1) | (c0 >> 63);
   }
   rlo -= (POW10_FIXUPS[i >> 5] >> (i & 31)) & 1;
-  gPow10Hi = rhi;
-  gPow10Lo = rlo;
+  store<u64>(POW10_TABLE + (i << 4), rhi);
+  store<u64>(POW10_TABLE + (i << 4) + 8, rlo);
+}
+
+// Hot-path lookup: 10**(-(negIndex + 293)) significand. dec_exp_min = -293.
+// @ts-ignore: inline
+@inline function loadPow10(negIndex: i32): void {
+  const off = POW10_TABLE + ((negIndex + 293) << 4);
+  gPow10Hi = load<u64>(off);
+  gPow10Lo = load<u64>(off, 8);
 }
 
 // ---------------------------------------------------------------------------
@@ -564,6 +578,21 @@ const FLOAT_MAX_FIXED_DEC_EXP = 20;
   }
 }
 
+// Widen a full 16-byte BCD block (hi = chars 0-7, lo = chars 8-15) to UTF-16.
+// One v128 carries both halves, so SIMD splits it with a single extend pair
+// instead of rebuilding a vector per 8-byte group.
+// @ts-ignore: inline
+@inline function storeAscii16(dst: usize, hi: u64, lo: u64): void {
+  if (ASC_FEATURE_SIMD) {
+    const b = i64x2.replace_lane(i64x2.splat(hi), 1, lo);
+    v128.store(dst, i16x8.extend_low_i8x16_u(b));
+    v128.store(dst + 16, i16x8.extend_high_i8x16_u(b));
+  } else {
+    storeAscii8(dst, hi);
+    storeAscii8(dst + 16, lo);
+  }
+}
+
 
 @inline
 function writeDigits2(buf: usize, value: i32): void {
@@ -668,8 +697,7 @@ export function writeDoubleUnsafe(buf: usize, value: f64): usize {
 
   // Exponential notation.
   buf += hasExtraDigit ? 2 : 0;
-  storeAscii8(buf, gDigHi);
-  storeAscii8(buf + 16, gDigLo);
+  storeAscii16(buf, gDigHi, gDigLo);
   store<u16>(buf + (bcdSize << 1), <u16>(0x30 + gLastDigit));
   buf += (hasLastDigit ? bcdSize + 1 : gDigNum) << 1;
   store<u16>(start, load<u16>(start + 2));
@@ -778,7 +806,10 @@ function writeFixed(
   bcdSize: i32,
   maxDigits10: i32,
 ): usize {
-  storeAscii8(start, ZEROS); // leading "0000000" for dec_exp < 0
+  // Leading "0.0000…" prefix is only needed when the point precedes the digits
+  // (decExp < 0). For every value >= 1 these zeros are immediately overwritten
+  // by the digit block, so skip the store on the common path.
+  if (decExp < 0) storeAscii8(start, ZEROS);
   const lastDigitChar = <u16>(0x30 + (hasLastDigit ? gLastDigit : 0));
   const numDigits = hasLastDigit ? bcdSize : gDigNum - 1;
 
@@ -788,8 +819,8 @@ function writeFixed(
   // with *no* decimal point. The generic point-insertion path below only covers
   // up to one BCD block, so handle the wider integer case here.
   if (decExp >= bcdSize) {
-    storeAscii8(buf, gDigHi);
-    if (bcdSize == 16) storeAscii8(buf + 16, gDigLo);
+    if (bcdSize == 16) storeAscii16(buf, gDigHi, gDigLo);
+    else storeAscii8(buf, gDigHi);
     if (!hasExtraDigit) memory.copy(buf, buf + 2, bcdSize << 1);
     store<u16>(
       buf + ((bcdSize + (hasExtraDigit ? 1 : 0) - 1) << 1),
@@ -811,8 +842,8 @@ function writeFixed(
 
   buf += startPos << 1;
   // write_digits: store BCD, optionally dropping the leading '0'.
-  storeAscii8(buf, gDigHi);
-  if (bcdSize == 16) storeAscii8(buf + 16, gDigLo);
+  if (bcdSize == 16) storeAscii16(buf, gDigHi, gDigLo);
+  else storeAscii8(buf, gDigHi);
   if (!hasExtraDigit) memory.copy(buf, buf + 2, bcdSize << 1);
   store<u16>(
     buf + ((bcdSize + (hasExtraDigit ? 1 : 0) - 1) << 1),
