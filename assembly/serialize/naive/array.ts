@@ -188,10 +188,10 @@ function serializeU8ArrayFast(src: u8[]): void {
 // overwrite outside the loop.
 function serializeF64ArrayFast(src: f64[]): void {
   const len = src.length;
-  // Worst case per element: ~24 chars for f64 + comma = 50 bytes.
-  // Slight over-reserve (66) matches the existing `reservePrimitiveArray`
-  // budget and keeps a safety margin for any NaN/Inf spelling.
-  bs.proposeSize(4 + <u32>len * 66);
+  // Worst case per element: a 21-char fixed integer (e.g. 1e20) or a ~24-char
+  // exponent form, + comma = ~52 bytes; plus the writer's SIMD stores can
+  // overshoot the logical end by up to 16 bytes. 80 covers both comfortably.
+  bs.proposeSize(4 + <u32>len * 80);
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
   if (len == 0) {
@@ -218,9 +218,10 @@ function serializeF64ArrayFast(src: f64[]): void {
 
 function serializeF32ArrayFast(src: f32[]): void {
   const len = src.length;
-  // Worst case for f32 is ~16 chars + comma = ~34 bytes; mirror the budget
-  // used by `reservePrimitiveArray`.
-  bs.proposeSize(4 + <u32>len * 34);
+  // Worst case for f32 is a 21-char fixed integer (e.g. 1e20 rounds to a
+  // 21-digit value), + comma = ~44 bytes, plus up to 16 bytes of SIMD store
+  // overshoot. 64 covers it.
+  bs.proposeSize(4 + <u32>len * 64);
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
   if (len == 0) {

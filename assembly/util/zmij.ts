@@ -829,9 +829,10 @@ function writeFixed(
     // Significant digits placed = bcdSize (+1 with the extra digit); pad with
     // '0' out to decExp + 1 total digits. Positions in [sig, bcdSize) are
     // already '0' from the BCD block, so this only extends past the block.
+    // Fill 8 chars at a time (overshoot is bounded and overwritten / ignored).
     const sig = bcdSize + (hasExtraDigit ? 1 : 0);
     const endByte = buf + ((decExp + 1) << 1);
-    for (let z = buf + (sig << 1); z < endByte; z += 2) store<u16>(z, 0x30);
+    for (let z = buf + (sig << 1); z < endByte; z += 16) storeAscii8(z, ZEROS);
     return endByte;
   }
 
