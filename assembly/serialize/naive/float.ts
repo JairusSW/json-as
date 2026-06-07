@@ -1,39 +1,31 @@
 import { bs } from "../../../lib/as-bs";
-import { writeFloatUnsafe, writeDoubleUnsafe } from "../../util/zmij";
+import { dtoa_buffered, ftoa_buffered } from "zmij-as";
 
-// Float serialization is backed by Żmij (a Schubfach/xjb shortest-decimal
-// writer with SWAR + WASM-SIMD digit kernels). The writers emit UTF-16
-// straight into the `bs` buffer and return a pointer past the last char.
+// Float serialization is backed by Żmij (the `zmij-as` package — a Schubfach/xjb
+// shortest-decimal writer with SWAR + WASM-SIMD digit kernels). The *_buffered
+// writers emit UTF-16 straight into the `bs` buffer and return the number of
+// characters written, so advancing the offset is `count << 1` bytes.
 
-@inline
 export function serializeFloat32Unsafe(data: f32): void {
-  bs.offset = writeFloatUnsafe(bs.offset, data);
+  bs.offset += ftoa_buffered(bs.offset, data) << 1;
 }
 
-
-@inline
 export function serializeFloat64Unsafe(data: f64): void {
-  bs.offset = writeDoubleUnsafe(bs.offset, data);
+  bs.offset += dtoa_buffered(bs.offset, data) << 1;
 }
 
-
-@inline
 export function serializeFloat32(data: f32): void {
   bs.ensureSize(128);
-  const start = bs.offset;
-  const end = writeFloatUnsafe(start, data);
-  bs.stackSize += end - start;
-  bs.offset = end;
+  const bytes = ftoa_buffered(bs.offset, data) << 1;
+  bs.stackSize += bytes;
+  bs.offset += bytes;
 }
 
-
-@inline
 export function serializeFloat64(data: f64): void {
   bs.ensureSize(128);
-  const start = bs.offset;
-  const end = writeDoubleUnsafe(start, data);
-  bs.stackSize += end - start;
-  bs.offset = end;
+  const bytes = dtoa_buffered(bs.offset, data) << 1;
+  bs.stackSize += bytes;
+  bs.offset += bytes;
 }
 
 // @ts-ignore: inline

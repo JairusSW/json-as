@@ -12,11 +12,7 @@ import {
   deserializeStringField_SWAR,
 } from "../swar/string";
 
-
-@inline export function deserializeString(
-  srcStart: usize,
-  srcEnd: usize,
-): string {
+export function deserializeString(srcStart: usize, srcEnd: usize): string {
   if (JSON_MODE == JSONMode.SIMD) {
     return deserializeString_SIMD(srcStart, srcEnd);
   } else if (JSON_MODE == JSONMode.NAIVE) {
@@ -26,8 +22,7 @@ import {
   }
 }
 
-
-@inline export function deserializeStringField<T extends string | null>(
+export function deserializeStringField<T extends string | null>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

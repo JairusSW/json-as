@@ -17,14 +17,7 @@ class Obj {
   created: string = "";
 }
 
-// @inline so the call site is exactly what the throughput benches emit: a
-// direct __DESERIALIZE_FAST into a reused `out`, no per-op allocation.
-// @ts-expect-error: @inline is a valid decorator here
-@inline function deserializeInto<T>(
-  srcStart: usize,
-  srcEnd: usize,
-  out: T,
-): void {
+function deserializeInto<T>(srcStart: usize, srcEnd: usize, out: T): void {
   // @ts-ignore: supplied by transform
   if (isDefined(out.__DESERIALIZE_FAST)) {
     // @ts-ignore: supplied by transform

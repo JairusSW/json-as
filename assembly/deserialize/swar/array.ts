@@ -13,9 +13,7 @@ import { deserializeStringArrayField } from "./array/string";
 import { deserializeStructArrayField } from "./array/struct";
 
 export { deserializeArrayField as deserializeArrayField_SWAR };
-
-
-@inline export function deserializeArrayField<T extends unknown[]>(
+export function deserializeArrayField<T extends unknown[]>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

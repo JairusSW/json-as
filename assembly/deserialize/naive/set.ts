@@ -156,8 +156,7 @@ export function deserializeSet<T extends Set<any>>(
   return out;
 }
 
-// @ts-expect-error: Decorator valid here
-@inline function deserializeSetBody<T extends Set<any>>(
+function deserializeSetBody<T extends Set<any>>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
@@ -166,8 +165,7 @@ export function deserializeSet<T extends Set<any>>(
   return deserializeSetDirect<T>(srcStart, srcEnd, changetype<nonnull<T>>(out));
 }
 
-// @ts-expect-error: Decorator valid here
-@inline export function deserializeSetField<T extends Set<any>>(
+export function deserializeSetField<T extends Set<any>>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

@@ -10,8 +10,8 @@ import { isSpace, scanStringEnd } from "../../util";
 import { scanValueEnd } from "../../util/scanValueEnd";
 import { lastValueEnd, parseValue } from "./object";
 
-// @ts-ignore: Decorator is valid here
-@inline function deserializeMapKey<T>(start: usize, end: usize): T {
+function deserializeMapKey<T>(start: usize, end: usize): T {
+  // @ts-expect-error: exists
   const keyText = JSON.__deserialize<string>(start - 2, end + 2);
   if (isString<T>()) return changetype<T>(keyText);
   return JSON.parse<T>(keyText);
@@ -117,8 +117,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
   throw new Error("Failed to parse JSON!");
 }
 
-// @ts-ignore: Decorator is valid here
-@inline export function deserializeMapField<T extends Map<any, any>>(
+export function deserializeMapField<T extends Map<any, any>>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

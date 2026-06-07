@@ -16,25 +16,19 @@ import { isSpace } from "./isSpace";
 // (the verify rejects them). Lane byte offset within a hit word is
 // `ctz(mask) >> 3` (detection bit sits at lane*16 + 7).
 
-// @ts-expect-error: @inline is a valid decorator
-@inline const ONES: u64 = 0x0001_0001_0001_0001;
-// @ts-expect-error: @inline is a valid decorator
-@inline const HI: u64 = 0x0080_0080_0080_0080;
+const ONES: u64 = 0x0001_0001_0001_0001;
+const HI: u64 = 0x0080_0080_0080_0080;
 
 // 16-bit-lane "equals" partials (pre-`& HI`); OR several, then `& HI` once.
-// @ts-expect-error: @inline is a valid decorator
-@inline function eqPart(block: u64, splat: u64): u64 {
+function eqPart(block: u64, splat: u64): u64 {
   const t = block ^ splat;
   return (t - ONES) & ~t;
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline const S_QUOTE: u64 = 0x0022_0022_0022_0022;
-// @ts-expect-error: @inline is a valid decorator
-@inline const S_BACK_SLASH: u64 = 0x005c_005c_005c_005c;
+const S_QUOTE: u64 = 0x0022_0022_0022_0022;
+const S_BACK_SLASH: u64 = 0x005c_005c_005c_005c;
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function quoteOrBackslashMask(block: u64): u64 {
+function quoteOrBackslashMask(block: u64): u64 {
   return (eqPart(block, S_QUOTE) | eqPart(block, S_BACK_SLASH)) & HI;
 }
 
@@ -117,11 +111,7 @@ function scanScalarValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
  * objects/arrays use the SWAR token scans above; scalars use a short scalar
  * loop. Returns 0 on empty input or an unterminated string/composite.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function scanValueEnd_SWAR<T>(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+export function scanValueEnd_SWAR<T>(srcStart: usize, srcEnd: usize): usize {
   if (srcStart >= srcEnd) return 0;
   const first = load<u16>(srcStart);
 

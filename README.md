@@ -394,14 +394,14 @@ Custom deserializers should always instantiate and return a new object. They sho
 These functions are then wrapped before being consumed by the json-as library:
 
 ```typescript
-@inline __SERIALIZE_CUSTOM(): void {
+__SERIALIZE_CUSTOM(): void {
   const data = this.serializer(this);
   const dataSize = data.length << 1;
   memory.copy(bs.offset, changetype<usize>(data), dataSize);
   bs.offset += dataSize;
 }
 
-@inline __DESERIALIZE_CUSTOM(data: string): Point {
+_DESERIALIZE_CUSTOM(data: string): Point {
   return this.deserializer(data);
 }
 ```

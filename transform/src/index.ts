@@ -1010,11 +1010,11 @@ export class JSONTransform extends Visitor {
     const requestedFastPath = USE_FAST_PATH;
 
     let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
-    let INITIALIZE = "@inline __INITIALIZE(): this {\n";
+    let INITIALIZE = " __INITIALIZE(): this {\n";
     let DESERIALIZE =
       "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
     let DESERIALIZE_FAST =
-      "@inline __DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
+      "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
     let DESERIALIZE_CUSTOM = "";
     let SERIALIZE_CUSTOM = "";
 
@@ -1203,8 +1203,7 @@ export class JSONTransform extends Visitor {
         );
       }
 
-      DESERIALIZE_CUSTOM +=
-        "  @inline __DESERIALIZE_CUSTOM(data: string): this {\n";
+      DESERIALIZE_CUSTOM += "  __DESERIALIZE_CUSTOM(data: string): this {\n";
       DESERIALIZE_CUSTOM +=
         "    return this." + deserializer.name.text + "(data);\n";
       DESERIALIZE_CUSTOM += "  }\n";
@@ -3558,11 +3557,10 @@ export class JSONTransform extends Visitor {
   }
   generateEmptyMethods(node: ClassDeclaration): void {
     const SERIALIZE_EMPTY =
-      "@inline __SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
-    const INITIALIZE_EMPTY =
-      "@inline __INITIALIZE(): this {\n  return this;\n}";
+      "__SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
+    const INITIALIZE_EMPTY = "__INITIALIZE(): this {\n  return this;\n}";
     const DESERIALIZE_SLOW_EMPTY =
-      "@inline __DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n  return srcEnd;\n}";
+      "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n  return srcEnd;\n}";
 
     if (DEBUG > 0) {
       console.log(SERIALIZE_EMPTY);
@@ -3953,6 +3951,8 @@ enum JSONMode {
 }
 
 let MODE: JSONMode = JSONMode.SWAR;
+let MODE_TEXT = "SWAR";
+const STAGES = process.env["JSON_STAGES"] !== undefined;
 
 export default class Transformer extends Transform {
   afterInitialize(program: Program): void | Promise<void> {
@@ -3973,6 +3973,24 @@ export default class Transformer extends Transform {
         }
       }
     }
+    switch (MODE) {
+      case JSONMode.SWAR:
+        MODE_TEXT = "SWAR";
+        break;
+      case JSONMode.SIMD:
+        MODE_TEXT = "SIMD";
+        break;
+      case JSONMode.NAIVE:
+        MODE_TEXT = "NAIVE";
+        break;
+    }
+    if (STAGES)
+      console.log(
+        "[transform]: Finished initializing transformer in " +
+          MODE_TEXT +
+          " mode",
+      );
+
     program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE));
     if (JSON_CACHE_CONFIG.enabled) {
       program.registerConstantInteger("JSON_CACHE", Type.bool, i64_one);
@@ -3987,6 +4005,7 @@ export default class Transformer extends Transform {
   afterParse(parser: Parser): void {
     const transformer = new JSONTransform();
 
+    if (STAGES) console.log("[transform]: Walking AST and generating schemas");
     // // Reset singleton state to prevent pollution across compilations
     // // This is critical for worker pools where the same process handles multiple compilations
     // transformer.schemas = new Map<string, Schema[]>();
@@ -4066,6 +4085,12 @@ export default class Transformer extends Transform {
         source.sourceKind = SourceKind.Library;
       }
     }
+    if (STAGES)
+      console.log(
+        "[transform]: Finished generating " +
+          transformer.schemas.size +
+          " schemas",
+      );
   }
 }
 

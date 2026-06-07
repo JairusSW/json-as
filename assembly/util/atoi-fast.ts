@@ -18,11 +18,7 @@ import {
  * @param srcEnd   Pointer just past the last code unit.
  * @returns The parsed value, truncated to `T`.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function atou<T extends number>(
-  srcStart: usize,
-  srcEnd: usize,
-): T {
+export function atou<T extends number>(srcStart: usize, srcEnd: usize): T {
   return deserializeUnsigned_SWAR<T>(srcStart, srcEnd);
 }
 
@@ -34,11 +30,7 @@ import {
  * @param srcEnd   Pointer just past the last code unit.
  * @returns The parsed value, truncated to `T`.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function atoi<T extends number>(
-  srcStart: usize,
-  srcEnd: usize,
-): T {
+export function atoi<T extends number>(srcStart: usize, srcEnd: usize): T {
   return deserializeInteger_SWAR<T>(srcStart, srcEnd);
 }
 
@@ -52,8 +44,7 @@ import {
  * @param dstPtr   Destination pointer for the parsed value.
  * @returns The source position immediately after the last digit consumed.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function atouScan<T extends number>(
+export function atouScan<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstPtr: usize,
@@ -71,8 +62,7 @@ import {
  * @param dstPtr   Destination pointer for the parsed value.
  * @returns The source position immediately after the last digit consumed.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function atoiScan<T extends number>(
+export function atoiScan<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstPtr: usize,

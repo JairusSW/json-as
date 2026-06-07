@@ -11,7 +11,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   25_000_000,
-  utf8ByteLength(v1),
+  utf8ByteLength(v2),
 );
 dumpToFile("uuidv4", "serialize");
 bench(

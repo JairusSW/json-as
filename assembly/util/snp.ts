@@ -58,8 +58,7 @@ export function snp<T extends number>(srcStart: usize, srcEnd: usize): T {
   }
 }
 
-// @ts-ignore: Decorator valid here
-@inline function pow10<T extends number>(x: u16): T {
+function pow10<T extends number>(x: u16): T {
   if (sizeof<T>() == 8) {
     return <T>load<u64>(POW_TEN_TABLE_64 + x);
   } else {

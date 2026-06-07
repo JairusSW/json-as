@@ -90,8 +90,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
   throw new Error("Failed to parse JSON!");
 }
 
-
-@inline export function deserializeArrayArrayField<T extends unknown[][]>(
+export function deserializeArrayArrayField<T extends unknown[][]>(
   srcStart: usize,
   srcEnd: usize,
   fieldPtr: usize,

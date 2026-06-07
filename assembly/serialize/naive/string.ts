@@ -15,8 +15,7 @@ import { serializeStruct } from "./struct";
  * @param src string
  * @returns void
  */
-// @ts-ignore: inline
-@inline export function serializeString_NAIVE(src: string): void {
+export function serializeString_NAIVE(src: string): void {
   serializeStringRange(changetype<usize>(src), bytes(src));
 }
 
@@ -86,9 +85,7 @@ export function serializeStringRange(srcPtr: usize, srcSize: usize): void {
   store<u16>(bs.offset, QUOTE);
   bs.offset += 2;
 }
-
-// @ts-ignore: inline
-@inline function write_u_escape(code: u16): void {
+function write_u_escape(code: u16): void {
   bs.growSize(10);
   store<u32>(bs.offset, U_MARKER); // "\u"
   store<u64>(bs.offset, u16_to_hex4_swar(code), 4);

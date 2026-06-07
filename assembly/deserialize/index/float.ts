@@ -12,8 +12,7 @@ import {
   deserializeFloatField_SIMD,
 } from "../simd/float";
 
-// @ts-ignore: inline
-@inline export function deserializeFloat<T>(srcStart: usize, srcEnd: usize): T {
+export function deserializeFloat<T>(srcStart: usize, srcEnd: usize): T {
   if (JSON_MODE == JSONMode.SIMD) {
     return deserializeFloat_SIMD<T>(srcStart, srcEnd);
   } else if (JSON_MODE == JSONMode.NAIVE) {
@@ -23,8 +22,7 @@ import {
   }
 }
 
-// @ts-ignore: inline
-@inline export function deserializeFloatField<T extends number>(
+export function deserializeFloatField<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

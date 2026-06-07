@@ -18,8 +18,7 @@
  * @param block Packed UTF-16 ASCII hex digits.
  * @returns The decoded 16-bit value.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function hex4_to_u16_swar(block: u64): u16 {
+export function hex4_to_u16_swar(block: u64): u16 {
   // (c & 0xF) + 9 * (c >> 6)
   block = (block & 0x0f000f000f000f) + ((block >> 6) & 0x03000300030003) * 9;
 
@@ -51,8 +50,7 @@
  * @param code The 16-bit value to encode.
  * @returns Four packed UTF-16 ASCII hex digits.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function u16_to_hex4_swar(code: u16): u64 {
+export function u16_to_hex4_swar(code: u16): u64 {
   let block =
     (<u64>((code >> 12) & 0xf)) |
     ((<u64>((code >> 8) & 0xf)) << 16) |

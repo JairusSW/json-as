@@ -6,8 +6,6 @@ import { serializeFloat32Unsafe, serializeFloat64Unsafe } from "./float";
 import { serializeIntegerUnsafe } from "./integer";
 import { serializeString } from "../index/string";
 
-
-@inline
 function maxIntegerBytes<T extends number>(): u32 {
   if (sizeof<T>() == 1) return isSigned<T>() ? 8 : 6;
   if (sizeof<T>() == 2) return isSigned<T>() ? 12 : 10;
@@ -15,8 +13,6 @@ function maxIntegerBytes<T extends number>(): u32 {
   return isSigned<T>() ? 42 : 40;
 }
 
-
-@inline
 function reservePrimitiveSet<T>(len: i32): void {
   if (len <= 0) return;
   if (isBoolean<T>()) {

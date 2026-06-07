@@ -16,14 +16,11 @@ import { deserializeFloat } from "../index/float";
 import { deserializeString } from "../index/string";
 
 // "true"  as a u64 of UTF-16 code units (LE).
-// @ts-ignore: inline
-@inline const TRUE_WORD: u64 = 28429475166421108;
+const TRUE_WORD: u64 = 28429475166421108;
 // "alse"  — the tail of "false", read at +2 so the leading 'f' is skipped.
-// @ts-ignore: inline
-@inline const ALSE_WORD: u64 = 28429466576093281;
+const ALSE_WORD: u64 = 28429466576093281;
 // "null"  as a u64 of UTF-16 code units (LE).
-// @ts-ignore: inline
-@inline const NULL_WORD: u64 = 30399761348886638;
+const NULL_WORD: u64 = 30399761348886638;
 
 // End offset (just past the value) of the most recent parseValue() call. The
 // recursive-descent parser reports each value's end through this single cursor

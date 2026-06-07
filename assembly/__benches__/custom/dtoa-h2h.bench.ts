@@ -1,14 +1,15 @@
-// Żmij float-writer throughput: SWAR vs SIMD kernels vs AS stdlib toString,
-// plus the full json-as JSON.stringify<f64/f32> path. Build with --enable simd
-// (run-bench --mode simd) so the v128 kernels are exercised; forceSwarBackend
-// toggles the register-parallel path inside the same binary.
+// Żmij float-writer throughput vs AS stdlib toString, plus the full json-as
+// JSON.stringify<f64> path. Float serialization lives in the `zmij-as` package;
+// json-as calls its dtoa_buffered/ftoa_buffered writers directly. The SWAR vs
+// WASM-SIMD digit kernel is chosen at *compile time* inside zmij-as, so run this
+// bench once per kernel via run-bench:
+//   bench:as custom/dtoa-h2h --mode swar   (SWAR kernel)
+//   bench:as custom/dtoa-h2h --mode simd   (WASM-SIMD kernel)
+// dumpToFile already files results under build/logs/as/<mode>/, so each run
+// lands in its own directory.
 import { JSON } from "../..";
 import { bench, dumpToFile, blackbox } from "../lib/bench";
-import {
-  writeDoubleUnsafe,
-  writeFloatUnsafe,
-  forceSwarBackend,
-} from "../../util/zmij";
+import { dtoa_buffered, ftoa_buffered } from "zmij-as";
 
 // A spread of magnitudes: small ints, fractions, exponential extremes.
 const D: f64[] = [
@@ -25,29 +26,16 @@ const ND = D.length;
 const NF = F.length;
 const SCRATCH = memory.data(128);
 
-forceSwarBackend(true);
 bench(
-  "zmij-dtoa-swar",
+  "zmij-dtoa",
   () => {
     for (let i = 0; i < ND; i++)
-      blackbox<usize>(writeDoubleUnsafe(SCRATCH, unchecked(D[i])));
+      blackbox<u32>(dtoa_buffered(SCRATCH, unchecked(D[i])));
   },
   200_000,
   <u64>ND,
 );
-dumpToFile("dtoa-swar", "serialize");
-
-forceSwarBackend(false);
-bench(
-  "zmij-dtoa-simd",
-  () => {
-    for (let i = 0; i < ND; i++)
-      blackbox<usize>(writeDoubleUnsafe(SCRATCH, unchecked(D[i])));
-  },
-  200_000,
-  <u64>ND,
-);
-dumpToFile("dtoa-simd", "serialize");
+dumpToFile("dtoa", "serialize");
 
 bench(
   "stdlib-dtoa",
@@ -60,29 +48,16 @@ bench(
 );
 dumpToFile("dtoa-stdlib", "serialize");
 
-forceSwarBackend(true);
 bench(
-  "zmij-ftoa-swar",
+  "zmij-ftoa",
   () => {
     for (let i = 0; i < NF; i++)
-      blackbox<usize>(writeFloatUnsafe(SCRATCH, unchecked(F[i])));
+      blackbox<u32>(ftoa_buffered(SCRATCH, unchecked(F[i])));
   },
   200_000,
   <u64>NF,
 );
-dumpToFile("ftoa-swar", "serialize");
-
-forceSwarBackend(false);
-bench(
-  "zmij-ftoa-simd",
-  () => {
-    for (let i = 0; i < NF; i++)
-      blackbox<usize>(writeFloatUnsafe(SCRATCH, unchecked(F[i])));
-  },
-  200_000,
-  <u64>NF,
-);
-dumpToFile("ftoa-simd", "serialize");
+dumpToFile("ftoa", "serialize");
 
 // Full json-as public path (allocates the result string).
 bench(

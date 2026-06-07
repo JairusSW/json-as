@@ -61,11 +61,7 @@ function validateJSONNumber(srcStart: usize, srcEnd: usize): void {
   if (ptr != end) throw new Error("Invalid JSON number: trailing characters");
 }
 
-// @ts-ignore: inline
-@inline export function deserializeFloat_NAIVE<T>(
-  srcStart: usize,
-  srcEnd: usize,
-): T {
+export function deserializeFloat_NAIVE<T>(srcStart: usize, srcEnd: usize): T {
   validateJSONNumber(srcStart, srcEnd);
   // @ts-ignore
   const type: T = 0;
@@ -113,8 +109,7 @@ function scanFloatEnd(srcStart: usize, srcEnd: usize): usize {
   return ptr;
 }
 
-// @ts-ignore: inline
-@inline export function deserializeFloatField_NAIVE<T extends number>(
+export function deserializeFloatField_NAIVE<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

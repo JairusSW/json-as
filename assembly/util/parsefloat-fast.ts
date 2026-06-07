@@ -35,13 +35,11 @@ const MAX_EXACT_POW10: i32 = 22;
 // 2^53 = 9_007_199_254_740_992. Any u64 <= this is exact in f64.
 const MAX_EXACT_MANTISSA: u64 = 1 << 53;
 
-
-@inline function loadPow10(exp: u32): f64 {
+function loadPow10(exp: u32): f64 {
   return load<f64>(POW10_F64_POS + ((<usize>exp) << 3));
 }
 
-
-@inline function fallback<T>(srcStart: usize, srcEnd: usize): T {
+function fallback<T>(srcStart: usize, srcEnd: usize): T {
   const s = ptrToStr(srcStart, srcEnd);
   // @ts-ignore: type
   const type: T = 0;

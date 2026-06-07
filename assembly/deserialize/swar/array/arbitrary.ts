@@ -2,8 +2,7 @@ import { JSON } from "../../..";
 import { deserializeGenericArrayBody } from "./generic";
 import { ensureArrayField } from "./shared";
 
-
-@inline export function deserializeArbitraryArrayField(
+export function deserializeArbitraryArrayField(
   srcStart: usize,
   srcEnd: usize,
   fieldPtr: usize,

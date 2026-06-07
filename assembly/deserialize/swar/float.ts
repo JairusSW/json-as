@@ -34,14 +34,11 @@ const ASCII_DOT: u16 = 46;
 const ASCII_ZERO: u16 = 48;
 const ASCII_E_UP: u16 = 69;
 const ASCII_E_LO: u16 = 101;
-
-// @ts-ignore: inline
-@inline export function loadPow10(exp: u32): f64 {
+export function loadPow10(exp: u32): f64 {
   return load<f64>(POW10_F64_POS + ((<usize>exp) << 3));
 }
 
-// @ts-ignore: inline
-@inline function fallback<T>(srcStart: usize, srcEnd: usize): T {
+function fallback<T>(srcStart: usize, srcEnd: usize): T {
   const s = ptrToStr(srcStart, srcEnd);
   // @ts-ignore
   const type: T = 0;
@@ -50,9 +47,7 @@ const ASCII_E_LO: u16 = 101;
   // @ts-ignore
   return <T>(<f32>f32.parse(s));
 }
-
-// @ts-ignore: inline
-@inline function fallbackField<T extends number>(
+function fallbackField<T extends number>(
   origStart: usize,
   end: usize,
   fieldPtr: usize,

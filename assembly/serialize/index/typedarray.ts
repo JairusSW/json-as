@@ -9,8 +9,7 @@ import {
   serializeTypedArray,
 } from "../naive/typedarray";
 
-
-@inline export function serializeDynamic(type: u16, data: usize): void {
+export function serializeDynamic(type: u16, data: usize): void {
   if (type == JSON.Types.ArrayBuffer) {
     serializeArrayBufferUnsafe(
       data,

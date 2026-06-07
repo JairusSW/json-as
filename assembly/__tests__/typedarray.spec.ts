@@ -198,13 +198,11 @@ class HexBytes extends Uint8Array {
     return out;
   }
 
-
-  @inline __SERIALIZE_CUSTOM(): void {
+  __SERIALIZE_CUSTOM(): void {
     JSON.__serialize(this.toHex());
   }
 
-
-  @inline __DESERIALIZE_CUSTOM(data: string): HexBytes {
+  __DESERIALIZE_CUSTOM(data: string): HexBytes {
     const raw = JSON.parse<string>(data);
     const out = new HexBytes(raw.length >> 1);
 

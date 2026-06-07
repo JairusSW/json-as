@@ -30,15 +30,13 @@ import { isSpace } from "./isSpace";
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_WS_SPAN = i16x8.splat(0x04);
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function quoteOrBackslashMask(block: v128): i32 {
+function quoteOrBackslashMask(block: v128): i32 {
   return i16x8.bitmask(
     v128.or(i16x8.eq(block, SPLAT_QUOTE), i16x8.eq(block, SPLAT_BACK_SLASH)),
   );
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function scalarTerminatorMask(block: v128): i32 {
+function scalarTerminatorMask(block: v128): i32 {
   const structural = v128.or(
     v128.or(i16x8.eq(block, SPLAT_COMMA), i16x8.eq(block, SPLAT_BRACE_RIGHT)),
     i16x8.eq(block, SPLAT_BRACKET_RIGHT),
@@ -135,11 +133,7 @@ function scanScalarValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
   return srcStart;
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline export function scanValueEnd_SIMD<T>(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+export function scanValueEnd_SIMD<T>(srcStart: usize, srcEnd: usize): usize {
   if (srcStart >= srcEnd) return 0;
   const first = load<u16>(srcStart);
 

@@ -40,11 +40,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
 // @ts-expect-error: decorators valid here
 @lazy const PAIR_WEIGHTS_100_1 = i16x8(100, 1, 100, 1, 0, 0, 0, 0);
 
-// @ts-expect-error: decorators valid here
-@inline function storeSignedInteger<T extends number[]>(
-  slot: usize,
-  value: i64,
-): void {
+function storeSignedInteger<T extends number[]>(slot: usize, value: i64): void {
   if (sizeof<valueof<T>>() == sizeof<i8>()) {
     store<i8>(slot, <i8>value);
   } else if (sizeof<valueof<T>>() == sizeof<i16>()) {
@@ -58,8 +54,7 @@ const ASCII_ZERO_4: u64 = 0x0030003000300030;
   }
 }
 
-// @ts-expect-error: decorators valid here
-@inline function storeUnsignedInteger<T extends number[]>(
+function storeUnsignedInteger<T extends number[]>(
   slot: usize,
   value: u64,
 ): void {

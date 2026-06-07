@@ -4,7 +4,6 @@ import { bs } from "../../../lib/as-bs";
  * @param data data to serialize
  * @returns void
  */
-@inline
 export function serializeBoolUnsafe(data: bool): void {
   if (data === true) {
     store<u64>(bs.offset, 28429475166421108);

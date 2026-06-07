@@ -236,19 +236,6 @@ declare function deserializer(
 ): any;
 
 /**
- * Parsing/serialization strategy selected at build time via the `JSON_MODE`
- * environment variable and exposed as {@link JSON_MODE}.
- */
-declare const enum JSONMode {
-  /** Scalar/word-at-a-time (SWAR) scanning. The default; no extra flags. */
-  SWAR = 0,
-  /** 128-bit SIMD scanning. Fastest on larger payloads; needs `--enable simd`. */
-  SIMD = 1,
-  /** Straightforward byte-at-a-time scanning. Smallest code, slowest. */
-  NAIVE = 2,
-}
-
-/**
  * The active {@link JSONMode}, injected by the transform from the `JSON_MODE`
  * build-time environment variable (default `SWAR`). Set it on the `asc`
  * command/build env; `SIMD` additionally requires `--enable simd`.

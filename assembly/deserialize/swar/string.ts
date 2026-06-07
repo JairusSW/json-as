@@ -41,11 +41,7 @@ import { hex4_to_u16_swar } from "../../util/swar";
  * @param dst buffer to write to
  * @returns number of bytes written
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline function copyStringFromSource(
-  srcStart: usize,
-  byteLength: usize,
-): string {
+function copyStringFromSource(srcStart: usize, byteLength: usize): string {
   if (byteLength == 0) return changetype<string>("");
   const out = __new(byteLength, idof<string>());
   memory.copy(out, srcStart, byteLength);
@@ -555,8 +551,7 @@ export function deserializeStringField_SWAR<T extends string | null>(
  * so callers must confirm the hit scalarly.
  * Each matching lane sets itself to 0x80.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline function backslash_or_quote_mask(block: u64): u64 {
+function backslash_or_quote_mask(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
   const q = block ^ 0x0022_0022_0022_0022;
   return (
@@ -575,8 +570,7 @@ export function deserializeStringField_SWAR<T extends string | null>(
  *
  * Each matching lane sets itself to 0x80.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline function backslash_mask(block: u64): u64 {
+function backslash_mask(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
   const backslash_mask =
     (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;
@@ -597,8 +591,7 @@ export function deserializeStringField_SWAR<T extends string | null>(
  * WARNING: The low byte of a code unit *may* be a backslash, thus triggering false positives!
  * This is useful for a hot path where it is possible to detect the false positive scalarly.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline function backslash_mask_unsafe(block: u64): u64 {
+function backslash_mask_unsafe(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
   const backslash_mask =
     (b - 0x0001_0001_0001_0001) & ~b & 0x0080_0080_0080_0080;

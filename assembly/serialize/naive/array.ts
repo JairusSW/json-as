@@ -5,10 +5,8 @@ import { serializeBoolUnsafe } from "./bool";
 import { serializeFloat32Unsafe, serializeFloat64Unsafe } from "./float";
 import { serializeIntegerUnsafe } from "./integer";
 import { serializeString } from "../index/string";
-import { writeFloatUnsafe, writeDoubleUnsafe } from "../../util/zmij";
+import { dtoa_buffered, ftoa_buffered } from "zmij-as";
 
-
-@inline
 function maxIntegerBytes<T extends number>(): u32 {
   if (sizeof<T>() == 1) return isSigned<T>() ? 8 : 6;
   if (sizeof<T>() == 2) return isSigned<T>() ? 12 : 10;
@@ -16,8 +14,6 @@ function maxIntegerBytes<T extends number>(): u32 {
   return isSigned<T>() ? 42 : 40;
 }
 
-
-@inline
 function reservePrimitiveArray<T>(len: i32): void {
   if (len <= 0) return;
   if (isBoolean<T>()) {
@@ -31,8 +27,6 @@ function reservePrimitiveArray<T>(len: i32): void {
   }
 }
 
-
-@inline
 function serializeArrayElement<T>(value: T): void {
   if (isString<T>()) {
     serializeString(value as string);
@@ -75,15 +69,13 @@ function serializeArrayElement<T>(value: T): void {
 // comma-store + advance per element that the generic `serializeArray` does.
 
 // `"true,"` packed UTF-16: `t,r,u,e,,` lanes 0..4 = bytes 0..9.
-@inline const TRUE_COMMA_LO: u64 = 0x0065_0075_0072_0074;
+const TRUE_COMMA_LO: u64 = 0x0065_0075_0072_0074;
 
-
-@inline const TRUE_COMMA_HI: u16 = 0x002c;
+const TRUE_COMMA_HI: u16 = 0x002c;
 // `"false,"` packed UTF-16: `f,a,l,s,e,,` lanes 0..5 = bytes 0..11.
-@inline const FALSE_COMMA_LO: u64 = 0x0073_006c_0061_0066;
+const FALSE_COMMA_LO: u64 = 0x0073_006c_0061_0066;
 
-
-@inline const FALSE_COMMA_HI: u32 = 0x002c_0065;
+const FALSE_COMMA_HI: u32 = 0x002c_0065;
 
 function serializeBoolArrayFast(src: bool[]): void {
   const len = src.length;
@@ -149,8 +141,7 @@ function initU8Lut(): void {
   _u8LutInited = true;
 }
 
-
-@inline function ensureU8Lut(): void {
+function ensureU8Lut(): void {
   if (!_u8LutInited) initU8Lut();
 }
 
@@ -207,7 +198,7 @@ function serializeF64ArrayFast(src: f64[]): void {
   let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
     const v = load<f64>(dataStart + ((<usize>i) << 3));
-    offset = writeDoubleUnsafe(offset, v);
+    offset += dtoa_buffered(offset, v) << 1;
     store<u16>(offset, COMMA);
     offset += 2;
   }
@@ -234,7 +225,7 @@ function serializeF32ArrayFast(src: f32[]): void {
   let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
     const v = load<f32>(dataStart + ((<usize>i) << 2));
-    offset = writeFloatUnsafe(offset, v);
+    offset += ftoa_buffered(offset, v) << 1;
     store<u16>(offset, COMMA);
     offset += 2;
   }

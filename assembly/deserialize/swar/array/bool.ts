@@ -59,8 +59,7 @@ function deserializeBooleanArrayBody<T extends boolean[]>(
   throw new Error("Failed to parse JSON!");
 }
 
-
-@inline export function deserializeBooleanArrayField<T extends boolean[]>(
+export function deserializeBooleanArrayField<T extends boolean[]>(
   srcStart: usize,
   srcEnd: usize,
   fieldPtr: usize,
