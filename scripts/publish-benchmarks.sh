@@ -7,16 +7,51 @@ cd "$ROOT_DIR"
 REMOTE_NAME="${REMOTE_NAME:-origin}"
 DOCS_BRANCH="${DOCS_BRANCH:-docs}"
 FAST_PATH="${JSON_USE_FAST_PATH:-1}"
+ALLOW_DIRTY="${ALLOW_DIRTY:-0}"
 RUN_BENCHES=1
 CHART_ARGS=()
 TMP_CHARTS_DIR="$(mktemp -d)"
 TMP_DOCS_DIR="$(mktemp -d)"
 WORKTREE_ADDED=0
+VERSION=$(node -p "require('./package.json').version" 2>/dev/null \
+  || grep -oP '"version"\s*:\s*"\K[^"]+' package.json | head -1)
+
+usage() {
+  cat <<'EOF'
+Usage: ./scripts/publish-benchmarks.sh [options]
+
+Run the benchmarks, build the charts, and publish them to the docs branch
+(as a detached worktree, so the main working tree is left untouched).
+
+Options:
+  --no-run         Skip running benchmarks; reuse existing logs.
+  --allow-dirty    Publish even with uncommitted changes to tracked files.
+                   (untracked files are always ignored)
+  --v8             Pass --v8 through to build-charts.sh.
+  --wavm           Pass --wavm through to build-charts.sh.
+  --llvm           Pass --llvm through to build-charts.sh.
+  -h, --help       Show this help and exit.
+
+Environment:
+  REMOTE_NAME          Git remote to push to (default: origin).
+  DOCS_BRANCH          Branch to publish charts on (default: docs).
+  JSON_USE_FAST_PATH   Fast-path toggle for AS benchmarks (default: 1).
+  ALLOW_DIRTY          Set to 1 for the same effect as --allow-dirty.
+EOF
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
     --no-run)
       RUN_BENCHES=0
+      shift
+      ;;
+    --allow-dirty)
+      ALLOW_DIRTY=1
       shift
       ;;
     --v8|--wavm|--llvm)
@@ -24,8 +59,8 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      echo "Unknown option: $1"
-      echo "Usage: ./scripts/publish-benchmarks.sh [--no-run] [--v8|--wavm|--llvm]"
+      echo "Unknown option: $1" >&2
+      usage >&2
       exit 1
       ;;
   esac
@@ -41,9 +76,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+if [[ "$ALLOW_DIRTY" != "1" && -n "$(git status --porcelain --untracked-files=no)" ]]; then
   echo "Refusing to publish benchmarks with a dirty tracked working tree."
-  echo "Commit or stash your changes first."
+  echo "Commit or stash your changes first, or pass --allow-dirty (or ALLOW_DIRTY=1)."
   exit 1
 fi
 
@@ -87,10 +122,17 @@ else
 fi
 
 echo "Updating charts on ${DOCS_BRANCH}..."
+# Write versioned snapshot so each release keeps its own chart folder.
+VERSIONED_DIR="$TMP_DOCS_DIR/charts/v${VERSION}"
+rm -rf "$VERSIONED_DIR"
+mkdir -p "$VERSIONED_DIR"
+cp -R "$TMP_CHARTS_DIR/." "$VERSIONED_DIR/"
+
+# Also refresh the flat chart files for any existing README/docs links.
 mkdir -p "$TMP_DOCS_DIR/charts"
-rm -rf "$TMP_DOCS_DIR/charts"
-mkdir -p "$TMP_DOCS_DIR/charts"
-cp -R "$TMP_CHARTS_DIR/." "$TMP_DOCS_DIR/charts/"
+find "$TMP_CHARTS_DIR" -maxdepth 1 -type f | while read -r f; do
+  cp "$f" "$TMP_DOCS_DIR/charts/"
+done
 
 (
   cd "$TMP_DOCS_DIR"
@@ -102,7 +144,7 @@ cp -R "$TMP_CHARTS_DIR/." "$TMP_DOCS_DIR/charts/"
 
   git config user.name "${GIT_AUTHOR_NAME:-$(git config --get user.name || echo json-as)}"
   git config user.email "${GIT_AUTHOR_EMAIL:-$(git config --get user.email || echo json-as@example.com)}"
-  git commit -m "Update benchmark charts [skip ci]" >/dev/null
+  git commit -m "chore(charts): benchmark charts for v${VERSION} [skip ci]" >/dev/null
   git push "$REMOTE_NAME" "$DOCS_BRANCH"
 )
 
