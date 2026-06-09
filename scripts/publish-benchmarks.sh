@@ -6,6 +6,7 @@ cd "$ROOT_DIR"
 
 REMOTE_NAME="${REMOTE_NAME:-origin}"
 DOCS_BRANCH="${DOCS_BRANCH:-docs}"
+VERSION="$(node -p "require('./package.json').version")"
 FAST_PATH="${JSON_USE_FAST_PATH:-1}"
 RUN_BENCHES=1
 CHART_ARGS=()
@@ -41,10 +42,18 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Publishing never commits the main working tree: it builds charts into
+# ./build/charts (build output) and commits them only inside a separate `docs`
+# worktree. A dirty/changed/untracked main tree is therefore safe, so proceed by
+# default — charts just reflect your current (possibly uncommitted) source. Set
+# PUBLISH_REQUIRE_CLEAN=1 to restore the old refuse-if-dirty guard.
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-  echo "Refusing to publish benchmarks with a dirty tracked working tree."
-  echo "Commit or stash your changes first."
-  exit 1
+  if [[ "${PUBLISH_REQUIRE_CLEAN:-0}" == "1" ]]; then
+    echo "Refusing to publish benchmarks with a dirty tracked working tree (PUBLISH_REQUIRE_CLEAN=1)."
+    echo "Commit or stash your changes first."
+    exit 1
+  fi
+  echo "⚠️  Working tree has uncommitted changes — charts will reflect them (HEAD: $(git rev-parse --short HEAD))."
 fi
 
 if [[ "$RUN_BENCHES" == "1" ]]; then
@@ -86,24 +95,34 @@ else
   )
 fi
 
-echo "Updating charts on ${DOCS_BRANCH}..."
-mkdir -p "$TMP_DOCS_DIR/charts"
-rm -rf "$TMP_DOCS_DIR/charts"
-mkdir -p "$TMP_DOCS_DIR/charts"
-cp -R "$TMP_CHARTS_DIR/." "$TMP_DOCS_DIR/charts/"
+# Publish under charts/v<version>/ so each release keeps its own chart set.
+# Re-publishing a version overwrites just that folder; other versions untouched.
+DEST="v${VERSION}"
+echo "Updating charts/${DEST} on ${DOCS_BRANCH}..."
+rm -rf "$TMP_DOCS_DIR/charts/${DEST}"
+mkdir -p "$TMP_DOCS_DIR/charts/${DEST}"
+cp -R "$TMP_CHARTS_DIR/." "$TMP_DOCS_DIR/charts/${DEST}/"
 
 (
   cd "$TMP_DOCS_DIR"
-  git add charts/
+  git add -A charts
   if git diff --cached --quiet; then
-    echo "No chart changes to publish."
+    echo "No chart changes to publish for ${DEST}."
     exit 0
   fi
 
   git config user.name "${GIT_AUTHOR_NAME:-$(git config --get user.name || echo json-as)}"
   git config user.email "${GIT_AUTHOR_EMAIL:-$(git config --get user.email || echo json-as@example.com)}"
-  git commit -m "Update benchmark charts [skip ci]" >/dev/null
+  git commit -m "Update benchmark charts for ${DEST} [skip ci]" >/dev/null
   git push "$REMOTE_NAME" "$DOCS_BRANCH"
 )
 
-echo "Benchmark charts published to ${REMOTE_NAME}/${DOCS_BRANCH}."
+# Re-pin the README chart <img> URLs to the version just published, so a README
+# revision references the charts built from its own code. Handles both the flat
+# legacy path (.../charts/chart01.svg) and an existing versioned one. Left
+# uncommitted for you to review and commit.
+echo "Pinning README chart URLs to charts/${DEST}/..."
+sed -i -E "s#(/refs/heads/${DOCS_BRANCH}/charts/)([^\"']*/)?([^/\"']+\.(svg|png))#\1${DEST}/\3#g" README.md
+
+echo "Benchmark charts published to ${REMOTE_NAME}/${DOCS_BRANCH}:charts/${DEST}/."
+echo "README pinned to https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/${DOCS_BRANCH}/charts/${DEST}/"

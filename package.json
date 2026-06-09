@@ -1,6 +1,6 @@
 {
   "name": "json-as",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "author": "Jairus Tanaka",
   "repository": {
     "type": "git",
@@ -98,6 +98,7 @@
     "test:ci": "ast test --parallel --clean --enable try-as",
     "test:coverage": "ast test --enable coverage --enable try-as",
     "bench": "bash -c 'bash ./scripts/run-bench.as.sh \"$@\" && { arg=\"${1:-}\"; if [ -z \"$arg\" ] || [ \"${arg#custom/}\" = \"$arg\" ]; then bash ./scripts/run-bench.js.sh \"$@\"; fi; } && bash ./scripts/build-charts.sh' --",
+    "bench:all": "bash ./scripts/bench-all.sh",
     "bench:as": "bash ./scripts/run-bench.as.sh",
     "bench:js": "bash ./scripts/run-bench.js.sh",
     "charts": "bun run charts:build && bun run charts:serve",
