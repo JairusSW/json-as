@@ -4,6 +4,7 @@ export * from "./index/bool";
 export * from "./index/date";
 export * from "./index/float";
 export * from "./index/integer";
+export * from "./index/jsonarray";
 export * from "./index/map";
 export * from "./index/object";
 export * from "./index/raw";

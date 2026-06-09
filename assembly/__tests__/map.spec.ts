@@ -227,7 +227,7 @@ describe("Should parse Map<string, JSON.Value> across all branches", () => {
   expect(direct.get("f").toString()).toBe("false");
   expect(direct.get("n").toString()).toBe("null");
   expect(direct.get("o").get<JSON.Obj>().get("x")!.toString()).toBe("1.0");
-  expect(direct.get("a").get<JSON.Value[]>()[1].toString()).toBe("2.0");
+  expect(direct.get("a").get<JSON.Arr>().at(1).toString()).toBe("2.0");
   expect(direct.get("s").get<string>()).toBe("hi");
 
   const empty = JSON.parse<Map<string, JSON.Value>>("{}");

@@ -577,7 +577,7 @@ describe("Should deserialize object, arbitrary, raw, map, and box array fields",
   );
   expect(objs.items.length).toBe(2);
   expect(objs.items[0].get("kind")!.get<string>()).toBe("a");
-  expect(objs.items[1].get("list")!.get<JSON.Value[]>()[1].toString()).toBe(
+  expect(objs.items[1].get("list")!.get<JSON.Arr>().at(1).toString()).toBe(
     "2.0",
   );
   expect(JSON.stringify(objs)).toBe(
@@ -592,7 +592,7 @@ describe("Should deserialize object, arbitrary, raw, map, and box array fields",
   expect(values.items[1].toString()).toBe("true");
   expect(values.items[2].get<string>()).toBe("x");
   expect(values.items[3].get<JSON.Obj>().get("k")!.toString()).toBe("2.0");
-  expect(values.items[4].get<JSON.Value[]>()[1].toString()).toBe("4.0");
+  expect(values.items[4].get<JSON.Arr>().at(1).toString()).toBe("4.0");
   expect(values.items[5].toString()).toBe("null");
 
   const raws = JSON.parse<RawArrayFieldHolder>(

@@ -90,3 +90,24 @@ bench(
   byteLength,
 );
 dumpToFile("medium", "deserialize");
+
+// Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
+const objMedium = JSON.parse<JSON.Obj>(v2);
+bench(
+  "Serialize Medium (JSON.Obj)",
+  () => {
+    blackbox(JSON.stringify(objMedium));
+  },
+  500_000,
+  byteLength,
+);
+dumpToFile("medium-obj", "serialize");
+bench(
+  "Deserialize Medium (JSON.Obj)",
+  () => {
+    blackbox(JSON.parse<JSON.Obj>(v2));
+  },
+  500_000,
+  byteLength,
+);
+dumpToFile("medium-obj", "deserialize");

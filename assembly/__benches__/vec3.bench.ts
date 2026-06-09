@@ -31,3 +31,24 @@ bench(
   utf8ByteLength(v2),
 );
 dumpToFile("vec3", "deserialize");
+
+// Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
+const objVec3 = JSON.parse<JSON.Obj>(v2);
+bench(
+  "Serialize Vec3 (JSON.Obj)",
+  () => {
+    blackbox(JSON.stringify(objVec3));
+  },
+  12_800_000,
+  utf8ByteLength(v2),
+);
+dumpToFile("vec3-obj", "serialize");
+bench(
+  "Deserialize Vec3 (JSON.Obj)",
+  () => {
+    blackbox(JSON.parse<JSON.Obj>(v2));
+  },
+  12_800_000,
+  utf8ByteLength(v2),
+);
+dumpToFile("vec3-obj", "deserialize");

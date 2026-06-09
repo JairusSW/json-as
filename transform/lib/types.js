@@ -135,6 +135,8 @@ export class Schema {
             return 1;
         if (type == "JSON.Obj" || type == "Obj")
             return 2;
+        if (type == "JSON.Arr" || type == "Arr")
+            return 2;
         if (type == "JSON.Value" || type == "Value")
             return 1;
         const dep = this.deps.find((schema) => schema.name === type || schema.name.endsWith("." + type));

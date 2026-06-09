@@ -39,8 +39,8 @@ describe("Should round-trip JSON.Value arrays containing objects, raw, and array
   const values = JSON.parse<JSON.Value[]>('[{"a":1},[2,3],true,"x",null]');
   expect(values.length.toString()).toBe("5");
   expect(values[0].get<JSON.Obj>().get("a")!.toString()).toBe("1.0");
-  expect(values[1].get<JSON.Value[]>()[0].toString()).toBe("2.0");
-  expect(values[1].get<JSON.Value[]>()[1].toString()).toBe("3.0");
+  expect(values[1].get<JSON.Arr>().at(0).toString()).toBe("2.0");
+  expect(values[1].get<JSON.Arr>().at(1).toString()).toBe("3.0");
   expect(values[2].get<bool>().toString()).toBe("true");
   expect(values[3].get<string>()).toBe("x");
   expect(values[4].type.toString()).toBe(JSON.Types.Null.toString());
@@ -56,7 +56,7 @@ describe("Should mutate JSON.Obj with replacement values", () => {
   obj.set("list", [JSON.Value.from(1), JSON.Value.from(2), JSON.Value.from(3)]);
   expect(obj.get("status")!.get<string>()).toBe("published");
   expect(obj.get("count")!.toString()).toBe("2");
-  expect(JSON.stringify(obj.get("list")!.get<JSON.Value[]>())).toBe("[1,2,3]");
+  expect(JSON.stringify(obj.get("list")!.get<JSON.Arr>())).toBe("[1,2,3]");
   expect(JSON.stringify(obj)).toBe(
     '{"status":"published","count":2,"list":[1,2,3]}',
   );

@@ -190,3 +190,24 @@ bench(
   byteLength,
 );
 dumpToFile("large", "deserialize");
+
+// Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
+const objLarge = JSON.parse<JSON.Obj>(v2);
+bench(
+  "Serialize Large (JSON.Obj)",
+  () => {
+    blackbox(JSON.stringify(objLarge));
+  },
+  100_000,
+  byteLength,
+);
+dumpToFile("large-obj", "serialize");
+bench(
+  "Deserialize Large (JSON.Obj)",
+  () => {
+    blackbox(JSON.parse<JSON.Obj>(v2));
+  },
+  100_000,
+  byteLength,
+);
+dumpToFile("large-obj", "deserialize");

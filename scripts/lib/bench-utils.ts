@@ -94,6 +94,22 @@ export function getBenchResults(payloads: string[]): BenchResults {
   return out;
 }
 
+// Reads the dynamic JSON.Obj result for a payload (logged under `<payload>-obj`
+// by the per-payload benches). Returns null when absent — e.g. primitive
+// payloads have no JSON.Obj variant, or the obj benches weren't run — so charts
+// can fall back to a zero bar instead of crashing.
+export function readObjBenchResult(
+  payload: string,
+  kind: BenchKind,
+  engine = "simd",
+): BenchResult | null {
+  try {
+    return readBenchLog(benchLogPath(`${payload}-obj`, kind, "as", engine));
+  } catch {
+    return null;
+  }
+}
+
 export function createBarChart(
   data: Record<string, BenchResult[]>,
   payloadLabels: Record<string, string>,

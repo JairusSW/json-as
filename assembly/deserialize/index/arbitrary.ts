@@ -1,8 +1,7 @@
 import { JSON } from "../..";
-import { deserializeArray } from "./array";
 import { deserializeBoolean } from "./bool";
 import { deserializeFloat } from "./float";
-import { deserializeObject } from "./object";
+import { deserializeObject, deserializeJsonArray, getParseSrc } from "./object";
 import { deserializeString } from "./string";
 import { BRACE_LEFT, BRACKET_LEFT, CHAR_N, QUOTE } from "../../custom/chars";
 
@@ -12,14 +11,26 @@ export function deserializeArbitrary(
   dst: usize,
 ): JSON.Value {
   const firstChar = load<u16>(srcStart);
-  if (firstChar == QUOTE) {
-    return JSON.Value.from(deserializeString(srcStart, srcEnd));
-  } else if (firstChar == BRACE_LEFT) {
-    return JSON.Value.from(deserializeObject(srcStart, srcEnd, 0));
+  if (
+    firstChar == QUOTE ||
+    firstChar == BRACE_LEFT ||
+    firstChar == BRACKET_LEFT
+  ) {
+    // Lazy by default: when a parse is in flight (source anchor present), defer
+    // strings and composites (the allocating shapes) — store the exact raw slice
+    // and materialize on first access. Cheap primitives stay eager below.
+    const src = getParseSrc();
+    if (src.length != 0) {
+      const end = JSON.Util.scanValueEnd<JSON.Value>(srcStart, srcEnd);
+      return JSON.Value.fromSlice(srcStart, end, src);
+    }
+    if (firstChar == QUOTE)
+      return JSON.Value.from(deserializeString(srcStart, srcEnd));
+    return firstChar == BRACE_LEFT
+      ? JSON.Value.from(deserializeObject(srcStart, srcEnd, 0))
+      : JSON.Value.from(deserializeJsonArray(srcStart, srcEnd, 0));
   } else if (firstChar - 48 <= 9 || firstChar == 45) {
     return JSON.Value.from(deserializeFloat<f64>(srcStart, srcEnd));
-  } else if (firstChar == BRACKET_LEFT) {
-    return JSON.Value.from(deserializeArray<JSON.Value[]>(srcStart, srcEnd, 0));
   } else if (firstChar == 116 || firstChar == 102) {
     return JSON.Value.from(deserializeBoolean(srcStart, srcEnd));
   } else if (firstChar == CHAR_N) {

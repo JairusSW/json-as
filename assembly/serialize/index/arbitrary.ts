@@ -1,20 +1,38 @@
 import { JSON } from "../..";
 import { bs } from "../../../lib/as-bs";
-import { serializeArray } from "./array";
 import { serializeBool } from "./bool";
 import { serializeFloat32, serializeFloat64 } from "./float";
 import { serializeInteger } from "./integer";
+import { serializeJsonArray } from "./jsonarray";
 import { serializeMap } from "./map";
 import { serializeObject } from "./object";
+import { serializeRaw } from "../naive/raw";
 import { serializeString } from "./string";
 import { serializeDynamic } from "./typedarray";
 
 export function serializeArbitrary(src: JSON.Value): void {
+  // Verbatim passthrough: an untouched (still-deferred) value emits its original
+  // source bytes directly — no materialization, no re-encoding. Peek the slice
+  // without reading `src.type` (which would force materialization).
+  const lz = src.__lazySlice();
+  if (lz != 0) {
+    const start = <usize>(lz >>> 32);
+    const size = <usize>(<u32>lz) - start;
+    bs.proposeSize(size);
+    memory.copy(bs.offset, start, size);
+    bs.offset += size;
+    return;
+  }
   switch (src.type) {
     case JSON.Types.Null:
       bs.proposeSize(8);
       store<u64>(bs.offset, 30399761348886638);
       bs.offset += 8;
+      break;
+    case JSON.Types.Raw:
+      // A materialized JSON.Raw value (e.g. set into a JSON.Obj/Arr) emits its
+      // pre-formatted bytes as-is — without this it fell into the struct default.
+      serializeRaw(src.get<JSON.Raw>());
       break;
     case JSON.Types.U8:
       serializeInteger<u8>(src.get<u8>());
@@ -53,7 +71,7 @@ export function serializeArbitrary(src: JSON.Value): void {
       serializeBool(src.get<bool>());
       break;
     case JSON.Types.Array:
-      serializeArray(src.get<JSON.Value[]>());
+      serializeJsonArray(src.get<JSON.Arr>());
       break;
     case JSON.Types.Object:
       serializeObject(src.get<JSON.Obj>());
