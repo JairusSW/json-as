@@ -35,7 +35,7 @@ describe("Should serialize floats", () => {
 
   expect(JSON.stringify<f64>(1e21)).toBe("1e+21");
 
-  // f32 round-trips exercise the serializeFloat32 / Żmij path.
+  // f32 round-trips exercise the serializeFloat32 / xjb path.
   expect(JSON.stringify<f32>(1.25)).toBe("1.25");
   expect(JSON.stringify<f32>(-3.5)).toBe("-3.5");
 });

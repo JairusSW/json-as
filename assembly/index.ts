@@ -53,7 +53,7 @@ import {
   FALSE_WORD_U64,
 } from "./custom/chars";
 import { itoa_buffered } from "util/number";
-import { dtoa_buffered, ftoa_buffered } from "zmij-as";
+import { dtoa_buffered, ftoa_buffered } from "xjb-as";
 import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes, scanStringEnd } from "./util";
 import { scanValueEnd_SIMD } from "./util/scanValueEndSimd";
