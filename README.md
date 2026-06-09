@@ -182,6 +182,22 @@ console.log(JSON.stringify(obj)); // { "name": "Jairus", "age": 99 }
 
 If age were higher than 18, it would be included in the serialization.
 
+**@optional**
+
+This decorator marks a field as optional for deserialization: the key may be absent from (or appear in any order in) the input, and the field keeps its default. Unlike `@omitnull` and `@omitif`, it does not affect serialization — the field is always emitted — and it has no nullability requirement. It only opts the field into the order-tolerant fast path on parse.
+
+```typescript
+@json
+class Tweet {
+  text!: string;
+  @optional
+  retweeted_status: Retweet | null = null; // key may be absent
+}
+
+const tweet = JSON.parse<Tweet>('{ "text": "hello" }');
+console.log(tweet.retweeted_status); // null (key was absent)
+```
+
 ### Using nullable primitives
 
 AssemblyScript doesn't support using nullable primitive types, so instead, json-as offers the `JSON.Box` class to remedy it.
