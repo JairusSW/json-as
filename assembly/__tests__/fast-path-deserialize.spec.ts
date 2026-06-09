@@ -229,9 +229,7 @@ describe("Fast-path deserialization should handle JSON.Value fields", () => {
     "true",
   );
   expect(
-    JSON.stringify(
-      parsed.value.get<JSON.Obj>().get("nums")!.get<JSON.Value[]>(),
-    ),
+    JSON.stringify(parsed.value.get<JSON.Obj>().get("nums")!.get<JSON.Arr>()),
   ).toBe("[1,2,3]");
   expect(JSON.stringify(parsed)).toBe('{"value":{"ok":true,"nums":[1,2,3]}}');
 });

@@ -182,6 +182,7 @@ export class Schema {
     if (type == "bool" || type == "boolean") return 4; // true
     if (Schema.isNumericType(type)) return 1; // 0
     if (type == "JSON.Obj" || type == "Obj") return 2; // {}
+    if (type == "JSON.Arr" || type == "Arr") return 2; // []
     if (type == "JSON.Value" || type == "Value") return 1; // 0
 
     const dep = this.deps.find(

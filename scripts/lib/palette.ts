@@ -52,6 +52,13 @@ export const MODE_BARS = [
   { bg: rgba("pacificBlue", 0.9), border: BASE.pacificBlue },
 ];
 
+// Dynamic JSON.Obj bar, appended after the four mode bars on the struct charts
+// (chart01/02) to compare typed-struct vs JSON.Obj performance.
+export const OBJ_BAR = {
+  bg: rgba("fadedCopper", 0.85),
+  border: BASE.fadedCopper,
+};
+
 // Eager vs lazy (chart15). Lazy shares the multi-library lazy hue (jungle green).
 export const EAGER = { bg: rgba("sandDune", 0.85), border: BASE.sandDune };
 export const LAZY = { bg: rgba("jungleGreen", 0.85), border: BASE.jungleGreen };

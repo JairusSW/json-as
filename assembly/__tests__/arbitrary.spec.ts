@@ -166,13 +166,17 @@ describe("Should deserialize arbitrary types", () => {
   expect(JSON.stringify(JSON.parse<JSON.Value>('{"x":1,"y":2,"z":3}'))).toBe(
     '{"x":1,"y":2,"z":3}',
   );
+  // JSON.Obj/JSON.Value are lazy by default: a nested composite that is never
+  // accessed is re-emitted from its original source bytes verbatim (no
+  // re-encoding), so `[1.0,2.0,...]` passes through unchanged rather than being
+  // canonicalized to `[1,2,...]`.
   expect(
     JSON.stringify(
       JSON.parse<JSON.Value[]>(
         '["string",true,3.14,{"x":1,"y":2,"z":3},[1.0,2.0,3,true]]',
       ),
     ),
-  ).toBe('["string",true,3.14,{"x":1,"y":2,"z":3},[1,2,3,true]]');
+  ).toBe('["string",true,3.14,{"x":1,"y":2,"z":3},[1.0,2.0,3,true]]');
 
   let x = JSON.Box.fromValue<i32>(JSON.parse<JSON.Value>("null"));
   expect(x ? x.toString() : "null").toBe("null");
@@ -182,21 +186,21 @@ describe("Should deserialize arbitrary types", () => {
 
 describe("Should deserialize nested arbitrary arrays with element access", () => {
   const parsed = JSON.parse<JSON.Value>("[[1,2],[3,4]]");
-  const outer = parsed.get<JSON.Value[]>();
+  const outer = parsed.get<JSON.Arr>();
 
   expect(outer.length).toBe(2);
 
-  const inner0 = outer[0].get<JSON.Value[]>();
-  const inner1 = outer[1].get<JSON.Value[]>();
+  const inner0 = outer.at(0).get<JSON.Arr>();
+  const inner1 = outer.at(1).get<JSON.Arr>();
 
   expect(inner0.length).toBe(2);
   expect(inner1.length).toBe(2);
 
-  expect(inner0[0].get<f64>()).toBe(1.0);
-  expect(inner0[1].get<f64>()).toBe(2.0);
+  expect(inner0.at(0).get<f64>()).toBe(1.0);
+  expect(inner0.at(1).get<f64>()).toBe(2.0);
 
-  expect(inner1[0].get<f64>()).toBe(3.0);
-  expect(inner1[1].get<f64>()).toBe(4.0);
+  expect(inner1.at(0).get<f64>()).toBe(3.0);
+  expect(inner1.at(1).get<f64>()).toBe(4.0);
 
   expect(JSON.stringify(parsed)).toBe("[[1,2],[3,4]]");
 });
@@ -208,36 +212,36 @@ describe("Should deserialize nested arrays in mixed arbitrary arrays", () => {
   expect(parsed[0].get<string>()).toBe("string");
   expect(parsed[1].toString()).toBe("true");
 
-  const nestedArr = parsed[2].get<JSON.Value[]>();
+  const nestedArr = parsed[2].get<JSON.Arr>();
   expect(nestedArr.length).toBe(4);
-  expect(nestedArr[0].get<f64>()).toBe(1.0);
-  expect(nestedArr[1].get<f64>()).toBe(2.0);
-  expect(nestedArr[2].get<f64>()).toBe(3.0);
-  expect(nestedArr[3].get<f64>()).toBe(4.0);
+  expect(nestedArr.at(0).get<f64>()).toBe(1.0);
+  expect(nestedArr.at(1).get<f64>()).toBe(2.0);
+  expect(nestedArr.at(2).get<f64>()).toBe(3.0);
+  expect(nestedArr.at(3).get<f64>()).toBe(4.0);
 
   expect(JSON.stringify(parsed)).toBe('["string",true,[1,2,3,4]]');
 });
 
 describe("Should deserialize deeply nested arbitrary arrays", () => {
   const parsed = JSON.parse<JSON.Value>("[[[1,2]],[[3,4]]]");
-  const outerArray = parsed.get<JSON.Value[]>();
+  const outerArray = parsed.get<JSON.Arr>();
 
   expect(outerArray.length).toBe(2);
 
-  const firstMiddleArray = outerArray[0].get<JSON.Value[]>();
+  const firstMiddleArray = outerArray.at(0).get<JSON.Arr>();
   expect(firstMiddleArray.length).toBe(1);
 
-  const firstInnerArray = firstMiddleArray[0].get<JSON.Value[]>();
+  const firstInnerArray = firstMiddleArray.at(0).get<JSON.Arr>();
   expect(firstInnerArray.length).toBe(2);
-  expect(firstInnerArray[0].get<f64>()).toBe(1.0);
-  expect(firstInnerArray[1].get<f64>()).toBe(2.0);
+  expect(firstInnerArray.at(0).get<f64>()).toBe(1.0);
+  expect(firstInnerArray.at(1).get<f64>()).toBe(2.0);
 
-  const secondMiddleArray = outerArray[1].get<JSON.Value[]>();
+  const secondMiddleArray = outerArray.at(1).get<JSON.Arr>();
   expect(secondMiddleArray.length).toBe(1);
-  const secondInnerArray = secondMiddleArray[0].get<JSON.Value[]>();
+  const secondInnerArray = secondMiddleArray.at(0).get<JSON.Arr>();
   expect(secondInnerArray.length).toBe(2);
-  expect(secondInnerArray[0].get<f64>()).toBe(3.0);
-  expect(secondInnerArray[1].get<f64>()).toBe(4.0);
+  expect(secondInnerArray.at(0).get<f64>()).toBe(3.0);
+  expect(secondInnerArray.at(1).get<f64>()).toBe(4.0);
 
   expect(JSON.stringify(parsed)).toBe("[[[1,2]],[[3,4]]]");
 });
@@ -245,36 +249,36 @@ describe("Should deserialize deeply nested arbitrary arrays", () => {
 describe("Should deserialize nested arrays in JSON obj", () => {
   const parsed = JSON.parse<JSON.Value>('{"data":[[1,2],[3,4]]}');
   const obj = parsed.get<JSON.Obj>();
-  const data = obj.get("data")!.get<JSON.Value[]>();
+  const data = obj.get("data")!.get<JSON.Arr>();
 
   expect(data.length).toBe(2);
-  const inner0 = data[0].get<JSON.Value[]>();
-  const inner1 = data[1].get<JSON.Value[]>();
+  const inner0 = data.at(0).get<JSON.Arr>();
+  const inner1 = data.at(1).get<JSON.Arr>();
 
   expect(inner0.length).toBe(2);
   expect(inner1.length).toBe(2);
 
-  expect(inner0[0].get<f64>()).toBe(1.0);
-  expect(inner0[1].get<f64>()).toBe(2.0);
+  expect(inner0.at(0).get<f64>()).toBe(1.0);
+  expect(inner0.at(1).get<f64>()).toBe(2.0);
 
-  expect(inner1[0].get<f64>()).toBe(3.0);
-  expect(inner1[1].get<f64>()).toBe(4.0);
+  expect(inner1.at(0).get<f64>()).toBe(3.0);
+  expect(inner1.at(1).get<f64>()).toBe(4.0);
 
   expect(JSON.stringify(parsed)).toBe('{"data":[[1,2],[3,4]]}');
 });
 
 describe("Should deserialize nested objects in arbitrary arrays", () => {
   const parsed = JSON.parse<JSON.Value>('[{"a":1,"b":2},{"c":3,"d":4}]');
-  const arr = parsed.get<JSON.Value[]>();
+  const arr = parsed.get<JSON.Arr>();
 
   expect(arr.length).toBe(2);
 
-  const obj0 = arr[0].get<JSON.Obj>();
+  const obj0 = arr.at(0).get<JSON.Obj>();
   expect(obj0.keys().length).toBe(2);
   expect(obj0.get("a")!.get<f64>()).toBe(1.0);
   expect(obj0.get("b")!.get<f64>()).toBe(2.0);
 
-  const obj1 = arr[1].get<JSON.Obj>();
+  const obj1 = arr.at(1).get<JSON.Obj>();
   expect(obj1.keys().length).toBe(2);
   expect(obj1.get("c")!.get<f64>()).toBe(3.0);
   expect(obj1.get("d")!.get<f64>()).toBe(4.0);
@@ -337,4 +341,115 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
   expect(JSON.stringify(JSON.parse<string>('"line\\nbreak"'))).toBe(
     '"line\\nbreak"',
   );
+});
+
+describe("Lazy-by-default: untouched composites pass through verbatim", () => {
+  // No `.get`/`.type`/iteration before stringify => raw source bytes are copied
+  // out byte-for-byte, preserving original formatting the eager path would
+  // canonicalize (whitespace inside the slice, `1.0` vs `1`).
+  const src = '{"a":[1.0,2.0],"b":{ "c" : 3 },"d":"x"}';
+  expect(JSON.stringify(JSON.parse<JSON.Obj>(src))).toBe(src);
+  expect(JSON.stringify(JSON.parse<JSON.Value>(src))).toBe(src);
+
+  // Empty composites round-trip verbatim too.
+  expect(JSON.stringify(JSON.parse<JSON.Obj>("{}"))).toBe("{}");
+  expect(JSON.stringify(JSON.parse<JSON.Value>("[]"))).toBe("[]");
+});
+
+describe("Lazy-by-default: access materializes one level, siblings stay raw", () => {
+  const obj = JSON.parse<JSON.Obj>('{"keep":[1.0,2.0,3.0],"touch":{"n":5}}');
+  // Touch one nested value (materializes just that subtree, canonicalizing it).
+  expect(obj.get("touch")!.get<JSON.Obj>().get("n")!.get<f64>()).toBe(5.0);
+  // The untouched sibling is still emitted verbatim; the touched one is
+  // re-serialized from its materialized form.
+  expect(JSON.stringify(obj)).toBe('{"keep":[1.0,2.0,3.0],"touch":{"n":5}}');
+
+  // Mutating a sibling after a peel leaves other untouched siblings raw.
+  obj.set("touch", 9);
+  expect(JSON.stringify(obj)).toBe('{"keep":[1.0,2.0,3.0],"touch":9}');
+});
+
+describe("Lazy-by-default: deep nesting peels one level at a time", () => {
+  const root = JSON.parse<JSON.Value>('{"a":{"b":{"c":[10,20]}}}');
+  const c = root
+    .get<JSON.Obj>()
+    .get("a")!
+    .get<JSON.Obj>()
+    .get("b")!
+    .get<JSON.Obj>()
+    .get("c")!
+    .get<JSON.Arr>();
+  expect(c.length).toBe(2);
+  expect(c.at(0).get<f64>()).toBe(10.0);
+  expect(c.at(1).get<f64>()).toBe(20.0);
+});
+
+describe("Buffer-backed JSON.Obj: getAs<T> typed access", () => {
+  const obj = JSON.parse<JSON.Obj>(
+    '{"id":42,"name":"Alice","active":true,"score":3.5,"owner":{"login":"bob"},"tags":[1,2,3]}',
+  );
+  // Eager scalars read straight from the slot; strings/composites materialize.
+  // (Arbitrary JSON numbers are f64, so read them as f64.)
+  expect(obj.getAs<f64>("id")).toBe(42.0);
+  expect(obj.getAs<string>("name")).toBe("Alice");
+  expect(obj.getAs<bool>("active")).toBe(true);
+  expect(obj.getAs<f64>("score")).toBe(3.5);
+  expect(obj.getAs<JSON.Obj>("owner").getAs<string>("login")).toBe("bob");
+  expect(obj.getAs<JSON.Arr>("tags").length).toBe(3);
+  // Absent key returns the type default (0 for numbers, null for references).
+  expect(obj.getAs<f64>("missing")).toBe(0.0);
+  expect(changetype<usize>(obj.getAs<string>("missing"))).toBe(0);
+
+  // getAs caches the materialized composite: a second read is the same instance.
+  const a = obj.getAs<JSON.Obj>("owner");
+  const b = obj.getAs<JSON.Obj>("owner");
+  expect(a === b).toBe(true);
+
+  // Mutate (stores an i32 slot) then read back.
+  obj.set("id", 99);
+  expect(obj.getAs<i32>("id")).toBe(99);
+});
+
+describe("Buffer-backed JSON.Obj: build, mutate, delete", () => {
+  const o = new JSON.Obj();
+  o.set("a", 1);
+  o.set("b", "two");
+  o.set("c", true);
+  expect(o.size).toBe(3);
+  expect(JSON.stringify(o)).toBe('{"a":1,"b":"two","c":true}');
+  o.set("b", 22); // overwrite with a different type
+  expect(o.getAs<i32>("b")).toBe(22);
+  expect(o.delete("a")).toBe(true);
+  expect(o.has("a")).toBe(false);
+  expect(o.size).toBe(2);
+  expect(JSON.stringify(o)).toBe('{"b":22,"c":true}');
+});
+
+describe("Lazy-by-default: slices with brackets/quotes in strings scan correctly", () => {
+  // The scanner must not mistake `}`/`]`/escaped quotes inside strings for the
+  // value end. keys() must work without materializing the (raw) value.
+  const tricky = '{"s":"a}b]c\\"d","arr":["x]","y}"]}';
+  const obj = JSON.parse<JSON.Obj>(tricky);
+  expect(obj.size).toBe(2);
+  expect(obj.keys()[0]).toBe("s");
+  expect(obj.get("s")!.get<string>()).toBe('a}b]c"d');
+  // The untouched array slice round-trips verbatim.
+  expect(JSON.stringify(obj.get("arr")!)).toBe('["x]","y}"]');
+});
+
+describe("Buffer-backed: large (>16KB) values pack exactly and round-trip", () => {
+  // ~20 KB value: past the old 13-bit length cap, well within the 22-bit
+  // relative-offset/length packing, so it resolves without a scan fallback.
+  const big = "x".repeat(20000);
+  const objSrc = '{"big":"' + big + '","n":1}';
+  const obj = JSON.parse<JSON.Obj>(objSrc);
+  expect(JSON.stringify(obj)).toBe(objSrc); // untouched passthrough
+  expect(obj.getAs<string>("big").length).toBe(20000); // materializes
+  expect(obj.getAs<f64>("n")).toBe(1.0);
+
+  const arrSrc = '["' + big + '",2]';
+  const arr = JSON.parse<JSON.Arr>(arrSrc);
+  expect(JSON.stringify(arr)).toBe(arrSrc);
+  expect(arr.getAs<string>(0).length).toBe(20000);
+  expect(arr.getAs<f64>(1)).toBe(2.0);
 });

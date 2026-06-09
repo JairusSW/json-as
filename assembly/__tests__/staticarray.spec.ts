@@ -225,7 +225,7 @@ describe("Should deserialize static arrays of JSON.Value", () => {
   expect(arr[1].get<string>()).toBe("x");
   expect(arr[2].get<bool>().toString()).toBe("false");
   expect(arr[3].type.toString()).toBe(JSON.Types.Null.toString());
-  expect(JSON.stringify(arr[4].get<JSON.Value[]>())).toBe("[1,2]");
+  expect(JSON.stringify(arr[4].get<JSON.Arr>())).toBe("[1,2]");
   expect(JSON.stringify(arr)).toBe('[{"a":1},"x",false,null,[1,2]]');
 });
 

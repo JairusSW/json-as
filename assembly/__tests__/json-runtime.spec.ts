@@ -123,20 +123,20 @@ describe("Should traverse parsed arbitrary runtime structures", () => {
     '{"items":[{"kind":"a","value":1},{"kind":"b","value":[2,3]}],"ok":true}',
   );
   const root = parsed.get<JSON.Obj>();
-  const items = root.get("items")!.get<JSON.Value[]>();
+  const items = root.get("items")!.get<JSON.Arr>();
 
   expect(root.get("ok")!.get<bool>().toString()).toBe("true");
   expect(items.length.toString()).toBe("2");
-  expect(items[0].get<JSON.Obj>().get("kind")!.get<string>()).toBe("a");
-  expect(items[0].get<JSON.Obj>().get("value")!.get<f64>().toString()).toBe(
+  expect(items.at(0).get<JSON.Obj>().get("kind")!.get<string>()).toBe("a");
+  expect(items.at(0).get<JSON.Obj>().get("value")!.get<f64>().toString()).toBe(
     "1.0",
   );
-  expect(items[1].get<JSON.Obj>().get("kind")!.get<string>()).toBe("b");
+  expect(items.at(1).get<JSON.Obj>().get("kind")!.get<string>()).toBe("b");
 
-  const nested = items[1].get<JSON.Obj>().get("value")!.get<JSON.Value[]>();
+  const nested = items.at(1).get<JSON.Obj>().get("value")!.get<JSON.Arr>();
   expect(nested.length.toString()).toBe("2");
-  expect(nested[0].get<f64>().toString()).toBe("2.0");
-  expect(nested[1].get<f64>().toString()).toBe("3.0");
+  expect(nested.at(0).get<f64>().toString()).toBe("2.0");
+  expect(nested.at(1).get<f64>().toString()).toBe("3.0");
   expect(JSON.stringify(parsed)).toBe(
     '{"items":[{"kind":"a","value":1},{"kind":"b","value":[2,3]}],"ok":true}',
   );

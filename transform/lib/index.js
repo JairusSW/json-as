@@ -569,7 +569,7 @@ export class JSONTransform extends Visitor {
             else if (isString(type) || isPrimitive(type)) {
                 return types;
             }
-            else if (["JSON.Box", "JSON.Obj", "JSON.Value", "JSON.Raw"].includes(type)) {
+            else if (["JSON.Box", "JSON.Obj", "JSON.Arr", "JSON.Value", "JSON.Raw"].includes(type)) {
                 return types;
             }
             else if (node.isGeneric &&
@@ -1117,7 +1117,7 @@ export class JSONTransform extends Visitor {
                     type.startsWith("JSON.Box<") ||
                     isEnum(type, this.sources.get(this.schema.node.range.source), this.parser))
                     sortedMembers.number.push(member);
-                else if (isArray(type))
+                else if (isArray(type) || type == "JSON.Arr" || type == "Arr")
                     sortedMembers.array.push(member);
                 else
                     sortedMembers.object.push(member);
@@ -1523,6 +1523,7 @@ export class JSONTransform extends Visitor {
             }
             else if (resolvedType == "JSON.Value" ||
                 resolvedType == "JSON.Obj" ||
+                resolvedType == "JSON.Arr" ||
                 isEnum(resolvedType, this.sources.get(this.schema.node.range.source), this.parser)) {
                 out.push("break;");
             }
@@ -2698,9 +2699,11 @@ export class JSONTransform extends Visitor {
             "Date",
             "JSON.Value",
             "JSON.Obj",
+            "JSON.Arr",
             "JSON.Raw",
             "Value",
             "Obj",
+            "Arr",
             "Raw",
             ...this.schemas
                 .get(this.schema.node.range.source.internalPath)
@@ -3019,6 +3022,8 @@ function lazyTypeCost(type, source, parser) {
         base === "Value" ||
         base === "JSON.Obj" ||
         base === "Obj" ||
+        base === "JSON.Arr" ||
+        base === "Arr" ||
         base === "JSON.Raw" ||
         base === "Raw")
         return 15;
@@ -3084,6 +3089,8 @@ function estimatedSerializedByteSize(type, source, parser) {
         }
         else if (baseType == "JSON.Obj" ||
             baseType == "Obj" ||
+            baseType == "JSON.Arr" ||
+            baseType == "Arr" ||
             baseType == "JSON.Raw" ||
             baseType == "Raw" ||
             baseType == "JSON.Value" ||

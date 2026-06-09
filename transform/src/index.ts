@@ -891,7 +891,9 @@ export class JSONTransform extends Visitor {
       } else if (isString(type) || isPrimitive(type)) {
         return types;
       } else if (
-        ["JSON.Box", "JSON.Obj", "JSON.Value", "JSON.Raw"].includes(type)
+        ["JSON.Box", "JSON.Obj", "JSON.Arr", "JSON.Value", "JSON.Raw"].includes(
+          type,
+        )
       ) {
         return types;
       } else if (
@@ -1673,7 +1675,10 @@ export class JSONTransform extends Visitor {
           )
         )
           sortedMembers.number.push(member);
-        else if (isArray(type)) sortedMembers.array.push(member);
+        // JSON.Arr serializes as `[...]`, so the deserializer routes it through
+        // the array (`[`) branch — it must live in the array bucket, not object.
+        else if (isArray(type) || type == "JSON.Arr" || type == "Arr")
+          sortedMembers.array.push(member);
         else sortedMembers.object.push(member);
         // else console.warn("Could not determine type " + type + " for member " + member.name + " in class " + this.schema.name);
       }
@@ -2247,6 +2252,7 @@ export class JSONTransform extends Visitor {
       } else if (
         resolvedType == "JSON.Value" ||
         resolvedType == "JSON.Obj" ||
+        resolvedType == "JSON.Arr" ||
         isEnum(
           resolvedType,
           this.sources.get(this.schema.node.range.source),
@@ -3971,9 +3977,11 @@ export class JSONTransform extends Visitor {
       "Date",
       "JSON.Value",
       "JSON.Obj",
+      "JSON.Arr",
       "JSON.Raw",
       "Value",
       "Obj",
+      "Arr",
       "Raw",
       ...this.schemas
         .get(this.schema.node.range.source.internalPath)
@@ -4372,6 +4380,8 @@ function lazyTypeCost(type: string, source: Src, parser: Parser): number {
     base === "Value" ||
     base === "JSON.Obj" ||
     base === "Obj" ||
+    base === "JSON.Arr" ||
+    base === "Arr" ||
     base === "JSON.Raw" ||
     base === "Raw"
   )
@@ -4448,6 +4458,8 @@ function estimatedSerializedByteSize(
     } else if (
       baseType == "JSON.Obj" ||
       baseType == "Obj" ||
+      baseType == "JSON.Arr" ||
+      baseType == "Arr" ||
       baseType == "JSON.Raw" ||
       baseType == "Raw" ||
       baseType == "JSON.Value" ||

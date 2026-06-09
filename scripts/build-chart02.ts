@@ -1,10 +1,24 @@
 import {
   getBenchResults,
+  readObjBenchResult,
   createBarChart,
   generateChart,
   type BenchKind,
   BenchResult,
 } from "./lib/bench-utils";
+import { MODE_BARS, OBJ_BAR } from "./lib/palette";
+
+// A zero bar for payloads with no JSON.Obj variant (primitives) or unrun benches.
+const ZERO_OBJ: BenchResult = {
+  language: "as",
+  description: "JSON.Obj",
+  elapsed: 0,
+  bytes: 0,
+  operations: 0,
+  features: [],
+  mbps: 0,
+  gbps: 0,
+};
 
 const PAYLOADS: Record<string, string> = {
   abc: "Alphabet\n   (52b)",
@@ -24,7 +38,11 @@ const allResults = getBenchResults(Object.keys(PAYLOADS));
 const chartData: Record<string, BenchResult[]> = {};
 
 for (const payload of Object.keys(PAYLOADS)) {
-  chartData[payload] = allResults[payload][KIND];
+  // Append the dynamic JSON.Obj (SIMD) result as a fifth series.
+  chartData[payload] = [
+    ...allResults[payload][KIND],
+    readObjBenchResult(payload, KIND) ?? ZERO_OBJ,
+  ];
 }
 
 const config = createBarChart(chartData, PAYLOADS, {
@@ -36,7 +54,9 @@ const config = createBarChart(chartData, PAYLOADS, {
     "JSON-AS (NAIVE)",
     "JSON-AS (SWAR)",
     "JSON-AS (SIMD)",
+    "JSON-AS (JSON.Obj)",
   ],
+  colors: [...MODE_BARS, OBJ_BAR],
 });
 
 generateChart(config, OUTPUT_FILE);

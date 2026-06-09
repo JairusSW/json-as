@@ -30,3 +30,24 @@ bench(
   utf8ByteLength(v2),
 );
 dumpToFile("token", "deserialize");
+
+// Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
+const objToken = JSON.parse<JSON.Obj>(v2);
+bench(
+  "Serialize Token (JSON.Obj)",
+  () => {
+    blackbox(JSON.stringify(objToken));
+  },
+  10_000_000,
+  utf8ByteLength(v2),
+);
+dumpToFile("token-obj", "serialize");
+bench(
+  "Deserialize Token (JSON.Obj)",
+  () => {
+    blackbox(JSON.parse<JSON.Obj>(v2));
+  },
+  10_000_000,
+  utf8ByteLength(v2),
+);
+dumpToFile("token-obj", "deserialize");

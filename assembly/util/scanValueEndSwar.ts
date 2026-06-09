@@ -4,6 +4,7 @@ import {
   BRACE_RIGHT,
   BRACKET_LEFT,
   BRACKET_RIGHT,
+  COLON,
   COMMA,
   QUOTE,
 } from "../custom/chars";
@@ -27,9 +28,27 @@ function eqPart(block: u64, splat: u64): u64 {
 
 const S_QUOTE: u64 = 0x0022_0022_0022_0022;
 const S_BACK_SLASH: u64 = 0x005c_005c_005c_005c;
+const S_BRACKET_LEFT: u64 = 0x005b_005b_005b_005b;
+const S_BRACKET_RIGHT: u64 = 0x005d_005d_005d_005d;
+// Clears bit 5 (0x20) of each lane, folding `{`/`}` onto `[`/`]`.
+const FOLD: u64 = 0xffdf_ffdf_ffdf_ffdf;
 
 function quoteOrBackslashMask(block: u64): u64 {
   return (eqPart(block, S_QUOTE) | eqPart(block, S_BACK_SLASH)) & HI;
+}
+
+// Filter for lanes equal to `"`, `{`, `}`, `[`, or `]` — the only bytes that,
+// outside a string, change depth or open a string. As with the other SWAR
+// masks, a hit is a candidate to verify with a real load (it may over-match a
+// non-ASCII lane whose low byte collides).
+function structuralOrQuoteMask(block: u64): u64 {
+  const folded = block & FOLD;
+  return (
+    (eqPart(folded, S_BRACKET_LEFT) |
+      eqPart(folded, S_BRACKET_RIGHT) |
+      eqPart(block, S_QUOTE)) &
+    HI
+  );
 }
 
 function scanQuotedValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
@@ -67,11 +86,13 @@ function scanQuotedValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
 }
 
 function scanCompositeValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
-  // Scalar depth tracking (structural tokens are sparse; a bulk token-mask scan
-  // loses to a tight loop on token-dense objects) with SWAR quoted-skip for
-  // nested string values — where the long runs are.
+  // Process structural tokens scalar-side, but bulk-skip the bytes between them:
+  // nested string VALUES via the SWAR quoted scan, and runs of digits /
+  // punctuation / whitespace (numeric arrays) via a SWAR hunt for the next
+  // `"`/`{`/`}`/`[`/`]`.
   let depth: i32 = 1;
   let ptr = srcStart + 2;
+  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
   while (ptr < srcEnd) {
     const code = load<u16>(ptr);
     if (code == QUOTE) {
@@ -79,12 +100,36 @@ function scanCompositeValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
       if (!ptr) return 0;
       continue;
     }
-    if (code == BRACE_LEFT || code == BRACKET_LEFT) {
+    const folded = code & 0xffdf;
+    if (folded == BRACKET_LEFT) {
       depth++;
-    } else if (code == BRACE_RIGHT || code == BRACKET_RIGHT) {
+      ptr += 2;
+      continue;
+    }
+    if (folded == BRACKET_RIGHT) {
       if (--depth == 0) return ptr + 2;
+      ptr += 2;
+      continue;
     }
     ptr += 2;
+    // `,`/`:` sit one byte from the next token — stay scalar (string-dense
+    // objects); other fillers can run long, so SWAR-skip past them.
+    if (code == COMMA || code == COLON) continue;
+    while (ptr <= srcEnd8) {
+      const mask = structuralOrQuoteMask(load<u64>(ptr));
+      if (mask == 0) {
+        ptr += 8;
+        continue;
+      }
+      const idx = ptr + (usize(ctz(mask)) >> 3);
+      const c = load<u16>(idx);
+      const f = c & 0xffdf;
+      if (c == QUOTE || f == BRACKET_LEFT || f == BRACKET_RIGHT) {
+        ptr = idx; // real token — the outer loop processes it
+        break;
+      }
+      ptr = idx + 2; // spurious lane match — keep scanning
+    }
   }
   return 0;
 }

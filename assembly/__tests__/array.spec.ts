@@ -216,11 +216,11 @@ describe("Should deserialize top-level JSON.Obj arrays", () => {
   expect(parsed[0].get("kind")!.get<string>()).toBe("a");
   expect(parsed[0].get("meta")!.get<JSON.Obj>().get("x")!.get<f64>()).toBe(1.0);
   expect(parsed[1].get("kind")!.get<string>()).toBe("b");
-  const items = parsed[1].get("items")!.get<JSON.Value[]>();
+  const items = parsed[1].get("items")!.get<JSON.Arr>();
   expect(items.length).toBe(3);
-  expect(items[0].get<f64>()).toBe(1.0);
-  expect(items[1].toString()).toBe("true");
-  expect(items[2].get<string>()).toBe("x");
+  expect(items.at(0).get<f64>()).toBe(1.0);
+  expect(items.at(1).toString()).toBe("true");
+  expect(items.at(2).get<string>()).toBe("x");
   expect(JSON.stringify(parsed)).toBe(
     '[{"kind":"a","meta":{"x":1}},{"kind":"b","items":[1,true,"x"]}]',
   );

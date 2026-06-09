@@ -269,7 +269,11 @@ build_v8_mode() {
   # Raising the inline-size caps (-fimfs/-aimfs/-ocimfs/-pii) was measured to
   # regress the ftoa micro-path (~10%) for no net win, so it is deliberately
   # left out — more inlining is not the same as faster.
-  local opt_flags=(-O4 -tnh -iit -ifwl -s 0 --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call)
+  #
+  # sign-ext + mutable-globals are on by default in asc's codegen (e.g.
+  # i32.extend8_s, the exported mutable runtime globals), so wasm-opt must allow
+  # them too or validation fails with "all used features should be allowed".
+  local opt_flags=(-O4 -tnh -iit -ifwl -s 0 --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call --enable-sign-ext --enable-mutable-globals)
 
   if [[ "$mode" == "SIMD" ]]; then
     asc_flags+=(--enable simd)

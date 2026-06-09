@@ -29,6 +29,20 @@ const NULL_WORD: u64 = 30399761348886638;
 // parseValue() runs, so recursion never clobbers a still-needed value.
 let parseValueEnd: usize = 0;
 
+// Source string for the parse currently in flight. When non-empty, nested
+// objects/arrays are deferred: instead of being recursively materialized, each
+// is stored as a lazy JSON.Value holding its raw slice + this anchor (see
+// JSON.Value.fromSlice / JSON.Types.Lazy). Set at the top of JSON.parse (and in
+// JSON.Value.materialize), both of which save/restore it for re-entrancy, so any
+// lazy value built during a parse points into that parse's own source buffer.
+let parseSrc: string = "";
+export function setParseSrc(s: string): void {
+  parseSrc = s;
+}
+export function getParseSrc(): string {
+  return parseSrc;
+}
+
 export function deserializeObject(
   srcStart: usize,
   srcEnd: usize,
@@ -55,6 +69,100 @@ export function deserializeObject(
   return out;
 }
 
+export function deserializeJsonArray(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): JSON.Arr {
+  const out = changetype<JSON.Arr>(dst || changetype<usize>(new JSON.Arr()));
+
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
+
+  if (srcEnd == srcStart)
+    throw new Error("Input string had zero length or was all whitespace");
+  if (load<u16>(srcStart) != BRACKET_LEFT)
+    throw new Error("Expected '[' at start of array");
+  if (load<u16>(srcEnd - 2) != BRACKET_RIGHT)
+    throw new Error("Expected ']' at end of array");
+
+  parseArrayBodySlots(out, srcStart + 2, srcEnd);
+  return out;
+}
+
+/**
+ * Parses array elements starting at `srcStart` (just past the opening `[`) into
+ * a JSON.Arr's NaN-boxed value slots, returning the offset just after the
+ * matching `]`. Mirrors {@link parseObjectBody} without keys.
+ */
+export function parseArrayBodySlots(
+  out: JSON.Arr,
+  srcStart: usize,
+  srcEnd: usize,
+): usize {
+  out._src = parseSrc;
+  while (srcStart < srcEnd) {
+    const code = load<u16>(srcStart);
+    if (isSpace(code) || code == COMMA) {
+      srcStart += 2;
+      continue;
+    }
+    if (code == BRACKET_RIGHT) return srcStart + 2;
+    if (parseSrc.length != 0) {
+      out.pushRawSlot(parseSlotBits(srcStart, srcEnd));
+    } else {
+      out.pushRawSlot(
+        JSON.Value.bitsFrom<JSON.Value>(parseValue(srcStart, srcEnd)),
+      );
+    }
+    srcStart = parseValueEnd;
+  }
+  return srcEnd;
+}
+
+/**
+ * Parses a single object-member value into a NaN-boxed value slot, setting
+ * {@link parseValueEnd} to the offset just past it. Strings and composites are
+ * deferred (a `valBox(Lazy, startPtr)` slice the object parses on first access);
+ * numbers, booleans and null are parsed eagerly inline. Requires {@link parseSrc}
+ * to be set (the caller guards), since a lazy slot points into it.
+ */
+function parseSlotBits(srcStart: usize, srcEnd: usize): u64 {
+  const code = load<u16>(srcStart);
+  if (code == QUOTE || code == BRACE_LEFT || code == BRACKET_LEFT) {
+    const end = JSON.Util.scanValueEnd<JSON.Value>(srcStart, srcEnd);
+    parseValueEnd = end;
+    return JSON.Value.lazyBits(changetype<usize>(parseSrc), srcStart, end);
+  } else if (code - 48 <= 9 || code == 45) {
+    let p = srcStart + 2;
+    while (p < srcEnd) {
+      const c = load<u16>(p);
+      if (c == COMMA || c == BRACKET_RIGHT || c == BRACE_RIGHT || isSpace(c))
+        break;
+      p += 2;
+    }
+    parseValueEnd = p;
+    return JSON.Value.f64Bits(deserializeFloat<f64>(srcStart, p));
+  } else if (code == CHAR_T) {
+    if (load<u64>(srcStart) != TRUE_WORD)
+      throw new Error("Expected 'true' in JSON");
+    parseValueEnd = srcStart + 8;
+    return JSON.Value.boolBits(true);
+  } else if (code == CHAR_F) {
+    if (load<u64>(srcStart, 2) != ALSE_WORD)
+      throw new Error("Expected 'false' in JSON");
+    parseValueEnd = srcStart + 10;
+    return JSON.Value.boolBits(false);
+  } else if (code == CHAR_N) {
+    if (load<u64>(srcStart) != NULL_WORD)
+      throw new Error("Expected 'null' in JSON");
+    parseValueEnd = srcStart + 8;
+    return JSON.Value.nullBits();
+  }
+  throw new Error(
+    "Unexpected character in JSON '" + String.fromCharCode(code) + "'",
+  );
+}
+
 /**
  * Parses a single JSON value whose first character is at `srcStart` (`srcEnd`
  * is an upper bound). Returns the value and sets {@link parseValueEnd} to the
@@ -78,8 +186,8 @@ export function parseValue(srcStart: usize, srcEnd: usize): JSON.Value {
     parseValueEnd = parseObjectBody(obj, srcStart + 2, srcEnd);
     return JSON.Value.from(obj);
   } else if (code == BRACKET_LEFT) {
-    const arr = instantiate<JSON.Value[]>();
-    parseValueEnd = parseArrayBody(arr, srcStart + 2, srcEnd);
+    const arr = new JSON.Arr();
+    parseValueEnd = parseArrayBodySlots(arr, srcStart + 2, srcEnd);
     return JSON.Value.from(arr);
   } else if (code - 48 <= 9 || code == 45) {
     let p = srcStart + 2;
@@ -129,8 +237,19 @@ export function parseArrayBody(
       continue;
     }
     if (code == BRACKET_RIGHT) return srcStart + 2;
-    out.push(parseValue(srcStart, srcEnd));
-    srcStart = parseValueEnd;
+    if (
+      (code == BRACE_LEFT || code == BRACKET_LEFT || code == QUOTE) &&
+      parseSrc.length != 0
+    ) {
+      // Defer strings and composites (the allocating shapes): store the raw
+      // slice, parse on first access. Cheap primitives stay eager below.
+      const end = JSON.Util.scanValueEnd<JSON.Value>(srcStart, srcEnd);
+      out.push(JSON.Value.fromSlice(srcStart, end, parseSrc));
+      srcStart = end;
+    } else {
+      out.push(parseValue(srcStart, srcEnd));
+      srcStart = parseValueEnd;
+    }
   }
   return srcEnd;
 }
@@ -145,6 +264,11 @@ export function parseObjectBody(
   srcStart: usize,
   srcEnd: usize,
 ): usize {
+  // Anchor the source for this object's deferred value slots (start pointers
+  // into it). Set here so every caller — deserializeObject, the JSON.Obj[]
+  // array path, parseValue, the map path — gets it. Empty off the parse path,
+  // where no lazy slots are produced.
+  out._src = parseSrc;
   while (srcStart < srcEnd) {
     let code = load<u16>(srcStart);
 
@@ -182,7 +306,14 @@ export function parseObjectBody(
     // --- value ---
     while (srcStart < srcEnd && isSpace((code = load<u16>(srcStart))))
       srcStart += 2;
-    out.appendRaw(keyStart, keyEnd, parseValue(srcStart, srcEnd));
+    if (parseSrc.length != 0) {
+      // Parsing: store a NaN-boxed slot directly (strings/composites deferred,
+      // scalars eager) — no per-value JSON.Value object.
+      out.appendRawSlot(keyStart, keyEnd, parseSlotBits(srcStart, srcEnd));
+    } else {
+      // Off the parse path (no source anchor): box eagerly.
+      out.appendRaw(keyStart, keyEnd, parseValue(srcStart, srcEnd));
+    }
     srcStart = parseValueEnd;
   }
   return srcEnd;

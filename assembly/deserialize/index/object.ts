@@ -1,1 +1,6 @@
-export { deserializeObject } from "../naive/object";
+export {
+  deserializeObject,
+  deserializeJsonArray,
+  setParseSrc,
+  getParseSrc,
+} from "../naive/object";
