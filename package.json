@@ -137,6 +137,6 @@
   "type": "module",
   "types": "assembly/index.ts",
   "dependencies": {
-    "zmij-as": "^0.1.0"
+    "xjb-as": "^0.1.0"
   }
 }

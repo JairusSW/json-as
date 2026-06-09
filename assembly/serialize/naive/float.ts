@@ -1,10 +1,10 @@
 import { bs } from "../../../lib/as-bs";
-import { dtoa_buffered, ftoa_buffered } from "zmij-as";
+import { dtoa_buffered, ftoa_buffered } from "xjb-as";
 
-// Float serialization is backed by Żmij (the `zmij-as` package — a Schubfach/xjb
-// shortest-decimal writer with SWAR + WASM-SIMD digit kernels). The *_buffered
-// writers emit UTF-16 straight into the `bs` buffer and return the number of
-// characters written, so advancing the offset is `count << 1` bytes.
+// Float serialization is backed by xjb-as (a Schubfach/xjb shortest-decimal
+// writer with SWAR + WASM-SIMD digit kernels). The *_buffered writers emit
+// UTF-16 straight into the `bs` buffer and return the number of characters
+// written, so advancing the offset is `count << 1` bytes.
 
 export function serializeFloat32Unsafe(data: f32): void {
   bs.offset += ftoa_buffered(bs.offset, data) << 1;
