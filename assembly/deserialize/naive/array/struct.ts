@@ -34,14 +34,32 @@ export function deserializeStructArray<T extends unknown[]>(
         (srcEnd - srcStart).toString(),
     );
 
+  // Reuse existing element slots when `dst` already holds elements (no per-call
+  // allocation on a reused array); fall back to push for fresh/extra slots and
+  // trim any leftovers from a previous, longer parse.
+  let index = 0;
   while (srcStart < srcEnd) {
     const code = load<u16>(srcStart);
     if (code == BRACE_LEFT && depth++ == 0) {
       lastIndex = srcStart;
     } else if (code == BRACE_RIGHT && --depth == 0) {
-      out.push(JSON.__deserialize<valueof<T>>(lastIndex, (srcStart += 2)));
+      const valueEnd = (srcStart += 2);
+      if (<usize>index < <usize>out.length) {
+        const slot = changetype<usize>(unchecked(out[index]));
+        if (slot != 0) {
+          JSON.__deserialize<valueof<T>>(lastIndex, valueEnd, slot);
+        } else {
+          unchecked(
+            (out[index] = JSON.__deserialize<valueof<T>>(lastIndex, valueEnd)),
+          );
+        }
+      } else {
+        out.push(JSON.__deserialize<valueof<T>>(lastIndex, valueEnd));
+      }
+      index++;
     }
     srcStart += 2;
   }
+  if (<usize>index < <usize>out.length) out.length = index;
   return out;
 }

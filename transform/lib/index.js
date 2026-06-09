@@ -840,6 +840,10 @@ export class JSONTransform extends Visitor {
                             this.schema.static = false;
                             break;
                         }
+                        case "optional": {
+                            mem.flags.set(PropertyFlags.Optional, null);
+                            break;
+                        }
                         case "omitnull": {
                             if (isPrimitive(type)) {
                                 throwError("@omitnull cannot be used on primitive types!", member.range);
@@ -856,11 +860,11 @@ export class JSONTransform extends Visitor {
             }
             this.schema.members.push(mem);
         }
-        if (!this.schema.static)
-            this.schema.members = sortMembers(this.schema.members);
+        this.schema.members = sortMembers(this.schema.members);
         const hasOmitIfMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitIf));
         const hasOmitNullMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull));
-        const hasOptionalMembers = hasOmitIfMembers || hasOmitNullMembers;
+        const hasExplicitOptionalMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.Optional));
+        const hasOptionalMembers = hasOmitIfMembers || hasOmitNullMembers || hasExplicitOptionalMembers;
         const hasLazyMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.Lazy));
         const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
         const hasTypeParams = !!node.typeParameters && node.typeParameters.length > 0;
@@ -941,12 +945,7 @@ export class JSONTransform extends Visitor {
             const aliasName = JSON.stringify(member.alias || member.name);
             const realName = member.name;
             if (member.value) {
-                if (member.value != "null" &&
-                    member.value != "0" &&
-                    member.value != "0.0" &&
-                    member.value != "false") {
-                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                }
+                INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
             }
             else if (member.generic) {
                 INITIALIZE += `  if (isManaged<nonnull<${member.type}>>() || isReference<nonnull<${member.type}>>()) {\n`;
@@ -972,6 +971,9 @@ export class JSONTransform extends Visitor {
                 else if (member.type == "string" || member.type == "String") {
                     INITIALIZE += `  store<${member.type}>(changetype<usize>(this), "", offsetof<this>(${JSON.stringify(member.name)}));\n`;
                 }
+            }
+            else {
+                INITIALIZE += `  store<${member.type}>(changetype<usize>(this), null, offsetof<this>(${JSON.stringify(member.name)}));\n`;
             }
             const SIMD_ENABLED = this.program.options.hasFeature(16);
             if (!isRegular &&
@@ -1336,9 +1338,18 @@ export class JSONTransform extends Visitor {
                     out.push(`  if (changetype<usize>(value) == 0) {`);
                     out.push(`    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
+                    out.push(`    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`);
                     out.push("  }");
-                    out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${valuePtr}, srcEnd, value);`);
-                    out.push(`  if (!${srcPtr}) break;`);
+                    out.push(`  const __fe = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${valuePtr}, srcEnd, value);`);
+                    out.push(`  if (__fe) {`);
+                    out.push(`    ${srcPtr} = __fe;`);
+                    out.push(`  } else {`);
+                    out.push(`    const __ve = JSON.Util.scanValueEnd<${resolvedType}>(${valuePtr}, srcEnd);`);
+                    out.push(`    if (!__ve) break;`);
+                    out.push(`    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`);
+                    out.push(`    changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_SLOW<${resolvedType}>(${valuePtr}, __ve, value);`);
+                    out.push(`    ${srcPtr} = __ve;`);
+                    out.push(`  }`);
                     if (member.node.type.isNullable) {
                         out.push("  }");
                     }
@@ -1453,13 +1464,24 @@ export class JSONTransform extends Visitor {
                     out.push("      if (changetype<usize>(item) == 0) {");
                     out.push(`        item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
                     out.push("        unchecked((value[index] = item));");
+                    out.push(`        changetype<nonnull<${valueType}>>(item).__INITIALIZE();`);
                     out.push("      }");
                     out.push("    } else {");
                     out.push(`      item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
                     out.push("      value.push(item);");
+                    out.push(`      changetype<nonnull<${valueType}>>(item).__INITIALIZE();`);
                     out.push("    }");
-                    out.push(`    ${srcPtr} = changetype<nonnull<${valueType}>>(item).__DESERIALIZE_FAST<${valueType}>(${srcPtr}, srcEnd, item);`);
-                    out.push(`    if (!${srcPtr}) break;`);
+                    out.push(`    const __es = ${srcPtr};`);
+                    out.push(`    const __ee = changetype<nonnull<${valueType}>>(item).__DESERIALIZE_FAST<${valueType}>(${srcPtr}, srcEnd, item);`);
+                    out.push(`    if (__ee) {`);
+                    out.push(`      ${srcPtr} = __ee;`);
+                    out.push(`    } else {`);
+                    out.push(`      const __ve = JSON.Util.scanValueEnd<${valueType}>(__es, srcEnd);`);
+                    out.push(`      if (!__ve) break;`);
+                    out.push(`      changetype<nonnull<${valueType}>>(item).__INITIALIZE();`);
+                    out.push(`      changetype<nonnull<${valueType}>>(item).__DESERIALIZE_SLOW<${valueType}>(__es, __ve, item);`);
+                    out.push(`      ${srcPtr} = __ve;`);
+                    out.push(`    }`);
                     out.push("    index++;");
                     out.push(`    ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`);
                     out.push(`    const code = load<u16>(${srcPtr});`);
@@ -1480,7 +1502,7 @@ export class JSONTransform extends Visitor {
                     out.push("}");
                     return out;
                 }
-                out.push(`  ${srcPtr} = __deserializeArrayField_SWAR<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+                out.push(`  ${srcPtr} = __deserializeArrayField_SWAR<nonnull<${resolvedType}>>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 out.push(`  if (!${srcPtr}) break;`);
                 if (member.node.type.isNullable) {
                     out.push("  }");
@@ -1530,29 +1552,8 @@ export class JSONTransform extends Visitor {
             }
             return calls;
         };
-        const chunkFastBlocksOptional = (blocks, tag, callIndent, needsKp) => {
-            if (blocks.length <= FAST_CHUNK_SIZE)
-                return blocks.join("");
-            let calls = "";
-            for (let c = 0; c < blocks.length; c += FAST_CHUNK_SIZE) {
-                const name = `__DESERIALIZE_FAST_${tag}_${fastChunkId++}`;
-                const body = blocks
-                    .slice(c, c + FAST_CHUNK_SIZE)
-                    .join("")
-                    .replace(/\bbreak;/g, "return 0;");
-                fastChunkMethods.push(`${name}(srcStart: usize, srcEnd: usize, dst: usize, seenAny: bool): u64 {\n` +
-                    (needsKp ? "  let kp: usize = 0;\n" : "") +
-                    `${body}\n` +
-                    `  return (<u64>srcStart) | ((<u64>(seenAny ? 1 : 0)) << 32);\n}`);
-                calls +=
-                    `${callIndent}{\n` +
-                        `${callIndent}  const __r = this.${name}(srcStart, srcEnd, dst, seenAny);\n` +
-                        `${callIndent}  if (__r == 0) break;\n` +
-                        `${callIndent}  srcStart = <usize>(<u32>__r);\n` +
-                        `${callIndent}  seenAny = (<u32>(__r >>> 32)) != 0;\n` +
-                        `${callIndent}}\n`;
-            }
-            return calls;
+        const chunkFastBlocksOptional = (blocks, _tag, _callIndent, _needsKp) => {
+            return blocks.join("");
         };
         DESERIALIZE_FAST += indent + "const start = srcStart;\n";
         DESERIALIZE_FAST += indent + "const dst = changetype<usize>(out);\n";
@@ -2836,21 +2837,6 @@ export default class Transformer extends Transform {
                 " schemas");
     }
 }
-function sortMembers(members) {
-    return members.sort((a, b) => {
-        const aMove = a.flags.has(PropertyFlags.OmitIf) || a.flags.has(PropertyFlags.OmitNull);
-        const bMove = b.flags.has(PropertyFlags.OmitIf) || b.flags.has(PropertyFlags.OmitNull);
-        if (aMove && !bMove) {
-            return -1;
-        }
-        else if (!aMove && bMove) {
-            return 1;
-        }
-        else {
-            return 0;
-        }
-    });
-}
 function toU16(data, offset = 0) {
     return data.charCodeAt(offset + 0);
 }
@@ -3155,6 +3141,21 @@ export function stripNull(type) {
         return type.slice(7);
     }
     return type;
+}
+function sortMembers(members) {
+    return members.sort((a, b) => {
+        const aMove = a.flags.has(PropertyFlags.OmitIf) || a.flags.has(PropertyFlags.OmitNull);
+        const bMove = b.flags.has(PropertyFlags.OmitIf) || b.flags.has(PropertyFlags.OmitNull);
+        if (aMove && !bMove) {
+            return -1;
+        }
+        else if (!aMove && bMove) {
+            return 1;
+        }
+        else {
+            return 0;
+        }
+    });
 }
 function getComparison(data) {
     switch (data.length << 1) {

@@ -20,11 +20,12 @@ const minJson = readFile("./assembly/__benches__/payloads/fgo.min.json");
 expect(JSON.parse<Map<string, JSON.Raw>>(minJson).size).toBe(193);
 
 const fgo = JSON.parse<Map<string, JSON.Raw>>(minJson);
+const out = "";
 
 bench(
   "Deserialize FGO (min)",
   () => {
-    blackbox(JSON.parse<Map<string, JSON.Raw>>(minJson));
+    blackbox(JSON.parse<Map<string, JSON.Raw>>(minJson, fgo));
   },
   40,
   utf8ByteLength(minJson),
@@ -34,7 +35,7 @@ dumpToFile("fgo-min", "deserialize");
 bench(
   "Serialize FGO (min)",
   () => {
-    blackbox(JSON.stringify(fgo));
+    blackbox(JSON.stringify(fgo, out));
   },
   80,
   utf8ByteLength(minJson),

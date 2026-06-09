@@ -1,3 +1,5 @@
+// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs — do not edit by hand.
+// Re-run `node scripts/sync-lazy-benches.mjs` to regenerate.
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import {
@@ -13,28 +15,50 @@ import {
 // nested, highly variable per-layer data (ks transform, ef effects, shapes) is
 // kept as JSON.Raw passthrough so the bulk stays on the struct fast path.
 
+// Layer fields are declared in a common supersequence of the per-layer-type key
+// orders; the keys that vary by layer type are @optional so every layer stays on
+// the fast path. ks/ef/shapes (transform/effects/shapes) are deeply irregular
+// animation data kept as JSON.Raw passthrough.
 @json({ lazy: "auto" })
 class Layer {
   ddd: i64 = 0;
   ind: i64 = 0;
   ty: i64 = 0;
   nm: string = "";
-  refId: string = "";
+
+
+  @optional refId: string = "";
+
+
+  @optional parent: JSON.Box<i64> | null = null;
   ks: JSON.Raw | null = null;
   ao: i64 = 0;
-  ef: JSON.Raw | null = null;
-  w: i64 = 0;
-  h: i64 = 0;
+
+
+  @optional ef: JSON.Raw | null = null;
+
+
+  @optional w: i64 = 0;
+
+
+  @optional h: i64 = 0;
+
+
+  @optional shapes: JSON.Raw | null = null;
+
+
+  @optional sw: i64 = 0;
+
+
+  @optional sh: i64 = 0;
+
+
+  @optional sc: string = "";
   ip: f64 = 0;
   op: f64 = 0;
   st: f64 = 0;
   bm: i64 = 0;
   sr: i64 = 0;
-  shapes: JSON.Raw | null = null;
-  parent: JSON.Box<i64> | null = null;
-  sw: i64 = 0;
-  sh: i64 = 0;
-  sc: string = "";
 }
 
 

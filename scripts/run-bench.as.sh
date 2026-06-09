@@ -223,7 +223,9 @@ run_wavm_module() {
   local tmp
   tmp="$(mktemp)"
 
-  if ! "$WAVM_BIN" run "${WAVM_RUN_FLAGS_ARR[@]}" "./build/$wasm_arg" >"$tmp" 2>&1; then
+  # Mount the project root as the WASI root (fd 3) so file-reading benches
+  # (canada/twitter/... via readFile) can open payloads by relative path.
+  if ! "$WAVM_BIN" run --mount-root "$ROOT_DIR" "${WAVM_RUN_FLAGS_ARR[@]}" "./build/$wasm_arg" >"$tmp" 2>&1; then
     cat "$tmp"
     rm -f "$tmp"
     return 1

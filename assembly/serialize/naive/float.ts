@@ -28,8 +28,7 @@ export function serializeFloat64(data: f64): void {
   bs.offset += bytes;
 }
 
-// @ts-ignore: inline
-@inline export function serializeFloat<T extends number>(data: T): void {
+export function serializeFloat<T extends number>(data: T): void {
   if (sizeof<T>() == 4) serializeFloat32(<f32>data);
   else serializeFloat64(<f64>data);
 }

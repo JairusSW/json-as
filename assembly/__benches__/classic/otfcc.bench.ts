@@ -40,11 +40,12 @@ const minJson = readFile("./assembly/__benches__/payloads/otfcc.min.json");
 expect(JSON.parse<Otfcc>(minJson).glyf != null).toBe(true);
 
 const otfcc = JSON.parse<Otfcc>(minJson);
+const out = "";
 
 bench(
   "Deserialize OTFCC (min)",
   () => {
-    blackbox(JSON.parse<Otfcc>(minJson));
+    blackbox(JSON.parse<Otfcc>(minJson, otfcc));
   },
   40,
   utf8ByteLength(minJson),
@@ -54,7 +55,7 @@ dumpToFile("otfcc-min", "deserialize");
 bench(
   "Serialize OTFCC (min)",
   () => {
-    blackbox(JSON.stringify(otfcc));
+    blackbox(JSON.stringify(otfcc, out));
   },
   80,
   utf8ByteLength(minJson),

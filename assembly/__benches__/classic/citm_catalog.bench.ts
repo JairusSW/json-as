@@ -87,11 +87,12 @@ const minJson = readFile(
 expect(JSON.parse<Citm>(minJson).performances.length).toBe(243);
 
 const citm = JSON.parse<Citm>(prettyJson);
+const out = "";
 
 bench(
   "Deserialize CITM (pretty)",
   () => {
-    blackbox(JSON.parse<Citm>(prettyJson));
+    blackbox(JSON.parse<Citm>(prettyJson, citm));
   },
   2000,
   utf8ByteLength(prettyJson),
@@ -101,7 +102,7 @@ dumpToFile("citm_catalog-pretty", "deserialize");
 bench(
   "Deserialize CITM (min)",
   () => {
-    blackbox(JSON.parse<Citm>(minJson));
+    blackbox(JSON.parse<Citm>(minJson, citm));
   },
   2000,
   utf8ByteLength(minJson),
@@ -111,7 +112,7 @@ dumpToFile("citm_catalog-min", "deserialize");
 bench(
   "Serialize CITM (min)",
   () => {
-    blackbox(JSON.stringify(citm));
+    blackbox(JSON.stringify(citm, out));
   },
   4000,
   utf8ByteLength(minJson),

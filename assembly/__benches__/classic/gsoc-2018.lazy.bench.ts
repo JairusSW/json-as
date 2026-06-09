@@ -1,3 +1,5 @@
+// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs — do not edit by hand.
+// Re-run `node scripts/sync-lazy-benches.mjs` to regenerate.
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import {
@@ -14,6 +16,28 @@ import {
 // sub-objects stay JSON.Raw passthrough.
 
 @json({ lazy: "auto" })
+class Sponsor {
+
+  @alias("@type")
+  type: string = "";
+  name: string = "";
+  disambiguatingDescription: string = "";
+  description: string = "";
+  url: string = "";
+  logo: string = "";
+}
+
+
+@json({ lazy: "auto" })
+class Author {
+
+  @alias("@type")
+  type: string = "";
+  name: string = "";
+}
+
+
+@json({ lazy: "auto" })
 class Org {
 
   @alias("@context")
@@ -24,8 +48,8 @@ class Org {
   type: string = "";
   name: string = "";
   description: string = "";
-  sponsor: JSON.Raw | null = null;
-  author: JSON.Raw | null = null;
+  sponsor: Sponsor = new Sponsor();
+  author: Author = new Author();
 }
 
 const prettyJson = readFile(
@@ -57,12 +81,7 @@ bench(
 );
 dumpToFile("gsoc-2018-lazy-min", "deserialize");
 
-// NOTE: no lazy serialize bench here. Serializing a *root-level*
-// Map<string, LazyClass> currently traps (memory access out of bounds) in
-// json-as — the lazy field-deferral path doesn't survive a top-level map value.
-// (The same lazy class serializes fine as an array element or a struct field,
-// e.g. citm_catalog.lazy's `events` map, so this is specific to the map root.)
-// The eager gsoc-2018 bench covers serialize; here we keep the lazy *parse*
-// numbers, which is what lazy mode is about.
-// Keep `gsoc` referenced so it is not optimized away.
-blackbox(gsoc.size);
+// NOTE: no lazy serialize bench — lazy passthrough serialize traps for
+// this document (a root-level map value, or a per-class-fallback'd
+// tagged-union payload whose deferred slices don't survive serialize).
+// The eager bench covers serialize; lazy mode is about the parse numbers.

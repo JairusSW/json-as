@@ -314,11 +314,18 @@ export namespace JSON {
         isDefined(type.__DESERIALIZE_FAST)
       ) {
         // Reuse the caller-supplied `out` graph when given; otherwise allocate.
-        const obj = changetype<usize>(out)
+        const reuse = changetype<usize>(out) != 0;
+        const obj = reuse
           ? changetype<nonnull<T>>(changetype<usize>(out))
           : changetype<nonnull<T>>(
               __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
             );
+        // A freshly allocated object holds uninitialized fields (__new does not
+        // zero). The fast path writes fields in place and may leave some
+        // unwritten (@optional / skip-unknown), so it must run against defaults,
+        // not garbage. A reused graph is already initialized — skip it.
+        // @ts-expect-error: Defined by transform
+        if (!reuse && isDefined(type.__INITIALIZE)) obj.__INITIALIZE();
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST)) {
           // @ts-expect-error: Defined by transform
@@ -360,11 +367,15 @@ export namespace JSON {
           0,
         );
       } else if (type instanceof Array) {
+        // Reuse the caller-supplied array when given (no allocation); the
+        // element loop overwrites slots and trims length. Otherwise allocate.
         // @ts-expect-error
         return deserializeArray<nonnull<T>>(
           dataPtr,
           dataPtr + dataSize,
-          changetype<usize>(instantiate<T>()),
+          changetype<usize>(out) != 0
+            ? changetype<usize>(out)
+            : changetype<usize>(instantiate<T>()),
         );
       } else if (
         type instanceof Int8Array ||
@@ -390,8 +401,13 @@ export namespace JSON {
         // @ts-expect-error
         return deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0);
       } else if (type instanceof Map) {
+        // Reuse the caller-supplied map when given (keys overwrite in place).
         // @ts-expect-error
-        return deserializeMap<nonnull<T>>(dataPtr, dataPtr + dataSize, 0);
+        return deserializeMap<nonnull<T>>(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(out),
+        );
       } else if (type instanceof Date) {
         // @ts-expect-error
         return deserializeDate(dataPtr, dataPtr + dataSize);
@@ -1280,10 +1296,10 @@ export namespace JSON {
       }
       if (type instanceof StaticArray) {
         // @ts-expect-error: type
-        return deserializeStaticArray<T>(srcStart, srcEnd, dst);
+        return deserializeStaticArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Array) {
         // @ts-expect-error: type
-        return deserializeArray<T>(srcStart, srcEnd, dst);
+        return deserializeArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (
         type instanceof Int8Array ||
         type instanceof Uint8Array ||

@@ -1295,6 +1295,16 @@ export class JSONTransform extends Visitor {
               this.schema.static = false;
               break;
             }
+            case "optional": {
+              // Marks the field optional for DESERIALIZATION only: the key may
+              // be absent. It feeds `hasOptionalMembers` (→ the order-tolerant
+              // optional deserialize path) but deliberately does NOT clear
+              // `schema.static`, so serialize keeps its straight-line path and
+              // still emits the field. (Clearing static routes serialize through
+              // the conditional-comma path, which @optional doesn't want.)
+              mem.flags.set(PropertyFlags.Optional, null);
+              break;
+            }
             case "omitnull": {
               if (isPrimitive(type)) {
                 throwError(
@@ -1318,8 +1328,12 @@ export class JSONTransform extends Visitor {
       this.schema.members.push(mem);
     }
 
-    if (!this.schema.static)
-      this.schema.members = sortMembers(this.schema.members);
+    // @omitnull/@omitif fields are floated to the front (serialize emits them
+    // with a leading comma, and the probe deserializer is order-tolerant). This
+    // only moves @omit fields — @optional fields stay in DECLARATION ORDER, which
+    // the order-sensitive optional fast path requires (it matches in declaration
+    // order with skips, so moving them would desync against real documents).
+    this.schema.members = sortMembers(this.schema.members);
 
     const hasOmitIfMembers = this.schema.members.some((v) =>
       v.flags.has(PropertyFlags.OmitIf),
@@ -1327,7 +1341,11 @@ export class JSONTransform extends Visitor {
     const hasOmitNullMembers = this.schema.members.some((v) =>
       v.flags.has(PropertyFlags.OmitNull),
     );
-    const hasOptionalMembers = hasOmitIfMembers || hasOmitNullMembers;
+    const hasExplicitOptionalMembers = this.schema.members.some((v) =>
+      v.flags.has(PropertyFlags.Optional),
+    );
+    const hasOptionalMembers =
+      hasOmitIfMembers || hasOmitNullMembers || hasExplicitOptionalMembers;
     // Lazy passthrough reserves exactly the slice bytes (unlike eager string
     // serialization, which over-reserves for quotes/escaping and leaves slack).
     // The structural key writes that follow don't `ensureSize`, so for a struct
@@ -1445,14 +1463,13 @@ export class JSONTransform extends Visitor {
       const realName = member.name;
 
       if (member.value) {
-        if (
-          member.value != "null" &&
-          member.value != "0" &&
-          member.value != "0.0" &&
-          member.value != "false"
-        ) {
-          INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
-        }
+        // Always store the declared default, including null/0/0.0/false. __new()
+        // returns uninitialized memory (it does NOT zero), so any field left
+        // unwritten holds garbage. The fast path reads field values in place
+        // (string-buffer reuse, nullable-pointer checks) and — with @optional /
+        // skip-unknown — may legitimately leave a field unwritten, so every
+        // field must hold its default after __INITIALIZE.
+        INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
       } else if (member.generic) {
         INITIALIZE += `  if (isManaged<nonnull<${member.type}>>() || isReference<nonnull<${member.type}>>()) {\n`;
         INITIALIZE += `    store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())), offsetof<this>(${JSON.stringify(member.name)}));\n`;
@@ -1473,6 +1490,10 @@ export class JSONTransform extends Visitor {
         } else if (member.type == "string" || member.type == "String") {
           INITIALIZE += `  store<${member.type}>(changetype<usize>(this), "", offsetof<this>(${JSON.stringify(member.name)}));\n`;
         }
+      } else {
+        // Nullable field with no explicit default: clear to null so the
+        // uninitialized __new() slot isn't read as a live pointer.
+        INITIALIZE += `  store<${member.type}>(changetype<usize>(this), null, offsetof<this>(${JSON.stringify(member.name)}));\n`;
       }
 
       const SIMD_ENABLED = this.program.options.hasFeature(Feature.Simd);
@@ -1947,11 +1968,39 @@ export class JSONTransform extends Visitor {
           out.push(
             `    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
           );
-          out.push("  }");
+          // Fresh struct: default-initialize before the fast pass writes fields
+          // in place (the fast path may leave some fields unwritten).
           out.push(
-            `  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${valuePtr}, srcEnd, value);`,
+            `    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`,
           );
-          out.push(`  if (!${srcPtr}) break;`);
+          out.push("  }");
+          // Per-class fallback: if this nested object can't be handled on the
+          // fast path (out-of-order keys, an unmodeled/extra key, etc.), parse
+          // just this one object via its own slow path and keep the parent on
+          // the fast path — rather than failing the whole document.
+          out.push(
+            `  const __fe = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${valuePtr}, srcEnd, value);`,
+          );
+          out.push(`  if (__fe) {`);
+          out.push(`    ${srcPtr} = __fe;`);
+          out.push(`  } else {`);
+          out.push(
+            `    const __ve = JSON.Util.scanValueEnd<${resolvedType}>(${valuePtr}, srcEnd);`,
+          );
+          out.push(`    if (!__ve) break;`);
+          // The failed fast attempt may have written some fields already; reset
+          // to defaults so the slow re-parse doesn't leave stale values in fields
+          // that are absent from this object.
+          out.push(
+            `    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`,
+          );
+          out.push(
+            `    changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_SLOW<${resolvedType}>(${valuePtr}, __ve, value);`,
+          );
+          // Advance to the scanned object end (not the slow path's return value,
+          // which may stop short of `}` and desync the parent's fast loop).
+          out.push(`    ${srcPtr} = __ve;`);
+          out.push(`  }`);
           if (member.node.type.isNullable) {
             out.push("  }");
           }
@@ -2114,17 +2163,42 @@ export class JSONTransform extends Visitor {
             `        item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`,
           );
           out.push("        unchecked((value[index] = item));");
+          out.push(
+            `        changetype<nonnull<${valueType}>>(item).__INITIALIZE();`,
+          );
           out.push("      }");
           out.push("    } else {");
           out.push(
             `      item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`,
           );
           out.push("      value.push(item);");
-          out.push("    }");
           out.push(
-            `    ${srcPtr} = changetype<nonnull<${valueType}>>(item).__DESERIALIZE_FAST<${valueType}>(${srcPtr}, srcEnd, item);`,
+            `      changetype<nonnull<${valueType}>>(item).__INITIALIZE();`,
           );
-          out.push(`    if (!${srcPtr}) break;`);
+          out.push("    }");
+          // Per-element fallback: an element the fast path can't handle parses
+          // via its own slow path; the rest of the array stays on the fast path.
+          out.push(`    const __es = ${srcPtr};`);
+          out.push(
+            `    const __ee = changetype<nonnull<${valueType}>>(item).__DESERIALIZE_FAST<${valueType}>(${srcPtr}, srcEnd, item);`,
+          );
+          out.push(`    if (__ee) {`);
+          out.push(`      ${srcPtr} = __ee;`);
+          out.push(`    } else {`);
+          out.push(
+            `      const __ve = JSON.Util.scanValueEnd<${valueType}>(__es, srcEnd);`,
+          );
+          out.push(`      if (!__ve) break;`);
+          // Reset before the slow re-parse (see the nested-struct fallback).
+          out.push(
+            `      changetype<nonnull<${valueType}>>(item).__INITIALIZE();`,
+          );
+          out.push(
+            `      changetype<nonnull<${valueType}>>(item).__DESERIALIZE_SLOW<${valueType}>(__es, __ve, item);`,
+          );
+          // Advance to the scanned element end (not the slow return).
+          out.push(`      ${srcPtr} = __ve;`);
+          out.push(`    }`);
           out.push("    index++;");
           out.push(
             `    ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`,
@@ -2148,7 +2222,7 @@ export class JSONTransform extends Visitor {
           return out;
         }
         out.push(
-          `  ${srcPtr} = __deserializeArrayField_SWAR<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
+          `  ${srcPtr} = __deserializeArrayField_SWAR<nonnull<${resolvedType}>>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
         );
         out.push(`  if (!${srcPtr}) break;`);
         if (member.node.type.isNullable) {
@@ -2229,33 +2303,16 @@ export class JSONTransform extends Visitor {
     // bail sentinel. tier2 also needs a chunk-local `kp` scratch.
     const chunkFastBlocksOptional = (
       blocks: string[],
-      tag: string,
-      callIndent: string,
-      needsKp: boolean,
+      _tag: string,
+      _callIndent: string,
+      _needsKp: boolean,
     ): string => {
-      if (blocks.length <= FAST_CHUNK_SIZE) return blocks.join("");
-      let calls = "";
-      for (let c = 0; c < blocks.length; c += FAST_CHUNK_SIZE) {
-        const name = `__DESERIALIZE_FAST_${tag}_${fastChunkId++}`;
-        const body = blocks
-          .slice(c, c + FAST_CHUNK_SIZE)
-          .join("")
-          .replace(/\bbreak;/g, "return 0;");
-        fastChunkMethods.push(
-          `${name}(srcStart: usize, srcEnd: usize, dst: usize, seenAny: bool): u64 {\n` +
-            (needsKp ? "  let kp: usize = 0;\n" : "") +
-            `${body}\n` +
-            `  return (<u64>srcStart) | ((<u64>(seenAny ? 1 : 0)) << 32);\n}`,
-        );
-        calls +=
-          `${callIndent}{\n` +
-          `${callIndent}  const __r = this.${name}(srcStart, srcEnd, dst, seenAny);\n` +
-          `${callIndent}  if (__r == 0) break;\n` +
-          `${callIndent}  srcStart = <usize>(<u32>__r);\n` +
-          `${callIndent}  seenAny = (<u32>(__r >>> 32)) != 0;\n` +
-          `${callIndent}}\n`;
-      }
-      return calls;
+      // The optional probe path is emitted as a SINGLE function. Its chunked
+      // form threads `seenAny`/`kp` across helper-method boundaries and
+      // miscompiles — large optional structs (e.g. a 40-field user) trapped at
+      // runtime. Emitting inline is correct; compile time is not a concern.
+      // (Static structs still chunk via chunkFastBlocks, which is correct.)
+      return blocks.join("");
     };
 
     DESERIALIZE_FAST += indent + "const start = srcStart;\n";
@@ -4094,23 +4151,6 @@ export default class Transformer extends Transform {
   }
 }
 
-function sortMembers(members: Property[]): Property[] {
-  return members.sort((a, b) => {
-    const aMove =
-      a.flags.has(PropertyFlags.OmitIf) || a.flags.has(PropertyFlags.OmitNull);
-    const bMove =
-      b.flags.has(PropertyFlags.OmitIf) || b.flags.has(PropertyFlags.OmitNull);
-
-    if (aMove && !bMove) {
-      return -1;
-    } else if (!aMove && bMove) {
-      return 1;
-    } else {
-      return 0;
-    }
-  });
-}
-
 function toU16(data: string, offset: number = 0): number {
   return data.charCodeAt(offset + 0);
 }
@@ -4477,6 +4517,25 @@ export function stripNull(type: string): string {
     return type.slice(7);
   }
   return type;
+}
+
+// Floats @omitnull/@omitif fields to the front (a stable partition). Only @omit
+// fields move; @optional and plain fields keep their relative declaration order.
+function sortMembers(members: Property[]): Property[] {
+  return members.sort((a, b) => {
+    const aMove =
+      a.flags.has(PropertyFlags.OmitIf) || a.flags.has(PropertyFlags.OmitNull);
+    const bMove =
+      b.flags.has(PropertyFlags.OmitIf) || b.flags.has(PropertyFlags.OmitNull);
+
+    if (aMove && !bMove) {
+      return -1;
+    } else if (!aMove && bMove) {
+      return 1;
+    } else {
+      return 0;
+    }
+  });
 }
 
 function getComparison(data: string) {

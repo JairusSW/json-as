@@ -41,3 +41,5 @@ JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart13.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart14.ts
 # Lazy-fields charts (eager vs @json({ lazy: "auto" }))
 bun ./scripts/build-chart15.ts
+# Classic-dataset mode comparison (NAIVE/SWAR/SIMD + lazy, no JS baseline)
+bun ./scripts/build-chart-classic.ts

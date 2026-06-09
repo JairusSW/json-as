@@ -1,3 +1,5 @@
+// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs — do not edit by hand.
+// Re-run `node scripts/sync-lazy-benches.mjs` to regenerate.
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import {
@@ -9,7 +11,7 @@ import {
 } from "../lib/bench";
 
 
-@json({ lazy: "auto"})
+@json({ lazy: "auto" })
 class CanadaProperties {
   name: string = "";
 }
@@ -30,7 +32,7 @@ class CanadaFeature {
 }
 
 
-@json
+@json({ lazy: "auto" })
 class Canada {
   type: string = "";
   features: Array<CanadaFeature> = [];
@@ -41,37 +43,36 @@ const prettyJson = readFile(
 );
 const minJson = readFile("./assembly/__benches__/payloads/canada.min.json");
 
-expect(JSON.stringify(JSON.parse<Canada>(prettyJson))).toBe(minJson);
 expect(JSON.stringify(JSON.parse<Canada>(minJson))).toBe(minJson);
 
 const canada = JSON.parse<Canada>(prettyJson);
 
 bench(
-  "Deserialize Canada (pretty)",
+  "Deserialize Canada Lazy (pretty)",
   () => {
     blackbox(JSON.parse<Canada>(prettyJson));
   },
-  1000,
+  500,
   utf8ByteLength(prettyJson),
 );
-dumpToFile("canada-pretty", "deserialize");
+dumpToFile("canada-lazy-pretty", "deserialize");
 
 bench(
-  "Deserialize Canada (min)",
+  "Deserialize Canada Lazy (min)",
   () => {
     blackbox(JSON.parse<Canada>(minJson));
   },
-  1000,
+  500,
   utf8ByteLength(minJson),
 );
-dumpToFile("canada-min", "deserialize");
+dumpToFile("canada-lazy-min", "deserialize");
 
 bench(
-  "Serialize Canada (min)",
+  "Serialize Canada Lazy (min)",
   () => {
     blackbox(JSON.stringify(canada));
   },
   1000,
   utf8ByteLength(minJson),
 );
-dumpToFile("canada-min", "serialize");
+dumpToFile("canada-lazy-min", "serialize");

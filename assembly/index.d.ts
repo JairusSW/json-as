@@ -127,6 +127,24 @@ declare function omitif(condition: string | ((self: any) => boolean)): Function;
 declare function omitnull(..._): Function;
 
 /**
+ * Field decorator that marks a property as optional for deserialization: the
+ * key may be absent from (or appear anywhere in) the input, and the field keeps
+ * its default. Unlike `@omitnull`/`@omitif` it does NOT omit the field on
+ * serialize and has no nullability requirement — it only opts the field into
+ * the order-tolerant fast path.
+ *
+ * @example
+ * ```ts
+ * @json
+ * class Tweet {
+ *   @optional retweeted_status: Retweet | null = null; // key may be absent
+ * }
+ * ```
+ */
+// @ts-ignore: type
+declare function optional(..._): Function;
+
+/**
  * Field decorator that defers parsing of a property until it is first read
  * (on-demand / lazy parsing). The raw JSON slice is stored at parse time and
  * materialized into the field's type on first access, then cached; an untouched

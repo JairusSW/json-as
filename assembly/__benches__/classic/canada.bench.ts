@@ -45,11 +45,12 @@ expect(JSON.stringify(JSON.parse<Canada>(prettyJson))).toBe(minJson);
 expect(JSON.stringify(JSON.parse<Canada>(minJson))).toBe(minJson);
 
 const canada = JSON.parse<Canada>(prettyJson);
+const out = "";
 
 bench(
   "Deserialize Canada (pretty)",
   () => {
-    blackbox(JSON.parse<Canada>(prettyJson));
+    blackbox(JSON.parse<Canada>(prettyJson, canada));
   },
   500,
   utf8ByteLength(prettyJson),
@@ -59,7 +60,7 @@ dumpToFile("canada-pretty", "deserialize");
 bench(
   "Deserialize Canada (min)",
   () => {
-    blackbox(JSON.parse<Canada>(minJson));
+    blackbox(JSON.parse<Canada>(minJson, canada));
   },
   500,
   utf8ByteLength(minJson),
@@ -69,7 +70,7 @@ dumpToFile("canada-min", "deserialize");
 bench(
   "Serialize Canada (min)",
   () => {
-    blackbox(JSON.stringify(canada));
+    blackbox(JSON.stringify(canada, out));
   },
   1000,
   utf8ByteLength(minJson),

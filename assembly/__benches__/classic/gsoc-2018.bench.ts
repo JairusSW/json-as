@@ -58,11 +58,12 @@ const minJson = readFile("./assembly/__benches__/payloads/gsoc-2018.min.json");
 expect(JSON.parse<Map<string, Org>>(minJson).size).toBe(1264);
 
 const gsoc = JSON.parse<Map<string, Org>>(prettyJson);
+const out = "";
 
 bench(
   "Deserialize GSOC (pretty)",
   () => {
-    blackbox(JSON.parse<Map<string, Org>>(prettyJson));
+    blackbox(JSON.parse<Map<string, Org>>(prettyJson, gsoc));
   },
   500,
   utf8ByteLength(prettyJson),
@@ -72,7 +73,7 @@ dumpToFile("gsoc-2018-pretty", "deserialize");
 bench(
   "Deserialize GSOC (min)",
   () => {
-    blackbox(JSON.parse<Map<string, Org>>(minJson));
+    blackbox(JSON.parse<Map<string, Org>>(minJson, gsoc));
   },
   500,
   utf8ByteLength(minJson),
@@ -82,7 +83,7 @@ dumpToFile("gsoc-2018-min", "deserialize");
 bench(
   "Serialize GSOC (min)",
   () => {
-    blackbox(JSON.stringify(gsoc));
+    blackbox(JSON.stringify(gsoc, out));
   },
   1000,
   utf8ByteLength(minJson),

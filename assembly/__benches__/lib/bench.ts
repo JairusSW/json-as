@@ -18,6 +18,90 @@ export declare function writeFile(fileName: string, data: string): void;
 @external("env", "readFile")
 export declare function readFileBuffer(filePath: string): ArrayBuffer;
 
+// --- WASI file reading (WAVM/WASI runner) ---------------------------------
+// The V8 runner supplies `env.readFile`; the WASI runner does not, so under
+// WAVM we read the file through WASI (path_open + fd_read). These imports are
+// only reachable when BENCH_RUNTIME_WAVM is true (a compile-time constant), so
+// the V8 build tree-shakes them away and keeps a clean `env`-only import set.
+// @ts-ignore: decorator allowed
+@external("wasi_snapshot_preview1", "path_open")
+declare function wasi_path_open(
+  dirfd: u32,
+  dirflags: u32,
+  path: usize,
+  path_len: usize,
+  oflags: u32,
+  rights_base: u64,
+  rights_inheriting: u64,
+  fdflags: u32,
+  fd_out: usize,
+): u32;
+// @ts-ignore: decorator allowed
+@external("wasi_snapshot_preview1", "fd_read")
+declare function wasi_fd_read(
+  fd: u32,
+  iovs: usize,
+  iovs_len: usize,
+  nread: usize,
+): u32;
+// @ts-ignore: decorator allowed
+@external("wasi_snapshot_preview1", "fd_filestat_get")
+declare function wasi_fd_filestat_get(fd: u32, buf: usize): u32;
+// @ts-ignore: decorator allowed
+@external("wasi_snapshot_preview1", "fd_close")
+declare function wasi_fd_close(fd: u32): u32;
+
+// Reads a whole file via WASI, relative to the runner's preopened root
+// directory (fd 3 — WAVM is invoked with `--mount-root <project root>`).
+function readFileWasi(path: string): string {
+  // The benches write paths as `./assembly/...`; resolve relative to the root.
+  let rel = path;
+  if (rel.startsWith("./")) rel = rel.substring(2);
+  const pathBuf = String.UTF8.encode(rel);
+  const scratch = memory.data(128);
+  // WASI rights (correct bit positions): fd_read=1<<1, fd_seek=1<<2,
+  // fd_tell=1<<5, fd_filestat_get=1<<21.
+  const RIGHTS: u64 =
+    ((<u64>1) << 1) | ((<u64>1) << 2) | ((<u64>1) << 5) | ((<u64>1) << 21);
+  const err = wasi_path_open(
+    3,
+    1, // LOOKUPFLAGS_SYMLINK_FOLLOW
+    changetype<usize>(pathBuf),
+    pathBuf.byteLength,
+    0, // oflags: open existing
+    RIGHTS,
+    RIGHTS,
+    0,
+    scratch, // fd_out
+  );
+  if (err != 0)
+    throw new Error(
+      "WASI path_open failed (errno " + err.toString() + ") for " + rel,
+    );
+  const fd = load<u32>(scratch);
+
+  const fstat = scratch + 8; // 64-byte filestat
+  if (wasi_fd_filestat_get(fd, fstat) != 0) {
+    wasi_fd_close(fd);
+    throw new Error("WASI fd_filestat_get failed for " + rel);
+  }
+  const size = <i32>load<u64>(fstat, 32); // filestat.size lives at offset 32
+  const buf = new ArrayBuffer(size);
+  const iovec = scratch + 80; // { buf: usize, len: usize }
+  const nread = scratch + 96;
+  let total = 0;
+  while (total < size) {
+    store<usize>(iovec, changetype<usize>(buf) + <usize>total);
+    store<usize>(iovec + 4, <usize>(size - total));
+    if (wasi_fd_read(fd, iovec, 1, nread) != 0) break;
+    const n = <i32>load<usize>(nread);
+    if (n == 0) break;
+    total += n;
+  }
+  wasi_fd_close(fd);
+  return String.UTF8.decode(buf);
+}
+
 // @ts-expect-error: AS_BENCH_RUNTIME_WAVM may be undefined.
 const BENCH_RUNTIME_WAVM: bool = isDefined(AS_BENCH_RUNTIME_WAVM);
 const BENCH_RUNTIME_STDOUT: bool = BENCH_RUNTIME_WAVM;
@@ -219,10 +303,8 @@ export function dumpToFile(suite: string, type: string): void {
 }
 
 export function readFile(path: string): string {
-  if (BENCH_RUNTIME_STDOUT)
-    throw new Error(
-      "readFile is not available in the WAVM/WASI benchmark runner: " + path,
-    );
+  // WASI runner (WAVM): read via WASI; V8 runner: use the host `env.readFile`.
+  if (BENCH_RUNTIME_WAVM) return readFileWasi(path);
   return String.UTF8.decode(readFileBuffer(path));
 }
 

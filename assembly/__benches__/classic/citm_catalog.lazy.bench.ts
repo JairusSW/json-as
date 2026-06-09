@@ -1,3 +1,5 @@
+// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs — do not edit by hand.
+// Re-run `node scripts/sync-lazy-benches.mjs` to regenerate.
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import {

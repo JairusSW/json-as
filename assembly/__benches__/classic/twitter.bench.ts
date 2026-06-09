@@ -8,10 +8,11 @@ import {
   utf8ByteLength,
 } from "../lib/bench";
 
-// Twitter search API response (miloyip/nativejson-benchmark). Fully modeled as
-// a struct schema with no JSON.Raw passthrough, so the eager bench really
-// materializes the fields. retweeted_status is itself a tweet; it is a distinct
-// (non-recursive) lean class — see the note above RetweetedStatus.
+// Twitter search API response (miloyip/nativejson-benchmark). Fully modeled as a
+// struct schema — no JSON.Raw — so the eager bench really materializes every
+// field. Sometimes-absent keys are marked @optional so the whole document stays
+// on the fast path; retweeted_status is recursively a Status (a retweet is just
+// a tweet, with no nested retweet of its own — hence @optional).
 
 @json
 class TweetMetadata {
@@ -75,8 +76,12 @@ class Media {
   expanded_url: string = "";
   type: string = "";
   sizes: MediaSizes = new MediaSizes();
-  source_status_id: JSON.Box<i64> | null = null;
-  source_status_id_str: string | null = null;
+
+
+  @optional source_status_id: JSON.Box<i64> | null = null;
+
+
+  @optional source_status_id_str: string | null = null;
 }
 
 
@@ -86,7 +91,9 @@ class Entities {
   symbols: string[] = [];
   urls: UrlEntity[] = [];
   user_mentions: Mention[] = [];
-  media: Media[] = [];
+
+
+  @optional media: Media[] = [];
 }
 
 
@@ -98,7 +105,8 @@ class UrlList {
 
 @json
 class UserEntities {
-  url: UrlList | null = null;
+
+  @optional url: UrlList | null = null;
   description: UrlList = new UrlList();
 }
 
@@ -119,6 +127,14 @@ class Place {
   full_name: string = "";
   country_code: string = "";
   country: string = "";
+}
+
+// Always null in this dataset; a nullable struct (with a representative field so
+// it gets deserialize methods) sidesteps the nullable-array path while keeping
+// the key modeled (no JSON.Raw).
+@json
+class ContributorList {
+  id: i64 = 0;
 }
 
 
@@ -156,7 +172,9 @@ class TweetUser {
   profile_background_tile: boolean = false;
   profile_image_url: string = "";
   profile_image_url_https: string = "";
-  profile_banner_url: string = "";
+
+
+  @optional profile_banner_url: string = "";
   profile_link_color: string = "";
   profile_sidebar_border_color: string = "";
   profile_sidebar_fill_color: string = "";
@@ -167,46 +185,6 @@ class TweetUser {
   following: boolean = false;
   follow_request_sent: boolean = false;
   notifications: boolean = false;
-}
-
-// A retweeted tweet. json-as inlines nested struct (de)serialization, so giving
-// the retweet the *full* Status tree (a second TweetUser + Entities + Media +
-// MediaSizes) makes codegen blow up super-linearly. It is modeled with a lean
-// user and without the deep entity nesting — still a real struct (no JSON.Raw),
-// just not re-materializing the whole heavy subtree a second time.
-@json
-class RtUser {
-  id: i64 = 0;
-  id_str: string = "";
-  name: string = "";
-  screen_name: string = "";
-  location: string = "";
-  description: string = "";
-  followers_count: i32 = 0;
-  friends_count: i32 = 0;
-  statuses_count: i32 = 0;
-  verified: boolean = false;
-  created_at: string = "";
-  lang: string = "";
-}
-
-
-@json
-class RetweetedStatus {
-  metadata: TweetMetadata = new TweetMetadata();
-  created_at: string = "";
-  id: i64 = 0;
-  id_str: string = "";
-  text: string = "";
-  source: string = "";
-  truncated: boolean = false;
-  user: RtUser = new RtUser();
-  retweet_count: i32 = 0;
-  favorite_count: i32 = 0;
-  favorited: boolean = false;
-  retweeted: boolean = false;
-  possibly_sensitive: boolean = false;
-  lang: string = "";
 }
 
 
@@ -228,16 +206,18 @@ class Status {
   geo: GeoJSON | null = null;
   coordinates: GeoJSON | null = null;
   place: Place | null = null;
-  // `contributors` is always null in this dataset; json-as's codegen rejects a
-  // nullable array field (Array<i64> | null), so the key is simply left
-  // unmodeled (skipped on parse) rather than passed through as JSON.Raw.
-  retweeted_status: RetweetedStatus | null = null;
+  contributors: ContributorList | null = null;
+
+
+  @optional retweeted_status: Status | null = null;
   retweet_count: i32 = 0;
   favorite_count: i32 = 0;
   entities: Entities = new Entities();
   favorited: boolean = false;
   retweeted: boolean = false;
-  possibly_sensitive: boolean = false;
+
+
+  @optional possibly_sensitive: boolean = false;
   lang: string = "";
 }
 
@@ -267,7 +247,7 @@ const prettyJson = readFile(
 );
 const minJson = readFile("./assembly/__benches__/payloads/twitter.min.json");
 const outStr = "";
-// Sanity: the schema parses the whole document on the fast path.
+
 expect(JSON.parse<Twitter>(minJson).statuses.length).toBe(100);
 
 const twitter = JSON.parse<Twitter>(prettyJson);

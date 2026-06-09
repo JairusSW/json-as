@@ -1,3 +1,5 @@
+// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs — do not edit by hand.
+// Re-run `node scripts/sync-lazy-benches.mjs` to regenerate.
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
 import {
@@ -8,12 +10,11 @@ import {
   utf8ByteLength,
 } from "../lib/bench";
 
-// Twitter search API response (miloyip/nativejson-benchmark). A deep, irregular
-// document: 100 tweets, most carrying a nested retweeted_status (recursive),
-// full user objects, and entity arrays. Modeled as a struct schema so it stays
-// on the SWAR/SIMD fast path; genuinely variable / always-null subtrees
-// (geo/coordinates/place/contributors, user.entities, media.sizes) are kept as
-// JSON.Raw passthrough rather than forcing a shape onto them.
+// Twitter search API response (miloyip/nativejson-benchmark). Fully modeled as a
+// struct schema — no JSON.Raw — so the lazy bench really materializes every
+// field. Sometimes-absent keys are marked @optional so the whole document stays
+// on the fast path; retweeted_status is recursively a Status (a retweet is just
+// a tweet, with no nested retweet of its own — hence @optional).
 
 @json({ lazy: "auto" })
 class TweetMetadata {
@@ -49,6 +50,23 @@ class Mention {
 
 
 @json({ lazy: "auto" })
+class Size {
+  w: i32 = 0;
+  h: i32 = 0;
+  resize: string = "";
+}
+
+
+@json({ lazy: "auto" })
+class MediaSizes {
+  medium: Size = new Size();
+  small: Size = new Size();
+  thumb: Size = new Size();
+  large: Size = new Size();
+}
+
+
+@json({ lazy: "auto" })
 class Media {
   id: i64 = 0;
   id_str: string = "";
@@ -59,9 +77,13 @@ class Media {
   display_url: string = "";
   expanded_url: string = "";
   type: string = "";
-  sizes: JSON.Raw | null = null;
-  source_status_id: JSON.Box<i64> | null = null;
-  source_status_id_str: string | null = null;
+  sizes: MediaSizes = new MediaSizes();
+
+
+  @optional source_status_id: JSON.Box<i64> | null = null;
+
+
+  @optional source_status_id_str: string | null = null;
 }
 
 
@@ -71,7 +93,50 @@ class Entities {
   symbols: string[] = [];
   urls: UrlEntity[] = [];
   user_mentions: Mention[] = [];
-  media: Media[] = [];
+
+
+  @optional media: Media[] = [];
+}
+
+
+@json({ lazy: "auto" })
+class UrlList {
+  urls: UrlEntity[] = [];
+}
+
+
+@json({ lazy: "auto" })
+class UserEntities {
+
+  @optional url: UrlList | null = null;
+  description: UrlList = new UrlList();
+}
+
+
+@json({ lazy: "auto" })
+class GeoJSON {
+  type: string = "";
+  coordinates: f64[] = [];
+}
+
+
+@json({ lazy: "auto" })
+class Place {
+  id: string = "";
+  url: string = "";
+  place_type: string = "";
+  name: string = "";
+  full_name: string = "";
+  country_code: string = "";
+  country: string = "";
+}
+
+// Always null in this dataset; a nullable struct (with a representative field so
+// it gets deserialize methods) sidesteps the nullable-array path while keeping
+// the key modeled (no JSON.Raw).
+@json({ lazy: "auto" })
+class ContributorList {
+  id: i64 = 0;
 }
 
 
@@ -84,7 +149,7 @@ class TweetUser {
   location: string = "";
   description: string = "";
   url: string | null = null;
-  entities: JSON.Raw | null = null;
+  entities: UserEntities = new UserEntities();
 
 
   @alias("protected")
@@ -109,7 +174,9 @@ class TweetUser {
   profile_background_tile: boolean = false;
   profile_image_url: string = "";
   profile_image_url_https: string = "";
-  profile_banner_url: string = "";
+
+
+  @optional profile_banner_url: string = "";
   profile_link_color: string = "";
   profile_sidebar_border_color: string = "";
   profile_sidebar_fill_color: string = "";
@@ -138,20 +205,21 @@ class Status {
   in_reply_to_user_id_str: string | null = null;
   in_reply_to_screen_name: string | null = null;
   user: TweetUser = new TweetUser();
-  geo: JSON.Raw | null = null;
-  coordinates: JSON.Raw | null = null;
-  place: JSON.Raw | null = null;
-  contributors: JSON.Raw | null = null;
-  // retweeted_status is itself a full tweet; modeling it as a recursive
-  // `Status | null` makes the codegen/--converge pass blow up, so it is kept as
-  // a JSON.Raw passthrough (fast, and the nested tweet is rarely inspected).
-  retweeted_status: JSON.Raw | null = null;
+  geo: GeoJSON | null = null;
+  coordinates: GeoJSON | null = null;
+  place: Place | null = null;
+  contributors: ContributorList | null = null;
+
+
+  @optional retweeted_status: Status | null = null;
   retweet_count: i32 = 0;
   favorite_count: i32 = 0;
   entities: Entities = new Entities();
   favorited: boolean = false;
   retweeted: boolean = false;
-  possibly_sensitive: boolean = false;
+
+
+  @optional possibly_sensitive: boolean = false;
   lang: string = "";
 }
 
@@ -180,8 +248,8 @@ const prettyJson = readFile(
   "./assembly/__benches__/payloads/twitter.pretty.json",
 );
 const minJson = readFile("./assembly/__benches__/payloads/twitter.min.json");
+const outStr = "";
 
-// Sanity: the schema parses the whole document on the fast path.
 expect(JSON.parse<Twitter>(minJson).statuses.length).toBe(100);
 
 const twitter = JSON.parse<Twitter>(prettyJson);
@@ -209,7 +277,7 @@ dumpToFile("twitter-lazy-min", "deserialize");
 bench(
   "Serialize Twitter Lazy (min)",
   () => {
-    blackbox(JSON.stringify(twitter));
+    blackbox(JSON.stringify(twitter, outStr));
   },
   4000,
   utf8ByteLength(minJson),

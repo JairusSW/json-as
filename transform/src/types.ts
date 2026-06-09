@@ -25,6 +25,7 @@ export enum PropertyFlags {
   Raw,
   Custom,
   Lazy,
+  Optional,
 }
 
 export class Property {
