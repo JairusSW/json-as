@@ -309,6 +309,49 @@ export class JSONTransform extends Visitor {
                 return t === "serializer" || t === "deserializer";
             }) ??
                 false));
+        const fieldLazyInner = (fd) => {
+            if (fd.kind !== NodeKind.FieldDeclaration ||
+                fd.is(32) ||
+                fd.is(512) ||
+                fd.is(1024) ||
+                !fd.type)
+                return null;
+            const written = toString(fd.type).trim();
+            const decos = fd.decorators;
+            const hasDeco = (name) => decos?.some((d) => d.name.text === name) ??
+                false;
+            let inner = lazyWrapperInner(fd.type);
+            if (inner === null) {
+                if (hasDeco("lazy"))
+                    inner = written;
+                else if (lazyMode !== "none" && !hasDeco("eager") && !hasDeco("omit")) {
+                    if (lazyMode === "all")
+                        inner = written;
+                    else if (lazyAutoCost(this.resolveType(written, source), source, this.parser) >= LAZY_AUTO_THRESHOLD)
+                        inner = written;
+                }
+            }
+            return inner;
+        };
+        const __lazyIndex = new Map();
+        {
+            let serializable = 0;
+            let lazyCount = 0;
+            for (const fd of node.members) {
+                if (fd.kind !== NodeKind.FieldDeclaration ||
+                    fd.is(32) ||
+                    fd.is(512) ||
+                    fd.is(1024) ||
+                    fd.decorators?.some((d) => d.name.text === "omit"))
+                    continue;
+                serializable++;
+                if (fieldLazyInner(fd) !== null)
+                    __lazyIndex.set(fd.name.text, lazyCount++);
+            }
+            if (lazyCount === 0 || lazyCount !== serializable)
+                __lazyIndex.clear();
+        }
+        const __fullyLazy = __lazyIndex.size > 0 && !hasCustomSerde;
         let __hasLazy = false;
         for (let i = node.members.length - 1; i >= 0; i--) {
             const fd = node.members[i];
@@ -379,12 +422,16 @@ export class JSONTransform extends Visitor {
             const decSlot = (lz) => baseT === "f32"
                 ? `reinterpret<f32>(<u32>(${lz}))`
                 : `(<${T}>(<u32>(${lz})))`;
+            const __g = __fullyLazy
+                ? `  if (!this.__lzBuilt) this.__BUILD_LAZY();\n`
+                : "";
             const lowered = (packScalar
                 ? [
                     `@alias(${key}) private __${fname}_lz: u64 = ${fieldDefault != null
                         ? `(((<u64>0xffffffff) << 32) | ${encVal(`<${T}>(${fieldDefault})`)})`
                         : "0"};`,
                     `get ${fname}(): ${T} {\n` +
+                        __g +
                         `  const __lz = this.__${fname}_lz;\n` +
                         `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
                         `  if (__lz != 0) {\n` +
@@ -394,12 +441,14 @@ export class JSONTransform extends Visitor {
                         `  }\n` +
                         `  return ${valueDefault};\n}`,
                     `set ${fname}(value: ${T}) {\n` +
+                        __g +
                         `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
                 ]
                 : [
                     `@alias(${key}) private __${fname}_lz: u64 = ${fieldDefault != null ? "u64.MAX_VALUE" : "0"};`,
                     `private __${fname}_val: ${valueType} = ${fieldDefault ?? valueDefault};`,
                     `get ${fname}(): ${T} {\n` +
+                        __g +
                         `  const __lz = this.__${fname}_lz;\n` +
                         `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +
                         `    this.__${fname}_val = JSON.__deserialize<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz));\n` +
@@ -407,6 +456,7 @@ export class JSONTransform extends Visitor {
                         `  }\n` +
                         `  return this.__${fname}_val as ${T};\n}`,
                     `set ${fname}(value: ${T}) {\n` +
+                        __g +
                         `  this.__${fname}_val = value;\n` +
                         `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
                 ]).map((src) => SimpleParser.parseClassMember(src, node));
@@ -414,6 +464,13 @@ export class JSONTransform extends Visitor {
         }
         if (__hasLazy) {
             node.members.push(SimpleParser.parseClassMember(`private __src: string = "";`, node), SimpleParser.parseClassMember(`__SET_SRC(s: string): void { this.__src = s; }`, node));
+        }
+        if (__fullyLazy) {
+            node.members.push(SimpleParser.parseClassMember(`private __lzStart: usize = 0;`, node), SimpleParser.parseClassMember(`private __lzEnd: usize = 0;`, node), SimpleParser.parseClassMember(`private __lzBuilt: bool = false;`, node), SimpleParser.parseClassMember(`__BUILD_LAZY(): void {\n` +
+                `  if (this.__lzBuilt) return;\n` +
+                `  this.__lzBuilt = true;\n` +
+                `  if (this.__lzStart != 0) this.__DESERIALIZE_SLOW<this>(this.__lzStart, this.__lzEnd, this);\n` +
+                `}`, node));
         }
         const members = [
             ...node.members.filter((v) => v.kind === NodeKind.FieldDeclaration &&
@@ -665,6 +722,17 @@ export class JSONTransform extends Visitor {
         this.visitedClasses.add(fullClassPath);
         const requestedFastPath = USE_FAST_PATH;
         let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
+        if (__fullyLazy) {
+            SERIALIZE +=
+                `  if (!load<bool>(ptr, offsetof<this>("__lzBuilt")) && load<usize>(ptr, offsetof<this>("__lzStart")) != 0) {\n` +
+                    `    const __ls = load<usize>(ptr, offsetof<this>("__lzStart"));\n` +
+                    `    const __len = load<usize>(ptr, offsetof<this>("__lzEnd")) - __ls;\n` +
+                    `    bs.ensureSize(<u32>__len);\n` +
+                    `    memory.copy(bs.offset, __ls, __len);\n` +
+                    `    bs.offset += __len;\n` +
+                    `    return;\n` +
+                    `  }\n`;
+        }
         let INITIALIZE = " __INITIALIZE(): this {\n";
         let DESERIALIZE = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
         let DESERIALIZE_FAST = "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
@@ -868,9 +936,11 @@ export class JSONTransform extends Visitor {
         const hasLazyMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.Lazy));
         const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
         const hasTypeParams = !!node.typeParameters && node.typeParameters.length > 0;
-        const useFastPath = requestedFastPath &&
+        let useFastPath = requestedFastPath &&
             !hasTypeParams &&
             (this.schema.static || supportsFastOptionalPath);
+        if (__fullyLazy)
+            useFastPath = true;
         indent = "  ";
         if (this.schema.static == false) {
             if (this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull))) {
@@ -1783,6 +1853,19 @@ export class JSONTransform extends Visitor {
         }
         indent = indent.slice(0, -2);
         DESERIALIZE_FAST += indent + "}";
+        if (__fullyLazy) {
+            DESERIALIZE_FAST =
+                "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n" +
+                    "  const __ret = srcEnd;\n" +
+                    "  while (srcStart < srcEnd && JSON.Util.isSpace(load<u16>(srcStart))) srcStart += 2;\n" +
+                    "  while (srcEnd > srcStart && JSON.Util.isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;\n" +
+                    "  const __o = changetype<usize>(out);\n" +
+                    '  store<usize>(__o, srcStart, offsetof<this>("__lzStart"));\n' +
+                    '  store<usize>(__o, srcEnd, offsetof<this>("__lzEnd"));\n' +
+                    '  store<bool>(__o, false, offsetof<this>("__lzBuilt"));\n' +
+                    "  return __ret;\n" +
+                    "}";
+        }
         DESERIALIZE += indent + "  let keyStart: usize = 0;\n";
         DESERIALIZE += indent + "  let keyEnd: usize = 0;\n";
         DESERIALIZE += indent + "  let isKey = false;\n";

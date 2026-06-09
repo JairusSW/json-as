@@ -501,6 +501,68 @@ export class JSONTransform extends Visitor {
           false),
     );
 
+    // Returns the inner type T if `fd` is an on-demand (lazy) field, else null.
+    // Shared by the fully-lazy pre-pass and the lowering loop below.
+    const fieldLazyInner = (fd: FieldDeclaration): string | null => {
+      if (
+        fd.kind !== NodeKind.FieldDeclaration ||
+        fd.is(CommonFlags.Static) ||
+        fd.is(CommonFlags.Private) ||
+        fd.is(CommonFlags.Protected) ||
+        !fd.type
+      )
+        return null;
+      const written = toString(fd.type!).trim();
+      const decos = fd.decorators;
+      const hasDeco = (name: string): boolean =>
+        decos?.some((d) => (<IdentifierExpression>d.name).text === name) ??
+        false;
+      let inner: string | null = lazyWrapperInner(fd.type);
+      if (inner === null) {
+        if (hasDeco("lazy")) inner = written;
+        else if (lazyMode !== "none" && !hasDeco("eager") && !hasDeco("omit")) {
+          if (lazyMode === "all") inner = written;
+          else if (
+            lazyAutoCost(
+              this.resolveType(written, source),
+              source,
+              this.parser,
+            ) >= LAZY_AUTO_THRESHOLD
+          )
+            inner = written;
+        }
+      }
+      return inner;
+    };
+
+    // A struct is "fully lazy" when every serialized instance field is deferred.
+    // Only then can deserialize skip all per-field work and defer the whole scan
+    // to first access (a JSON.Obj-style slot buffer + key LUT): a partially-lazy
+    // struct still has eager fields that must be parsed at parse time.
+    // `__lazyIndex` assigns each lazy field a stable slot in the `__lz` buffer.
+    const __lazyIndex = new Map<string, i32>();
+    {
+      let serializable = 0;
+      let lazyCount = 0;
+      for (const fd of node.members) {
+        if (
+          fd.kind !== NodeKind.FieldDeclaration ||
+          fd.is(CommonFlags.Static) ||
+          fd.is(CommonFlags.Private) ||
+          fd.is(CommonFlags.Protected) ||
+          fd.decorators?.some(
+            (d) => (<IdentifierExpression>d.name).text === "omit",
+          )
+        )
+          continue;
+        serializable++;
+        if (fieldLazyInner(fd as FieldDeclaration) !== null)
+          __lazyIndex.set((fd as FieldDeclaration).name.text, lazyCount++);
+      }
+      if (lazyCount === 0 || lazyCount !== serializable) __lazyIndex.clear();
+    }
+    const __fullyLazy = __lazyIndex.size > 0 && !hasCustomSerde;
+
     // On-demand field lowering. Rewrite each `JSON.Lazy<T>` field into a single
     // packed `u64` range slot + traced/scalar backing value + materialized flag.
     // The range slot encodes:
@@ -633,6 +695,11 @@ export class JSONTransform extends Visitor {
         baseT === "f32"
           ? `reinterpret<f32>(<u32>(${lz}))`
           : `(<${T}>(<u32>(${lz})))`;
+      // Fully-lazy: every accessor first builds the slot LUT once from the
+      // deferred source (no-op for a constructed object, where __lzStart == 0).
+      const __g = __fullyLazy
+        ? `  if (!this.__lzBuilt) this.__BUILD_LAZY();\n`
+        : "";
       const lowered = (
         packScalar
           ? [
@@ -642,6 +709,7 @@ export class JSONTransform extends Visitor {
                   : "0"
               };`,
               `get ${fname}(): ${T} {\n` +
+                __g +
                 `  const __lz = this.__${fname}_lz;\n` +
                 `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
                 `  if (__lz != 0) {\n` + // a range -> parse once, then pack
@@ -651,6 +719,7 @@ export class JSONTransform extends Visitor {
                 `  }\n` +
                 `  return ${valueDefault};\n}`, // absent -> default
               `set ${fname}(value: ${T}) {\n` +
+                __g +
                 `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
             ]
           : [
@@ -661,6 +730,7 @@ export class JSONTransform extends Visitor {
               // Slow path goes through the shared (non-inline) JSON.__deserialize<T>
               // so the parser is emitted once per type, not inlined into every getter.
               `get ${fname}(): ${T} {\n` +
+                __g +
                 `  const __lz = this.__${fname}_lz;\n` +
                 `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` + // a range -> parse once
                 `    this.__${fname}_val = JSON.__deserialize<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz));\n` +
@@ -668,6 +738,7 @@ export class JSONTransform extends Visitor {
                 `  }\n` + // (0 -> default, MAX -> already materialized): return __val
                 `  return this.__${fname}_val as ${T};\n}`,
               `set ${fname}(value: ${T}) {\n` +
+                __g +
                 `  this.__${fname}_val = value;\n` +
                 `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
             ]
@@ -681,6 +752,25 @@ export class JSONTransform extends Visitor {
         SimpleParser.parseClassMember(`private __src: string = "";`, node),
         SimpleParser.parseClassMember(
           `__SET_SRC(s: string): void { this.__src = s; }`,
+          node,
+        ),
+      );
+    }
+    if (__fullyLazy) {
+      // Deferred-scan state: the struct's `{...}` extent recorded at deserialize,
+      // and a one-shot flag. `__BUILD_LAZY` runs the real (untouched) slow-path
+      // scan over the extent on first access, filling the per-field slots. A
+      // constructed object has `__lzStart == 0` (no source) — keep its defaults.
+      node.members.push(
+        SimpleParser.parseClassMember(`private __lzStart: usize = 0;`, node),
+        SimpleParser.parseClassMember(`private __lzEnd: usize = 0;`, node),
+        SimpleParser.parseClassMember(`private __lzBuilt: bool = false;`, node),
+        SimpleParser.parseClassMember(
+          `__BUILD_LAZY(): void {\n` +
+            `  if (this.__lzBuilt) return;\n` +
+            `  this.__lzBuilt = true;\n` +
+            `  if (this.__lzStart != 0) this.__DESERIALIZE_SLOW<this>(this.__lzStart, this.__lzEnd, this);\n` +
+            `}`,
           node,
         ),
       );
@@ -1010,6 +1100,20 @@ export class JSONTransform extends Visitor {
     const requestedFastPath = USE_FAST_PATH;
 
     let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
+    if (__fullyLazy) {
+      // An untouched parsed struct (LUT never built, has a source extent) emits
+      // its source `{...}` bytes verbatim — zero-copy passthrough. A built/mutated
+      // or constructed struct (__lzStart == 0) falls through to per-field below.
+      SERIALIZE +=
+        `  if (!load<bool>(ptr, offsetof<this>("__lzBuilt")) && load<usize>(ptr, offsetof<this>("__lzStart")) != 0) {\n` +
+        `    const __ls = load<usize>(ptr, offsetof<this>("__lzStart"));\n` +
+        `    const __len = load<usize>(ptr, offsetof<this>("__lzEnd")) - __ls;\n` +
+        `    bs.ensureSize(<u32>__len);\n` +
+        `    memory.copy(bs.offset, __ls, __len);\n` +
+        `    bs.offset += __len;\n` +
+        `    return;\n` +
+        `  }\n`;
+    }
     let INITIALIZE = " __INITIALIZE(): this {\n";
     let DESERIALIZE =
       "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
@@ -1361,10 +1465,15 @@ export class JSONTransform extends Visitor {
     // path — are chunked into helper methods (see chunkFastBlocks /
     // chunkFastBlocksOptional), so a wide struct no longer emits a single
     // oversized function: the fast path stays compilable at any field count.
-    const useFastPath =
+    let useFastPath =
       requestedFastPath &&
       !hasTypeParams &&
       (this.schema.static || supportsFastOptionalPath);
+    // A fully-lazy struct deserializes by deferring: its `__DESERIALIZE_FAST`
+    // (below) just records the source extent. Force the fast path on so JSON.parse
+    // and the nested `__deserialize` both take that defer route (and never run the
+    // real scan at parse time — it runs lazily in `__BUILD_LAZY` on first access).
+    if (__fullyLazy) useFastPath = true;
 
     indent = "  ";
 
@@ -2600,6 +2709,24 @@ export class JSONTransform extends Visitor {
 
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "}";
+
+    // Fully-lazy defer: replace the generated fast body with a stub that only
+    // records the (whitespace-trimmed) source extent of this struct's `{...}`,
+    // leaving `__lzBuilt = false`. The real scan runs in `__BUILD_LAZY` on first
+    // field access; an untouched struct re-serializes its source bytes verbatim.
+    if (__fullyLazy) {
+      DESERIALIZE_FAST =
+        "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n" +
+        "  const __ret = srcEnd;\n" +
+        "  while (srcStart < srcEnd && JSON.Util.isSpace(load<u16>(srcStart))) srcStart += 2;\n" +
+        "  while (srcEnd > srcStart && JSON.Util.isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;\n" +
+        "  const __o = changetype<usize>(out);\n" +
+        '  store<usize>(__o, srcStart, offsetof<this>("__lzStart"));\n' +
+        '  store<usize>(__o, srcEnd, offsetof<this>("__lzEnd"));\n' +
+        '  store<bool>(__o, false, offsetof<this>("__lzBuilt"));\n' +
+        "  return __ret;\n" +
+        "}";
+    }
 
     DESERIALIZE += indent + "  let keyStart: usize = 0;\n";
     DESERIALIZE += indent + "  let keyEnd: usize = 0;\n";

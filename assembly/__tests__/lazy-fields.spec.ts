@@ -227,3 +227,51 @@ describe("@lazy decorator marks fields like JSON.Lazy<T>", () => {
     '{"name":"r","owner":{"login":"octo","id":7,"deep":null},"tags":[1,2,3],"count":99}',
   );
 });
+
+// --- Deferred fully-lazy structs (JSON.Obj-style: deserialize records the
+// source extent only; the per-field slot LUT is built on first access; an
+// untouched struct re-emits its source verbatim). ---
+
+describe("Deferred lazy: parse does no per-field work; first access builds LUT", () => {
+  const r = JSON.parse<Repo>(SRC);
+  // Touch only `name` -> builds the LUT, materializes name; owner/tags stay raw.
+  expect(r.name).toBe("r");
+  // Untouched siblings pass through verbatim, so the round-trip is byte-exact.
+  expect(JSON.stringify(r)).toBe(SRC);
+  // And the still-deferred siblings materialize correctly afterwards.
+  expect(r.owner.login).toBe("octo");
+  expect(r.tags[2].toString()).toBe("3");
+});
+
+describe("Deferred lazy: @json({ lazy: 'all' }) defers every field", () => {
+  const src = '{"id":42,"owner":{"login":"a","id":1,"deep":{"v":2}}}';
+  const a = JSON.parse<AllRepo>(src);
+  // Untouched -> verbatim passthrough.
+  expect(JSON.stringify(JSON.parse<AllRepo>(src))).toBe(src);
+  // Deferred scalar + ref both materialize.
+  expect(a.id.toString()).toBe("42");
+  expect(a.owner.login).toBe("a");
+  expect(a.owner.deep.v.toString()).toBe("2");
+});
+
+describe("Deferred lazy: constructed (not parsed) serializes its set values", () => {
+  const r = new Repo();
+  r.name = "x";
+  const o = new Owner();
+  o.login = "z";
+  o.id = 5;
+  r.owner = o;
+  r.tags = [9, 8];
+  // No source extent -> reconstruct from the fields, not passthrough.
+  expect(JSON.stringify(r)).toBe(
+    '{"name":"x","owner":{"login":"z","id":5,"deep":null},"tags":[9,8]}',
+  );
+});
+
+describe("Deferred lazy: mutate one field, others stay raw passthrough", () => {
+  const r = JSON.parse<Repo>(SRC);
+  r.name = "renamed"; // set triggers the build, then overwrites just this slot
+  expect(JSON.stringify(r)).toBe(
+    '{"name":"renamed","owner":{"login":"octo","id":7,"deep":{"v":9}},"tags":[1,2,3]}',
+  );
+});
