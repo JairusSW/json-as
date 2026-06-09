@@ -20,7 +20,7 @@ describe("Should serialize float sets", () => {
   set1.add(7.23);
   set1.add(1000.0);
   set1.add(0.0);
-  expect(JSON.stringify(set1)).toBe("[7.23,1000.0,0.0]");
+  expect(JSON.stringify(set1)).toBe("[7.23,1000,0]");
 
   const set2 = new Set<f32>();
   set2.add(-1.5);
@@ -139,7 +139,7 @@ describe("Should serialize object sets", () => {
   set1.add({ x: 1.0, y: 2.0, z: 3.0 });
   set1.add({ x: 4.0, y: 5.0, z: 6.0 });
   const result = JSON.stringify(set1);
-  expect(result).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]');
+  expect(result).toBe('[{"x":1,"y":2,"z":3},{"x":4,"y":5,"z":6}]');
 });
 
 
@@ -240,7 +240,7 @@ describe("Should round-trip object sets through serialization boundaries", () =>
   set1.add(a);
   set1.add(b);
   const out = JSON.stringify(set1);
-  expect(out).toBe('[{"x":1.0,"y":2.0,"z":3.0},{"x":-4.0,"y":5.5,"z":6.0}]');
+  expect(out).toBe('[{"x":1,"y":2,"z":3},{"x":-4,"y":5.5,"z":6}]');
 });
 
 describe("Should serialize single-item sets without trailing commas", () => {
@@ -303,7 +303,7 @@ describe("Should preserve JSON.internal behavior for primitive sets", () => {
 
 describe("Should deserialize set fields in @json classes", () => {
   const parsed = JSON.parse<SetHolder>(
-    '{"smalls":[1,2,2,3],"labels":["a","b","a"],"vectors":[{"x":1.0,"y":2.0,"z":3.0}]}',
+    '{"smalls":[1,2,2,3],"labels":["a","b","a"],"vectors":[{"x":1,"y":2,"z":3}]}',
   );
   expect(parsed.smalls.size).toBe(3);
   expect(parsed.smalls.has(3)).toBe(true);
@@ -311,7 +311,7 @@ describe("Should deserialize set fields in @json classes", () => {
   expect(parsed.labels.has("b")).toBe(true);
   expect(parsed.vectors.size).toBe(1);
   expect(JSON.stringify(parsed)).toBe(
-    '{"smalls":[1,2,3],"labels":["a","b"],"vectors":[{"x":1.0,"y":2.0,"z":3.0}]}',
+    '{"smalls":[1,2,3],"labels":["a","b"],"vectors":[{"x":1,"y":2,"z":3}]}',
   );
 });
 

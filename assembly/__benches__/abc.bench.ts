@@ -11,7 +11,7 @@ bench(
     blackbox(JSON.stringify(v1));
   },
   2_400_000,
-  utf8ByteLength(v1),
+  utf8ByteLength(v2),
 );
 dumpToFile("abc", "serialize");
 bench(

@@ -223,7 +223,9 @@ run_wavm_module() {
   local tmp
   tmp="$(mktemp)"
 
-  if ! "$WAVM_BIN" run "${WAVM_RUN_FLAGS_ARR[@]}" "./build/$wasm_arg" >"$tmp" 2>&1; then
+  # Mount the project root as the WASI root (fd 3) so file-reading benches
+  # (canada/twitter/... via readFile) can open payloads by relative path.
+  if ! "$WAVM_BIN" run --mount-root "$ROOT_DIR" "${WAVM_RUN_FLAGS_ARR[@]}" "./build/$wasm_arg" >"$tmp" 2>&1; then
     cat "$tmp"
     rm -f "$tmp"
     return 1
@@ -253,20 +255,29 @@ build_v8_mode() {
   local mode="$5"
   local out_wasm="$6"
 
-  case "$mode" in
-    NAIVE)
-      JSON_WRITE="$write_target" JSON_MODE=NAIVE npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
-      optimize_or_fallback "${output}.tmp" "$out_wasm" --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4
-      ;;
-    SWAR)
-      JSON_WRITE="$write_target" JSON_MODE=SWAR npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
-      optimize_or_fallback "${output}.tmp" "$out_wasm" --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4
-      ;;
-    SIMD)
-      JSON_WRITE="$write_target" JSON_MODE=SIMD npx asc "$file" --transform ./transform -o "${output}.tmp" -O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --enable simd --exportStart start --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
-      optimize_or_fallback "${output}.tmp" "$out_wasm" --enable-bulk-memory --enable-simd --enable-nontrapping-float-to-int --enable-tail-call -tnh -iit -ifwl -s 0 -O4
-      ;;
-  esac
+  # asc codegen flags. --converge re-runs asc's own optimizer until it reaches a
+  # fixpoint (no further improvements), squeezing out the last bit of perf.
+  local asc_flags=(-O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime)
+
+  # wasm-opt max-performance set:
+  #   -O4          flatten + the full -O3 pass pipeline
+  #   --converge   keep re-running the pipeline until the module stops improving
+  #                (the headline max-perf knob)
+  #   -tnh / -iit  assume traps never happen / ignore implicit traps
+  #   -ifwl        allow inlining functions that contain loops
+  #   -s 0         shrink level 0 — optimize for speed, not size
+  # Raising the inline-size caps (-fimfs/-aimfs/-ocimfs/-pii) was measured to
+  # regress the ftoa micro-path (~10%) for no net win, so it is deliberately
+  # left out — more inlining is not the same as faster.
+  local opt_flags=(-O4 -tnh -iit -ifwl -s 0 --enable-bulk-memory --enable-nontrapping-float-to-int --enable-tail-call)
+
+  if [[ "$mode" == "SIMD" ]]; then
+    asc_flags+=(--enable simd)
+    opt_flags+=(--enable-simd)
+  fi
+
+  JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.tmp" "${asc_flags[@]}" ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
+  optimize_or_fallback "${output}.tmp" "$out_wasm" "${opt_flags[@]}"
 }
 
 build_wavm_mode() {
@@ -281,7 +292,7 @@ build_wavm_mode() {
     features+=(--enable simd)
   fi
 
-  JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.wavm.tmp" -O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --use AS_BENCH_RUNTIME_WAVM=1 --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json "${features[@]}" --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
+  JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.wavm.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --use AS_BENCH_RUNTIME_WAVM=1 --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json "${features[@]}" --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
   mv "${output}.wavm.tmp" "$out_wasm"
 }
 

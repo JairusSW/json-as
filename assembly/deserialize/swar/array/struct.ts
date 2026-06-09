@@ -2,11 +2,7 @@ import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 
-
-@inline function skipStructArrayWhitespace(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+function skipStructArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   return srcStart;
 }
@@ -100,9 +96,7 @@ function deserializeStructArrayBody<T extends unknown[]>(
 
   throw new Error("Failed to parse JSON!");
 }
-
-
-@inline export function deserializeStructArrayField<T extends unknown[]>(
+export function deserializeStructArrayField<T extends unknown[]>(
   srcStart: usize,
   srcEnd: usize,
   fieldPtr: usize,

@@ -10,16 +10,12 @@ import {
 import { isSpace } from "../../../util";
 
 /** Advance past JSON whitespace (space, tab, LF, CR). */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function skipWhitespace(srcStart: usize, srcEnd: usize): usize {
+export function skipWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   return srcStart;
 }
 
-
-@inline export function ensureArrayField<T extends Array<any>>(
-  fieldPtr: usize,
-): T {
+export function ensureArrayField<T extends Array<any>>(fieldPtr: usize): T {
   let out = load<T>(fieldPtr);
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
@@ -28,8 +24,7 @@ import { isSpace } from "../../../util";
   return out;
 }
 
-
-@inline export function ensureArrayFieldAt<T extends Array<any>>(
+export function ensureArrayFieldAt<T extends Array<any>>(
   dstObj: usize,
   dstOffset: usize,
 ): T {
@@ -41,8 +36,7 @@ import { isSpace } from "../../../util";
   return out;
 }
 
-
-@inline function backslashOrQuoteMask(block: u64): u64 {
+function backslashOrQuoteMask(block: u64): u64 {
   const b = block ^ 0x005c_005c_005c_005c;
   const q = block ^ 0x0022_0022_0022_0022;
   return (
@@ -51,8 +45,7 @@ import { isSpace } from "../../../util";
   );
 }
 
-
-@inline export function ensureArrayElementSlot<T extends Array<any>>(
+export function ensureArrayElementSlot<T extends Array<any>>(
   out: T,
   index: i32,
 ): usize {

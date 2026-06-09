@@ -8,11 +8,7 @@ import { isSpace } from "../../../util";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 import { deserializeStringField_SWAR } from "../string";
 
-
-@inline function skipStringArrayWhitespace(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+function skipStringArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   return srcStart;
 }
@@ -80,8 +76,7 @@ function deserializeStringArrayBody<T extends string[]>(
   throw new Error("Failed to parse JSON!");
 }
 
-
-@inline export function deserializeStringArrayField<T extends string[]>(
+export function deserializeStringArrayField<T extends string[]>(
   srcStart: usize,
   srcEnd: usize,
   fieldPtr: usize,

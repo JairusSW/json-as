@@ -9,10 +9,7 @@ import { parse4Digits_PairMul } from "../../../util/swar-int";
 // callers below all pass `valueof<T>` and AS folds the resulting tower of
 // `sizeof<E>` comparisons at compile time — same codegen as the prior
 // `T extends number[]` version, but reusable from `swar/typedarray.ts`.
-@inline function storeSignedIntegerE<E extends number>(
-  slot: usize,
-  value: i64,
-): void {
+function storeSignedIntegerE<E extends number>(slot: usize, value: i64): void {
   if (sizeof<E>() == sizeof<i8>()) {
     store<i8>(slot, <i8>value);
   } else if (sizeof<E>() == sizeof<i16>()) {
@@ -26,8 +23,7 @@ import { parse4Digits_PairMul } from "../../../util/swar-int";
   }
 }
 
-
-@inline function storeUnsignedIntegerE<E extends number>(
+function storeUnsignedIntegerE<E extends number>(
   slot: usize,
   value: u64,
 ): void {
@@ -211,11 +207,7 @@ export function parseUnsignedIntegerSWAR<E extends number>(
   return srcStart;
 }
 
-
-@inline function skipIntegerArrayWhitespace(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+function skipIntegerArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) {
     srcStart += 2;
   }
@@ -697,8 +689,7 @@ function deserializeIntegerArrayBody<T extends number[]>(
   throw new Error("Failed to parse JSON!");
 }
 
-
-@inline export function deserializeIntegerArrayField<T extends number[]>(
+export function deserializeIntegerArrayField<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   fieldPtr: usize,

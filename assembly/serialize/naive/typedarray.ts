@@ -3,8 +3,6 @@ import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../custom/chars";
 import { serializeFloat32Unsafe, serializeFloat64Unsafe } from "./float";
 import { serializeIntegerUnsafe } from "./integer";
 
-
-@inline
 function maxIntegerBytes<T extends number>(): u32 {
   if (sizeof<T>() == 1) return isSigned<T>() ? 8 : 6;
   if (sizeof<T>() == 2) return isSigned<T>() ? 12 : 10;
@@ -12,8 +10,6 @@ function maxIntegerBytes<T extends number>(): u32 {
   return isSigned<T>() ? 42 : 40;
 }
 
-
-@inline
 function reserveTypedArray<T extends ArrayLike<number>>(len: i32): void {
   if (len <= 0) return;
   if (isFloat<valueof<T>>()) {
@@ -23,8 +19,6 @@ function reserveTypedArray<T extends ArrayLike<number>>(len: i32): void {
   }
 }
 
-
-@inline
 function serializeTypedArrayElement<T extends ArrayLike<number>>(
   src: T,
   index: i32,

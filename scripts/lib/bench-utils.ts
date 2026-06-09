@@ -106,6 +106,10 @@ export function createBarChart(
     colors?: { bg: string; border: string }[];
     /** Override the y-axis tick step (default 500). */
     yStep?: number;
+    /** datalabels anchor for the value labels (default "end"). */
+    labelAnchor?: "start" | "center" | "end";
+    /** Value-label font size in px (default 12). */
+    labelFontSize?: number;
   },
 ): ChartConfiguration<"bar"> {
   const payloadKeys = Object.keys(data);
@@ -162,9 +166,9 @@ export function createBarChart(
           },
         },
         datalabels: {
-          anchor: "end",
+          anchor: options.labelAnchor ?? "end",
           align: "end",
-          font: { weight: "bold", size: 12 },
+          font: { weight: "bold", size: options.labelFontSize ?? 12 },
           formatter: (v: number) => v.toFixed(0),
         },
         subtitle: {

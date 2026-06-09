@@ -4,15 +4,13 @@ import { __heap_base } from "memory";
 import { BACK_SLASH, QUOTE } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 
-// @ts-ignore: inline
-@inline function hexDigit(c: u16): u32 {
+function hexDigit(c: u16): u32 {
   if (c <= 0x39) return c - 0x30; // '0'-'9'
   if (c <= 0x46) return c - 0x37; // 'A'-'F'
   return c - 0x57; // 'a'-'f'
 }
 
-// @ts-ignore: inline
-@inline function hex4ToU16(srcStart: usize): u16 {
+function hex4ToU16(srcStart: usize): u16 {
   return <u16>(
     ((hexDigit(load<u16>(srcStart)) << 12) |
       (hexDigit(load<u16>(srcStart, 2)) << 8) |
@@ -21,8 +19,7 @@ import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
   );
 }
 
-// @ts-ignore: inline
-@inline function isHexDigit(c: u16): bool {
+function isHexDigit(c: u16): bool {
   return (
     (c >= 0x30 && c <= 0x39) ||
     (c >= 0x41 && c <= 0x46) ||

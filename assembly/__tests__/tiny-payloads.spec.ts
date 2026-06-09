@@ -101,8 +101,8 @@ describe("Should handle tiny arrays and tiny objects", () => {
   expect(JSON.stringify(JSON.parse<i32[]>("[1,2]"))).toBe("[1,2]");
   expect(JSON.stringify(JSON.parse<JSON.Value>("[]"))).toBe("[]");
   expect(JSON.stringify(JSON.parse<JSON.Value>("{}"))).toBe("{}");
-  expect(JSON.stringify(JSON.parse<JSON.Value>("0"))).toBe("0.0");
-  expect(JSON.stringify(JSON.parse<JSON.Value>("1"))).toBe("1.0");
+  expect(JSON.stringify(JSON.parse<JSON.Value>("0"))).toBe("0");
+  expect(JSON.stringify(JSON.parse<JSON.Value>("1"))).toBe("1");
   expect(JSON.stringify(JSON.parse<JSON.Value>('"a"'))).toBe('"a"');
   expect(JSON.stringify(JSON.parse<JSON.Value>("true"))).toBe("true");
 });

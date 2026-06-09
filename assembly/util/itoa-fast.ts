@@ -43,13 +43,11 @@ function initPairs(): void {
   _pairsInited = true;
 }
 
-
-@inline export function ensureItoaPairs(): void {
+export function ensureItoaPairs(): void {
   if (!_pairsInited) initPairs();
 }
 
-// @ts-expect-error: @inline is a valid decorator
-@inline function pair(i: u32): u32 {
+function pair(i: u32): u32 {
   return load<u32>(DIGIT_PAIRS_UTF16 + ((<usize>i) << 2));
 }
 
@@ -213,8 +211,7 @@ export function itoaU64(buf: usize, v: u64): u32 {
  *
  * Returns the number of UTF-16 chars written.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function itoaFast<T extends number>(buf: usize, value: T): u32 {
+export function itoaFast<T extends number>(buf: usize, value: T): u32 {
   if (sizeof<T>() <= 4) {
     if (isSigned<T>()) {
       let v = <i32>value;

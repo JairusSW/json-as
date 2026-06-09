@@ -8,21 +8,11 @@ import { parse4Digits_PairMul } from "../../../util/swar-int";
 import { loadPow10, MAX_EXACT_MANTISSA, MAX_EXACT_POW10 } from "../float";
 import { isSpace } from "../../../util";
 
-
-@inline function skipFloatArrayWhitespace(
-  srcStart: usize,
-  srcEnd: usize,
-): usize {
+function skipFloatArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   return srcStart;
 }
-
-// @ts-ignore: inline
-@inline function fallbackStore<E>(
-  origStart: usize,
-  end: usize,
-  slot: usize,
-): void {
+function fallbackStore<E>(origStart: usize, end: usize, slot: usize): void {
   const s = ptrToStr(origStart, end);
   if (sizeof<E>() == sizeof<f32>()) {
     store<f32>(slot, f32.parse(s));
@@ -315,9 +305,7 @@ export function deserializeFloatArrayBody<T extends number[]>(
 
   throw new Error("Failed to parse JSON!");
 }
-
-
-@inline export function deserializeFloatArrayField<T extends number[]>(
+export function deserializeFloatArrayField<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   fieldPtr: usize,

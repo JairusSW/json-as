@@ -19,7 +19,7 @@ class ContainerEnvelope {
 
 describe("Should round-trip mixed container envelopes", () => {
   const parsed = JSON.parse<ContainerEnvelope>(
-    '{"map":{"a":[1,2],"b":[3,4,5]},"set":["x","y","x"],"staticItems":[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]}',
+    '{"map":{"a":[1,2],"b":[3,4,5]},"set":["x","y","x"],"staticItems":[{"x":1,"y":2,"z":3},{"x":4,"y":5,"z":6}]}',
   );
   expect(parsed.map.get("a").length.toString()).toBe("2");
   expect(parsed.map.get("a")[0].toString()).toBe("1");
@@ -31,7 +31,7 @@ describe("Should round-trip mixed container envelopes", () => {
   expect(parsed.staticItems[0].x.toString()).toBe("1.0");
   expect(parsed.staticItems[1].z.toString()).toBe("6.0");
   expect(JSON.stringify(parsed)).toBe(
-    '{"map":{"a":[1,2],"b":[3,4,5]},"set":["x","y"],"staticItems":[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]}',
+    '{"map":{"a":[1,2],"b":[3,4,5]},"set":["x","y"],"staticItems":[{"x":1,"y":2,"z":3},{"x":4,"y":5,"z":6}]}',
   );
 });
 
@@ -44,7 +44,7 @@ describe("Should round-trip JSON.Value arrays containing objects, raw, and array
   expect(values[2].get<bool>().toString()).toBe("true");
   expect(values[3].get<string>()).toBe("x");
   expect(values[4].type.toString()).toBe(JSON.Types.Null.toString());
-  expect(JSON.stringify(values)).toBe('[{"a":1.0},[2.0,3.0],true,"x",null]');
+  expect(JSON.stringify(values)).toBe('[{"a":1},[2,3],true,"x",null]');
 });
 
 describe("Should mutate JSON.Obj with replacement values", () => {

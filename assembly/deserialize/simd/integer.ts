@@ -38,11 +38,7 @@ const ASCII_ZERO: u16 = 48;
  * @param value  The `u64` accumulator, interpreted as a two's-complement
  *               signed integer for narrower types.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline function storeSignedToField<T extends number>(
-  dstPtr: usize,
-  value: u64,
-): void {
+function storeSignedToField<T extends number>(dstPtr: usize, value: u64): void {
   if (sizeof<T>() == 1) {
     store<i8>(dstPtr, <i8>value);
   } else if (sizeof<T>() == 2) {
@@ -61,8 +57,7 @@ const ASCII_ZERO: u16 = 48;
  * @param dstPtr Destination pointer (already includes any field offset).
  * @param value  The `u64` accumulator.
  */
-// @ts-expect-error: decorator valid here
-@inline function storeUnsignedToField<T extends number>(
+function storeUnsignedToField<T extends number>(
   dstPtr: usize,
   value: u64,
 ): void {

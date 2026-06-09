@@ -1,7 +1,6 @@
 import { ptrToStr } from "../../util/ptrToStr";
 
-// @ts-ignore: inline
-@inline export function deserializeDate(srcStart: usize, srcEnd: usize): Date {
+export function deserializeDate(srcStart: usize, srcEnd: usize): Date {
   // Use AssemblyScript's date parser
   const d = Date.fromString(ptrToStr(srcStart + 2, srcEnd - 2));
 

@@ -21,8 +21,7 @@ import {
  * @param srcEnd   Pointer just past the last code unit.
  * @returns The parsed value, truncated to `T`.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function deserializeUnsigned<T extends number>(
+export function deserializeUnsigned<T extends number>(
   srcStart: usize,
   srcEnd: usize,
 ): T {
@@ -46,8 +45,7 @@ import {
  * @param dstOffset Byte offset of the field within `dstObj`.
  * @returns The source position immediately after the last digit consumed.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function deserializeUnsignedField<T extends number>(
+export function deserializeUnsignedField<T extends number>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

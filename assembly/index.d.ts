@@ -127,6 +127,24 @@ declare function omitif(condition: string | ((self: any) => boolean)): Function;
 declare function omitnull(..._): Function;
 
 /**
+ * Field decorator that marks a property as optional for deserialization: the
+ * key may be absent from (or appear anywhere in) the input, and the field keeps
+ * its default. Unlike `@omitnull`/`@omitif` it does NOT omit the field on
+ * serialize and has no nullability requirement — it only opts the field into
+ * the order-tolerant fast path.
+ *
+ * @example
+ * ```ts
+ * @json
+ * class Tweet {
+ *   @optional retweeted_status: Retweet | null = null; // key may be absent
+ * }
+ * ```
+ */
+// @ts-ignore: type
+declare function optional(..._): Function;
+
+/**
  * Field decorator that defers parsing of a property until it is first read
  * (on-demand / lazy parsing). The raw JSON slice is stored at parse time and
  * materialized into the field's type on first access, then cached; an untouched
@@ -234,19 +252,6 @@ declare function serializer(
 declare function deserializer(
   shape?: "any" | "string" | "number" | "object" | "array" | "boolean" | "null",
 ): any;
-
-/**
- * Parsing/serialization strategy selected at build time via the `JSON_MODE`
- * environment variable and exposed as {@link JSON_MODE}.
- */
-declare const enum JSONMode {
-  /** Scalar/word-at-a-time (SWAR) scanning. The default; no extra flags. */
-  SWAR = 0,
-  /** 128-bit SIMD scanning. Fastest on larger payloads; needs `--enable simd`. */
-  SIMD = 1,
-  /** Straightforward byte-at-a-time scanning. Smallest code, slowest. */
-  NAIVE = 2,
-}
 
 /**
  * The active {@link JSONMode}, injected by the transform from the `JSON_MODE`

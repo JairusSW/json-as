@@ -63,13 +63,8 @@ import { hex4_to_u16_swar } from "../../util/swar";
  * @param dst buffer to write to
  * @returns number of bytes written
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline function copyStringFromSource_SIMD(
-  srcStart: usize,
-  byteLength: usize,
-): string {
+function copyStringFromSource_SIMD(srcStart: usize, byteLength: usize): string {
   if (byteLength == 0) return changetype<string>("");
-  // @ts-expect-error: __new is a runtime builtin
   const out = __new(byteLength, idof<string>());
   memory.copy(out, srcStart, byteLength);
   return changetype<string>(out);
@@ -106,11 +101,7 @@ function writeStringToField_SIMD(
 // handling (no closing-quote search). Same HYBRID strategy as the field path
 // (see deserializeEscapedStringField_SIMD): escape blocks use a free
 // whole-block v128 store for the plain prefix; clean runs stream the first
-// block then bulk-memcpy the remainder. Output is sliced out of `bs` scratch.
-//
-// Deliberately NOT @inline: cold escape path. Inlining the nested-loop v128
-// body at every call site explodes `--converge` compile time on large schemas
-// for no runtime gain (one call per escaped string).
+
 function deserializeEscapedString_SIMD(
   payloadStart: usize,
   escapeStart: usize,
@@ -261,11 +252,7 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
 //     going, switch to one bulk memory.copy for the remainder — bandwidth-
 //     optimal on long sparse runs, avoiding a per-block-store cliff on large
 //     inputs. This dominates both alternatives: stream-cheap on dense escapes,
-//     memcpy-fast on long runs.
-//
-// Deliberately NOT @inline: cold escape path. As an @inline it was inlined into
-// deserializeStringField_SIMD at every struct string-field site, exploding
-// `--converge` compile time ~24x on large schemas (4s → 99s) for no runtime
+
 // gain. The hot no-escape scan + writeStringToField stay inline in the caller.
 function deserializeEscapedStringField_SIMD(
   payloadStart: usize,
@@ -386,10 +373,6 @@ function deserializeEscapedStringField_SIMD(
   return srcStart;
 }
 
-// NOT @inline: as an @inline entry, binaryen inlined the (loop-bearing) escaped
-// scanner into every per-field copy, exploding `large` SIMD compile ~24x
-// (4s→99s, 221KB→555KB wasm). Kept as a single shared function — matches
-// deserializeStringField_SWAR (also non-inline) and costs only one call/field.
 export function deserializeStringField_SIMD<T extends string | null>(
   srcStart: usize,
   srcEnd: usize,

@@ -1,7 +1,6 @@
 import { atoi } from "../../util/atoi";
 
-// @ts-ignore: inline
-@inline export function deserializeInteger_NAIVE<T extends number>(
+export function deserializeInteger_NAIVE<T extends number>(
   srcStart: usize,
   srcEnd: usize,
 ): T {

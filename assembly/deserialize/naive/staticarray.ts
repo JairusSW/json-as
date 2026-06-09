@@ -112,8 +112,7 @@ export function deserializeStaticArray<T extends StaticArray<any>>(
   throw new Error("Could not parse static array of type " + nameof<T>() + "!");
 }
 
-
-@inline export function deserializeStaticArrayField<T extends StaticArray<any>>(
+export function deserializeStaticArrayField<T extends StaticArray<any>>(
   srcStart: usize,
   srcEnd: usize,
   dstObj: usize,

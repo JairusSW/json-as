@@ -40,15 +40,13 @@ export namespace bs {
    * Using bit shifts for efficiency: alpha = 1/8, so (1 - alpha) = 7/8
    * @param newSize - The new size to incorporate into the average
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline function updateTypicalSize(newSize: usize): void {
+  function updateTypicalSize(newSize: usize): void {
     // EMA: typicalSize = (newSize >> 3) + typicalSize - (typicalSize >> 3)
     // Simplified: typicalSize += (newSize - typicalSize) >> 3
     typicalSize += (newSize - typicalSize) >> EMA_ALPHA_SHIFT;
   }
 
-  // @ts-expect-error: @inline is a valid decorator
-  @inline function renewBuffer(newSize: usize): void {
+  function renewBuffer(newSize: usize): void {
     const oldPtr = buffer;
     const relOffset = offset - oldPtr;
     const newPtr = heap.realloc(oldPtr, newSize);
@@ -57,8 +55,7 @@ export namespace bs {
     bufferSize = newSize;
   }
 
-  // @ts-expect-error: @inline is a valid decorator
-  @inline function reserve(requiredSize: usize, extra: usize): void {
+  function reserve(requiredSize: usize, extra: usize): void {
     if (requiredSize <= bufferSize) return;
     // Grow aggressively (2x) to minimize realloc frequency in hot serialization paths.
     let next = bufferSize << 1;
@@ -67,8 +64,7 @@ export namespace bs {
     renewBuffer(next);
   }
 
-  // @ts-expect-error: @inline is a valid decorator
-  @inline function finalizeDynamicOutput(len: usize): void {
+  function finalizeDynamicOutput(len: usize): void {
     counter += 1;
     updateTypicalSize(len);
     if ((counter & SHRINK_EVERY_N_MASK) == 0 && bufferSize > typicalSize << 2) {
@@ -83,8 +79,7 @@ export namespace bs {
   /**
    * Stores the state of the buffer, allowing further changes to be reset
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function saveState(): void {
+  export function saveState(): void {
     pauseOffsets.push(offset - buffer);
     pauseStackSizes.push(stackSize);
   }
@@ -93,8 +88,7 @@ export namespace bs {
    * Resets the buffer to the state it was in when `pause()` was called.
    * This allows for changes made after the pause to be discarded.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function loadState(): void {
+  export function loadState(): void {
     const length = pauseOffsets.length;
     if (length == 0) return;
     const index = length - 1;
@@ -109,8 +103,7 @@ export namespace bs {
    * serialize/deserialize op mid-flight: a partial run can leave `offset`
    * advanced and the pause stacks non-empty, which would corrupt the next op.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function reset(): void {
+  export function reset(): void {
     offset = buffer;
     stackSize = 0;
     pauseOffsets.length = 0;
@@ -122,8 +115,7 @@ export namespace bs {
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to propose.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function ensureSize(size: u32): void {
+  export function ensureSize(size: u32): void {
     reserve(offset - buffer + usize(size), MIN_BUFFER_SIZE);
   }
 
@@ -132,8 +124,7 @@ export namespace bs {
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to propose.w
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function proposeSize(size: u32): void {
+  export function proposeSize(size: u32): void {
     stackSize += size;
     reserve(stackSize, 0);
   }
@@ -143,8 +134,7 @@ export namespace bs {
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to grow by.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function growSize(size: u32): void {
+  export function growSize(size: u32): void {
     stackSize += size;
     reserve(stackSize, MIN_BUFFER_SIZE);
   }
@@ -153,8 +143,7 @@ export namespace bs {
    * Resizes the buffer to the specified size.
    * @param newSize - The new buffer size.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function resize(newSize: u32): void {
+  export function resize(newSize: u32): void {
     const oldPtr = buffer;
     const relOffset = offset - oldPtr;
     const newPtr = heap.realloc(buffer, newSize);
@@ -168,8 +157,7 @@ export namespace bs {
    * finalization. Keeps enough capacity for the recent typical output size while
    * releasing clearly excess memory.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function shrink(): void {
+  export function shrink(): void {
     let next = typicalSize << 1;
     if (next < MIN_BUFFER_SIZE) next = MIN_BUFFER_SIZE;
     if (bufferSize > next) {
@@ -184,8 +172,7 @@ export namespace bs {
    * Copies the buffer's content to a new object of a specified type. Does not shrink the buffer.
    * @returns The new object containing the buffer's content.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function cpyOut<T>(): T {
+  export function cpyOut<T>(): T {
     if (pauseOffsets.length == 0) {
       const len = offset - buffer;
       // @ts-expect-error: __new is a runtime builtin
@@ -214,8 +201,7 @@ export namespace bs {
    * Note: this restores only `offset`. Deserialization paths do not currently depend on
    * `stackSize`, which is tracked for serialization growth heuristics.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function sliceOut<T>(start: usize): T {
+  export function sliceOut<T>(start: usize): T {
     const sliceStart = buffer + start;
     const len = offset - sliceStart;
     // @ts-expect-error: __new is a runtime builtin
@@ -229,8 +215,7 @@ export namespace bs {
    * Copies the slice starting at a caller-provided relative buffer offset into a string field
    * and restores `offset` back to that slice start.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function toField(start: usize, dstFieldPtr: usize): void {
+  export function toField(start: usize, dstFieldPtr: usize): void {
     const sliceStart = buffer + start;
     const byteLength = <u32>(offset - sliceStart);
     if (byteLength == 0) {
@@ -265,8 +250,7 @@ export namespace bs {
    * adaptive buffer management - shrinks buffer when consistently oversized.
    * @returns The new object containing the buffer's content.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function out<T>(): T {
+  export function out<T>(): T {
     let out: usize;
     if (cacheOutput === 0) {
       const len = offset - buffer;
@@ -296,8 +280,7 @@ export namespace bs {
    * can pass an empty/uninitialized target on the first call. Mirrors the reuse
    * policy of `toField`, but for the top-level return value.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export function outTo<T>(target: usize): T {
+  export function outTo<T>(target: usize): T {
     if (target < __heap_base) return out<T>();
     let len: usize;
     let src: usize;
@@ -371,12 +354,9 @@ export namespace bs {
  * avoiding re-serialization of previously seen strings.
  */
 export namespace sc {
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export const ENTRY_KEY = offsetof<sc.Entry>("key");
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export const ENTRY_PTR = offsetof<sc.Entry>("ptr");
-  // @ts-expect-error: @inline is a valid decorator
-  @inline export const ENTRY_LEN = offsetof<sc.Entry>("len");
+  export const ENTRY_KEY = offsetof<sc.Entry>("key");
+  export const ENTRY_PTR = offsetof<sc.Entry>("ptr");
+  export const ENTRY_LEN = offsetof<sc.Entry>("len");
 
   // @ts-expect-error: JSON_CACHE may not be defined. If so, it will default to false.
   export const CACHE_ENABLED: bool = isDefined(JSON_CACHE) ? JSON_CACHE : false;
@@ -425,8 +405,7 @@ export namespace sc {
    * Uses pointer address shifted right by 4 bits (aligned to 16-byte boundaries)
    * masked to fit within cache size.
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline
+
   export function indexFor(ptr: usize): usize {
     return (ptr >> 4) & CACHE_MASK;
   }
@@ -437,8 +416,7 @@ export namespace sc {
    * @param key - The string pointer to look up
    * @returns true if cache hit, false if cache miss
    */
-  // @ts-expect-error: @inline is a valid decorator
-  @inline
+
   export function tryEmitCached(key: usize): bool {
     const e = unchecked(entries[indexFor(key)]);
     if (e.key == key) {

@@ -6,7 +6,8 @@ export declare enum PropertyFlags {
     OmitIf = 1,
     Raw = 2,
     Custom = 3,
-    Lazy = 4
+    Lazy = 4,
+    Optional = 5
 }
 export declare class Property {
     name: string;

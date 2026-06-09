@@ -15,13 +15,15 @@ class FloatArrayFieldBox {
 }
 
 describe("Should serialize floats", () => {
+  // Serialization follows ECMAScript Number::toString (matches
+  // JSON.stringify(JSON.parse(x))): whole values render without a ".0" suffix.
   expect(JSON.stringify<f64>(7.23)).toBe("7.23");
 
-  expect(JSON.stringify<f64>(10e2)).toBe("1000.0");
+  expect(JSON.stringify<f64>(10e2)).toBe("1000");
 
   expect(JSON.stringify<f64>(123456e-5)).toBe("1.23456");
 
-  expect(JSON.stringify<f64>(0.0)).toBe("0.0");
+  expect(JSON.stringify<f64>(0.0)).toBe("0");
 
   expect(JSON.stringify<f64>(-7.23)).toBe("-7.23");
 
@@ -29,11 +31,11 @@ describe("Should serialize floats", () => {
 
   expect(JSON.stringify<f64>(1e-7)).toBe("1e-7");
 
-  expect(JSON.stringify<f64>(1e20)).toBe("100000000000000000000.0");
+  expect(JSON.stringify<f64>(1e20)).toBe("100000000000000000000");
 
   expect(JSON.stringify<f64>(1e21)).toBe("1e+21");
 
-  // f32 round-trips exercise serializeFloat32 / dragonbox_f32 path.
+  // f32 round-trips exercise the serializeFloat32 / Żmij path.
   expect(JSON.stringify<f32>(1.25)).toBe("1.25");
   expect(JSON.stringify<f32>(-3.5)).toBe("-3.5");
 });
@@ -78,7 +80,7 @@ describe("Should serialize additional float edge cases", () => {
   expect(JSON.stringify<f64>(0.125)).toBe("0.125");
   expect(JSON.stringify<f64>(-0.125)).toBe("-0.125");
   expect(JSON.stringify<f64>(3.141592653589793)).toBe("3.141592653589793");
-  expect(JSON.stringify<f64>(1000.0)).toBe("1000.0");
+  expect(JSON.stringify<f64>(1000.0)).toBe("1000");
   expect(JSON.stringify<f64>(-123456789.25)).toBe("-123456789.25");
 });
 
@@ -94,11 +96,11 @@ describe("Should deserialize additional float edge cases", () => {
 });
 
 describe("Should support more exponent forms", () => {
-  expect(JSON.stringify(JSON.parse<f64>("3.14E5"))).toBe("314000.0");
-  expect(JSON.stringify(JSON.parse<f64>("3.14e5"))).toBe("314000.0");
+  expect(JSON.stringify(JSON.parse<f64>("3.14E5"))).toBe("314000");
+  expect(JSON.stringify(JSON.parse<f64>("3.14e5"))).toBe("314000");
   expect(JSON.stringify(JSON.parse<f64>("3.15E-5"))).toBe("0.0000315");
   expect(JSON.parse<f64>("3.14e-5").toString()).toBe("0.0000314");
-  expect(JSON.stringify(JSON.parse<f64>("-9.81E+2"))).toBe("-981.0");
+  expect(JSON.stringify(JSON.parse<f64>("-9.81E+2"))).toBe("-981");
   expect(JSON.parse<f64>("6.022e23").toString()).toBe("6.022e+23");
 });
 

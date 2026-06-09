@@ -20,7 +20,7 @@ describe("Should cover JSON.Value type creation broadly", () => {
   expect(values[3].toString()).toBe("0");
   expect(values[4].toString()).toBe("123");
   expect(values[5].toString()).toBe("3.5");
-  expect(values[6].toString()).toBe('{"x":1.0,"y":2.0,"z":3.0}');
+  expect(values[6].toString()).toBe('{"x":1,"y":2,"z":3}');
 });
 
 describe("Should preserve signed integer tags in JSON.Value", () => {
@@ -138,7 +138,7 @@ describe("Should traverse parsed arbitrary runtime structures", () => {
   expect(nested[0].get<f64>().toString()).toBe("2.0");
   expect(nested[1].get<f64>().toString()).toBe("3.0");
   expect(JSON.stringify(parsed)).toBe(
-    '{"items":[{"kind":"a","value":1.0},{"kind":"b","value":[2.0,3.0]}],"ok":true}',
+    '{"items":[{"kind":"a","value":1},{"kind":"b","value":[2,3]}],"ok":true}',
   );
 });
 
@@ -166,7 +166,7 @@ describe("Should preserve bs state for JSON.internal helpers", () => {
 
   expect(parsedObj.get("x")!.get<f64>().toString()).toBe("1.0");
   expect(parsedObj.get("y")!.get<bool>().toString()).toBe("true");
-  expect(JSON.internal.stringify(parsed)).toBe('{"x":1.0,"y":true}');
+  expect(JSON.internal.stringify(parsed)).toBe('{"x":1,"y":true}');
   expect(bs.offset).toBe(beforeParseOffset);
   expect(bs.stackSize).toBe(beforeParseStack);
 

@@ -36,7 +36,7 @@ describe("Should serialize structs", () => {
   expect(JSON.stringify<ObjectWithFloat>({ f: 1e-7 })).toBe('{"f":1e-7}');
 
   expect(JSON.stringify<ObjectWithFloat>({ f: 1e20 })).toBe(
-    '{"f":100000000000000000000.0}',
+    '{"f":100000000000000000000}',
   );
 
   expect(JSON.stringify<ObjectWithFloat>({ f: 1e21 })).toBe('{"f":1e+21}');
@@ -363,7 +363,7 @@ describe("Should round-trip Box<T> | null fields for every primitive", () => {
 
 describe("Should round-trip T | null fields for non-primitive types", () => {
   const filled = JSON.parse<NullableNonPrimFields>(
-    '{"text":"abc","vec":{"x":1.0,"y":2.0,"z":3.0},"d":"2025-02-03T21:28:40.525Z"}',
+    '{"text":"abc","vec":{"x":1,"y":2,"z":3},"d":"2025-02-03T21:28:40.525Z"}',
   );
   expect(filled.text).toBe("abc");
   expect((filled.vec == null).toString()).toBe("false");
@@ -426,7 +426,7 @@ describe("Should round-trip nested nullable @json classes", () => {
 
 describe("Should round-trip a struct mixing every nullable shape side-by-side", () => {
   const full = JSON.parse<MixedNullable>(
-    '{"name":"Alice","age":30,"vec":{"x":1.0,"y":2.0,"z":3.0},"tags":["a","b"],"score":99.5,"flag":true}',
+    '{"name":"Alice","age":30,"vec":{"x":1,"y":2,"z":3},"tags":["a","b"],"score":99.5,"flag":true}',
   );
   expect(full.name).toBe("Alice");
   expect(full.age!.value.toString()).toBe("30");
@@ -534,8 +534,7 @@ describe("Should deserialize nested string array fields", () => {
 });
 
 describe("Should deserialize struct array fields", () => {
-  const input =
-    '{"items":[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]}';
+  const input = '{"items":[{"x":1,"y":2,"z":3},{"x":4,"y":5,"z":6}]}';
   const parsed = JSON.parse<Vec3ArrayHolder>(input);
   expect(parsed.items.length).toBe(2);
   expect(parsed.items[0].x.toString()).toBe("1.0");
@@ -582,7 +581,7 @@ describe("Should deserialize object, arbitrary, raw, map, and box array fields",
     "2.0",
   );
   expect(JSON.stringify(objs)).toBe(
-    '{"items":[{"kind":"a","meta":{"x":1.0}},{"kind":"b","list":[1.0,2.0]}]}',
+    '{"items":[{"kind":"a","meta":{"x":1}},{"kind":"b","list":[1,2]}]}',
   );
 
   const values = JSON.parse<ValueArrayFieldHolder>(
@@ -627,7 +626,7 @@ describe("Should round-trip top-level Vec3 arrays through JSON.parse", () => {
   // dispatcher (`deserializeStructArray`) in SWAR/SIMD modes and the
   // naive variant in NAIVE.
   const parsed = JSON.parse<Vec3[]>(
-    '[{"x":1.0,"y":2.0,"z":3.0},{"x":4.0,"y":5.0,"z":6.0}]',
+    '[{"x":1,"y":2,"z":3},{"x":4,"y":5,"z":6}]',
   );
   expect(parsed.length).toBe(2);
   expect(parsed[0].x).toBe(1.0);

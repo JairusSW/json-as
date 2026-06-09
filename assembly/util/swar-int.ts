@@ -26,8 +26,7 @@ const FINAL_4_MAGIC: u64 = 0x0000_0064_0000_0001;
  * @param block Four UTF-16 code units packed into a `u64`.
  * @returns The parsed 4-digit value, or `U32.MAX_VALUE` on invalid input.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse4Digits_Baseline(block: u64): u32 {
+export function parse4Digits_Baseline(block: u64): u32 {
   const digits = (block & LANE_LO_4) - ZERO_4;
   if (((digits | (digits + RANGE_ADD_4)) & RANGE_MASK_4) != 0) {
     return U32.MAX_VALUE;
@@ -58,8 +57,7 @@ const FINAL_4_MAGIC: u64 = 0x0000_0064_0000_0001;
  * @param block Four UTF-16 code units packed into a `u64`.
  * @returns The parsed 4-digit value, or `U32.MAX_VALUE` on invalid input.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse4Digits_PairMul(block: u64): u32 {
+export function parse4Digits_PairMul(block: u64): u32 {
   const digits = block - ZERO_4;
   if (((digits | (digits + RANGE_ADD_4)) & RANGE_MASK_4) != 0) {
     return U32.MAX_VALUE;
@@ -76,8 +74,7 @@ const FINAL_4_MAGIC: u64 = 0x0000_0064_0000_0001;
  * @param block Four UTF-16 code units packed into a `u64`.
  * @returns The parsed 4-digit value.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse4Digits_PairMul_Unsafe(block: u64): u32 {
+export function parse4Digits_PairMul_Unsafe(block: u64): u32 {
   const digits = block - ZERO_4;
   const pairs = (digits * 10 + (digits >> 16)) & U32_LO_PAIR;
   return <u32>((pairs * FINAL_4_MAGIC) >> 32);
@@ -123,8 +120,7 @@ export function parse8Digits_PairMul(lo: u64, hi: u64): u32 {
  * @param hi The second `u64`, four UTF-16 code units.
  * @returns The parsed 8-digit value.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function parse8Digits_PairMul_Unsafe(lo: u64, hi: u64): u32 {
+export function parse8Digits_PairMul_Unsafe(lo: u64, hi: u64): u32 {
   const loDigits = lo - ZERO_4;
   const hiDigits = hi - ZERO_4;
   const loPairs = (loDigits * 10 + (loDigits >> 16)) & U32_LO_PAIR;
@@ -149,8 +145,7 @@ export function parse8Digits_PairMul(lo: u64, hi: u64): u32 {
  * @param block Four UTF-16 code units packed into a `u64`.
  * @returns A mask with non-digit lanes flagged in their high bit, or 0.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline export function nonDigitMask4(block: u64): u64 {
+export function nonDigitMask4(block: u64): u64 {
   const digits = (block & LANE_LO_4) - ZERO_4;
   return (digits | (digits + RANGE_ADD_4)) & RANGE_MASK_4;
 }

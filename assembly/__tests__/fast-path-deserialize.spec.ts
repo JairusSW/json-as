@@ -190,7 +190,7 @@ describe("Fast-path deserialization should handle direct field types", () => {
 
 describe("Fast-path deserialization should handle nullable direct fields", () => {
   const payload =
-    '{"id":1,"total":0,"ratio":0.0,"ok":false,"name":"beta","note":null,"child":{"id":9,"label":"base"},"maybeChild":null,"tags":[],"children":[],"scores":[]}';
+    '{"id":1,"total":0,"ratio":0,"ok":false,"name":"beta","note":null,"child":{"id":9,"label":"base"},"maybeChild":null,"tags":[],"children":[],"scores":[]}';
 
   const parsed = JSON.parse<FastDirectFields>(payload);
 
@@ -232,17 +232,15 @@ describe("Fast-path deserialization should handle JSON.Value fields", () => {
     JSON.stringify(
       parsed.value.get<JSON.Obj>().get("nums")!.get<JSON.Value[]>(),
     ),
-  ).toBe("[1.0,2.0,3.0]");
-  expect(JSON.stringify(parsed)).toBe(
-    '{"value":{"ok":true,"nums":[1.0,2.0,3.0]}}',
-  );
+  ).toBe("[1,2,3]");
+  expect(JSON.stringify(parsed)).toBe('{"value":{"ok":true,"nums":[1,2,3]}}');
 });
 
 describe("Fast-path deserialization should handle JSON.Obj fields", () => {
   const parsed = JSON.parse<FastObjField>('{"obj":{"kind":"demo","count":2}}');
   expect(parsed.obj.get("kind")!.get<string>()).toBe("demo");
   expect(parsed.obj.get("count")!.get<f64>().toString()).toBe("2.0");
-  expect(JSON.stringify(parsed)).toBe('{"obj":{"kind":"demo","count":2.0}}');
+  expect(JSON.stringify(parsed)).toBe('{"obj":{"kind":"demo","count":2}}');
 });
 
 describe("Fast-path deserialization should handle JSON.Box fields", () => {

@@ -53,10 +53,7 @@ import {
   FALSE_WORD_U64,
 } from "./custom/chars";
 import { itoa_buffered } from "util/number";
-import {
-  dragonbox_f32_buffered,
-  dragonbox_f64_buffered,
-} from "./util/dragonbox";
+import { dtoa_buffered, ftoa_buffered } from "zmij-as";
 import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes, scanStringEnd } from "./util";
 import { scanValueEnd_SIMD } from "./util/scanValueEndSimd";
@@ -76,47 +73,33 @@ import { scanValueEnd_SWAR } from "./util/scanValueEndSwar";
 // The managed reference packed into the word is traced by JSON.Value.__visit;
 // AssemblyScript only wires that hook for library-declared classes, so the
 // json-as transform marks this source as a library source (see afterParse).
-// @ts-expect-error: Decorator valid here
-@inline const VAL_QNAN: u64 = 0x7ffc000000000000; // boxed signature (quiet NaN)
-// @ts-expect-error: Decorator valid here
-@inline const VAL_TAG_SHIFT: u8 = 45;
-// @ts-expect-error: Decorator valid here
-@inline const VAL_PAYLOAD_MASK: u64 = 0x00001fffffffffff; // low 45 bits
-// @ts-expect-error: Decorator valid here
-@inline const VAL_PTR_MASK: u64 = 0xffffffff; // wasm32 pointer
-// @ts-expect-error: Decorator valid here
-@inline const VAL_BOX64: u64 = 0x8000000000000000; // sign bit: 64-bit int spilled to heap
-// @ts-expect-error: Decorator valid here
-@inline const VAL_NULL: u64 = VAL_QNAN; // tag 0 (Null), payload 0
-// @ts-expect-error: Decorator valid here
-@inline const VAL_I64_LIMIT: i64 = 17592186044416; // 2^44 — inline range is [-2^44, 2^44)
-// @ts-expect-error: Decorator valid here
-@inline const VAL_U64_LIMIT: u64 = 35184372088832; // 2^45 — inline range is [0, 2^45)
+const VAL_QNAN: u64 = 0x7ffc000000000000; // boxed signature (quiet NaN)
+const VAL_TAG_SHIFT: u8 = 45;
+const VAL_PAYLOAD_MASK: u64 = 0x00001fffffffffff; // low 45 bits
+const VAL_PTR_MASK: u64 = 0xffffffff; // wasm32 pointer
+const VAL_BOX64: u64 = 0x8000000000000000; // sign bit: 64-bit int spilled to heap
+const VAL_NULL: u64 = VAL_QNAN; // tag 0 (Null), payload 0
+const VAL_I64_LIMIT: i64 = 17592186044416; // 2^44 — inline range is [-2^44, 2^44)
+const VAL_U64_LIMIT: u64 = 35184372088832; // 2^45 — inline range is [0, 2^45)
 
-// @ts-expect-error: Decorator valid here
-@inline function valBoxed(w: u64): bool {
+function valBoxed(w: u64): bool {
   return (w & VAL_QNAN) == VAL_QNAN;
 }
-// @ts-expect-error: Decorator valid here
-@inline function valTag(w: u64): u32 {
+function valTag(w: u64): u32 {
   return <u32>((w >> VAL_TAG_SHIFT) & 0x1f);
 }
-// @ts-expect-error: Decorator valid here
-@inline function valPayload(w: u64): u64 {
+function valPayload(w: u64): u64 {
   return w & VAL_PAYLOAD_MASK;
 }
-// @ts-expect-error: Decorator valid here
-@inline function valPtr(w: u64): usize {
+function valPtr(w: u64): usize {
   return <usize>(w & VAL_PTR_MASK);
 }
-// @ts-expect-error: Decorator valid here
-@inline function valBox(tag: u32, payload: u64): u64 {
+function valBox(tag: u32, payload: u64): u64 {
   return (
     VAL_QNAN | ((<u64>tag) << VAL_TAG_SHIFT) | (payload & VAL_PAYLOAD_MASK)
   );
 }
-// @ts-expect-error: Decorator valid here
-@inline function valIntTag<T>(): u32 {
+function valIntTag<T>(): u32 {
   if (sizeof<T>() == 1) return isSigned<T>() ? JSON.Types.I8 : JSON.Types.U8;
   if (sizeof<T>() == 2) return isSigned<T>() ? JSON.Types.I16 : JSON.Types.U16;
   if (sizeof<T>() == 4) return isSigned<T>() ? JSON.Types.I32 : JSON.Types.U32;
@@ -146,8 +129,7 @@ export namespace JSON {
    * @param valPtr pointer of the materialized value (0 when null)
    * @param lz    the packed slot
    */
-  // @ts-expect-error: inline
-  @inline export function __lazyIsNull(valPtr: usize, lz: u64): bool {
+  export function __lazyIsNull(valPtr: usize, lz: u64): bool {
     if (lz == u64.MAX_VALUE) return valPtr == 0;
     if (lz == 0) return true;
     const hi = <usize>(lz >>> 32);
@@ -182,11 +164,7 @@ export namespace JSON {
    * @param data T
    * @returns string
    */
-  // @ts-expect-error: inline
-  @inline export function stringify<T>(
-    data: T,
-    out: string | null = null,
-  ): string {
+  export function stringify<T>(data: T, out: string | null = null): string {
     if (isBoolean<T>()) {
       if (out) {
         if (<bool>data == true) {
@@ -226,13 +204,14 @@ export namespace JSON {
       return data.toString();
     } else if (isFloat<T>(data)) {
       out = out
-        ? changetype<string>(__renew(changetype<usize>(out), 64))
-        : changetype<string>(__new(64, idof<string>()));
+        ? changetype<string>(__renew(changetype<usize>(out), 128))
+        : changetype<string>(__new(128, idof<string>()));
+      const startPtr = changetype<usize>(out);
       const bytes =
         (sizeof<T>() == 4
-          ? dragonbox_f32_buffered(changetype<usize>(out), <f32>data)
-          : dragonbox_f64_buffered(changetype<usize>(out), <f64>data)) << 1;
-      return changetype<string>(__renew(changetype<usize>(out), bytes));
+          ? ftoa_buffered(startPtr, <f32>data)
+          : dtoa_buffered(startPtr, <f64>data)) << 1;
+      return changetype<string>(__renew(startPtr, bytes));
     } else if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
       if (out) {
         out = changetype<string>(__renew(changetype<usize>(out), 8));
@@ -289,15 +268,13 @@ export namespace JSON {
   // A type-correct "zero" for any T: null pointer for references, 0/false for
   // value types. `changetype<T>(0)` alone fails for bool/f64 (size mismatch),
   // so branch on isReference at compile time.
-  // @ts-ignore: inline
-  @inline function __zero<T>(): T {
+  function __zero<T>(): T {
     // @ts-ignore: compile-time intrinsic
     if (isReference<T>() || isManaged<T>()) return changetype<T>(0);
     return <T>0;
   }
 
-  // @ts-expect-error: inline
-  @inline export function parse<T>(data: string, out: T = __zero<T>()): T {
+  export function parse<T>(data: string, out: T = __zero<T>()): T {
     let dataPtr = changetype<usize>(data);
     const dataEnd = dataPtr + bytes(data);
     // Entry point skips leading whitespace: every deserialize handler may then
@@ -337,11 +314,18 @@ export namespace JSON {
         isDefined(type.__DESERIALIZE_FAST)
       ) {
         // Reuse the caller-supplied `out` graph when given; otherwise allocate.
-        const obj = changetype<usize>(out)
+        const reuse = changetype<usize>(out) != 0;
+        const obj = reuse
           ? changetype<nonnull<T>>(changetype<usize>(out))
           : changetype<nonnull<T>>(
               __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
             );
+        // A freshly allocated object holds uninitialized fields (__new does not
+        // zero). The fast path writes fields in place and may leave some
+        // unwritten (@optional / skip-unknown), so it must run against defaults,
+        // not garbage. A reused graph is already initialized — skip it.
+        // @ts-expect-error: Defined by transform
+        if (!reuse && isDefined(type.__INITIALIZE)) obj.__INITIALIZE();
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST)) {
           // @ts-expect-error: Defined by transform
@@ -383,11 +367,15 @@ export namespace JSON {
           0,
         );
       } else if (type instanceof Array) {
+        // Reuse the caller-supplied array when given (no allocation); the
+        // element loop overwrites slots and trims length. Otherwise allocate.
         // @ts-expect-error
         return deserializeArray<nonnull<T>>(
           dataPtr,
           dataPtr + dataSize,
-          changetype<usize>(instantiate<T>()),
+          changetype<usize>(out) != 0
+            ? changetype<usize>(out)
+            : changetype<usize>(instantiate<T>()),
         );
       } else if (
         type instanceof Int8Array ||
@@ -413,8 +401,13 @@ export namespace JSON {
         // @ts-expect-error
         return deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0);
       } else if (type instanceof Map) {
+        // Reuse the caller-supplied map when given (keys overwrite in place).
         // @ts-expect-error
-        return deserializeMap<nonnull<T>>(dataPtr, dataPtr + dataSize, 0);
+        return deserializeMap<nonnull<T>>(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(out),
+        );
       } else if (type instanceof Date) {
         // @ts-expect-error
         return deserializeDate(dataPtr, dataPtr + dataSize);
@@ -453,47 +446,27 @@ export namespace JSON {
    */
   export namespace Types {
     /** Represents a null value */
-    // @ts-expect-error
-    @inline export const Null: u16 = 0;
-    // @ts-expect-error
-    @inline export const Raw: u16 = 1;
-    // @ts-expect-error
-    @inline export const U8: u16 = 2;
-    // @ts-expect-error
-    @inline export const U16: u16 = 3;
-    // @ts-expect-error
-    @inline export const U32: u16 = 4;
-    // @ts-expect-error
-    @inline export const U64: u16 = 5;
-    // @ts-expect-error
-    @inline export const I8: u16 = 6;
-    // @ts-expect-error
-    @inline export const I16: u16 = 7;
-    // @ts-expect-error
-    @inline export const I32: u16 = 8;
-    // @ts-expect-error
-    @inline export const I64: u16 = 9;
-    // @ts-expect-error
-    @inline export const F32: u16 = 10;
-    // @ts-expect-error
-    @inline export const F64: u16 = 11;
-    // @ts-expect-error
-    @inline export const Bool: u16 = 12;
+    export const Null: u16 = 0;
+    export const Raw: u16 = 1;
+    export const U8: u16 = 2;
+    export const U16: u16 = 3;
+    export const U32: u16 = 4;
+    export const U64: u16 = 5;
+    export const I8: u16 = 6;
+    export const I16: u16 = 7;
+    export const I32: u16 = 8;
+    export const I64: u16 = 9;
+    export const F32: u16 = 10;
+    export const F64: u16 = 11;
+    export const Bool: u16 = 12;
     // Managed
-    // @ts-expect-error
-    @inline export const String: u16 = 13;
-    // @ts-expect-error
-    @inline export const Object: u16 = 14;
-    // @ts-expect-error
-    @inline export const Array: u16 = 15;
-    // @ts-expect-error
-    @inline export const Map: u16 = 16;
-    // @ts-expect-error
-    @inline export const Struct: u16 = 17;
-    // @ts-expect-error
-    @inline export const TypedArray: u16 = 18;
-    // @ts-expect-error
-    @inline export const ArrayBuffer: u16 = 19;
+    export const String: u16 = 13;
+    export const Object: u16 = 14;
+    export const Array: u16 = 15;
+    export const Map: u16 = 16;
+    export const Struct: u16 = 17;
+    export const TypedArray: u16 = 18;
+    export const ArrayBuffer: u16 = 19;
   }
 
   /**
@@ -542,7 +515,7 @@ export namespace JSON {
      * @param data - A valid JSON string
      * @returns A new Raw instance
      */
-    @inline static from(data: string): JSON.Raw {
+    static from(data: string): JSON.Raw {
       return new JSON.Raw(data);
     }
   }
@@ -598,7 +571,7 @@ export namespace JSON {
      * Creates an JSON.Value instance with no set value.
      * @returns An instance of JSON.Value.
      */
-    @inline static empty(): JSON.Value {
+    static empty(): JSON.Value {
       const out = changetype<JSON.Value>(
         __new(offsetof<JSON.Value>(), idof<JSON.Value>()),
       );
@@ -611,7 +584,7 @@ export namespace JSON {
      * @param value - The value to be encapsulated.
      * @returns An instance of JSON.Value.
      */
-    @inline static from<T>(value: T): JSON.Value {
+    static from<T>(value: T): JSON.Value {
       if (value instanceof JSON.Value) return value;
       const out = changetype<JSON.Value>(
         __new(offsetof<JSON.Value>(), idof<JSON.Value>()),
@@ -625,7 +598,7 @@ export namespace JSON {
      * @param value - any
      * @returns JSON.Types
      */
-    @inline getType<T>(value: T): JSON.Types {
+    getType<T>(value: T): JSON.Types {
       if (isNullable<T>() && changetype<usize>(value) === 0)
         return JSON.Types.Null;
       if (isBoolean<T>()) return JSON.Types.Bool;
@@ -678,7 +651,7 @@ export namespace JSON {
      * Sets the value of the JSON.Value instance.
      * @param value - The value to be set.
      */
-    @inline set<T>(value: T): void {
+    set<T>(value: T): void {
       if (value instanceof JSON.Box) {
         this.set(value.value);
       } else if (isBoolean<T>()) {
@@ -774,7 +747,7 @@ export namespace JSON {
      * Gets the value of the JSON.Value instance.
      * @returns The encapsulated value.
      */
-    @inline get<T>(): T {
+    get<T>(): T {
       const w = this.bits;
       if (isFloat<T>()) {
         if (sizeof<T>() == 4) return <T>reinterpret<f32>(<u32>valPayload(w));
@@ -799,7 +772,7 @@ export namespace JSON {
      * Alias for .get<T>()
      * @returns The encapsulated value.
      */
-    @inline as<T>(): T {
+    as<T>(): T {
       return this.get<T>();
     }
 
@@ -808,7 +781,7 @@ export namespace JSON {
      * Alias for .get<T>()
      * @returns The encapsulated value.
      */
-    @inline asBox<T>(): Box<T> | null {
+    asBox<T>(): Box<T> | null {
       if (this.type === JSON.Types.Null) return null;
       return changetype<Box<T>>(JSON.Box.fromValue<T>(this));
     }
@@ -934,7 +907,7 @@ export namespace JSON {
     /**
      * Gets the number of key-value pairs in the object.
      */
-    @inline get size(): i32 {
+    get size(): i32 {
       return this._vals.length;
     }
 
@@ -1042,7 +1015,7 @@ export namespace JSON {
      * @param key - The key to look up
      * @returns The JSON.Value or null if not found
      */
-    @inline get(key: string): JSON.Value | null {
+    get(key: string): JSON.Value | null {
       const idx = this.buildIndex();
       return idx.has(key) ? unchecked(this._vals[idx.get(key)]) : null;
     }
@@ -1052,7 +1025,7 @@ export namespace JSON {
      * @param key - The key to check
      * @returns true if the key exists
      */
-    @inline has(key: string): bool {
+    has(key: string): bool {
       return this.buildIndex().has(key);
     }
 
@@ -1106,7 +1079,7 @@ export namespace JSON {
      * Gets all values in the object.
      * @returns Array of JSON.Value instances (in insertion order)
      */
-    @inline values(): JSON.Value[] {
+    values(): JSON.Value[] {
       return this._vals.slice();
     }
 
@@ -1114,7 +1087,7 @@ export namespace JSON {
      * Serializes the object to a JSON string.
      * @returns JSON string representation
      */
-    @inline toString(): string {
+    toString(): string {
       return JSON.stringify(this);
     }
 
@@ -1161,7 +1134,7 @@ export namespace JSON {
      * @param value T
      * @returns this
      */
-    @inline set(value: T): Box<T> {
+    set(value: T): Box<T> {
       this.value = value;
       return this;
     }
@@ -1176,7 +1149,7 @@ export namespace JSON {
      * @param from T
      * @returns Box<T> | null
      */
-    @inline static fromValue<T>(value: JSON.Value): Box<T> | null {
+    static fromValue<T>(value: JSON.Value): Box<T> | null {
       if (!(value instanceof JSON.Value))
         throw new Error("value must be of type JSON.Value");
       if (value.type === JSON.Types.Null) return null;
@@ -1195,7 +1168,7 @@ export namespace JSON {
      * @param from T
      * @returns Box<T>
      */
-    @inline static from<T>(value: T): Box<T> {
+    static from<T>(value: T): Box<T> {
       return new Box(value);
     }
     toString(): string {
@@ -1323,10 +1296,10 @@ export namespace JSON {
       }
       if (type instanceof StaticArray) {
         // @ts-expect-error: type
-        return deserializeStaticArray<T>(srcStart, srcEnd, dst);
+        return deserializeStaticArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Array) {
         // @ts-expect-error: type
-        return deserializeArray<T>(srcStart, srcEnd, dst);
+        return deserializeArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (
         type instanceof Int8Array ||
         type instanceof Uint8Array ||
@@ -1381,21 +1354,15 @@ export namespace JSON {
     );
   }
   export namespace Util {
-    // @ts-expect-error: decorator
-    @inline export function isSpace(code: u16): boolean {
+    export function isSpace(code: u16): boolean {
       return code == 0x20 || code - 9 <= 4;
     }
     /** Advance past JSON whitespace (space, tab, LF, VT, FF, CR). */
-    // @ts-expect-error: decorator
-    @inline export function skipWhitespace(
-      srcStart: usize,
-      srcEnd: usize,
-    ): usize {
+    export function skipWhitespace(srcStart: usize, srcEnd: usize): usize {
       while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
       return srcStart;
     }
-    // @ts-expect-error: decorator
-    @inline function scanQuotedValueEnd(srcStart: usize, srcEnd: usize): usize {
+    function scanQuotedValueEnd(srcStart: usize, srcEnd: usize): usize {
       const endQuote = scanStringEnd(srcStart, srcEnd);
       return endQuote >= srcEnd ? 0 : endQuote + 2;
     }
@@ -1433,8 +1400,7 @@ export namespace JSON {
 
       return srcStart;
     }
-    // @ts-expect-error: decorator
-    @inline export function scanValueEnd<T = JSON.Value>(
+    export function scanValueEnd<T = JSON.Value>(
       srcStart: usize,
       srcEnd: usize,
     ): usize {
@@ -1461,8 +1427,7 @@ export namespace JSON {
         return scanCompositeValueEnd(ptr, srcEnd);
       return scanScalarValueEnd(ptr, srcEnd);
     }
-    // @ts-expect-error: decorator
-    @inline export function ptrToStr(start: usize, end: usize): string {
+    export function ptrToStr(start: usize, end: usize): string {
       const size = end - start;
       const out = __new(size, idof<string>());
       memory.copy(out, start, size);
@@ -1499,8 +1464,7 @@ export namespace JSON {
      * @param data - string
      * @returns - T
      */
-    // @ts-expect-error: inline
-    @inline export function parse<T>(data: string): T {
+    export function parse<T>(data: string): T {
       bs.saveState();
       const result = JSON.parse<T>(data);
       bs.loadState();
@@ -1515,8 +1479,7 @@ export namespace JSON {
  * and `Date` fast paths are handled by the callers (which have buffer-reuse
  * optimizations); everything else routes here so the dispatch chain lives once.
  */
-// @ts-expect-error: @inline is a valid decorator
-@inline function serializeReference<T>(data: T): void {
+function serializeReference<T>(data: T): void {
   if (data instanceof Array) {
     // @ts-expect-error
     serializeArray(changetype<nonnull<T>>(data));
@@ -1580,12 +1543,11 @@ export enum JSONMode {
   NAIVE = 2,
 }
 
-// @ts-expect-error: decorator
-@inline function parseBox<T>(data: string, ty: T): T {
+function parseBox<T>(data: string, ty: T): T {
   return JSON.parse<T>(data);
 }
-// @ts-expect-error: inline
-@inline function deserializeBox<T>(
+
+function deserializeBox<T>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
@@ -1594,16 +1556,13 @@ export enum JSONMode {
   return JSON.__deserialize<T>(srcStart, srcEnd, dst);
 }
 
-// @ts-expect-error: inline
-@inline export function toRaw(data: string): JSON.Raw {
+export function toRaw(data: string): JSON.Raw {
   return new JSON.Raw(data);
 }
-// @ts-expect-error: inline
-@inline export function fromRaw(data: JSON.Raw): string {
+export function fromRaw(data: JSON.Raw): string {
   return data.data;
 }
 
-// @ts-expect-error: inline
-@inline export function toBox<T>(data: T): JSON.Box<T> {
+export function toBox<T>(data: T): JSON.Box<T> {
   return new JSON.Box<T>(data);
 }

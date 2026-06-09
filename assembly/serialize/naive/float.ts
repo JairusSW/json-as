@@ -1,43 +1,34 @@
 import { bs } from "../../../lib/as-bs";
-import {
-  dragonbox_f32_buffered,
-  dragonbox_f64_buffered,
-} from "../../util/dragonbox";
+import { dtoa_buffered, ftoa_buffered } from "zmij-as";
 
+// Float serialization is backed by Żmij (the `zmij-as` package — a Schubfach/xjb
+// shortest-decimal writer with SWAR + WASM-SIMD digit kernels). The *_buffered
+// writers emit UTF-16 straight into the `bs` buffer and return the number of
+// characters written, so advancing the offset is `count << 1` bytes.
 
-@inline
 export function serializeFloat32Unsafe(data: f32): void {
-  const size = dragonbox_f32_buffered(bs.offset, data) << 1;
-  bs.offset += size;
+  bs.offset += ftoa_buffered(bs.offset, data) << 1;
 }
 
-
-@inline
 export function serializeFloat64Unsafe(data: f64): void {
-  const size = dragonbox_f64_buffered(bs.offset, data) << 1;
-  bs.offset += size;
+  bs.offset += dtoa_buffered(bs.offset, data) << 1;
 }
 
-
-@inline
 export function serializeFloat32(data: f32): void {
-  bs.ensureSize(64);
-  const size = dragonbox_f32_buffered(bs.offset, data) << 1;
-  bs.stackSize += size;
-  bs.offset += size;
+  bs.ensureSize(128);
+  const bytes = ftoa_buffered(bs.offset, data) << 1;
+  bs.stackSize += bytes;
+  bs.offset += bytes;
 }
 
-
-@inline
 export function serializeFloat64(data: f64): void {
-  bs.ensureSize(64);
-  const size = dragonbox_f64_buffered(bs.offset, data) << 1;
-  bs.stackSize += size;
-  bs.offset += size;
+  bs.ensureSize(128);
+  const bytes = dtoa_buffered(bs.offset, data) << 1;
+  bs.stackSize += bytes;
+  bs.offset += bytes;
 }
 
-// @ts-ignore: inline
-@inline export function serializeFloat<T extends number>(data: T): void {
+export function serializeFloat<T extends number>(data: T): void {
   if (sizeof<T>() == 4) serializeFloat32(<f32>data);
   else serializeFloat64(<f64>data);
 }

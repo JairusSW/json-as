@@ -10,6 +10,7 @@ export var PropertyFlags;
     PropertyFlags[PropertyFlags["Raw"] = 2] = "Raw";
     PropertyFlags[PropertyFlags["Custom"] = 3] = "Custom";
     PropertyFlags[PropertyFlags["Lazy"] = 4] = "Lazy";
+    PropertyFlags[PropertyFlags["Optional"] = 5] = "Optional";
 })(PropertyFlags || (PropertyFlags = {}));
 export class Property {
     name = "";

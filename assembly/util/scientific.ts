@@ -25,13 +25,11 @@ const POWERS5: usize = memory.data<i32>([
   244140625, 1220703125,
 ]);
 
-// @ts-ignore: inline
-@inline function pow10(n: i32): f64 {
+function pow10(n: i32): f64 {
   return load<f64>(POWERS10 + ((<usize>n) << alignof<f64>()));
 }
 
-// @ts-ignore: inline
-@inline function pow5_32(n: i32): i32 {
+function pow5_32(n: i32): i32 {
   return load<i32>(POWERS5 + ((<usize>n) << alignof<i32>()));
 }
 
@@ -40,8 +38,7 @@ const POWERS5: usize = memory.data<i32>([
 // @ts-ignore: lazy decorator
 @lazy let __fixmulShift: u64 = 0;
 
-// @ts-ignore: inline
-@inline function fixmul(a: u64, b: u32): u64 {
+function fixmul(a: u64, b: u32): u64 {
   const low = (a & 0xffffffff) * b;
   const high = (a >> 32) * b + (low >> 32);
   const overflow = <u32>(high >> 32);
