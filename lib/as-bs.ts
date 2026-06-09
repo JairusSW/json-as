@@ -292,7 +292,7 @@ export namespace bs {
       src = cacheOutput;
     }
     let dst = target;
-    if (usize(changetype<OBJECT>(target - TOTAL_OVERHEAD).rtSize) != len) {
+    if (changetype<OBJECT>(target - TOTAL_OVERHEAD).rtSize != <u32>len) {
       // @ts-expect-error: __renew is a runtime builtin
       dst = __renew(target, len);
     }
