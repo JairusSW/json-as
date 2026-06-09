@@ -124,7 +124,7 @@ declare function omitif(condition: string | ((self: any) => boolean)): Function;
  * ```
  */
 // @ts-ignore: type
-declare function omitnull(..._): Function;
+declare function omitnull(..._): void;
 
 /**
  * Field decorator that marks a property as optional for deserialization: the
@@ -142,7 +142,7 @@ declare function omitnull(..._): Function;
  * ```
  */
 // @ts-ignore: type
-declare function optional(..._): Function;
+declare function optional(..._): void;
 
 /**
  * Field decorator that defers parsing of a property until it is first read
