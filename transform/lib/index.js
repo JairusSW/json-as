@@ -359,7 +359,9 @@ export class JSONTransform extends Visitor {
             const fieldDefault = fdInit ? toString(fdInit) : null;
             const refDefault = fieldDefault != null
                 ? fieldDefault
-                : !storesScalar && baseT == T && (baseT == "string" || baseT == "String")
+                : !storesScalar &&
+                    baseT == T &&
+                    (baseT == "string" || baseT == "String")
                     ? '""'
                     : null;
             __hasLazy = true;
