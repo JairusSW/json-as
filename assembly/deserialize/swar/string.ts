@@ -479,9 +479,14 @@ export function deserializeStringField_SWAR<T extends string | null>(
   if (srcEnd >= 16) {
     const srcEnd16 = srcEnd - 16;
     while (srcStart <= srcEnd16) {
-      const m0 = backslash_or_quote_mask(load<u64>(srcStart));
-      const m1 = backslash_or_quote_mask(load<u64>(srcStart, 8));
-      if ((m0 | m1) != 0) break;
+      // Test the first word before loading the second: short values and keys
+      // close (or escape) within the first 8 bytes, so this skips the second
+      // load on the common case while still skipping 16 bytes when both clean.
+      if (backslash_or_quote_mask(load<u64>(srcStart)) != 0) break;
+      if (backslash_or_quote_mask(load<u64>(srcStart, 8)) != 0) {
+        srcStart += 8;
+        break;
+      }
       srcStart += 16;
     }
   }
