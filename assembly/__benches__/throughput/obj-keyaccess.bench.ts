@@ -23,6 +23,28 @@ function makeKeys(n: i32): string[] {
   return a;
 }
 
+// Long (~24-char) keys to exercise the key comparison itself (the part SIMD
+// accelerates); short keys finish in the scalar tail.
+function makeObjJsonLong(n: i32): string {
+  let s = "{";
+  for (let i = 0; i < n; i++) {
+    if (i > 0) s += ",";
+    s += '"a_fairly_long_field_name_' + i.toString() + '":' + i.toString();
+  }
+  return s + "}";
+}
+function makeKeysLong(n: i32): string[] {
+  const a = new Array<string>(n);
+  for (let i = 0; i < n; i++) a[i] = "a_fairly_long_field_name_" + i.toString();
+  return a;
+}
+const JL4 = makeObjJsonLong(4);
+const JL16 = makeObjJsonLong(16);
+const KL4 = makeKeysLong(4);
+const KL16 = makeKeysLong(16);
+const OL4 = JSON.parse<JSON.Obj>(JL4);
+const OL16 = JSON.parse<JSON.Obj>(JL16);
+
 const J4 = makeObjJson(4);
 const J8 = makeObjJson(8);
 const J16 = makeObjJson(16);
@@ -125,3 +147,28 @@ bench(
   1_000_000,
 );
 dumpToFile("keyaccess-warm-64", "deserialize");
+
+// --- long-key warm lookups (compare-bound) ---
+bench(
+  "keyaccess warm getAll LONG 4keys",
+  () => {
+    let sum = 0.0;
+    for (let i = 0; i < KL4.length; i++)
+      sum += OL4.getAs<f64>(unchecked(KL4[i]));
+    blackbox(sum);
+  },
+  1_000_000,
+);
+dumpToFile("keyaccess-warm-long-4", "deserialize");
+
+bench(
+  "keyaccess warm getAll LONG 16keys",
+  () => {
+    let sum = 0.0;
+    for (let i = 0; i < KL16.length; i++)
+      sum += OL16.getAs<f64>(unchecked(KL16[i]));
+    blackbox(sum);
+  },
+  1_000_000,
+);
+dumpToFile("keyaccess-warm-long-16", "deserialize");

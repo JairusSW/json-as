@@ -117,12 +117,39 @@ function hashUtf16(ptr: usize, len: i32): u32 {
   return h;
 }
 
-function utf16Equals(ptrA: usize, ptrB: usize, len: i32): bool {
-  for (let i = 0; i < len; i++) {
-    if (
-      load<u16>(ptrA + ((<usize>i) << 1)) != load<u16>(ptrB + ((<usize>i) << 1))
-    )
+// v128 path: compare 8 code units (16 bytes) per step, then a u64 step (4) and
+// a scalar tail. Each load is bounded by `len`, so it never reads past either
+// key. Only reachable (and thus only compiled) when the SIMD feature is on, so
+// the intrinsics don't break the naive/swar builds.
+function utf16Equals_SIMD(ptrA: usize, ptrB: usize, len: i32): bool {
+  let i = 0;
+  for (; i + 8 <= len; i += 8) {
+    const off = (<usize>i) << 1;
+    if (v128.any_true(v128.xor(v128.load(ptrA + off), v128.load(ptrB + off))))
       return false;
+  }
+  for (; i + 4 <= len; i += 4) {
+    const off = (<usize>i) << 1;
+    if (load<u64>(ptrA + off) != load<u64>(ptrB + off)) return false;
+  }
+  for (; i < len; i++) {
+    const off = (<usize>i) << 1;
+    if (load<u16>(ptrA + off) != load<u16>(ptrB + off)) return false;
+  }
+  return true;
+}
+
+function utf16Equals(ptrA: usize, ptrB: usize, len: i32): bool {
+  if (ASC_FEATURE_SIMD) return utf16Equals_SIMD(ptrA, ptrB, len);
+  // Scalar: 4 code units (one u64) per step, scalar tail. Bounded by `len`.
+  let i = 0;
+  for (; i + 4 <= len; i += 4) {
+    const off = (<usize>i) << 1;
+    if (load<u64>(ptrA + off) != load<u64>(ptrB + off)) return false;
+  }
+  for (; i < len; i++) {
+    const off = (<usize>i) << 1;
+    if (load<u16>(ptrA + off) != load<u16>(ptrB + off)) return false;
   }
   return true;
 }
