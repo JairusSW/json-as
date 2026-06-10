@@ -96,3 +96,16 @@ describe("ObjIndex property: grow past threshold then drain", () => {
     }
   }
 });
+
+// Duplicate keys must resolve to the LAST value (JSON last-wins), and the small
+// (linear-scan) and large (hash-index) paths must agree. A forward linear scan
+// returned the first occurrence on small objects - inconsistent with the hash
+// path and with JSON semantics.
+describe("ObjIndex: duplicate keys resolve last-wins (linear and hash paths)", () => {
+  const small = JSON.parse<JSON.Obj>('{"a":1,"a":2,"a":3}');
+  expect(small.getAs<f64>("a")).toBe(3.0);
+  const large = JSON.parse<JSON.Obj>(
+    '{"k0":0,"k1":1,"k2":2,"k3":3,"k4":4,"k5":5,"k6":6,"a":1,"a":2,"a":3}',
+  );
+  expect(large.getAs<f64>("a")).toBe(3.0);
+});

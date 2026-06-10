@@ -1371,13 +1371,16 @@ export namespace JSON {
       const n = this._vused;
       const keyLen = <i32>key.length;
       // Small objects: scan linearly and never build a hash index. The keys are
-      // packed contiguously in _kbuf (so the loads run roughly in order) and the
-      // length prefix rejects mismatches before any byte compare.
+      // packed contiguously in _kbuf and the length prefix rejects mismatches
+      // before any byte compare. Scan from the end so a duplicate key resolves
+      // to its LAST occurrence - JSON last-value-wins, matching buildIndex()
+      // (which overwrites the slot on a collision) for objects above the
+      // threshold; a forward scan would return the first and disagree.
       if (n <= OBJ_LINEAR_MAX) {
         const kbuf = changetype<usize>(this._kbuf);
         const keyPtr = changetype<usize>(key);
         const kpos = this._kpos;
-        for (let i = 0; i < n; i++) {
+        for (let i = n - 1; i >= 0; i--) {
           const buf = kbuf + ((<usize>unchecked(kpos[i])) << 1);
           if (
             <i32>load<u16>(buf) == keyLen &&
