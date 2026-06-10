@@ -253,15 +253,23 @@ describe("absent ref lazy field serializes its default (no null-cast trap)", () 
 // The symmetric absent-with-default case is covered above; this is the
 // no-default half.
 @json({ lazy: "auto" })
-class NoDefaultStr {
+class NoDefaultRefs {
   a: string = "";
-  nd: string;
+  ns: string; // no-default non-nullable string -> ""
+  narr: i32[]; // no-default non-nullable array  -> []
+  nmap: Map<string, i32>; // no-default non-nullable map -> {}
   b: string = "";
 }
 
-describe("absent no-default string lazy field resolves to '' (no null-cast crash)", () => {
-  const r = JSON.parse<NoDefaultStr>('{"a":"x","b":"y"}');
-  expect(r.nd).toBe("");
-  expect(JSON.stringify(r)).toBe('{"a":"x","nd":"","b":"y"}');
-  expect(new NoDefaultStr().nd).toBe("");
+describe("absent no-default non-nullable ref fields resolve to the type default (no null-cast crash)", () => {
+  const r = JSON.parse<NoDefaultRefs>('{"a":"x","b":"y"}');
+  expect(r.ns).toBe("");
+  expect(r.narr.length).toBe(0);
+  expect(r.nmap.size).toBe(0);
+  expect(JSON.stringify(r)).toBe(
+    '{"a":"x","ns":"","narr":[],"nmap":{},"b":"y"}',
+  );
+  const c = new NoDefaultRefs();
+  expect(c.ns).toBe("");
+  expect(c.narr.length).toBe(0);
 });

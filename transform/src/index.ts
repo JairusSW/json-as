@@ -594,19 +594,26 @@ export class JSONTransform extends Visitor {
       // affects constructed instances.
       const fdInit = (fd as FieldDeclaration).initializer;
       const fieldDefault = fdInit ? toString(fdInit) : null;
-      // A non-nullable `string` with no declared default must seed `""`, not
-      // null: the getter casts `__x_val as string`, which aborts on null, and
-      // eager __INITIALIZE already gives an absent non-nullable string `""`, so
-      // lazy must match. Nullable strings, scalars, and ref types whose
-      // no-default contract is "absent -> null" (lazy structs/arrays via
-      // `JSON.Lazy<T>` / `!`) are left untouched.
+      // A non-nullable ref field with no declared default seeds `__x_val` to
+      // null, and the getter's `__x_val as T` aborts on null for a non-nullable
+      // T. For the container types eager __INITIALIZE already gives a non-null
+      // default (string -> "", Array/Map/Set -> a fresh instance), lazy must
+      // match or it crashes on an absent field where eager would not. Structs
+      // and other types are left null: a no-default non-nullable struct can only
+      // exist as a lazy field (`JSON.Lazy<T>` / `!` - eager rejects it at
+      // TS2564), and that form's established contract is "absent -> null".
+      // StaticArray (no nullary constructor) and nullable fields keep null too.
       const refDefault =
         fieldDefault != null
           ? fieldDefault
-          : !storesScalar &&
-              baseT == T &&
-              (baseT == "string" || baseT == "String")
-            ? '""'
+          : !storesScalar && baseT == T
+            ? baseT == "string" || baseT == "String"
+              ? '""'
+              : baseT.startsWith("Array<") ||
+                  baseT.startsWith("Map<") ||
+                  baseT.startsWith("Set<")
+                ? `new ${baseT}()`
+                : null
             : null;
       __hasLazy = true;
       // Carry @omitnull/@omitif from the original field onto the lowered slot
