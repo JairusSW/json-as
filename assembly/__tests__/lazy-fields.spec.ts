@@ -91,7 +91,7 @@ describe("JSON.Lazy<T> setter updates serialization", () => {
   o.id = 1;
   r.owner = o;
   expect(JSON.stringify(r)).toBe(
-    '{"name":"r","owner":{"login":"new","id":1,"deep":null},"tags":[1,2,3]}',
+    '{"name":"r","owner":{"login":"new","id":1,"deep":{"v":0}},"tags":[1,2,3]}',
   );
 });
 
@@ -182,9 +182,9 @@ describe("@omitnull works on lazy fields (omits null without materializing)", ()
   const w = new Owner();
   w.login = "z";
   set.owner = w;
-  // materialized owner re-serializes all its fields (incl. id, lazy deep=null)
+  // materialized owner re-serializes all its fields (incl. id, lazy deep=default {v:0})
   expect(JSON.stringify(set)).toBe(
-    '{"owner":{"login":"z","id":0,"deep":null},"name":"x"}',
+    '{"owner":{"login":"z","id":0,"deep":{"v":0}},"name":"x"}',
   ); // kept
   const nul = new OmitNullLazy();
   nul.owner = null;
@@ -221,10 +221,10 @@ describe("@lazy decorator marks fields like JSON.Lazy<T>", () => {
   // untouched -> raw passthrough
   expect(JSON.stringify(JSON.parse<DecoRepo>(SRC))).toBe(SRC);
   // mutate -> reflected. owner/tags were read above so they're materialized;
-  // owner re-serializes with its own (absent) lazy `deep` field as null.
+  // owner re-serializes with its own (absent) lazy `deep` field as a default instance {v:0}.
   r.count = 99;
   expect(JSON.stringify(r)).toBe(
-    '{"name":"r","owner":{"login":"octo","id":7,"deep":null},"tags":[1,2,3],"count":99}',
+    '{"name":"r","owner":{"login":"octo","id":7,"deep":{"v":0}},"tags":[1,2,3],"count":99}',
   );
 });
 
@@ -253,11 +253,18 @@ describe("absent ref lazy field serializes its default (no null-cast trap)", () 
 // The symmetric absent-with-default case is covered above; this is the
 // no-default half.
 @json({ lazy: "auto" })
+@json class Cell {
+  n: i32 = 3;
+}
+
+
+@json({ lazy: "auto" })
 class NoDefaultRefs {
   a: string = "";
   ns: string; // no-default non-nullable string -> ""
   narr: i32[]; // no-default non-nullable array  -> []
   nmap: Map<string, i32>; // no-default non-nullable map -> {}
+  nst!: JSON.Lazy<Cell>; // no-default non-nullable struct -> default instance
   b: string = "";
 }
 
@@ -266,10 +273,12 @@ describe("absent no-default non-nullable ref fields resolve to the type default 
   expect(r.ns).toBe("");
   expect(r.narr.length).toBe(0);
   expect(r.nmap.size).toBe(0);
+  expect(r.nst.n).toBe(3); // struct getter access no longer aborts
   expect(JSON.stringify(r)).toBe(
-    '{"a":"x","ns":"","narr":[],"nmap":{},"b":"y"}',
+    '{"a":"x","ns":"","narr":[],"nmap":{},"nst":{"n":3},"b":"y"}',
   );
   const c = new NoDefaultRefs();
   expect(c.ns).toBe("");
   expect(c.narr.length).toBe(0);
+  expect(c.nst.n).toBe(3);
 });

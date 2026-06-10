@@ -596,24 +596,19 @@ export class JSONTransform extends Visitor {
       const fieldDefault = fdInit ? toString(fdInit) : null;
       // A non-nullable ref field with no declared default seeds `__x_val` to
       // null, and the getter's `__x_val as T` aborts on null for a non-nullable
-      // T. For the container types eager __INITIALIZE already gives a non-null
-      // default (string -> "", Array/Map/Set -> a fresh instance), lazy must
-      // match or it crashes on an absent field where eager would not. Structs
-      // and other types are left null: a no-default non-nullable struct can only
-      // exist as a lazy field (`JSON.Lazy<T>` / `!` - eager rejects it at
-      // TS2564), and that form's established contract is "absent -> null".
-      // StaticArray (no nullary constructor) and nullable fields keep null too.
+      // T. Seed the type's default instead, mirroring eager __INITIALIZE: "" for
+      // strings, a fresh instance (`new T()`) for everything else - arrays, maps,
+      // sets, and structs (the last only reachable as a lazy `JSON.Lazy<T>` / `!`
+      // field; an absent one now yields a default instance, not null). Nullable
+      // fields and scalars keep their null/0 defaults; StaticArray is left null
+      // (no nullary constructor, as the eager path also skips it).
       const refDefault =
         fieldDefault != null
           ? fieldDefault
-          : !storesScalar && baseT == T
+          : !storesScalar && baseT == T && !baseT.startsWith("StaticArray<")
             ? baseT == "string" || baseT == "String"
               ? '""'
-              : baseT.startsWith("Array<") ||
-                  baseT.startsWith("Map<") ||
-                  baseT.startsWith("Set<")
-                ? `new ${baseT}()`
-                : null
+              : `new ${baseT}()`
             : null;
       __hasLazy = true;
       // Carry @omitnull/@omitif from the original field onto the lowered slot

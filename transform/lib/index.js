@@ -359,14 +359,10 @@ export class JSONTransform extends Visitor {
             const fieldDefault = fdInit ? toString(fdInit) : null;
             const refDefault = fieldDefault != null
                 ? fieldDefault
-                : !storesScalar && baseT == T
+                : !storesScalar && baseT == T && !baseT.startsWith("StaticArray<")
                     ? baseT == "string" || baseT == "String"
                         ? '""'
-                        : baseT.startsWith("Array<") ||
-                            baseT.startsWith("Map<") ||
-                            baseT.startsWith("Set<")
-                            ? `new ${baseT}()`
-                            : null
+                        : `new ${baseT}()`
                     : null;
             __hasLazy = true;
             const omitIfDeco = decos?.find((d) => d.name.text === "omitif");
