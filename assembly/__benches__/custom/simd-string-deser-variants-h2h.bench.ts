@@ -48,7 +48,7 @@ import { __heap_base } from "memory";
 
 // --- HYBRID (adaptive): clean runs are bulk-copied via one memory.copy after
 // a read-only v128 scan (bandwidth-optimal for long sparse runs), while the
-// escape-containing block reuses STREAM's trick — one whole-block v128 store
+// escape-containing block reuses STREAM's trick - one whole-block v128 store
 // covers the plain prefix for free, then decode. Aims to dominate both PROD
 // and pure STREAM: STREAM-cheap on dense, PROD-fast on large sparse.
 // @ts-expect-error: @inline is a valid decorator
@@ -80,7 +80,7 @@ import { __heap_base } from "memory";
       bs.offset += 16;
       srcStart += 16;
       // If the run continues, switch to bulk-memcpy for the remainder
-      // (bandwidth-optimal for long sparse runs — avoids STREAM's cliff).
+      // (bandwidth-optimal for long sparse runs - avoids STREAM's cliff).
       if (srcStart <= srcEnd16) {
         const b2 = load<v128>(srcStart);
         if (
@@ -164,7 +164,7 @@ import { __heap_base } from "memory";
 
 // --- STREAM: optimistically store each scanned block into the scratch buffer,
 // then on an escape keep only the plain prefix and decode. Single pass over
-// the data (read once, write once) — favors long plain runs between escapes.
+// the data (read once, write once) - favors long plain runs between escapes.
 // @ts-expect-error: @inline is a valid decorator
 @inline function escScan_STREAM(
   payloadStart: usize,

@@ -490,7 +490,7 @@ export class JSONTransform extends Visitor {
 
     // A whole-class custom @serializer/@deserializer takes over via
     // __SERIALIZE_CUSTOM/__DESERIALIZE_CUSTOM, bypassing the generated codegen
-    // (and the lazy slots) entirely — so lazy fields can't be honored here.
+    // (and the lazy slots) entirely - so lazy fields can't be honored here.
     const hasCustomSerde = node.members.some(
       (m) =>
         m.kind === NodeKind.MethodDeclaration &&
@@ -511,6 +511,13 @@ export class JSONTransform extends Visitor {
     // `__src` ref set via `__SET_SRC` (called by JSON.parse). Idempotent: after
     // the rewrite the field is a `u64`, so the extends re-entry won't match it.
     let __hasLazy = false;
+    // For ref (non-packed) lazy fields whose slot defaults to materialized
+    // (`u64.MAX_VALUE`, i.e. the field has a declared default), __INITIALIZE must
+    // also seed the `__x_val` field — otherwise an *absent* such field on the
+    // JSON.parse path (which runs __INITIALIZE, not the field initializers) is
+    // left with `__x_lz == MAX` but `__x_val == null`, and serialize trips
+    // `null as T`. Keyed by the slot field name (`__x_lz`).
+    const __lazyValInits = new Map<string, string>();
     for (let i = node.members.length - 1; i >= 0; i--) {
       const fd = node.members[i];
       if (
@@ -561,7 +568,7 @@ export class JSONTransform extends Visitor {
       if (hasCustomSerde)
         throwError(
           "Lazy fields (@lazy / JSON.Lazy<T> / @json({ lazy })) are not supported " +
-            "on a class with a custom @serializer/@deserializer — the custom methods " +
+            "on a class with a custom @serializer/@deserializer - the custom methods " +
             "bypass the generated (de)serializer, so the deferred slot is never filled. " +
             "Remove the lazy marker or the custom (de)serializer.",
           fd.range,
@@ -589,7 +596,7 @@ export class JSONTransform extends Visitor {
       const fieldDefault = fdInit ? toString(fdInit) : null;
       __hasLazy = true;
       // Carry @omitnull/@omitif from the original field onto the lowered slot
-      // (they can't ride the u64 slot directly — @omitnull rejects primitives —
+      // (they can't ride the u64 slot directly - @omitnull rejects primitives -
       // so the member loop sets the flags from here).
       const omitIfDeco = decos?.find(
         (d) => (<IdentifierExpression>d.name).text === "omitif",
@@ -600,7 +607,7 @@ export class JSONTransform extends Visitor {
         omitNull: hasDeco("omitnull"),
         omitIf: omitIfDeco?.args?.[0] ?? null,
       });
-      // `__name_lz` (u64) packs the slot state into one word — no separate
+      // `__name_lz` (u64) packs the slot state into one word - no separate
       // materialized flag needed: a real slice range is (start<<32)|end with
       // `start` a live heap pointer, so it can never be `u64.MAX_VALUE` (that
       // would need a 4GB pointer with no body). Thus:
@@ -610,11 +617,11 @@ export class JSONTransform extends Visitor {
       // The materialized value lives in the TRACED `__name_val` (GC keeps it
       // alive; a managed pointer in the u64 would be invisible to the GC).
       // A <=32-bit scalar value is not a pointer, so it can live directly in the
-      // slot's low 32 bits — no traced __name_val field needed. State for these:
+      // slot's low 32 bits - no traced __name_val field needed. State for these:
       //   0                    -> absent (type default)
       //   high32 == 0xffffffff -> materialized scalar, value bits in low32
       //   anything else        -> a slice range to parse on first read
-      // (0xffffffff in high32 can't be a range — `start` is never a 4GB ptr.)
+      // (0xffffffff in high32 can't be a range - `start` is never a 4GB ptr.)
       const packScalar =
         baseT === "i8" ||
         baseT === "u8" ||
@@ -673,6 +680,16 @@ export class JSONTransform extends Visitor {
             ]
       ).map((src) => SimpleParser.parseClassMember(src, node));
       node.members.splice(i, 1, ...lowered);
+      // Ref lazy field with a declared default -> slot seeds to materialized
+      // (MAX); record the matching `__x_val` initializer so __INITIALIZE seeds it
+      // too (the JSON.parse path skips field initializers). Packed scalars carry
+      // their default in the slot itself, so they need no `_val` seed.
+      if (!packScalar && fieldDefault != null) {
+        __lazyValInits.set(
+          `__${fname}_lz`,
+          `  store<${valueType}>(changetype<usize>(this), ${fieldDefault ?? valueDefault}, offsetof<this>(${JSON.stringify(`__${fname}_val`)}));\n`,
+        );
+      }
     }
     if (__hasLazy) {
       // Single GC-anchor for the source string + the hook JSON.parse calls so
@@ -692,7 +709,7 @@ export class JSONTransform extends Visitor {
           v.kind === NodeKind.FieldDeclaration &&
           !v.is(CommonFlags.Static) &&
           // Lazy slot fields (`__name_lz`) are emitted `private` for
-          // encapsulation but must still (de)serialize — keep them.
+          // encapsulation but must still (de)serialize - keep them.
           (!v.is(CommonFlags.Private) || lazyInner.has(v.name.text)) &&
           !v.is(CommonFlags.Protected) &&
           !v.decorators?.some(
@@ -1243,7 +1260,7 @@ export class JSONTransform extends Visitor {
         mem.flags.set(PropertyFlags.Lazy, null);
         mem.lazyInner = lzInner.inner; // inner type T for the deser/ser codegen
         // @omitnull/@omitif carried from the original (pre-lowering) field.
-        // Must also clear `schema.static` (as the decorator handler does) — it
+        // Must also clear `schema.static` (as the decorator handler does) - it
         // gates the optional/omit serialize path; leaving it set skips omission.
         if (lzInner.omitNull) {
           mem.flags.set(PropertyFlags.OmitNull, null);
@@ -1332,7 +1349,7 @@ export class JSONTransform extends Visitor {
 
     // @omitnull/@omitif fields are floated to the front (serialize emits them
     // with a leading comma, and the probe deserializer is order-tolerant). This
-    // only moves @omit fields — @optional fields stay in DECLARATION ORDER, which
+    // only moves @omit fields - @optional fields stay in DECLARATION ORDER, which
     // the order-sensitive optional fast path requires (it matches in declaration
     // order with skips, so moving them would desync against real documents).
     this.schema.members = sortMembers(this.schema.members);
@@ -1359,8 +1376,8 @@ export class JSONTransform extends Visitor {
     const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
     const hasTypeParams =
       !!node.typeParameters && node.typeParameters.length > 0;
-    // Both FAST tiers — the straight-line one and the seenAny-stateful optional
-    // path — are chunked into helper methods (see chunkFastBlocks /
+    // Both FAST tiers - the straight-line one and the seenAny-stateful optional
+    // path - are chunked into helper methods (see chunkFastBlocks /
     // chunkFastBlocksOptional), so a wide struct no longer emits a single
     // oversized function: the fast path stays compilable at any field count.
     const useFastPath =
@@ -1378,7 +1395,7 @@ export class JSONTransform extends Visitor {
       }
       if (hasOptionalMembers) {
         // Conditional (@omitnull/@omitif) fields emit a LEADING comma gated on
-        // this flag — set true once any field has been written — so trailing
+        // this flag - set true once any field has been written - so trailing
         // omitted fields never leave a dangling comma (invalid JSON).
         SERIALIZE += indent + "let wrote = false;\n";
       }
@@ -1468,10 +1485,14 @@ export class JSONTransform extends Visitor {
         // Always store the declared default, including null/0/0.0/false. __new()
         // returns uninitialized memory (it does NOT zero), so any field left
         // unwritten holds garbage. The fast path reads field values in place
-        // (string-buffer reuse, nullable-pointer checks) and — with @optional /
-        // skip-unknown — may legitimately leave a field unwritten, so every
+        // (string-buffer reuse, nullable-pointer checks) and - with @optional /
+        // skip-unknown - may legitimately leave a field unwritten, so every
         // field must hold its default after __INITIALIZE.
         INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
+        // A ref lazy field's slot seeds to materialized (MAX); also seed its
+        // `__x_val` so an absent field doesn't serialize `null as T`.
+        const __valInit = __lazyValInits.get(member.name);
+        if (__valInit) INITIALIZE += __valInit;
       } else if (member.generic) {
         INITIALIZE += `  if (isManaged<nonnull<${member.type}>>() || isReference<nonnull<${member.type}>>()) {\n`;
         INITIALIZE += `    store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())), offsetof<this>(${JSON.stringify(member.name)}));\n`;
@@ -1517,7 +1538,7 @@ export class JSONTransform extends Visitor {
         if (isFirst) isFirst = false;
       } else if (isRegular && !isPure) {
         // Optional fields sort ahead of regular ones, so the first regular field
-        // can't tell at compile time whether anything precedes it — gate its
+        // can't tell at compile time whether anything precedes it - gate its
         // comma on `wrote`. Later regulars always follow a field, so they keep
         // the static leading comma.
         if (isFirst && hasOptionalMembers) {
@@ -1548,7 +1569,7 @@ export class JSONTransform extends Visitor {
           let omitNullCond: string;
           if (member.flags.has(PropertyFlags.Lazy)) {
             // A lazy slot's null-ness is encoded in __x_val + __x_lz (the slot
-            // state) — test it without materializing.
+            // state) - test it without materializing.
             const base = realName.slice(0, -3); // drop "_lz"
             omitNullCond =
               `!JSON.__lazyIsNull(` +
@@ -1676,7 +1697,7 @@ export class JSONTransform extends Visitor {
         )
           sortedMembers.number.push(member);
         // JSON.Arr serializes as `[...]`, so the deserializer routes it through
-        // the array (`[`) branch — it must live in the array bucket, not object.
+        // the array (`[`) branch - it must live in the array bucket, not object.
         else if (isArray(type) || type == "JSON.Arr" || type == "Arr")
           sortedMembers.array.push(member);
         else sortedMembers.object.push(member);
@@ -1774,7 +1795,7 @@ export class JSONTransform extends Visitor {
       if (member.flags.has(PropertyFlags.Lazy)) {
         // On-demand slot: scan the value's extent (same scanner JSON.Raw and
         // containers use) but store the packed range (start<<32)|end into the
-        // u64 slot — no copy.
+        // u64 slot - no copy.
         const lazyInner = member.lazyInner!;
         out.push("{");
         out.push(
@@ -1982,7 +2003,7 @@ export class JSONTransform extends Visitor {
           // Per-class fallback: if this nested object can't be handled on the
           // fast path (out-of-order keys, an unmodeled/extra key, etc.), parse
           // just this one object via its own slow path and keep the parent on
-          // the fast path — rather than failing the whole document.
+          // the fast path - rather than failing the whole document.
           out.push(
             `  const __fe = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${valuePtr}, srcEnd, value);`,
           );
@@ -2271,7 +2292,7 @@ export class JSONTransform extends Visitor {
     indent = "  ";
 
     // Chunked FAST deserialization. A wide struct would otherwise emit one
-    // enormous __DESERIALIZE_FAST — large enough to crash the Binaryen optimizer
+    // enormous __DESERIALIZE_FAST - large enough to crash the Binaryen optimizer
     // past a few hundred fields. Split the per-field blocks across helper methods
     // so every generated function stays small; the main path calls them in order
     // and bails (to tier 2 / slow) the moment one returns 0. A pointer srcStart is
@@ -2315,7 +2336,7 @@ export class JSONTransform extends Visitor {
     ): string => {
       // The optional probe path is emitted as a SINGLE function. Its chunked
       // form threads `seenAny`/`kp` across helper-method boundaries and
-      // miscompiles — large optional structs (e.g. a 40-field user) trapped at
+      // miscompiles - large optional structs (e.g. a 40-field user) trapped at
       // runtime. Emitting inline is correct; compile time is not a concern.
       // (Static structs still chunk via chunkFastBlocks, which is correct.)
       return blocks.join("");
@@ -2540,7 +2561,7 @@ export class JSONTransform extends Visitor {
       // following field re-probes the same position (and re-consumes the comma).
       // `seenAny` tracks whether a prior field was emitted, so we know when a
       // leading comma must precede the key. Unknown/extra keys aren't handled
-      // here — they leave a non-`}` token after the last field and fall to slow.
+      // here - they leave a non-`}` token after the last field and fall to slow.
       const multi = this.schema.members.length > 1;
       const i1 = "  ";
       const i2 = "    ";
@@ -2660,8 +2681,8 @@ export class JSONTransform extends Visitor {
     DESERIALIZE += indent + "      }\n";
     // STRICT: at a key position (between pairs, not mid-key) the only legal
     // characters are a string-opening quote, a comma, or the closing brace.
-    // Anything else — an unquoted/single-quoted/numeric key, or garbage after a
-    // value with no separating comma — is malformed JSON. (Whitespace is already
+    // Anything else - an unquoted/single-quoted/numeric key, or garbage after a
+    // value with no separating comma - is malformed JSON. (Whitespace is already
     // consumed above, so `code` here is the first non-space character.)
     if (STRICT)
       DESERIALIZE +=
@@ -3552,7 +3573,7 @@ export class JSONTransform extends Visitor {
     // into every call site (parse<T>, array/element deserialize, nested structs).
     // Past ~100 fields the duplicated code can overwhelm the Binaryen optimizer
     // ("crashed during optimize"). Above the limit, emit them as shared (called)
-    // functions instead — one copy, far less code, and a single `call` of
+    // functions instead - one copy, far less code, and a single `call` of
     // overhead per object that the per-field work dwarfs.
     const WIDE_STRUCT_FIELD_LIMIT = 32;
     if (this.schema.members.length > WIDE_STRUCT_FIELD_LIMIT) {
@@ -4363,11 +4384,11 @@ function classLazyMode(node: ClassDeclaration): LazyMode {
 
 // Structural parse-cost score for `lazy: "auto"`. byteSize is a buffer-prealloc
 // estimate (string/array/object all ~4), so it can't separate cheap scalars
-// from heavy allocating/recursive values — categorize by type instead. Fields
+// from heavy allocating/recursive values - categorize by type instead. Fields
 // at or above LAZY_AUTO_THRESHOLD are deferred; primitives/enums/Date stay eager.
 const LAZY_AUTO_THRESHOLD = 10;
 
-// One-level category cost of a type (does NOT recurse into nested structs —
+// One-level category cost of a type (does NOT recurse into nested structs -
 // they count as a flat "heavy" 20 here, so there is no cycle risk).
 function lazyTypeCost(type: string, source: Src, parser: Parser): number {
   const base = stripNull(type);
@@ -4393,7 +4414,7 @@ function lazyAutoCost(type: string, source: Src, parser: Parser): number {
   const direct = lazyTypeCost(type, source, parser);
   if (direct < 20) return direct; // scalar / Date / string / Value / Obj / Raw
   // direct == 20: an array/map/etc OR a nested @json struct. Refine a struct by
-  // summing its direct fields' costs (one level) — a tiny all-scalar struct is
+  // summing its direct fields' costs (one level) - a tiny all-scalar struct is
   // cheap to parse, so keep it eager. Containers and cross-source/unresolved
   // types fall back to "defer" (20).
   const decl = source.getClass(stripNull(type));
@@ -4418,7 +4439,7 @@ function lazyAutoCost(type: string, source: Src, parser: Parser): number {
 
 // Detect a `Lazy<T>` type wrapper from the AST rather than the raw spelling, so
 // it survives namespace aliasing: `JSON.Lazy<T>`, `J.Lazy<T>` (import { JSON as
-// J }), `ns.JSON.Lazy<T>`, or a bare imported `Lazy<T>` all match — we read the
+// J }), `ns.JSON.Lazy<T>`, or a bare imported `Lazy<T>` all match - we read the
 // terminal name segment and take the inner type from the type argument node.
 // Returns the inner type T (string, with outer nullability folded in) or null.
 function lazyWrapperInner(typeNode: Node | null): string | null {

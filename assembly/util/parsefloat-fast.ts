@@ -3,7 +3,7 @@ import { ptrToStr } from "./ptrToStr";
 // Lemire-style fast float parser.
 //
 // Reference: Daniel Lemire, "Number parsing at a gigabyte per second"
-// (2021). https://arxiv.org/abs/2101.11408 — implemented in
+// (2021). https://arxiv.org/abs/2101.11408 - implemented in
 // https://github.com/fastfloat/fast_float.
 //
 // The "fast path" applies when:

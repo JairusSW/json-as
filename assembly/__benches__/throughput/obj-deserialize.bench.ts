@@ -1,6 +1,6 @@
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
-import { bench, dumpToFile } from "../lib/bench";
+import { bench, blackbox, dumpToFile } from "../lib/bench";
 
 
 @json // 1 KB
@@ -439,3 +439,265 @@ bench(
   objStrBytes * opsForBytes(bytes10),
 );
 dumpToFile("obj-10mb", "deserialize");
+
+// --- JSON.Obj (dynamic) variant: parse the same payloads into JSON.Obj ---
+bench(
+  "Deserialize Object JSON.Obj (1kb)",
+  () => {
+    let count = opsForSmallBytes(smallBytes0);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objSmallStr));
+      count--;
+    }
+  },
+  200000,
+  objSmallStrBytes * opsForSmallBytes(smallBytes0),
+);
+dumpToFile("obj-1kb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (100kb)",
+  () => {
+    let count = opsForSmallBytes(smallBytes2);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objSmallStr));
+      count--;
+    }
+  },
+  30000,
+  objSmallStrBytes * opsForSmallBytes(smallBytes2),
+);
+dumpToFile("obj-100kb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (200kb)",
+  () => {
+    let count = opsForSmallBytes(smallBytes4);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objSmallStr));
+      count--;
+    }
+  },
+  15000,
+  objSmallStrBytes * opsForSmallBytes(smallBytes4),
+);
+dumpToFile("obj-200kb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (300kb)",
+  () => {
+    let count = opsForSmallBytes(smallBytes6);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objSmallStr));
+      count--;
+    }
+  },
+  10000,
+  objSmallStrBytes * opsForSmallBytes(smallBytes6),
+);
+dumpToFile("obj-300kb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (400kb)",
+  () => {
+    let count = opsForSmallBytes(smallBytes8);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objSmallStr));
+      count--;
+    }
+  },
+  7500,
+  objSmallStrBytes * opsForSmallBytes(smallBytes8),
+);
+dumpToFile("obj-400kb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (500kb)",
+  () => {
+    let count = opsForSmallBytes(smallBytes10);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objSmallStr));
+      count--;
+    }
+  },
+  6000,
+  objSmallStrBytes * opsForSmallBytes(smallBytes10),
+);
+dumpToFile("obj-500kb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (600kb)",
+  () => {
+    let count = opsForSmallBytes(smallBytes12);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objSmallStr));
+      count--;
+    }
+  },
+  5000,
+  objSmallStrBytes * opsForSmallBytes(smallBytes12),
+);
+dumpToFile("obj-600kb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (700kb)",
+  () => {
+    let count = opsForSmallBytes(smallBytes14);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objSmallStr));
+      count--;
+    }
+  },
+  4286,
+  objSmallStrBytes * opsForSmallBytes(smallBytes14),
+);
+dumpToFile("obj-700kb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (800kb)",
+  () => {
+    let count = opsForSmallBytes(smallBytes16);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objSmallStr));
+      count--;
+    }
+  },
+  3750,
+  objSmallStrBytes * opsForSmallBytes(smallBytes16),
+);
+dumpToFile("obj-800kb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (900kb)",
+  () => {
+    let count = opsForSmallBytes(smallBytes18);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objSmallStr));
+      count--;
+    }
+  },
+  3334,
+  objSmallStrBytes * opsForSmallBytes(smallBytes18),
+);
+dumpToFile("obj-900kb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (1mb)",
+  () => {
+    let count = opsForBytes(bytes1);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objStr));
+      count--;
+    }
+  },
+  500,
+  objStrBytes * opsForBytes(bytes1),
+);
+dumpToFile("obj-1mb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (2mb)",
+  () => {
+    let count = opsForBytes(bytes2);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objStr));
+      count--;
+    }
+  },
+  250,
+  objStrBytes * opsForBytes(bytes2),
+);
+dumpToFile("obj-2mb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (3mb)",
+  () => {
+    let count = opsForBytes(bytes3);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objStr));
+      count--;
+    }
+  },
+  166,
+  objStrBytes * opsForBytes(bytes3),
+);
+dumpToFile("obj-3mb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (4mb)",
+  () => {
+    let count = opsForBytes(bytes4);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objStr));
+      count--;
+    }
+  },
+  125,
+  objStrBytes * opsForBytes(bytes4),
+);
+dumpToFile("obj-4mb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (5mb)",
+  () => {
+    let count = opsForBytes(bytes5);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objStr));
+      count--;
+    }
+  },
+  100,
+  objStrBytes * opsForBytes(bytes5),
+);
+dumpToFile("obj-5mb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (6mb)",
+  () => {
+    let count = opsForBytes(bytes6);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objStr));
+      count--;
+    }
+  },
+  83,
+  objStrBytes * opsForBytes(bytes6),
+);
+dumpToFile("obj-6mb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (7mb)",
+  () => {
+    let count = opsForBytes(bytes7);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objStr));
+      count--;
+    }
+  },
+  71,
+  objStrBytes * opsForBytes(bytes7),
+);
+dumpToFile("obj-7mb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (8mb)",
+  () => {
+    let count = opsForBytes(bytes8);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objStr));
+      count--;
+    }
+  },
+  62,
+  objStrBytes * opsForBytes(bytes8),
+);
+dumpToFile("obj-8mb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (9mb)",
+  () => {
+    let count = opsForBytes(bytes9);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objStr));
+      count--;
+    }
+  },
+  55,
+  objStrBytes * opsForBytes(bytes9),
+);
+dumpToFile("obj-9mb-obj", "deserialize");
+bench(
+  "Deserialize Object JSON.Obj (10mb)",
+  () => {
+    let count = opsForBytes(bytes10);
+    while (count > 0) {
+      blackbox(JSON.parse<JSON.Obj>(objStr));
+      count--;
+    }
+  },
+  50,
+  objStrBytes * opsForBytes(bytes10),
+);
+dumpToFile("obj-10mb-obj", "deserialize");

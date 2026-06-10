@@ -12,7 +12,7 @@ import { serializeDynamic } from "./typedarray";
 
 export function serializeArbitrary(src: JSON.Value): void {
   // Verbatim passthrough: an untouched (still-deferred) value emits its original
-  // source bytes directly — no materialization, no re-encoding. Peek the slice
+  // source bytes directly - no materialization, no re-encoding. Peek the slice
   // without reading `src.type` (which would force materialization).
   const lz = src.__lazySlice();
   if (lz != 0) {
@@ -31,7 +31,7 @@ export function serializeArbitrary(src: JSON.Value): void {
       break;
     case JSON.Types.Raw:
       // A materialized JSON.Raw value (e.g. set into a JSON.Obj/Arr) emits its
-      // pre-formatted bytes as-is — without this it fell into the struct default.
+      // pre-formatted bytes as-is - without this it fell into the struct default.
       serializeRaw(src.get<JSON.Raw>());
       break;
     case JSON.Types.U8:

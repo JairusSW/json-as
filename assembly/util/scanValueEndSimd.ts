@@ -23,7 +23,7 @@ import { isSpace } from "./isSpace";
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_SPACE = i16x8.splat(0x20);
 // JSON whitespace besides space is the contiguous range 0x09..0x0d
-// (tab/LF/VT/FF/CR), matched as `(c - 9) u<= 4` — one sub + one unsigned
+// (tab/LF/VT/FF/CR), matched as `(c - 9) u<= 4` - one sub + one unsigned
 // compare instead of five equality tests. Exact: matches `isSpace` with no
 // false positives.
 // @ts-expect-error: @lazy is a valid decorator
@@ -44,7 +44,7 @@ function quoteOrBackslashMask(block: v128): i32 {
   );
 }
 
-// Lanes equal to `"`, `{`, `}`, `[`, or `]` — the only bytes that, outside a
+// Lanes equal to `"`, `{`, `}`, `[`, or `]` - the only bytes that, outside a
 // string, change depth or open a string. Everything else (digits, `:`, `,`,
 // whitespace, true/false/null) can be bulk-skipped between them.
 function structuralOrQuoteMask(block: v128): i32 {
@@ -134,7 +134,7 @@ function scanCompositeValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
     }
     ptr += 2;
     // `,` and `:` sit one byte from the next token, so vectorizing them only
-    // adds SIMD setup on string-dense objects — stay scalar. Other fillers
+    // adds SIMD setup on string-dense objects - stay scalar. Other fillers
     // (number digits, whitespace, true/false/null) can run long; vectorize past
     // them to the next `"`/`{`/`}`/`[`/`]`.
     if (code == COMMA || code == COLON) continue;

@@ -1,4 +1,4 @@
-// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs — do not edit by hand.
+// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs - do not edit by hand.
 // Re-run `node scripts/sync-lazy-benches.mjs` to regenerate.
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
@@ -11,10 +11,10 @@ import {
 } from "../lib/bench";
 
 // Twitter search API response (miloyip/nativejson-benchmark). Fully modeled as a
-// struct schema — no JSON.Raw — so the lazy bench really materializes every
+// struct schema - no JSON.Raw - so the lazy bench really materializes every
 // field. Sometimes-absent keys are marked @optional so the whole document stays
 // on the fast path; retweeted_status is recursively a Status (a retweet is just
-// a tweet, with no nested retweet of its own — hence @optional).
+// a tweet, with no nested retweet of its own - hence @optional).
 
 @json({ lazy: "auto" })
 class TweetMetadata {
@@ -244,6 +244,59 @@ class Twitter {
   search_metadata: SearchMetadata = new SearchMetadata();
 }
 
+function touchRoot(root: Twitter): f64 {
+  let s = 0.0;
+  for (let i = 0, n = root.statuses.length; i < n; i++) {
+    const status = unchecked(root.statuses[i]);
+    s += <f64>status.created_at.length;
+    s += <f64>status.id;
+    s += <f64>status.text.length;
+    const inReply = status.in_reply_to_status_id;
+    if (inReply !== null) s += <f64>inReply.value;
+    s += <f64>status.user.id;
+    s += <f64>status.user.screen_name.length;
+    s += <f64>status.retweet_count;
+    s += <f64>status.favorite_count;
+  }
+  return s;
+}
+
+function touchFindTweet(root: Twitter): f64 {
+  for (let i = 0, n = root.statuses.length; i < n; i++) {
+    const status = unchecked(root.statuses[i]);
+    if (status.id == 505874901689851904) return <f64>status.text.length;
+  }
+  return 0.0;
+}
+
+function touchTopTweet(root: Twitter): f64 {
+  let best = -1;
+  let bestIndex = -1;
+  for (let i = 0, n = root.statuses.length; i < n; i++) {
+    const count = unchecked(root.statuses[i]).retweet_count;
+    if (count <= 60 && count >= best) {
+      best = count;
+      bestIndex = i;
+    }
+  }
+  if (bestIndex < 0) return 0.0;
+  const status = unchecked(root.statuses[bestIndex]);
+  return (
+    <f64>best + <f64>status.text.length + <f64>status.user.screen_name.length
+  );
+}
+
+function touchDistinctUserId(root: Twitter): f64 {
+  let s = 0.0;
+  for (let i = 0, n = root.statuses.length; i < n; i++) {
+    const status = unchecked(root.statuses[i]);
+    s += <f64>status.user.id;
+    const retweeted = status.retweeted_status;
+    if (retweeted !== null) s += <f64>retweeted.user.id;
+  }
+  return s;
+}
+
 const prettyJson = readFile(
   "./assembly/__benches__/payloads/twitter.pretty.json",
 );
@@ -257,7 +310,8 @@ const twitter = JSON.parse<Twitter>(prettyJson);
 bench(
   "Deserialize Twitter Lazy (pretty)",
   () => {
-    blackbox(JSON.parse<Twitter>(prettyJson));
+    const root = JSON.parse<Twitter>(prettyJson);
+    blackbox(touchRoot(root));
   },
   2000,
   utf8ByteLength(prettyJson),
@@ -267,12 +321,46 @@ dumpToFile("twitter-lazy-pretty", "deserialize");
 bench(
   "Deserialize Twitter Lazy (min)",
   () => {
-    blackbox(JSON.parse<Twitter>(minJson));
+    const root = JSON.parse<Twitter>(minJson);
+    blackbox(touchRoot(root));
   },
   2000,
   utf8ByteLength(minJson),
 );
 dumpToFile("twitter-lazy-min", "deserialize");
+
+bench(
+  "Find Tweet Twitter Lazy (min)",
+  () => {
+    const root = JSON.parse<Twitter>(minJson);
+    blackbox(touchFindTweet(root));
+  },
+  2000,
+  utf8ByteLength(minJson),
+);
+dumpToFile("twitter-find_tweet-lazy-min", "deserialize");
+
+bench(
+  "Top Tweet Twitter Lazy (min)",
+  () => {
+    const root = JSON.parse<Twitter>(minJson);
+    blackbox(touchTopTweet(root));
+  },
+  2000,
+  utf8ByteLength(minJson),
+);
+dumpToFile("twitter-top_tweet-lazy-min", "deserialize");
+
+bench(
+  "Distinct User ID Twitter Lazy (min)",
+  () => {
+    const root = JSON.parse<Twitter>(minJson);
+    blackbox(touchDistinctUserId(root));
+  },
+  2000,
+  utf8ByteLength(minJson),
+);
+dumpToFile("twitter-distinct_user_id-lazy-min", "deserialize");
 
 bench(
   "Serialize Twitter Lazy (min)",

@@ -166,7 +166,7 @@ describe('@json({ lazy: "all" }) defers every field', () => {
 }
 
 describe("lazy fields on a fresh (unparsed) instance return defaults", () => {
-  // Regression: an unset lazy slot (lz==0) must NOT run parse<T>("null") —
+  // Regression: an unset lazy slot (lz==0) must NOT run parse<T>("null") -
   // that garbles scalars. The getter returns the type default instead.
   const d = new LazyPrimitives();
   expect(d.count.toString()).toBe("0");
@@ -176,7 +176,7 @@ describe("lazy fields on a fresh (unparsed) instance return defaults", () => {
 });
 
 describe("@omitnull works on lazy fields (omits null without materializing)", () => {
-  // @omitnull triggers the optional-field sort, so the optional field leads —
+  // @omitnull triggers the optional-field sort, so the optional field leads -
   // same ordering as a non-lazy @omitnull class.
   const set = new OmitNullLazy();
   const w = new Owner();
@@ -226,4 +226,24 @@ describe("@lazy decorator marks fields like JSON.Lazy<T>", () => {
   expect(JSON.stringify(r)).toBe(
     '{"name":"r","owner":{"login":"octo","id":7,"deep":null},"tags":[1,2,3],"count":99}',
   );
+});
+
+// Regression: an *absent* ref lazy field with a declared default must serialize
+// that default, not crash. On the JSON.parse path __INITIALIZE seeds the slot to
+// materialized (MAX) — it must also seed __x_val, else serialize hits `null as T`
+// (the github_events / gsoc-2018 lazy-serialize trap).
+@json({ lazy: "auto" })
+class SparseLazy {
+  a: string = "";
+  mid: string = "default";
+  count: i32 = 7;
+  b: string = "";
+}
+
+describe("absent ref lazy field serializes its default (no null-cast trap)", () => {
+  // "mid" and "count" are absent in the source.
+  const r = JSON.parse<SparseLazy>('{"a":"x","b":"y"}');
+  expect(JSON.stringify(r)).toBe('{"a":"x","mid":"default","count":7,"b":"y"}');
+  // Touching a present field still works.
+  expect(r.a).toBe("x");
 });

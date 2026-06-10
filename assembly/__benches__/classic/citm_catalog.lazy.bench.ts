@@ -1,4 +1,4 @@
-// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs — do not edit by hand.
+// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs - do not edit by hand.
 // Re-run `node scripts/sync-lazy-benches.mjs` to regenerate.
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
@@ -79,6 +79,26 @@ class Citm {
   venueNames: Map<string, string> = new Map<string, string>();
 }
 
+function touchRoot(root: Citm): f64 {
+  let s = 0.0;
+  for (let i = 0, n = root.performances.length; i < n; i++) {
+    const perf = unchecked(root.performances[i]);
+    s += <f64>perf.eventId + <f64>perf.id + <f64>perf.start;
+    const name = perf.name;
+    if (name !== null) s += <f64>name.length;
+    s += <f64>perf.venueCode.length;
+  }
+  const events = root.events.values();
+  const limit = events.length < 8 ? events.length : 8;
+  for (let i = 0, n = limit; i < n; i++) {
+    const event = unchecked(events[i]);
+    s += <f64>event.id + <f64>event.name.length;
+    const subject = event.subjectCode;
+    if (subject !== null) s += <f64>subject.length;
+  }
+  return s;
+}
+
 const prettyJson = readFile(
   "./assembly/__benches__/payloads/citm_catalog.pretty.json",
 );
@@ -93,7 +113,8 @@ const citm = JSON.parse<Citm>(prettyJson);
 bench(
   "Deserialize CITM Lazy (pretty)",
   () => {
-    blackbox(JSON.parse<Citm>(prettyJson));
+    const root = JSON.parse<Citm>(prettyJson);
+    blackbox(touchRoot(root));
   },
   2000,
   utf8ByteLength(prettyJson),
@@ -103,7 +124,8 @@ dumpToFile("citm_catalog-lazy-pretty", "deserialize");
 bench(
   "Deserialize CITM Lazy (min)",
   () => {
-    blackbox(JSON.parse<Citm>(minJson));
+    const root = JSON.parse<Citm>(minJson);
+    blackbox(touchRoot(root));
   },
   2000,
   utf8ByteLength(minJson),

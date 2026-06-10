@@ -24,7 +24,7 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
   const entries: [string, number][] = [];
 
   // JS, in its own fresh V8 (native JSON is the baseline; fast-json-* is the
-  // op-specific specialist — parse for deserialize, stringify for serialize).
+  // op-specific specialist - parse for deserialize, stringify for serialize).
   entries.push(["native JSON (JS)", mbps("multilib-native-json", kind)]);
   if (kind === "deserialize") {
     entries.push([
@@ -90,7 +90,7 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
         },
         title: {
           display: true,
-          text: `JSON Library Comparison — ${kind[0].toUpperCase() + kind.slice(1)} throughput (${KiB} KiB payload)`,
+          text: `JSON Library Comparison - ${kind[0].toUpperCase() + kind.slice(1)} throughput (${KiB} KiB payload)`,
           font: { size: 20, weight: "bold" },
         },
         subtitle: {
@@ -105,7 +105,7 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
         x: {
           title: {
             display: true,
-            text: "Throughput (MB/s — higher is better)",
+            text: "Throughput (MB/s - higher is better)",
             font: { size: 16, weight: "bold" },
           },
           beginAtZero: true,

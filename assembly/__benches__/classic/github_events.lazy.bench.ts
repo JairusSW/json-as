@@ -1,4 +1,4 @@
-// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs — do not edit by hand.
+// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs - do not edit by hand.
 // Re-run `node scripts/sync-lazy-benches.mjs` to regenerate.
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
@@ -201,9 +201,9 @@ class Comment {
 
 // `payload` is a tagged union: each event type carries a different subset of
 // these keys, in inconsistent order. It falls back to its own slow path
-// per-event (via the per-class fallback) — localized, so the rest of each event
+// per-event (via the per-class fallback) - localized, so the rest of each event
 // still parses fast. (A fully-@optional payload stays on the fast path but
-// currently trips a per-class-fallback memory-corruption bug — left static.)
+// currently trips a per-class-fallback memory-corruption bug - left static.)
 @json({ lazy: "auto" })
 class Payload {
   commits: Commit[] = [];
@@ -241,6 +241,19 @@ class GhEvent {
   @optional org: Actor | null = null;
 }
 
+function touchRoot(root: GhEvent[]): f64 {
+  let s = 0.0;
+  for (let i = 0, n = root.length; i < n; i++) {
+    const event = unchecked(root[i]);
+    s += <f64>event.type.length;
+    s += <f64>event.created_at.length;
+    s += <f64>event.actor.login.length + <f64>event.actor.id;
+    s += <f64>event.repo.name.length + <f64>event.repo.id;
+    s += event.isPublic ? 1.0 : 0.0;
+  }
+  return s;
+}
+
 const prettyJson = readFile(
   "./assembly/__benches__/payloads/github_events.pretty.json",
 );
@@ -255,7 +268,8 @@ const events = JSON.parse<GhEvent[]>(prettyJson);
 bench(
   "Deserialize GitHubEvents Lazy (pretty)",
   () => {
-    blackbox(JSON.parse<GhEvent[]>(prettyJson));
+    const root = JSON.parse<GhEvent[]>(prettyJson);
+    blackbox(touchRoot(root));
   },
   20000,
   utf8ByteLength(prettyJson),
@@ -265,14 +279,20 @@ dumpToFile("github_events-lazy-pretty", "deserialize");
 bench(
   "Deserialize GitHubEvents Lazy (min)",
   () => {
-    blackbox(JSON.parse<GhEvent[]>(minJson));
+    const root = JSON.parse<GhEvent[]>(minJson);
+    blackbox(touchRoot(root));
   },
   20000,
   utf8ByteLength(minJson),
 );
 dumpToFile("github_events-lazy-min", "deserialize");
 
-// NOTE: no lazy serialize bench — lazy passthrough serialize traps for
-// this document (a root-level map value, or a per-class-fallback'd
-// tagged-union payload whose deferred slices don't survive serialize).
-// The eager bench covers serialize; lazy mode is about the parse numbers.
+bench(
+  "Serialize GitHubEvents Lazy (min)",
+  () => {
+    blackbox(JSON.stringify(events));
+  },
+  40000,
+  utf8ByteLength(minJson),
+);
+dumpToFile("github_events-lazy-min", "serialize");

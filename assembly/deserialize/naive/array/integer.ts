@@ -2,7 +2,7 @@ import { atoi, isSpace } from "../../../util";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 
 // Strict RFC 8259 integer-token check over [start, end): optional minus (signed
-// types only), then a lone `0` or [1-9] digits — no leading zeros, fraction,
+// types only), then a lone `0` or [1-9] digits - no leading zeros, fraction,
 // exponent, or trailing garbage. Throws otherwise.
 function validateJSONInteger(start: usize, end: usize, signed: bool): void {
   let ptr = start;

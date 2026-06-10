@@ -6,8 +6,8 @@
 // below. Two reasons:
 //
 //   1. V8/wasm lowers `v / 100` (and other `/ <const>`s) to a single
-//      multiply-shift, so jeaiii's main selling point — avoiding division
-//      hardware — gives no win on this target. The op counts come out
+//      multiply-shift, so jeaiii's main selling point - avoiding division
+//      hardware - gives no win on this target. The op counts come out
 //      roughly equal.
 //
 //   2. The div-by-const variant computes each digit pair independently
@@ -24,7 +24,7 @@
 //   - A 100-entry digit-pair LUT keyed on `value % 100`. One `store<u32>`
 //     emits a UTF-16 pair.
 //
-//   - Forward write in one pass — no `decimalCount32` precomputation, no
+//   - Forward write in one pass - no `decimalCount32` precomputation, no
 //     backward write.
 //
 // Reference H2H bench: `__benches__/custom/itoa-h2h.bench.ts`.

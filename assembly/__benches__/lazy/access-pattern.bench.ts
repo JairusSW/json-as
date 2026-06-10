@@ -12,7 +12,7 @@ import { bench, blackbox, dumpToFile, utf8ByteLength } from "../lib/bench";
 // Fields are marked deferrable with explicit `@lazy` (per the maintainer's
 // request) rather than class-level `lazy: "auto"`, so each payload has a known
 // deferred-field count regardless of the auto threshold. The dedicated chart
-// (build-chart15.ts) reads the SWAR logs only — lazy is showcased in SWAR.
+// (build-chart15.ts) reads the SWAR logs only - lazy is showcased in SWAR.
 //
 // Dumps: lzap-<payload>.{base,none,one,half,all}.
 

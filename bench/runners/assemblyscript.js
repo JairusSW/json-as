@@ -3,7 +3,7 @@
 const bytes = readbuffer("./build/" + arguments[0]);
 
 // Extract the `heapAnalyzerInfo` custom section the as-heap-analyzer transform
-// emits — `{heapBase, classInfo: {<id>: <name>}}`. When --memory is on, every
+// emits - `{heapBase, classInfo: {<id>: <name>}}`. When --memory is on, every
 // "heap:" line printed by bench.ts is rewritten to substitute names for IDs so
 // the user doesn't have to invoke `npx as-heap-analyzer` afterward.
 const HEAP_CLASS_NAMES = extractHeapAnalyzerClassInfo(new Uint8Array(bytes));
@@ -120,7 +120,7 @@ function readVarUint32(buf, p) {
 }
 
 // AS class identifiers (module paths + names) are guaranteed ASCII, so a
-// per-byte fromCharCode loop suffices — no TextDecoder needed.
+// per-byte fromCharCode loop suffices - no TextDecoder needed.
 function bytesToUtf8(buf, start, end) {
   let s = "";
   for (let i = start; i < end; i++) s += String.fromCharCode(buf[i]);

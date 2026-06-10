@@ -67,7 +67,7 @@ export function parseFloatElementSWAR<E>(
   }
 
   // Fractional mantissa: parse4 SWAR stride + scalar tail. Same u64
-  // accumulator as the integer part — exponent compensates for fracDigits.
+  // accumulator as the integer part - exponent compensates for fracDigits.
   let fracDigits: i32 = 0;
   if (p < srcEnd && load<u16>(p) == 46) {
     p += 2;
@@ -154,7 +154,7 @@ export function parseFloatElementSWAR<E>(
     // the `ptrToStr` allocation + strtod re-parse.
     result = scientific(mantissa, exponent);
   } else {
-    // >19 mantissa digits — beyond u64 capacity, may need strtod's sticky-bit
+    // >19 mantissa digits - beyond u64 capacity, may need strtod's sticky-bit
     // pattern. Hand off to f*.parse on the float's substring.
     fallbackStore<E>(origStart, p, slot);
     return p;
@@ -245,7 +245,7 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
 }
 
 /**
- * Field/into variant — parses `[..]` into the existing `out` array and
+ * Field/into variant - parses `[..]` into the existing `out` array and
  * returns the cursor past the closing `]`.
  *
  * Worst-case pre-sizing (`(srcEnd - srcStart) >> 2`) used by the top-level

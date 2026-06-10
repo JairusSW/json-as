@@ -109,7 +109,7 @@ describe("Should exercise each tiered stride in the integer dispatcher", () => {
   // SWAR/SIMD scan paths that live behind deserialize/index/integer.ts
   // and deserialize/index/unsigned.ts. Going through JSON.parse means
   // SWAR mode hits the SWAR body and SIMD mode hits the SIMD body
-  // — same shape, different stride implementation.
+  // - same shape, different stride implementation.
 
   // 4-digit unsigned: parse4 stride + scalar tail.
   expect(JSON.parse<u32>("1234")).toBe(<u32>1234);

@@ -30,7 +30,7 @@ const json = JSON.stringify(bag);
 const bytes = String.UTF8.byteLength(json);
 const jsonStart = changetype<usize>(json);
 const jsonEnd = jsonStart + (json.length << 1);
-// Reused destination bag — matches the obj-deserialize bench pattern, so
+// Reused destination bag - matches the obj-deserialize bench pattern, so
 // inner-array growth happens once and subsequent ops hit the warm
 // `ensureArrayElementSlot` fast path with capacity already reserved.
 const reuse = new IntArrayBag();

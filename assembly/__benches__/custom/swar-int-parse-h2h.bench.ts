@@ -20,7 +20,7 @@ import {
 } from "../../util/swar-int";
 
 // ---------------------------------------------------------------------------
-// Test corpora — UTF-16 strings of varying lengths, all valid digits.
+// Test corpora - UTF-16 strings of varying lengths, all valid digits.
 // ---------------------------------------------------------------------------
 
 function repeatDigits(n: i32): string {
@@ -168,7 +168,7 @@ function kernel_8DigitPairMulUnsafe(): void {
   while (scanPtr + 6 < srcEnd) {
     const mask = nonDigitMask4(load<u64>(scanPtr));
     if (mask != 0) {
-      // First bad lane is at byte (ctz(mask) & ~7) — but lanes are 16-bit,
+      // First bad lane is at byte (ctz(mask) & ~7) - but lanes are 16-bit,
       // so the bad code unit's start byte is (ctz(mask) >> 4) << 1.
       scanPtr += ((<usize>ctz(mask)) >> 4) << 1;
       break;
@@ -506,7 +506,7 @@ function full_BulkValidate64(): void {
   blackbox(atoi_BulkValidate64(CUR_PTR, CUR_END));
 }
 
-// Cached scratch — set per scenario before calling.
+// Cached scratch - set per scenario before calling.
 let CUR_PTR: usize = 0;
 let CUR_END: usize = 0;
 
@@ -521,7 +521,7 @@ function full_8DigitPairMul(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Correctness gate — make sure every variant computes the same digit value
+// Correctness gate - make sure every variant computes the same digit value
 // for a representative sweep before we trust the bench numbers.
 // ---------------------------------------------------------------------------
 

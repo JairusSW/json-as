@@ -241,7 +241,7 @@ function writeStringToField(
 // the next unread src pointer.
 //
 // HYBRID strategy (validated against the prior run-copy scanner across escape
-// densities — see __benches__/custom/swar-string-deser-hybrid-h2h: +17–70%):
+// densities - see __benches__/custom/swar-string-deser-hybrid-h2h: +17–70%):
 //   * Escape-bearing block: one optimistic whole-block u64 store copies the
 //     plain prefix for free, then the (scalar-confirmed) escape is decoded.
 //   * Clean block: stream the first one, then if the clean run continues switch

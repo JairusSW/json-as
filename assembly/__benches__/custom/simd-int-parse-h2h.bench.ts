@@ -2,20 +2,20 @@
 //
 // Three approaches compared:
 //
-//   1. PROD-8 — the production SIMD 8-digit parser already in
+//   1. PROD-8 - the production SIMD 8-digit parser already in
 //      assembly/deserialize/simd/array/integer.ts, copied verbatim. It uses
 //      i8x16.narrow → i16x8.extmul → i32x4.extadd_pairwise → i16x8.narrow →
 //      i32x4.dot_i16x8_s (Lemire-style pack-and-dot).
 //
-//   2. NEW-16 — Lemire's "wider is better": one call processes 16 UTF-16
+//   2. NEW-16 - Lemire's "wider is better": one call processes 16 UTF-16
 //      digits (32 source bytes) by issuing two parallel SIMD pipelines that
 //      feed into a single combine. Halves the per-call loop overhead for
 //      long integers.
 //
-//   3. SWAR-8 — the SWAR PairMul baseline from swar-int.ts for reference.
+//   3. SWAR-8 - the SWAR PairMul baseline from swar-int.ts for reference.
 //
 // The bench focuses on the inner kernel (one call's amortized cost) and on
-// end-to-end atoi at realistic JSON widths (8/16/24/32 digits — covering
+// end-to-end atoi at realistic JSON widths (8/16/24/32 digits - covering
 // u32, u64-near, and beyond).
 
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
@@ -78,7 +78,7 @@ import {
 @lazy const PAIR_WEIGHTS_100_1_FULL = i16x8(100, 1, 100, 1, 100, 1, 100, 1);
 
 // ---------------------------------------------------------------------------
-// PROD-8 — verbatim copy of tryParseEightDigitsSIMD from the project.
+// PROD-8 - verbatim copy of tryParseEightDigitsSIMD from the project.
 // Returns parse_value or U32.MAX_VALUE on invalid input. (The original
 // returns 0 on invalid; we adapt to a sentinel-or-value contract here.)
 // ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ import {
 }
 
 // ---------------------------------------------------------------------------
-// NEW-16 — process 16 UTF-16 digits per call. Two parallel pipelines.
+// NEW-16 - process 16 UTF-16 digits per call. Two parallel pipelines.
 // Returns u64 value, or 0 on invalid (sentinel handling via separate flag).
 // ---------------------------------------------------------------------------
 // @ts-expect-error: @inline

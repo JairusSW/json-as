@@ -172,7 +172,7 @@ function serializeU8ArrayFast(src: u8[]): void {
 // Specialized float-array serializer: xjb writer + trailing comma in a
 // uniform per-iteration body, then overwrite the final comma with `]`. The
 // generic dispatcher splits the loop into "N-1 elements with comma, then
-// last element without, then `]`" — the branch on each `i < end` check
+// last element without, then `]`" - the branch on each `i < end` check
 // stalls the loop's tight bs.offset advance pattern. This variant runs the
 // same number of stores per iteration (xjb output + COMMA), but the
 // uniform loop body inlines better and the trailing `]` is a single fixed

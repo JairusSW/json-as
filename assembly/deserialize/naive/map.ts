@@ -85,7 +85,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
 
     if (isReference<valueof<T>>() && arbitraryValue) {
       const val = parseValue(srcStart, srcEnd);
-      // @ts-ignore: type — valueof<T> is JSON.Value in this branch
+      // @ts-ignore: type - valueof<T> is JSON.Value in this branch
       changetype<nonnull<T>>(out).set(
         deserializeMapKey<indexof<T>>(keyStart, keyEnd),
         changetype<valueof<T>>(changetype<usize>(val)),
@@ -129,7 +129,7 @@ export function deserializeMapField<T extends Map<any, any>>(
     out = changetype<T>(instantiate<T>());
     store<T>(fieldPtr, out);
   } else {
-    // Reusing an existing field map — clear it before repopulating. Fresh maps
+    // Reusing an existing field map - clear it before repopulating. Fresh maps
     // (deserializeMap / deserializeMapArray) skip this.
     changetype<nonnull<T>>(out).clear();
   }

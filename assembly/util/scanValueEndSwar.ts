@@ -12,7 +12,7 @@ import { isSpace } from "./isSpace";
 
 // SWAR analogue of `scanValueEndSimd.ts`, processing four UTF-16 lanes per
 // 64-bit word for the SWAR build mode (no SIMD feature). Each mask is a fast
-// FILTER — a matched lane is re-checked with a real `load<u16>` before acting —
+// FILTER - a matched lane is re-checked with a real `load<u16>` before acting -
 // so the masks may over-match non-ASCII lanes whose low byte equals a target
 // (the verify rejects them). Lane byte offset within a hit word is
 // `ctz(mask) >> 3` (detection bit sits at lane*16 + 7).
@@ -37,7 +37,7 @@ function quoteOrBackslashMask(block: u64): u64 {
   return (eqPart(block, S_QUOTE) | eqPart(block, S_BACK_SLASH)) & HI;
 }
 
-// Filter for lanes equal to `"`, `{`, `}`, `[`, or `]` — the only bytes that,
+// Filter for lanes equal to `"`, `{`, `}`, `[`, or `]` - the only bytes that,
 // outside a string, change depth or open a string. As with the other SWAR
 // masks, a hit is a candidate to verify with a real load (it may over-match a
 // non-ASCII lane whose low byte collides).
@@ -112,7 +112,7 @@ function scanCompositeValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
       continue;
     }
     ptr += 2;
-    // `,`/`:` sit one byte from the next token — stay scalar (string-dense
+    // `,`/`:` sit one byte from the next token - stay scalar (string-dense
     // objects); other fillers can run long, so SWAR-skip past them.
     if (code == COMMA || code == COLON) continue;
     while (ptr <= srcEnd8) {
@@ -125,10 +125,10 @@ function scanCompositeValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
       const c = load<u16>(idx);
       const f = c & 0xffdf;
       if (c == QUOTE || f == BRACKET_LEFT || f == BRACKET_RIGHT) {
-        ptr = idx; // real token — the outer loop processes it
+        ptr = idx; // real token - the outer loop processes it
         break;
       }
-      ptr = idx + 2; // spurious lane match — keep scanning
+      ptr = idx + 2; // spurious lane match - keep scanning
     }
   }
   return 0;

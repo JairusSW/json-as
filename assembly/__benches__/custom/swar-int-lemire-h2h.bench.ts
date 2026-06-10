@@ -3,7 +3,7 @@
 // Insight from Lemire's 8-byte ASCII algorithm: apply `val * 10 + (val >> 8)`
 // to the WHOLE word and mask AFTER, not before. For valid digit input each
 // lane stays small enough that no inter-lane carry happens, so the masked
-// result is identical — but we save one AND op.
+// result is identical - but we save one AND op.
 //
 // Plus a 16-digit (4×u64) SWAR kernel mirroring the SIMD NEW-16 wider-stride
 // approach.
@@ -73,7 +73,7 @@ const U32_LO_PAIR: u64 = 0x0000_ffff_0000_ffff;
     RANGE_MASK_4;
   if (bad != 0) return U64.MAX_VALUE;
 
-  // Parallel folds — four independent chains.
+  // Parallel folds - four independent chains.
   const p0 = (d0 * 10 + (d0 >> 16)) & U32_LO_PAIR;
   const p1 = (d1 * 10 + (d1 >> 16)) & U32_LO_PAIR;
   const p2 = (d2 * 10 + (d2 >> 16)) & U32_LO_PAIR;

@@ -3,7 +3,7 @@
 // `parse8Digits_SIMD` (16 bytes / 8 digits) before falling through to
 // `parse4Digits_PairMul` (8 bytes / 4 digits) and finally the scalar tail.
 //
-// Output is bit-identical to `f64.parse` / `f32.parse` for every input — the
+// Output is bit-identical to `f64.parse` / `f32.parse` for every input - the
 // SIMD strides only change how the u64 mantissa is accumulated, not what it
 // becomes.
 //

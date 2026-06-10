@@ -10,7 +10,7 @@
 // `scientific` directly skips both costs.
 //
 // scientific() is correctly rounded for all u64 mantissas and decimal
-// exponents that fit in IEEE-754 f64's range — including the [2^53, 2^64)
+// exponents that fit in IEEE-754 f64's range - including the [2^53, 2^64)
 // mantissa range that breaks Lemire's single-fmul fast path.
 
 const POWERS10: usize = memory.data<f64>([
@@ -95,7 +95,7 @@ function scaleup(significand: u64, exp: i32): f64 {
 
 /**
  * Construct an f64 from a u64 mantissa and decimal exponent. Result is
- * correctly rounded — bit-identical to `f64.parse` for any input the SWAR
+ * correctly rounded - bit-identical to `f64.parse` for any input the SWAR
  * float deserializer can pre-parse into this form.
  *
  * Caller guarantees the digit run that produced `significand` was already

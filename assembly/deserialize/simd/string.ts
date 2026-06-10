@@ -245,11 +245,11 @@ export function deserializeString_SIMD(srcStart: usize, srcEnd: usize): string {
 // reused `bs` scratch buffer, then written once via writeStringToField_SIMD.
 //
 // Strategy (validated against run-copy and pure-stream variants across escape
-// densities — see __benches__/custom/simd-string-deser-variants-h2h):
+// densities - see __benches__/custom/simd-string-deser-variants-h2h):
 //   * Escape-bearing block: a single whole-block v128 store copies the plain
 //     prefix for free; then the escape is decoded scalar.
 //   * Clean block: stream the first one cheaply, but if the clean run keeps
-//     going, switch to one bulk memory.copy for the remainder — bandwidth-
+//     going, switch to one bulk memory.copy for the remainder - bandwidth-
 //     optimal on long sparse runs, avoiding a per-block-store cliff on large
 //     inputs. This dominates both alternatives: stream-cheap on dense escapes,
 

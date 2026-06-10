@@ -24,11 +24,11 @@ const ZERO_8: u64 = 0x3030_3030_3030_3030;
 const DIGIT_TEST_ADD: u64 = 0x7676_7676_7676_7676;
 const HIGH_BIT_8: u64 = 0x8080_8080_8080_8080;
 const U32_LO_PAIR: u64 = 0x0000_ffff_0000_ffff;
-// 1 + (100 << 32) — places ab*100 + cd in high 32 of u64 product.
+// 1 + (100 << 32) - places ab*100 + cd in high 32 of u64 product.
 const FINAL_4_MAGIC: u64 = 0x0000_0064_0000_0001;
 
 // ---------------------------------------------------------------------------
-// VARIANT A — merge with (blockA << 8) | blockB, then un-merge to recover
+// VARIANT A - merge with (blockA << 8) | blockB, then un-merge to recover
 // the two original spread blocks, then apply parse4 to each.
 //
 // This is the user's idea taken to a correct end. Net op count is HIGHER
@@ -40,7 +40,7 @@ const FINAL_4_MAGIC: u64 = 0x0000_0064_0000_0001;
   // Validate high bytes are 0 (ASCII range) on both blocks.
   if (((blockA | blockB) & LANE_HI_4) != 0) return U32.MAX_VALUE;
 
-  // User's merge — interleaves the two blocks' low bytes.
+  // User's merge - interleaves the two blocks' low bytes.
   const merged = (blockA << 8) | blockB;
   const val = merged - ZERO_8;
 
@@ -63,7 +63,7 @@ const FINAL_4_MAGIC: u64 = 0x0000_0064_0000_0001;
 }
 
 // ---------------------------------------------------------------------------
-// VARIANT B — merge, then a CUSTOM magic-mul that reads the interleaved
+// VARIANT B - merge, then a CUSTOM magic-mul that reads the interleaved
 // layout directly.
 //
 // After merge + subtract '0', we have pair-fold producing:
@@ -82,19 +82,19 @@ const FINAL_4_MAGIC: u64 = 0x0000_0064_0000_0001;
 // P_i with different weights. Since each P_i is 10*B_i + A_i, we can compute
 //   A_part = sum_i A_i * 10^(7-i) = sum_i (P_i - 10*B_i) * 10^(7-i)
 //   B_part = sum_i B_i * 10^(3-i)
-// — but separating A_i from B_i in a single P_i requires either mod/div or
+// - but separating A_i from B_i in a single P_i requires either mod/div or
 // a second multiplication on the pair word. The cleanest expression I could
 // find still needs the un-interleave from variant A. Implementing it here
 // just to confirm empirically.
 //
 // (Falls back to the same un-merge.)
 // ---------------------------------------------------------------------------
-// We don't have a working "magic-mul on interleaved" form — it requires
+// We don't have a working "magic-mul on interleaved" form - it requires
 // non-uniform per-pair weights that don't factor cleanly into a single
 // constant. Skipping this variant.
 
 // ---------------------------------------------------------------------------
-// VARIANT C — Same merge but apply STANDARD Lemire-8-byte to compute the
+// VARIANT C - Same merge but apply STANDARD Lemire-8-byte to compute the
 // SCRAMBLED interleaved value. This is what naively running Lemire on the
 // user's merge produces. Result is WRONG (for "12345678" it yields
 // 51_627_384), but it's the cheapest possible "merge + 8-byte combine".

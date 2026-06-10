@@ -13,14 +13,14 @@ import { __heap_base } from "memory";
 //
 // BASELINE = production `deserializeStringField_SIMD`, which vectorizes the
 // no-escape scan but BAILS to the scalar/SWAR `deserializeStringField_SWAR`
-// the moment it sees a backslash — so SIMD mode gets zero vectorization on any
+// the moment it sees a backslash - so SIMD mode gets zero vectorization on any
 // escaped field.
 //
 // NEW = a fully vectorized field scanner: v128 scan for `"`/`\`, copy the
 // runs between escapes into the reused `bs` scratch buffer, decode each escape
 // scalar, then one final `writeStringToField`. The destination is a reused
 // field slot (`slotHolder.dataStart`) so after warmup there is no per-op
-// allocation — pure scan+copy throughput, playground-style.
+// allocation - pure scan+copy throughput, playground-style.
 
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_5C = i16x8.splat(0x5c); // \
@@ -267,7 +267,7 @@ const OPS_SHORT: u64[] = [
   300_000_000, 280_000_000, 240_000_000, 200_000_000, 80_000_000,
 ];
 
-// Profile 2: plain-large (big ASCII payloads, no escapes — memcpy-bound).
+// Profile 2: plain-large (big ASCII payloads, no escapes - memcpy-bound).
 const SIZES_LARGE: usize[] = [
   4 * 1024,
   64 * 1024,
@@ -277,7 +277,7 @@ const SIZES_LARGE: usize[] = [
 const LABELS_LARGE: string[] = ["4kb", "64kb", "1mb", "5mb"];
 const OPS_LARGE: u64[] = [12_000_000, 900_000, 50_000, 9_000];
 
-// Profile 3: escaped (the path NEW targets — BASELINE falls back to SWAR).
+// Profile 3: escaped (the path NEW targets - BASELINE falls back to SWAR).
 const SIZES_ESCAPED: usize[] = [256, 1024, 64 * 1024, 1024 * 1024];
 const LABELS_ESCAPED: string[] = ["256b", "1kb", "64kb", "1mb"];
 const OPS_ESCAPED: u64[] = [40_000_000, 11_000_000, 160_000, 9_000];

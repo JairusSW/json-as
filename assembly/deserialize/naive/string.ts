@@ -145,7 +145,7 @@ function writeStringToField(
 // Escape-bearing tail of the field parse: the clean prefix [payloadStart,
 // escPos) is bulk-copied into the scratch buffer, then escapes are decoded into
 // it, and the result is written to the field. Only reached when a backslash is
-// actually present — the common escape-free case never touches `bs`.
+// actually present - the common escape-free case never touches `bs`.
 function deserializeEscapedStringField_NAIVE(
   payloadStart: usize,
   escPos: usize,
@@ -198,8 +198,8 @@ function deserializeEscapedStringField_NAIVE(
 // NOT @inline: this is a loop-bearing scanner called per string field. As an
 // always-inline entry it gets inlined into every field call site inside the
 // @inline __DESERIALIZE_FAST, exploding binaryen's optimize phase on large
-// schemas (~118s on the `large` bench). Kept as a single shared function — one
-// call per field — matching the non-inline SWAR/SIMD field deserializers.
+// schemas (~118s on the `large` bench). Kept as a single shared function - one
+// call per field - matching the non-inline SWAR/SIMD field deserializers.
 export function deserializeStringField_NAIVE<T extends string | null>(
   srcStart: usize,
   srcEnd: usize,

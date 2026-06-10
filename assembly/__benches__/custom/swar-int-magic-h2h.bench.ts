@@ -26,7 +26,7 @@ const FINAL_MAGIC: u64 = 0x0000_0064_0000_0001;
 
 // @ts-expect-error: @inline
 @inline function parse4Digits_OpReduced(block: u64): u32 {
-  // Skip initial `& LANE_LO_4` — validation runs before any multiply.
+  // Skip initial `& LANE_LO_4` - validation runs before any multiply.
   const digits = block - ZERO_4;
   if (((digits | (digits + RANGE_ADD_4)) & RANGE_MASK_4) != 0) {
     return U32.MAX_VALUE;
@@ -148,7 +148,7 @@ function verify(): void {
     const block = pack4(unchecked(invalid[i]));
     expect<u32>(parse4Digits_OpReduced(block)).toBe(U32.MAX_VALUE);
   }
-  // Non-ASCII (high byte set) — without the initial mask, validation must still catch.
+  // Non-ASCII (high byte set) - without the initial mask, validation must still catch.
   expect<u32>(parse4Digits_OpReduced(0x0033_0100_0032_0031)).toBe(
     U32.MAX_VALUE,
   );

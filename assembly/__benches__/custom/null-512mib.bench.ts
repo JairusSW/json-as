@@ -1,6 +1,6 @@
 // Throughput bench for `JSON.parse<(string | null)[]>` at ~512 MiB.
 //
-// Pure top-level path — the dispatcher routes string-array parses through
+// Pure top-level path - the dispatcher routes string-array parses through
 // `swar/array/string.ts:deserializeStringArray_SWAR` in SWAR/SIMD modes.
 // Per-element work: one `load<u64>` of the `null` token + compare to
 // `NULL_WORD_U64`, then `store<usize>(slot, 0)` (AS's null reference is

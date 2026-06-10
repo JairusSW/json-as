@@ -55,7 +55,7 @@ function buildAdversarial(): string[] {
   // 4. surrogate pairs (emoji) + unpaired surrogates interleaved with escapes
   out.push('a\u{1F680}b\nc\u{1F600}"d\\e');
   out.push("\u{1F680}\u{1F600}\u{1F4A9}\u{1F389}".repeat(50));
-  // lone high surrogate (0xD800) followed by ascii — unpaired path
+  // lone high surrogate (0xD800) followed by ascii - unpaired path
   out.push(
     "x" + String.fromCharCode(0xd800) + "\ny" + String.fromCharCode(0xdc00),
   );

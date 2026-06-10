@@ -29,7 +29,7 @@ export function deserializeMapArray<T extends Map<any, any>[]>(
     );
 
   // Each `{...}` map element is parsed in a single pass via deserializeMapBody,
-  // which reports where it ended — no separate scan to find the closing brace.
+  // which reports where it ended - no separate scan to find the closing brace.
   while (srcStart < srcEnd) {
     if (load<u16>(srcStart) == BRACE_LEFT) {
       const m = instantiate<valueof<T>>();

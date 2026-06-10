@@ -6,10 +6,10 @@
 //
 //   - **No count pass.** TypedArrays have a fixed length at construction,
 //     so the natural approach is to count first then allocate. We tried
-//     that with a SWAR comma counter — it cut the per-element cost but
+//     that with a SWAR comma counter - it cut the per-element cost but
 //     kept us ~30% below the top-level `f64[]` path because the count
 //     scan still touched the whole input twice. Instead we allocate
-//     worst-case (`(srcEnd - srcStart) >> 2 + 1` elements — each
+//     worst-case (`(srcEnd - srcStart) >> 2 + 1` elements - each
 //     element needs >= "D," = 2 UTF-16 chars = 4 bytes) and `__renew`
 //     the underlying buffer down to the exact byte count after parsing.
 //     The over-allocation peaks at ~2-3× the final size for typical
@@ -46,7 +46,7 @@ import {
  * Worst-case element count: each element occupies >= 1 digit + 1
  * delimiter = 2 UTF-16 chars = 4 bytes. So `(srcEnd - srcStart) >> 2`
  * upper-bounds the count. Allocating to worst-case lets us skip a
- * full count pass over the input — at the cost of an over-allocated
+ * full count pass over the input - at the cost of an over-allocated
  * underlying buffer that we trim via `__renew` once we know the
  * actual element count.
  *
@@ -125,7 +125,7 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   // directly: `__renew` the buffer to the actual byte length and
   // update the view's `byteLength` and `dataStart`. AS's TypedArray
   // structure has `buffer`, `dataStart` (= buffer), `byteLength`
-  // (capacity in bytes) in that order — same layout as ArrayBufferView.
+  // (capacity in bytes) in that order - same layout as ArrayBufferView.
   const actualCount = i32(<usize>(writePtr - dataStart) / elementSize);
   if (actualCount != maxElements) {
     const actualBytes = <usize>actualCount * elementSize;

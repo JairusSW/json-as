@@ -164,7 +164,7 @@ function buildAt(width: i32, count: i32, seed: u32): StaticArray<u32> {
   const range = hi - lo + 1;
   let r = seed;
   for (let i: i32 = 0; i < count; i++) {
-    // xorshift32 — enough for benchmark variety.
+    // xorshift32 - enough for benchmark variety.
     r ^= r << 13;
     r ^= r >> 17;
     r ^= r << 5;

@@ -17,4 +17,4 @@
 
 - Track Canada benchmark lessons: segment-style serialization, precise `bs` sizing, and delimiting helpers so the pipeline can be reused for other large geo payloads.
 - Consider an explicit worker/segment pipeline (serialize each feature independently and concat) before committing a multi-threaded version in production.
-- Revisit Dragonbox fast path after `k` ranges shift—always confirm the fast `prettify` early return still applies for new corpora.
+- Revisit Dragonbox fast path after `k` ranges shift-always confirm the fast `prettify` early return still applies for new corpora.

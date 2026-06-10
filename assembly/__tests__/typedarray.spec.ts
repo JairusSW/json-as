@@ -464,7 +464,7 @@ describe("Should preserve JSON.internal behavior for typed arrays and ArrayBuffe
 
 describe("Should parse typed arrays and ArrayBuffer with whitespace", () => {
   // Drives the SWAR Into/field path's whitespace handling and the NAIVE
-  // double-pass scanner — all three modes flow through here via the
+  // double-pass scanner - all three modes flow through here via the
   // index dispatcher.
   const ints = JSON.parse<Uint8Array>("[ 1 , 255 , 42 ]");
   expect(ints.length).toBe(3);

@@ -34,7 +34,7 @@ const RGB = {
 export const rgba = (name: keyof typeof RGB, alpha = 1): string =>
   `rgba(${RGB[name]},${alpha})`;
 
-// Engine/mode palette — one distinct hue per mode for the per-payload bar +
+// Engine/mode palette - one distinct hue per mode for the per-payload bar +
 // line charts (chart01–12). Fastest mode (SIMD) gets the blue.
 //   JS → strawberry red · NAIVE → orange · SWAR → jungle green · SIMD → pacific blue
 export const MODE_RGB: Record<string, string> = {
@@ -42,6 +42,8 @@ export const MODE_RGB: Record<string, string> = {
   naive: RGB.orange,
   swar: RGB.jungleGreen,
   simd: RGB.pacificBlue,
+  // Dynamic JSON.Obj throughput series (SIMD only) on the obj line charts.
+  obj: RGB.fadedCopper,
 };
 
 // The same four as createBarChart {bg, border} entries (JS, NAIVE, SWAR, SIMD).
