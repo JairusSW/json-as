@@ -357,6 +357,11 @@ export class JSONTransform extends Visitor {
                     : "null";
             const fdInit = fd.initializer;
             const fieldDefault = fdInit ? toString(fdInit) : null;
+            const refDefault = fieldDefault != null
+                ? fieldDefault
+                : !storesScalar && baseT == T && (baseT == "string" || baseT == "String")
+                    ? '""'
+                    : null;
             __hasLazy = true;
             const omitIfDeco = decos?.find((d) => d.name.text === "omitif");
             lazyInner.set("__" + fname + "_lz", {
@@ -398,8 +403,8 @@ export class JSONTransform extends Visitor {
                         `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
                 ]
                 : [
-                    `@alias(${key}) private __${fname}_lz: u64 = ${fieldDefault != null ? "u64.MAX_VALUE" : "0"};`,
-                    `private __${fname}_val: ${valueType} = ${fieldDefault ?? valueDefault};`,
+                    `@alias(${key}) private __${fname}_lz: u64 = ${refDefault != null ? "u64.MAX_VALUE" : "0"};`,
+                    `private __${fname}_val: ${valueType} = ${refDefault ?? valueDefault};`,
                     `get ${fname}(): ${T} {\n` +
                         `  const __lz = this.__${fname}_lz;\n` +
                         `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +
@@ -412,8 +417,8 @@ export class JSONTransform extends Visitor {
                         `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
                 ]).map((src) => SimpleParser.parseClassMember(src, node));
             node.members.splice(i, 1, ...lowered);
-            if (!packScalar && fieldDefault != null) {
-                __lazyValInits.set(`__${fname}_lz`, `  store<${valueType}>(changetype<usize>(this), ${fieldDefault ?? valueDefault}, offsetof<this>(${JSON.stringify(`__${fname}_val`)}));\n`);
+            if (!packScalar && refDefault != null) {
+                __lazyValInits.set(`__${fname}_lz`, `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`__${fname}_val`)}));\n`);
             }
         }
         if (__hasLazy) {

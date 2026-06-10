@@ -247,3 +247,21 @@ describe("absent ref lazy field serializes its default (no null-cast trap)", () 
   // Touching a present field still works.
   expect(r.a).toBe("x");
 });
+
+// A no-default non-nullable string lazy field must resolve to "" when absent
+// (matching eager __INITIALIZE), not crash on the getter's `null as string`.
+// The symmetric absent-with-default case is covered above; this is the
+// no-default half.
+@json({ lazy: "auto" })
+class NoDefaultStr {
+  a: string = "";
+  nd: string;
+  b: string = "";
+}
+
+describe("absent no-default string lazy field resolves to '' (no null-cast crash)", () => {
+  const r = JSON.parse<NoDefaultStr>('{"a":"x","b":"y"}');
+  expect(r.nd).toBe("");
+  expect(JSON.stringify(r)).toBe('{"a":"x","nd":"","b":"y"}');
+  expect(new NoDefaultStr().nd).toBe("");
+});

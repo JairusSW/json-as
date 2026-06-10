@@ -594,6 +594,20 @@ export class JSONTransform extends Visitor {
       // affects constructed instances.
       const fdInit = (fd as FieldDeclaration).initializer;
       const fieldDefault = fdInit ? toString(fdInit) : null;
+      // A non-nullable `string` with no declared default must seed `""`, not
+      // null: the getter casts `__x_val as string`, which aborts on null, and
+      // eager __INITIALIZE already gives an absent non-nullable string `""`, so
+      // lazy must match. Nullable strings, scalars, and ref types whose
+      // no-default contract is "absent -> null" (lazy structs/arrays via
+      // `JSON.Lazy<T>` / `!`) are left untouched.
+      const refDefault =
+        fieldDefault != null
+          ? fieldDefault
+          : !storesScalar &&
+              baseT == T &&
+              (baseT == "string" || baseT == "String")
+            ? '""'
+            : null;
       __hasLazy = true;
       // Carry @omitnull/@omitif from the original field onto the lowered slot
       // (they can't ride the u64 slot directly - @omitnull rejects primitives -
@@ -662,9 +676,9 @@ export class JSONTransform extends Visitor {
             ]
           : [
               `@alias(${key}) private __${fname}_lz: u64 = ${
-                fieldDefault != null ? "u64.MAX_VALUE" : "0"
+                refDefault != null ? "u64.MAX_VALUE" : "0"
               };`,
-              `private __${fname}_val: ${valueType} = ${fieldDefault ?? valueDefault};`,
+              `private __${fname}_val: ${valueType} = ${refDefault ?? valueDefault};`,
               // Slow path goes through the shared (non-inline) JSON.__deserialize<T>
               // so the parser is emitted once per type, not inlined into every getter.
               `get ${fname}(): ${T} {\n` +
@@ -680,14 +694,16 @@ export class JSONTransform extends Visitor {
             ]
       ).map((src) => SimpleParser.parseClassMember(src, node));
       node.members.splice(i, 1, ...lowered);
-      // Ref lazy field with a declared default -> slot seeds to materialized
-      // (MAX); record the matching `__x_val` initializer so __INITIALIZE seeds it
-      // too (the JSON.parse path skips field initializers). Packed scalars carry
-      // their default in the slot itself, so they need no `_val` seed.
-      if (!packScalar && fieldDefault != null) {
+      // Ref lazy field whose slot seeds to materialized (MAX) - i.e. it has an
+      // effective default (a declared default, or the type default for a
+      // non-nullable field). Record the matching `__x_val` initializer so
+      // __INITIALIZE seeds it too (the JSON.parse path skips field
+      // initializers). Packed scalars carry their default in the slot itself,
+      // so they need no `_val` seed.
+      if (!packScalar && refDefault != null) {
         __lazyValInits.set(
           `__${fname}_lz`,
-          `  store<${valueType}>(changetype<usize>(this), ${fieldDefault ?? valueDefault}, offsetof<this>(${JSON.stringify(`__${fname}_val`)}));\n`,
+          `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`__${fname}_val`)}));\n`,
         );
       }
     }
