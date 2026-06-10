@@ -76,10 +76,17 @@ function scanQuotedValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
     break;
   }
 
+  // Resolve escapes by consuming a backslash *and the char it escapes* together,
+  // so escape parity is tracked exactly. A look-back `prev != BACK_SLASH` test is
+  // wrong for an escaped backslash: in `"x\\"` the closing quote follows a `\`
+  // (the second of the pair) yet still closes the string.
   while (srcStart < srcEnd) {
     const code = load<u16>(srcStart);
-    if (code == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH)
-      return srcStart + 2;
+    if (code == BACK_SLASH) {
+      srcStart += 4;
+      continue;
+    }
+    if (code == QUOTE) return srcStart + 2;
     srcStart += 2;
   }
   return 0;
