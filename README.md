@@ -561,6 +561,16 @@ The following charts compare JSON-AS against JavaScript's native `JSON` implemen
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart12.svg" alt="Primitive deserialization performance">
 </details>
 
+<details>
+<summary>Real-world payloads — eager / lazy / dynamic (click to expand)</summary>
+
+Throughput across nine classic JSON payloads (Twitter, Canada, CITM, Poet, GitHub events, GSOC, Lottie, otfcc, FGO), each in the NAIVE / SWAR / SIMD scan modes, with the SIMD lazy-struct and dynamic `JSON.Obj` paths shown alongside.
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/classic-payload-deserialize-v8.png" alt="Classic payload deserialize throughput">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/classic-payload-serialize-v8.png" alt="Classic payload serialize throughput">
+</details>
+
 ### Library comparison
 
 How `json-as` stacks up against other JSON libraries on a ~5 KiB GitHub-repo payload: JavaScript's native `JSON` and `fast-json` (each in a fresh V8), plus the `assemblyscript-json` package. The `json-as` bars (generated struct, lazy struct, and dynamic `JSON.Obj`) are averaged across the NAIVE / SWAR / SIMD scan modes.
