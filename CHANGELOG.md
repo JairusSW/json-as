@@ -502,4 +502,3 @@
 - feat: write to a central buffer and reduce memory overhead
 - feat: rewrite the transform to properly resolve schemas and link them together
 - feat: pre-allocate and compute the minimum size of a schema to avoid memory out of range errors
->>>>>>> cf237fa (chore: release 1.3.0)
