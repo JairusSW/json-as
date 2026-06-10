@@ -2351,6 +2351,17 @@ export namespace JSON {
         : deserializeUnsigned<T>(srcStart, srcEnd);
     } else if (isFloat<T>()) {
       return deserializeFloat<T>(srcStart, srcEnd);
+    } else if (
+      isNullable<T>() &&
+      srcEnd - srcStart == 8 &&
+      load<u64>(srcStart) == NULL_WORD_U64
+    ) {
+      // A `null` literal must be matched before the string branch: a nullable
+      // string (`string | null`) reports `isString<T>() == true`, so without
+      // this `null` would be (mis)handled as a quoted string and abort. Mirrors
+      // the same-ordered check in `parseInternal`. Reached by lazy-field
+      // materialization, which routes every slot value through `__deserialize`.
+      return null;
     } else if (isString<T>()) {
       if (srcEnd - srcStart < 4)
         throw new Error(
@@ -2358,12 +2369,6 @@ export namespace JSON {
         );
 
       return deserializeString(srcStart, srcEnd) as T;
-    } else if (
-      isNullable<T>() &&
-      srcEnd - srcStart == 8 &&
-      load<u64>(srcStart) == NULL_WORD_U64
-    ) {
-      return null;
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
       // @ts-expect-error: Defined by transform

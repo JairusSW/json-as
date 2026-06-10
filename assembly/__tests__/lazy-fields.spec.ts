@@ -282,3 +282,90 @@ describe("absent no-default non-nullable ref fields resolve to the type default 
   expect(c.narr.length).toBe(0);
   expect(c.nst.n).toBe(3);
 });
+
+// Regression (citm_catalog.lazy): a *present* `null` value for a lazy
+// nullable-string field must materialize to null, not abort. Unlike the absent
+// slot above (lz==0 -> default), here the slot holds a real range pointing at
+// the `null` literal. `isString<string | null>()` is true, so `JSON.__deserialize`
+// would otherwise fall into the string branch and try to parse `null` as a
+// quoted string - aborting under NAIVE, silently corrupting under SWAR/SIMD.
+@json({ lazy: "auto" })
+class NullableStrings {
+  name: string = ""; // non-null string, present
+  subjectCode: string | null = null; // nullable string, present-as-null
+  subtitle: string | null = null; // nullable string, present-as-null
+}
+
+describe("present `null` for a lazy nullable-string field materializes to null", () => {
+  const r = JSON.parse<NullableStrings>(
+    '{"name":"hello","subjectCode":null,"subtitle":null}',
+  );
+  // Reading the non-null string AND a nullable-null on the same struct is the
+  // exact pattern that aborted (citm name + subjectCode); needs both touched.
+  expect(r.name).toBe("hello");
+  expect(changetype<usize>(r.subjectCode) == 0 ? "null" : "set").toBe("null");
+  expect(changetype<usize>(r.subtitle) == 0 ? "null" : "set").toBe("null");
+  // Untouched round-trip keeps the present nulls verbatim.
+  expect(
+    JSON.stringify(
+      JSON.parse<NullableStrings>(
+        '{"name":"hello","subjectCode":null,"subtitle":null}',
+      ),
+    ),
+  ).toBe('{"name":"hello","subjectCode":null,"subtitle":null}');
+});
+
+describe("lazy nullable-string field keeps a present non-null value", () => {
+  const r = JSON.parse<NullableStrings>(
+    '{"name":"hi","subjectCode":"SC","subtitle":null}',
+  );
+  expect(r.name).toBe("hi");
+  expect(r.subjectCode!).toBe("SC");
+  expect(changetype<usize>(r.subtitle) == 0 ? "null" : "set").toBe("null");
+});
+
+
+@json class LazyNullableStr {
+  s!: JSON.Lazy<string | null>;
+}
+
+describe("JSON.Lazy<string | null> materializes a present `null` to null", () => {
+  const nul = JSON.parse<LazyNullableStr>('{"s":null}');
+  expect(changetype<usize>(nul.s) == 0 ? "null" : "set").toBe("null");
+  const set = JSON.parse<LazyNullableStr>('{"s":"x"}');
+  expect(set.s!).toBe("x");
+});
+
+// The citm_catalog.lazy shape: a map of lazy structs, each materialized on
+// `.values()`, then a non-null string and a nullable-null string read per entry.
+@json({ lazy: "auto" })
+class Ev {
+  name: string = "";
+  subjectCode: string | null = null;
+}
+
+
+@json({ lazy: "auto" })
+class EvRoot {
+  events: Map<string, Ev> = new Map<string, Ev>();
+}
+
+describe("lazy nullable-string nulls survive map-of-struct materialization", () => {
+  const r = JSON.parse<EvRoot>(
+    '{"events":{"1":{"name":"a","subjectCode":null},"2":{"name":"b","subjectCode":"x"}}}',
+  );
+  const evs = r.events.values();
+  let names = "";
+  let nulls = 0;
+  let subjects = "";
+  for (let i = 0, n = evs.length; i < n; i++) {
+    const e = unchecked(evs[i]);
+    names += e.name; // non-null string field
+    const sc = e.subjectCode; // nullable string field
+    if (sc === null) nulls++;
+    else subjects += sc;
+  }
+  expect(names).toBe("ab");
+  expect(nulls).toBe(1);
+  expect(subjects).toBe("x");
+});
