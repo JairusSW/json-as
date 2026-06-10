@@ -12,7 +12,7 @@ import {
 // document is one object of 15 font tables; `glyf`/`CFF_`/`GSUB`/`GPOS` are
 // deeply irregular and enormous, so every table is modeled as a JSON.Raw
 // passthrough. This keeps it on the struct fast path with near-zero allocation
-// (parse records slice offsets; serialize copies them back) — the only viable
+// (parse records slice offsets; serialize copies them back) - the only viable
 // shape for a file this size. Minified-only (the pretty form is ~195 MB);
 // yyjson_benchmark likewise ships otfcc minified.
 

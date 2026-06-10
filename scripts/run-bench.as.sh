@@ -102,7 +102,7 @@ if [[ $BENCH_MEMORY -eq 1 ]]; then
     --use BENCH_PREALLOC_BYTES=0
     --transform as-heap-analyzer/transform/addHeapAnalyzerInfo.mjs
   )
-  echo "note: --memory enabled — per-op timings include a memory.size() poll and prealloc is disabled. Rerun without --memory for canonical timings." >&2
+  echo "note: --memory enabled - per-op timings include a memory.size() poll and prealloc is disabled. Rerun without --memory for canonical timings." >&2
   echo "note: --memory also emits a 'heap: {...}' delta JSON per bench. Run 'npx as-heap-analyzer frame <wasm-path>' and paste the JSON to resolve runtime IDs to class names." >&2
 fi
 
@@ -171,7 +171,7 @@ if [[ -n "$BENCH_NAME" ]]; then
   fi
 else
   # Default run: top-level benches only. Subfolders (custom/, multilib/,
-  # throughput/) are opt-in — pass `multilib/` or `multilib/<name>` to run them.
+  # throughput/) are opt-in - pass `multilib/` or `multilib/<name>` to run them.
   FILES=(
     ./assembly/__benches__/*.bench.ts
   )
@@ -265,10 +265,10 @@ build_v8_mode() {
   #                (the headline max-perf knob)
   #   -tnh / -iit  assume traps never happen / ignore implicit traps
   #   -ifwl        allow inlining functions that contain loops
-  #   -s 0         shrink level 0 — optimize for speed, not size
+  #   -s 0         shrink level 0 - optimize for speed, not size
   # Raising the inline-size caps (-fimfs/-aimfs/-ocimfs/-pii) was measured to
   # regress the ftoa micro-path (~10%) for no net win, so it is deliberately
-  # left out — more inlining is not the same as faster.
+  # left out - more inlining is not the same as faster.
   #
   # sign-ext + mutable-globals are on by default in asc's codegen (e.g.
   # i32.extend8_s, the exported mutable runtime globals), so wasm-opt must allow

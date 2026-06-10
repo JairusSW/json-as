@@ -17,7 +17,7 @@ import { deserializeString } from "../index/string";
 
 // "true"  as a u64 of UTF-16 code units (LE).
 const TRUE_WORD: u64 = 28429475166421108;
-// "alse"  — the tail of "false", read at +2 so the leading 'f' is skipped.
+// "alse"  - the tail of "false", read at +2 so the leading 'f' is skipped.
 const ALSE_WORD: u64 = 28429466576093281;
 // "null"  as a u64 of UTF-16 code units (LE).
 const NULL_WORD: u64 = 30399761348886638;
@@ -48,7 +48,13 @@ export function deserializeObject(
   srcEnd: usize,
   dst: usize,
 ): JSON.Obj {
-  const out = changetype<JSON.Obj>(dst || changetype<usize>(new JSON.Obj()));
+  const reuse = dst != 0;
+  const out = changetype<JSON.Obj>(
+    reuse ? dst : changetype<usize>(new JSON.Obj()),
+  );
+  // Reuse path (`JSON.parse<JSON.Obj>(data, out)`): empty the handle first,
+  // keeping its buffer capacity, so we overwrite rather than append stale data.
+  if (reuse) out.clear();
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
@@ -74,7 +80,11 @@ export function deserializeJsonArray(
   srcEnd: usize,
   dst: usize,
 ): JSON.Arr {
-  const out = changetype<JSON.Arr>(dst || changetype<usize>(new JSON.Arr()));
+  const reuse = dst != 0;
+  const out = changetype<JSON.Arr>(
+    reuse ? dst : changetype<usize>(new JSON.Arr()),
+  );
+  if (reuse) out.clear();
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
@@ -265,8 +275,8 @@ export function parseObjectBody(
   srcEnd: usize,
 ): usize {
   // Anchor the source for this object's deferred value slots (start pointers
-  // into it). Set here so every caller — deserializeObject, the JSON.Obj[]
-  // array path, parseValue, the map path — gets it. Empty off the parse path,
+  // into it). Set here so every caller - deserializeObject, the JSON.Obj[]
+  // array path, parseValue, the map path - gets it. Empty off the parse path,
   // where no lazy slots are produced.
   out._src = parseSrc;
   while (srcStart < srcEnd) {
@@ -308,7 +318,7 @@ export function parseObjectBody(
       srcStart += 2;
     if (parseSrc.length != 0) {
       // Parsing: store a NaN-boxed slot directly (strings/composites deferred,
-      // scalars eager) — no per-value JSON.Value object.
+      // scalars eager) - no per-value JSON.Value object.
       out.appendRawSlot(keyStart, keyEnd, parseSlotBits(srcStart, srcEnd));
     } else {
       // Off the parse path (no source anchor): box eagerly.

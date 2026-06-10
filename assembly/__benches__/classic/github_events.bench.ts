@@ -199,9 +199,9 @@ class Comment {
 
 // `payload` is a tagged union: each event type carries a different subset of
 // these keys, in inconsistent order. It falls back to its own slow path
-// per-event (via the per-class fallback) — localized, so the rest of each event
+// per-event (via the per-class fallback) - localized, so the rest of each event
 // still parses fast. (A fully-@optional payload stays on the fast path but
-// currently trips a per-class-fallback memory-corruption bug — left static.)
+// currently trips a per-class-fallback memory-corruption bug - left static.)
 @json
 class Payload {
   commits: Commit[] = [];

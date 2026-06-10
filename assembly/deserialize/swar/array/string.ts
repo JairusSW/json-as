@@ -37,7 +37,7 @@ function deserializeStringArrayBody<T extends string[]>(
       // and skip 8 bytes.
       //
       // We accept null tokens unconditionally rather than gating on
-      // `isNullable<valueof<T>>()` — AS's `valueof` of a nullable-array
+      // `isNullable<valueof<T>>()` - AS's `valueof` of a nullable-array
       // element type doesn't always preserve the nullable marker through
       // the dispatcher's `<T>` cast, so the gate would mis-fire for the
       // very case it's meant to handle. The runtime cost on plain

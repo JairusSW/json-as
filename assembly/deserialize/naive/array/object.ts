@@ -29,7 +29,7 @@ export function deserializeObjectArray<T extends unknown[]>(
     );
 
   // Each `{...}` element is parsed in a single pass via parseObjectBody, which
-  // reports where it ended — no separate scan to find the closing brace.
+  // reports where it ended - no separate scan to find the closing brace.
   while (srcStart < srcEnd) {
     if (load<u16>(srcStart) == BRACE_LEFT) {
       const obj = new JSON.Obj();

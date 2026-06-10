@@ -15,7 +15,7 @@ set -uo pipefail
 #   lazy        ✓   -    assembly/__benches__/lazy        (AS only)
 #
 # Any extra flags (e.g. `--mode simd`, `--v8`, `--wavm`, `--memory`) are forwarded
-# to the AS runner only — the JS baseline is the engine's built-in JSON and has no
+# to the AS runner only - the JS baseline is the engine's built-in JSON and has no
 # build modes. A failing category is reported but does not abort the sweep; the
 # script exits non-zero if any category failed.
 
@@ -27,7 +27,7 @@ JS="./scripts/run-bench.js.sh"
 
 FAILED=()
 
-# run <label> <command...> — print a banner, run, record (but don't abort on) failure.
+# run <label> <command...> - print a banner, run, record (but don't abort on) failure.
 run() {
   local label="$1"
   shift

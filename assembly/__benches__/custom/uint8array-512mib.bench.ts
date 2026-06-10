@@ -2,7 +2,7 @@
 //
 // AS's incremental GC caps single allocations at BLOCK_MAXSIZE = (1 << 30)
 // - 16 bytes. JSON is stored internally as UTF-16, so a 512 MiB UTF-8
-// ASCII payload occupies ~1 GiB in memory — right against that ceiling.
+// ASCII payload occupies ~1 GiB in memory - right against that ceiling.
 // Going larger than this isn't reachable with a single managed string.
 //
 // Wasm32 caps total addressable memory at 4 GiB. With the source JSON
@@ -12,7 +12,7 @@
 // below the ceiling:
 //
 //   1. The JSON string is built via a single `__new` + `memory.copy` loop
-//      — no string-concat / slice intermediates that would peak at 3-6× the
+//      - no string-concat / slice intermediates that would peak at 3-6× the
 //      final size during construction.
 //   2. The deserialize bench runs first, then the JSON reference is dropped
 //      and a GC pass reclaims the 1 GiB. The serialize bench then has room
@@ -23,7 +23,7 @@ import { bench, blackbox, dumpToFile } from "../lib/bench";
 
 // Build a JSON string of `targetChars` UTF-16 code units in one allocation.
 // AS strings carry an i32 rtSize, so the maximum addressable string is
-// just under 2 GiB of bytes — but BLOCK_MAXSIZE (~1 GiB) is the tighter
+// just under 2 GiB of bytes - but BLOCK_MAXSIZE (~1 GiB) is the tighter
 // limit in practice.
 function buildBigU8Json(targetChars: i32): string {
   // 4 mid-range u8 values per pattern, 4 chars per element on average.

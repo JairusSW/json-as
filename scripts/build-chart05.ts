@@ -91,6 +91,25 @@ for (const mode of modes) {
   }
 }
 
+// JSON.Obj (dynamic) throughput series - SIMD only; reads the `<payload>-obj`
+// logs produced by the JSON.Obj cases in the obj-(de)serialize benches.
+const objSeries: ChartPoint[] = payloads.map((p) => {
+  const d = getBenchData(logPath(`${p}-obj`, "simd", modes[0]));
+  return { x: d.bytes / 1024, y: d.mbps };
+});
+chartData["jsonobj-simd"] = objSeries;
+datasets.push({
+  label: "JSON.Obj (SIMD)",
+  data: objSeries,
+  borderColor: `rgba(${colors["obj"]},0.95)`,
+  backgroundColor: `rgba(${colors["obj"]},0.3)`,
+  fill: false,
+  tension: 0.2,
+  pointStyle: modes[0] === "serialize" ? "circle" : "rect",
+  pointRadius: 6,
+  borderDash: [8, 4],
+});
+
 let maxX = 0;
 let maxY = 0;
 

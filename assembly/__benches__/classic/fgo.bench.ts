@@ -8,7 +8,7 @@ import {
   utf8ByteLength,
 } from "../lib/bench";
 
-// fgo (yyjson_benchmark): a 46 MB Fate/Grand Order game-data dump — one object
+// fgo (yyjson_benchmark): a 46 MB Fate/Grand Order game-data dump - one object
 // of 193 "mst*"/"view*"/"npc*" tables, each a large irregular array. Modeled as
 // a dynamic-key Map<string, JSON.Raw>: every table is captured as a raw slice
 // (near-zero-allocation passthrough). This is both the only viable shape at this

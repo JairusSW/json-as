@@ -1,7 +1,7 @@
 // Throughput head-to-head for `JSON.stringify<f64[]>` at ~64 MiB of output.
 //
 // Cycles a representative mix of float widths so the xjb writer sees small
-// integer-shaped floats, fractions, negative values, and exponent forms —
+// integer-shaped floats, fractions, negative values, and exponent forms -
 // mirroring the `f64-64mib` deserialize bench.
 
 import { JSON } from "../..";

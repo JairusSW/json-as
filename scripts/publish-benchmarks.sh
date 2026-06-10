@@ -45,7 +45,7 @@ trap cleanup EXIT
 # Publishing never commits the main working tree: it builds charts into
 # ./build/charts (build output) and commits them only inside a separate `docs`
 # worktree. A dirty/changed/untracked main tree is therefore safe, so proceed by
-# default — charts just reflect your current (possibly uncommitted) source. Set
+# default - charts just reflect your current (possibly uncommitted) source. Set
 # PUBLISH_REQUIRE_CLEAN=1 to restore the old refuse-if-dirty guard.
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   if [[ "${PUBLISH_REQUIRE_CLEAN:-0}" == "1" ]]; then
@@ -53,7 +53,7 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
     echo "Commit or stash your changes first."
     exit 1
   fi
-  echo "⚠️  Working tree has uncommitted changes — charts will reflect them (HEAD: $(git rev-parse --short HEAD))."
+  echo "⚠️  Working tree has uncommitted changes - charts will reflect them (HEAD: $(git rev-parse --short HEAD))."
 fi
 
 if [[ "$RUN_BENCHES" == "1" ]]; then

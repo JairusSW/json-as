@@ -89,7 +89,7 @@ if [[ -n "$BENCH_NAME" ]]; then
   fi
 else
   # Default run: top-level benches only. Subfolders (multilib/, throughput/) are
-  # opt-in — pass `multilib/` or `multilib/<name>` to run them.
+  # opt-in - pass `multilib/` or `multilib/<name>` to run them.
   FILES=(
     ./bench/*.bench.ts
   )

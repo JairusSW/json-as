@@ -5,8 +5,7 @@ import { JSON } from ".";
 //   bun run build:playground      # regenerate tmp (runs the transform)
 //   bun run playground:tmp        # build + run the tmp WITHOUT the transform
 
-@json
-class Obj {
+@json class Obj {
   id: u32 = 0;
   active: boolean = false;
   name: string = "";
@@ -39,7 +38,7 @@ const out = new Obj();
 deserializeInto<Obj>(srcStart, srcEnd, out);
 console.log("re-serialized: " + JSON.stringify(out));
 
-// Report the MIN ns/op across many rounds — the least-noisy estimator of the
+// Report the MIN ns/op across many rounds - the least-noisy estimator of the
 // underlying cost (scheduler/CPU-frequency noise only ever makes a round
 // slower, never faster).
 function timeit(label: string, iters: i32, rounds: i32): void {

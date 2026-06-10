@@ -3,7 +3,7 @@
 // would emit (baseRel + each injected subpath), and assert each one resolves
 // to an existing file the way the AssemblyScript loader would.
 //
-// The injected subpaths are the complete set the transform emits — note `bs`
+// The injected subpaths are the complete set the transform emits - note `bs`
 // lives at `lib/as-bs` (package root), NOT under `assembly/`:
 //   bs            -> lib/as-bs
 //   JSON          -> assembly/index

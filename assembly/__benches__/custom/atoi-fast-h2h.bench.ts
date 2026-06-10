@@ -2,7 +2,7 @@
 //
 // Scenarios:
 //   1. atou<u32> consume-to-end at widths 4/8/10/16 (typical JSON integer
-//      sizes — i32 max is 10 digits, i64 max is 19).
+//      sizes - i32 max is 10 digits, i64 max is 19).
 //   2. atoi<i32> consume-to-end including leading minus.
 //   3. atouScan<u32> / atoiScan<i32> scan-to-non-digit at the same widths,
 //      mimicking the production field-parsing hot path.
@@ -51,7 +51,7 @@ for (let i = 0; i < W.length; i++) {
 }
 
 // ---------------------------------------------------------------------------
-// Hot-pointer scratch — set per scenario before benching.
+// Hot-pointer scratch - set per scenario before benching.
 // ---------------------------------------------------------------------------
 
 let CUR_PTR: usize = 0;

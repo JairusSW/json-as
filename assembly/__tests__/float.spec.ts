@@ -177,7 +177,7 @@ describe("Should round-trip float array fields via @json struct envelopes", () =
 });
 
 describe("Should round-trip f32 arrays through JSON.parse", () => {
-  // f32 arrays go through the same dispatcher as f64 — this exercises the
+  // f32 arrays go through the same dispatcher as f64 - this exercises the
   // `sizeof<E>() == sizeof<f32>()` branch in the SWAR float parser and the
   // f32 store path through every mode.
   expect(JSON.stringify(JSON.parse<f32[]>("[0.5,1.25,-3.75]"))).toBe(

@@ -1,4 +1,4 @@
-// Throughput charts for the classic/ dataset benches — NAIVE / SWAR / SIMD,
+// Throughput charts for the classic/ dataset benches - NAIVE / SWAR / SIMD,
 // deserialize and serialize, rendered once per AS runtime (v8 and wavm). Based
 // on build-chart01.ts, but with no JS baseline (these benches (de)serialize into
 // a pre-existing object) and a custom log reader so it can run without js logs.
@@ -16,7 +16,7 @@ import {
   type BenchKind,
   type BenchResult,
 } from "./lib/bench-utils";
-import { MODE_BARS } from "./lib/palette";
+import { MODE_BARS, OBJ_BAR, rgba, BASE } from "./lib/palette";
 
 const RUNTIMES = ["v8", "wavm"] as const;
 type Runtime = (typeof RUNTIMES)[number];
@@ -36,6 +36,8 @@ const DATASETS: { key: string; label: string }[] = [
 
 // NAIVE / SWAR / SIMD in the standard mode hues (orange / green / blue).
 const MODE_COLORS = [MODE_BARS[1], MODE_BARS[2], MODE_BARS[3]];
+// SIMD-only extra series: lazy(auto) (muted teal) and dynamic JSON.Obj (copper).
+const LAZY_BAR = { bg: rgba("mutedTeal", 0.85), border: BASE.mutedTeal };
 
 const TITLES: Record<BenchKind, string> = {
   deserialize: "Deserialization throughput of classic payloads",
@@ -76,12 +78,19 @@ for (const runtime of RUNTIMES) {
     const chartData: Record<string, BenchResult[]> = {};
     let present = 0;
     for (const { key } of DATASETS) {
-      const series = MODES.map(
+      const eager = MODES.map(
         (m) =>
           read(runtime, m, `${key}-min`, kind) ?? ({ mbps: 0 } as BenchResult),
       );
-      if (series.every((r) => r.mbps > 0)) present++;
-      chartData[key] = series;
+      if (eager.every((r) => r.mbps > 0)) present++;
+      // SIMD-only lazy(auto) + dynamic JSON.Obj bars, appended after the modes.
+      const lazy =
+        read(runtime, "simd", `${key}-lazy-min`, kind) ??
+        ({ mbps: 0 } as BenchResult);
+      const obj =
+        read(runtime, "simd", `${key}-obj-min`, kind) ??
+        ({ mbps: 0 } as BenchResult);
+      chartData[key] = [...eager, lazy, obj];
     }
     if (present === 0) {
       console.warn(`  skip ${kind}/${runtime}: no logs found`);
@@ -92,8 +101,14 @@ for (const runtime of RUNTIMES) {
       title: TITLES[kind],
       yLabel: "Throughput (MB/s)",
       xLabel: "",
-      datasetLabels: ["NAIVE", "SWAR", "SIMD"],
-      colors: MODE_COLORS,
+      datasetLabels: [
+        "NAIVE",
+        "SWAR",
+        "SIMD",
+        "Lazy (SIMD)",
+        "JSON.Obj (SIMD)",
+      ],
+      colors: [...MODE_COLORS, LAZY_BAR, OBJ_BAR],
       // Value labels sit on top of each bar (this datalabels build treats
       // "start" as the bar's far end); a slightly smaller font keeps adjacent
       // same-height labels from touching.

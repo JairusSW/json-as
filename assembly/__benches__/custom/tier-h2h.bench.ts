@@ -4,12 +4,12 @@ import { bench, blackbox } from "../lib/bench";
 
 // Head-to-head: tier-1 (exact, minified) vs tier-2 (whitespace-tolerant) on the
 // SAME medium struct. Three inputs of identical data:
-//   1. min     — minified              -> tier 1
-//   2. lead    — one leading space     -> tier 2, but minified body (≈same byte
+//   1. min     - minified              -> tier 1
+//   2. lead    - one leading space     -> tier 2, but minified body (≈same byte
 //                                          count) so this isolates the PURE path
 //                                          overhead: extra no-op skipWhitespace
 //                                          calls + per-token matching, no real ws
-//   3. pretty  — fully indented        -> tier 2 doing real whitespace skipping
+//   3. pretty  - fully indented        -> tier 2 doing real whitespace skipping
 // Allocation cost is identical across all three (same object shape), so the
 // per-op delta is purely the parse path.
 
@@ -105,7 +105,7 @@ function prettyPrint(src: string): string {
   return out;
 }
 
-// Worst case for tier-2: many fields, all trivial primitive values — almost no
+// Worst case for tier-2: many fields, all trivial primitive values - almost no
 // value work to hide the per-field skipWhitespace + token-match overhead behind.
 @json
 class FieldDense {
@@ -206,7 +206,7 @@ expect(JSON.stringify(JSON.parse<MediumAPIResponse>(pretty))).toBe(min);
 const N = 300_000;
 
 bench(
-  "Deserialize medium — min (tier 1, exact)",
+  "Deserialize medium - min (tier 1, exact)",
   () => {
     blackbox(inline.always(JSON.parse<MediumAPIResponse>(min)));
   },
@@ -215,7 +215,7 @@ bench(
 );
 
 bench(
-  "Deserialize medium — lead space (tier 2, pure path overhead)",
+  "Deserialize medium - lead space (tier 2, pure path overhead)",
   () => {
     blackbox(inline.always(JSON.parse<MediumAPIResponse>(lead)));
   },
@@ -224,7 +224,7 @@ bench(
 );
 
 bench(
-  "Deserialize medium — pretty (tier 2, real whitespace)",
+  "Deserialize medium - pretty (tier 2, real whitespace)",
   () => {
     blackbox(inline.always(JSON.parse<MediumAPIResponse>(pretty)));
   },
@@ -233,7 +233,7 @@ bench(
 );
 
 bench(
-  "Deserialize field-dense — min (tier 1, exact)",
+  "Deserialize field-dense - min (tier 1, exact)",
   () => {
     blackbox(inline.always(JSON.parse<FieldDense>(dmin)));
   },
@@ -242,7 +242,7 @@ bench(
 );
 
 bench(
-  "Deserialize field-dense — lead space (tier 2, pure path overhead)",
+  "Deserialize field-dense - lead space (tier 2, pure path overhead)",
   () => {
     blackbox(inline.always(JSON.parse<FieldDense>(dlead)));
   },
@@ -251,7 +251,7 @@ bench(
 );
 
 bench(
-  "Deserialize field-dense — pretty (tier 2, real whitespace)",
+  "Deserialize field-dense - pretty (tier 2, real whitespace)",
   () => {
     blackbox(inline.always(JSON.parse<FieldDense>(dpretty)));
   },
@@ -260,7 +260,7 @@ bench(
 );
 
 bench(
-  "Deserialize non-opt twin — min (flat tier 1)",
+  "Deserialize non-opt twin - min (flat tier 1)",
   () => {
     blackbox(inline.always(JSON.parse<NonOptMedium>(nomin)));
   },
@@ -269,7 +269,7 @@ bench(
 );
 
 bench(
-  "Deserialize optional — min (seenAny tier 1)",
+  "Deserialize optional - min (seenAny tier 1)",
   () => {
     blackbox(inline.always(JSON.parse<OptMedium>(omin)));
   },
@@ -278,7 +278,7 @@ bench(
 );
 
 bench(
-  "Deserialize optional — pretty (tier 2 probe path)",
+  "Deserialize optional - pretty (tier 2 probe path)",
   () => {
     blackbox(inline.always(JSON.parse<OptMedium>(opretty)));
   },

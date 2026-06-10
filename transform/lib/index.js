@@ -310,6 +310,7 @@ export class JSONTransform extends Visitor {
             }) ??
                 false));
         let __hasLazy = false;
+        const __lazyValInits = new Map();
         for (let i = node.members.length - 1; i >= 0; i--) {
             const fd = node.members[i];
             if (fd.kind !== NodeKind.FieldDeclaration ||
@@ -340,7 +341,7 @@ export class JSONTransform extends Visitor {
                 continue;
             if (hasCustomSerde)
                 throwError("Lazy fields (@lazy / JSON.Lazy<T> / @json({ lazy })) are not supported " +
-                    "on a class with a custom @serializer/@deserializer — the custom methods " +
+                    "on a class with a custom @serializer/@deserializer - the custom methods " +
                     "bypass the generated (de)serializer, so the deferred slot is never filled. " +
                     "Remove the lazy marker or the custom (de)serializer.", fd.range);
             const fname = fd.name.text;
@@ -356,6 +357,13 @@ export class JSONTransform extends Visitor {
                     : "null";
             const fdInit = fd.initializer;
             const fieldDefault = fdInit ? toString(fdInit) : null;
+            const refDefault = fieldDefault != null
+                ? fieldDefault
+                : !storesScalar && baseT == T && !baseT.startsWith("StaticArray<")
+                    ? baseT == "string" || baseT == "String"
+                        ? '""'
+                        : `new ${baseT}()`
+                    : null;
             __hasLazy = true;
             const omitIfDeco = decos?.find((d) => d.name.text === "omitif");
             lazyInner.set("__" + fname + "_lz", {
@@ -397,8 +405,8 @@ export class JSONTransform extends Visitor {
                         `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
                 ]
                 : [
-                    `@alias(${key}) private __${fname}_lz: u64 = ${fieldDefault != null ? "u64.MAX_VALUE" : "0"};`,
-                    `private __${fname}_val: ${valueType} = ${fieldDefault ?? valueDefault};`,
+                    `@alias(${key}) private __${fname}_lz: u64 = ${refDefault != null ? "u64.MAX_VALUE" : "0"};`,
+                    `private __${fname}_val: ${valueType} = ${refDefault ?? valueDefault};`,
                     `get ${fname}(): ${T} {\n` +
                         `  const __lz = this.__${fname}_lz;\n` +
                         `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +
@@ -411,6 +419,9 @@ export class JSONTransform extends Visitor {
                         `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
                 ]).map((src) => SimpleParser.parseClassMember(src, node));
             node.members.splice(i, 1, ...lowered);
+            if (!packScalar && refDefault != null) {
+                __lazyValInits.set(`__${fname}_lz`, `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`__${fname}_val`)}));\n`);
+            }
         }
         if (__hasLazy) {
             node.members.push(SimpleParser.parseClassMember(`private __src: string = "";`, node), SimpleParser.parseClassMember(`__SET_SRC(s: string): void { this.__src = s; }`, node));
@@ -946,6 +957,9 @@ export class JSONTransform extends Visitor {
             const realName = member.name;
             if (member.value) {
                 INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                const __valInit = __lazyValInits.get(member.name);
+                if (__valInit)
+                    INITIALIZE += __valInit;
             }
             else if (member.generic) {
                 INITIALIZE += `  if (isManaged<nonnull<${member.type}>>() || isReference<nonnull<${member.type}>>()) {\n`;

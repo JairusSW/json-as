@@ -1,4 +1,4 @@
-// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs — do not edit by hand.
+// AUTO-GENERATED from the eager bench by scripts/sync-lazy-benches.mjs - do not edit by hand.
 // Re-run `node scripts/sync-lazy-benches.mjs` to regenerate.
 import { JSON } from "../..";
 import { expect } from "../../__tests__/lib";
@@ -52,6 +52,14 @@ class Org {
   author: Author = new Author();
 }
 
+function touchRoot(root: Map<string, Org>): f64 {
+  const keys = root.keys();
+  let s = <f64>root.size;
+  for (let i = 0, n = keys.length; i < n; i++)
+    s += <f64>unchecked(keys[i]).length;
+  return s;
+}
+
 const prettyJson = readFile(
   "./assembly/__benches__/payloads/gsoc-2018.pretty.json",
 );
@@ -64,7 +72,8 @@ const gsoc = JSON.parse<Map<string, Org>>(prettyJson);
 bench(
   "Deserialize GSOC Lazy (pretty)",
   () => {
-    blackbox(JSON.parse<Map<string, Org>>(prettyJson));
+    const root = JSON.parse<Map<string, Org>>(prettyJson);
+    blackbox(touchRoot(root));
   },
   500,
   utf8ByteLength(prettyJson),
@@ -74,14 +83,20 @@ dumpToFile("gsoc-2018-lazy-pretty", "deserialize");
 bench(
   "Deserialize GSOC Lazy (min)",
   () => {
-    blackbox(JSON.parse<Map<string, Org>>(minJson));
+    const root = JSON.parse<Map<string, Org>>(minJson);
+    blackbox(touchRoot(root));
   },
   500,
   utf8ByteLength(minJson),
 );
 dumpToFile("gsoc-2018-lazy-min", "deserialize");
 
-// NOTE: no lazy serialize bench — lazy passthrough serialize traps for
-// this document (a root-level map value, or a per-class-fallback'd
-// tagged-union payload whose deferred slices don't survive serialize).
-// The eager bench covers serialize; lazy mode is about the parse numbers.
+bench(
+  "Serialize GSOC Lazy (min)",
+  () => {
+    blackbox(JSON.stringify(gsoc));
+  },
+  1000,
+  utf8ByteLength(minJson),
+);
+dumpToFile("gsoc-2018-lazy-min", "serialize");

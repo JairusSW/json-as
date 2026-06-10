@@ -9,10 +9,10 @@ import {
 } from "../lib/bench";
 
 // Twitter search API response (miloyip/nativejson-benchmark). Fully modeled as a
-// struct schema — no JSON.Raw — so the eager bench really materializes every
+// struct schema - no JSON.Raw - so the eager bench really materializes every
 // field. Sometimes-absent keys are marked @optional so the whole document stays
 // on the fast path; retweeted_status is recursively a Status (a retweet is just
-// a tweet, with no nested retweet of its own — hence @optional).
+// a tweet, with no nested retweet of its own - hence @optional).
 
 @json
 class TweetMetadata {

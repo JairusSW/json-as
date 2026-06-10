@@ -63,28 +63,14 @@ import { atoi, bytes, scanStringEnd } from "./util";
 import { scanValueEnd_SIMD } from "./util/scanValueEndSimd";
 import { scanValueEnd_SWAR } from "./util/scanValueEndSwar";
 
-// --- NaN-boxing encoding for JSON.Value ----------------------------------
-// JSON.Value packs its type tag and payload into a single 8-byte word.
-// Real f64 values are stored as their raw IEEE-754 bits; every other type is
-// encoded inside a quiet-NaN ("boxed") word: a 5-bit tag (the JSON.Types id,
-// or Struct for @json classes) plus a 45-bit payload holding a 32-bit pointer
-// or a small scalar. 64-bit ints that don't fit the payload are spilled to a
-// heap StaticArray<u64> referenced by the payload pointer and flagged in the
-// sign bit. Only quiet-NaN doubles whose top two mantissa bits are both set
-// collide with the box signature; hardware NaN is 0x7FF8.. so finite/Inf/NaN
-// doubles all pass through untouched.
-//
-// The managed reference packed into the word is traced by JSON.Value.__visit;
-// AssemblyScript only wires that hook for library-declared classes, so the
-// json-as transform marks this source as a library source (see afterParse).
 const VAL_QNAN: u64 = 0x7ffc000000000000; // boxed signature (quiet NaN)
 const VAL_TAG_SHIFT: u8 = 45;
 const VAL_PAYLOAD_MASK: u64 = 0x00001fffffffffff; // low 45 bits
 const VAL_PTR_MASK: u64 = 0xffffffff; // wasm32 pointer
 const VAL_BOX64: u64 = 0x8000000000000000; // sign bit: 64-bit int spilled to heap
 const VAL_NULL: u64 = VAL_QNAN; // tag 0 (Null), payload 0
-const VAL_I64_LIMIT: i64 = 17592186044416; // 2^44 — inline range is [-2^44, 2^44)
-const VAL_U64_LIMIT: u64 = 35184372088832; // 2^45 — inline range is [0, 2^45)
+const VAL_I64_LIMIT: i64 = 17592186044416; // 2^44 - inline range is [-2^44, 2^44)
+const VAL_U64_LIMIT: u64 = 35184372088832; // 2^45 - inline range is [0, 2^45)
 
 // Lazy value-slot payload layout (see JSON.Value.lazyBits). Compact form packs a
 // source-relative offset and length of LZ_FIELD_BITS units each; bit 44 flags the
@@ -120,18 +106,77 @@ function valIntTag<T>(): u32 {
   return isSigned<T>() ? JSON.Types.I64 : JSON.Types.U64;
 }
 
+function hashUtf16(ptr: usize, len: i32): u32 {
+  let h: u32 = 2166136261;
+  for (let i = 0; i < len; i++) {
+    h ^= <u32>load<u16>(ptr + ((<usize>i) << 1));
+    h *= 16777619;
+  }
+  h ^= <u32>len;
+  h *= 16777619;
+  return h;
+}
+
+// v128 path: compare 8 code units (16 bytes) per step, then a u64 step (4) and
+// a scalar tail. Each load is bounded by `len`, so it never reads past either
+// key. Only reachable (and thus only compiled) when the SIMD feature is on, so
+// the intrinsics don't break the naive/swar builds.
+function utf16Equals_SIMD(ptrA: usize, ptrB: usize, len: i32): bool {
+  let i = 0;
+  for (; i + 8 <= len; i += 8) {
+    const off = (<usize>i) << 1;
+    if (v128.any_true(v128.xor(v128.load(ptrA + off), v128.load(ptrB + off))))
+      return false;
+  }
+  for (; i + 4 <= len; i += 4) {
+    const off = (<usize>i) << 1;
+    if (load<u64>(ptrA + off) != load<u64>(ptrB + off)) return false;
+  }
+  for (; i < len; i++) {
+    const off = (<usize>i) << 1;
+    if (load<u16>(ptrA + off) != load<u16>(ptrB + off)) return false;
+  }
+  return true;
+}
+
+function utf16Equals(ptrA: usize, ptrB: usize, len: i32): bool {
+  if (ASC_FEATURE_SIMD) return utf16Equals_SIMD(ptrA, ptrB, len);
+  // Scalar: 4 code units (one u64) per step, scalar tail. Bounded by `len`.
+  let i = 0;
+  for (; i + 4 <= len; i += 4) {
+    const off = (<usize>i) << 1;
+    if (load<u64>(ptrA + off) != load<u64>(ptrB + off)) return false;
+  }
+  for (; i < len; i++) {
+    const off = (<usize>i) << 1;
+    if (load<u16>(ptrA + off) != load<u16>(ptrB + off)) return false;
+  }
+  return true;
+}
+
 // Shared zero-length sentinel for JSON.Obj's key buffer, so an empty object
 // allocates no key storage until its first key is inserted. Never mutated.
 // @ts-expect-error: Decorator valid here
 @lazy const EMPTY_KEYS: StaticArray<u16> = new StaticArray<u16>(0);
+
+// Shared zero-length sentinel for JSON.Obj's key-position/index buffers.
+// Never mutated.
+// @ts-expect-error: Decorator valid here
+@lazy const EMPTY_I32S: StaticArray<i32> = new StaticArray<i32>(0);
 
 // Shared zero-length sentinel for JSON.Obj's value-slot buffer, so an empty
 // object allocates no slot storage until its first value. Never mutated.
 // @ts-expect-error: Decorator valid here
 @lazy const EMPTY_VALS: StaticArray<u64> = new StaticArray<u64>(0);
 
+// A JSON.Obj with at most this many keys resolves lookups by linear scan and
+// never allocates/hashes a key index. Most JSON objects are small and dynamic
+// access touches only a few keys, so the O(n) index build a hash table needs is
+// pure overhead below this size. Above it, the hash index amortizes.
+const OBJ_LINEAR_MAX: i32 = 6;
+
 // Deferred-value record for a lazy JSON.Value (see JSON.Types.Lazy). `lz` packs
-// the unparsed source slice as (sliceStart << 32) | sliceEnd — the same encoding
+// the unparsed source slice as (sliceStart << 32) | sliceEnd - the same encoding
 // the transform uses for @lazy struct fields. `src` is the GC anchor that keeps
 // the source string (and therefore the slice pointers, which index into its
 // UTF-16 buffer) alive until the value is materialized. Managed so `src` is
@@ -154,7 +199,7 @@ export namespace JSON {
   export type Lazy<T> = T;
 
   /**
-   * Whether a lazy slot's value is JSON null — for `@omitnull` on lazy fields,
+   * Whether a lazy slot's value is JSON null - for `@omitnull` on lazy fields,
    * without forcing materialization. The slot encodes the state: `u64.MAX_VALUE`
    * = materialized (null iff the value pointer is 0), `0` = absent (null), any
    * other value = a not-yet-parsed slice range (null iff it is literally `null`).
@@ -324,7 +369,7 @@ export namespace JSON {
     // Entry point skips leading whitespace: every deserialize handler may then
     // assume srcStart points at the first non-whitespace char. Handlers must
     // NOT re-skip leading whitespace themselves. (Trailing whitespace is left
-    // intact — scalars stop at the value end, composites self-trim, and
+    // intact - scalars stop at the value end, composites self-trim, and
     // JSON.Raw intentionally preserves trailing bytes.)
     while (dataPtr < dataEnd && JSON.Util.isSpace(load<u16>(dataPtr)))
       dataPtr += 2;
@@ -367,7 +412,7 @@ export namespace JSON {
         // A freshly allocated object holds uninitialized fields (__new does not
         // zero). The fast path writes fields in place and may leave some
         // unwritten (@optional / skip-unknown), so it must run against defaults,
-        // not garbage. A reused graph is already initialized — skip it.
+        // not garbage. A reused graph is already initialized - skip it.
         // @ts-expect-error: Defined by transform
         if (!reuse && isDefined(type.__INITIALIZE)) obj.__INITIALIZE();
         // @ts-expect-error: Defined by transform
@@ -386,7 +431,7 @@ export namespace JSON {
             JSON.Util.skipWhitespace(fastEnd, dataPtr + dataSize) ==
               dataPtr + dataSize
           ) {
-            // @ts-expect-error: Defined by transform for @lazy-field structs —
+            // @ts-expect-error: Defined by transform for @lazy-field structs -
             // pins the source so stored slice ranges stay valid.
             if (isDefined(obj.__SET_SRC)) obj.__SET_SRC(data);
             return obj;
@@ -459,14 +504,30 @@ export namespace JSON {
         // @ts-expect-error: type
         return deserializeRaw(dataPtr, dataPtr + dataSize);
       } else if (type instanceof JSON.Value) {
+        // Reuse the caller-supplied JSON.Value handle when given (`out`); the
+        // deserializer writes the parsed bits into it. Otherwise allocate.
         // @ts-expect-error
-        return deserializeArbitrary(dataPtr, dataPtr + dataSize, 0);
+        return deserializeArbitrary(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(out),
+        );
       } else if (type instanceof JSON.Obj) {
+        // Reuse the caller-supplied JSON.Obj (cleared, buffers kept). Otherwise allocate.
         // @ts-expect-error
-        return deserializeObject(dataPtr, dataPtr + dataSize, 0);
+        return deserializeObject(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(out),
+        );
       } else if (type instanceof JSON.Arr) {
+        // Reuse the caller-supplied JSON.Arr (cleared, buffers kept). Otherwise allocate.
         // @ts-expect-error
-        return deserializeJsonArray(dataPtr, dataPtr + dataSize, 0);
+        return deserializeJsonArray(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(out),
+        );
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error
         return new JSON.Box(parseBox(data, changetype<nonnull<T>>(0).value));
@@ -516,7 +577,7 @@ export namespace JSON {
     export const ArrayBuffer: u16 = 19;
     /**
      * Internal: a not-yet-materialized value holding a raw source slice
-     * (see LazyRef). Never returned by `JSON.Value.type` — accessing the value
+     * (see LazyRef). Never returned by `JSON.Value.type` - accessing the value
      * materializes it first, so callers only ever observe the concrete type.
      */
     export const Lazy: u16 = 20;
@@ -592,8 +653,7 @@ export namespace JSON {
    * ```
    */
   // @ts-expect-error: decorators allowed here
-  @final
-  export class Value {
+  @final export class Value {
     /** Map of struct type IDs to their serialization function indices */
     @lazy static METHODS: Map<u32, u32> = new Map<u32, u32>();
 
@@ -652,7 +712,7 @@ export namespace JSON {
      * `[sliceStart, sliceEnd)` (UTF-16 byte pointers into `src`). The slice is
      * parsed into a concrete value on first access (see `materialize`); until
      * then it serializes by passing those bytes through verbatim. `src` anchors
-     * the source string so the slice pointers stay valid. Internal — produced by
+     * the source string so the slice pointers stay valid. Internal - produced by
      * the dynamic deserializers, never called by user code.
      */
     static fromSlice(
@@ -671,10 +731,34 @@ export namespace JSON {
     }
 
     /**
+     * Copy `src`'s NaN-boxed bits into the already-allocated value at `dst`,
+     * applying the itcms write barrier for any managed payload (mirrors
+     * `__visit`'s tracing rule: tags >= String carry a pointer, as do
+     * heap-spilled 64-bit ints). Lets `JSON.parse<JSON.Value>(data, out)` reuse
+     * the caller's handle without materializing `src`.
+     */
+    @unsafe static __adoptInto(dst: usize, src: JSON.Value): JSON.Value {
+      const target = changetype<JSON.Value>(dst);
+      const bits = src.bits;
+      target.bits = bits;
+      if (valBoxed(bits)) {
+        const tag = valTag(bits);
+        if (
+          tag >= JSON.Types.String ||
+          ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
+            (bits & VAL_BOX64) != 0)
+        ) {
+          __link(dst, valPtr(bits), false);
+        }
+      }
+      return target;
+    }
+
+    /**
      * Parses a deferred (lazy) value into a concrete one in place, replacing the
      * boxed slice with the real boxed value (cached for subsequent reads). The
      * deferred shapes are strings, objects and arrays; a string materializes to
-     * a `string`, while a composite's own nested deferred children stay lazy —
+     * a `string`, while a composite's own nested deferred children stay lazy -
      * one level is peeled per access. A no-op for already-materialized values.
      * Never allocates during GC (not called from `__visit`).
      */
@@ -693,7 +777,7 @@ export namespace JSON {
     /**
      * Parses the raw slice `[start, end)` (the allocating shapes only: string,
      * object, array) into a concrete value and returns its NaN-boxed bits. A
-     * composite's own nested string/composite children stay lazy — one level is
+     * composite's own nested string/composite children stay lazy - one level is
      * peeled. Shared by `JSON.Value.materialize` (standalone lazy values) and
      * `JSON.Obj`'s value-slot materialization.
      */
@@ -745,7 +829,7 @@ export namespace JSON {
      * Bits for a deferred slot. The 45-bit payload has two forms (bit 44 selects):
      *
      *   compact (bit 44 = 0): the value's start *offset* and *length*, both in
-     *     UTF-16 units relative to the source base — `(length << 22) | offset`.
+     *     UTF-16 units relative to the source base - `(length << 22) | offset`.
      *     Gives the exact end with no scan for any value inside a source up to
      *     2^22 units (8 MB) whose own length is also < 8 MB. This is the common
      *     case, and storing a relative offset (vs an absolute pointer) is also
@@ -753,7 +837,7 @@ export namespace JSON {
      *
      *   absolute (bit 44 = 1): the absolute start pointer in the low 32 bits;
      *     the end is scanned on demand. Fallback for a source or value past the
-     *     8 MB field range — rare, and correct (it scans from the value start;
+     *     8 MB field range - rare, and correct (it scans from the value start;
      *     scanning a composite cannot safely resume mid-value).
      */
     static lazyBits(srcBase: usize, start: usize, end: usize): u64 {
@@ -767,7 +851,7 @@ export namespace JSON {
       }
       return valBox(JSON.Types.Lazy, payload);
     }
-    /** The value-end pointer of a lazy slot — from the packed length, or scanned. */
+    /** The value-end pointer of a lazy slot - from the packed length, or scanned. */
     static slotEnd(w: u64, srcBase: usize, srcEnd: usize): usize {
       const p = valPayload(w);
       if (p & LZ_ABS_FLAG) {
@@ -964,7 +1048,6 @@ export namespace JSON {
         // the Array tag always boxes a JSON.Arr.
         this.bits = valBox(
           JSON.Types.Array,
-          // @ts-expect-error: T is JSON.Value[] here
           <u64>changetype<usize>(JSON.Arr.from<T>(value)),
         );
       }
@@ -1088,7 +1171,7 @@ export namespace JSON {
       // A deferred value carries a LazyRef pointer; tracing it keeps the LazyRef
       // (and, transitively, its `src` anchor) alive. Must precede the
       // `tag >= String` branch since Lazy(20) would otherwise fall into it.
-      // Trace-only — never materialize here (no allocation during GC).
+      // Trace-only - never materialize here (no allocation during GC).
       if (tag == JSON.Types.Lazy) {
         __visit(valPtr(w), cookie);
         return;
@@ -1125,32 +1208,16 @@ export namespace JSON {
    * console.log(JSON.stringify(obj));  // {"key":"value","count":42}
    * ```
    */
-  export class Obj {
-    // Keys are packed into one growable buffer, each prefixed by a u16 length
-    // (UTF-16 code units), instead of allocating a heap string per key.
-    //
-    // Values live in a parallel FLAT buffer of NaN-boxed u64 slots — not heap
-    // JSON.Value objects. A deferred string/object/array slot is
-    // `valBox(Lazy, startPtr)` pointing into `_src` (scanned + parsed on first
-    // access); an eager scalar (null/int/float/bool) is its NaN-box inline; a
-    // materialized or `set` reference is its boxed pointer. This drops the
-    // per-value JSON.Value (and LazyRef) allocations that a JSON.Value[] needs:
-    // a freshly parsed object is just the key buffer + the slot buffer + the
-    // shared source anchor. A key -> position index is built lazily on the first
-    // keyed access (never during parsing).
-    //
-    // Because the slot buffer is a primitive StaticArray<u64>, the GC does not
-    // trace pointers embedded in slots — so this class defines a custom
-    // `__visit` (traces materialized slot pointers + the managed fields) and
-    // `__link`s any pointer written into a slot, exactly like Map/Array do for
-    // their internal buffers.
+  @final export class Obj {
     _kbuf: StaticArray<u16> = EMPTY_KEYS;
     _kused: i32 = 0;
+    _kpos: StaticArray<i32> = EMPTY_I32S;
     _vals: StaticArray<u64> = EMPTY_VALS;
     _vused: i32 = 0;
     /** Source string the lazy slot pointers index into; anchors it for GC. */
     _src: string = "";
-    private _index: Map<string, i32> | null = null;
+    private _index: StaticArray<i32> | null = null;
+    private _indexMask: i32 = 0;
 
     constructor() {}
 
@@ -1177,11 +1244,28 @@ export namespace JSON {
       this._kbuf = nb;
     }
 
+    /** Grows the key-position buffer to hold at least `need` entries. */
+    private ensureKeyPosCap(need: i32): void {
+      const cap = this._kpos.length;
+      if (cap >= need) return;
+      let n = cap ? cap : 8;
+      while (n < need) n <<= 1;
+      const nb = new StaticArray<i32>(n);
+      if (this._vused)
+        memory.copy(
+          changetype<usize>(nb),
+          changetype<usize>(this._kpos),
+          (<usize>this._vused) << 2,
+        );
+      this._kpos = nb;
+    }
+
     /** Appends a length-prefixed key (from a source memory range). */
-    private pushKeyBytes(keyStart: usize, keyEnd: usize): void {
+    private pushKeyBytes(keyStart: usize, keyEnd: usize, slotIndex: i32): void {
       const len = <i32>((keyEnd - keyStart) >> 1);
       const pos = this._kused;
       this.ensureKeyCap(pos + 1 + len);
+      this.ensureKeyPosCap(slotIndex + 1);
       const buf = changetype<usize>(this._kbuf);
       store<u16>(buf + ((<usize>pos) << 1), <u16>len);
       if (len)
@@ -1190,6 +1274,7 @@ export namespace JSON {
           keyStart,
           (<usize>len) << 1,
         );
+      unchecked((this._kpos[slotIndex] = pos));
       this._kused = pos + 1 + len;
     }
 
@@ -1227,7 +1312,7 @@ export namespace JSON {
       if (valBoxed(bits)) {
         const tag = valTag(bits);
         // Lazy slots hold an interior `_src` pointer (anchored by the _src
-        // field), not an owned object — never link those.
+        // field), not an owned object - never link those.
         if (
           tag != JSON.Types.Lazy &&
           (tag >= JSON.Types.String ||
@@ -1252,10 +1337,80 @@ export namespace JSON {
       return changetype<usize>(this._src) + ((<usize>this._src.length) << 1);
     }
 
+    /** Compares a lookup key against the stored key bytes for slot `i`. */
+    private keyEquals(i: i32, key: string): bool {
+      const pos = unchecked(this._kpos[i]);
+      const buf = changetype<usize>(this._kbuf) + ((<usize>pos) << 1);
+      const len = <i32>load<u16>(buf);
+      if (len != <i32>key.length) return false;
+      return utf16Equals(changetype<usize>(key), buf + 2, len);
+    }
+
+    /** Compares two stored key slots without materializing strings. */
+    private slotEqualsSlot(a: i32, b: i32): bool {
+      const posa = unchecked(this._kpos[a]);
+      const bufA = changetype<usize>(this._kbuf) + ((<usize>posa) << 1);
+      const lenA = <i32>load<u16>(bufA);
+      const posb = unchecked(this._kpos[b]);
+      const bufB = changetype<usize>(this._kbuf) + ((<usize>posb) << 1);
+      const lenB = <i32>load<u16>(bufB);
+      if (lenA != lenB) return false;
+      return utf16Equals(bufA + 2, bufB + 2, lenA);
+    }
+
+    /** Hashes the stored key for slot `i`. */
+    private keyHashAt(i: i32): u32 {
+      const pos = unchecked(this._kpos[i]);
+      const buf = changetype<usize>(this._kbuf) + ((<usize>pos) << 1);
+      const len = <i32>load<u16>(buf);
+      return hashUtf16(buf + 2, len);
+    }
+
     /** Resolves a key to its slot index, or -1 if absent. */
     private indexOf(key: string): i32 {
+      const n = this._vused;
+      const keyLen = <i32>key.length;
+      // Small objects: scan linearly and never build a hash index. The keys are
+      // packed contiguously in _kbuf and the length prefix rejects mismatches
+      // before any byte compare. Scan from the end so a duplicate key resolves
+      // to its LAST occurrence - JSON last-value-wins, matching buildIndex()
+      // (which overwrites the slot on a collision) for objects above the
+      // threshold; a forward scan would return the first and disagree.
+      if (n <= OBJ_LINEAR_MAX) {
+        const kbuf = changetype<usize>(this._kbuf);
+        const keyPtr = changetype<usize>(key);
+        const kpos = this._kpos;
+        for (let i = n - 1; i >= 0; i--) {
+          const buf = kbuf + ((<usize>unchecked(kpos[i])) << 1);
+          if (
+            <i32>load<u16>(buf) == keyLen &&
+            utf16Equals(keyPtr, buf + 2, keyLen)
+          )
+            return i;
+        }
+        return -1;
+      }
       const idx = this.buildIndex();
-      return idx.has(key) ? idx.get(key) : -1;
+      const mask = this._indexMask;
+      if (mask == 0) {
+        const entry = unchecked(idx[0]);
+        return entry != 0 && this.keyEquals(entry - 1, key) ? entry - 1 : -1;
+      }
+      let slot = <i32>(
+        (hashUtf16(changetype<usize>(key), <i32>key.length) & (<u32>mask))
+      );
+      const start = slot;
+      while (true) {
+        const entry = unchecked(idx[slot]);
+        if (entry == 0) return -1;
+        const i = entry - 1;
+        if (this.keyEquals(i, key)) return i;
+        slot = (slot + 1) & mask;
+        // A correctly-maintained table stays below full load, so an empty slot
+        // is found first. This wrap check is a safety net against spinning
+        // forever should that invariant ever be violated.
+        if (slot == start) return -1;
+      }
     }
 
     /** Parses a lazy slot in place, caching the concrete box, and returns it. */
@@ -1272,19 +1427,14 @@ export namespace JSON {
 
     /**
      * Appends a key (from a source memory range) and a precomputed NaN-boxed
-     * value slot without a duplicate-key check. Used by the deserializer — no
+     * value slot without a duplicate-key check. Used by the deserializer - no
      * per-key string allocation, no per-value object, no hashing.
      */
     appendRawSlot(keyStart: usize, keyEnd: usize, bits: u64): void {
-      this.pushKeyBytes(keyStart, keyEnd);
+      const slotIndex = this._vused;
+      this.pushKeyBytes(keyStart, keyEnd, slotIndex);
       this.pushValSlot(bits);
-      const idx = this._index;
-      if (idx !== null) {
-        const len = <i32>((keyEnd - keyStart) >> 1);
-        const k = changetype<string>(__new((<usize>len) << 1, idof<string>()));
-        if (len) memory.copy(changetype<usize>(k), keyStart, (<usize>len) << 1);
-        idx.set(k, this._vused - 1);
-      }
+      this.insertIndex(slotIndex);
     }
 
     /**
@@ -1295,21 +1445,60 @@ export namespace JSON {
       this.appendRawSlot(keyStart, keyEnd, JSON.Value.bitsFrom<T>(value));
     }
 
+    /** Inserts a single slot into an already-built index. */
+    private insertIndex(slotIndex: i32): void {
+      const idx = this._index;
+      if (idx === null) return;
+      const mask = this._indexMask;
+      let slot = <i32>(this.keyHashAt(slotIndex) & (<u32>mask));
+      const start = slot;
+      while (unchecked(idx[slot]) != 0) {
+        const entry = unchecked(idx[slot]) - 1;
+        if (this.slotEqualsSlot(entry, slotIndex)) {
+          unchecked((idx[slot] = slotIndex + 1));
+          return;
+        }
+        slot = (slot + 1) & mask;
+        if (slot == start) {
+          this._index = null;
+          return;
+        }
+      }
+      unchecked((idx[slot] = slotIndex + 1));
+      // buildIndex() sizes the table at >2x the entry count (load < 0.5), but it
+      // only runs lazily; appends since then go through here without resizing.
+      // Once we cross half load, drop the index so the next access rebuilds it at
+      // double capacity — this keeps an empty slot available for every probe.
+      // Without it a small (e.g. cap-2) table fills and indexOf() spins forever.
+      if ((slotIndex + 1) << 1 > mask + 1) this._index = null;
+    }
+
     /** Builds (once) and returns the lazy key -> position index. */
-    private buildIndex(): Map<string, i32> {
+    private buildIndex(): StaticArray<i32> {
       let idx = this._index;
       if (idx === null) {
-        idx = new Map<string, i32>();
-        const buf = changetype<usize>(this._kbuf);
-        const used = this._kused;
-        let pos = 0;
-        let i = 0;
-        while (pos < used) {
-          const len = <i32>load<u16>(buf + ((<usize>pos) << 1));
-          idx.set(this.makeKey(pos + 1, len), i++);
-          pos += 1 + len;
+        const used = this._vused;
+        let cap = 2;
+        while (cap <= used << 1) cap <<= 1;
+        idx = new StaticArray<i32>(cap);
+        const mask = cap - 1;
+        for (let i = 0; i < used; i++) {
+          const keyPos = unchecked(this._kpos[i]);
+          const buf = changetype<usize>(this._kbuf) + ((<usize>keyPos) << 1);
+          const len = <i32>load<u16>(buf);
+          let slot = <i32>(hashUtf16(buf + 2, len) & (<u32>mask));
+          while (unchecked(idx[slot]) != 0) {
+            const entry = unchecked(idx[slot]) - 1;
+            if (this.slotEqualsSlot(entry, i)) {
+              unchecked((idx[slot] = i + 1));
+              break;
+            }
+            slot = (slot + 1) & mask;
+          }
+          if (unchecked(idx[slot]) == 0) unchecked((idx[slot] = i + 1));
         }
         this._index = idx;
+        this._indexMask = mask;
       }
       return idx;
     }
@@ -1320,17 +1509,19 @@ export namespace JSON {
      * @param value - The value (will be wrapped in JSON.Value)
      */
     set<T>(key: string, value: T): void {
-      const idx = this.buildIndex();
       const bits = JSON.Value.bitsFrom<T>(value);
-      if (idx.has(key)) {
-        this.storeSlot(idx.get(key), bits);
+      const i = this.indexOf(key);
+      if (i >= 0) {
+        this.storeSlot(i, bits);
       } else {
+        const slotIndex = this._vused;
         this.pushKeyBytes(
           changetype<usize>(key),
           changetype<usize>(key) + ((<usize>key.length) << 1),
+          slotIndex,
         );
         this.pushValSlot(bits);
-        idx.set(key, this._vused - 1);
+        this.insertIndex(slotIndex);
       }
     }
 
@@ -1360,7 +1551,7 @@ export namespace JSON {
      * absent key returns the type's default (null / 0 / false).
      *
      * Named `getAs` rather than `get<T>` because AssemblyScript has no method
-     * overloading — `get(key)` (dynamic) and a typed `get` can't share a name.
+     * overloading - `get(key)` (dynamic) and a typed `get` can't share a name.
      * @param key - The key to look up
      */
     getAs<T>(key: string): T {
@@ -1377,7 +1568,7 @@ export namespace JSON {
      * @returns true if the key exists
      */
     has(key: string): bool {
-      return this.buildIndex().has(key);
+      return this.indexOf(key) >= 0;
     }
 
     /**
@@ -1386,14 +1577,14 @@ export namespace JSON {
      * @returns true if the key was found and deleted
      */
     delete(key: string): bool {
-      const idx = this.buildIndex();
-      if (!idx.has(key)) return false;
-      const removed = idx.get(key);
+      const removed = this.indexOf(key);
+      if (removed < 0) return false;
       const keys = this.keys();
       const oldVals = this._vals;
       const n = this._vused;
       this._kbuf = EMPTY_KEYS;
       this._kused = 0;
+      this._kpos = EMPTY_I32S;
       this._vals = EMPTY_VALS;
       this._vused = 0;
       for (let j = 0; j < n; j++) {
@@ -1402,11 +1593,29 @@ export namespace JSON {
         this.pushKeyBytes(
           changetype<usize>(k),
           changetype<usize>(k) + ((<usize>k.length) << 1),
+          this._vused,
         );
         this.pushValSlot(unchecked(oldVals[j]));
       }
       this._index = null;
+      this._indexMask = 0;
       return true;
+    }
+
+    /**
+     * Removes all entries. Backing key/value buffer capacity is kept so a
+     * subsequent parse or insert reuses it without re-allocating - this is what
+     * makes `JSON.parse<JSON.Obj>(data, out)` allocation-light. `__visit` only
+     * traces `[0, _vused)`, so resetting the used counters drops the old slots
+     * from GC tracing safely.
+     */
+    clear(): void {
+      this._kused = 0;
+      this._kpos = EMPTY_I32S;
+      this._vused = 0;
+      this._src = "";
+      this._index = null;
+      this._indexMask = 0;
     }
 
     /**
@@ -1487,13 +1696,10 @@ export namespace JSON {
       return parsed.get<JSON.Obj>();
     }
 
-    // Custom GC visitor: the value-slot buffer is a primitive StaticArray<u64>,
-    // so the GC won't trace pointers embedded in materialized/`set` slots — we
-    // trace them here, plus the managed fields (defining `__visit` replaces the
-    // compiler's auto field-tracing). Lazy slots hold an interior `_src` pointer
-    // anchored by the `_src` field, so they are skipped. Trace-only.
+
     @unsafe private __visit(cookie: u32): void {
       __visit(changetype<usize>(this._kbuf), cookie);
+      __visit(changetype<usize>(this._kpos), cookie);
       __visit(changetype<usize>(this._vals), cookie);
       __visit(changetype<usize>(this._src), cookie);
       __visit(changetype<usize>(this._index), cookie); // null-safe in rt
@@ -1532,9 +1738,7 @@ export namespace JSON {
    * arr.getAs<JSON.Arr>(2).at(0);   // 3
    * ```
    */
-  // @ts-expect-error: decorators allowed here
-  @final
-  export class Arr {
+  @final export class Arr {
     // Same flat slot model as JSON.Obj, without the key buffer. See JSON.Obj for
     // the slot encoding, the custom `__visit`, and the `__link` write barrier.
     _vals: StaticArray<u64> = EMPTY_VALS;
@@ -1547,6 +1751,16 @@ export namespace JSON {
     /** Number of elements. */
     get length(): i32 {
       return this._vused;
+    }
+
+    /**
+     * Removes all elements, keeping the value-slot buffer capacity so a
+     * subsequent parse or push reuses it - powers `JSON.parse<JSON.Arr>(data,
+     * out)`. `__visit` only traces `[0, _vused)`, so this is GC-safe.
+     */
+    clear(): void {
+      this._vused = 0;
+      this._src = "";
     }
 
     /** Grows the value-slot buffer to hold at least `need` slots. */
@@ -1640,6 +1854,20 @@ export namespace JSON {
       this.storeSlot(i, JSON.Value.bitsFrom<T>(value));
     }
 
+    /**
+     * Bounds-checked element access via `arr[i]` - returns a `JSON.Value`
+     * (allocating), mirroring `at(i)`. For an allocation-free typed read use
+     * `getAs<T>(i)`.
+     */
+    @operator("[]") private __get(index: i32): JSON.Value {
+      return this.at(index);
+    }
+
+    /** Element assignment via `arr[i] = value` (any `JSON.Value`). */
+    @operator("[]=") private __set(index: i32, value: JSON.Value): void {
+      this.set<JSON.Value>(index, value);
+    }
+
     /** Serializes the array to a JSON string. */
     toString(): string {
       return JSON.stringify(this);
@@ -1661,7 +1889,323 @@ export namespace JSON {
       throw new Error("JSON.Arr.from expects a JSON.Value[]");
     }
 
-    // See JSON.Obj.__visit — same custom GC visitor for the slot buffer.
+    // ---- Array-like API: slot-optimized ports of the AssemblyScript stdlib ----
+    // Slot-shuffling ops (reverse/fill/copyWithin/pop/shift/unshift/slice/splice)
+    // move the raw u64 slots directly - no per-element JSON.Value - and keep any
+    // managed pointers linked to the same owner. New single-source results share
+    // `_src`, so copied deferred ranges stay lazy. Callbacks get a JSON.Value view
+    // of each element via `at(i)`.
+
+    /** Concrete, source-independent bits for slot `i` (resolves a deferred slot
+     *  without caching it back into this array - used by cross-source ops). */
+    private resolvedBits(i: i32): u64 {
+      const slot = unchecked(this._vals[i]);
+      if (!JSON.Value.slotIsLazy(slot)) return slot;
+      const base = changetype<usize>(this._src);
+      const start = JSON.Value.slotPtr(slot, base);
+      const end = JSON.Value.slotEnd(slot, base, this.srcEnd());
+      return JSON.Value.parseSliceBits(start, end, this._src);
+    }
+
+    /** Appends `count` raw slots from `this[from..]` into a fresh `dst`, sharing
+     *  `_src` so copied deferred ranges still resolve. */
+    private copyInto(dst: JSON.Arr, from: i32, count: i32): void {
+      if (count <= 0) return;
+      dst._src = this._src;
+      const at = dst._vused;
+      dst.ensureValCap(at + count);
+      for (let k = 0; k < count; k++)
+        dst.storeSlot(at + k, unchecked(this._vals[from + k]));
+      dst._vused = at + count;
+    }
+
+    /** Truncates (drops the tail) or extends (pads with `null`) the array. */
+    set length(newLength: i32) {
+      if (newLength < 0) throw new Error("Invalid array length");
+      const used = this._vused;
+      if (newLength <= used) {
+        this._vused = newLength;
+        return;
+      }
+      this.ensureValCap(newLength);
+      for (let i = used; i < newLength; i++)
+        unchecked((this._vals[i] = JSON.Value.nullBits()));
+      this._vused = newLength;
+    }
+
+    /** Removes and returns the last element. */
+    pop(): JSON.Value {
+      const n = this._vused;
+      if (n == 0) throw new Error("pop from empty JSON.Arr");
+      const v = this.at(n - 1);
+      this._vused = n - 1;
+      return v;
+    }
+
+    /** Removes and returns the first element, shifting the rest down. */
+    shift(): JSON.Value {
+      const n = this._vused;
+      if (n == 0) throw new Error("shift from empty JSON.Arr");
+      const v = this.at(0);
+      const base = changetype<usize>(this._vals);
+      memory.copy(base, base + 8, (<usize>(n - 1)) << 3);
+      this._vused = n - 1;
+      return v;
+    }
+
+    /** Prepends `value`, shifting existing elements up. Returns the new length. */
+    unshift<T>(value: T): i32 {
+      const n = this._vused;
+      this.ensureValCap(n + 1);
+      const base = changetype<usize>(this._vals);
+      if (n) memory.copy(base + 8, base, (<usize>n) << 3);
+      this._vused = n + 1;
+      this.storeSlot(0, JSON.Value.bitsFrom<T>(value));
+      return n + 1;
+    }
+
+    /** Reverses the elements in place (slot swap). */
+    reverse(): JSON.Arr {
+      const vals = this._vals;
+      let lo = 0;
+      let hi = this._vused - 1;
+      while (lo < hi) {
+        const t = unchecked(vals[lo]);
+        unchecked((vals[lo] = unchecked(vals[hi])));
+        unchecked((vals[hi] = t));
+        lo++;
+        hi--;
+      }
+      return this;
+    }
+
+    /** Fills `[start, end)` with `value`. */
+    fill<T>(value: T, start: i32 = 0, end: i32 = i32.MAX_VALUE): JSON.Arr {
+      const n = this._vused;
+      let s = start < 0 ? max(n + start, 0) : min(start, n);
+      const e = end < 0 ? max(n + end, 0) : min(end, n);
+      const bits = JSON.Value.bitsFrom<T>(value);
+      for (; s < e; s++) this.storeSlot(s, bits);
+      return this;
+    }
+
+    /** Copies the slot block `[start, end)` to `target`, in place. */
+    copyWithin(target: i32, start: i32, end: i32 = i32.MAX_VALUE): JSON.Arr {
+      const n = this._vused;
+      const t = target < 0 ? max(n + target, 0) : min(target, n);
+      const s = start < 0 ? max(n + start, 0) : min(start, n);
+      const e = end < 0 ? max(n + end, 0) : min(end, n);
+      const count = min(e - s, n - t);
+      if (count > 0) {
+        const base = changetype<usize>(this._vals);
+        memory.copy(
+          base + ((<usize>t) << 3),
+          base + ((<usize>s) << 3),
+          (<usize>count) << 3,
+        );
+      }
+      return this;
+    }
+
+    /** Returns a new JSON.Arr with the elements in `[start, end)` (lazy-preserving). */
+    slice(start: i32 = 0, end: i32 = i32.MAX_VALUE): JSON.Arr {
+      const n = this._vused;
+      const s = start < 0 ? max(n + start, 0) : min(start, n);
+      const e = end < 0 ? max(n + end, 0) : min(end, n);
+      const out = new JSON.Arr();
+      this.copyInto(out, s, e - s);
+      return out;
+    }
+
+    /** Removes `deleteCount` elements at `start`; returns them as a new JSON.Arr. */
+    splice(start: i32, deleteCount: i32 = i32.MAX_VALUE): JSON.Arr {
+      const n = this._vused;
+      const s = start < 0 ? max(n + start, 0) : min(start, n);
+      const d = max(min(deleteCount, n - s), 0);
+      const removed = new JSON.Arr();
+      this.copyInto(removed, s, d);
+      const tail = n - (s + d);
+      if (tail > 0) {
+        const base = changetype<usize>(this._vals);
+        memory.copy(
+          base + ((<usize>s) << 3),
+          base + ((<usize>(s + d)) << 3),
+          (<usize>tail) << 3,
+        );
+      }
+      this._vused = n - d;
+      return removed;
+    }
+
+    /** Returns a new JSON.Arr = this followed by `other` (resolves deferred slots
+     *  since the two sources can't share one `_src`). */
+    concat(other: JSON.Arr): JSON.Arr {
+      const out = new JSON.Arr();
+      const a = this._vused;
+      const b = other._vused;
+      out.ensureValCap(a + b);
+      for (let i = 0; i < a; i++) out.pushRawSlot(this.resolvedBits(i));
+      for (let i = 0; i < b; i++) out.pushRawSlot(other.resolvedBits(i));
+      return out;
+    }
+
+    /** First index of `value` (typed compare via getAs<T>), or -1. */
+    indexOf<T>(value: T, fromIndex: i32 = 0): i32 {
+      const n = this._vused;
+      let i = fromIndex < 0 ? max(n + fromIndex, 0) : fromIndex;
+      for (; i < n; i++) if (this.getAs<T>(i) == value) return i;
+      return -1;
+    }
+
+    /** Last index of `value`, searching backwards, or -1. */
+    lastIndexOf<T>(value: T, fromIndex: i32 = i32.MAX_VALUE): i32 {
+      const n = this._vused;
+      let i = fromIndex < 0 ? n + fromIndex : min(fromIndex, n - 1);
+      for (; i >= 0; i--) if (this.getAs<T>(i) == value) return i;
+      return -1;
+    }
+
+    /** Whether `value` is present. */
+    includes<T>(value: T, fromIndex: i32 = 0): bool {
+      return this.indexOf<T>(value, fromIndex) >= 0;
+    }
+
+    /** Calls `fn` for each element. */
+    forEach(
+      fn: (value: JSON.Value, index: i32, array: JSON.Arr) => void,
+    ): void {
+      for (let i = 0, n = this._vused; i < n; i++) fn(this.at(i), i, this);
+    }
+
+    /** New JSON.Arr of `fn`'s results. */
+    map(
+      fn: (value: JSON.Value, index: i32, array: JSON.Arr) => JSON.Value,
+    ): JSON.Arr {
+      const n = this._vused;
+      const out = new JSON.Arr();
+      out.ensureValCap(n);
+      for (let i = 0; i < n; i++) out.push<JSON.Value>(fn(this.at(i), i, this));
+      return out;
+    }
+
+    /** New JSON.Arr of elements passing `fn` (lazy-preserving). */
+    filter(
+      fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
+    ): JSON.Arr {
+      const out = new JSON.Arr();
+      for (let i = 0, n = this._vused; i < n; i++)
+        if (fn(this.at(i), i, this)) this.copyInto(out, i, 1);
+      return out;
+    }
+
+    /** First element passing `fn`, or `null`. */
+    find(
+      fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
+    ): JSON.Value | null {
+      for (let i = 0, n = this._vused; i < n; i++) {
+        const v = this.at(i);
+        if (fn(v, i, this)) return v;
+      }
+      return null;
+    }
+
+    /** Index of the first element passing `fn`, or -1. */
+    findIndex(
+      fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
+    ): i32 {
+      for (let i = 0, n = this._vused; i < n; i++)
+        if (fn(this.at(i), i, this)) return i;
+      return -1;
+    }
+
+    /** Last element passing `fn`, or `null`. */
+    findLast(
+      fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
+    ): JSON.Value | null {
+      for (let i = this._vused - 1; i >= 0; i--) {
+        const v = this.at(i);
+        if (fn(v, i, this)) return v;
+      }
+      return null;
+    }
+
+    /** Index of the last element passing `fn`, or -1. */
+    findLastIndex(
+      fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
+    ): i32 {
+      for (let i = this._vused - 1; i >= 0; i--)
+        if (fn(this.at(i), i, this)) return i;
+      return -1;
+    }
+
+    /** Whether every element passes `fn`. */
+    every(fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool): bool {
+      for (let i = 0, n = this._vused; i < n; i++)
+        if (!fn(this.at(i), i, this)) return false;
+      return true;
+    }
+
+    /** Whether any element passes `fn`. */
+    some(fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool): bool {
+      for (let i = 0, n = this._vused; i < n; i++)
+        if (fn(this.at(i), i, this)) return true;
+      return false;
+    }
+
+    /** Left fold. */
+    reduce<U>(
+      fn: (acc: U, value: JSON.Value, index: i32, array: JSON.Arr) => U,
+      initialValue: U,
+    ): U {
+      let acc = initialValue;
+      for (let i = 0, n = this._vused; i < n; i++)
+        acc = fn(acc, this.at(i), i, this);
+      return acc;
+    }
+
+    /** Right fold. */
+    reduceRight<U>(
+      fn: (acc: U, value: JSON.Value, index: i32, array: JSON.Arr) => U,
+      initialValue: U,
+    ): U {
+      let acc = initialValue;
+      for (let i = this._vused - 1; i >= 0; i--)
+        acc = fn(acc, this.at(i), i, this);
+      return acc;
+    }
+
+    /** Sorts in place by `comparator(a, b)` (materializes for comparison). */
+    sort(comparator: (a: JSON.Value, b: JSON.Value) => i32): JSON.Arr {
+      const n = this._vused;
+      if (n < 2) return this;
+      const view = new Array<JSON.Value>(n);
+      for (let i = 0; i < n; i++) unchecked((view[i] = this.at(i)));
+      view.sort(comparator);
+      for (let i = 0; i < n; i++)
+        this.storeSlot(i, JSON.Value.bitsFrom<JSON.Value>(unchecked(view[i])));
+      return this;
+    }
+
+    /** JS-parity element string: strings unquoted, null -> "", everything else
+     *  via ES-exact JSON (numbers drop a trailing `.0`). */
+    private elemStr(i: i32): string {
+      const v = this.at(i);
+      const t = v.type;
+      if (t == JSON.Types.String) return v.get<string>();
+      if (t == JSON.Types.Null) return "";
+      return JSON.stringify(v);
+    }
+
+    /** Joins the elements with `separator` (JS `Array#join` semantics). */
+    join(separator: string = ","): string {
+      const n = this._vused;
+      if (n == 0) return "";
+      let out = this.elemStr(0);
+      for (let i = 1; i < n; i++) out += separator + this.elemStr(i);
+      return out;
+    }
+
+    // See JSON.Obj.__visit - same custom GC visitor for the slot buffer.
     @unsafe private __visit(cookie: u32): void {
       __visit(changetype<usize>(this._vals), cookie);
       __visit(changetype<usize>(this._src), cookie);
@@ -1795,7 +2339,7 @@ export namespace JSON {
   function __deserialize<T>(srcStart: usize, srcEnd: usize, dst: usize = 0): T {
     // Skip leading whitespace once here so every handler below may assume
     // srcStart is at the first non-whitespace char. (Trailing whitespace is
-    // left intact — composites self-trim and JSON.Raw preserves it.)
+    // left intact - composites self-trim and JSON.Raw preserves it.)
     while (srcStart < srcEnd && JSON.Util.isSpace(load<u16>(srcStart)))
       srcStart += 2;
     if (isBoolean<T>()) {

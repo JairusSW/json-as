@@ -10,6 +10,13 @@ export function deserializeArbitrary(
   srcEnd: usize,
   dst: usize,
 ): JSON.Value {
+  const v = parseArbitraryValue(srcStart, srcEnd);
+  // Reuse path (`JSON.parse<JSON.Value>(data, out)`): write the parsed bits into
+  // the caller's handle (with the GC barrier for any managed payload).
+  return dst != 0 ? JSON.Value.__adoptInto(dst, v) : v;
+}
+
+function parseArbitraryValue(srcStart: usize, srcEnd: usize): JSON.Value {
   const firstChar = load<u16>(srcStart);
   if (
     firstChar == QUOTE ||
@@ -17,7 +24,7 @@ export function deserializeArbitrary(
     firstChar == BRACKET_LEFT
   ) {
     // Lazy by default: when a parse is in flight (source anchor present), defer
-    // strings and composites (the allocating shapes) — store the exact raw slice
+    // strings and composites (the allocating shapes) - store the exact raw slice
     // and materialize on first access. Cheap primitives stay eager below.
     const src = getParseSrc();
     if (src.length != 0) {

@@ -95,8 +95,8 @@ export function getBenchResults(payloads: string[]): BenchResults {
 }
 
 // Reads the dynamic JSON.Obj result for a payload (logged under `<payload>-obj`
-// by the per-payload benches). Returns null when absent — e.g. primitive
-// payloads have no JSON.Obj variant, or the obj benches weren't run — so charts
+// by the per-payload benches). Returns null when absent - e.g. primitive
+// payloads have no JSON.Obj variant, or the obj benches weren't run - so charts
 // can fall back to a zero bar instead of crashing.
 export function readObjBenchResult(
   payload: string,
@@ -301,7 +301,7 @@ export function generateChart(config: ChartConfiguration, outfile: string) {
 
   // Render raster (PNG) charts at 3x pixel density: the logical 1000x600 layout
   // becomes a crisp 3000x1800 image (>= 1440p) with identical proportions/fonts.
-  // SVG output is vector — resolution-independent — so it's left untouched.
+  // SVG output is vector - resolution-independent - so it's left untouched.
   if (!isSvg) {
     config.options = { ...(config.options ?? {}), devicePixelRatio: 3 };
   }

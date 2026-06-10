@@ -11,7 +11,7 @@ import { bench, blackbox, dumpToFile } from "../lib/bench";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { __heap_base } from "memory";
 
-// SWAR HYBRID exploration — apply the SIMD-winning HYBRID strategy (escape
+// SWAR HYBRID exploration - apply the SIMD-winning HYBRID strategy (escape
 // block: optimistic whole-block store covers the plain prefix; clean run:
 // stream first block then bulk-memcpy the remainder) to BOTH SWAR string
 // deserializers, vs current production (field = run-copy SplitTuned;

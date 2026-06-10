@@ -38,6 +38,7 @@ type SeriesSpec = {
   language: "js" | "as";
   engine: string;
   payloadTransform?: (payload: string) => string;
+  dash?: number[];
 };
 
 const series: SeriesSpec[] = [
@@ -45,6 +46,16 @@ const series: SeriesSpec[] = [
   { key: "naive", label: "NAIVE", language: "as", engine: "naive" },
   { key: "swar", label: "SWAR", language: "as", engine: "swar" },
   { key: "simd", label: "SIMD", language: "as", engine: "simd" },
+  // Dynamic JSON.Obj (SIMD only): same payloads, read from the `<payload>-obj`
+  // logs the JSON.Obj bench cases dump.
+  {
+    key: "obj",
+    label: "JSON.Obj (SIMD)",
+    language: "as",
+    engine: "simd",
+    payloadTransform: (p) => `${p}-obj`,
+    dash: [8, 4],
+  },
 ];
 
 function logPath(payload: string, spec: SeriesSpec, mode: string) {
@@ -102,7 +113,7 @@ for (const mode of modes) {
       tension: 0.2,
       pointStyle: mode === "serialize" ? "circle" : "rect",
       pointRadius: 6,
-      borderDash: undefined,
+      borderDash: spec.dash,
     });
   }
 }

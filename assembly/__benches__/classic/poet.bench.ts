@@ -9,7 +9,7 @@ import {
 } from "../lib/bench";
 
 // poet (yyjson_benchmark): a flat array of ~8934 {desc, name, id} string
-// records. Trivial uniform schema — pure struct fast path.
+// records. Trivial uniform schema - pure struct fast path.
 
 @json
 class Poem {

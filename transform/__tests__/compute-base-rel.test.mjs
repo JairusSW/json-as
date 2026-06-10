@@ -1,4 +1,4 @@
-// Tests for `computeImportBaseRel` — the relative-specifier computation the
+// Tests for `computeImportBaseRel` - the relative-specifier computation the
 // transform uses to point a user module's emitted runtime imports back at the
 // json-as package root.
 //

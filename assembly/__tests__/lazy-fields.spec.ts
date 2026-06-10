@@ -91,7 +91,7 @@ describe("JSON.Lazy<T> setter updates serialization", () => {
   o.id = 1;
   r.owner = o;
   expect(JSON.stringify(r)).toBe(
-    '{"name":"r","owner":{"login":"new","id":1,"deep":null},"tags":[1,2,3]}',
+    '{"name":"r","owner":{"login":"new","id":1,"deep":{"v":0}},"tags":[1,2,3]}',
   );
 });
 
@@ -166,7 +166,7 @@ describe('@json({ lazy: "all" }) defers every field', () => {
 }
 
 describe("lazy fields on a fresh (unparsed) instance return defaults", () => {
-  // Regression: an unset lazy slot (lz==0) must NOT run parse<T>("null") —
+  // Regression: an unset lazy slot (lz==0) must NOT run parse<T>("null") -
   // that garbles scalars. The getter returns the type default instead.
   const d = new LazyPrimitives();
   expect(d.count.toString()).toBe("0");
@@ -176,15 +176,15 @@ describe("lazy fields on a fresh (unparsed) instance return defaults", () => {
 });
 
 describe("@omitnull works on lazy fields (omits null without materializing)", () => {
-  // @omitnull triggers the optional-field sort, so the optional field leads —
+  // @omitnull triggers the optional-field sort, so the optional field leads -
   // same ordering as a non-lazy @omitnull class.
   const set = new OmitNullLazy();
   const w = new Owner();
   w.login = "z";
   set.owner = w;
-  // materialized owner re-serializes all its fields (incl. id, lazy deep=null)
+  // materialized owner re-serializes all its fields (incl. id, lazy deep=default {v:0})
   expect(JSON.stringify(set)).toBe(
-    '{"owner":{"login":"z","id":0,"deep":null},"name":"x"}',
+    '{"owner":{"login":"z","id":0,"deep":{"v":0}},"name":"x"}',
   ); // kept
   const nul = new OmitNullLazy();
   nul.owner = null;
@@ -221,9 +221,64 @@ describe("@lazy decorator marks fields like JSON.Lazy<T>", () => {
   // untouched -> raw passthrough
   expect(JSON.stringify(JSON.parse<DecoRepo>(SRC))).toBe(SRC);
   // mutate -> reflected. owner/tags were read above so they're materialized;
-  // owner re-serializes with its own (absent) lazy `deep` field as null.
+  // owner re-serializes with its own (absent) lazy `deep` field as a default instance {v:0}.
   r.count = 99;
   expect(JSON.stringify(r)).toBe(
-    '{"name":"r","owner":{"login":"octo","id":7,"deep":null},"tags":[1,2,3],"count":99}',
+    '{"name":"r","owner":{"login":"octo","id":7,"deep":{"v":0}},"tags":[1,2,3],"count":99}',
   );
+});
+
+// Regression: an *absent* ref lazy field with a declared default must serialize
+// that default, not crash. On the JSON.parse path __INITIALIZE seeds the slot to
+// materialized (MAX) — it must also seed __x_val, else serialize hits `null as T`
+// (the github_events / gsoc-2018 lazy-serialize trap).
+@json({ lazy: "auto" })
+class SparseLazy {
+  a: string = "";
+  mid: string = "default";
+  count: i32 = 7;
+  b: string = "";
+}
+
+describe("absent ref lazy field serializes its default (no null-cast trap)", () => {
+  // "mid" and "count" are absent in the source.
+  const r = JSON.parse<SparseLazy>('{"a":"x","b":"y"}');
+  expect(JSON.stringify(r)).toBe('{"a":"x","mid":"default","count":7,"b":"y"}');
+  // Touching a present field still works.
+  expect(r.a).toBe("x");
+});
+
+// A no-default non-nullable string lazy field must resolve to "" when absent
+// (matching eager __INITIALIZE), not crash on the getter's `null as string`.
+// The symmetric absent-with-default case is covered above; this is the
+// no-default half.
+@json({ lazy: "auto" })
+@json class Cell {
+  n: i32 = 3;
+}
+
+
+@json({ lazy: "auto" })
+class NoDefaultRefs {
+  a: string = "";
+  ns: string; // no-default non-nullable string -> ""
+  narr: i32[]; // no-default non-nullable array  -> []
+  nmap: Map<string, i32>; // no-default non-nullable map -> {}
+  nst!: JSON.Lazy<Cell>; // no-default non-nullable struct -> default instance
+  b: string = "";
+}
+
+describe("absent no-default non-nullable ref fields resolve to the type default (no null-cast crash)", () => {
+  const r = JSON.parse<NoDefaultRefs>('{"a":"x","b":"y"}');
+  expect(r.ns).toBe("");
+  expect(r.narr.length).toBe(0);
+  expect(r.nmap.size).toBe(0);
+  expect(r.nst.n).toBe(3); // struct getter access no longer aborts
+  expect(JSON.stringify(r)).toBe(
+    '{"a":"x","ns":"","narr":[],"nmap":{},"nst":{"n":3},"b":"y"}',
+  );
+  const c = new NoDefaultRefs();
+  expect(c.ns).toBe("");
+  expect(c.narr.length).toBe(0);
+  expect(c.nst.n).toBe(3);
 });

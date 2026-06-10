@@ -7,7 +7,7 @@ import { parse4Digits_PairMul } from "../../../util/swar-int";
 // Store helpers parameterised on the element type `E` directly, so they
 // serve both `Array<E>` and `TypedArray<E>` callers. The integer-array
 // callers below all pass `valueof<T>` and AS folds the resulting tower of
-// `sizeof<E>` comparisons at compile time — same codegen as the prior
+// `sizeof<E>` comparisons at compile time - same codegen as the prior
 // `T extends number[]` version, but reusable from `swar/typedarray.ts`.
 function storeSignedIntegerE<E extends number>(slot: usize, value: i64): void {
   if (sizeof<E>() == sizeof<i8>()) {
@@ -653,7 +653,7 @@ function deserializeIntegerArrayBody<T extends number[]>(
       const slot = ensureArrayElementSlot<T>(out, index);
       // Inline the array-optimized SWAR parser directly. The top-level
       // (`deserializeIntegerArrayImpl`) and the typed-array path
-      // (`swar/typedarray.ts`) already call these — having the field path
+      // (`swar/typedarray.ts`) already call these - having the field path
       // call them too means the per-element parser is identical across all
       // three call sites (parse4 + scalar fold for both signed and
       // unsigned, narrow-lane special case for i8/u8/i16/u16).
@@ -661,7 +661,7 @@ function deserializeIntegerArrayBody<T extends number[]>(
       // Why not `deserializeUnsignedField_SWAR` (which uses parse8 + scalar)?
       // That tuning targets the struct-single-field path where the digit
       // run is one aligned token. In an array, mixed element widths cause
-      // parse8 to fail-and-retry at element boundaries — see u32-64mib's
+      // parse8 to fail-and-retry at element boundaries - see u32-64mib's
       // 23% regression when parse8 was tried in the array path.
       srcStart = isSigned<valueof<T>>()
         ? parseSignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, slot)

@@ -8,12 +8,12 @@ declare class JSONConfig {
    * access; untouched fields pass their original bytes straight through on
    * serialize.
    *
-   * - `"none"` *(default)* — every field is parsed eagerly, up-front.
-   * - `"auto"` — the transform defers fields whose estimated parse cost is high
+   * - `"none"` *(default)* - every field is parsed eagerly, up-front.
+   * - `"auto"` - the transform defers fields whose estimated parse cost is high
    *   (nested structs, arrays, maps, long strings) and keeps cheap fields
    *   (primitives, enums, `Date`) eager. Use `@eager` to force a field back to
    *   eager, or `@lazy` to force one on.
-   * - `"all"` — every field is deferred. Best for proxy / filter / forward
+   * - `"all"` - every field is deferred. Best for proxy / filter / forward
    *   workloads over large payloads; note it generates a getter and a serialize
    *   branch per field, so module size grows with very wide schemas.
    *
@@ -96,7 +96,7 @@ declare function omit(..._): void;
  * The field is still parsed normally; the condition only affects serialization.
  *
  * @param condition - A predicate that receives the **instance** and returns
- *   `true` to omit the field — `(self: T) => boolean` — or a string expression
+ *   `true` to omit the field - `(self: T) => boolean` - or a string expression
  *   evaluated in the instance's scope (reference fields via `this`).
  *
  * @example
@@ -130,7 +130,7 @@ declare function omitnull(..._): void;
  * Field decorator that marks a property as optional for deserialization: the
  * key may be absent from (or appear anywhere in) the input, and the field keeps
  * its default. Unlike `@omitnull`/`@omitif` it does NOT omit the field on
- * serialize and has no nullability requirement — it only opts the field into
+ * serialize and has no nullability requirement - it only opts the field into
  * the order-tolerant fast path.
  *
  * @example
@@ -148,7 +148,7 @@ declare function optional(..._): void;
  * Field decorator that defers parsing of a property until it is first read
  * (on-demand / lazy parsing). The raw JSON slice is stored at parse time and
  * materialized into the field's type on first access, then cached; an untouched
- * field round-trips by copying its original bytes — never re-parsed or
+ * field round-trips by copying its original bytes - never re-parsed or
  * re-serialized.
  *
  * Equivalent to the `JSON.Lazy<T>` type-wrapper form. Pays off for fields you
@@ -188,7 +188,7 @@ declare function eager(..._): void;
  * the generated serialization. The method receives the instance and must return
  * a **valid JSON string**. Pair with {@link deserializer}.
  *
- * @param shape - Optional JSON value shape the output conforms to — one of
+ * @param shape - Optional JSON value shape the output conforms to - one of
  *   `"any"` (default), `"string"`, `"number"`, `"object"`, `"array"`,
  *   `"boolean"`, or `"null"`.
  *
@@ -230,11 +230,11 @@ declare function serializer(
 /**
  * Method decorator marking a member as the class's custom deserializer,
  * replacing the generated deserialization. The method receives the raw JSON
- * string and must return a **new** instance — never assume an existing
+ * string and must return a **new** instance - never assume an existing
  * destination is reused. Pair with {@link serializer} (see it for a full,
  * round-tripping example).
  *
- * @param shape - Optional JSON value shape the input conforms to — one of
+ * @param shape - Optional JSON value shape the input conforms to - one of
  *   `"any"` (default), `"string"`, `"number"`, `"object"`, `"array"`,
  *   `"boolean"`, or `"null"`.
  *

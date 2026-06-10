@@ -15,7 +15,7 @@ import {
 } from "./lib/palette";
 
 // Lazy-fields charts (eager vs `@json({ lazy: "auto" })`), SIMD. Backed by the
-// committed benchmark in assembly/__benches__/lazy/lazy.bench.ts — regenerate
+// committed benchmark in assembly/__benches__/lazy/lazy.bench.ts - regenerate
 // the logs with `bun run bench:as lazy/ --mode simd`, then run this script.
 const MODE = process.env["JSON_CHART_LAZY_MODE"] ?? "simd";
 const read = (suite: string, type: string): BenchResult =>
@@ -99,7 +99,7 @@ sizeChart(
 );
 
 // Lazy mode access patterns. SWAR only (the mode the lazy fast-path is showcased
-// in) — read swar logs directly regardless of the size-chart MODE above. Each
+// in) - read swar logs directly regardless of the size-chart MODE above. Each
 // payload group leads with the eager full-parse baseline, then lazy reads of a
 // growing slice of its deferred fields (none/one/half/all). Backed by
 // assembly/__benches__/lazy/access-pattern.bench.ts (run `bun run bench:as
@@ -143,7 +143,7 @@ for (const [key, label] of ACCESS_SETS) {
 emit(
   createBarChart(accData, accLabels, {
     title:
-      "Lazy mode access patterns (SWAR) — deferred-field reads vs eager baseline",
+      "Lazy mode access patterns (SWAR) - deferred-field reads vs eager baseline",
     yLabel: MBPS,
     xLabel: "",
     datasetLabels: READ_LABELS,

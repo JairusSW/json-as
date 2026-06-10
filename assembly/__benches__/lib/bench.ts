@@ -52,7 +52,7 @@ declare function wasi_fd_filestat_get(fd: u32, buf: usize): u32;
 declare function wasi_fd_close(fd: u32): u32;
 
 // Reads a whole file via WASI, relative to the runner's preopened root
-// directory (fd 3 — WAVM is invoked with `--mount-root <project root>`).
+// directory (fd 3 - WAVM is invoked with `--mount-root <project root>`).
 function readFileWasi(path: string): string {
   // The benches write paths as `./assembly/...`; resolve relative to the root.
   let rel = path;
@@ -237,7 +237,7 @@ export function bench(
       memPeakBytes > memBaselineBytes ? memPeakBytes - memBaselineBytes : 0;
     // `net` is JSON-internal live retention: post-GC live minus fixture
     // baseline. Should hover at 0 for a leak-free bench regardless of fixtures.
-    // `inflight` is what JSON had live at end of loop before the GC ran —
+    // `inflight` is what JSON had live at end of loop before the GC ran -
     // the working-set the routine generated on top of fixtures.
     const netDelta: i64 = i64(memRetainedBytes) - i64(memBaselineBytes);
     const inflightDelta: i64 = i64(inflightLiveBytes) - i64(memBaselineBytes);

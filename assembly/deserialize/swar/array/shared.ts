@@ -53,7 +53,7 @@ export function ensureArrayElementSlot<T extends Array<any>>(
   if (out.length < nextLength) {
     // Grow via `push`, not `out.length = nextLength`. AS's `length=`
     // setter calls `ensureCapacity(canGrow=false)` which reallocates to
-    // *exactly* the requested size — fine for a one-shot resize, but
+    // *exactly* the requested size - fine for a one-shot resize, but
     // catastrophic in the per-element loop (every push triggers a full
     // copy of the array, giving O(N²) growth cost). `push` goes through
     // `canGrow=true`, doubling capacity geometrically as needed.

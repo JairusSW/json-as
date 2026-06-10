@@ -259,7 +259,7 @@ describe("Should apply omitif and omitnull behavior across values", () => {
 
 // Regression: @omitnull/@omitif fields emit a LEADING comma gated on a runtime
 // "wrote" flag. Before, a present field followed by omitted ones left a dangling
-// trailing comma (e.g. `{"a":"1",}` — invalid JSON).
+// trailing comma (e.g. `{"a":"1",}` - invalid JSON).
 describe("Should not leave a trailing comma when later optional fields are omitted", () => {
   // first present, the rest omitted (the original bug: produced `{"a":"1",}`)
   const o1 = new OmitTail();

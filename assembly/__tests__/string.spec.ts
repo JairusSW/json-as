@@ -233,7 +233,7 @@ describe("Should deserialize strings - Empty and whitespace", () => {
 });
 
 describe("Should deserialize strings - Special characters", () => {
-  // NOTE: '"\\"' and '"\\\\\\"' are malformed — a trailing escaped quote with no
+  // NOTE: '"\\"' and '"\\\\\\"' are malformed - a trailing escaped quote with no
   // closing quote (unterminated). Under strict naive parsing they now reject
   // (uncatchable abort until try-as traces the value path; enumerated in
   // assembly/__tests__/rfc). Only the well-formed escape cases stay asserted.
@@ -390,7 +390,7 @@ describe("Should populate string array fields and reuse existing arrays", () => 
   // SWAR/SIMD field-into reuse path. In SIMD mode the transform inlines
   // the array loop directly (no `Into` dispatch), so whitespace inside
   // struct-field string arrays is *not* tolerated and is therefore not
-  // exercised here — see deserializeStringArrayBody for the whitespace-
+  // exercised here - see deserializeStringArrayBody for the whitespace-
   // tolerant entry used by top-level `string[]` parses.
   const populated = JSON.parse<LiteralStringArrayFieldBox>(
     '{"values":["left","right"]}',

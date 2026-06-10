@@ -3,7 +3,7 @@
 // Idea (user-proposed):
 //   1. Validate high bytes are 0 (= UTF-16 lanes are ASCII).
 //   2. Pack two u64s (8 UTF-16 chars / 16 bytes) into one u64 (8 ASCII bytes).
-//   3. Run Lemire's classic 8-byte ASCII algorithm — which folds 8 digits in
+//   3. Run Lemire's classic 8-byte ASCII algorithm - which folds 8 digits in
 //      3 multiplications total (vs my current 5 for parse8 PairMul).
 //
 // The trade-off: Lemire's combine is leaner (3 muls vs 5), but pure-SWAR
@@ -31,7 +31,7 @@ const LEMIRE_MAGIC_EVEN: u64 = 100 + (1_000_000 << 32);
 const LEMIRE_MAGIC_ODD: u64 = 1 + (10_000 << 32);
 
 // ---------------------------------------------------------------------------
-// Variant A — pack-then-Lemire (full validation).
+// Variant A - pack-then-Lemire (full validation).
 // ---------------------------------------------------------------------------
 // @ts-expect-error: @inline
 @inline function parse8Digits_PackLemire(lo: u64, hi: u64): u32 {
@@ -57,11 +57,11 @@ const LEMIRE_MAGIC_ODD: u64 = 1 + (10_000 << 32);
   const val = packed - ZERO_8;
 
   // Step 4: validate each byte is in [0, 9]. Mula's trick:
-  //   ((val + 0x76) | val) & 0x80 — if any byte ≥ 10 or underflowed, bit 7
+  //   ((val + 0x76) | val) & 0x80 - if any byte ≥ 10 or underflowed, bit 7
   //   is set somewhere in the result.
   if (((val + DIGIT_TEST_ADD) | val) & HIGH_BIT_8) return U32.MAX_VALUE;
 
-  // Step 5: Lemire's classic 8-byte ASCII combine — 3 muls, 2 shifts.
+  // Step 5: Lemire's classic 8-byte ASCII combine - 3 muls, 2 shifts.
   // (val * 10 + val >> 8) & PAIR_MASK puts pair values at bytes (0, 2, 4, 6).
   const v1 = (val * 10 + (val >> 8)) & LEMIRE_PAIR_MASK;
   // Cross-term magic: ab*100 + (cd*100) lands in high 32; ef*10^6 + ab*100
@@ -74,7 +74,7 @@ const LEMIRE_MAGIC_ODD: u64 = 1 + (10_000 << 32);
 }
 
 // ---------------------------------------------------------------------------
-// Variant B — unsafe pack-then-Lemire (skip validation). Reference floor.
+// Variant B - unsafe pack-then-Lemire (skip validation). Reference floor.
 // ---------------------------------------------------------------------------
 // @ts-expect-error: @inline
 @inline function parse8Digits_PackLemire_Unsafe(lo: u64, hi: u64): u32 {
@@ -146,7 +146,7 @@ const LEMIRE_MAGIC_ODD: u64 = 1 + (10_000 << 32);
 
 // Consume-to-end variant using the UNSAFE PackLemire kernel. This is the
 // fair test for the user's idea: in the consume-to-end path the caller has
-// already bounded the digit range, so per-stride validation isn't needed —
+// already bounded the digit range, so per-stride validation isn't needed -
 // and the unsafe Lemire kernel is genuinely faster than my PairMul.
 // @ts-expect-error: @inline
 @inline function atou_PackLemireUnsafe(srcStart: usize, srcEnd: usize): u64 {

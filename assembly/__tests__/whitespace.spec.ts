@@ -170,7 +170,7 @@ describe("Should preserve escaped backslashes and quotes inside whitespace-heavy
 // Concrete (non-generic, static) classes get the transform's
 // `__DESERIALIZE_FAST` path. Minified input takes tier 1 (exact byte
 // template); pretty/whitespace-padded input takes tier 2 (whitespace-tolerant
-// fast path). These specs exercise tier 2 directly — the generic
+// fast path). These specs exercise tier 2 directly - the generic
 // `WhitespaceBox<T>` cases above can't, since type parameters disable the fast
 // path and route everything through the naive scalar deserializer.
 @json
@@ -209,7 +209,7 @@ describe("Should fast-path concrete structs with pretty/whitespace input (tier 2
   );
 
   // Nested objects, an i32, a string, an array of strings, and an array of
-  // floats — every tier-2 field shape in one struct.
+  // floats - every tier-2 field shape in one struct.
   const featMin =
     '{"id":7,"name":"alpha","point":{"x":1.25,"y":-2.5},"geo":{"type":"Point","coordinates":[[0.5,1.5]]},"tags":["a","b","c"]}';
   const featPretty =
@@ -257,7 +257,7 @@ describe("Should fast-path optional-field structs with pretty/omitted input (tie
     ),
   ).toBe(allMin);
 
-  // Both optionals omitted — only the required fields remain.
+  // Both optionals omitted - only the required fields remain.
   const noneMin = '{"id":9,"active":false}';
   expect(JSON.stringify(JSON.parse<WsOpt>(noneMin))).toBe(noneMin);
   expect(
@@ -288,7 +288,7 @@ describe("Should fast-path optional-field structs with pretty/omitted input (tie
 });
 
 // The entry point (JSON.parse / JSON.__deserialize) skips LEADING whitespace, so
-// every type works with leading whitespace at the top level — handlers assume a
+// every type works with leading whitespace at the top level - handlers assume a
 // non-whitespace start and never re-skip it themselves.
 describe("Should skip leading whitespace at the top level for every type", () => {
   expect(JSON.parse<i32>("   42")).toBe(42);
@@ -305,7 +305,7 @@ describe("Should skip leading whitespace at the top level for every type", () =>
 // A concrete (fast-path) struct touching EVERY field-handler family: scalar,
 // string, nested object, primitive array, object array, string array, Map field,
 // Set field. Parsed from heavily-whitespaced (leading + internal + trailing)
-// input, it must round-trip identically to the canonical minified form — this is
+// input, it must round-trip identically to the canonical minified form - this is
 // what exercises the field-path internal whitespace skips end to end.
 @json
 class WsKid {

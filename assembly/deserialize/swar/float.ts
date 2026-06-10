@@ -12,7 +12,7 @@
 //
 // Inspired by Daniel Lemire, "Number parsing at a gigabyte per second" (2021)
 // and the simdjson `fast_float` implementation. The integer-part loop stays
-// scalar — most JSON float payloads have 1-3 digit integer parts, so a parse4
+// scalar - most JSON float payloads have 1-3 digit integer parts, so a parse4
 // stride there pays the wasted-validate cost on every call without saving
 // enough scalar iterations.
 
