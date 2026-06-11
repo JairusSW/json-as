@@ -1,8 +1,7 @@
 import fs from "fs";
-import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
-import { benchLogPath, subtitle } from "./lib/bench-utils";
+import { benchLogPath, subtitle, generateChart } from "./lib/bench-utils";
 import { MODE_RGB, INK } from "./lib/palette";
 
 function loadJSON(file: string) {
@@ -19,17 +18,16 @@ function getBenchData(filePath: string) {
 }
 
 const payloads = [
-  "str-1kb",
-  "str-100kb",
-  "str-200kb",
-  "str-300kb",
-  "str-400kb",
-  "str-500kb",
-  "str-600kb",
-  "str-700kb",
-  "str-800kb",
-  "str-900kb",
-  "str-1mb",
+  "obj-1mb",
+  "obj-2mb",
+  "obj-3mb",
+  "obj-4mb",
+  "obj-5mb",
+  "obj-6mb",
+  "obj-7mb",
+  "obj-8mb",
+  "obj-9mb",
+  "obj-10mb",
 ];
 const engines = ["js", "naive", "swar", "simd"];
 const modes = ["serialize"];
@@ -63,12 +61,6 @@ for (const payload of payloads) {
   }
 }
 
-const canvas = new ChartJSNodeCanvas({
-  width: 1200,
-  height: 700,
-  chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
-});
-
 const colors = MODE_RGB;
 
 const datasets = [];
@@ -92,6 +84,25 @@ for (const mode of modes) {
   }
 }
 
+// JSON.Obj (dynamic) throughput series - SIMD only; reads the `<payload>-obj`
+// logs produced by the JSON.Obj cases in the obj-(de)serialize benches.
+const objSeries: ChartPoint[] = payloads.map((p) => {
+  const d = getBenchData(logPath(`${p}-obj`, "simd", modes[0]));
+  return { x: d.bytes / 1024, y: d.mbps };
+});
+chartData["jsonobj-simd"] = objSeries;
+datasets.push({
+  label: "JSON.Obj (SIMD)",
+  data: objSeries,
+  borderColor: `rgba(${colors["obj"]},0.95)`,
+  backgroundColor: `rgba(${colors["obj"]},0.3)`,
+  fill: false,
+  tension: 0.2,
+  pointStyle: modes[0] === "serialize" ? "circle" : "rect",
+  pointRadius: 6,
+  borderDash: [8, 4],
+});
+
 let maxX = 0;
 let maxY = 0;
 
@@ -110,7 +121,7 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "String Serialization Throughput vs Payload Size (<=1MB)",
+        text: "Object Serialization Throughput vs Payload Size",
         font: { size: 20, weight: "bold" },
       },
       legend: {
@@ -120,7 +131,12 @@ const config: ChartConfiguration<"line"> = {
           padding: 20,
         },
       },
-      datalabels: { display: false },
+      datalabels: {
+        anchor: "end",
+        align: "top",
+        font: { size: 12, weight: "bold" },
+        formatter: (value) => value.y.toFixed(0) + " MB/s",
+      },
       subtitle: {
         display: true,
         text: subtitle(),
@@ -145,8 +161,6 @@ const config: ChartConfiguration<"line"> = {
         },
       },
       y: {
-        // 500 MB/s headroom above the tallest line for the value labels
-        max: maxY + 500,
         title: {
           display: true,
           text: "Throughput (MB/s)",
@@ -163,8 +177,8 @@ const config: ChartConfiguration<"line"> = {
   plugins: [ChartDataLabels],
 };
 
-// Render at 3x pixel density (1200x700 -> 3600x2100, >= 1440p) for crisp output.
-config.options = { ...(config.options ?? {}), devicePixelRatio: 3 };
-const buffer = canvas.renderToBufferSync(config, "image/png");
-fs.writeFileSync("./build/charts/chart07.png", buffer);
-console.log("> ./build/charts/chart07.png");
+// SVG (vector, fast-loading) + PNG (3x density) so the README can
+// reference the SVG while the PNG stays available for other uses.
+const dims = { width: 1200, height: 700 };
+generateChart(config, "./build/charts/object-serialize.svg", dims);
+generateChart(config, "./build/charts/object-serialize.png", dims);

@@ -50,7 +50,13 @@ export function serializeObject(src: JSON.Obj): void {
       memory.copy(bs.offset, start, size);
       bs.offset += size;
     } else {
-      serializeArbitrary(JSON.Value.fromBits(slot));
+      const v = JSON.Value.fromBits(slot);
+      serializeArbitrary(v);
+      // Persist any escape-class the serializer cached on a materialized String
+      // slot back into the flat slot, so re-serializing this object reuses it
+      // (the memcpy fast path) instead of re-scanning. No-op for other types.
+      const nb = v.__bits();
+      if (nb != slot) unchecked((vals[i] = nb));
     }
     pos += 1 + len;
     i++;

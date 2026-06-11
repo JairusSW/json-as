@@ -1,12 +1,16 @@
 import fs from "fs";
-import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
-import { benchLogPath, subtitle, type BenchKind } from "./bench-utils";
+import {
+  benchLogPath,
+  subtitle,
+  generateChart,
+  type BenchKind,
+} from "./bench-utils";
 import { MULTILIB_COLORS as COLORS, INK } from "./palette";
 
-// Renders one multi-library throughput chart (chart13 = deserialize,
-// chart14 = serialize). Both pull from the standard bench logs written by the
+// Renders one multi-library throughput chart (library-serialize /
+// library-deserialize). Both pull from the standard bench logs written by the
 // multilib `*.bench.ts` files (AS via run-bench.as.sh in NAIVE/SWAR/SIMD,
 // JS via run-bench.js.sh), so they ride the normal bench → chart pipeline
 // instead of a bespoke runner. Colours come from the shared palette (grouped by
@@ -117,14 +121,10 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
     plugins: [ChartDataLabels],
   };
 
-  config.options = { ...(config.options ?? {}), devicePixelRatio: 3 };
-  const canvas = new ChartJSNodeCanvas({
-    width: 1150,
-    height: 640,
-    // no backgroundColour -> transparent PNG (charts 13/14)
-    chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
-  });
-  const buffer = canvas.renderToBufferSync(config, "image/png");
-  fs.writeFileSync(outfile, buffer);
-  console.log(`> ${outfile}`);
+  // SVG (vector, fast-loading) + PNG (3x density). Horizontal bars (indexAxis
+  // "y") are unaffected by the datalabels dpr quirk that generateChart guards
+  // against for vertical bars, so both formats render labels at the bar tips.
+  const dims = { width: 1150, height: 640 };
+  generateChart(config, outfile.replace(/\.png$/, ".svg"), dims);
+  generateChart(config, outfile, dims);
 }

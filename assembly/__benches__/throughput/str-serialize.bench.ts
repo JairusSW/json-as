@@ -297,3 +297,248 @@ bench(
   bytes10,
 );
 dumpToFile("str-10mb", "serialize");
+
+// --- JSON.Value (dynamic) variant: re-serialize each string through the
+// schema-less JSON.Value path (parsed AND materialized once up front via
+// .get<string>(), then stringified - so serialize re-emits the decoded value
+// rather than passing through the untouched source bytes) ---
+const val_str1kb = JSON.parse<JSON.Value>(json1kb);
+blackbox(val_str1kb.get<string>());
+const val_str100kb = JSON.parse<JSON.Value>(json100kb);
+blackbox(val_str100kb.get<string>());
+const val_str200kb = JSON.parse<JSON.Value>(json200kb);
+blackbox(val_str200kb.get<string>());
+const val_str300kb = JSON.parse<JSON.Value>(json300kb);
+blackbox(val_str300kb.get<string>());
+const val_str400kb = JSON.parse<JSON.Value>(json400kb);
+blackbox(val_str400kb.get<string>());
+const val_str500kb = JSON.parse<JSON.Value>(json500kb);
+blackbox(val_str500kb.get<string>());
+const val_str600kb = JSON.parse<JSON.Value>(json600kb);
+blackbox(val_str600kb.get<string>());
+const val_str700kb = JSON.parse<JSON.Value>(json700kb);
+blackbox(val_str700kb.get<string>());
+const val_str800kb = JSON.parse<JSON.Value>(json800kb);
+blackbox(val_str800kb.get<string>());
+const val_str900kb = JSON.parse<JSON.Value>(json900kb);
+blackbox(val_str900kb.get<string>());
+const val_str1 = JSON.parse<JSON.Value>(json1);
+blackbox(val_str1.get<string>());
+const val_str2 = JSON.parse<JSON.Value>(json2);
+blackbox(val_str2.get<string>());
+const val_str3 = JSON.parse<JSON.Value>(json3);
+blackbox(val_str3.get<string>());
+const val_str4 = JSON.parse<JSON.Value>(json4);
+blackbox(val_str4.get<string>());
+const val_str5 = JSON.parse<JSON.Value>(json5);
+blackbox(val_str5.get<string>());
+const val_str6 = JSON.parse<JSON.Value>(json6);
+blackbox(val_str6.get<string>());
+const val_str7 = JSON.parse<JSON.Value>(json7);
+blackbox(val_str7.get<string>());
+const val_str8 = JSON.parse<JSON.Value>(json8);
+blackbox(val_str8.get<string>());
+const val_str9 = JSON.parse<JSON.Value>(json9);
+blackbox(val_str9.get<string>());
+const val_str10 = JSON.parse<JSON.Value>(json10);
+blackbox(val_str10.get<string>());
+
+bench(
+  "Serialize String JSON.Value (1kb)",
+  () => {
+    blackbox(JSON.stringify(val_str1kb));
+  },
+  500000,
+  bytes1kb,
+);
+dumpToFile("str-1kb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (100kb)",
+  () => {
+    blackbox(JSON.stringify(val_str100kb));
+  },
+  30000,
+  bytes100kb,
+);
+dumpToFile("str-100kb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (200kb)",
+  () => {
+    blackbox(JSON.stringify(val_str200kb));
+  },
+  15000,
+  bytes200kb,
+);
+dumpToFile("str-200kb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (300kb)",
+  () => {
+    blackbox(JSON.stringify(val_str300kb));
+  },
+  10000,
+  bytes300kb,
+);
+dumpToFile("str-300kb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (400kb)",
+  () => {
+    blackbox(JSON.stringify(val_str400kb));
+  },
+  7500,
+  bytes400kb,
+);
+dumpToFile("str-400kb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (500kb)",
+  () => {
+    blackbox(JSON.stringify(val_str500kb));
+  },
+  6000,
+  bytes500kb,
+);
+dumpToFile("str-500kb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (600kb)",
+  () => {
+    blackbox(JSON.stringify(val_str600kb));
+  },
+  5000,
+  bytes600kb,
+);
+dumpToFile("str-600kb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (700kb)",
+  () => {
+    blackbox(JSON.stringify(val_str700kb));
+  },
+  4286,
+  bytes700kb,
+);
+dumpToFile("str-700kb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (800kb)",
+  () => {
+    blackbox(JSON.stringify(val_str800kb));
+  },
+  3750,
+  bytes800kb,
+);
+dumpToFile("str-800kb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (900kb)",
+  () => {
+    blackbox(JSON.stringify(val_str900kb));
+  },
+  3334,
+  bytes900kb,
+);
+dumpToFile("str-900kb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (1mb)",
+  () => {
+    blackbox(JSON.stringify(val_str1));
+  },
+  3000,
+  bytes1,
+);
+dumpToFile("str-1mb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (2mb)",
+  () => {
+    blackbox(JSON.stringify(val_str2));
+  },
+  1500,
+  bytes2,
+);
+dumpToFile("str-2mb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (3mb)",
+  () => {
+    blackbox(JSON.stringify(val_str3));
+  },
+  1000,
+  bytes3,
+);
+dumpToFile("str-3mb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (4mb)",
+  () => {
+    blackbox(JSON.stringify(val_str4));
+  },
+  750,
+  bytes4,
+);
+dumpToFile("str-4mb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (5mb)",
+  () => {
+    blackbox(JSON.stringify(val_str5));
+  },
+  600,
+  bytes5,
+);
+dumpToFile("str-5mb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (6mb)",
+  () => {
+    blackbox(JSON.stringify(val_str6));
+  },
+  500,
+  bytes6,
+);
+dumpToFile("str-6mb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (7mb)",
+  () => {
+    blackbox(JSON.stringify(val_str7));
+  },
+  428,
+  bytes7,
+);
+dumpToFile("str-7mb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (8mb)",
+  () => {
+    blackbox(JSON.stringify(val_str8));
+  },
+  375,
+  bytes8,
+);
+dumpToFile("str-8mb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (9mb)",
+  () => {
+    blackbox(JSON.stringify(val_str9));
+  },
+  333,
+  bytes9,
+);
+dumpToFile("str-9mb-value", "serialize");
+
+bench(
+  "Serialize String JSON.Value (10mb)",
+  () => {
+    blackbox(JSON.stringify(val_str10));
+  },
+  300,
+  bytes10,
+);
+dumpToFile("str-10mb-value", "serialize");

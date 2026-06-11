@@ -1,8 +1,7 @@
 import fs from "fs";
-import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
-import { benchLogPath, subtitle } from "./lib/bench-utils";
+import { benchLogPath, subtitle, generateChart } from "./lib/bench-utils";
 import { MODE_RGB, INK } from "./lib/palette";
 
 function loadJSON(file: string) {
@@ -62,12 +61,6 @@ for (const payload of payloads) {
   }
 }
 
-const canvas = new ChartJSNodeCanvas({
-  width: 1200,
-  height: 700,
-  chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
-});
-
 const colors = MODE_RGB;
 
 const datasets = [];
@@ -90,6 +83,25 @@ for (const mode of modes) {
     });
   }
 }
+
+// JSON.Value (dynamic) throughput series - SIMD only; reads the `<payload>-value`
+// logs produced by the JSON.Value cases in the str-(de)serialize benches.
+const valueSeries: ChartPoint[] = payloads.map((p) => {
+  const d = getBenchData(logPath(`${p}-value`, "simd", modes[0]));
+  return { x: d.bytes / 1024, y: d.mbps };
+});
+chartData["jsonvalue-simd"] = valueSeries;
+datasets.push({
+  label: "JSON.Value (SIMD)",
+  data: valueSeries,
+  borderColor: `rgba(${colors["obj"]},0.95)`,
+  backgroundColor: `rgba(${colors["obj"]},0.3)`,
+  fill: false,
+  tension: 0.2,
+  pointStyle: modes[0] === "serialize" ? "circle" : "rect",
+  pointRadius: 6,
+  borderDash: [8, 4],
+});
 
 let maxX = 0;
 let maxY = 0;
@@ -165,8 +177,8 @@ const config: ChartConfiguration<"line"> = {
   plugins: [ChartDataLabels],
 };
 
-// Render at 3x pixel density (1200x700 -> 3600x2100, >= 1440p) for crisp output.
-config.options = { ...(config.options ?? {}), devicePixelRatio: 3 };
-const buffer = canvas.renderToBufferSync(config, "image/png");
-fs.writeFileSync("./build/charts/chart03.png", buffer);
-console.log("> ./build/charts/chart03.png");
+// SVG (vector, fast-loading) + PNG (3x density: 1200x700 -> 3600x2100) so the
+// README can reference the SVG while the PNG stays available for other uses.
+const dims = { width: 1200, height: 700 };
+generateChart(config, "./build/charts/string-serialize.svg", dims);
+generateChart(config, "./build/charts/string-serialize.png", dims);

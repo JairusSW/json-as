@@ -297,3 +297,206 @@ bench(
   bytes10,
 );
 dumpToFile("str-10mb", "deserialize");
+
+// --- JSON.Value (dynamic) variant: parse each string into a JSON.Value and
+// materialize it (.get<string>()) so the value is actually decoded, not left
+// as an unparsed lazy slice ---
+bench(
+  "Deserialize String JSON.Value (1kb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json1kb).get<string>());
+  },
+  500000,
+  bytes1kb,
+);
+dumpToFile("str-1kb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (100kb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json100kb).get<string>());
+  },
+  30000,
+  bytes100kb,
+);
+dumpToFile("str-100kb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (200kb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json200kb).get<string>());
+  },
+  15000,
+  bytes200kb,
+);
+dumpToFile("str-200kb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (300kb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json300kb).get<string>());
+  },
+  10000,
+  bytes300kb,
+);
+dumpToFile("str-300kb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (400kb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json400kb).get<string>());
+  },
+  7500,
+  bytes400kb,
+);
+dumpToFile("str-400kb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (500kb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json500kb).get<string>());
+  },
+  6000,
+  bytes500kb,
+);
+dumpToFile("str-500kb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (600kb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json600kb).get<string>());
+  },
+  5000,
+  bytes600kb,
+);
+dumpToFile("str-600kb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (700kb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json700kb).get<string>());
+  },
+  4286,
+  bytes700kb,
+);
+dumpToFile("str-700kb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (800kb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json800kb).get<string>());
+  },
+  3750,
+  bytes800kb,
+);
+dumpToFile("str-800kb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (900kb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json900kb).get<string>());
+  },
+  3334,
+  bytes900kb,
+);
+dumpToFile("str-900kb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (1mb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json1).get<string>());
+  },
+  3000,
+  bytes1,
+);
+dumpToFile("str-1mb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (2mb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json2).get<string>());
+  },
+  1500,
+  bytes2,
+);
+dumpToFile("str-2mb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (3mb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json3).get<string>());
+  },
+  1000,
+  bytes3,
+);
+dumpToFile("str-3mb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (4mb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json4).get<string>());
+  },
+  750,
+  bytes4,
+);
+dumpToFile("str-4mb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (5mb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json5).get<string>());
+  },
+  600,
+  bytes5,
+);
+dumpToFile("str-5mb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (6mb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json6).get<string>());
+  },
+  500,
+  bytes6,
+);
+dumpToFile("str-6mb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (7mb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json7).get<string>());
+  },
+  428,
+  bytes7,
+);
+dumpToFile("str-7mb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (8mb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json8).get<string>());
+  },
+  375,
+  bytes8,
+);
+dumpToFile("str-8mb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (9mb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json9).get<string>());
+  },
+  333,
+  bytes9,
+);
+dumpToFile("str-9mb-value", "deserialize");
+
+bench(
+  "Deserialize String JSON.Value (10mb)",
+  () => {
+    blackbox(JSON.parse<JSON.Value>(json10).get<string>());
+  },
+  300,
+  bytes10,
+);
+dumpToFile("str-10mb-value", "deserialize");

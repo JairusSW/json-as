@@ -1,8 +1,7 @@
 import fs from "fs";
-import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
-import { benchLogPath, subtitle } from "./lib/bench-utils";
+import { benchLogPath, subtitle, generateChart } from "./lib/bench-utils";
 import { MODE_RGB, INK } from "./lib/palette";
 
 function loadJSON(file: string) {
@@ -19,43 +18,28 @@ function getBenchData(filePath: string) {
 }
 
 const payloads = [
-  "str-1mb",
-  "str-2mb",
-  "str-3mb",
-  "str-4mb",
-  "str-5mb",
-  "str-6mb",
-  "str-7mb",
-  "str-8mb",
-  "str-9mb",
-  "str-10mb",
+  "obj-1kb",
+  "obj-100kb",
+  "obj-200kb",
+  "obj-300kb",
+  "obj-400kb",
+  "obj-500kb",
+  "obj-600kb",
+  "obj-700kb",
+  "obj-800kb",
+  "obj-900kb",
+  "obj-1mb",
 ];
-const modes = ["deserialize"];
+const engines = ["js", "naive", "swar", "simd"];
+const modes = ["serialize"];
 
-type SeriesSpec = {
-  key: string;
-  label: string;
-  language: "js" | "as";
-  engine: string;
-  payloadTransform?: (payload: string) => string;
-};
-
-const series: SeriesSpec[] = [
-  { key: "js", label: "JS", language: "js", engine: "" },
-  { key: "naive", label: "NAIVE", language: "as", engine: "naive" },
-  { key: "swar", label: "SWAR", language: "as", engine: "swar" },
-  { key: "simd", label: "SIMD", language: "as", engine: "simd" },
-];
-
-function logPath(payload: string, spec: SeriesSpec, mode: string) {
-  const transformedPayload = spec.payloadTransform
-    ? spec.payloadTransform(payload)
-    : payload;
+function logPath(payload: string, engine: string, mode: string) {
+  const language = engine == "js" ? "js" : "as";
   return benchLogPath(
-    transformedPayload,
+    payload,
     mode as "serialize" | "deserialize",
-    spec.language,
-    spec.engine,
+    language,
+    engine == "js" ? "" : engine,
   );
 }
 
@@ -66,10 +50,10 @@ interface ChartPoint {
 const chartData: Record<string, ChartPoint[]> = {};
 
 for (const payload of payloads) {
-  for (const spec of series) {
+  for (const engine of engines) {
     for (const mode of modes) {
-      const key = `${payload}-${spec.key}-${mode}`;
-      const data = getBenchData(logPath(payload, spec, mode));
+      const key = `${payload}-${engine}-${mode}`;
+      const data = getBenchData(logPath(payload, engine, mode));
       const sizeKB = data.bytes / 1024;
 
       if (!chartData[key]) chartData[key] = [];
@@ -78,26 +62,20 @@ for (const payload of payloads) {
   }
 }
 
-const canvas = new ChartJSNodeCanvas({
-  width: 1200,
-  height: 700,
-  chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
-});
-
 const colors = MODE_RGB;
 
 const datasets = [];
 
 for (const mode of modes) {
-  for (const spec of series) {
+  for (const engine of engines) {
     const data: ChartPoint[] = payloads.map(
-      (p) => chartData[`${p}-${spec.key}-${mode}`][0],
+      (p) => chartData[`${p}-${engine}-${mode}`][0],
     );
     datasets.push({
-      label: spec.label,
+      label: `${engine.toUpperCase()}`,
       data,
-      borderColor: `rgba(${colors[spec.key + "-" + mode] || colors[spec.key]},0.9)`,
-      backgroundColor: `rgba(${colors[spec.key + "-" + mode] || colors[spec.key]},0.3)`,
+      borderColor: `rgba(${colors[engine + "-" + mode] || colors[engine]},0.9)`,
+      backgroundColor: `rgba(${colors[engine + "-" + mode] || colors[engine]},0.3)`,
       fill: false,
       tension: 0.2,
       pointStyle: mode === "serialize" ? "circle" : "rect",
@@ -106,6 +84,25 @@ for (const mode of modes) {
     });
   }
 }
+
+// JSON.Obj (dynamic) throughput series - SIMD only; reads the `<payload>-obj`
+// logs produced by the JSON.Obj cases in the obj-(de)serialize benches.
+const objSeries: ChartPoint[] = payloads.map((p) => {
+  const d = getBenchData(logPath(`${p}-obj`, "simd", modes[0]));
+  return { x: d.bytes / 1024, y: d.mbps };
+});
+chartData["jsonobj-simd"] = objSeries;
+datasets.push({
+  label: "JSON.Obj (SIMD)",
+  data: objSeries,
+  borderColor: `rgba(${colors["obj"]},0.95)`,
+  backgroundColor: `rgba(${colors["obj"]},0.3)`,
+  fill: false,
+  tension: 0.2,
+  pointStyle: modes[0] === "serialize" ? "circle" : "rect",
+  pointRadius: 6,
+  borderDash: [8, 4],
+});
 
 let maxX = 0;
 let maxY = 0;
@@ -125,7 +122,7 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "String Deserialization Throughput vs Payload Size",
+        text: "Object Serialization Throughput vs Payload Size (<=1MB)",
         font: { size: 20, weight: "bold" },
       },
       legend: {
@@ -135,12 +132,7 @@ const config: ChartConfiguration<"line"> = {
           padding: 20,
         },
       },
-      datalabels: {
-        anchor: "end",
-        align: "top",
-        font: { size: 12, weight: "bold" },
-        formatter: (value) => value.y.toFixed(0) + " MB/s",
-      },
+      datalabels: { display: false },
       subtitle: {
         display: true,
         text: subtitle(),
@@ -165,6 +157,8 @@ const config: ChartConfiguration<"line"> = {
         },
       },
       y: {
+        // 500 MB/s headroom above the tallest line for the value labels
+        max: maxY + 500,
         title: {
           display: true,
           text: "Throughput (MB/s)",
@@ -181,8 +175,8 @@ const config: ChartConfiguration<"line"> = {
   plugins: [ChartDataLabels],
 };
 
-// Render at 3x pixel density (1200x700 -> 3600x2100, >= 1440p) for crisp output.
-config.options = { ...(config.options ?? {}), devicePixelRatio: 3 };
-const buffer = canvas.renderToBufferSync(config, "image/png");
-fs.writeFileSync("./build/charts/chart04.png", buffer);
-console.log("> ./build/charts/chart04.png");
+// SVG (vector, fast-loading) + PNG (3x density) so the README can
+// reference the SVG while the PNG stays available for other uses.
+const dims = { width: 1200, height: 700 };
+generateChart(config, "./build/charts/object-serialize-1mb.svg", dims);
+generateChart(config, "./build/charts/object-serialize-1mb.png", dims);

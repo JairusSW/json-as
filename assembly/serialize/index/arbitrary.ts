@@ -1,5 +1,7 @@
 import { JSON } from "../..";
 import { bs } from "../../../lib/as-bs";
+import { bytes } from "../../util/bytes";
+import { QUOTE } from "../../custom/chars";
 import { serializeBool } from "./bool";
 import { serializeFloat32, serializeFloat64 } from "./float";
 import { serializeInteger } from "./integer";
@@ -9,6 +11,42 @@ import { serializeObject } from "./object";
 import { serializeRaw } from "../naive/raw";
 import { serializeString } from "./string";
 import { serializeDynamic } from "./typedarray";
+
+// True if any code unit would need JSON-escaping on serialize: a quote,
+// backslash, control char (< 0x20), or a surrogate (handled conservatively -
+// even valid pairs route to the full path, since they can't be bulk-copied as a
+// plain run). A clean string is none of these, so it emits as a verbatim memcpy.
+// @ts-ignore: decorator
+@inline function stringNeedsEscape(src: string): bool {
+  let ptr = changetype<usize>(src);
+  const end = ptr + <usize>bytes(src);
+  while (ptr < end) {
+    const code = load<u16>(ptr);
+    if (
+      code == 0x22 ||
+      code == 0x5c ||
+      code < 0x20 ||
+      (code >= 0xd800 && code <= 0xdfff)
+    )
+      return true;
+    ptr += 2;
+  }
+  return false;
+}
+
+// Fast path for a string already known to need no escaping: quote + a single
+// bulk copy of the UTF-16 bytes + quote. Skips the per-char escape scan that
+// serializeString would otherwise do (and its trailing second pass).
+function serializeStringClean(src: string): void {
+  const size = <usize>bytes(src);
+  bs.proposeSize(size + 4);
+  store<u16>(bs.offset, QUOTE);
+  bs.offset += 2;
+  memory.copy(bs.offset, changetype<usize>(src), size);
+  bs.offset += size;
+  store<u16>(bs.offset, QUOTE);
+  bs.offset += 2;
+}
 
 export function serializeArbitrary(src: JSON.Value): void {
   // Verbatim passthrough: an untouched (still-deferred) value emits its original
@@ -64,9 +102,19 @@ export function serializeArbitrary(src: JSON.Value): void {
     case JSON.Types.F64:
       serializeFloat64(src.get<f64>());
       break;
-    case JSON.Types.String:
-      serializeString(src.get<string>());
+    case JSON.Types.String: {
+      const str = src.get<string>();
+      // Reuse the cached escape class; classify once on first serialize. Clean
+      // strings (the common case) then emit as a single memcpy on every reuse.
+      let cls = src.__strClass();
+      if (cls == 0) {
+        cls = stringNeedsEscape(str) ? 2 : 1;
+        src.__setStrClass(cls);
+      }
+      if (cls == 1) serializeStringClean(str);
+      else serializeString(str);
       break;
+    }
     case JSON.Types.Bool:
       serializeBool(src.get<bool>());
       break;

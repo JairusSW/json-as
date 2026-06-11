@@ -25,21 +25,25 @@ while [[ $# -gt 0 ]]; do
 done
 
 mkdir -p ./build/charts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart01.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart02.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart03.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart04.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart05.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart06.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart07.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart08.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart09.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart10.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart11.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart12.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart13.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-chart14.ts
+# json-as vs JavaScript, small synthetic payloads (overview).
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-overview-serialize.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-overview-deserialize.ts
+# String / object throughput vs payload size (full range + <=1MB zoom).
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-string-serialize.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-string-deserialize.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-object-serialize.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-object-deserialize.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-string-serialize-1mb.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-string-deserialize-1mb.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-object-serialize-1mb.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-object-deserialize-1mb.ts
+# Primitive (de)serialize.
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-primitive-serialize.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-primitive-deserialize.ts
+# Library comparison (json-as vs other JSON libraries).
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-library-serialize.ts
+JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-library-deserialize.ts
 # Lazy-fields charts (eager vs @json({ lazy: "auto" }))
-bun ./scripts/build-chart15.ts
+bun ./scripts/build-lazy.ts
 # Classic-dataset mode comparison (NAIVE/SWAR/SIMD + lazy, no JS baseline)
 bun ./scripts/build-chart-classic.ts

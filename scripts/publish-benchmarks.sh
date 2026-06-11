@@ -119,10 +119,14 @@ cp -R "$TMP_CHARTS_DIR/." "$TMP_DOCS_DIR/charts/${DEST}/"
 
 # Re-pin the README chart <img> URLs to the version just published, so a README
 # revision references the charts built from its own code. Handles both the flat
-# legacy path (.../charts/chart01.svg) and an existing versioned one. Left
+# legacy path (.../charts/<name>.svg) and an existing versioned one. Left
 # uncommitted for you to review and commit.
 echo "Pinning README chart URLs to charts/${DEST}/..."
 sed -i -E "s#(/refs/heads/${DOCS_BRANCH}/charts/)([^\"']*/)?([^/\"']+\.(svg|png))#\1${DEST}/\3#g" README.md
+# Also re-point the "Browse the full chart set" tree link to this version's
+# folder (e.g. /tree/docs/charts/v1.4.0 -> /tree/docs/charts/v1.5.0). The bare
+# /tree/${DOCS_BRANCH} branch link has no /charts/ segment, so it stays put.
+sed -i -E "s#(/tree/${DOCS_BRANCH}/charts/)v[0-9][0-9.]*#\1${DEST}#g" README.md
 
 echo "Benchmark charts published to ${REMOTE_NAME}/${DOCS_BRANCH}:charts/${DEST}/."
 echo "README pinned to https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/${DOCS_BRANCH}/charts/${DEST}/"

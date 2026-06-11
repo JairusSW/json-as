@@ -17,10 +17,11 @@
   - [Using Custom Serializers or Deserializers](#using-custom-serializers-or-deserializers)
   - [Overriding built-in Container Types](#overriding-built-in-container-types)
 - [Performance](#performance)
+  - [Real-World Throughput](#real-world-throughput)
   - [Comparison to JavaScript](#comparison-to-javascript)
+  - [Library Comparison](#library-comparison)
+  - [Lazy Fields](#lazy-fields)
   - [Performance Tuning](#performance-tuning)
-  - [Fast-Path Compatibility Matrix](#fast-path-compatibility-matrix)
-  - [Container Compatibility Matrix](#container-compatibility-matrix)
   - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [Debugging](#debugging)
 - [Architecture](#architecture)
@@ -505,79 +506,103 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 
 ## Performance
 
-The `json-as` library is engineered for **multi-GB/s processing speeds**, leveraging SIMD and SWAR optimizations along with highly efficient transformations. The charts below highlight key performance metrics such as build time, operations-per-second, and throughput.
+`json-as` is engineered for **multi-GB/s** serialization and deserialization. Every `@json` schema is compiled to specialized WebAssembly at build time, and bytes are scanned by one of three interchangeable backends:
+
+- **NAIVE** — a portable, branchy scalar scanner. The correctness baseline; needs no special CPU features.
+- **SWAR** — *SIMD-Within-A-Register*: processes 8 bytes at a time with ordinary 64-bit integer math. The default.
+- **SIMD** — true 128-bit vector scanning. Fastest on large and string-heavy payloads; enable with `--enable simd`.
+
+The mode is chosen per build via `JSON_MODE` (see [Performance Tuning](#performance-tuning)). Orthogonal to the scan mode, the generated **struct** path can be swapped for **[lazy](#lazy-fields)** fields (defer parsing until first access) or the fully dynamic, schema-less **`JSON.Obj`** path.
+
+> All figures below are **end-to-end**: deserialization includes allocating the destination object/array, not just scanning bytes — raw parser throughput is higher. Charts are generated locally and pushed to the [`docs`](https://github.com/JairusSW/json-as/tree/docs) branch, and reflect the **latest release** (older versions may differ).
+>
+> Benchmark machine: AMD Ryzen 7 7800X3D (8 cores, 96 MB 3D V-Cache), 32 GB RAM, Zorin OS 18.1 (Linux 6.17). JavaScript baselines run on V8's turboshaft optimizer.
+
+📊 **[Browse the full chart set for this release →](https://github.com/JairusSW/json-as/tree/docs/charts/v1.5.0)**
+
+### Real-World Throughput
+
+The headline benchmark: nine standard JSON payloads — drawn from the [yyjson](https://github.com/ibireme/yyjson) and [`nativejson-benchmark`](https://github.com/miloyip/nativejson-benchmark) corpora — measured in all three scan modes, with the SIMD lazy-struct and dynamic `JSON.Obj` paths shown alongside.
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/classic-payload-deserialize-v8.svg" alt="Deserialization throughput across nine classic JSON payloads">
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/classic-payload-serialize-v8.svg" alt="Serialization throughput across nine classic JSON payloads">
+
+Each payload stresses a different document shape:
+
+| Payload | Size | What it stresses |
+|---------|------|------------------|
+| **Twitter** | 467 KB | API response, fully-modeled struct schema with `@optional` keys |
+| **Canada** | 2.1 MB | GeoJSON — deeply nested arrays of floating-point coordinates |
+| **CITM** | 500 KB | Concert catalog — dynamic-key `Map`s plus uniform struct arrays |
+| **Poet** | 3.3 MB | ~8,900 flat `{desc, name, id}` records — pure struct fast path |
+| **GitHub** | 53 KB | 30 GitHub events — a wide union of per-event-type fields |
+| **GSOC** | 3.1 MB | ~1,264 org records keyed by id (schema.org JSON-LD `Map`) |
+| **Lottie** | 289 KB | Vector-animation doc — structs over deeply variable layer data |
+| **otfcc** | 66.4 MB | OpenType font dump — 15 tables captured as `JSON.Raw` |
+| **FGO** | 48.8 MB | Game-data dump — 193 irregular tables as `Map<string, JSON.Raw>` |
+
+The five series in each chart:
+
+- **NAIVE / SWAR / SIMD** — the generated struct path under each scan backend, parsing every field into a typed schema.
+- **Lazy (SIMD)** — `@json({ lazy: "auto" })`: each field's raw slice is stored at parse time and decoded only on first access; on serialize, untouched fields stream their original bytes straight back out. Reading or rewriting a subset is dramatically cheaper — see [Lazy Fields](#lazy-fields).
+- **JSON.Obj (SIMD)** — a fully dynamic, schema-less parse into `JSON.Obj`, with no generated per-type code.
 
 ### Comparison to JavaScript
 
-The following charts compare JSON-AS against JavaScript's native `JSON` implementation. It's as fair as possible and runs on V8's turboshaft optimizer. The published charts are generated locally and pushed to the `docs` branch.
+`json-as` against JavaScript's native `JSON`, parsed and stringified in a fresh V8 — as close to apples-to-apples as a Wasm-vs-native comparison gets.
 
-> Note: Benchmarks reflect the **latest version**. Older versions may show different performance.
->
-> Current local benchmark machine: Apple M4 Max (16 cores - 12 performance + 4 efficiency), 64 GB RAM, macOS 26.
->
-> Benchmark results include normal end-to-end work such as allocating the destination object or array before deserializing into it. Raw parser throughput is higher than the published figures because these numbers intentionally include that allocation/setup cost.
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/overview-serialize.svg" alt="Performance Chart 1">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart01.svg" alt="Performance Chart 1">
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart02.svg" alt="Performance Chart 2">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/overview-deserialize.svg" alt="Performance Chart 2">
 
 <details>
 <summary>String serialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart03.png" alt="Performance Chart 3">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/string-serialize.svg" alt="Performance Chart 3">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart07.png" alt="Performance Chart 7">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/string-serialize-1mb.svg" alt="Performance Chart 7">
 </details>
 
 <details>
 <summary>String deserialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart04.png" alt="Performance Chart 4">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/string-deserialize.svg" alt="Performance Chart 4">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart08.png" alt="Performance Chart 8">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/string-deserialize-1mb.svg" alt="Performance Chart 8">
 </details>
 
 <details>
 <summary>Object serialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart05.png" alt="Performance Chart 5">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/object-serialize.svg" alt="Performance Chart 5">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart09.png" alt="Performance Chart 9">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/object-serialize-1mb.svg" alt="Performance Chart 9">
 </details>
 
 <details>
 <summary>Object deserialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart06.png" alt="Performance Chart 6">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/object-deserialize.svg" alt="Performance Chart 6">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart10.png" alt="Performance Chart 10">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/object-deserialize-1mb.svg" alt="Performance Chart 10">
 </details>
 
 <details>
 <summary>Primitive (de)serialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart11.svg" alt="Primitive serialization performance">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/primitive-serialize.svg" alt="Primitive serialization performance">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart12.svg" alt="Primitive deserialization performance">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/primitive-deserialize.svg" alt="Primitive deserialization performance">
 </details>
 
-<details>
-<summary>Real-world payloads — eager / lazy / dynamic (click to expand)</summary>
-
-Throughput across nine classic JSON payloads (Twitter, Canada, CITM, Poet, GitHub events, GSOC, Lottie, otfcc, FGO), each in the NAIVE / SWAR / SIMD scan modes, with the SIMD lazy-struct and dynamic `JSON.Obj` paths shown alongside.
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/classic-payload-deserialize-v8.png" alt="Classic payload deserialize throughput">
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/classic-payload-serialize-v8.png" alt="Classic payload serialize throughput">
-</details>
-
-### Library comparison
+### Library Comparison
 
 How `json-as` stacks up against other JSON libraries on a ~5 KiB GitHub-repo payload: JavaScript's native `JSON` and `fast-json` (each in a fresh V8), plus the `assemblyscript-json` package. The `json-as` bars (generated struct, lazy struct, and dynamic `JSON.Obj`) are averaged across the NAIVE / SWAR / SIMD scan modes.
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart14.png" alt="Library comparison - deserialize throughput">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/library-deserialize.svg" alt="Library comparison - deserialize throughput">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/chart13.png" alt="Library comparison - serialize throughput">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/library-serialize.svg" alt="Library comparison - serialize throughput">
 
 ### Lazy Fields
 

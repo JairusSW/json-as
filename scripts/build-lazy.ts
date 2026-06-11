@@ -57,7 +57,10 @@ function emit(cfg: ChartConfiguration<"bar">, file: string) {
   cfg.options.plugins ??= {};
   cfg.options.plugins.datalabels = { display: false };
   cfg.plugins = [valueLabels];
+  // SVG (vector, fast-loading) + PNG (3x density) so the README can reference
+  // the SVG while the PNG stays available for other uses.
   generateChart(cfg, file);
+  generateChart(cfg, file.replace(/\.svg$/, ".png"));
 }
 
 const OUT = process.env["JSON_CHART_OUT"] ?? "./build/charts";

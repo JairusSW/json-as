@@ -35,7 +35,7 @@ export const rgba = (name: keyof typeof RGB, alpha = 1): string =>
   `rgba(${RGB[name]},${alpha})`;
 
 // Engine/mode palette - one distinct hue per mode for the per-payload bar +
-// line charts (chart01–12). Fastest mode (SIMD) gets the blue.
+// line charts (overview / string / object / primitive). Fastest mode (SIMD) gets the blue.
 //   JS → strawberry red · NAIVE → orange · SWAR → jungle green · SIMD → pacific blue
 export const MODE_RGB: Record<string, string> = {
   js: RGB.strawberryRed,
@@ -55,17 +55,17 @@ export const MODE_BARS = [
 ];
 
 // Dynamic JSON.Obj bar, appended after the four mode bars on the struct charts
-// (chart01/02) to compare typed-struct vs JSON.Obj performance.
+// (overview-serialize / overview-deserialize) to compare typed-struct vs JSON.Obj performance.
 export const OBJ_BAR = {
   bg: rgba("fadedCopper", 0.85),
   border: BASE.fadedCopper,
 };
 
-// Eager vs lazy (chart15). Lazy shares the multi-library lazy hue (jungle green).
+// Eager vs lazy (build-lazy). Lazy shares the multi-library lazy hue (jungle green).
 export const EAGER = { bg: rgba("sandDune", 0.85), border: BASE.sandDune };
 export const LAZY = { bg: rgba("jungleGreen", 0.85), border: BASE.jungleGreen };
 
-// Multi-library comparison (chart13/14): one bar per family (the three scan
+// Multi-library comparison (library-serialize / library-deserialize): one bar per family (the three scan
 // modes are averaged), each a solid hue. The two JS baselines get their own
 // distinct hues (native JSON copper, fast-json teal); strawberry red marks the
 // non-json-as competitor.
