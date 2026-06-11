@@ -38,7 +38,11 @@ export function serializeJsonArray(src: JSON.Arr): void {
       memory.copy(bs.offset, start, size);
       bs.offset += size;
     } else {
-      serializeArbitrary(JSON.Value.fromBits(slot));
+      const v = JSON.Value.fromBits(slot);
+      serializeArbitrary(v);
+      // Persist a cached String escape-class back into the slot (see object.ts).
+      const nb = v.__bits();
+      if (nb != slot) unchecked((vals[i] = nb));
     }
   }
 

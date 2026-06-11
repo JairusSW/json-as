@@ -1,8 +1,7 @@
 import fs from "fs";
-import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
-import { benchLogPath, subtitle } from "./lib/bench-utils";
+import { benchLogPath, subtitle, generateChart } from "./lib/bench-utils";
 import { MODE_RGB, INK } from "./lib/palette";
 
 function loadJSON(file: string) {
@@ -32,7 +31,7 @@ const payloads = [
   "obj-1mb",
 ];
 const engines = ["js", "naive", "swar", "simd"];
-const modes = ["serialize"];
+const modes = ["deserialize"];
 
 function logPath(payload: string, engine: string, mode: string) {
   const language = engine == "js" ? "js" : "as";
@@ -62,12 +61,6 @@ for (const payload of payloads) {
     }
   }
 }
-
-const canvas = new ChartJSNodeCanvas({
-  width: 1200,
-  height: 700,
-  chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
-});
 
 const colors = MODE_RGB;
 
@@ -129,7 +122,7 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "Object Serialization Throughput vs Payload Size (<=1MB)",
+        text: "Object Deserialization Throughput vs Payload Size (<=1MB)",
         font: { size: 20, weight: "bold" },
       },
       legend: {
@@ -182,8 +175,8 @@ const config: ChartConfiguration<"line"> = {
   plugins: [ChartDataLabels],
 };
 
-// Render at 3x pixel density (1200x700 -> 3600x2100, >= 1440p) for crisp output.
-config.options = { ...(config.options ?? {}), devicePixelRatio: 3 };
-const buffer = canvas.renderToBufferSync(config, "image/png");
-fs.writeFileSync("./build/charts/chart09.png", buffer);
-console.log("> ./build/charts/chart09.png");
+// SVG (vector, fast-loading) + PNG (3x density) so the README can
+// reference the SVG while the PNG stays available for other uses.
+const dims = { width: 1200, height: 700 };
+generateChart(config, "./build/charts/object-deserialize-1mb.svg", dims);
+generateChart(config, "./build/charts/object-deserialize-1mb.png", dims);

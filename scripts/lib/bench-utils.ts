@@ -126,6 +126,12 @@ export function createBarChart(
     labelAnchor?: "start" | "center" | "end";
     /** Value-label font size in px (default 12). */
     labelFontSize?: number;
+    /**
+     * Rotate the value labels, in degrees (default 0 = flat). Use -90 to stand
+     * them up off the bar top so adjacent same-height labels stop colliding;
+     * the y-axis gains extra headroom automatically so tall labels don't clip.
+     */
+    labelRotation?: number;
   },
 ): ChartConfiguration<"bar"> {
   const payloadKeys = Object.keys(data);
@@ -137,11 +143,15 @@ export function createBarChart(
       .map((r) => r.mbps),
   );
 
-  // Round up to the next step above (tallest bar + half a step), so there is
-  // always headroom for the value label above the highest bar
-  // (e.g. 4992 -> 5500 instead of a clipped 5000).
+  // Round up to the next step above (tallest bar + headroom), so there is
+  // always room for the value label above the highest bar
+  // (e.g. 4992 -> 5500 instead of a clipped 5000). Rotated (near-vertical)
+  // labels stand up off the bar and need much more headroom than a flat label,
+  // so reserve a slice of the range proportional to the tallest bar.
   const yStep = options.yStep ?? 500;
-  const yMax = Math.ceil((maxMBps + yStep / 2) / yStep) * yStep;
+  const rotated = Math.abs(options.labelRotation ?? 0) >= 45;
+  const headroom = rotated ? maxMBps * 0.18 + yStep : yStep / 2;
+  const yMax = Math.ceil((maxMBps + headroom) / yStep) * yStep;
 
   const datasetNames = options.datasetLabels ?? [
     "Built-in JSON (JS)",
@@ -162,7 +172,7 @@ export function createBarChart(
         data: payloadKeys.map((k) => data[k][i]?.mbps ?? 0),
         backgroundColor: palette[i % palette.length].bg,
         borderColor: palette[i % palette.length].border,
-        // Preserve the original chart01 look: the 4th (SIMD) bar had a 2px border.
+        // Preserve the original overview-chart look: the 4th (SIMD) bar had a 2px border.
         borderWidth: !options.colors && i === 3 ? 2 : 1,
       })),
     },
@@ -184,6 +194,7 @@ export function createBarChart(
         datalabels: {
           anchor: options.labelAnchor ?? "end",
           align: "end",
+          rotation: options.labelRotation ?? 0,
           font: { weight: "bold", size: options.labelFontSize ?? 12 },
           formatter: (v: number) => v.toFixed(0),
         },
@@ -296,19 +307,49 @@ export function createLineChart(
   };
 }
 
-export function generateChart(config: ChartConfiguration, outfile: string) {
+export function generateChart(
+  config: ChartConfiguration,
+  outfile: string,
+  dims?: { width?: number; height?: number },
+) {
   const isSvg = outfile.endsWith(".svg");
 
   // Render raster (PNG) charts at 3x pixel density: the logical 1000x600 layout
   // becomes a crisp 3000x1800 image (>= 1440p) with identical proportions/fonts.
   // SVG output is vector - resolution-independent - so it's left untouched.
   if (!isSvg) {
-    config.options = { ...(config.options ?? {}), devicePixelRatio: 3 };
+    // Shallow-copy options and set the 3x density (a new object, so the caller's
+    // config is untouched - and the SVG render, which runs first, keeps dpr 1).
+    config = {
+      ...config,
+      options: { ...(config.options ?? {}), devicePixelRatio: 3 },
+    };
+    // chartjs-plugin-datalabels mispositions VERTICAL-bar value labels at
+    // devicePixelRatio > 1: the "end" anchor (the bar's top) lands at the base
+    // instead. Flip the value-label anchor only for the raster render so the PNG
+    // matches the SVG.
+    const opts = config.options as {
+      indexAxis?: string;
+      plugins?: { datalabels?: { anchor?: "start" | "end" } };
+    };
+    const dl = opts.plugins?.datalabels;
+    if (
+      config.type === "bar" &&
+      opts.indexAxis !== "y" &&
+      dl &&
+      (dl.anchor === "end" || dl.anchor === "start")
+    ) {
+      // Clone plugins + datalabels so the flip doesn't mutate shared objects.
+      opts.plugins = {
+        ...opts.plugins,
+        datalabels: { ...dl, anchor: dl.anchor === "end" ? "start" : "end" },
+      };
+    }
   }
 
   const canvas = new ChartJSNodeCanvas({
-    width: 1000,
-    height: 600,
+    width: dims?.width ?? 1000,
+    height: dims?.height ?? 600,
     type: isSvg ? "svg" : "png",
     chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
   });

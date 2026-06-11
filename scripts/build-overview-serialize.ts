@@ -31,7 +31,7 @@ const PAYLOADS: Record<string, string> = {
 };
 
 const KIND: BenchKind = "serialize";
-const OUTPUT_FILE = "./build/charts/chart01.svg";
+const OUTPUT_FILE = "./build/charts/overview-serialize.svg";
 
 const allResults = getBenchResults(Object.keys(PAYLOADS));
 
@@ -57,6 +57,11 @@ const config = createBarChart(chartData, PAYLOADS, {
     "JSON-AS (JSON.Obj)",
   ],
   colors: [...MODE_BARS, OBJ_BAR],
+  // Stand the value labels up off each bar top so adjacent ones don't collide.
+  labelRotation: -90,
 });
 
+// SVG (vector, fast-loading) + PNG (3x density) so the README can reference the
+// SVG while the PNG stays available for other uses.
 generateChart(config, OUTPUT_FILE);
+generateChart(config, OUTPUT_FILE.replace(/\.svg$/, ".png"));

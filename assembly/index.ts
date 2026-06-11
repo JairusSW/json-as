@@ -72,12 +72,30 @@ const VAL_NULL: u64 = VAL_QNAN; // tag 0 (Null), payload 0
 const VAL_I64_LIMIT: i64 = 17592186044416; // 2^44 - inline range is [-2^44, 2^44)
 const VAL_U64_LIMIT: u64 = 35184372088832; // 2^45 - inline range is [0, 2^45)
 
-// Lazy value-slot payload layout (see JSON.Value.lazyBits). Compact form packs a
-// source-relative offset and length of LZ_FIELD_BITS units each; bit 44 flags the
-// absolute fallback for the rare source/value beyond that field range.
-const LZ_FIELD_BITS: u64 = 22;
-const LZ_FIELD_MASK: u64 = 0x3fffff; // (1 << 22) - 1
+// Lazy value-slot payload layout (45-bit box payload), see JSON.Value.lazyBits.
+// Compact form (bit 44 = 0): a source-relative start offset (23 bits) + the
+// value's length (21 bits), both in UTF-16 units. Offset-heavy on purpose:
+// object/array fields are usually small while the document can be large, so
+// offset overflow (a field late in a big doc) is the realistic trigger, not a
+// single giant field - so the offset field gets the wider range. bit 44 flags
+// the absolute (scan-on-demand) fallback for a source/value past those ranges.
+//   bits [0..22] offset (<=~16MB src) · [23..43] length (<=~4MB val) · 44 abs
+const LZ_OFF_BITS: u64 = 23;
+const LZ_OFF_MASK: u64 = 0x7fffff; // (1 << 23) - 1
+const LZ_LEN_MASK: u64 = 0x1fffff; // (1 << 21) - 1
 const LZ_ABS_FLAG: u64 = 0x100000000000; // 1 << 44
+
+// A materialized String box only uses the low 32 payload bits for its pointer,
+// so two spare bits [32..33] cache the value's serialize-escape class. This lets
+// re-serializing a dynamic string skip the per-char escape scan - a clean string
+// emits via a single memcpy. `valPtr` masks bit 32+ off, so the pointer (and GC)
+// are unaffected.
+//   0 = unclassified · 1 = clean (no escaping -> memcpy) · 2 = needs escaping
+const VAL_STR_CLASS_SHIFT: u64 = 32;
+const VAL_STR_CLASS_MASK: u64 = 0x0000000300000000; // bits [32..33]
+const STR_CLASS_UNKNOWN: u32 = 0;
+const STR_CLASS_CLEAN: u32 = 1;
+const STR_CLASS_ESCAPE: u32 = 2;
 
 function valBoxed(w: u64): bool {
   return (w & VAL_QNAN) == VAL_QNAN;
@@ -821,6 +839,29 @@ export namespace JSON {
       return changetype<LazyRef>(valPtr(w)).lz;
     }
 
+    /**
+     * The cached serialize-escape class of a materialized String value: 0 = not
+     * yet classified, 1 = clean (no chars need escaping, so it serializes via a
+     * single memcpy), 2 = needs escaping. Stored in two spare payload bits so the
+     * scan is paid once and reused. Only meaningful for String-tagged values.
+     */
+    __strClass(): u32 {
+      return <u32>((this.bits >> VAL_STR_CLASS_SHIFT) & 3);
+    }
+    /** Records the serialize-escape class on this String value (see __strClass). */
+    __setStrClass(c: u32): void {
+      this.bits =
+        (this.bits & ~VAL_STR_CLASS_MASK) | ((<u64>c) << VAL_STR_CLASS_SHIFT);
+    }
+    /**
+     * Raw boxed bits. Lets the JSON.Obj/JSON.Arr serializers read back a class
+     * the serializer cached on a transient value (see `serializeArbitrary`) and
+     * persist it into their flat u64 slot, so re-serializing reuses it.
+     */
+    __bits(): u64 {
+      return this.bits;
+    }
+
     // --- value-slot helpers (JSON.Obj stores values as flat NaN-boxed u64 ---
     // slots instead of heap JSON.Value objects; these build/inspect/decode the
     // raw bits without allocating, while keeping the box layout encapsulated).
@@ -844,8 +885,8 @@ export namespace JSON {
       const offset = <u64>((start - srcBase) >> 1);
       const length = <u64>((end - start) >> 1);
       let payload: u64;
-      if (offset <= LZ_FIELD_MASK && length <= LZ_FIELD_MASK) {
-        payload = (length << LZ_FIELD_BITS) | offset;
+      if (offset <= LZ_OFF_MASK && length <= LZ_LEN_MASK) {
+        payload = (length << LZ_OFF_BITS) | offset;
       } else {
         payload = LZ_ABS_FLAG | ((<u64>start) & VAL_PTR_MASK);
       }
@@ -860,8 +901,8 @@ export namespace JSON {
           srcEnd,
         );
       }
-      const start = srcBase + ((<usize>(p & LZ_FIELD_MASK)) << 1);
-      const length = <usize>((p >> LZ_FIELD_BITS) & LZ_FIELD_MASK);
+      const start = srcBase + ((<usize>(p & LZ_OFF_MASK)) << 1);
+      const length = <usize>((p >> LZ_OFF_BITS) & LZ_LEN_MASK);
       return start + (length << 1);
     }
     /** Bits for a JSON null. */
@@ -884,7 +925,7 @@ export namespace JSON {
     static slotPtr(w: u64, srcBase: usize): usize {
       const p = valPayload(w);
       if (p & LZ_ABS_FLAG) return <usize>(p & VAL_PTR_MASK);
-      return srcBase + ((<usize>(p & LZ_FIELD_MASK)) << 1);
+      return srcBase + ((<usize>(p & LZ_OFF_MASK)) << 1);
     }
     /** Wraps raw bits in a JSON.Value (eager scalar / materialized reference). */
     static fromBits(w: u64): JSON.Value {

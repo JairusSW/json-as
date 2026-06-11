@@ -16,7 +16,7 @@ const PAYLOADS: Record<string, string> = {
 };
 
 const KIND: BenchKind = "deserialize";
-const OUTPUT_FILE = "./build/charts/chart12.svg";
+const OUTPUT_FILE = "./build/charts/primitive-deserialize.svg";
 
 const allResults = getBenchResults(Object.keys(PAYLOADS));
 
@@ -38,4 +38,7 @@ const config = createBarChart(chartData, PAYLOADS, {
   ],
 });
 
+// SVG (vector, fast-loading) + PNG (3x density) so the README can reference
+// the SVG while the PNG stays available for other uses.
 generateChart(config, OUTPUT_FILE);
+generateChart(config, OUTPUT_FILE.replace(/\.svg$/, ".png"));

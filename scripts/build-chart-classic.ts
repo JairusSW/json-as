@@ -109,11 +109,13 @@ for (const runtime of RUNTIMES) {
         "JSON.Obj (SIMD)",
       ],
       colors: [...MODE_COLORS, LAZY_BAR, OBJ_BAR],
-      // Value labels sit on top of each bar (this datalabels build treats
-      // "start" as the bar's far end); a slightly smaller font keeps adjacent
-      // same-height labels from touching.
-      labelAnchor: "start",
+      // Value labels stand up off each bar top (anchor "end", rotated vertical):
+      // the five narrow same-height bars per group would otherwise overlap their
+      // labels. generateChart compensates for the datalabels dpr quirk on the
+      // PNG raster path.
+      labelAnchor: "end",
       labelFontSize: 11,
+      labelRotation: -90,
     });
 
     const out = `./build/charts/classic-payload-${kind}-${runtime}`;
