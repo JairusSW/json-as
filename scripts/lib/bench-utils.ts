@@ -316,10 +316,19 @@ export function generateChart(
 
   // Render raster (PNG) charts at 3x pixel density: the logical 1000x600 layout
   // becomes a crisp 3000x1800 image (>= 1440p) with identical proportions/fonts.
-  // SVG output is vector - resolution-independent - so it's left untouched.
-  if (!isSvg) {
+  if (isSvg) {
+    // Pin dpr 1 explicitly. A PNG render earlier in the same process sets dpr 3,
+    // which Chart.js leaves as a global default; inherited by a later SVG render
+    // it makes chartjs-plugin-datalabels collapse vertical-bar value labels to
+    // the baseline. Vector output is resolution-independent, so 1 is purely the
+    // datalabels-correctness value here.
+    config = {
+      ...config,
+      options: { ...(config.options ?? {}), devicePixelRatio: 1 },
+    };
+  } else {
     // Shallow-copy options and set the 3x density (a new object, so the caller's
-    // config is untouched - and the SVG render, which runs first, keeps dpr 1).
+    // config is untouched).
     config = {
       ...config,
       options: { ...(config.options ?? {}), devicePixelRatio: 3 },
