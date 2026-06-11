@@ -1,7 +1,7 @@
 {
   "name": "json-as",
   "version": "1.5.0",
-  "author": "Jairus Tanaka",
+  "author": "Jairus Tanaka <me@jairus.dev>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/JairusSW/json-as.git"
