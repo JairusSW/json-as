@@ -72,7 +72,7 @@ export function ensureArrayElementSlot<T extends Array<any>>(
 
 export function scanQuotedValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
   srcStart += 2;
-  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
+  const srcEnd8 = srcEnd - 8;
 
   while (srcStart <= srcEnd8) {
     let mask = backslashOrQuoteMask(load<u64>(srcStart));

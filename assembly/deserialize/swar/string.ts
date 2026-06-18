@@ -71,7 +71,7 @@ function deserializeEscapedString_SWAR(
   }
 
   let srcStart = escapeStart;
-  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
+  const srcEnd8 = srcEnd - 8;
 
   while (srcStart <= srcEnd8) {
     const block = load<u64>(srcStart);
@@ -263,7 +263,7 @@ function deserializeEscapedStringField_SWAR(
   }
 
   let srcStart = escapeStart;
-  const srcEnd8 = srcEnd >= 8 ? srcEnd - 8 : 0;
+  const srcEnd8 = srcEnd - 8;
 
   while (srcStart <= srcEnd8) {
     const block = load<u64>(srcStart);

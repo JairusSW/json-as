@@ -11,7 +11,6 @@ import {
   serializeStaticArray,
   serializeBool,
   serializeInteger,
-  serializeFloat,
   serializeFloat32,
   serializeFloat64,
   serializeStruct,

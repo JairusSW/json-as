@@ -116,7 +116,7 @@ function deserializeEscapedString_SIMD(
   }
 
   let srcStart = escapeStart;
-  const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
+  const srcEnd16 = srcEnd - 16;
 
   while (srcStart <= srcEnd16) {
     const block = load<v128>(srcStart);
@@ -269,7 +269,7 @@ function deserializeEscapedStringField_SIMD(
   }
 
   let srcStart = escapeStart;
-  const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
+  const srcEnd16 = srcEnd - 16;
 
   while (srcStart <= srcEnd16) {
     const block = load<v128>(srcStart);
@@ -384,7 +384,7 @@ export function deserializeStringField_SIMD<T extends string | null>(
     abort("Expected leading quote");
 
   const payloadStart = srcStart + 2;
-  const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
+  const srcEnd16 = srcEnd - 16;
   srcStart = payloadStart;
 
   while (srcStart <= srcEnd16) {
