@@ -597,3 +597,18 @@ describe("SWAR: JSON.Obj[] empty array as @json class field", () => {
   const o = JSON.parse<ObjArr>('{"items":[]}');
   expect(o.items.length).toBe(0);
 });
+
+// naive/object.ts parseObjectBody:329 — inner object consumes the outer } so parseObjectBody
+// exhausts srcEnd and returns srcEnd (success path, no throw needed)
+describe("JSON.Obj: parseObjectBody returns srcEnd when inner object uses the closing brace (naive/object.ts:329)", () => {
+  const obj = JSON.parse<JSON.Obj>('{"k":{"a":1}');
+  expect(obj.has("k")).toBe(true);
+});
+
+// swar/array/object.ts:51 — shrink path: reusing a JSON.Obj[] with more elements than the new parse
+describe("SWAR: JSON.Obj[] field shrink path on reuse (swar/array/object.ts:51)", () => {
+  const o1 = JSON.parse<ObjArr>('{"items":[{"x":1},{"x":2}]}');
+  const o2 = JSON.parse<ObjArr>('{"items":[{"x":3}]}', o1);
+  expect(o2.items.length).toBe(1);
+  expect(o2.items[0].getAs<f64>("x")).toBe(3.0);
+});

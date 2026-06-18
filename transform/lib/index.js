@@ -1131,7 +1131,10 @@ export class JSONTransform extends Visitor {
                     type.startsWith("JSON.Box<") ||
                     isEnum(type, this.sources.get(this.schema.node.range.source), this.parser))
                     sortedMembers.number.push(member);
-                else if (isArray(type) || type == "JSON.Arr" || type == "Arr")
+                else if (isArray(type) ||
+                    type == "JSON.Arr" ||
+                    type == "Arr" ||
+                    needsReferenceLoad(type))
                     sortedMembers.array.push(member);
                 else
                     sortedMembers.object.push(member);
@@ -1953,8 +1956,13 @@ export class JSONTransform extends Visitor {
         const getSlowValueStore = (member, valueStart, valueEnd, prefix) => {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+            const offset = JSON.stringify(member.name);
+            if (needsReferenceLoad(member.type)) {
+                return (prefix +
+                    `store<${member.type}>(changetype<usize>(out), JSON.__deserialize<${member.type}>(${valueStart}, ${valueEnd}, changetype<usize>(load<${member.type}>(changetype<usize>(out), offsetof<this>(${offset})))), offsetof<this>(${offset}));\n`);
+            }
             return (prefix +
-                `store<${member.type}>(changetype<usize>(out), JSON.__deserialize<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${JSON.stringify(member.name)}));\n`);
+                `store<${member.type}>(changetype<usize>(out), JSON.__deserialize<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n`);
         };
         const getSlowBooleanStore = (member, value, valueStart, valueEnd, prefix) => {
             if (member.flags.has(PropertyFlags.Lazy))

@@ -40,7 +40,7 @@ function storeUnsignedIntegerE<E extends number>(
   }
 }
 
-// The four parse helpers below take a `slot` pointer (`writePtr`) and store
+// The parse helpers below take a `slot` pointer (`writePtr`) and store
 // the value directly via `store<valueof<T>>(slot, ...)`. The outer dispatcher
 // owns the array's `out.length = maxElements` pre-allocation and the
 // `writePtr` advance, so the per-element `Array.push` capacity check and
@@ -49,57 +49,6 @@ function storeUnsignedIntegerE<E extends number>(
 // Parsers are also E-parameterised so they're shareable with
 // `swar/typedarray.ts`. The body is byte-identical to the prior version
 // modulo s/valueof<T>/E/.
-export function parseSignedIntegerScalar<E extends number>(
-  srcStart: usize,
-  srcEnd: usize,
-  slot: usize,
-): usize {
-  let negative = false;
-  let code = load<u16>(srcStart);
-  if (code == 45) {
-    negative = true;
-    srcStart += 2;
-    if (srcStart >= srcEnd) return 0;
-    code = load<u16>(srcStart);
-  }
-
-  let digit = <u32>code - 48;
-  if (digit > 9) return 0;
-
-  let value: u64 = digit;
-  srcStart += 2;
-  while (srcStart < srcEnd) {
-    digit = <u32>load<u16>(srcStart) - 48;
-    if (digit > 9) break;
-    value = value * 10 + digit;
-    srcStart += 2;
-  }
-
-  storeSignedIntegerE<E>(slot, negative ? -(<i64>value) : <i64>value);
-  return srcStart;
-}
-
-export function parseUnsignedIntegerScalar<E extends number>(
-  srcStart: usize,
-  srcEnd: usize,
-  slot: usize,
-): usize {
-  let digit = <u32>load<u16>(srcStart) - 48;
-  if (digit > 9) return 0;
-
-  let value: u64 = digit;
-  srcStart += 2;
-  while (srcStart < srcEnd) {
-    digit = <u32>load<u16>(srcStart) - 48;
-    if (digit > 9) break;
-    value = value * 10 + digit;
-    srcStart += 2;
-  }
-
-  storeUnsignedIntegerE<E>(slot, value);
-  return srcStart;
-}
-
 export function parseSignedIntegerSWAR<E extends number>(
   srcStart: usize,
   srcEnd: usize,
@@ -448,9 +397,11 @@ function deserializeIntegerArrayImpl<T extends number[]>(
 
     if (isSigned<valueof<T>>()) {
       while (srcStart < srcEnd) {
-        const next = useSWAR
-          ? parseSignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, writePtr)
-          : parseSignedIntegerScalar<valueof<T>>(srcStart, srcEnd, writePtr);
+        const next = parseSignedIntegerSWAR<valueof<T>>(
+          srcStart,
+          srcEnd,
+          writePtr,
+        );
         if (!next) break;
         writePtr += elementSize;
         srcStart = next;
@@ -469,9 +420,11 @@ function deserializeIntegerArrayImpl<T extends number[]>(
       }
     } else {
       while (srcStart < srcEnd) {
-        const next = useSWAR
-          ? parseUnsignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, writePtr)
-          : parseUnsignedIntegerScalar<valueof<T>>(srcStart, srcEnd, writePtr);
+        const next = parseUnsignedIntegerSWAR<valueof<T>>(
+          srcStart,
+          srcEnd,
+          writePtr,
+        );
         if (!next) break;
         writePtr += elementSize;
         srcStart = next;

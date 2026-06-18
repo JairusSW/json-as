@@ -70,7 +70,6 @@ export function deserializeMapBody<T extends Map<any, any>>(
   if (load<u16>(srcStart) == BRACE_RIGHT) return srcStart + 2;
 
   while (srcStart < srcEnd) {
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (load<u16>(srcStart) != QUOTE) break;
 
     const keyStart = srcStart + 2;

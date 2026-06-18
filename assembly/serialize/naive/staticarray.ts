@@ -13,7 +13,6 @@ function maxIntegerBytes<T extends number>(): u32 {
   return isSigned<T>() ? 42 : 40;
 }
 function reservePrimitiveStaticArray<T>(len: i32): void {
-  if (len <= 0) return;
   if (isBoolean<T>()) {
     bs.proposeSize(4 + <u32>len * 12);
   } else if (isInteger<T>()) {

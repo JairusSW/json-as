@@ -252,6 +252,13 @@ class BinaryContainer {
   right: BinaryEnvelope = new BinaryEnvelope();
 }
 
+
+@json
+class TAFieldHolder {
+  items: Int16Array = makeInt16Array();
+  raw: ArrayBuffer = makeArrayBuffer();
+}
+
 describe("Should serialize and deserialize typed arrays by default", () => {
   const int8 = makeInt8Array();
   expect(JSON.stringify(int8)).toBe("[-1,0,127]");
@@ -609,4 +616,49 @@ describe("SWAR: JSON.parse<Int64Array> parses 64-bit integer array", () => {
   expect(v.length).toBe(3);
   expect(v[0]).toBe(1000000000000);
   expect(v[1]).toBe(-2);
+});
+
+// simple TAFieldHolder sanity check
+describe("TAFieldHolder basic round-trip", () => {
+  const h = JSON.parse<TAFieldHolder>('{"items":[1,2,3],"raw":[10,20]}');
+  const serialized = JSON.stringify(h);
+  expect(serialized).toBe('{"items":[1,2,3],"raw":[10,20]}');
+  expect(h.items.length).toBe(3);
+  expect(h.items[0]).toBe(1);
+  expect(h.items[2]).toBe(3);
+  expect(h.raw.byteLength).toBe(2);
+});
+
+// swar/typedarray.ts:78 IfBranch — reuse non-empty Int32Array field for empty array
+describe("SWAR TypedArray field: reuse non-empty field for [] triggers empty path (swar/typedarray.ts:78)", () => {
+  const h1 = JSON.parse<TAFieldHolder>('{"items":[1,2,3],"raw":[]}');
+  const h2 = JSON.parse<TAFieldHolder>('{"items":[],"raw":[]}', h1);
+  expect(h2.items.length).toBe(0);
+});
+
+// swar/typedarray.ts:87 Block — reuse Int32Array field with wrong length for non-empty array
+describe("SWAR TypedArray field: reuse wrong-size field for new array triggers resize (swar/typedarray.ts:87)", () => {
+  const h1 = JSON.parse<TAFieldHolder>('{"items":[1,2],"raw":[]}');
+  const h2 = JSON.parse<TAFieldHolder>(
+    '{"items":[10,20,30,40,50],"raw":[]}',
+    h1,
+  );
+  expect(h2.items.length).toBe(5);
+});
+
+// swar/typedarray.ts:178 IfBranch+Assignment — reuse non-empty ArrayBuffer field for empty array
+describe("SWAR ArrayBuffer field: reuse non-empty field for [] triggers empty path (swar/typedarray.ts:178)", () => {
+  const h1 = JSON.parse<TAFieldHolder>('{"items":[],"raw":[10,20,30]}');
+  const h2 = JSON.parse<TAFieldHolder>('{"items":[],"raw":[]}', h1);
+  expect(h2.raw.byteLength).toBe(0);
+});
+
+// swar/typedarray.ts:185+186 Block+Assignment — reuse wrong-size ArrayBuffer field for non-empty array
+describe("SWAR ArrayBuffer field: reuse wrong-size field for new array triggers resize (swar/typedarray.ts:185)", () => {
+  const h1 = JSON.parse<TAFieldHolder>('{"items":[],"raw":[1,2]}');
+  const h2 = JSON.parse<TAFieldHolder>(
+    '{"items":[],"raw":[10,20,30,40,50,60,70]}',
+    h1,
+  );
+  expect(h2.raw.byteLength).toBe(7);
 });

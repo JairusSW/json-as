@@ -11,7 +11,6 @@ function maxIntegerBytes<T extends number>(): u32 {
 }
 
 function reserveTypedArray<T extends ArrayLike<number>>(len: i32): void {
-  if (len <= 0) return;
   if (isFloat<valueof<T>>()) {
     bs.proposeSize(4 + <u32>len * (sizeof<valueof<T>>() == 4 ? 34 : 66));
   } else {

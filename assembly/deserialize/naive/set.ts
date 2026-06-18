@@ -63,7 +63,6 @@ function deserializeSetDirect<T extends Set<any>>(
   if (load<u16>(srcStart) == BRACKET_RIGHT) return srcStart + 2;
 
   while (srcStart < srcEnd) {
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     const code = load<u16>(srcStart);
 
     // @ts-ignore: type

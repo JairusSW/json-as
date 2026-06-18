@@ -1714,9 +1714,15 @@ export class JSONTransform extends Visitor {
           )
         )
           sortedMembers.number.push(member);
-        // JSON.Arr serializes as `[...]`, so the deserializer routes it through
-        // the array (`[`) branch - it must live in the array bucket, not object.
-        else if (isArray(type) || type == "JSON.Arr" || type == "Arr")
+        // JSON.Arr and TypedArrays/ArrayBuffer all serialize as `[...]`, so the
+        // deserializer routes them through the array (`[`) branch — they must
+        // live in the array bucket, not the object bucket.
+        else if (
+          isArray(type) ||
+          type == "JSON.Arr" ||
+          type == "Arr" ||
+          needsReferenceLoad(type)
+        )
           sortedMembers.array.push(member);
         else sortedMembers.object.push(member);
         // else console.warn("Could not determine type " + type + " for member " + member.name + " in class " + this.schema.name);
@@ -2881,9 +2887,19 @@ export class JSONTransform extends Visitor {
     ): string => {
       if (member.flags.has(PropertyFlags.Lazy))
         return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+      const offset = JSON.stringify(member.name);
+      // TypedArrays and ArrayBuffer are reference types whose JSON form is
+      // `[...]`. Pass the existing field pointer as `dst` so the deserializer
+      // can reuse the allocation when size matches instead of always allocating.
+      if (needsReferenceLoad(member.type)) {
+        return (
+          prefix +
+          `store<${member.type}>(changetype<usize>(out), JSON.__deserialize<${member.type}>(${valueStart}, ${valueEnd}, changetype<usize>(load<${member.type}>(changetype<usize>(out), offsetof<this>(${offset})))), offsetof<this>(${offset}));\n`
+        );
+      }
       return (
         prefix +
-        `store<${member.type}>(changetype<usize>(out), JSON.__deserialize<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${JSON.stringify(member.name)}));\n`
+        `store<${member.type}>(changetype<usize>(out), JSON.__deserialize<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n`
       );
     };
 
