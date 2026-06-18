@@ -475,3 +475,219 @@ describe("Should deserialize long and escape-heavy strings through JSON.parse", 
 
   expect(JSON.parse<string>('"tab\\tA\\u0041\\"q\\""')).toBe('tab\tAA"q"');
 });
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+@json
+class NamedCovGapStr {
+  name: string = "";
+  value: i32 = 0;
+}
+
+
+@json
+class Tagged {
+  tags: string[] = [];
+}
+
+
+@json
+class S1 {
+  x: string = "";
+}
+
+// ─── Serialize: string with \uXXXX unicode escape ────────────────────────────
+
+describe("Serialize: string with \\uXXXX unicode escape", () => {
+  const s = "\x01\x02\x1f";
+  const json = JSON.stringify(s);
+  expect(json).toBe('"\\u0001\\u0002\\u001f"');
+  expect(JSON.parse<string>(json)).toBe(s);
+});
+
+// ─── SWAR string array edge cases ────────────────────────────────────────────
+
+describe("SWAR: string[] empty array from top-level parse", () => {
+  expect(JSON.stringify(JSON.parse<string[]>("[]"))).toBe("[]");
+});
+
+describe("SWAR: string[] with whitespace around brackets", () => {
+  expect(JSON.stringify(JSON.parse<string[]>('  [ "a" , "b" ]  '))).toBe(
+    '["a","b"]',
+  );
+});
+
+// swar/array/string.ts: field path via @json struct
+// Tagged has `tags: string[] = []`; parsing it goes through
+// deserializeStringArrayField → deserializeStringArrayBody in SWAR/SIMD modes.
+describe("SWAR: string[] as @json class field round-trips", () => {
+  const t = JSON.parse<Tagged>('{"tags":["x","y","z"]}');
+  expect(t.tags.length).toBe(3);
+  expect(t.tags[1]).toBe("y");
+});
+
+describe("SWAR: string[] field reparse with fewer elements (resize)", () => {
+  const t = JSON.parse<Tagged>('{"tags":["a","b","c"]}');
+  expect(t.tags.length).toBe(3);
+  const t2 = JSON.parse<Tagged>('{"tags":["only"]}', t);
+  expect(t2.tags.length).toBe(1);
+  expect(t2.tags[0]).toBe("only");
+});
+
+describe("SWAR: string[] field parsed via struct covers deserializeStringArrayBody", () => {
+  const v = JSON.parse<Tagged>('{"tags":["hello","world","!"]}');
+  expect(v.tags.length).toBe(3);
+  expect(v.tags[0]).toBe("hello");
+  expect(v.tags[2]).toBe("!");
+});
+
+describe("SWAR: empty string[] field via struct returns length 0", () => {
+  const v = JSON.parse<Tagged>('{"tags":[]}');
+  expect(v.tags.length).toBe(0);
+});
+
+describe("SWAR: string[] top-level parse returns correct elements", () => {
+  const v = JSON.parse<string[]>('["alpha","beta","gamma"]');
+  expect(v.length).toBe(3);
+  expect(v[1]).toBe("beta");
+});
+
+describe("SWAR: string[] top-level parse with whitespace padding", () => {
+  const v = JSON.parse<string[]>('[ "x" , "y" ]');
+  expect(v.length).toBe(2);
+  expect(v[0]).toBe("x");
+});
+
+// swar/string.ts: false-positive SWAR path in deserializeString_SWAR
+// U+5C5C has UTF-16 LE bytes 0x5C 0x5C — both trigger the SWAR backslash mask,
+// producing a false positive that `(header & 0xffff) !== 0x5c` discards.
+describe("SWAR: string with U+5C5C covers deserializeString_SWAR false-positive path", () => {
+  const s = JSON.parse<string>('"屜AAAAAAAAAAAAAAAA"');
+  expect(s.charCodeAt(0)).toBe(0x5c5c);
+  expect(s.length).toBe(17);
+});
+
+// swar/string.ts: false-positive in deserializeEscapedString_SWAR
+// A real \n escape followed immediately by U+5C5C puts the U+5C5C in the first
+// post-escape SWAR block, triggering two false positives and the !handled branch.
+describe("SWAR: escaped string with U+5C5C covers deserializeEscapedString_SWAR false-positive path", () => {
+  const s = JSON.parse<string>('"\\n屜AAAAAAAAAAA"');
+  expect(s.charCodeAt(0)).toBe(10);
+  expect(s.charCodeAt(1)).toBe(0x5c5c);
+  expect(s.length).toBe(13);
+});
+
+// swar/string.ts: false-positive handling in non-escaped scan
+// U+225C (≜) has low byte 0x5C which matches the backslash SWAR mask, but
+// load<u16> returns 0x225C which is neither QUOTE nor BACK_SLASH.
+describe("SWAR: string field with U+225C triggers false-positive skip in deserializeStringField_SWAR", () => {
+  const n = JSON.parse<NamedCovGapStr>('{"name":"≜world","value":1}');
+  expect(n.name).toBe("≜world");
+  expect(n.value).toBe(1);
+});
+
+// swar/string.ts: false-positive in deserializeEscapedStringField_SWAR
+// A backslash escape before ≜ enters deserializeEscapedStringField_SWAR.
+// The SWAR block containing ≜ (bytes 0x5C 0x22) has two false-positive hits
+// followed by plain chars, so `handled` stays false → covers the !handled block.
+describe("SWAR: escaped string field with U+225C triggers false-positive in deserializeEscapedStringField_SWAR", () => {
+  const n = JSON.parse<NamedCovGapStr>('{"name":"\\n≜world","value":2}');
+  expect(n.name.length > 0).toBe(true);
+  expect(n.value).toBe(2);
+});
+
+// swar/string.ts: tail-scan regular escape
+// "hello\n\\" in JSON: the `\n` is in the last SWAR block and its handling sets
+// srcStart past srcEnd8, landing on the second `\\`, which the tail scan then
+// processes — covering the `code !== 0x75` branch at lines 347-350.
+describe("SWAR: escaped string field where tail scan handles a regular escape", () => {
+  const n = JSON.parse<NamedCovGapStr>('{"name":"hello\\n\\\\","value":3}');
+  expect(n.name).toBe("hello\n\\");
+  expect(n.value).toBe(3);
+});
+
+// serialize/simd/string.ts: surrogate-pair path
+// Emoji 😊 is a surrogate pair (U+1F60A = 0xD83D 0xDE0A). In SIMD mode the
+// serializer must mask out the low surrogate to avoid double-escaping it.
+// serializeString_SIMD only runs its 16-byte SIMD block loop when the string
+// is longer than 16 bytes. The surrogate-pair detection at lines 143-145 fires
+// when SPLAT_FFD8 catches the high byte of a surrogate and the next char is a
+// valid low surrogate.
+describe("SIMD: stringify long emoji string covers surrogate-pair path in serializeString_SIMD", () => {
+  const s = JSON.stringify("😊AAAAAAAAAAAAAAAA");
+  expect(s).toBe('"😊AAAAAAAAAAAAAAAA"');
+});
+
+// swar/string.ts + simd/string.ts: escaped field via scalar tail
+// deserializeStringField_SWAR/SIMD has a SWAR/SIMD block loop followed by a
+// scalar tail. For {"x":"\n"} (9 chars = 18 bytes UTF-16), payloadStart lands
+// at byte 12 while srcEnd8 = byte 10 (SWAR) and srcEnd16 = byte 2 (SIMD) — so
+// the block loops are never entered. The scalar tail finds `\` at byte 12 and
+// calls deserializeEscapedStringField_SWAR/SIMD.
+describe("SWAR/SIMD: short escaped field via scalar tail covers deserializeStringField backslash path", () => {
+  const v = JSON.parse<S1>('{"x":"\\n"}');
+  expect(v.x.length).toBe(1);
+  expect(v.x.charCodeAt(0)).toBe(10);
+});
+
+// simd/string.ts: deserializeEscapedStringField_SIMD bulk-copy inner loop
+// After processing \n, the function streams the first clean 16-byte block
+// cheaply, then checks whether the NEXT block is also clean (lines 285-291).
+// With 47 A's after \n and srcEnd positioned past the trailing `"}`, the inner
+// while loop (line 294) runs for three clean b3 blocks (line 302 fires each
+// time) and then hits the closing `"` in the fourth block (line 301 break),
+// after which a single memory.copy covers the entire clean run (line 306).
+describe("SIMD: escaped field with 47-char clean run covers deserializeEscapedStringField_SIMD bulk-copy loop", () => {
+  const v = JSON.parse<NamedCovGapStr>(
+    '{"name":"\\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}',
+  );
+  expect(v.name.length).toBe(48);
+  expect(v.name.charCodeAt(0)).toBe(10);
+  expect(v.name.charCodeAt(1)).toBe(65);
+});
+
+// simd/string.ts: deserializeStringField_SIMD scalar tail backslash
+// With 9 a's before \n, the SIMD 16-byte loop scans the first block, advances
+// srcStart > srcEnd16, then exits. The scalar tail finds `\` and fires.
+describe("SIMD: 9-a prefix before \\n triggers scalar tail backslash in deserializeStringField_SIMD", () => {
+  const v = JSON.parse<S1>('{"x":"aaaaaaaaa\\n"}');
+  expect(v.x.length).toBe(10);
+  expect(v.x.charCodeAt(9)).toBe(10);
+});
+
+// swar/string.ts: escaped string field covers deserializeEscapedStringField_SWAR
+describe("SWAR: struct string field with \\n escape roundtrips correctly", () => {
+  const v = JSON.parse<S1>('{"x":"hello\\nworld"}');
+  expect(v.x).toBe("hello\nworld");
+});
+
+describe("SWAR: struct string field with \\\\ escape roundtrips correctly", () => {
+  const v = JSON.parse<S1>('{"x":"back\\\\slash"}');
+  expect(v.x).toBe("back\\slash");
+});
+
+describe("SWAR: struct string field with \\t escape roundtrips correctly", () => {
+  const v = JSON.parse<S1>('{"x":"tab\\there"}');
+  expect(v.x).toBe("tab\there");
+});
+
+describe('SWAR: struct string field with \\" quote escape roundtrips correctly', () => {
+  const v = JSON.parse<S1>('{"x":"say\\\"hi\\\""}');
+  expect(v.x).toBe('say"hi"');
+});
+
+describe("SWAR: struct string field with \\u0041 unicode escape roundtrips correctly", () => {
+  const v = JSON.parse<S1>('{"x":"\\u0041BC"}');
+  expect(v.x).toBe("ABC");
+});
+
+describe("SWAR: struct string field with multiple escapes roundtrips correctly", () => {
+  const v = JSON.parse<S1>('{"x":"a\\nb\\tc\\\\d"}');
+  expect(v.x).toBe("a\nb\tc\\d");
+});
+
+describe("SWAR: struct string field with long escaped prefix exercises 8-byte SWAR path", () => {
+  const v = JSON.parse<S1>('{"x":"aaaaaaaa\\nend"}');
+  expect(v.x.length).toBe(12);
+  expect(v.x.charCodeAt(8)).toBe(10);
+});

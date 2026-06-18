@@ -11,6 +11,7 @@ import { deserializeObjectArray } from "../naive/array/object";
 import { deserializeRawArray } from "../naive/array/raw";
 import { deserializeStringArray_NAIVE } from "../naive/array/string";
 import { deserializeStructArray } from "../naive/array/struct";
+import { deserializeStructArray_SWAR } from "../swar/array/struct";
 import { deserializeIntegerArray_SIMD } from "../simd/array/integer";
 import { deserializeIntegerArray_SWAR } from "../swar/array/integer";
 import { deserializeFloatArray_SWAR } from "../swar/array/float";
@@ -82,7 +83,7 @@ export function deserializeArray<T extends unknown[]>(
       isDefined(type.__DESERIALIZE_SLOW) ||
       isDefined(type.__DESERIALIZE_FAST)
     ) {
-      return deserializeStructArray<T>(srcStart, srcEnd, dst);
+      return deserializeStructArray_SWAR<T>(srcStart, srcEnd, dst);
     }
     throw new Error("Could not parse array of type " + nameof<T>() + "!");
   } else {

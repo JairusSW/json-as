@@ -42,7 +42,6 @@ export function deserializeIntegerArray_NAIVE<T extends number[]>(
   );
   out.length = 0; // dst may arrive pre-sized; re-parse from empty via push
 
-  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT)
     throw new Error("Invalid JSON array: expected '['");

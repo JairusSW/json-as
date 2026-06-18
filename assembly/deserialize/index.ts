@@ -10,6 +10,5 @@ export * from "./index/raw";
 export * from "./index/set";
 export * from "./index/staticarray";
 export * from "./index/string";
-export * from "./index/struct";
 export * from "./index/typedarray";
 export * from "./index/unsigned";

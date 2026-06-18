@@ -9,7 +9,6 @@ import { isSpace } from "../../util";
 // numbers like `0e`, `-01`, `1.`, `2.e3`, `0x42`.
 function validateJSONNumber(srcStart: usize, srcEnd: usize): void {
   let ptr = srcStart;
-  while (ptr < srcEnd && isSpace(load<u16>(ptr))) ptr += 2;
   let end = srcEnd;
   while (end > ptr && isSpace(load<u16>(end - 2))) end -= 2;
   if (ptr >= end) throw new Error("Invalid JSON number: empty");

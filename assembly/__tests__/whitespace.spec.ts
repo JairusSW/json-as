@@ -359,3 +359,38 @@ describe("Should handle whitespace across every field handler in one concrete st
 }  `;
   expect(JSON.stringify(JSON.parse<WsCombo>(pretty))).toBe(min);
 });
+
+// ─── Trailing whitespace in top-level bool/float arrays ───────────────────────
+
+describe("NAIVE: bool[] with trailing whitespace covers naive trailing loop", () => {
+  expect(JSON.stringify(JSON.parse<bool[]>("[true,false]   "))).toBe(
+    "[true,false]",
+  );
+});
+
+describe("NAIVE: f64[] with trailing whitespace covers naive trailing loop", () => {
+  expect(JSON.stringify(JSON.parse<f64[]>("[1.5,-2.5]   "))).toBe("[1.5,-2.5]");
+});
+
+// Whitespace trimming
+describe("JSON.__deserialize: leading whitespace is skipped", () => {
+  expect(JSON.parse<i32>("   42")).toBe(42);
+  expect(JSON.parse<string>('  "hello"')).toBe("hello");
+});
+
+// naive/object.ts: trailing whitespace in deserializeObject
+// deserializeObject trims trailing whitespace before validating the closing `}`.
+// Passes trailing spaces → covers the trim Loop and Assignment at lines 59-60.
+describe("NAIVE: JSON.Obj with trailing whitespace covers deserializeObject trim loop", () => {
+  const obj = JSON.parse<JSON.Obj>('{"a":1}   ');
+  expect(obj.size).toBe(1);
+  expect(obj.getAs<f64>("a")).toBe(1.0);
+});
+
+// naive/object.ts: trailing whitespace in deserializeJsonArray
+// Same pattern but for JSON.Arr — covers trim Loop and Assignment at lines 89-90.
+describe("NAIVE: JSON.Arr with trailing whitespace covers deserializeJsonArray trim loop", () => {
+  const arr = JSON.parse<JSON.Arr>("[1,2,3]   ");
+  expect(arr.length).toBe(3);
+  expect(arr.at(0).get<f64>()).toBe(1.0);
+});

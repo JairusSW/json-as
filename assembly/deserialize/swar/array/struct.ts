@@ -1,6 +1,10 @@
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
-import { ensureArrayElementSlot, ensureArrayField } from "./shared";
+import {
+  ensureArrayElementSlot,
+  ensureArrayField,
+  scanValueEnd,
+} from "./shared";
 
 function skipStructArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
@@ -54,21 +58,42 @@ function deserializeStructArrayBody<T extends unknown[]>(
         store<valueof<T>>(slot, value);
       }
 
+      const valueStart = srcStart;
       let next: usize = 0;
       if (
         // @ts-ignore: supplied by transform
         isDefined(changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST)
       ) {
+        // Omit the explicit type arg so AS infers it from `value` — passing
+        // `<valueof<T>>` explicitly collides when the element type is itself
+        // generic (e.g. GenericTest<string>) because AS resolves `T` against
+        // the element class's own generic rather than this function's `T`.
         // @ts-ignore: supplied by transform
-        next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST<
-          valueof<T>
-        >(srcStart, srcEnd, value);
+        next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST(
+          srcStart,
+          srcEnd,
+          value,
+        );
       }
       if (!next) {
+        // __DESERIALIZE_SLOW requires srcEnd to point just past the closing
+        // `}` of *this* element (it asserts srcEnd-2 == `}`). Scan the value
+        // boundary first, then re-initialize the object so any partial state
+        // from the failed FAST attempt is cleared.
+        const valueEnd = scanValueEnd(valueStart, srcEnd);
+        if (!valueEnd) break;
         // @ts-ignore: supplied by transform
-        next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW<
-          valueof<T>
-        >(srcStart, srcEnd, value);
+        if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {
+          // @ts-ignore: supplied by transform
+          changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
+        }
+        // @ts-ignore: supplied by transform
+        changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW(
+          valueStart,
+          valueEnd,
+          value,
+        );
+        next = valueEnd;
       }
       if (!next) break;
       srcStart = next;
@@ -96,6 +121,18 @@ function deserializeStructArrayBody<T extends unknown[]>(
 
   throw new Error("Failed to parse JSON!");
 }
+export function deserializeStructArray_SWAR<T extends unknown[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
+  const out = changetype<nonnull<T>>(
+    dst || changetype<usize>(instantiate<T>()),
+  );
+  deserializeStructArrayBody<T>(srcStart, srcEnd, out);
+  return out;
+}
+
 export function deserializeStructArrayField<T extends unknown[]>(
   srcStart: usize,
   srcEnd: usize,
