@@ -172,3 +172,174 @@ describe("JSON.Arr: GC stress over methods", () => {
   }
   expect(total).toBe(3000.0);
 });
+
+// ─── JSON.Arr error paths ─────────────────────────────────────────────────────
+
+describe("JSON.Arr: at() throws on out-of-range index", () => {
+  expect((): void => {
+    JSON.parse<JSON.Arr>("[1,2,3]").at(5);
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<JSON.Arr>("[1,2,3]").at(-4);
+  }).toThrow();
+});
+
+describe("JSON.Arr: pop() throws on empty array", () => {
+  expect((): void => {
+    new JSON.Arr().pop();
+  }).toThrow();
+});
+
+describe("JSON.Arr: shift() throws on empty array", () => {
+  expect((): void => {
+    new JSON.Arr().shift();
+  }).toThrow();
+});
+
+describe("JSON.Arr: length setter throws on negative", () => {
+  expect((): void => {
+    const tmp = JSON.parse<JSON.Arr>("[1,2,3]");
+    tmp.length = -1;
+  }).toThrow();
+});
+
+describe("JSON.Arr: find() returns matching element", () => {
+  const a = JSON.parse<JSON.Arr>("[1,2,3,4]");
+  const v = a.find(
+    (val: JSON.Value, _: i32, __: JSON.Arr): bool => val.get<f64>() > 2.0,
+  );
+  expect(v!.get<f64>()).toBe(3.0);
+});
+
+describe("JSON.Arr: findLast() returns null when none match", () => {
+  const a = JSON.parse<JSON.Arr>("[1,2,3]");
+  const v = a.findLast(
+    (val: JSON.Value, _: i32, __: JSON.Arr): bool => val.get<f64>() > 10.0,
+  );
+  expect(changetype<usize>(v) == 0 ? "null" : "found").toBe("null");
+});
+
+describe("JSON.Arr: findLastIndex() returns -1 when none match", () => {
+  const a = JSON.parse<JSON.Arr>("[1,2,3]");
+  expect(
+    a.findLastIndex(
+      (val: JSON.Value, _: i32, __: JSON.Arr): bool => val.get<f64>() > 10.0,
+    ),
+  ).toBe(-1);
+});
+
+describe("JSON.Arr: reduce() sums all elements", () => {
+  const a = JSON.parse<JSON.Arr>("[10,20,30]");
+  const sum = a.reduce<f64>(
+    (acc: f64, val: JSON.Value, _: i32, __: JSON.Arr): f64 =>
+      acc + val.get<f64>(),
+    0.0,
+  );
+  expect(sum).toBe(60.0);
+});
+
+describe("JSON.Arr: sort() is no-op on < 2 elements", () => {
+  const one = new JSON.Arr();
+  one.push<i32>(1);
+  one.sort((x: JSON.Value, y: JSON.Value): i32 => 0);
+  expect(one.length).toBe(1);
+  const empty = new JSON.Arr();
+  empty.sort((x: JSON.Value, y: JSON.Value): i32 => 0);
+  expect(empty.length).toBe(0);
+});
+
+describe("JSON.Arr: lastIndexOf() returns -1 when not found", () => {
+  const a = JSON.parse<JSON.Arr>("[1,2,3]");
+  expect(a.lastIndexOf<f64>(99.0)).toBe(-1);
+});
+
+describe("JSON.Arr: join() with default separator", () => {
+  const a = JSON.parse<JSON.Arr>("[1,2,3]");
+  expect(a.join()).toBe("1,2,3");
+});
+
+describe("JSON.Arr: copyWithin() with negative indices", () => {
+  const a = JSON.parse<JSON.Arr>("[1,2,3,4,5]");
+  a.copyWithin(-2, -4);
+  expect(JSON.stringify(a)).toBe("[1,2,3,2,3]");
+});
+
+describe("JSON.Arr: splice() with negative start", () => {
+  const a = JSON.parse<JSON.Arr>("[1,2,3,4,5]");
+  const removed = a.splice(-2);
+  expect(removed.length).toBe(2);
+  expect(a.length).toBe(3);
+});
+
+describe("JSON.Arr: toString()", () => {
+  expect(JSON.parse<JSON.Arr>("[1,2]").toString()).toBe("[1,2]");
+});
+
+describe("JSON.Arr: from() wraps JSON.Value[] into JSON.Arr", () => {
+  const arr: JSON.Value[] = [JSON.Value.from<i32>(1), JSON.Value.from<i32>(2)];
+  const a = JSON.Arr.from(arr);
+  expect(a.length).toBe(2);
+  expect(a.at(0).get<i32>()).toBe(1);
+});
+
+// AS does not support closures; use a non-capturing callback to exercise the
+// JSON.Arr.forEach loop body (index.ts line 2118) without capturing outer vars.
+describe("JSON.Arr: forEach loop body fires for each element", () => {
+  const arr = JSON.parse<JSON.Arr>("[10,20,30]");
+  arr.forEach((val: JSON.Value, _i: i32, _arr: JSON.Arr): void => {
+    const _unused = val.get<f64>();
+  });
+  expect(arr.length).toBe(3);
+});
+
+// Pushing 9 elements into a fresh JSON.Arr forces ensureValCap to grow from
+// its initial 8-slot allocation: cap=8 > 0 (Ternary true), n<<1 until n>=9
+// (Loop + Assignment), and memory.copy since _vused=8 (IfBranch).
+describe("JSON.Arr: push 9 elements forces ensureValCap to grow past initial 8-slot allocation", () => {
+  const arr = new JSON.Arr();
+  for (let i = 0; i < 9; i++) arr.push<i32>(i);
+  expect(arr.length).toBe(9);
+  expect(arr.at(8).get<i32>()).toBe(8);
+});
+
+// VAL_U64_LIMIT = 2^45. Values >= limit spill to heap (VAL_BOX64 flag set),
+// triggering the LogicalBranch at storeSlot line 1831 that __link-s the box.
+describe("JSON.Arr: push heap-boxed u64 covers storeSlot LogicalBranch for boxed u64", () => {
+  const big: u64 = 35184372088833; // >= 2^45 → heap-boxed with VAL_BOX64
+  const arr = new JSON.Arr();
+  arr.push<u64>(big);
+  expect(arr.at(0).get<u64>()).toBe(big);
+});
+
+// Passing a JSON.Arr directly to from() hits the instanceof JSON.Arr fast-path
+// at line 1919 which returns the input unchanged.
+describe("JSON.Arr: from(JSON.Arr) returns the same array via instanceof fast-path", () => {
+  const a = JSON.parse<JSON.Arr>("[1,2,3]");
+  const b = JSON.Arr.from(a);
+  expect(b.length).toBe(3);
+});
+
+// Calling fill() with only value uses default start=0 (covers DefaultValue at
+// line 2024:36). Calling fill(v, 0, -2) uses end<0 branch (covers Ternary true
+// at line 2027:27).
+describe("JSON.Arr: fill() with default start=0 covers DefaultValue parameter path", () => {
+  const arr = JSON.parse<JSON.Arr>("[1,2,3]");
+  arr.fill(JSON.Value.from<i32>(9));
+  expect(arr.at(0).get<i32>()).toBe(9);
+  expect(arr.at(2).get<i32>()).toBe(9);
+});
+
+describe("JSON.Arr: fill() with negative end covers end<0 ternary branch", () => {
+  const arr = JSON.parse<JSON.Arr>("[1,2,3,4,5]");
+  arr.fill(JSON.Value.from<i32>(0), 0, -2); // e = max(5-2, 0) = 3 → fills indices 0..2
+  expect(arr.at(0).get<i32>()).toBe(0);
+  expect(arr.at(3).get<f64>()).toBe(4.0); // index 3 is raw f64 slot, unchanged
+});
+
+// Passing a negative end triggers the end<0 ternary branch at line 2038:27.
+describe("JSON.Arr: copyWithin() with negative end covers end<0 ternary branch", () => {
+  const arr = JSON.parse<JSON.Arr>("[1,2,3,4,5]");
+  arr.copyWithin(0, 1, -1); // end = max(5-1, 0) = 4 → copies raw f64 slots 1..3 to 0..2
+  expect(arr.at(0).get<f64>()).toBe(2.0);
+  expect(arr.at(1).get<f64>()).toBe(3.0);
+});

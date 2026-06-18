@@ -196,3 +196,174 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
     '"line\\nbreak"',
   );
 });
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+@json
+class Vec2CovGapFloat {
+  x: f64 = 0;
+  y: f64 = 0;
+}
+
+
+@json
+class F32Holder {
+  v: f32 = 0.0;
+}
+
+
+@json
+class FloatArr {
+  values: f64[] = [];
+}
+
+// ─── Serialize: @json class with f32 field ────────────────────────────────────
+
+describe("Serialize: @json class with f32 field", () => {
+  const h = new F32Holder();
+  h.v = 1.5;
+  expect(JSON.stringify(h)).toBe('{"v":1.5}');
+  expect(JSON.parse<F32Holder>('{"v":3.14}').v.toString()).toBe(
+    (<f32>3.14).toString(),
+  );
+});
+
+// ─── swar/float.ts: deserializeFloatField_SWAR exponent paths ─────────────────
+
+describe("SWAR: f64 struct field with positive exponent covers exponent block", () => {
+  const v = JSON.parse<Vec2CovGapFloat>('{"x":1.5e2,"y":3.0e0}');
+  expect(v.x).toBe(150.0);
+  expect(v.y).toBe(3.0);
+});
+
+describe("SWAR: f64 struct field with plus-sign exponent covers ASCII_PLUS branch", () => {
+  const v = JSON.parse<Vec2CovGapFloat>('{"x":2.0e+1,"y":5.0e+0}');
+  expect(v.x).toBe(20.0);
+  expect(v.y).toBe(5.0);
+});
+
+describe("SWAR: f64 struct field with negative exponent covers ASCII_MINUS branch", () => {
+  const v = JSON.parse<Vec2CovGapFloat>('{"x":1.5e-2,"y":2.0e-1}');
+  expect(v.x).toBeCloseTo(0.015);
+  expect(v.y).toBeCloseTo(0.2);
+});
+
+describe("SWAR: f64 struct field with large exponent covers scientific fallback path", () => {
+  const v = JSON.parse<Vec2CovGapFloat>('{"x":1e100,"y":2e-100}');
+  expect(isFinite(v.x)).toBe(true);
+  expect(v.x).toBeCloseTo(1e100);
+});
+
+describe("SWAR: f64 struct field with >19 mantissa digits covers fallbackField", () => {
+  const v = JSON.parse<Vec2CovGapFloat>('{"x":1.23456789012345678901,"y":0.0}');
+  expect(v.x).toBeCloseTo(1.2345678901234568);
+  expect(v.y).toBe(0.0);
+});
+
+// ─── swar/float.ts: deserializeFloat_SWAR exponent loop non-digit break ──────
+
+describe("SWAR: standalone f64 with trailing space after exponent covers d>9 break", () => {
+  expect(JSON.parse<f64>("1e5 ").toString()).toBe((1e5).toString());
+});
+
+describe("SWAR: standalone f64 with 5-digit exponent covers expDigits>4 standalone path", () => {
+  expect(!isFinite(JSON.parse<f64>("1e55555"))).toBe(true);
+});
+
+// ─── swar/float.ts: fallbackField f32 path ────────────────────────────────────
+
+describe("SWAR: f32 struct field with >19 mantissa digits covers fallbackField f32 branch", () => {
+  const h = JSON.parse<F32Holder>('{"v":1.23456789012345678901}');
+  expect(h.v).toBeCloseTo(<f32>1.2345678901234568);
+});
+
+// ─── swar/float.ts: deserializeFloatField_SWAR 5-digit exponent path ──────────
+
+describe("SWAR: f64 struct field with 5-digit exponent covers expDigits>4 in struct", () => {
+  const v = JSON.parse<Vec2CovGapFloat>('{"x":1e55555,"y":0.0}');
+  expect(!isFinite(v.x)).toBe(true);
+  expect(v.y).toBe(0.0);
+});
+
+// ─── f64[] as @json field → deserializeFloatArrayBody ────────────────────────
+
+describe("SWAR: f64[] as @json class field round-trips", () => {
+  const f = JSON.parse<FloatArr>('{"values":[1.5,-2.5,0]}');
+  expect(f.values.length).toBe(3);
+  expect(f.values[0]).toBe(1.5);
+});
+
+describe("SWAR: f64[] empty array as @json class field", () => {
+  const f = JSON.parse<FloatArr>('{"values":[]}');
+  expect(f.values.length).toBe(0);
+});
+
+describe("SWAR: f64[] with large exponent triggers scientific() path", () => {
+  const f = JSON.parse<FloatArr>('{"values":[1e25,5e-25]}');
+  expect(f.values.length).toBe(2);
+  expect(f.values[0]).toBe(1e25);
+});
+
+describe("SWAR: f64[] reparse with fewer elements (resize)", () => {
+  const f = JSON.parse<FloatArr>('{"values":[1.1,2.2,3.3]}');
+  expect(f.values.length).toBe(3);
+  const f2 = JSON.parse<FloatArr>('{"values":[9.9]}', f);
+  expect(f2.values.length).toBe(1);
+  expect(f2.values[0]).toBe(9.9);
+});
+
+// swar/array/float.ts: fallbackStore via >19-digit mantissa
+describe("SWAR: f64[] with >19 mantissa digits triggers fallbackStore", () => {
+  const f = JSON.parse<f64[]>("[1.12345678901234567890]");
+  expect(f.length).toBe(1);
+});
+
+// swar/array/float.ts: parseFloatElementSWAR exponent paths
+describe("SWAR: f64[] with e+ notation covers parseFloatElementSWAR positive-exponent path", () => {
+  const a = JSON.parse<f64[]>("[1e5,2e+3,3e-1]");
+  expect(a.length).toBe(3);
+  expect(a[0]).toBe(100000.0);
+  expect(a[1]).toBe(2000.0);
+  expect<f64>(a[2]).toBeCloseTo(0.3);
+});
+
+describe("SWAR: f32[] with >19 mantissa digits covers fallbackStore f32 path", () => {
+  const a = JSON.parse<f32[]>("[1.12345678901234567890]");
+  expect(a.length).toBe(1);
+  expect<f32>(a[0]).toBeCloseTo(1.1234568);
+});
+
+describe("SWAR: f64[] with 5-digit exponent covers parseFloatElementSWAR expDigits>4 fallback", () => {
+  const a = JSON.parse<f64[]>("[1e55555]");
+  expect(a.length).toBe(1);
+  expect(!isFinite(a[0])).toBe(true);
+});
+
+// swar/float.ts + simd/float.ts: expDigits == 0 return expStart
+// A struct float field like "1e," has a bare exponent with no following digits.
+// In SWAR/SIMD mode the field parser reaches the `if (expDigits == 0)` guard and
+// returns expStart (the fallback picks up `1` as the value).
+describe("SWAR/SIMD: float field with bare exponent (no digits) covers expDigits==0 return path", () => {
+  const v = JSON.parse<Vec2CovGapFloat>('{"x":1e,"y":0}');
+  expect(v.y).toBe(0.0);
+});
+
+// simd/float.ts: 16-digit SIMD mantissa stride loop
+// deserializeFloat_SIMD enters the `while (p+30 < srcEnd && intDigits+fracDigits<=3)`
+// loop only when the fractional part has ≥16 digits ahead. A 35-digit mantissa
+// satisfies both guards and drives the loop body.
+describe("SIMD: very long float covers 16-digit SIMD mantissa stride loop (lines 79-84)", () => {
+  const v = JSON.parse<f64>("1.12345678901234567890123456789012345");
+  expect(v > 1.0).toBe(true);
+  expect(v < 2.0).toBe(true);
+});
+
+// simd/float.ts:81: parse16Digits boundary break
+// For "1.23456789012345e6": intDigits=1, fracDigits=0, so
+// (intDigits+fracDigits<=3) is TRUE and (p+30 < srcEnd) is TRUE (32 bytes
+// remain). parse16Digits_SIMD reads 16 chars "23456789012345e6"; the 'e' at
+// position 14 is not a digit → parsed==U64.MAX_VALUE → line 81 break → fallback.
+describe("SIMD: 16-digit parse boundary break covers simd/float.ts:81", () => {
+  const v = JSON.parse<f64>("1.23456789012345e6");
+  expect(v).toBe(1234567.89012345);
+});

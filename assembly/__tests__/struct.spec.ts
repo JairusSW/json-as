@@ -723,3 +723,84 @@ class Vec3ArrayHolder {
 class NullableStringArrayHolder {
   items: Array<string | null> = [];
 }
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+@json
+class Vec2CovGapStruct {
+  x: f64 = 0;
+  y: f64 = 0;
+}
+
+
+@json
+class NamedCovGapStruct {
+  name: string = "";
+  value: i32 = 0;
+}
+
+
+@json
+class PointCloud {
+  label: string = "";
+  points: Vec2CovGapStruct[] = [];
+  count: i32 = 0;
+}
+
+
+@json
+class GridCovGap {
+  rows: NamedCovGapStruct[] = [];
+  id: i32 = 0;
+}
+
+
+@json
+class Bag {
+  tag: string = "";
+  items: NamedCovGapStruct[] = [];
+}
+
+// ─── Struct array via slow path ───────────────────────────────────────────────
+
+describe("Struct array as field: slow-path (out-of-order JSON) round-trips", () => {
+  const src =
+    '{"label":"cloud","count":3,"points":[{"x":1,"y":2},{"x":3,"y":4},{"x":5,"y":6}]}';
+  const r = JSON.parse<PointCloud>(src);
+  expect(r.label).toBe("cloud");
+  expect(r.count).toBe(3);
+  expect(r.points.length).toBe(3);
+  expect(r.points[0].x).toBe(1.0);
+  expect(r.points[2].y).toBe(6.0);
+});
+
+describe("Struct array as field: reused array (second parse) round-trips", () => {
+  const first = JSON.parse<GridCovGap>(
+    '{"id":1,"rows":[{"name":"a","value":1}]}',
+  );
+  expect(first.rows.length).toBe(1);
+  const second = JSON.parse<GridCovGap>(
+    '{"id":2,"rows":[{"name":"x","value":9},{"name":"y","value":8}]}',
+    first,
+  );
+  expect(second.rows.length).toBe(2);
+  expect(second.rows[0].name).toBe("x");
+  expect(second.rows[1].value).toBe(8);
+});
+
+describe("Struct array as field: empty array in slow path", () => {
+  const r = JSON.parse<Bag>('{"tag":"empty","items":[]}');
+  expect(r.tag).toBe("empty");
+  expect(r.items.length).toBe(0);
+});
+
+// naive/array/struct.ts: shrink path when reparsing fewer elements
+describe("Naive: NamedCovGapStruct[] reparse with fewer elements covers struct-array shrink path", () => {
+  const a = JSON.parse<NamedCovGapStruct[]>(
+    '[{"name":"a","value":1},{"name":"b","value":2},{"name":"c","value":3}]',
+  );
+  expect(a.length).toBe(3);
+  const b = JSON.parse<NamedCovGapStruct[]>('[{"name":"x","value":10}]', a);
+  expect(b.length).toBe(1);
+  expect(b[0].name).toBe("x");
+});

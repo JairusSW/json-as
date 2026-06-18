@@ -445,3 +445,82 @@ describe("Should serialize string[] of non-null elements through nullable type",
     '["a","b","c"]',
   );
 });
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+@json
+class BoolArr {
+  flags: bool[] = [];
+}
+
+
+@json
+class Matrix {
+  rows: i32[][] = [];
+}
+
+// ─── Naive array success paths ───────────────────────────────────────────────
+
+describe("NAIVE: bool[] round-trips", () => {
+  expect(JSON.stringify(JSON.parse<bool[]>("[true,false,true]"))).toBe(
+    "[true,false,true]",
+  );
+});
+
+describe("NAIVE: f64[] round-trips with negative and fractional", () => {
+  expect(JSON.stringify(JSON.parse<f64[]>("[-1.5,0,2.5]"))).toBe(
+    "[-1.5,0,2.5]",
+  );
+});
+
+describe("Serialize: f32 array elements round-trip", () => {
+  expect(JSON.stringify<f32[]>([-1.5, 0.25, 3.75])).toBe("[-1.5,0.25,3.75]");
+});
+
+describe("Serialize: empty i8[] array", () => {
+  expect(JSON.stringify<i8[]>([])).toBe("[]");
+});
+
+describe("Serialize: empty u8[] array", () => {
+  expect(JSON.stringify<u8[]>([])).toBe("[]");
+});
+
+// bool[] as @json field → deserializeBooleanArrayBody (SWAR)
+describe("SWAR: bool[] field with inner whitespace covers whitespace loops", () => {
+  const r = JSON.parse<BoolArr>('{"flags":[ true , false , true ]}');
+  expect(r.flags.length).toBe(3);
+  expect(r.flags[0]).toBe(true);
+  expect(r.flags[1]).toBe(false);
+});
+
+describe("SWAR: bool[] field reparse with fewer elements (resize)", () => {
+  const r = JSON.parse<BoolArr>('{"flags":[true,false,true]}');
+  expect(r.flags.length).toBe(3);
+  const r2 = JSON.parse<BoolArr>('{"flags":[true]}', r);
+  expect(r2.flags.length).toBe(1);
+  expect(r2.flags[0]).toBe(true);
+});
+
+// Array of arrays → naive/array/array.ts
+describe("Naive: i32[][] round-trips in all modes", () => {
+  expect(JSON.stringify(JSON.parse<i32[][]>("[[1,2],[3,4,5]]"))).toBe(
+    "[[1,2],[3,4,5]]",
+  );
+});
+
+// naive/array/array.ts path 1: JSON.Value[][]
+describe("Naive: JSON.Value[][] covers path-1 arbitraryInner Reference branch", () => {
+  const arr = JSON.parse<JSON.Value[][]>('[[1,2],[3,"a"]]');
+  expect(arr.length).toBe(2);
+  expect(arr[0].length).toBe(2);
+  expect(arr[1].length).toBe(2);
+});
+
+// swar/array/array.ts: shrink path when reparsing fewer inner arrays
+describe("SWAR: Matrix.rows reparse with fewer inner arrays covers array-array body shrink path", () => {
+  const m1 = JSON.parse<Matrix>('{"rows":[[1,2],[3,4],[5,6]]}');
+  expect(m1.rows.length).toBe(3);
+  const m2 = JSON.parse<Matrix>('{"rows":[[7,8]]}', m1);
+  expect(m2.rows.length).toBe(1);
+  expect(m2.rows[0][0]).toBe(7);
+});

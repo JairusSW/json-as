@@ -534,3 +534,79 @@ describe("Should drive JSON.Value typed-array and arbitrary serialization throug
     "null",
   );
 });
+
+// ─── TypedArray reuse paths ───────────────────────────────────────────────────
+
+describe("TypedArray: parse into non-empty pre-allocated buffer (reuse path)", () => {
+  const pre = new Uint8Array(8);
+  const result = JSON.parse<Uint8Array>("[1,2,3]", pre);
+  expect(result.length).toBe(3);
+  expect(result[0]).toBe(1);
+  expect(result[2]).toBe(3);
+});
+
+describe("ArrayBuffer: parse into non-empty pre-allocated buffer (reuse path)", () => {
+  const pre = new ArrayBuffer(8);
+  const result = JSON.parse<ArrayBuffer>("[10,20,30]", pre);
+  expect(result.byteLength).toBe(3);
+  expect(load<u8>(changetype<usize>(result))).toBe(10);
+});
+
+// ─── SWAR typedarray ─────────────────────────────────────────────────────────
+
+describe("SWAR: JSON.parse<Int32Array> parses integer array", () => {
+  const v = JSON.parse<Int32Array>("[1,2,3,4]");
+  expect(v.length).toBe(4);
+  expect(v[0]).toBe(1);
+  expect(v[3]).toBe(4);
+});
+
+describe("SWAR: JSON.parse<Int32Array> empty array returns length 0", () => {
+  const v = JSON.parse<Int32Array>("[]");
+  expect(v.length).toBe(0);
+});
+
+describe("SWAR: JSON.parse<Int32Array> negative values parse correctly", () => {
+  const v = JSON.parse<Int32Array>("[-1,-100,0,42]");
+  expect(v.length).toBe(4);
+  expect(v[0]).toBe(-1);
+  expect(v[1]).toBe(-100);
+  expect(v[3]).toBe(42);
+});
+
+describe("SWAR: JSON.parse<Float64Array> parses float array", () => {
+  const v = JSON.parse<Float64Array>("[1.5,2.5,3.5]");
+  expect(v.length).toBe(3);
+  expect(v[0]).toBe(1.5);
+  expect(v[2]).toBe(3.5);
+});
+
+describe("SWAR: JSON.parse<Float64Array> empty array returns length 0", () => {
+  const v = JSON.parse<Float64Array>("[]");
+  expect(v.length).toBe(0);
+});
+
+describe("SWAR: JSON.parse<Uint8Array> parses unsigned byte array", () => {
+  const v = JSON.parse<Uint8Array>("[0,128,255]");
+  expect(v.length).toBe(3);
+  expect(v[0]).toBe(0);
+  expect(v[1]).toBe(128);
+  expect(v[2]).toBe(255);
+});
+
+describe("SWAR: JSON.parse<ArrayBuffer> parses byte array", () => {
+  const v = JSON.parse<ArrayBuffer>("[72,101,108]");
+  expect(v.byteLength).toBe(3);
+});
+
+describe("SWAR: JSON.parse<ArrayBuffer> empty array returns byteLength 0", () => {
+  const v = JSON.parse<ArrayBuffer>("[]");
+  expect(v.byteLength).toBe(0);
+});
+
+describe("SWAR: JSON.parse<Int64Array> parses 64-bit integer array", () => {
+  const v = JSON.parse<Int64Array>("[1000000000000,-2,0]");
+  expect(v.length).toBe(3);
+  expect(v[0]).toBe(1000000000000);
+  expect(v[1]).toBe(-2);
+});

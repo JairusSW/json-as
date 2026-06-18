@@ -309,3 +309,291 @@ describe("Should cover runtime error and utility branches", () => {
   const badEnd = badStart + (badString.length << 1);
   expect(JSON.Util.scanValueEnd<string>(badStart, badEnd)).toBe(0);
 });
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+@json
+class Vec2CovGap {
+  x: f64 = 0;
+  y: f64 = 0;
+}
+
+
+@json
+class NamedCovGap {
+  name: string = "";
+  value: i32 = 0;
+}
+
+
+@json
+class ObjArr {
+  items: JSON.Obj[] = [];
+}
+
+
+@json
+class ValueArrHolder {
+  vals: JSON.Value[] = [];
+}
+
+// ─── JSON.Obj ─────────────────────────────────────────────────────────────────
+
+describe("JSON.Obj: values() returns all stored values", () => {
+  const obj = JSON.parse<JSON.Obj>('{"a":1,"b":2,"c":3}');
+  const vals = obj.values();
+  expect(vals.length).toBe(3);
+});
+
+describe("JSON.Obj: from() with Map<string, JSON.Value> builds object", () => {
+  const m = new Map<string, JSON.Value>();
+  m.set("x", JSON.Value.from<f64>(42.0));
+  const obj = JSON.Obj.from(m);
+  expect(obj.size).toBe(1);
+  expect(obj.getAs<f64>("x")).toBe(42.0);
+});
+
+describe("JSON.Obj: large object uses hash index (17+ keys)", () => {
+  let src = "{";
+  for (let i = 0; i < 20; i++) {
+    if (i > 0) src += ",";
+    src += '"k' + i.toString() + '":' + i.toString();
+  }
+  src += "}";
+  const obj = JSON.parse<JSON.Obj>(src);
+  expect(obj.size).toBe(20);
+  expect(obj.getAs<f64>("k19")).toBe(19.0);
+  expect(obj.get("missing") == null ? "null" : "found").toBe("null");
+});
+
+// ─── JSON.Value getType ───────────────────────────────────────────────────────
+
+describe("JSON.Value: getType<T> for various types", () => {
+  const v = JSON.Value.from<i32>(5);
+  expect(v.getType<i32>(5).toString()).toBe(JSON.Types.I32.toString());
+  expect(v.getType<i64>(<i64>1).toString()).toBe(JSON.Types.I64.toString());
+  expect(v.getType<f32>(<f32>1.0).toString()).toBe(JSON.Types.F32.toString());
+  expect(v.getType<f64>(1.0).toString()).toBe(JSON.Types.F64.toString());
+  expect(v.getType<bool>(true).toString()).toBe(JSON.Types.Bool.toString());
+  expect(v.getType<string>("hi").toString()).toBe(JSON.Types.String.toString());
+});
+
+describe("JSON.Value: getType<T> for null nullable", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<string | null>(null).toString()).toBe(
+    JSON.Types.Null.toString(),
+  );
+});
+
+describe("JSON.Value: setWide u64 within inline range", () => {
+  const v = JSON.Value.from<u64>(12345678);
+  expect(v.get<u64>()).toBe(12345678);
+});
+
+describe("JSON.Value: setWide u64 beyond inline range spills to heap", () => {
+  const big: u64 = 35184372088833; // 2^45 + 1
+  const v = JSON.Value.from<u64>(big);
+  expect(v.get<u64>()).toBe(big);
+});
+
+describe("JSON.Value: setWide i64 within inline range", () => {
+  const v = JSON.Value.from<i64>(-99999);
+  expect(v.get<i64>()).toBe(-99999);
+});
+
+describe("JSON.Value: setWide i64 beyond inline range spills to heap", () => {
+  const big: i64 = -35184372088833; // -(2^45 + 1)
+  const v = JSON.Value.from<i64>(big);
+  expect(v.get<i64>()).toBe(big);
+});
+
+// naive/object.ts line 164 calls boolBits(false) when parsing `false` in an
+// arbitrary JSON object (JSON.Obj). This covers the false branch of the Ternary
+// `b ? 1 : 0` in JSON.Value.boolBits (index.ts line 914).
+describe("JSON.Value: boolBits false branch via JSON.Obj with false value", () => {
+  const obj = JSON.parse<JSON.Obj>('{"active":false,"count":1}');
+  const val = obj.get("active")!;
+  expect(val.get<bool>()).toBe(false);
+});
+
+// Parsing a JSON.Obj where at least one value is a string stores that slot
+// lazily. Calling values() then hits the slotIsLazy=true branch at line 1691.
+describe("JSON.Obj: values() with a string value covers lazy slot branch", () => {
+  const obj = JSON.parse<JSON.Obj>('{"name":"alice","count":42}');
+  const vals = obj.values();
+  expect(vals.length).toBe(2);
+});
+
+// Same VAL_BOX64 path as JSON.Arr.storeSlot but for JSON.Obj.storeSlot line
+// 1360 — triggered by set<u64> with a value >= VAL_U64_LIMIT.
+describe("JSON.Obj: set<u64> with large value covers storeSlot LogicalBranch for boxed u64", () => {
+  const obj = new JSON.Obj();
+  const big: u64 = 35184372088833; // >= 2^45 → heap-boxed
+  obj.set<u64>("big", big);
+  expect(obj.getAs<u64>("big")).toBe(big);
+});
+
+// Looking up a key with the same length (8 chars) as an existing key but
+// different content causes utf16Equals_SIMD to find a mismatch and return false
+// (line 147). In NAIVE/SWAR modes the scalar path returns false equivalently.
+describe("SIMD: JSON.Obj lookup with same-length mismatched key covers utf16Equals_SIMD false-return path", () => {
+  const obj = JSON.parse<JSON.Obj>('{"abcdefgh":1}');
+  const result = obj.get("abcdefgi"); // 8 chars, differs only in last → SIMD mismatch
+  expect(result).toBeNull();
+});
+
+describe("JSON.Value: getType<T> for small signed integers (i8, i16)", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<i8>(<i8>1).toString()).toBe(JSON.Types.I8.toString());
+  expect(v.getType<i16>(<i16>1).toString()).toBe(JSON.Types.I16.toString());
+});
+
+// u8, u16, u64 fail to compile with getType<T> because the function body
+// contains `changetype<usize>(value)` which is invalid for those widths on
+// 32-bit WASM. Only u32 compiles cleanly (usize == u32 on WASM32).
+describe("JSON.Value: getType<T> for u32 (safe on WASM32 usize==u32)", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<u32>(<u32>1).toString()).toBe(JSON.Types.U32.toString());
+});
+
+describe("JSON.Value: getType<T> for JSON.Box recurses to inner type", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<JSON.Box<i32>>(new JSON.Box<i32>(5)).toString()).toBe(
+    JSON.Types.I32.toString(),
+  );
+});
+
+describe("JSON.Value: getType<T> for JSON.Value[] returns Array", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<JSON.Value[]>(new Array<JSON.Value>(0)).toString()).toBe(
+    JSON.Types.Array.toString(),
+  );
+});
+
+describe("JSON.Value: getType<T> for JSON.Arr returns Array", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<JSON.Arr>(new JSON.Arr()).toString()).toBe(
+    JSON.Types.Array.toString(),
+  );
+});
+
+describe("JSON.Value: getType<T> for JSON.Obj returns Object", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<JSON.Obj>(new JSON.Obj()).toString()).toBe(
+    JSON.Types.Object.toString(),
+  );
+});
+
+describe("JSON.Value: getType<T> for TypedArray returns TypedArray", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<Int32Array>(new Int32Array(1)).toString()).toBe(
+    JSON.Types.TypedArray.toString(),
+  );
+});
+
+describe("JSON.Value: getType<T> for Map returns Map", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<Map<string, i32>>(new Map<string, i32>()).toString()).toBe(
+    JSON.Types.Map.toString(),
+  );
+});
+
+describe("JSON.Value: toString() for U8 value", () => {
+  expect(JSON.Value.from<u8>(<u8>200).toString()).toBe("200");
+});
+
+describe("JSON.Value: toString() for U16 value", () => {
+  expect(JSON.Value.from<u16>(<u16>1000).toString()).toBe("1000");
+});
+
+describe("JSON.Value: toString() for U32 value", () => {
+  expect(JSON.Value.from<u32>(<u32>99999).toString()).toBe("99999");
+});
+
+describe("JSON.Value: toString() for U64 value", () => {
+  expect(JSON.Value.from<u64>(<u64>123456789).toString()).toBe("123456789");
+});
+
+describe("JSON.Value: toString() for Null JSON.Value", () => {
+  expect(JSON.parse<JSON.Value>("null").toString()).toBe("null");
+});
+
+// getType<usize>(0) hits the usize-null sentinel branch at line 979.
+describe("JSON.Value: getType<usize>(0) covers usize-null sentinel branch returning Null", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<usize>(<usize>0).toString()).toBe(
+    JSON.Types.Null.toString(),
+  );
+});
+
+// getType<Vec2> hits the isDefined(__SERIALIZE) struct branch at line 997.
+describe("JSON.Value: getType<Vec2> covers isDefined(__SERIALIZE) struct branch", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<Vec2CovGap>(new Vec2CovGap()) >= JSON.Types.Struct).toBe(
+    true,
+  );
+});
+
+// getType<ArrayBuffer> hits the instanceof ArrayBuffer branch at line 1012.
+describe("JSON.Value: getType<ArrayBuffer> covers instanceof ArrayBuffer branch", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<ArrayBuffer>(new ArrayBuffer(0)).toString()).toBe(
+    JSON.Types.ArrayBuffer.toString(),
+  );
+});
+
+// getType<JSON.Raw> hits the instanceof JSON.Raw branch at line 1014.
+describe("JSON.Value: getType<JSON.Raw> covers instanceof Raw branch", () => {
+  const v = JSON.Value.from<i32>(0);
+  expect(v.getType<JSON.Raw>(new JSON.Raw("null")).toString()).toBe(
+    JSON.Types.Raw.toString(),
+  );
+});
+
+describe("SWAR: JSON.Value[] field with empty array covers deserializeGenericArrayBody empty-array return", () => {
+  const h = JSON.parse<ValueArrHolder>('{"vals":[]}');
+  expect(h.vals.length).toBe(0);
+});
+
+// NAIVE: JSON.Arr parseArrayBodySlots return-srcEnd
+// deserializeJsonArray validates the first/last chars ('['/']') but does NOT
+// require them to match. For '[[1,2]' the last char IS ']' (valid), but it
+// belongs to the inner array — the outer loop exhausts srcStart without finding
+// the outer ']', hitting the `return srcEnd` path at line 129. All modes call
+// the same naive deserializeJsonArray for JSON.Arr.
+describe("NAIVE: JSON.Arr with outer missing ']' covers parseArrayBodySlots return-srcEnd", () => {
+  const arr = JSON.parse<JSON.Arr>("[[1,2]");
+  expect(arr.length).toBe(1);
+});
+
+// swar/array/shared.ts: backslash in string element → scanQuotedValueEnd
+// deserializeGenericArrayBody calls scanValueEnd for each JSON.Value[] element.
+// A string element containing '\n' (backslash+n) triggers scanQuotedValueEnd_SWAR
+// to find a backslash in the SWAR block (line 90: break), then fall through to
+// the byte-by-byte tail loop (lines 96-100) to locate the closing quote.
+describe("SWAR: JSON.Value[] field with escaped string covers scanQuotedValueEnd_SWAR backslash+tail path", () => {
+  const h = JSON.parse<ValueArrHolder>('{"vals":["hello\\nworld"]}');
+  expect(h.vals.length).toBe(1);
+  expect(h.vals[0].get<string>()).toBe("hello\nworld");
+});
+
+// Named is a @json class with __SERIALIZE; but Named[] (the Array wrapper)
+// does NOT have __SERIALIZE. getType<Named[]> falls through every branch and
+// reaches line 1017.
+describe("JSON.Value.getType<NamedCovGap[]> falls through all branches → returns Null (index.ts:1017)", () => {
+  const v = JSON.Value.from<i32>(0);
+  const arr = new Array<NamedCovGap>(0);
+  expect(v.getType<NamedCovGap[]>(arr)).toBe(JSON.Types.Null);
+});
+
+// JSON.Obj[] as @json field → deserializeObjectArrayBody
+describe("SWAR: JSON.Obj[] as @json class field round-trips", () => {
+  const o = JSON.parse<ObjArr>('{"items":[{"x":1},{"y":2}]}');
+  expect(o.items.length).toBe(2);
+  expect(o.items[0].getAs<f64>("x")).toBe(1.0);
+});
+
+describe("SWAR: JSON.Obj[] empty array as @json class field", () => {
+  const o = JSON.parse<ObjArr>('{"items":[]}');
+  expect(o.items.length).toBe(0);
+});

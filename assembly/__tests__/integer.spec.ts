@@ -255,3 +255,215 @@ describe("Should reuse pre-seeded integer array fields through JSON.parse", () =
   expect(spaced.values[0]).toBe(11);
   expect(spaced.values[2]).toBe(33);
 });
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+@json
+class UintVec {
+  values: u32[] = [];
+}
+
+// ─── SWAR integer array edge cases ───────────────────────────────────────────
+
+describe("SWAR: i8[] parses negative values correctly", () => {
+  expect(JSON.stringify(JSON.parse<i8[]>("[-128,0,127]"))).toBe("[-128,0,127]");
+});
+
+describe("SWAR: u8[] single-digit values", () => {
+  expect(JSON.stringify(JSON.parse<u8[]>("[5,9,7]"))).toBe("[5,9,7]");
+});
+
+describe("SWAR: i16[] round-trips", () => {
+  expect(JSON.stringify(JSON.parse<i16[]>("[-32768,0,32767]"))).toBe(
+    "[-32768,0,32767]",
+  );
+});
+
+describe("SWAR: i64[] round-trips with small values", () => {
+  expect(JSON.stringify(JSON.parse<i64[]>("[0,-100,100]"))).toBe(
+    "[0,-100,100]",
+  );
+});
+
+describe("SWAR: u64[] round-trips with small values", () => {
+  expect(JSON.stringify(JSON.parse<u64[]>("[0,100,200]"))).toBe("[0,100,200]");
+});
+
+describe("SWAR: i32[] round-trips", () => {
+  expect(JSON.stringify(JSON.parse<i32[]>("[1,-2,3]"))).toBe("[1,-2,3]");
+});
+
+// swar/array/integer.ts: SWAR reuse path (useSWAR && reusableLength != 0)
+describe("SWAR: i32[] reparse into existing array covers signed SWAR reuse path", () => {
+  const a = JSON.parse<i32[]>("[1,2,3]");
+  expect(a.length).toBe(3);
+  const b = JSON.parse<i32[]>("[4,5,6]", a);
+  expect(b.length).toBe(3);
+  expect(b[0]).toBe(4);
+  expect(b[2]).toBe(6);
+});
+
+describe("SWAR: u32[] reparse with 6-digit numbers covers unsigned SWAR reuse path with SWAR batch and scalar tail", () => {
+  const a = JSON.parse<u32[]>("[123456,789012]");
+  expect(a.length).toBe(2);
+  const b = JSON.parse<u32[]>("[234567,890123]", a);
+  expect(b.length).toBe(2);
+  expect(b[0]).toBe(234567);
+  expect(b[1]).toBe(890123);
+});
+
+describe("SWAR: i32[] reparse with negatives covers negative branch in SWAR reuse path", () => {
+  const a = JSON.parse<i32[]>("[1,2,3]");
+  const b = JSON.parse<i32[]>("[-1,-2,-3]", a);
+  expect(b.length).toBe(3);
+  expect(b[0]).toBe(-1);
+  expect(b[2]).toBe(-3);
+});
+
+describe("SWAR: i32[] reparse with 6-digit numbers covers SWAR 4-digit batch and scalar tail", () => {
+  const a = JSON.parse<i32[]>("[123456,789012]");
+  const b = JSON.parse<i32[]>("[234567,890123]", a);
+  expect(b[0]).toBe(234567);
+  expect(b[1]).toBe(890123);
+});
+
+describe("SWAR: i32[] reparse larger-than-capacity array bails reuse path correctly", () => {
+  const a = JSON.parse<i32[]>("[1,2]");
+  const b = JSON.parse<i32[]>("[1,2,3]", a);
+  expect(b.length).toBe(3);
+  expect(b[2]).toBe(3);
+});
+
+describe("SWAR: u32[] reparse larger-than-capacity array covers unsigned capacity overflow path", () => {
+  const a = JSON.parse<u32[]>("[1,2]");
+  const b = JSON.parse<u32[]>("[1,2,3]", a);
+  expect(b.length).toBe(3);
+  expect(b[2]).toBe(3);
+});
+
+// swar/array/integer.ts: SLOW path unsigned branch via whitespace
+describe("SWAR: u32[] with internal whitespace triggers SLOW unsigned path", () => {
+  const a = JSON.parse<u32[]>("[ 10, 20, 30 ]");
+  expect(a.length).toBe(3);
+  expect(a[0]).toBe(10);
+  expect(a[2]).toBe(30);
+});
+
+// swar/array/integer.ts: empty array in SLOW path and reuse path
+describe("SWAR: i32[] with only whitespace covers SLOW empty-array early return", () => {
+  const a = JSON.parse<i32[]>("[  ]");
+  expect(a.length).toBe(0);
+});
+
+describe("SWAR: i32[] empty reparse into existing array covers reuse empty-array return", () => {
+  const a = JSON.parse<i32[]>("[1,2,3]");
+  const b = JSON.parse<i32[]>("[]", a);
+  expect(b.length).toBe(0);
+});
+
+// naive/array/integer.ts: trailing whitespace stripping loop
+describe("NAIVE: i32[] with trailing whitespace covers deserializeIntegerArray_NAIVE trailing loop", () => {
+  const a = JSON.parse<i32[]>("[1,2,3]   ");
+  expect(a.length).toBe(3);
+  expect(a[0]).toBe(1);
+  expect(a[2]).toBe(3);
+});
+
+// simd/array/integer.ts: deserializeNarrowIntegerArray_SIMD switch cases
+// The narrow-u8 SIMD path loads a v128 block from srcStart and switches on the
+// comma bitmask. These tests trigger the remaining five cases.
+describe("SIMD: u8[] narrow-array case 0x88 (3+3 digit pair) covered by [255,100,5]", () => {
+  const a = JSON.parse<u8[]>("[255,100,5]");
+  expect(a.length).toBe(3);
+  expect(a[0]).toBe(255);
+  expect(a[1]).toBe(100);
+  expect(a[2]).toBe(5);
+});
+
+describe("SIMD: u8[] narrow-array case 0x44 (2+3 digit pair) covered by [255,100,12,123,5]", () => {
+  const a = JSON.parse<u8[]>("[255,100,12,123,5]");
+  expect(a.length).toBe(5);
+  expect(a[0]).toBe(255);
+  expect(a[1]).toBe(100);
+  expect(a[2]).toBe(12);
+  expect(a[3]).toBe(123);
+  expect(a[4]).toBe(5);
+});
+
+describe("SIMD: u8[] narrow-array case 0x24 (2+2 digit pair) covered by [255,100,12,34,50]", () => {
+  const a = JSON.parse<u8[]>("[255,100,12,34,50]");
+  expect(a.length).toBe(5);
+  expect(a[0]).toBe(255);
+  expect(a[1]).toBe(100);
+  expect(a[2]).toBe(12);
+  expect(a[3]).toBe(34);
+  expect(a[4]).toBe(50);
+});
+
+describe("SIMD: u8[] narrow-array case 0x28 (3+1 digit pair) covered by [255,100,123,4,50]", () => {
+  const a = JSON.parse<u8[]>("[255,100,123,4,50]");
+  expect(a.length).toBe(5);
+  expect(a[0]).toBe(255);
+  expect(a[1]).toBe(100);
+  expect(a[2]).toBe(123);
+  expect(a[3]).toBe(4);
+  expect(a[4]).toBe(50);
+});
+
+describe("SIMD: u8[] narrow-array case 0x22 (1+3 digit pair) covered by [255,100,1,234,50]", () => {
+  const a = JSON.parse<u8[]>("[255,100,1,234,50]");
+  expect(a.length).toBe(5);
+  expect(a[0]).toBe(255);
+  expect(a[1]).toBe(100);
+  expect(a[2]).toBe(1);
+  expect(a[3]).toBe(234);
+  expect(a[4]).toBe(50);
+});
+
+// simd/array/integer.ts: parseUnsignedIntegerSIMD SIMD 8-digit loop
+// A 9-digit value causes tryParseEightDigitsSIMD to succeed on the first pass.
+// Lines 145-146 (value = next; srcStart += 16) fire on that successful SIMD parse.
+describe("SIMD: u32[] with 9-digit value covers parseUnsignedIntegerSIMD SIMD 8-digit loop", () => {
+  const a = JSON.parse<u32[]>("[100000000,5]");
+  expect(a.length).toBe(2);
+  expect(a[0]).toBe(100000000);
+  expect(a[1]).toBe(5);
+});
+
+// simd/array/integer.ts: reuse path with 9-digit value
+// When JSON.parse is called with an existing array (reusableLength != 0), the
+// do-while reuse block runs. A 9-digit value triggers the SIMD 8-digit sub-loop.
+describe("SIMD: u32[] reuse path with 9-digit value covers reuse unsigned SIMD loop (lines 473-474)", () => {
+  const existing = new Array<u32>(3);
+  existing[0] = 0;
+  existing[1] = 0;
+  existing[2] = 0;
+  const a = JSON.parse<u32[]>("[100000000]", existing);
+  expect(a.length).toBe(1);
+  expect(a[0]).toBe(100000000);
+});
+
+describe("SIMD: i32[] reuse path with 9-digit value covers reuse signed SIMD loop (lines 434-435)", () => {
+  const existing = new Array<i32>(3);
+  existing[0] = 0;
+  existing[1] = 0;
+  existing[2] = 0;
+  const a = JSON.parse<i32[]>("[100000000]", existing);
+  expect(a.length).toBe(1);
+  expect(a[0]).toBe(100000000);
+});
+
+// swar/array/integer.ts: deserializeIntegerArrayBody unsigned path
+describe("SWAR: UintVec struct field covers unsigned path in deserializeIntegerArrayBody", () => {
+  const v = JSON.parse<UintVec>('{"values":[1,2,3]}');
+  expect(v.values.length).toBe(3);
+  expect(v.values[0]).toBe(1);
+});
+
+describe("SWAR: UintVec struct field reparse with fewer elements covers body shrink path", () => {
+  const v1 = JSON.parse<UintVec>('{"values":[1,2,3]}');
+  expect(v1.values.length).toBe(3);
+  const v2 = JSON.parse<UintVec>('{"values":[4,5]}', v1);
+  expect(v2.values.length).toBe(2);
+  expect(v2.values[0]).toBe(4);
+});

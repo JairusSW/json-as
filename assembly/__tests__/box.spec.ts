@@ -86,3 +86,19 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
     '"line\\nbreak"',
   );
 });
+
+// ─── JSON.Box ─────────────────────────────────────────────────────────────────
+
+describe("JSON.Box: fromValue() returns null for JSON null", () => {
+  const b = JSON.Box.fromValue<i32>(JSON.parse<JSON.Value>("null"));
+  expect(changetype<usize>(b) == 0 ? "null" : "set").toBe("null");
+});
+
+describe("JSON.Box: fromValue() returns boxed value for non-null", () => {
+  const b = JSON.Box.fromValue<f64>(JSON.parse<JSON.Value>("42"));
+  expect(b!.value).toBe(42.0);
+});
+
+describe("JSON.Box: toString() on null box serializes as null", () => {
+  expect(JSON.stringify<JSON.Box<i32> | null>(null)).toBe("null");
+});

@@ -332,3 +332,28 @@ describe("Should round-trip raw sets with whitespace through JSON.parse", () => 
   expect(rawSet.size).toBe(4);
   expect(JSON.stringify(rawSet)).toBe('[{"a":1},[2,3],"x",false ]');
 });
+
+// ─── Set serialization edge cases ────────────────────────────────────────────
+
+describe("Serialize: empty Set<i32>", () => {
+  expect(JSON.stringify(new Set<i32>())).toBe("[]");
+});
+
+describe("Serialize: Set<i64> with large value", () => {
+  const s = new Set<i64>();
+  s.add(9999999999999);
+  s.add(-9999999999999);
+  const out = JSON.stringify(s);
+  expect(out.includes("9999999999999")).toBe(true);
+});
+
+// serialize/naive/set.ts:13 Ternary FALSE: u64 set serialization
+// maxIntegerBytes<T>() at line 13 returns 40 (unsigned) for sizeof(T)==8.
+// The existing Set<i64> test already covers the signed (42) branch; this covers
+// the unsigned (40) FALSE branch via Set<u64>.
+describe("Serialize: Set<u64> covers naive/set.ts:13 Ternary false (unsigned 64-bit)", () => {
+  const s = new Set<u64>();
+  s.add(1);
+  const out = JSON.stringify(s);
+  expect(out).toBe("[1]");
+});
