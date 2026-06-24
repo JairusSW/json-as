@@ -604,6 +604,48 @@ How `json-as` stacks up against other JSON libraries on a ~5 KiB GitHub-repo pay
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/library-serialize.svg" alt="Library comparison - serialize throughput">
 
+### Runtime Comparison
+
+How fast the **same** `json-as` classic bench deserializes the minified payloads across six WebAssembly runtimes — including [WARP](https://github.com/wasm-ecosystem/wasm-compiler), a single-pass compiler built for embedded targets, alongside the optimizing JITs (Wasmtime, WAVM), the pure-Go wazero, and JS engines (V8, Bun).
+
+Each runtime runs the real `bench()` lib (warm up, time the loop, report MB/s itself) on a `NAIVE`-mode build with a shared feature set (no SIMD / bulk-memory / non-trapping float-to-int) so the executed code is equivalent. The WASI runtimes read the payload over WASI; V8/Bun via an `env`-ABI host. WARP has no WASI and — by design ("no recursions") — can't re-enter the module from a host import, so it runs through a small custom C++ host that links `performance.now`/`console.log`/`writeFile` with the payload embedded. The timed run is split into small frames with a full GC between them (the bench lib's `BENCH_FRAMES`, applied to every runtime so the measurement is identical); this excludes stop-the-world GC pauses and keeps WARP — an embedded, single-shot-oriented compiler — inside its stable envelope. Even so, WARP's single-pass codegen lands within a few percent of the optimizing JITs.
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/runtimes-deserialize.svg" alt="Deserialization throughput across WebAssembly runtimes">
+
+<details>
+<summary>Serialization throughput (click to expand)</summary>
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/runtimes-serialize.svg" alt="Serialization throughput across WebAssembly runtimes">
+</details>
+
+Reproduce locally (the JS engines and standalone runtimes are auto-detected; point `WARP_SRC` at a [wasm-ecosystem/wasm-compiler](https://github.com/wasm-ecosystem/wasm-compiler) checkout with its libs built — see the script header for the cmake flags):
+
+```bash
+WARP_SRC=/path/to/wasm-compiler npm run bench:runtimes
+npm run charts:runtimes
+```
+
+### Compiler Comparison
+
+A different axis: same source, same runtime (V8), different **compiler**. [warpo](https://github.com/wasm-ecosystem/warpo) is a next-generation AssemblyScript compiler; this compares `json-as` when built with stock `asc` vs `warpo`, each before and after a `wasm-opt -O4` pass.
+
+warpo produces consistently faster code on both directions, and the gap widens with number/structure density (Canada). `wasm-opt -O4` barely moves either (both already run binaryen optimizations), so the difference is the compilers' own codegen, not a missing post-pass.
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/warpo-vs-asc-deserialize.svg" alt="json-as deserialization: asc vs warpo compiler on V8">
+
+<details>
+<summary>Serialization (click to expand)</summary>
+
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/warpo-vs-asc-serialize.svg" alt="json-as serialization: asc vs warpo compiler on V8">
+</details>
+
+warpo can't run asc transform plugins, so the bench compiles the post-transform `.tmp.ts` (emitted via `JSON_WRITE`); see `scripts/run-bench.warpo.sh`. Reproduce:
+
+```bash
+npm run bench:warpo   # builds with asc + warpo, wasm-opt -O4 each, runs on v8
+npm run charts:warpo
+```
+
 ### Lazy Fields
 
 Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "auto" })`) to defer it: its raw JSON slice is stored at parse time and parsed only on first access. Fields you skip are never parsed, and untouched fields pass through their original bytes on serialize. See the [Lazy Fields guide](https://docs.jairus.dev/json-as/guide/lazy-fields) for the full API and trade-offs.

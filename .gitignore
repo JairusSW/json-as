@@ -11,6 +11,9 @@ as-tral
 .vscode/
 build/
 *.tmp.ts
+# Generated, payload-embedding bench sources (gen-warp-bench.mjs / gen-warpo-bench.mjs).
+# This dir holds only generated files (*.warp.ts, *.warpo.src.ts, *.tmp.ts).
+assembly/__benches__/runtimes/*.ts
 .as-test/*
 !.as-test/runners/
 !.as-test/runners/**

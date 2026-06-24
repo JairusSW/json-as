@@ -47,3 +47,13 @@ JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-library-deserialize.ts
 bun ./scripts/build-lazy.ts
 # Classic-dataset mode comparison (NAIVE/SWAR/SIMD + lazy, no JS baseline)
 bun ./scripts/build-chart-classic.ts
+# Cross-runtime comparison (WARP/wasmtime/wasmer/wavm/v8/bun). Opt-in: only built
+# when scripts/run-bench.runtimes.sh has produced logs (it needs external
+# runtimes + a WARP vb_bench build), so the default chart build never fails on it.
+if compgen -G "./build/logs/runtimes/*/*.deserialize.json" >/dev/null 2>&1; then
+  bun ./scripts/build-chart-runtimes.ts
+fi
+# asc-vs-warpo compiler comparison (opt-in: needs scripts/run-bench.warpo.sh logs).
+if compgen -G "./build/logs/warpo/*/*.json" >/dev/null 2>&1; then
+  bun ./scripts/build-chart-warpo.ts
+fi

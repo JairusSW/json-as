@@ -21,7 +21,8 @@ function materializeStaticArray<T extends StaticArray<any>>(
   src: valueof<T>[],
   dst: usize,
 ): T {
-  const byteLength = <usize>src.length * sizeof<valueof<T>>();
+  const len = src.length;
+  const byteLength = <usize>len * sizeof<valueof<T>>();
   let out = dst;
 
   if (!out) {
@@ -31,7 +32,7 @@ function materializeStaticArray<T extends StaticArray<any>>(
   }
 
   const typed = changetype<T>(out);
-  for (let i = 0; i < src.length; i++) {
+  for (let i = 0; i < len; i++) {
     unchecked((typed[i] = unchecked(src[i])));
   }
   return typed;

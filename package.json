@@ -13,7 +13,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.2",
     "as-heap-analyzer": "^1.2.0",
-    "as-test": "^1.8.0",
+    "as-test": "file:../as-test",
     "assemblyscript": "^0.28.18",
     "assemblyscript-json": "^1.1.0",
     "assemblyscript-prettier": "^3.0.4",
@@ -29,7 +29,8 @@
     "tinybench": "^6.0.2",
     "try-as": "^1.1.4",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.60.1"
+    "typescript-eslint": "^8.60.1",
+    "warpo": "^3.1.1"
   },
   "bugs": {
     "url": "https://github.com/JairusSW/json-as/issues"
@@ -101,8 +102,12 @@
     "bench:all": "bash ./scripts/bench-all.sh",
     "bench:as": "bash ./scripts/run-bench.as.sh",
     "bench:js": "bash ./scripts/run-bench.js.sh",
+    "bench:runtimes": "bash ./scripts/run-bench.runtimes.sh",
+    "bench:warpo": "bash ./scripts/run-bench.warpo.sh",
     "charts": "bun run charts:build && bun run charts:serve",
     "charts:build": "bash ./scripts/build-charts.sh",
+    "charts:runtimes": "bun ./scripts/build-chart-runtimes.ts",
+    "charts:warpo": "bun ./scripts/build-chart-warpo.ts",
     "charts:publish": "bash ./scripts/publish-benchmarks.sh",
     "charts:serve": "serve ./build/charts/",
     "build:test": "JSON_DEBUG=0 JSON_WRITE=assembly/test.ts asc assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --enable simd --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",

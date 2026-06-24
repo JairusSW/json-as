@@ -80,4 +80,26 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ["bench/runners/runtimes-env.mjs"],
+    languageOptions: {
+      globals: {
+        arguments: "readonly",
+        Bun: "readonly",
+        readbuffer: "readonly",
+        performance: "readonly",
+      },
+    },
+  },
+  {
+    files: ["bench/runners/warpo-run.mjs"],
+    languageOptions: {
+      globals: {
+        arguments: "readonly",
+        readbuffer: "readonly",
+        performance: "readonly",
+        print: "readonly",
+      },
+    },
+  },
 );

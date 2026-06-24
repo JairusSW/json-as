@@ -184,19 +184,36 @@ export function bench(
     routine();
   }
 
-  const start = performance.now();
+  // Optional framed measurement: split the timed run into BENCH_FRAMES frames
+  // and run a full __collect() (untimed) between them. Each frame's allocation
+  // churn stays bounded and the heap is reset between frames, which keeps
+  // runtimes that destabilize under one long single-shot allocation loop (e.g.
+  // WARP) inside their safe envelope while still timing the same total ops. The
+  // between-frame GC pauses are excluded from `elapsed`; the incremental GC that
+  // runs *within* each frame is still timed, exactly as in the unframed loop.
+  // Defaults to a single frame (identical to the original behavior).
+  // @ts-expect-error: BENCH_FRAMES may be undefined.
+  const frames: u64 = isDefined(BENCH_FRAMES) ? u64(BENCH_FRAMES) : 1;
+  const perFrame: u64 = frames > 1 ? ops / frames : ops;
 
-  let count = ops;
-  while (count--) {
-    routine();
-    if (BENCH_MEMORY) {
-      const p = u64(memory.size());
-      if (p > peakPages) peakPages = p;
+  let elapsed: f64 = 0;
+  let remaining = ops;
+  while (remaining > 0) {
+    const batch: u64 = remaining < perFrame ? remaining : perFrame;
+    if (frames > 1) __collect();
+    const frameStart = performance.now();
+    let count = batch;
+    while (count--) {
+      routine();
+      if (BENCH_MEMORY) {
+        const p = u64(memory.size());
+        if (p > peakPages) peakPages = p;
+      }
     }
+    elapsed += performance.now() - frameStart;
+    remaining -= batch;
   }
-
-  const end = performance.now();
-  const elapsed = Math.max(1, end - start);
+  elapsed = Math.max(1, elapsed);
 
   let retainedLiveBytes: u64 = 0;
   let inflightLiveBytes: u64 = 0;

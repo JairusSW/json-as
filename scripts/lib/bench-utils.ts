@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
 import { ChartJSNodeCanvas } from "chartjs-node-canvas";
-import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
 import { MODE_BARS, INK } from "./palette";
 
@@ -235,7 +234,9 @@ export function createBarChart(
         },
       },
     },
-    plugins: [ChartDataLabels],
+    // The datalabels plugin is registered per-render in generateChart (via
+    // chartjs-node-canvas's `modern` option / freshRequire), not inline here -
+    // see the note there.
   };
 }
 
@@ -314,53 +315,36 @@ export function generateChart(
 ) {
   const isSvg = outfile.endsWith(".svg");
 
-  // Render raster (PNG) charts at 3x pixel density: the logical 1000x600 layout
-  // becomes a crisp 3000x1800 image (>= 1440p) with identical proportions/fonts.
-  if (isSvg) {
-    // Pin dpr 1 explicitly. A PNG render earlier in the same process sets dpr 3,
-    // which Chart.js leaves as a global default; inherited by a later SVG render
-    // it makes chartjs-plugin-datalabels collapse vertical-bar value labels to
-    // the baseline. Vector output is resolution-independent, so 1 is purely the
-    // datalabels-correctness value here.
-    config = {
-      ...config,
-      options: { ...(config.options ?? {}), devicePixelRatio: 1 },
-    };
-  } else {
-    // Shallow-copy options and set the 3x density (a new object, so the caller's
-    // config is untouched).
-    config = {
-      ...config,
-      options: { ...(config.options ?? {}), devicePixelRatio: 3 },
-    };
-    // chartjs-plugin-datalabels mispositions VERTICAL-bar value labels at
-    // devicePixelRatio > 1: the "end" anchor (the bar's top) lands at the base
-    // instead. Flip the value-label anchor only for the raster render so the PNG
-    // matches the SVG.
-    const opts = config.options as {
-      indexAxis?: string;
-      plugins?: { datalabels?: { anchor?: "start" | "end" } };
-    };
-    const dl = opts.plugins?.datalabels;
-    if (
-      config.type === "bar" &&
-      opts.indexAxis !== "y" &&
-      dl &&
-      (dl.anchor === "end" || dl.anchor === "start")
-    ) {
-      // Clone plugins + datalabels so the flip doesn't mutate shared objects.
-      opts.plugins = {
-        ...opts.plugins,
-        datalabels: { ...dl, anchor: dl.anchor === "end" ? "start" : "end" },
-      };
-    }
+  // SVG is resolution-independent (dpr 1); PNG renders at 3x density so the
+  // logical 1000x600 layout becomes a crisp 3000x1800 raster.
+  config = {
+    ...config,
+    options: { ...(config.options ?? {}), devicePixelRatio: isSvg ? 1 : 3 },
+  };
+
+  // Strip any inline datalabels plugin instance a caller added to its config:
+  // it's the shared module instance, and reusing it across renders is exactly
+  // the stale-state bug we avoid by registering a fresh copy per render (below).
+  if (Array.isArray(config.plugins)) {
+    const kept = config.plugins.filter(
+      (p) => (p as { id?: string })?.id !== "datalabels",
+    );
+    config = { ...config, plugins: kept.length ? kept : undefined };
   }
 
   const canvas = new ChartJSNodeCanvas({
     width: dims?.width ?? 1000,
     height: dims?.height ?? 600,
     type: isSvg ? "svg" : "png",
-    chartCallback: (ChartJS) => ChartJS.register(ChartDataLabels),
+    // Register chartjs-plugin-datalabels through the `modern` option so
+    // chartjs-node-canvas freshRequire()s a CLEAN copy of the plugin per render.
+    // The plugin holds mutable module-level state that, reused across renders in
+    // one process, collapses rotated value labels onto the x-axis baseline on
+    // every render after the first - which is why the serialize chart (rendered
+    // after the deserialize one) had its labels stuck at the bottom while
+    // deserialize looked fine. A fresh module each render sidesteps it; no dpr or
+    // anchor-flip workarounds needed.
+    plugins: { modern: ["chartjs-plugin-datalabels"] },
   });
 
   const buffer = canvas.renderToBufferSync(

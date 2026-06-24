@@ -6,6 +6,7 @@
   "coverageDir": "./.as-test/coverage",
   "snapshotDir": "./.as-test/snapshots",
   "config": "none",
+  "features": ["try-as"],
   "cache": {
     "type": "reachable",
     "ttl": "1d"

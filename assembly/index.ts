@@ -1721,7 +1721,8 @@ export namespace JSON {
 
         const keys = value.keys();
         const values = value.values();
-        for (let i = 0; i < keys.length; i++) {
+        const len = keys.length;
+        for (let i = 0; i < len; i++) {
           out.set(unchecked(keys[i]), unchecked(values[i]));
         }
         return out;
@@ -1921,7 +1922,8 @@ export namespace JSON {
         const out = new JSON.Arr();
         // @ts-expect-error: T is JSON.Value[] here
         const arr = changetype<JSON.Value[]>(value);
-        for (let i = 0; i < arr.length; i++) {
+        const len = arr.length;
+        for (let i = 0; i < len; i++) {
           out.pushRawSlot(JSON.Value.bitsFrom<JSON.Value>(unchecked(arr[i])));
         }
         return out;
