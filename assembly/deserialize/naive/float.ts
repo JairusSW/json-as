@@ -61,7 +61,7 @@ function validateJSONNumber(srcStart: usize, srcEnd: usize): void {
 }
 
 export function deserializeFloat_NAIVE<T>(srcStart: usize, srcEnd: usize): T {
-  validateJSONNumber(srcStart, srcEnd);
+  if (JSON_STRICT) validateJSONNumber(srcStart, srcEnd);
   // @ts-ignore
   const type: T = 0;
   // @ts-ignore

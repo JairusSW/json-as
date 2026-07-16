@@ -1988,10 +1988,11 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += mbElse + "if (code == 34) {\n";
             DESERIALIZE += "          lastIndex = srcStart;\n";
             DESERIALIZE += "          srcStart += 2;\n";
+            DESERIALIZE += "          let escaped = false;\n";
             DESERIALIZE += "          while (srcStart < srcEnd) {\n";
             DESERIALIZE += "            const code = load<u16>(srcStart);\n";
             DESERIALIZE +=
-                "            if (code == 34 && load<u16>(srcStart - 2) !== 92) {\n";
+                "            if (code == 34 && !escaped) {\n";
             if (DEBUG > 1)
                 DESERIALIZE +=
                     '              console.log("Value (string, ' +
@@ -2047,6 +2048,8 @@ export class JSONTransform extends Visitor {
                 }
             }, "string");
             DESERIALIZE += "          }\n";
+            DESERIALIZE +=
+                "          escaped = code == 92 ? !escaped : false;\n";
             DESERIALIZE += "          srcStart += 2;\n";
             DESERIALIZE += "        }\n";
             DESERIALIZE += "      }\n";
