@@ -13,7 +13,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.2",
     "as-heap-analyzer": "^1.2.0",
-    "as-test": "file:../as-test",
+    "as-test": "github:JairusSW/as-test#332ae81bedeb68b98b824563c6efe7e050eaef4e",
     "assemblyscript": "^0.28.18",
     "assemblyscript-json": "^1.1.0",
     "assemblyscript-prettier": "^3.0.4",

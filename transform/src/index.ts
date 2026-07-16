@@ -2949,10 +2949,11 @@ export class JSONTransform extends Visitor {
       DESERIALIZE += mbElse + "if (code == 34) {\n";
       DESERIALIZE += "          lastIndex = srcStart;\n";
       DESERIALIZE += "          srcStart += 2;\n";
+      DESERIALIZE += "          let escaped = false;\n";
       DESERIALIZE += "          while (srcStart < srcEnd) {\n";
       DESERIALIZE += "            const code = load<u16>(srcStart);\n";
       DESERIALIZE +=
-        "            if (code == 34 && load<u16>(srcStart - 2) !== 92) {\n";
+        "            if (code == 34 && !escaped) {\n";
       if (DEBUG > 1)
         DESERIALIZE +=
           '              console.log("Value (string, ' +
@@ -3023,6 +3024,8 @@ export class JSONTransform extends Visitor {
         "string",
       );
       DESERIALIZE += "          }\n"; // Close break char check
+      DESERIALIZE +=
+        "          escaped = code == 92 ? !escaped : false;\n";
       DESERIALIZE += "          srcStart += 2;\n";
       DESERIALIZE += "        }\n"; // Close char scan loop
       DESERIALIZE += "      }\n"; // Close first char check
@@ -4112,6 +4115,11 @@ export default class Transformer extends Transform {
       );
 
     program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE));
+    program.registerConstantInteger(
+      "JSON_STRICT",
+      Type.bool,
+      STRICT ? i64_one : i64_zero,
+    );
     if (JSON_CACHE_CONFIG.enabled) {
       program.registerConstantInteger("JSON_CACHE", Type.bool, i64_one);
       program.registerConstantInteger(
