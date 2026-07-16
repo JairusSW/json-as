@@ -216,6 +216,23 @@ function getSerializeCall(type: string, realName: string): string {
     return `JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
   }
 
+  if (
+    type == "bool" ||
+    type == "boolean" ||
+    type == "i8" ||
+    type == "i16" ||
+    type == "i32" ||
+    type == "i64" ||
+    type == "isize" ||
+    type == "u8" ||
+    type == "u16" ||
+    type == "u32" ||
+    type == "u64" ||
+    type == "usize"
+  ) {
+    return `JSON.__serializePrimitiveUnsafe<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+  }
+
   return needsReferenceLoad(type)
     ? `JSON.__serialize<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n`
     : `JSON.__serialize<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
@@ -1251,6 +1268,11 @@ export class JSONTransform extends Visitor {
       return;
     }
 
+    const defaultStringLiterals = new Map<
+      string,
+      { expression: string; encoded: string }
+    >();
+
     for (const member of members) {
       if (!member.type) throwError("Fields must be strongly typed", node.range);
       let type = toString(member.type!);
@@ -1270,6 +1292,20 @@ export class JSONTransform extends Visitor {
       mem.value = value;
       mem.node = member;
       mem.byteSize = estimatedSerializedByteSize(mem.type, source, this.parser);
+      if (
+        member.initializer?.kind == NodeKind.Literal &&
+        (member.initializer as LiteralExpression).literalKind ==
+          LiteralKind.String &&
+        isString(stripNull(mem.type))
+      ) {
+        const literal = member.initializer as StringLiteralExpression;
+        const encoded = JSON.stringify(literal.value);
+        mem.byteSize = encoded.length << 1;
+        defaultStringLiterals.set(mem.name, {
+          expression: toString(member.initializer),
+          encoded,
+        });
+      }
       mem.custom = schema.deps.some(
         (dep) => dep?.name == stripNull(type) && dep.custom,
       );
@@ -1430,8 +1466,29 @@ export class JSONTransform extends Visitor {
     // raw source bytes verbatim if still a range (zero-copy passthrough), the
     // serialized T if materialized, or `null` if absent.
     const serValue = (member: Property, realName: string): string => {
-      if (!member.flags.has(PropertyFlags.Lazy))
+      if (!member.flags.has(PropertyFlags.Lazy)) {
+        const defaultString = defaultStringLiterals.get(member.name);
+        if (defaultString) {
+          const stores = this.getStores(
+            defaultString.encoded,
+            this.program.options.hasFeature(Feature.Simd),
+          ).join("\n");
+          return (
+            `{\n` +
+            `  const __str = load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)}));\n` +
+            `  if (changetype<usize>(__str) == changetype<usize>(${defaultString.expression})) {\n` +
+            stores
+              .split("\n")
+              .map((line) => `    ${line}\n`)
+              .join("") +
+            `  } else {\n` +
+            `    JSON.__serialize<${member.type}>(__str);\n` +
+            `  }\n` +
+            `}\n`
+          );
+        }
         return getSerializeCall(member.type, realName);
+      }
       const T = member.lazyInner!;
       const baseName = realName.slice(0, -3); // "__x_lz" -> "__x"
       const baseT = stripNull(T);
@@ -1854,9 +1911,31 @@ export class JSONTransform extends Visitor {
           out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
           out.push("  } else {");
         }
-        out.push(
-          `  ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${member.type}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
-        );
+        const defaultString = defaultStringLiterals.get(member.name);
+        if (defaultString) {
+          const encodedBytes = defaultString.encoded.length << 1;
+          const comparisons = getComparisions(
+            defaultString.encoded,
+            valuePtr,
+            "==",
+          ).join(" && ");
+          out.push(
+            `  if (${valuePtr} + ${encodedBytes} <= srcEnd && ${comparisons}) {`,
+          );
+          out.push(
+            `    store<${member.type}>(${outPtr}, ${defaultString.expression}, ${fieldOffset});`,
+          );
+          out.push(`    ${srcPtr} = ${valuePtr} + ${encodedBytes};`);
+          out.push("  } else {");
+          out.push(
+            `    ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${member.type}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
+          );
+          out.push("  }");
+        } else {
+          out.push(
+            `  ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${member.type}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
+          );
+        }
         if (member.node.type.isNullable) {
           out.push("  }");
         }
@@ -3715,6 +3794,24 @@ export class JSONTransform extends Visitor {
     const DESERIALIZE_FAST_METHOD = useFastPath
       ? SimpleParser.parseClassMember(DESERIALIZE_FAST, node)
       : null;
+    const sourceFreeDeserialize =
+      !DESERIALIZE_CUSTOM &&
+      this.schema.members.every((member) => {
+        const type = stripNull(member.type);
+        return (
+          isPrimitive(type) ||
+          isString(type) ||
+          type == "Date" ||
+          type == "JSON.Raw" ||
+          type == "Raw"
+        );
+      });
+    const SOURCE_FREE_METHOD = sourceFreeDeserialize
+      ? SimpleParser.parseClassMember(
+          "__DESERIALIZE_SOURCE_FREE(): void {}",
+          node,
+        )
+      : null;
 
     if (!node.members.find((v) => v.name.text == "__SERIALIZE"))
       node.members.push(SERIALIZE_METHOD);
@@ -3741,6 +3838,11 @@ export class JSONTransform extends Visitor {
       !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")
     )
       node.members.push(DESERIALIZE_FAST_METHOD);
+    if (
+      SOURCE_FREE_METHOD &&
+      !node.members.find((v) => v.name.text == "__DESERIALIZE_SOURCE_FREE")
+    )
+      node.members.push(SOURCE_FREE_METHOD);
     if (useFastPath && !DESERIALIZE_CUSTOM) {
       for (const chunk of fastChunkMethods) {
         const chunkMethod = SimpleParser.parseClassMember(chunk, node);

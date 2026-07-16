@@ -71,6 +71,7 @@ export function deserializeObject(
         (srcEnd - srcStart).toString(),
     );
 
+  out.reserveForParse((srcEnd - srcStart) >> 1);
   parseObjectBody(out, srcStart + 2, srcEnd);
   return out;
 }
@@ -274,6 +275,7 @@ export function parseObjectBody(
   srcStart: usize,
   srcEnd: usize,
 ): usize {
+  const objectStart = srcStart - 2;
   // Anchor the source for this object's deferred value slots (start pointers
   // into it). Set here so every caller - deserializeObject, the JSON.Obj[]
   // array path, parseValue, the map path - gets it. Empty off the parse path,
@@ -287,7 +289,12 @@ export function parseObjectBody(
       srcStart += 2;
       continue;
     }
-    if (code == BRACE_RIGHT) return srcStart + 2;
+    if (code == BRACE_RIGHT) {
+      const objectEnd = srcStart + 2;
+      out._rawStart = objectStart;
+      out._rawEnd = objectEnd;
+      return objectEnd;
+    }
 
     // --- key ---
     if (code != QUOTE)
@@ -319,7 +326,7 @@ export function parseObjectBody(
     if (parseSrc.length != 0) {
       // Parsing: store a NaN-boxed slot directly (strings/composites deferred,
       // scalars eager) - no per-value JSON.Value object.
-      out.appendRawSlot(keyStart, keyEnd, parseSlotBits(srcStart, srcEnd));
+      out.appendParsedSlot(keyStart, keyEnd, parseSlotBits(srcStart, srcEnd));
     } else {
       // Off the parse path (no source anchor): box eagerly.
       out.appendRaw(keyStart, keyEnd, parseValue(srcStart, srcEnd));

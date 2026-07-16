@@ -1,1 +1,1 @@
-export { serializeInteger } from "../naive/integer";
+export { serializeInteger, serializeIntegerUnsafe } from "../naive/integer";
