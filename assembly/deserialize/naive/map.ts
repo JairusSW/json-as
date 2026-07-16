@@ -9,6 +9,7 @@ import {
 import { isSpace } from "../../util";
 import { scanValueEnd } from "../../util/scanValueEnd";
 import { lastValueEnd, parseValue } from "./object";
+import { deserializeRaw } from "./raw";
 
 function rawMapKeyEquals(key: string, start: usize, end: usize): bool {
   const byteLength = end - start;
@@ -109,9 +110,12 @@ export function deserializeMapBody<T extends Map<any, any>>(
   reuseExisting: bool = false,
 ): usize {
   let arbitraryValue = false;
+  let rawValue = false;
   if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
     // @ts-ignore: instanceof on the (reference) value type
     arbitraryValue = changetype<nonnull<valueof<T>>>(0) instanceof JSON.Value;
+    // @ts-ignore: instanceof on the (reference) value type
+    rawValue = changetype<nonnull<valueof<T>>>(0) instanceof JSON.Raw;
   }
 
   const previousKeys = reuseExisting
@@ -181,6 +185,22 @@ export function deserializeMapBody<T extends Map<any, any>>(
         changetype<valueof<T>>(changetype<usize>(val)),
       );
       srcStart = lastValueEnd();
+    } else if (isReference<valueof<T>>() && rawValue) {
+      const valueEnd = scanValueEnd(srcStart, srcEnd);
+      if (!valueEnd || valueEnd <= srcStart) break;
+      let raw: JSON.Raw | null = null;
+      if (changetype<nonnull<T>>(out).has(key)) {
+        raw = changetype<JSON.Raw>(
+          changetype<usize>(changetype<nonnull<T>>(out).get(key)),
+        );
+      }
+      const value = deserializeRaw(srcStart, valueEnd, changetype<usize>(raw));
+      // @ts-ignore: valueof<T> is JSON.Raw in this branch
+      changetype<nonnull<T>>(out).set(
+        key,
+        changetype<valueof<T>>(changetype<usize>(value)),
+      );
+      srcStart = valueEnd;
     } else if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
       const valueType = changetype<nonnull<valueof<T>>>(0);
       if (
