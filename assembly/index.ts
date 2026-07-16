@@ -63,6 +63,7 @@ import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes, scanStringEnd } from "./util";
 import { scanValueEnd_SIMD } from "./util/scanValueEndSimd";
 import { scanValueEnd_SWAR } from "./util/scanValueEndSwar";
+import { normalizeJSONEncoding, validateJSON } from "./util/validateJson";
 
 const VAL_QNAN: u64 = 0x7ffc000000000000; // boxed signature (quiet NaN)
 const VAL_TAG_SHIFT: u8 = 45;
@@ -371,6 +372,10 @@ export namespace JSON {
   }
 
   export function parse<T>(data: string, out: T = __zero<T>()): T {
+    if (JSON_MODE == JSONMode.NAIVE && JSON_STRICT) {
+      data = normalizeJSONEncoding(data);
+      if (!validateJSON(data)) throw new Error("Invalid JSON syntax");
+    }
     // Generated scalar-only schemas cannot create lazy JSON.Obj/Arr/Value
     // slices. Avoid two global reference writes (and their barriers) for these
     // very small, latency-sensitive parses.

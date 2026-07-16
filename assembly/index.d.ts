@@ -268,6 +268,12 @@ declare function deserializer(
 declare const JSON_MODE: JSONMode;
 
 /**
+ * Whether strict RFC 8259 validation is enabled. Injected by the transform from
+ * the `JSON_STRICT` build-time environment variable (default `false`).
+ */
+declare const JSON_STRICT: bool;
+
+/**
  * Whether the string cache is enabled (default off). Injected from the
  * `JSON_CACHE` build-time environment variable. When on, repeated strings are
  * reused to speed up string-heavy serialization.
