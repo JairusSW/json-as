@@ -2119,8 +2119,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "          let escaped = false;\n";
             DESERIALIZE += "          while (srcStart < srcEnd) {\n";
             DESERIALIZE += "            const code = load<u16>(srcStart);\n";
-            DESERIALIZE +=
-                "            if (code == 34 && !escaped) {\n";
+            DESERIALIZE += "            if (code == 34 && !escaped) {\n";
             if (DEBUG > 1)
                 DESERIALIZE +=
                     '              console.log("Value (string, ' +
@@ -2176,8 +2175,7 @@ export class JSONTransform extends Visitor {
                 }
             }, "string");
             DESERIALIZE += "          }\n";
-            DESERIALIZE +=
-                "          escaped = code == 92 ? !escaped : false;\n";
+            DESERIALIZE += "          escaped = code == 92 ? !escaped : false;\n";
             DESERIALIZE += "          srcStart += 2;\n";
             DESERIALIZE += "        }\n";
             DESERIALIZE += "      }\n";
