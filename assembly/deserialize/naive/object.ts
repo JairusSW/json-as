@@ -36,11 +36,24 @@ let parseValueEnd: usize = 0;
 // JSON.Value.materialize), both of which save/restore it for re-entrancy, so any
 // lazy value built during a parse points into that parse's own source buffer.
 let parseSrc: string = "";
+// Malformed range failures are recorded only on the cold error path and
+// consumed by JSON.parse after dispatch returns. Keeping the final throw at
+// that public boundary makes it catchable by try-as without a success-path
+// store or a second validation scan.
+let productionParseError = false;
 export function setParseSrc(s: string): void {
   parseSrc = s;
 }
 export function getParseSrc(): string {
   return parseSrc;
+}
+export function markProductionParseError(): void {
+  productionParseError = true;
+}
+export function takeProductionParseError(): bool {
+  if (!productionParseError) return false;
+  productionParseError = false;
+  return true;
 }
 
 export function deserializeObject(
@@ -72,8 +85,9 @@ export function deserializeObject(
     );
 
   out.reserveForParse((srcEnd - srcStart) >> 1);
-  parseObjectBody(out, srcStart + 2, srcEnd);
-  return out;
+  return parseObjectBody(out, srcStart + 2, srcEnd) != 0
+    ? out
+    : changetype<JSON.Obj>(0);
 }
 
 export function deserializeJsonArray(
@@ -96,8 +110,9 @@ export function deserializeJsonArray(
   if (load<u16>(srcEnd - 2) != BRACKET_RIGHT)
     throw new Error("Expected ']' at end of array");
 
-  parseArrayBodySlots(out, srcStart + 2, srcEnd);
-  return out;
+  return parseArrayBodySlots(out, srcStart + 2, srcEnd) != 0
+    ? out
+    : changetype<JSON.Arr>(0);
 }
 
 /**
@@ -127,7 +142,7 @@ export function parseArrayBodySlots(
     }
     srcStart = parseValueEnd;
   }
-  return srcEnd;
+  return 0;
 }
 
 /**
@@ -138,9 +153,11 @@ export function parseArrayBodySlots(
  * to be set (the caller guards), since a lazy slot points into it.
  */
 function parseSlotBits(srcStart: usize, srcEnd: usize): u64 {
+  if (srcStart >= srcEnd) throw new Error("Unexpected end of JSON");
   const code = load<u16>(srcStart);
   if (code == QUOTE || code == BRACE_LEFT || code == BRACKET_LEFT) {
     const end = JSON.Util.scanValueEnd<JSON.Value>(srcStart, srcEnd);
+    if (end == 0) throw new Error("Unterminated value in JSON");
     parseValueEnd = end;
     return JSON.Value.lazyBits(changetype<usize>(parseSrc), srcStart, end);
   } else if (code - 48 <= 9 || code == 45) {
@@ -154,17 +171,17 @@ function parseSlotBits(srcStart: usize, srcEnd: usize): u64 {
     parseValueEnd = p;
     return JSON.Value.f64Bits(deserializeFloat<f64>(srcStart, p));
   } else if (code == CHAR_T) {
-    if (load<u64>(srcStart) != TRUE_WORD)
+    if (srcEnd - srcStart < 8 || load<u64>(srcStart) != TRUE_WORD)
       throw new Error("Expected 'true' in JSON");
     parseValueEnd = srcStart + 8;
     return JSON.Value.boolBits(true);
   } else if (code == CHAR_F) {
-    if (load<u64>(srcStart, 2) != ALSE_WORD)
+    if (srcEnd - srcStart < 10 || load<u64>(srcStart, 2) != ALSE_WORD)
       throw new Error("Expected 'false' in JSON");
     parseValueEnd = srcStart + 10;
     return JSON.Value.boolBits(false);
   } else if (code == CHAR_N) {
-    if (load<u64>(srcStart) != NULL_WORD)
+    if (srcEnd - srcStart < 8 || load<u64>(srcStart) != NULL_WORD)
       throw new Error("Expected 'null' in JSON");
     parseValueEnd = srcStart + 8;
     return JSON.Value.nullBits();
@@ -186,6 +203,7 @@ export function lastValueEnd(): usize {
 }
 
 export function parseValue(srcStart: usize, srcEnd: usize): JSON.Value {
+  if (srcStart >= srcEnd) throw new Error("Unexpected end of JSON");
   const code = load<u16>(srcStart);
   if (code == QUOTE) {
     const end = scanStringEnd(srcStart, srcEnd);
@@ -211,17 +229,17 @@ export function parseValue(srcStart: usize, srcEnd: usize): JSON.Value {
     parseValueEnd = p;
     return JSON.Value.from(deserializeFloat<f64>(srcStart, p));
   } else if (code == CHAR_T) {
-    if (load<u64>(srcStart) != TRUE_WORD)
+    if (srcEnd - srcStart < 8 || load<u64>(srcStart) != TRUE_WORD)
       throw new Error("Expected 'true' in JSON");
     parseValueEnd = srcStart + 8;
     return JSON.Value.from(true);
   } else if (code == CHAR_F) {
-    if (load<u64>(srcStart, 2) != ALSE_WORD)
+    if (srcEnd - srcStart < 10 || load<u64>(srcStart, 2) != ALSE_WORD)
       throw new Error("Expected 'false' in JSON");
     parseValueEnd = srcStart + 10;
     return JSON.Value.from(false);
   } else if (code == CHAR_N) {
-    if (load<u64>(srcStart) != NULL_WORD)
+    if (srcEnd - srcStart < 8 || load<u64>(srcStart) != NULL_WORD)
       throw new Error("Expected 'null' in JSON");
     parseValueEnd = srcStart + 8;
     return JSON.Value.from<usize>(0);
@@ -255,6 +273,7 @@ export function parseArrayBody(
       // Defer strings and composites (the allocating shapes): store the raw
       // slice, parse on first access. Cheap primitives stay eager below.
       const end = JSON.Util.scanValueEnd<JSON.Value>(srcStart, srcEnd);
+      if (end == 0) throw new Error("Unterminated value in JSON");
       out.push(JSON.Value.fromSlice(srcStart, end, parseSrc));
       srcStart = end;
     } else {
@@ -262,7 +281,7 @@ export function parseArrayBody(
       srcStart = parseValueEnd;
     }
   }
-  return srcEnd;
+  return 0;
 }
 
 /**
@@ -323,6 +342,7 @@ export function parseObjectBody(
     // --- value ---
     while (srcStart < srcEnd && isSpace((code = load<u16>(srcStart))))
       srcStart += 2;
+    if (srcStart >= srcEnd) throw new Error("Expected value after key in JSON");
     if (parseSrc.length != 0) {
       // Parsing: store a NaN-boxed slot directly (strings/composites deferred,
       // scalars eager) - no per-value JSON.Value object.
@@ -333,5 +353,5 @@ export function parseObjectBody(
     }
     srcStart = parseValueEnd;
   }
-  return srcEnd;
+  return 0;
 }

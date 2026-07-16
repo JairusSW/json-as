@@ -25,7 +25,7 @@ import {
   serializeTypedArray,
 } from "./serialize";
 import {
-  deserializeBoolean,
+  deserializeBooleanCode,
   deserializeArray,
   deserializeFloat,
   deserializeMap,
@@ -43,6 +43,8 @@ import {
   deserializeTypedArray,
   setParseSrc,
   getParseSrc,
+  markProductionParseError,
+  takeProductionParseError,
 } from "./deserialize";
 import {
   BACK_SLASH,
@@ -393,6 +395,8 @@ export namespace JSON {
     setParseSrc(data);
     const result = parseInternal<T>(data, out);
     setParseSrc(prevSrc);
+    if (takeProductionParseError())
+      throw new Error("Incomplete or unterminated JSON value");
     return result;
   }
 
@@ -408,7 +412,9 @@ export namespace JSON {
       dataPtr += 2;
     const dataSize = dataEnd - dataPtr;
     if (isBoolean<T>()) {
-      return deserializeBoolean(dataPtr, dataPtr + dataSize) as T;
+      const code = deserializeBooleanCode(dataPtr, dataPtr + dataSize);
+      if (code == 0) markProductionParseError();
+      return (code == 2) as T;
     } else if (isInteger<T>()) {
       return isSigned<T>()
         ? deserializeInteger<T>(dataPtr, dataPtr + dataSize)
@@ -422,7 +428,15 @@ export namespace JSON {
     ) {
       return null;
     } else if (isString<T>()) {
-      return deserializeString(dataPtr, dataPtr + dataSize) as T;
+      // Whole-string decoders require quote-inclusive bounds. Trim only the
+      // insignificant suffix here; the normal no-whitespace path pays one
+      // predicted-not-taken branch.
+      let stringEnd = dataEnd;
+      while (stringEnd > dataPtr && JSON.Util.isSpace(load<u16>(stringEnd - 2)))
+        stringEnd -= 2;
+      const value = deserializeString(dataPtr, stringEnd);
+      if (changetype<usize>(value) == 0) markProductionParseError();
+      return value as T;
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
       // @ts-expect-error: Defined by transform
@@ -474,7 +488,12 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_SLOW)) {
           // @ts-expect-error: Defined by transform
-          obj.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, obj);
+          const slowEnd = obj.__DESERIALIZE_SLOW(
+            dataPtr,
+            dataPtr + dataSize,
+            obj,
+          );
+          if (slowEnd == 0) markProductionParseError();
           // @ts-expect-error: Defined by transform for @lazy-field structs.
           if (isDefined(obj.__SET_SRC)) obj.__SET_SRC(data);
           return obj;
@@ -492,13 +511,15 @@ export namespace JSON {
         // Reuse the caller-supplied array when given (no allocation); the
         // element loop overwrites slots and trims length. Otherwise allocate.
         // @ts-expect-error
-        return deserializeArray<nonnull<T>>(
+        const value = deserializeArray<nonnull<T>>(
           dataPtr,
           dataPtr + dataSize,
           changetype<usize>(out) != 0
             ? changetype<usize>(out)
             : changetype<usize>(instantiate<T>()),
         );
+        if (changetype<usize>(value) == 0) markProductionParseError();
+        return value;
       } else if (
         type instanceof Int8Array ||
         type instanceof Uint8Array ||
@@ -525,11 +546,13 @@ export namespace JSON {
       } else if (type instanceof Map) {
         // Reuse the caller-supplied map when given (keys overwrite in place).
         // @ts-expect-error
-        return deserializeMap<nonnull<T>>(
+        const value = deserializeMap<nonnull<T>>(
           dataPtr,
           dataPtr + dataSize,
           changetype<usize>(out),
         );
+        if (changetype<usize>(value) == 0) markProductionParseError();
+        return value;
       } else if (type instanceof Date) {
         // @ts-expect-error
         return deserializeDate(dataPtr, dataPtr + dataSize);
@@ -540,27 +563,33 @@ export namespace JSON {
         // Reuse the caller-supplied JSON.Value handle when given (`out`); the
         // deserializer writes the parsed bits into it. Otherwise allocate.
         // @ts-expect-error
-        return deserializeArbitrary(
+        const value = deserializeArbitrary(
           dataPtr,
           dataPtr + dataSize,
           changetype<usize>(out),
         );
+        if (changetype<usize>(value) == 0) markProductionParseError();
+        return value;
       } else if (type instanceof JSON.Obj) {
         // Reuse the caller-supplied JSON.Obj (cleared, buffers kept). Otherwise allocate.
         // @ts-expect-error
-        return deserializeObject(
+        const value = deserializeObject(
           dataPtr,
           dataPtr + dataSize,
           changetype<usize>(out),
         );
+        if (changetype<usize>(value) == 0) markProductionParseError();
+        return value;
       } else if (type instanceof JSON.Arr) {
         // Reuse the caller-supplied JSON.Arr (cleared, buffers kept). Otherwise allocate.
         // @ts-expect-error
-        return deserializeJsonArray(
+        const value = deserializeJsonArray(
           dataPtr,
           dataPtr + dataSize,
           changetype<usize>(out),
         );
+        if (changetype<usize>(value) == 0) markProductionParseError();
+        return value;
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error
         return new JSON.Box(parseBox(data, changetype<nonnull<T>>(0).value));
@@ -2493,7 +2522,9 @@ export namespace JSON {
       srcStart += 2;
     if (isBoolean<T>()) {
       // @ts-expect-error: type
-      return deserializeBoolean(srcStart, srcEnd);
+      const code = deserializeBooleanCode(srcStart, srcEnd);
+      if (code == 0) throw new Error("Expected 'true' or 'false' in JSON");
+      return code == 2;
     } else if (isInteger<T>()) {
       return isSigned<T>()
         ? deserializeInteger<T>(srcStart, srcEnd)
@@ -2517,7 +2548,10 @@ export namespace JSON {
           "Cannot parse data as string because it was formatted incorrectly!",
         );
 
-      return deserializeString(srcStart, srcEnd) as T;
+      const value = deserializeString(srcStart, srcEnd);
+      if (changetype<usize>(value) == 0)
+        throw new Error("Invalid JSON string: missing surrounding quotes");
+      return value as T;
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
       // @ts-expect-error: Defined by transform
@@ -2559,7 +2593,10 @@ export namespace JSON {
         return deserializeStaticArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
       } else if (type instanceof Array) {
         // @ts-expect-error: type
-        return deserializeArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
+        const value = deserializeArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
+        if (changetype<usize>(value) == 0)
+          throw new Error("Unterminated array in JSON");
+        return value;
       } else if (
         type instanceof Int8Array ||
         type instanceof Uint8Array ||
@@ -2590,13 +2627,22 @@ export namespace JSON {
         return deserializeRaw(srcStart, srcEnd);
       } else if (type instanceof JSON.Value) {
         // @ts-expect-error: type
-        return deserializeArbitrary(srcStart, srcEnd, 0);
+        const value = deserializeArbitrary(srcStart, srcEnd, 0);
+        if (changetype<usize>(value) == 0)
+          throw new Error("Incomplete JSON value");
+        return value;
       } else if (type instanceof JSON.Obj) {
         // @ts-expect-error: type
-        return deserializeObject(srcStart, srcEnd, 0);
+        const value = deserializeObject(srcStart, srcEnd, 0);
+        if (changetype<usize>(value) == 0)
+          throw new Error("Unterminated object in JSON");
+        return value;
       } else if (type instanceof JSON.Arr) {
         // @ts-expect-error: type
-        return deserializeJsonArray(srcStart, srcEnd, 0);
+        const value = deserializeJsonArray(srcStart, srcEnd, 0);
+        if (changetype<usize>(value) == 0)
+          throw new Error("Unterminated array in JSON");
+        return value;
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error: type
         return new JSON.Box(

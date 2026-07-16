@@ -1956,6 +1956,8 @@ export class JSONTransform extends Visitor {
         DESERIALIZE +=
             indent +
                 "    while (JSON.Util.isSpace(code)) code = load<u16>(srcStart += 2);\n";
+        DESERIALIZE +=
+            indent + "    if (keyStart == 0 && code == 125) return srcStart + 2;\n";
         DESERIALIZE += indent + "    if (keyStart == 0) {\n";
         DESERIALIZE +=
             indent + "      if (code == 34 && load<u16>(srcStart - 2) !== 92) {\n";
@@ -2605,6 +2607,11 @@ export class JSONTransform extends Visitor {
         indentDec();
         DESERIALIZE += `  }\n`;
         indentDec();
+        DESERIALIZE +=
+            `  if (srcStart == srcEnd && lastIndex != 0) {\n` +
+                `    const lastCode = load<u16>(lastIndex);\n` +
+                `    if (lastCode == 123 || lastCode == 91) return 0;\n` +
+                `  }\n`;
         DESERIALIZE += `  return srcStart;\n}\n`;
         indent = "  ";
         this.schema.byteSize += 2;
@@ -2642,11 +2649,12 @@ export class JSONTransform extends Visitor {
         const sourceFreeDeserialize = !DESERIALIZE_CUSTOM &&
             this.schema.members.every((member) => {
                 const type = stripNull(member.type);
-                return (isPrimitive(type) ||
-                    isString(type) ||
-                    type == "Date" ||
-                    type == "JSON.Raw" ||
-                    type == "Raw");
+                return (!member.flags.has(PropertyFlags.Lazy) &&
+                    (isPrimitive(type) ||
+                        isString(type) ||
+                        type == "Date" ||
+                        type == "JSON.Raw" ||
+                        type == "Raw"));
             });
         const SOURCE_FREE_METHOD = sourceFreeDeserialize
             ? SimpleParser.parseClassMember("__DESERIALIZE_SOURCE_FREE(): void {}", node)

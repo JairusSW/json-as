@@ -80,21 +80,18 @@ export function deserializeMap<T extends Map<any, any>>(
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
-  if (srcStart - srcEnd == 0)
-    throw new Error("Input string had zero length or was all whitespace");
-  if (load<u16>(srcStart) != BRACE_LEFT)
-    throw new Error(
-      "Expected '{' at start of object at position " +
-        (srcEnd - srcStart).toString(),
-    );
-  if (load<u16>(srcEnd - 2) != BRACE_RIGHT)
-    throw new Error(
-      "Expected '}' at end of object at position " +
-        (srcEnd - srcStart).toString(),
-    );
+  if (srcStart - srcEnd == 0) return changetype<T>(0);
+  if (load<u16>(srcStart) != BRACE_LEFT) return changetype<T>(0);
+  if (load<u16>(srcEnd - 2) != BRACE_RIGHT) return changetype<T>(0);
 
-  deserializeMapBody<T>(srcStart, srcEnd, changetype<T>(out), reuseExisting);
-  return changetype<T>(out);
+  return deserializeMapBody<T>(
+    srcStart,
+    srcEnd,
+    changetype<T>(out),
+    reuseExisting,
+  ) != 0
+    ? changetype<T>(out)
+    : changetype<T>(0);
 }
 
 /**
@@ -124,11 +121,10 @@ export function deserializeMapBody<T extends Map<any, any>>(
   let seenKeys = changetype<Set<indexof<T>>>(0);
   let parsedKeyCount = 0;
 
-  if (srcStart >= srcEnd || load<u16>(srcStart) != BRACE_LEFT)
-    throw new Error("Failed to parse JSON!");
+  if (srcStart >= srcEnd || load<u16>(srcStart) != BRACE_LEFT) return 0;
   srcStart += 2;
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-  if (srcStart >= srcEnd) throw new Error("Failed to parse JSON!");
+  if (srcStart >= srcEnd) return 0;
   if (load<u16>(srcStart) == BRACE_RIGHT) {
     if (reuseExisting) changetype<nonnull<T>>(out).clear();
     return srcStart + 2;
@@ -296,7 +292,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
     break;
   }
 
-  throw new Error("Failed to parse JSON!");
+  return 0;
 }
 
 export function deserializeMapField<T extends Map<any, any>>(

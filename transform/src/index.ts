@@ -2845,6 +2845,12 @@ export class JSONTransform extends Visitor {
     DESERIALIZE +=
       indent +
       "    while (JSON.Util.isSpace(code)) code = load<u16>(srcStart += 2);\n";
+    // A generated object parser succeeds only when it observes its own closing
+    // brace. Reaching srcEnd can mean a nested value consumed the sole `}`.
+    // This branch exists only in the slow fallback; tier 1/2 already check the
+    // delimiter directly at their final cursor.
+    DESERIALIZE +=
+      indent + "    if (keyStart == 0 && code == 125) return srcStart + 2;\n";
     DESERIALIZE += indent + "    if (keyStart == 0) {\n";
     DESERIALIZE +=
       indent + "      if (code == 34 && load<u16>(srcStart - 2) !== 92) {\n";
@@ -3737,6 +3743,15 @@ export class JSONTransform extends Visitor {
     indentDec();
     DESERIALIZE += `  }\n`; // Close while loop
     indentDec();
+    // Scalar slow-path branches historically consume their following `}` and
+    // finish exactly at srcEnd. Preserve that representation, but distinguish
+    // it from a final composite that consumed the sole closing delimiter: a
+    // valid composite is followed by the owner's `}` and returns above.
+    DESERIALIZE +=
+      `  if (srcStart == srcEnd && lastIndex != 0) {\n` +
+      `    const lastCode = load<u16>(lastIndex);\n` +
+      `    if (lastCode == 123 || lastCode == 91) return 0;\n` +
+      `  }\n`;
     DESERIALIZE += `  return srcStart;\n}\n`; // Close function
 
     indent = "  ";
@@ -3800,11 +3815,12 @@ export class JSONTransform extends Visitor {
       this.schema.members.every((member) => {
         const type = stripNull(member.type);
         return (
-          isPrimitive(type) ||
-          isString(type) ||
-          type == "Date" ||
-          type == "JSON.Raw" ||
-          type == "Raw"
+          !member.flags.has(PropertyFlags.Lazy) &&
+          (isPrimitive(type) ||
+            isString(type) ||
+            type == "Date" ||
+            type == "JSON.Raw" ||
+            type == "Raw")
         );
       });
     const SOURCE_FREE_METHOD = sourceFreeDeserialize

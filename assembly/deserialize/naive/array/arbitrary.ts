@@ -10,6 +10,7 @@ export function deserializeArbitraryArray(
     dst || changetype<usize>(instantiate<JSON.Value[]>()),
   );
   // Skip the opening '[' and parse elements single-pass until the matching ']'.
-  parseArrayBody(out, srcStart + 2, srcEnd);
-  return out;
+  return parseArrayBody(out, srcStart + 2, srcEnd) != 0
+    ? out
+    : changetype<JSON.Value[]>(0);
 }

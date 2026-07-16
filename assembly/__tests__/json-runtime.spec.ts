@@ -555,15 +555,12 @@ describe("SWAR: JSON.Value[] field with empty array covers deserializeGenericArr
   expect(h.vals.length).toBe(0);
 });
 
-// NAIVE: JSON.Arr parseArrayBodySlots return-srcEnd
-// deserializeJsonArray validates the first/last chars ('['/']') but does NOT
-// require them to match. For '[[1,2]' the last char IS ']' (valid), but it
-// belongs to the inner array — the outer loop exhausts srcStart without finding
-// the outer ']', hitting the `return srcEnd` path at line 129. All modes call
-// the same naive deserializeJsonArray for JSON.Arr.
-describe("NAIVE: JSON.Arr with outer missing ']' covers parseArrayBodySlots return-srcEnd", () => {
-  const arr = JSON.parse<JSON.Arr>("[[1,2]");
-  expect(arr.length).toBe(1);
+// The final ']' belongs to the inner array. Source exhaustion is not a valid
+// substitute for the outer array's own closing delimiter.
+describe("JSON.Arr rejects an inner array that steals the outer closing bracket", () => {
+  expect((): void => {
+    JSON.parse<JSON.Arr>("[[1,2]");
+  }).toThrow();
 });
 
 // swar/array/shared.ts: backslash in string element → scanQuotedValueEnd
@@ -598,11 +595,12 @@ describe("SWAR: JSON.Obj[] empty array as @json class field", () => {
   expect(o.items.length).toBe(0);
 });
 
-// naive/object.ts parseObjectBody:329 — inner object consumes the outer } so parseObjectBody
-// exhausts srcEnd and returns srcEnd (success path, no throw needed)
-describe("JSON.Obj: parseObjectBody returns srcEnd when inner object uses the closing brace (naive/object.ts:329)", () => {
-  const obj = JSON.parse<JSON.Obj>('{"k":{"a":1}');
-  expect(obj.has("k")).toBe(true);
+// An inner object must not consume its owner's closing brace and turn source
+// exhaustion into a successful parse.
+describe("JSON.Obj rejects an inner object that steals the outer closing brace", () => {
+  expect((): void => {
+    JSON.parse<JSON.Obj>('{"k":{"a":1}');
+  }).toThrow();
 });
 
 // swar/array/object.ts:51 — shrink path: reusing a JSON.Obj[] with more elements than the new parse
