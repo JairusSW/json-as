@@ -1,6 +1,7 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
 import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench";
+import { nonDefaultValues } from "./lib/nondefault";
 
 
 @json
@@ -13,9 +14,12 @@ class SessionStatusResponse {
 }
 const v1 = new SessionStatusResponse();
 const v2: string = JSON.stringify<SessionStatusResponse>(v1);
+const nonDefaultJson = nonDefaultValues(v2);
+const nonDefaultValue = JSON.parse<SessionStatusResponse>(nonDefaultJson);
 const byteLength: usize = utf8ByteLength(v2);
 expect(JSON.stringify(v1)).toBe(v2);
 expect(JSON.stringify(JSON.parse<SessionStatusResponse>(v2))).toBe(v2);
+expect(JSON.stringify(nonDefaultValue)).toBe(nonDefaultJson);
 bench(
   "Serialize Small API Response",
   () => {
@@ -34,6 +38,25 @@ bench(
   byteLength,
 );
 dumpToFile("small", "deserialize");
+
+bench(
+  "Serialize Small API Response (non-default)",
+  () => {
+    blackbox(JSON.stringify<SessionStatusResponse>(nonDefaultValue));
+  },
+  5_000_000,
+  utf8ByteLength(nonDefaultJson),
+);
+dumpToFile("small-nondefault", "serialize");
+bench(
+  "Deserialize Small API Response (non-default)",
+  () => {
+    blackbox(JSON.parse<SessionStatusResponse>(nonDefaultJson));
+  },
+  5_000_000,
+  utf8ByteLength(nonDefaultJson),
+);
+dumpToFile("small-nondefault", "deserialize");
 
 // Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
 const objSmall = JSON.parse<JSON.Obj>(v2);

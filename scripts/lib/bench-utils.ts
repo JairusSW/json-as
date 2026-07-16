@@ -56,6 +56,15 @@ function readBenchLog(filePath: string): BenchResult {
   return JSON.parse(fs.readFileSync("./" + filePath, "utf-8")) as BenchResult;
 }
 
+/** Reads one AssemblyScript benchmark result for a named mode/runtime. */
+export function readASBenchResult(
+  payload: string,
+  kind: BenchKind,
+  mode: string,
+): BenchResult {
+  return readBenchLog(benchLogPath(payload, kind, "as", mode));
+}
+
 export function benchLogPath(
   payload: string,
   type: BenchKind,
