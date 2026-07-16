@@ -52,6 +52,8 @@ JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-library-deserialize.ts
 bun ./scripts/build-lazy.ts
 # Classic-dataset mode comparison (NAIVE/SWAR/SIMD + lazy, no JS baseline)
 bun ./scripts/build-chart-classic.ts
+# Per-fixture RFC matrix coverage (custom cell grid, no benchmark logs needed).
+bun ./scripts/build-rfc-coverage.ts
 # Cross-runtime comparison (WARP/wasmtime/wasmer/wavm/v8/bun). Opt-in: only built
 # when scripts/run-bench.runtimes.sh has produced logs (it needs external
 # runtimes + a WARP vb_bench build), so the default chart build never fails on it.
