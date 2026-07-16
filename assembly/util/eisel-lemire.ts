@@ -7,7 +7,8 @@
 
 // Consecutive {primary, secondary} truncated 128-bit powers of five for decimal
 // exponents -22 through 22. Sourced from simdjson's power_of_five_128 table.
-const POWERS_OF_FIVE_128: usize = memory.data<u64>([
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const POWERS_OF_FIVE_128: usize = memory.data<u64>([
   0xf1c90080baf72cb1, 0x5324c68b12dd6800, 0x971da05074da7bee,
   0xd3f6fc16ebca8000, 0xbce5086492111aea, 0x88f4bb1ca6bd0000,
   0xec1e4a7db69561a5, 0x2b31e9e3d0700000, 0x9392ee8e921d5d07,
