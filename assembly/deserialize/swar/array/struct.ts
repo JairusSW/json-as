@@ -5,6 +5,7 @@ import {
   ensureArrayField,
   scanValueEnd,
 } from "./shared";
+import { markProductionParseError } from "../../error";
 
 function skipStructArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
@@ -125,18 +126,22 @@ function deserializeStructArrayBody<T extends unknown[]>(
     }
   } while (false);
 
-  throw new Error("Failed to parse JSON!");
+  markProductionParseError();
+  return 0;
 }
 export function deserializeStructArray_SWAR<T extends unknown[]>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
 ): T {
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(instantiate<T>()),
   );
-  deserializeStructArrayBody<T>(srcStart, srcEnd, out);
-  return out;
+  const end = deserializeStructArrayBody<T>(srcStart, srcEnd, out);
+  if (end == srcEnd) return out;
+  markProductionParseError();
+  return changetype<T>(0);
 }
 
 export function deserializeStructArrayField<T extends unknown[]>(

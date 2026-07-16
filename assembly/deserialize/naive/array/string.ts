@@ -1,4 +1,3 @@
-import { JSON } from "../../..";
 import {
   COMMA,
   BRACKET_LEFT,
@@ -7,6 +6,8 @@ import {
   QUOTE,
 } from "../../../custom/chars";
 import { isSpace, scanStringEnd } from "../../../util";
+import { markProductionParseError } from "../../error";
+import { deserializeString } from "../../index/string";
 
 /**
  * Strict string-array deserializer (`string[]` / `(string | null)[]`).
@@ -14,8 +15,8 @@ import { isSpace, scanStringEnd } from "../../../util";
  * Enforces RFC 8259 array structure: `[`-framed, single-comma separated, no
  * leading / trailing / doubled commas, and each element must be a quoted string
  * (or the literal `null` for a nullable element type). Element contents are
- * validated by `deserializeString_NAIVE` (via `JSON.__deserialize`). Throws on
- * any deviation.
+ * validated by the selected whole-string decoder. Returns the shared failure
+ * sentinel on any deviation so JSON.parse can throw at its public boundary.
  */
 export function deserializeStringArray_NAIVE(
   srcStart: usize,
@@ -28,10 +29,14 @@ export function deserializeStringArray_NAIVE(
   out.length = 0; // dst may arrive pre-sized; re-parse from empty via push
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
-  if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT)
-    throw new Error("Invalid JSON array: expected '['");
-  if (load<u16>(srcEnd - 2) != BRACKET_RIGHT)
-    throw new Error("Invalid JSON array: expected ']'");
+  if (
+    srcStart >= srcEnd ||
+    load<u16>(srcStart) != BRACKET_LEFT ||
+    load<u16>(srcEnd - 2) != BRACKET_RIGHT
+  ) {
+    markProductionParseError();
+    return changetype<string[]>(0);
+  }
   srcStart += 2; // past '['
   srcEnd -= 2; // before ']'
 
@@ -42,26 +47,35 @@ export function deserializeStringArray_NAIVE(
     const code = load<u16>(srcStart);
     if (code == QUOTE) {
       const closing = scanStringEnd(srcStart, srcEnd);
-      if (closing >= srcEnd)
-        throw new Error("Invalid JSON array: unterminated string");
-      out.push(JSON.__deserialize<string>(srcStart, closing + 2));
+      if (closing >= srcEnd) {
+        markProductionParseError();
+        return changetype<string[]>(0);
+      }
+      const value = deserializeString(srcStart, closing + 2);
+      if (changetype<usize>(value) == 0) return changetype<string[]>(0);
+      out.push(value);
       srcStart = closing + 2;
     } else if (srcStart + 8 <= srcEnd && load<u64>(srcStart) == NULL_WORD_U64) {
       // `(string | null)[]` element
       out.push(changetype<string>(0));
       srcStart += 8;
     } else {
-      throw new Error("Invalid JSON array: expected string");
+      markProductionParseError();
+      return changetype<string[]>(0);
     }
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;
-    if (load<u16>(srcStart) != COMMA)
-      throw new Error("Invalid JSON array: expected ',' or ']'");
+    if (load<u16>(srcStart) != COMMA) {
+      markProductionParseError();
+      return changetype<string[]>(0);
+    }
     srcStart += 2;
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-    if (srcStart >= srcEnd)
-      throw new Error("Invalid JSON array: trailing comma");
+    if (srcStart >= srcEnd) {
+      markProductionParseError();
+      return changetype<string[]>(0);
+    }
   }
 
   return out;

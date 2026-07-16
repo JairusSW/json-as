@@ -45,6 +45,7 @@ import {
   getParseSrc,
   markProductionParseError,
   takeProductionParseError,
+  failProductionParse as failProductionParseInternal,
 } from "./deserialize";
 import {
   BACK_SLASH,
@@ -384,8 +385,12 @@ export namespace JSON {
     if (isReference<T>() || isManaged<T>()) {
       const type = changetype<nonnull<T>>(0);
       // @ts-expect-error: marker supplied by the json-as transform
-      if (isDefined(type.__DESERIALIZE_SOURCE_FREE))
-        return parseInternal<T>(data, out);
+      if (isDefined(type.__DESERIALIZE_SOURCE_FREE)) {
+        const result = parseInternal<T>(data, out);
+        if (takeProductionParseError())
+          throw new Error("Incomplete or malformed JSON value");
+        return result;
+      }
     }
     // Anchor the source for any lazy JSON.Obj/JSON.Value built while parsing, so
     // their stored slice pointers (into `data`'s buffer) stay valid and resolve
@@ -2549,8 +2554,10 @@ export namespace JSON {
         );
 
       const value = deserializeString(srcStart, srcEnd);
-      if (changetype<usize>(value) == 0)
+      if (changetype<usize>(value) == 0) {
+        takeProductionParseError();
         throw new Error("Invalid JSON string: missing surrounding quotes");
+      }
       return value as T;
     } else {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
@@ -2583,7 +2590,13 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_SLOW)) {
           // @ts-expect-error: Defined by transform
-          out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
+          const slowEnd = out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
+          if (slowEnd == 0) {
+            takeProductionParseError();
+            throw new Error("Malformed JSON object");
+          }
+          if (takeProductionParseError())
+            throw new Error("Malformed nested JSON value");
           return out;
         }
         throw new Error(`No deserialize method defined for type ${type}`);
@@ -2594,8 +2607,10 @@ export namespace JSON {
       } else if (type instanceof Array) {
         // @ts-expect-error: type
         const value = deserializeArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
-        if (changetype<usize>(value) == 0)
+        if (changetype<usize>(value) == 0) {
+          takeProductionParseError();
           throw new Error("Unterminated array in JSON");
+        }
         return value;
       } else if (
         type instanceof Int8Array ||
@@ -2618,7 +2633,12 @@ export namespace JSON {
         return deserializeSet<T>(srcStart, srcEnd, dst);
       } else if (type instanceof Map) {
         // @ts-expect-error: type
-        return deserializeMap<T>(srcStart, srcEnd, dst);
+        const value = deserializeMap<T>(srcStart, srcEnd, dst);
+        if (changetype<usize>(value) == 0) {
+          takeProductionParseError();
+          throw new Error("Malformed JSON map");
+        }
+        return value;
       } else if (type instanceof Date) {
         // @ts-expect-error: type
         return deserializeDate(srcStart, srcEnd);
@@ -2628,20 +2648,26 @@ export namespace JSON {
       } else if (type instanceof JSON.Value) {
         // @ts-expect-error: type
         const value = deserializeArbitrary(srcStart, srcEnd, 0);
-        if (changetype<usize>(value) == 0)
+        if (changetype<usize>(value) == 0) {
+          takeProductionParseError();
           throw new Error("Incomplete JSON value");
+        }
         return value;
       } else if (type instanceof JSON.Obj) {
         // @ts-expect-error: type
         const value = deserializeObject(srcStart, srcEnd, 0);
-        if (changetype<usize>(value) == 0)
+        if (changetype<usize>(value) == 0) {
+          takeProductionParseError();
           throw new Error("Unterminated object in JSON");
+        }
         return value;
       } else if (type instanceof JSON.Arr) {
         // @ts-expect-error: type
         const value = deserializeJsonArray(srcStart, srcEnd, 0);
-        if (changetype<usize>(value) == 0)
+        if (changetype<usize>(value) == 0) {
+          takeProductionParseError();
           throw new Error("Unterminated array in JSON");
+        }
         return value;
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error: type
@@ -2663,6 +2689,10 @@ export namespace JSON {
     );
   }
   export namespace Util {
+    /** Record a cold malformed-input path and return the zero cursor sentinel. */
+    export function failProductionParse(): usize {
+      return failProductionParseInternal();
+    }
     export function isSpace(code: u16): boolean {
       return code == 0x20 || code - 9 <= 4;
     }

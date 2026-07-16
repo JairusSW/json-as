@@ -175,12 +175,14 @@ export function deserializeMapBody<T extends Map<any, any>>(
 
     if (isReference<valueof<T>>() && arbitraryValue) {
       const val = parseValue(srcStart, srcEnd);
+      const next = lastValueEnd();
+      if (!next) break;
       // @ts-ignore: type - valueof<T> is JSON.Value in this branch
       changetype<nonnull<T>>(out).set(
         key,
         changetype<valueof<T>>(changetype<usize>(val)),
       );
-      srcStart = lastValueEnd();
+      srcStart = next;
     } else if (isReference<valueof<T>>() && rawValue) {
       const valueEnd = scanValueEnd(srcStart, srcEnd);
       if (!valueEnd || valueEnd <= srcStart) break;

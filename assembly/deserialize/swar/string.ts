@@ -4,6 +4,8 @@ import { __heap_base } from "memory";
 import { BACK_SLASH, QUOTE } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
+import { markProductionParseError } from "../error";
+import { isValidStringEscape } from "../string-validation";
 
 // Overflow Pattern for Unicode Escapes (READ)
 // \u0001     0 \u00|01__   + 4
@@ -107,6 +109,11 @@ function deserializeEscapedString_SWAR(
       const srcIdx = srcStart + laneIdx;
       if ((load<u32>(srcIdx) & 0xffff) !== 0x5c) continue; // false positive
       bs.offset += laneIdx;
+      if (!isValidStringEscape(srcIdx, srcEnd)) {
+        bs.offset = bs.buffer + outStart;
+        markProductionParseError();
+        return changetype<string>(0);
+      }
       const code = load<u16>(srcIdx, 2);
       if (code !== 0x75) {
         store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
@@ -133,6 +140,11 @@ function deserializeEscapedString_SWAR(
       bs.offset += 2;
       srcStart += 2;
       continue;
+    }
+    if (!isValidStringEscape(srcStart, srcEnd)) {
+      bs.offset = bs.buffer + outStart;
+      markProductionParseError();
+      return changetype<string>(0);
     }
     const code = load<u16>(srcStart, 2);
     if (code !== 0x75) {
@@ -323,6 +335,11 @@ function deserializeEscapedStringField_SWAR(
         bs.offset = bs.buffer;
         return srcIdx + 2;
       }
+      if (!isValidStringEscape(srcIdx, srcEnd)) {
+        bs.offset = bs.buffer;
+        markProductionParseError();
+        return 0;
+      }
       const code = load<u16>(srcIdx, 2);
       if (code !== 0x75) {
         store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
@@ -357,6 +374,11 @@ function deserializeEscapedStringField_SWAR(
       srcStart += 2;
       continue;
     }
+    if (!isValidStringEscape(srcStart, srcEnd)) {
+      bs.offset = bs.buffer;
+      markProductionParseError();
+      return 0;
+    }
     const code = load<u16>(srcStart, 2);
     if (code !== 0x75) {
       store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
@@ -370,8 +392,8 @@ function deserializeEscapedStringField_SWAR(
   }
 
   bs.offset = bs.buffer;
-  abort("Unterminated string literal");
-  return srcStart;
+  markProductionParseError();
+  return 0;
 }
 
 export function deserializeStringField_SWAR<T extends string | null>(
@@ -381,8 +403,10 @@ export function deserializeStringField_SWAR<T extends string | null>(
   dstOffset: usize = 0,
 ): usize {
   const dstFieldPtr = dstObj + dstOffset;
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
-    abort("Expected leading quote");
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) {
+    markProductionParseError();
+    return 0;
+  }
 
   const payloadStart = srcStart + 2;
   srcStart = payloadStart;
@@ -468,8 +492,8 @@ export function deserializeStringField_SWAR<T extends string | null>(
     srcStart += 2;
   }
 
-  abort("Unterminated string literal");
-  return srcStart;
+  markProductionParseError();
+  return 0;
 }
 
 /**

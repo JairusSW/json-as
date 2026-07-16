@@ -5,6 +5,8 @@ import { QUOTE } from "../../custom/chars";
 import { BACK_SLASH } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
+import { markProductionParseError } from "../error";
+import { isValidStringEscape } from "../string-validation";
 
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_5C = i16x8.splat(0x5c); // \
@@ -150,6 +152,11 @@ function deserializeEscapedString_SIMD(
     const laneIdx = usize(ctz(mask) << 1);
     bs.offset += laneIdx;
     const srcIdx = srcStart + laneIdx;
+    if (!isValidStringEscape(srcIdx, srcEnd)) {
+      bs.offset = bs.buffer + outStart;
+      markProductionParseError();
+      return changetype<string>(0);
+    }
     const code = load<u16>(srcIdx, 2);
     if (code !== 0x75) {
       store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
@@ -170,6 +177,11 @@ function deserializeEscapedString_SIMD(
       bs.offset += 2;
       srcStart += 2;
       continue;
+    }
+    if (!isValidStringEscape(srcStart, srcEnd)) {
+      bs.offset = bs.buffer + outStart;
+      markProductionParseError();
+      return changetype<string>(0);
     }
     const code = load<u16>(srcStart, 2);
     if (code !== 0x75) {
@@ -336,6 +348,11 @@ function deserializeEscapedStringField_SIMD(
       return srcIdx + 2;
     }
 
+    if (!isValidStringEscape(srcIdx, srcEnd)) {
+      bs.offset = bs.buffer;
+      markProductionParseError();
+      return 0;
+    }
     const code = load<u16>(srcIdx, 2);
     if (code !== 0x75) {
       store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
@@ -368,6 +385,11 @@ function deserializeEscapedStringField_SIMD(
       continue;
     }
 
+    if (!isValidStringEscape(srcStart, srcEnd)) {
+      bs.offset = bs.buffer;
+      markProductionParseError();
+      return 0;
+    }
     const code = load<u16>(srcStart, 2);
     if (code !== 0x75) {
       store<u16>(bs.offset, load<u16>(DESERIALIZE_ESCAPE_TABLE + code));
@@ -381,8 +403,8 @@ function deserializeEscapedStringField_SIMD(
   }
 
   bs.offset = bs.buffer;
-  abort("Unterminated string literal");
-  return srcStart;
+  markProductionParseError();
+  return 0;
 }
 
 export function deserializeStringField_SIMD<T extends string | null>(
@@ -392,8 +414,10 @@ export function deserializeStringField_SIMD<T extends string | null>(
   dstOffset: usize = 0,
 ): usize {
   const dstFieldPtr = dstObj + dstOffset;
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
-    abort("Expected leading quote");
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) {
+    markProductionParseError();
+    return 0;
+  }
 
   const payloadStart = srcStart + 2;
   const srcEnd16 = srcEnd - 16;
@@ -450,6 +474,6 @@ export function deserializeStringField_SIMD<T extends string | null>(
     srcStart += 2;
   }
 
-  abort("Unterminated string literal");
-  return srcStart;
+  markProductionParseError();
+  return 0;
 }

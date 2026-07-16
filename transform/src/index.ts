@@ -2831,26 +2831,57 @@ export class JSONTransform extends Visitor {
       "  while (srcEnd > srcStart && JSON.Util.isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;\n";
     DESERIALIZE +=
       indent +
-      '  if (srcStart - srcEnd == 0) throw new Error("Input string had zero length or was all whitespace");\n';
+      "  if (srcStart == srcEnd) return JSON.Util.failProductionParse();\n";
     DESERIALIZE +=
       indent +
-      "  if (load<u16>(srcStart) != 123) throw new Error(\"Expected '{' at start of object at position \" + (srcEnd - srcStart).toString());\n";
+      "  if (load<u16>(srcStart) != 123) return JSON.Util.failProductionParse();\n";
     DESERIALIZE +=
       indent +
-      "  if (load<u16>(srcEnd - 2) != 125) throw new Error(\"Expected '}' at end of object at position \" + (srcEnd - srcStart).toString());\n";
+      "  if (load<u16>(srcEnd - 2) != 125) return JSON.Util.failProductionParse();\n";
+    DESERIALIZE += indent + "  const objectStart = srcStart;\n";
     DESERIALIZE += indent + "  srcStart += 2;\n\n";
 
     DESERIALIZE += indent + "  while (srcStart < srcEnd) {\n";
     DESERIALIZE += indent + "    let code = load<u16>(srcStart);\n";
+    DESERIALIZE += indent + "    while (JSON.Util.isSpace(code)) {\n";
+    DESERIALIZE += indent + "      srcStart += 2;\n";
     DESERIALIZE +=
       indent +
-      "    while (JSON.Util.isSpace(code)) code = load<u16>(srcStart += 2);\n";
+      "      if (srcStart >= srcEnd) return JSON.Util.failProductionParse();\n";
+    DESERIALIZE += indent + "      code = load<u16>(srcStart);\n";
+    DESERIALIZE += indent + "    }\n";
     // A generated object parser succeeds only when it observes its own closing
     // brace. Reaching srcEnd can mean a nested value consumed the sole `}`.
     // This branch exists only in the slow fallback; tier 1/2 already check the
     // delimiter directly at their final cursor.
+    // At a member boundary the preceding non-space token tells us whether a
+    // quote/comma/close is legal. This keeps comma grammar in the already-cold
+    // slow fallback: no leading, doubled, or trailing commas, and no adjacent
+    // members without a comma.
+    DESERIALIZE += indent + "    if (keyStart == 0 && !isKey) {\n";
+    DESERIALIZE += indent + "      let prev = srcStart - 2;\n";
     DESERIALIZE +=
-      indent + "    if (keyStart == 0 && code == 125) return srcStart + 2;\n";
+      indent +
+      "      while (prev > objectStart && JSON.Util.isSpace(load<u16>(prev))) prev -= 2;\n";
+    DESERIALIZE += indent + "      const prevCode = load<u16>(prev);\n";
+    DESERIALIZE += indent + "      if (code == 125) {\n";
+    DESERIALIZE +=
+      indent +
+      "        if (prevCode == 44) return JSON.Util.failProductionParse();\n";
+    DESERIALIZE += indent + "        return srcStart + 2;\n";
+    DESERIALIZE += indent + "      }\n";
+    DESERIALIZE += indent + "      if (code == 44) {\n";
+    DESERIALIZE +=
+      indent +
+      "        if (prevCode == 123 || prevCode == 44) return JSON.Util.failProductionParse();\n";
+    DESERIALIZE += indent + "      } else if (code == 34) {\n";
+    DESERIALIZE +=
+      indent +
+      "        if (prevCode != 123 && prevCode != 44) return JSON.Util.failProductionParse();\n";
+    DESERIALIZE += indent + "      } else {\n";
+    DESERIALIZE += indent + "        return JSON.Util.failProductionParse();\n";
+    DESERIALIZE += indent + "      }\n";
+    DESERIALIZE += indent + "    }\n";
     DESERIALIZE += indent + "    if (keyStart == 0) {\n";
     DESERIALIZE +=
       indent + "      if (code == 34 && load<u16>(srcStart - 2) !== 92) {\n";
@@ -2863,25 +2894,16 @@ export class JSONTransform extends Visitor {
         '          console.log("Key: " + JSON.Util.ptrToStr(keyStart, keyEnd));\n';
     DESERIALIZE +=
       indent +
-      "          while (JSON.Util.isSpace((code = load<u16>((srcStart += 2))))) {}\n";
+      "          do { srcStart += 2; if (srcStart >= srcEnd) return JSON.Util.failProductionParse(); code = load<u16>(srcStart); } while (JSON.Util.isSpace(code));\n";
     DESERIALIZE +=
       indent +
-      "          if (code !== 58) throw new Error(\"Expected ':' after key at position \" + (srcEnd - srcStart).toString());\n";
+      "          if (code !== 58) return JSON.Util.failProductionParse();\n";
     DESERIALIZE += indent + "          isKey = false;\n";
     DESERIALIZE += indent + "        } else {\n";
     DESERIALIZE += indent + "          isKey = true;\n";
     DESERIALIZE += indent + "          lastIndex = srcStart + 2;\n";
     DESERIALIZE += indent + "        }\n";
     DESERIALIZE += indent + "      }\n";
-    // STRICT: at a key position (between pairs, not mid-key) the only legal
-    // characters are a string-opening quote, a comma, or the closing brace.
-    // Anything else - an unquoted/single-quoted/numeric key, or garbage after a
-    // value with no separating comma - is malformed JSON. (Whitespace is already
-    // consumed above, so `code` here is the first non-space character.)
-    if (STRICT)
-      DESERIALIZE +=
-        indent +
-        '      else if (!isKey && code != 44 && code != 125) throw new Error("Expected \'\\"\' to start key in JSON object at position " + (srcEnd - srcStart).toString());\n';
     DESERIALIZE += indent + "      srcStart += 2;\n";
     DESERIALIZE += indent + "    } else {\n";
     // if (shouldGroup) DESERIALIZE += "    const keySize = keyEnd - keyStart;\n";

@@ -6,3 +6,4 @@ export {
   markProductionParseError,
   takeProductionParseError,
 } from "../naive/object";
+export { failProductionParse } from "../error";

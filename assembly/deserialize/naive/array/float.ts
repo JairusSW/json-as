@@ -1,6 +1,7 @@
 import { isSpace } from "../../../util";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON } from "../../..";
+import { markProductionParseError } from "../../error";
 
 /**
  * Strict float-array deserializer (`f64[]` / `f32[]`).
@@ -8,8 +9,8 @@ import { JSON } from "../../..";
  * Enforces RFC 8259 array structure: `[`-framed, single-comma separated, no
  * leading / trailing / doubled commas, and no garbage between values. Each
  * element token is validated by `deserializeFloat_NAIVE` (via `JSON.__deserialize`),
- * so malformed numbers like `0e` / `-01` / `1.` are rejected here too. Throws on
- * any deviation.
+ * so malformed numbers like `0e` / `-01` / `1.` are rejected here too. Returns
+ * the shared failure sentinel on any deviation.
  */
 export function deserializeFloatArray_NAIVE<T extends number[]>(
   srcStart: usize,
@@ -25,10 +26,14 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
 
   // Trim surrounding whitespace and require the enclosing brackets.
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
-  if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT)
-    throw new Error("Invalid JSON array: expected '['");
-  if (load<u16>(srcEnd - 2) != BRACKET_RIGHT)
-    throw new Error("Invalid JSON array: expected ']'");
+  if (
+    srcStart >= srcEnd ||
+    load<u16>(srcStart) != BRACKET_LEFT ||
+    load<u16>(srcEnd - 2) != BRACKET_RIGHT
+  ) {
+    markProductionParseError();
+    return changetype<T>(0);
+  }
   srcStart += 2; // past '['
   srcEnd -= 2; // before ']'
 
@@ -44,18 +49,24 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
       if (c == COMMA || isSpace(c)) break;
       srcStart += 2;
     }
-    if (srcStart == tokenStart)
-      throw new Error("Invalid JSON array: missing value");
+    if (srcStart == tokenStart) {
+      markProductionParseError();
+      return changetype<T>(0);
+    }
     out.push(JSON.__deserialize<valueof<T>>(tokenStart, srcStart));
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break; // end of array body
-    if (load<u16>(srcStart) != COMMA)
-      throw new Error("Invalid JSON array: expected ',' or ']'");
+    if (load<u16>(srcStart) != COMMA) {
+      markProductionParseError();
+      return changetype<T>(0);
+    }
     srcStart += 2; // past ','
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-    if (srcStart >= srcEnd)
-      throw new Error("Invalid JSON array: trailing comma");
+    if (srcStart >= srcEnd) {
+      markProductionParseError();
+      return changetype<T>(0);
+    }
   }
 
   return out;

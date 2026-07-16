@@ -3,6 +3,8 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { __heap_base } from "memory";
 import { BACK_SLASH, QUOTE } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
+import { markProductionParseError } from "../error";
+import { isValidStringEscape } from "../string-validation";
 
 function hexDigit(c: u16): u32 {
   if (c <= 0x39) return c - 0x30; // '0'-'9'
@@ -19,46 +21,10 @@ function hex4ToU16(srcStart: usize): u16 {
   );
 }
 
-function isHexDigit(c: u16): bool {
-  return (
-    (c >= 0x30 && c <= 0x39) ||
-    (c >= 0x41 && c <= 0x46) ||
-    (c >= 0x61 && c <= 0x66)
-  );
-}
-
-// Strict RFC 8259 check for the char following a backslash, at [escPtr, srcEnd).
-// Legal escapes: " \ / b f n r t and \uXXXX (4 hex digits). Throws otherwise:
-// unknown escape letter, a trailing backslash, or a short / non-hex \u.
-function validateEscape(escPtr: usize, srcEnd: usize): void {
-  if (escPtr >= srcEnd)
-    throw new Error("Invalid JSON string: incomplete escape");
-  const code = load<u16>(escPtr);
-  if (code == 0x75) {
-    // \uXXXX
-    if (escPtr + 10 > srcEnd)
-      throw new Error("Invalid JSON string: incomplete \\u escape");
-    if (
-      !isHexDigit(load<u16>(escPtr, 2)) ||
-      !isHexDigit(load<u16>(escPtr, 4)) ||
-      !isHexDigit(load<u16>(escPtr, 6)) ||
-      !isHexDigit(load<u16>(escPtr, 8))
-    )
-      throw new Error("Invalid JSON string: \\u escape needs 4 hex digits");
-    return;
-  }
-  // short escapes: " \ / b f n r t
-  if (
-    code != 0x22 &&
-    code != 0x5c &&
-    code != 0x2f &&
-    code != 0x62 &&
-    code != 0x66 &&
-    code != 0x6e &&
-    code != 0x72 &&
-    code != 0x74
-  )
-    throw new Error("Invalid JSON string: illegal escape");
+// RFC 8259 check for the char following a backslash, at [escPtr, srcEnd).
+// Legal escapes: " \ / b f n r t and \uXXXX (4 hex digits).
+function validateEscape(escPtr: usize, srcEnd: usize): bool {
+  return isValidStringEscape(escPtr - 2, srcEnd);
 }
 
 export function deserializeString_NAIVE(
@@ -72,8 +38,10 @@ export function deserializeString_NAIVE(
     srcEnd - srcStart < 4 ||
     load<u16>(srcStart) != QUOTE ||
     load<u16>(srcEnd - 2) != QUOTE
-  )
-    throw new Error("Invalid JSON string: missing surrounding quotes");
+  ) {
+    markProductionParseError();
+    return changetype<string>(0);
+  }
   // Strip quotes
   srcStart += 2;
   srcEnd -= 2;
@@ -88,13 +56,20 @@ export function deserializeString_NAIVE(
     // Early exit
     if (block !== 0x5c) {
       // RFC 8259: literal control chars (U+0000..U+001F) must be escaped.
-      if (block < 0x20)
-        throw new Error("Invalid JSON string: unescaped control character");
+      if (block < 0x20) {
+        bs.offset = bs.buffer + outStart;
+        markProductionParseError();
+        return changetype<string>(0);
+      }
       bs.offset += 2;
       continue;
     }
 
-    validateEscape(srcStart, srcEnd);
+    if (!validateEscape(srcStart, srcEnd)) {
+      bs.offset = bs.buffer + outStart;
+      markProductionParseError();
+      return changetype<string>(0);
+    }
     const code = load<u16>(srcStart);
     if (code !== 0x75) {
       // Short escapes (\n \t \" \\)
@@ -191,7 +166,7 @@ function deserializeEscapedStringField_NAIVE(
     bs.offset += 2;
   }
 
-  abort("Expected closing quote");
+  markProductionParseError();
   return 0;
 }
 
@@ -207,8 +182,10 @@ export function deserializeStringField_NAIVE<T extends string | null>(
   dstOffset: usize = 0,
 ): usize {
   const dstFieldPtr = dstObj + dstOffset;
-  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE)
-    abort("Expected leading quote");
+  if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) {
+    markProductionParseError();
+    return 0;
+  }
 
   const payloadStart = srcStart + 2;
   srcStart = payloadStart;
@@ -238,6 +215,6 @@ export function deserializeStringField_NAIVE<T extends string | null>(
     srcStart += 2;
   }
 
-  abort("Expected closing quote");
+  markProductionParseError();
   return 0;
 }

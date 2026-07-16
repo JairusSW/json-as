@@ -8,6 +8,7 @@ import { parse4Digits_PairMul } from "../../../util/swar-int";
 import { loadPow10, MAX_EXACT_MANTISSA, MAX_EXACT_POW10 } from "../float";
 import { isSpace } from "../../../util";
 import { eiselLemire22 } from "../../../util/eisel-lemire";
+import { markProductionParseError } from "../../error";
 
 function skipFloatArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
@@ -312,7 +313,8 @@ export function deserializeFloatArrayBody<T extends number[]>(
     }
   } while (false);
 
-  throw new Error("Failed to parse JSON!");
+  markProductionParseError();
+  return 0;
 }
 export function deserializeFloatArrayField<T extends number[]>(
   srcStart: usize,
