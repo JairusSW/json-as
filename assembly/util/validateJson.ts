@@ -11,6 +11,10 @@ const OBJECT_KEY: u8 = 4;
 const OBJECT_COLON: u8 = 5;
 const OBJECT_VALUE: u8 = 6;
 const OBJECT_COMMA_OR_END: u8 = 7;
+// RFC 8259 permits implementations to set a maximum nesting depth. Keep the
+// limit below typical Wasm shadow-stack exhaustion while accepting practical
+// documents and reporting excessive nesting as a normal parse error.
+const MAX_JSON_DEPTH: i32 = 256;
 
 
 @inline
@@ -152,10 +156,12 @@ function scanJSONValue(ptr: usize, end: usize, states: u8[]): usize {
   const code = load<u16>(ptr);
   if (code == 0x22) return scanJSONString(ptr, end);
   if (code == 0x5b) {
+    if (states.length >= MAX_JSON_DEPTH) return 0;
     states.push(ARRAY_FIRST_OR_END);
     return ptr + 2;
   }
   if (code == 0x7b) {
+    if (states.length >= MAX_JSON_DEPTH) return 0;
     states.push(OBJECT_FIRST_KEY_OR_END);
     return ptr + 2;
   }

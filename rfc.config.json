@@ -2,6 +2,7 @@
   "$schema": "./node_modules/as-test/as-test.config.schema.json",
   "input": [
     "./assembly/__tests__/rfc/*.spec.ts",
+    "./assembly/__tests__/rfc-matrix/*.spec.ts",
     "./assembly/__tests__/strict/*.spec.ts"
   ],
   "outDir": "./.as-test/build",

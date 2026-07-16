@@ -1,6 +1,6 @@
 // RFC8259 / JSONTestSuite: i_structure_UTF-8_BOM_empty_object.json  (typed as OAll)
 import { JSON } from "../..";
-import { describe, expect, xdescribe } from "as-test";
+import { describe, expect } from "as-test";
 
 
 @json
@@ -12,8 +12,9 @@ class OAll {
   obj: OAll | null = null;
 }
 
-xdescribe("i_structure_UTF-8_BOM_empty_object", () => {
+// Implementation-defined case: a leading BOM is not part of the JSON grammar.
+describe("i_structure_UTF-8_BOM_empty_object", () => {
   expect((): void => {
     JSON.parse<OAll>("\ufeff{}");
-  }).not.toThrow();
+  }).toThrow();
 });
