@@ -19,6 +19,12 @@ function deserializeStringArrayBody<T extends string[]>(
   out: T,
 ): usize {
   let index = 0;
+  // Reused struct fields normally retain their array backing store. Cache the
+  // original slot range so the common path avoids an Array.length load and
+  // growth branch for every string.
+  const reusableLength = out.length;
+  const reusableDataStart = out.dataStart;
+  const elementSize = sizeof<valueof<T>>();
 
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
@@ -31,7 +37,10 @@ function deserializeStringArrayBody<T extends string[]>(
     }
 
     while (srcStart < srcEnd) {
-      const slot = ensureArrayElementSlot<T>(out, index);
+      const slot =
+        index < reusableLength
+          ? reusableDataStart + <usize>index * elementSize
+          : ensureArrayElementSlot<T>(out, index);
       // Null fast path for `(string | null)[]`. "null" is 4 UTF-16 chars
       // = 8 bytes, exactly one u64 compare. Store 0 (the AS null reference)
       // and skip 8 bytes.

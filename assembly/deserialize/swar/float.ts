@@ -19,6 +19,7 @@
 import { ptrToStr } from "../../util/ptrToStr";
 import { parse4Digits_PairMul } from "../../util/swar-int";
 import { scientific } from "../../util/scientific";
+import { eiselLemire22 } from "../../util/eisel-lemire";
 
 export const POW10_F64_POS: usize = memory.data<f64>([
   1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14,
@@ -72,37 +73,37 @@ export function deserializeFloat_SWAR<T>(srcStart: usize, srcEnd: usize): T {
   // Integer part: scalar. Most JSON integers are 1-3 digits, so parse4 would
   // waste a validate per call.
   let mantissa: u64 = 0;
-  let intDigits: i32 = 0;
+  const intStart = p;
   while (p < srcEnd) {
     const d = <u32>load<u16>(p) - ASCII_ZERO;
     if (d > 9) break;
     mantissa = mantissa * 10 + <u64>d;
-    intDigits++;
     p += 2;
   }
+  const intDigits = <i32>((p - intStart) >> 1);
 
   // Fractional part: parse4 stride (8 bytes / 4 digits) → scalar tail.
   // parse8 was tried and benchmarked even/worse; the saved mantissa mul
   // didn't outweigh the extra load and combined-validation latency, and the
   // dependency chain is the same length either way.
-  let fracDigits: i32 = 0;
+  let fracStart = p;
   if (p < srcEnd && load<u16>(p) == ASCII_DOT) {
     p += 2;
+    fracStart = p;
     while (p + 6 < srcEnd) {
       const parsed = parse4Digits_PairMul(load<u64>(p));
       if (parsed == U32.MAX_VALUE) break;
       mantissa = mantissa * 10_000 + <u64>parsed;
-      fracDigits += 4;
       p += 8;
     }
     while (p < srcEnd) {
       const d = <u32>load<u16>(p) - ASCII_ZERO;
       if (d > 9) break;
       mantissa = mantissa * 10 + <u64>d;
-      fracDigits++;
       p += 2;
     }
   }
+  const fracDigits = <i32>((p - fracStart) >> 1);
 
   const mantDigits = intDigits + fracDigits;
   if (mantDigits == 0) return fallback<T>(origStart, srcEnd);
@@ -158,7 +159,10 @@ export function deserializeFloat_SWAR<T>(srcStart: usize, srcEnd: usize): T {
       result /= loadPow10(<u32>-exponent);
     }
   } else if (mantDigits <= 19) {
-    result = scientific(mantissa, exponent);
+    result =
+      exponent >= -22 && exponent <= 22
+        ? eiselLemire22(mantissa, exponent)
+        : scientific(mantissa, exponent);
   } else {
     return fallback<T>(origStart, srcEnd);
   }
@@ -188,33 +192,33 @@ export function deserializeFloatField_SWAR<T extends number>(
   }
 
   let mantissa: u64 = 0;
-  let intDigits: i32 = 0;
+  const intStart = p;
   while (p < srcEnd) {
     const d = <u32>load<u16>(p) - ASCII_ZERO;
     if (d > 9) break;
     mantissa = mantissa * 10 + <u64>d;
-    intDigits++;
     p += 2;
   }
+  const intDigits = <i32>((p - intStart) >> 1);
 
-  let fracDigits: i32 = 0;
+  let fracStart = p;
   if (p < srcEnd && load<u16>(p) == ASCII_DOT) {
     p += 2;
+    fracStart = p;
     while (p + 6 < srcEnd) {
       const parsed = parse4Digits_PairMul(load<u64>(p));
       if (parsed == U32.MAX_VALUE) break;
       mantissa = mantissa * 10_000 + <u64>parsed;
-      fracDigits += 4;
       p += 8;
     }
     while (p < srcEnd) {
       const d = <u32>load<u16>(p) - ASCII_ZERO;
       if (d > 9) break;
       mantissa = mantissa * 10 + <u64>d;
-      fracDigits++;
       p += 2;
     }
   }
+  const fracDigits = <i32>((p - fracStart) >> 1);
 
   const mantDigits = intDigits + fracDigits;
   if (mantDigits == 0) unreachable();
@@ -277,7 +281,10 @@ export function deserializeFloatField_SWAR<T extends number>(
       result /= loadPow10(<u32>-exponent);
     }
   } else if (mantDigits <= 19) {
-    result = scientific(mantissa, exponent);
+    result =
+      exponent >= -22 && exponent <= 22
+        ? eiselLemire22(mantissa, exponent)
+        : scientific(mantissa, exponent);
   } else {
     fallbackField<T>(origStart, p, fieldPtr);
     return p;

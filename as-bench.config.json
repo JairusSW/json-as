@@ -1,0 +1,39 @@
+{
+  "$schema": "./node_modules/as-bench/as-bench.config.schema.json",
+  "input": ["assembly/__profiles__/**/*.bench.ts"],
+  "outDir": ".as-bench/build",
+  "baselineDir": ".as-bench/baselines",
+  "runtime": "node",
+  "settings": {
+    "warmupTime": 500,
+    "measurementTime": 1000,
+    "numResamples": 20000
+  },
+  "buildOptions": {
+    "optimize": true,
+    "debug": false,
+    "args": [
+      "--transform",
+      "./transform",
+      "--enable",
+      "bulk-memory",
+      "--runtime",
+      "incremental"
+    ]
+  },
+  "profile": {
+    "top": 20,
+    "all": false,
+    "iters": 20,
+    "minInstrs": 2
+  },
+  "modes": {
+    "quick": {
+      "settings": {
+        "warmupTime": 200,
+        "measurementTime": 400,
+        "numResamples": 5000
+      }
+    }
+  }
+}

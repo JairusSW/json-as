@@ -7,6 +7,7 @@ import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 import { parse4Digits_PairMul } from "../../../util/swar-int";
 import { loadPow10, MAX_EXACT_MANTISSA, MAX_EXACT_POW10 } from "../float";
 import { isSpace } from "../../../util";
+import { eiselLemire22 } from "../../../util/eisel-lemire";
 
 function skipFloatArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
@@ -57,35 +58,35 @@ export function parseFloatElementSWAR<E>(
 
   // Integer mantissa: scalar (most JSON integers are 1-3 digits).
   let mantissa: u64 = 0;
-  let intDigits: i32 = 0;
+  const intStart = p;
   while (p < srcEnd) {
     const d = <u32>load<u16>(p) - 48;
     if (d > 9) break;
     mantissa = mantissa * 10 + <u64>d;
-    intDigits++;
     p += 2;
   }
+  const intDigits = <i32>((p - intStart) >> 1);
 
   // Fractional mantissa: parse4 SWAR stride + scalar tail. Same u64
   // accumulator as the integer part - exponent compensates for fracDigits.
-  let fracDigits: i32 = 0;
+  let fracStart = p;
   if (p < srcEnd && load<u16>(p) == 46) {
     p += 2;
+    fracStart = p;
     while (p + 6 < srcEnd) {
       const parsed = parse4Digits_PairMul(load<u64>(p));
       if (parsed == U32.MAX_VALUE) break;
       mantissa = mantissa * 10_000 + <u64>parsed;
-      fracDigits += 4;
       p += 8;
     }
     while (p < srcEnd) {
       const d = <u32>load<u16>(p) - 48;
       if (d > 9) break;
       mantissa = mantissa * 10 + <u64>d;
-      fracDigits++;
       p += 2;
     }
   }
+  const fracDigits = <i32>((p - fracStart) >> 1);
 
   const mantDigits = intDigits + fracDigits;
   let exponent: i32 = -fracDigits;
@@ -149,10 +150,12 @@ export function parseFloatElementSWAR<E>(
       result /= loadPow10(<u32>-exponent);
     }
   } else if (mantDigits <= 19) {
-    // Mantissa fits in u64 but the fast-path constraints don't hold. Call
-    // `scientific` directly with our already-parsed mantissa+exp, skipping
-    // the `ptrToStr` allocation + strtod re-parse.
-    result = scientific(mantissa, exponent);
+    // Eisel-Lemire handles the overwhelmingly common medium exponent range
+    // without the u64 division/modulo in `scientific`'s scaledown path.
+    result =
+      exponent >= -22 && exponent <= 22
+        ? eiselLemire22(mantissa, exponent)
+        : scientific(mantissa, exponent);
   } else {
     // >19 mantissa digits - beyond u64 capacity, may need strtod's sticky-bit
     // pattern. Hand off to f*.parse on the float's substring.
@@ -260,6 +263,9 @@ export function deserializeFloatArrayBody<T extends number[]>(
   out: T,
 ): usize {
   let index = 0;
+  const reusableLength = out.length;
+  const reusableDataStart = out.dataStart;
+  const elementSize = sizeof<valueof<T>>();
 
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
@@ -272,7 +278,10 @@ export function deserializeFloatArrayBody<T extends number[]>(
     }
 
     while (srcStart < srcEnd) {
-      const slot = ensureArrayElementSlot<T>(out, index);
+      const slot =
+        index < reusableLength
+          ? reusableDataStart + <usize>index * elementSize
+          : ensureArrayElementSlot<T>(out, index);
       let next = parseFloatElementSWAR<valueof<T>>(srcStart, srcEnd, slot);
       if (!next) {
         next = deserializeFloatField_NAIVE<valueof<T>>(srcStart, srcEnd, slot);
@@ -296,7 +305,7 @@ export function deserializeFloatArrayBody<T extends number[]>(
         // pairs across thousands of geometries) the length is unchanged
         // and the AS runtime's `ensureCapacity` call is pure overhead.
         const nextLen = index + 1;
-        if (out.length != nextLen) out.length = nextLen;
+        if (reusableLength != nextLen) out.length = nextLen;
         return srcStart + 2;
       }
       break;

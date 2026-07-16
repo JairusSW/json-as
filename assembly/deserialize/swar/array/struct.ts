@@ -32,6 +32,9 @@ function deserializeStructArrayBody<T extends unknown[]>(
   out: T,
 ): usize {
   let index = 0;
+  const reusableLength = out.length;
+  const reusableDataStart = out.dataStart;
+  const elementSize = sizeof<valueof<T>>();
 
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
@@ -44,7 +47,10 @@ function deserializeStructArrayBody<T extends unknown[]>(
     }
 
     while (srcStart < srcEnd) {
-      const slot = ensureArrayElementSlot<T>(out, index);
+      const slot =
+        index < reusableLength
+          ? reusableDataStart + <usize>index * elementSize
+          : ensureArrayElementSlot<T>(out, index);
       let value = load<valueof<T>>(slot);
       if (changetype<usize>(value) == 0) {
         value = changetype<valueof<T>>(
@@ -112,7 +118,7 @@ function deserializeStructArrayBody<T extends unknown[]>(
         // right length (e.g. canada-style geometry rings whose count
         // matches a previous parse).
         const nextLen = index + 1;
-        if (out.length != nextLen) out.length = nextLen;
+        if (reusableLength != nextLen) out.length = nextLen;
         return srcStart + 2;
       }
       break;

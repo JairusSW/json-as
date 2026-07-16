@@ -591,6 +591,15 @@ function deserializeIntegerArrayBody<T extends number[]>(
   out: T,
 ): usize {
   let index = 0;
+  // Struct instances are commonly reused across parses (the corpus benches do
+  // this deliberately). Keep the original backing-store metadata locally so
+  // the steady-state path can write slots directly. Calling
+  // `ensureArrayElementSlot` for every element otherwise reloads `length`,
+  // branches, and recomputes `dataStart + index * sizeof<E>` even when the
+  // array already has exactly the required shape.
+  const reusableLength = out.length;
+  const reusableDataStart = out.dataStart;
+  const elementSize = sizeof<valueof<T>>();
 
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
@@ -603,7 +612,10 @@ function deserializeIntegerArrayBody<T extends number[]>(
     }
 
     while (srcStart < srcEnd) {
-      const slot = ensureArrayElementSlot<T>(out, index);
+      const slot =
+        index < reusableLength
+          ? reusableDataStart + <usize>index * elementSize
+          : ensureArrayElementSlot<T>(out, index);
       // Inline the array-optimized SWAR parser directly. The top-level
       // (`deserializeIntegerArrayImpl`) and the typed-array path
       // (`swar/typedarray.ts`) already call these - having the field path

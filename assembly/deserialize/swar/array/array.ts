@@ -9,6 +9,9 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
   out: T,
 ): usize {
   let index = 0;
+  const reusableLength = out.length;
+  const reusableDataStart = out.dataStart;
+  const elementSize = sizeof<valueof<T>>();
 
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
@@ -23,8 +26,10 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
     while (srcStart < srcEnd) {
       if (isFloat<valueof<valueof<T>>>()) {
         let value: valueof<T>;
-        if (index < out.length) {
-          value = unchecked(out[index]);
+        if (index < reusableLength) {
+          value = load<valueof<T>>(
+            reusableDataStart + <usize>index * elementSize,
+          );
         } else {
           value = changetype<valueof<T>>(instantiate<valueof<T>>());
           out.push(value);
@@ -37,8 +42,10 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
         if (!srcStart || srcStart >= srcEnd) break;
       } else if (isArray<valueof<valueof<T>>>()) {
         let value: valueof<T>;
-        if (index < out.length) {
-          value = unchecked(out[index]);
+        if (index < reusableLength) {
+          value = load<valueof<T>>(
+            reusableDataStart + <usize>index * elementSize,
+          );
         } else {
           value = changetype<valueof<T>>(instantiate<valueof<T>>());
           out.push(value);
@@ -54,16 +61,24 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
         if (!valueEnd || valueEnd <= srcStart) break;
 
         let valuePtr: usize = 0;
-        if (index < out.length) {
-          valuePtr = changetype<usize>(unchecked(out[index]));
+        if (index < reusableLength) {
+          valuePtr = changetype<usize>(
+            load<valueof<T>>(reusableDataStart + <usize>index * elementSize),
+          );
         }
         const value = JSON.__deserialize<valueof<T>>(
           srcStart,
           valueEnd,
           valuePtr,
         );
-        if (index < out.length) unchecked((out[index] = value));
-        else out.push(value);
+        if (index < reusableLength) {
+          store<valueof<T>>(
+            reusableDataStart + <usize>index * elementSize,
+            value,
+          );
+        } else {
+          out.push(value);
+        }
         srcStart = valueEnd;
       }
 
@@ -80,7 +95,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
         // correct (the array is being reused with the same shape, e.g.
         // canada's geometry rings across repeated parses).
         const nextLen = index + 1;
-        if (out.length != nextLen) out.length = nextLen;
+        if (reusableLength != nextLen) out.length = nextLen;
         return srcStart + 2;
       }
       break;

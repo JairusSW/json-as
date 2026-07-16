@@ -373,24 +373,10 @@ export function deserializeStringField_SWAR<T extends string | null>(
   const payloadStart = srcStart + 2;
   srcStart = payloadStart;
 
-  // Wide pre-scan: skip 16 bytes per iter while both halves are clean. The
-  // common case (plain ASCII payloads, no escape) hits this loop exclusively
-  // and is bound by load+SWAR throughput, not branch frequency.
-  if (srcEnd >= 16) {
-    const srcEnd16 = srcEnd - 16;
-    while (srcStart <= srcEnd16) {
-      // Test the first word before loading the second: short values and keys
-      // close (or escape) within the first 8 bytes, so this skips the second
-      // load on the common case while still skipping 16 bytes when both clean.
-      if (backslash_or_quote_mask(load<u64>(srcStart)) != 0) break;
-      if (backslash_or_quote_mask(load<u64>(srcStart, 8)) != 0) {
-        srcStart += 8;
-        break;
-      }
-      srcStart += 16;
-    }
-  }
-
+  // Consume each word exactly once. The old 16-byte pre-scan discarded the
+  // hit mask and the following loop recomputed it for the same word. That was
+  // especially expensive for the short string values dominating object
+  // corpora, where essentially every call paid for two equality masks.
   const srcEnd8 = srcEnd - 8;
   while (srcStart <= srcEnd8) {
     let mask = backslash_or_quote_mask(load<u64>(srcStart));

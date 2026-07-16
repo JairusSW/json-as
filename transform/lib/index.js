@@ -1420,6 +1420,8 @@ export class JSONTransform extends Visitor {
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push("  }");
                     out.push("  let index = 0;");
+                    out.push("  const reusableLength = value.length;");
+                    out.push("  const reusableDataStart = value.dataStart;");
                     out.push(`  ${srcPtr} = ${valuePtr} + 2;`);
                     out.push(`  ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`);
                     out.push(`  if (load<u16>(${srcPtr}) == 0x5d) {`);
@@ -1428,17 +1430,19 @@ export class JSONTransform extends Visitor {
                     out.push("  } else while (true) {");
                     out.push(`    ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`);
                     if (elementNullable) {
-                        out.push(`    if (index >= value.length) value.push(changetype<${valueType} | null>(0));`);
+                        out.push(`    if (index >= reusableLength) value.push(changetype<${valueType} | null>(0));`);
+                        out.push(`    const slot = index < reusableLength ? reusableDataStart + ((<usize>index) << alignof<${valueType}>()) : value.dataStart + ((<usize>index) << alignof<${valueType}>());`);
                         out.push(`    if (load<u64>(${srcPtr}) == 30399761348886638) {`);
-                        out.push(`      store<usize>(value.dataStart + ((<usize>index) << alignof<${valueType}>()), 0);`);
+                        out.push("      store<usize>(slot, 0);");
                         out.push(`      ${srcPtr} += 8;`);
                         out.push("    } else {");
-                        out.push(`      ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${valueType}>(${srcPtr}, srcEnd, value.dataStart + ((<usize>index) << alignof<${valueType}>()));`);
+                        out.push(`      ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${valueType}>(${srcPtr}, srcEnd, slot);`);
                         out.push("    }");
                     }
                     else {
-                        out.push('    if (index >= value.length) value.push("");');
-                        out.push(`    ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${valueType}>(${srcPtr}, srcEnd, value.dataStart + ((<usize>index) << alignof<${valueType}>()));`);
+                        out.push('    if (index >= reusableLength) value.push("");');
+                        out.push(`    const slot = index < reusableLength ? reusableDataStart + ((<usize>index) << alignof<${valueType}>()) : value.dataStart + ((<usize>index) << alignof<${valueType}>());`);
+                        out.push(`    ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${valueType}>(${srcPtr}, srcEnd, slot);`);
                     }
                     out.push("    index++;");
                     out.push(`    ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`);
@@ -1448,7 +1452,7 @@ export class JSONTransform extends Visitor {
                     out.push("      continue;");
                     out.push("    }");
                     out.push("    if (code == 0x5d) {");
-                    out.push("      value.length = index;");
+                    out.push("      if (index != reusableLength) value.length = index;");
                     out.push(`      ${srcPtr} += 2;`);
                     out.push("      break;");
                     out.push("    }");

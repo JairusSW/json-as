@@ -20,12 +20,19 @@ export function deserializeGenericArrayBody<T extends unknown[]>(
   if (load<u16>(srcStart) == BRACKET_RIGHT) return srcStart + 2;
 
   let index = 0;
+  const reusableLength = out.length;
+  const reusableDataStart = out.dataStart;
+  const elementSize = sizeof<valueof<T>>();
 
   while (srcStart < srcEnd) {
     const valueEnd = scanValueEnd(srcStart, srcEnd);
     if (!valueEnd || valueEnd <= srcStart) break;
 
-    const slot = ensureArrayElementSlot<T>(out, index++);
+    const slot =
+      index < reusableLength
+        ? reusableDataStart + <usize>index * elementSize
+        : ensureArrayElementSlot<T>(out, index);
+    index++;
     store<valueof<T>>(slot, JSON.__deserialize<valueof<T>>(srcStart, valueEnd));
     srcStart = valueEnd;
 
@@ -38,7 +45,7 @@ export function deserializeGenericArrayBody<T extends unknown[]>(
       continue;
     }
     if (code == BRACKET_RIGHT) {
-      out.length = index;
+      if (reusableLength != index) out.length = index;
       return srcStart + 2;
     }
     break;

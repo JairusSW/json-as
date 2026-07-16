@@ -13,6 +13,9 @@ function deserializeObjectArrayBody<T extends unknown[]>(
   out: T,
 ): usize {
   let index = 0;
+  const reusableLength = out.length;
+  const reusableDataStart = out.dataStart;
+  const elementSize = sizeof<valueof<T>>();
 
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
@@ -25,7 +28,10 @@ function deserializeObjectArrayBody<T extends unknown[]>(
     }
 
     while (srcStart < srcEnd) {
-      const slot = ensureArrayElementSlot<T>(out, index);
+      const slot =
+        index < reusableLength
+          ? reusableDataStart + <usize>index * elementSize
+          : ensureArrayElementSlot<T>(out, index);
       const valueStart = srcStart;
       const valueEnd = scanValueEnd(valueStart, srcEnd);
       if (!valueEnd) break;
@@ -48,7 +54,7 @@ function deserializeObjectArrayBody<T extends unknown[]>(
       }
       if (code == BRACKET_RIGHT) {
         const nextLen = index + 1;
-        if (out.length != nextLen) out.length = nextLen;
+        if (reusableLength != nextLen) out.length = nextLen;
         return srcStart + 2;
       }
       break;
