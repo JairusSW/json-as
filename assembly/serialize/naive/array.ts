@@ -5,6 +5,7 @@ import { serializeBoolUnsafe } from "./bool";
 import { serializeFloat32Unsafe, serializeFloat64Unsafe } from "./float";
 import { serializeIntegerUnsafe } from "./integer";
 import { serializeString } from "../index/string";
+import { ensureItoaPairs, itoaFast } from "../../util/itoa-fast";
 import { dtoa_buffered, ftoa_buffered } from "xjb-as";
 
 function maxIntegerBytes<T extends number>(): u32 {
@@ -265,6 +266,59 @@ function serializeI8ArrayFast(src: i8[]): void {
   store<u16>(bs.offset - 2, BRACKET_RIGHT);
 }
 
+// Integer arrays wider than one byte use the same uniform trailing-comma
+// layout as the specialized float paths. Keeping the output cursor local
+// avoids two global `bs.offset` accesses per value, while reading dataStart
+// directly removes the Array.__uget call left in the generic array loop.
+function serializeIntegerArrayFast<T extends number[]>(src: T): void {
+  const len = src.length;
+  bs.proposeSize(4 + <u32>len * (maxIntegerBytes<valueof<T>>() + 2));
+  store<u16>(bs.offset, BRACKET_LEFT);
+  bs.offset += 2;
+  if (len == 0) {
+    store<u16>(bs.offset, BRACKET_RIGHT);
+    bs.offset += 2;
+    return;
+  }
+
+  ensureItoaPairs();
+  const dataStart = src.dataStart;
+  const stride = sizeof<valueof<T>>();
+  let offset = bs.offset;
+  for (let i: i32 = 0; i < len; i++) {
+    const value = load<valueof<T>>(dataStart + <usize>i * stride);
+    offset += (<usize>itoaFast<valueof<T>>(offset, value)) << 1;
+    store<u16>(offset, COMMA);
+    offset += 2;
+  }
+  store<u16>(offset - 2, BRACKET_RIGHT);
+  bs.offset = offset;
+}
+
+function serializeStringArrayFast(src: string[]): void {
+  const len = src.length;
+  // String serialization reserves its own payload; reserve delimiters here.
+  bs.proposeSize(4 + (len > 0 ? <u32>(len - 1) * 2 : 0));
+  store<u16>(bs.offset, BRACKET_LEFT);
+  bs.offset += 2;
+  if (len == 0) {
+    store<u16>(bs.offset, BRACKET_RIGHT);
+    bs.offset += 2;
+    return;
+  }
+
+  const dataStart = src.dataStart;
+  for (let i: i32 = 0; i < len; i++) {
+    const value = changetype<string>(
+      load<usize>(dataStart + ((<usize>i) << 2)),
+    );
+    serializeString(value);
+    store<u16>(bs.offset, COMMA);
+    bs.offset += 2;
+  }
+  store<u16>(bs.offset - 2, BRACKET_RIGHT);
+}
+
 export function serializeArray<T extends any[]>(src: T): void {
   // Specialized fast paths fold the per-element comma into the element write,
   // saving one `store<u16>` + advance per iteration. AS folds the type checks
@@ -290,6 +344,16 @@ export function serializeArray<T extends any[]>(src: T): void {
   ) {
     // @ts-expect-error: T is i8[]
     serializeI8ArrayFast(changetype<i8[]>(src));
+    return;
+  }
+  if (isInteger<valueof<T>>()) {
+    // u8[] and i8[] returned through their lookup-table paths above.
+    serializeIntegerArrayFast<T>(src);
+    return;
+  }
+  if (isString<valueof<T>>()) {
+    // @ts-expect-error: T is string[]
+    serializeStringArrayFast(changetype<string[]>(src));
     return;
   }
   if (isFloat<valueof<T>>() && sizeof<valueof<T>>() == 8) {

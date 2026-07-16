@@ -13,6 +13,15 @@ describe("Should serialize integer arrays", () => {
   expect(JSON.stringify<i64[]>([0, 100, 101, -100, -101])).toBe(
     "[0,100,101,-100,-101]",
   );
+
+  expect(JSON.stringify<u32[]>([u32.MAX_VALUE])).toBe("[4294967295]");
+  expect(JSON.stringify<i32[]>([i32.MIN_VALUE, i32.MAX_VALUE])).toBe(
+    "[-2147483648,2147483647]",
+  );
+  expect(JSON.stringify<u64[]>([u64.MAX_VALUE])).toBe("[18446744073709551615]");
+  expect(JSON.stringify<i64[]>([i64.MIN_VALUE, i64.MAX_VALUE])).toBe(
+    "[-9223372036854775808,9223372036854775807]",
+  );
 });
 
 describe("Should serialize float arrays", () => {
