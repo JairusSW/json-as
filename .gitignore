@@ -19,6 +19,7 @@ assembly/__benches__/runtimes/*.ts
 !.as-test/runners/**
 !.as-test/snapshots/
 !.as-test/snapshots/**
+.as-bench/
 *.map
 # Include essential as-test artifacts
 !.as-test/

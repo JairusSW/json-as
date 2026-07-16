@@ -372,7 +372,7 @@ export namespace JSON {
   }
 
   export function parse<T>(data: string, out: T = __zero<T>()): T {
-    if (JSON_MODE == JSONMode.NAIVE && JSON_STRICT) {
+    if (JSON_STRICT) {
       data = normalizeJSONEncoding(data);
       if (!validateJSON(data)) throw new Error("Invalid JSON syntax");
     }

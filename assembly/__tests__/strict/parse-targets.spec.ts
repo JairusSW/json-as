@@ -1,4 +1,4 @@
-import { JSON, JSONMode } from "../..";
+import { JSON } from "../..";
 import { describe, expect } from "as-test";
 
 
@@ -75,9 +75,7 @@ describe("strict mode accepts every parse target family", () => {
   expect(JSON.parse<string>('"text"')).toBe("text");
 });
 
-describe("strict naive mode rejects malformed JSON for every target family", () => {
-  if (JSON_MODE != JSONMode.NAIVE) return;
-
+describe("strict mode rejects malformed JSON for every target family", () => {
   expect((): void => {
     JSON.parse<StrictStruct>('{"name":"typed",}');
   }).toThrow();

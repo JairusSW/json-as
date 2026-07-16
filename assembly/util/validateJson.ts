@@ -1,7 +1,8 @@
-// Scalar RFC 8259 syntax validator used by the strict NAIVE backend. It keeps
-// an explicit container-state stack so hostile nesting is rejected without
-// recursing through the Wasm call stack. This is intentionally a correctness
-// pass: the optimized backends retain their existing scanners.
+// Scalar RFC 8259 syntax validator used by strict builds. It keeps an explicit
+// container-state stack so hostile nesting is rejected without recursing
+// through the Wasm call stack. This is intentionally a cold correctness pass:
+// optimized backends retain their existing scanners, and the compile-time
+// JSON_STRICT guard removes this pass entirely from normal builds.
 
 const ARRAY_FIRST_OR_END: u8 = 0;
 const ARRAY_VALUE: u8 = 1;
@@ -15,6 +16,40 @@ const OBJECT_COMMA_OR_END: u8 = 7;
 // limit below typical Wasm shadow-stack exhaustion while accepting practical
 // documents and reporting excessive nesting as a normal parse error.
 const MAX_JSON_DEPTH: i32 = 256;
+// Validation completes before target-specific parsing begins, so a single
+// fixed scratch stack is sufficient and avoids allocating a managed Array for
+// every strict parse. The public parser is already synchronous; a custom
+// deserializer can only start a nested parse after this pass has returned.
+// @ts-expect-error: decorator is valid for module-level scratch storage
+@lazy const JSON_STATE_STACK = new StaticArray<u8>(MAX_JSON_DEPTH);
+let jsonStateDepth: i32 = 0;
+
+// Four UTF-16 lanes per word. These masks only identify candidates; every hit
+// is re-read as u16 before it can affect validation, so lane-borrow false
+// positives are harmless while plain string runs advance eight bytes at once.
+const JSON_LANE_ONES: u64 = 0x0001_0001_0001_0001;
+const JSON_LANE_HI: u64 = 0x0080_0080_0080_0080;
+const JSON_QUOTE_SPLAT: u64 = 0x0022_0022_0022_0022;
+const JSON_SLASH_SPLAT: u64 = 0x005c_005c_005c_005c;
+const JSON_CONTROL_MASK: u64 = 0xffe0_ffe0_ffe0_ffe0;
+
+
+@inline
+function jsonEqualPart(block: u64, splat: u64): u64 {
+  const diff = block ^ splat;
+  return (diff - JSON_LANE_ONES) & ~diff;
+}
+
+
+@inline
+function jsonStringSpecialMask(block: u64): u64 {
+  return (
+    (jsonEqualPart(block, JSON_QUOTE_SPLAT) |
+      jsonEqualPart(block, JSON_SLASH_SPLAT) |
+      jsonEqualPart(block & JSON_CONTROL_MASK, 0)) &
+    JSON_LANE_HI
+  );
+}
 
 
 @inline
@@ -46,8 +81,30 @@ function skipJSONWhitespace(ptr: usize, end: usize): usize {
 function scanJSONString(ptr: usize, end: usize): usize {
   if (ptr >= end || load<u16>(ptr) != 0x22) return 0;
   ptr += 2;
+  const end8 = end >= 8 ? end - 8 : 0;
 
   while (ptr < end) {
+    while (ptr <= end8) {
+      const mask = jsonStringSpecialMask(load<u64>(ptr));
+      if (!mask) {
+        ptr += 8;
+        continue;
+      }
+
+      const candidate = ptr + (usize(ctz(mask)) >> 3);
+      const code = load<u16>(candidate);
+      if (code == 0x22) return candidate + 2;
+      if (code < 0x20) return 0;
+      if (code != 0x5c) {
+        // A non-ASCII lane may collide with the filter's low bits.
+        ptr = candidate + 2;
+        continue;
+      }
+      ptr = candidate;
+      break;
+    }
+
+    if (ptr >= end) return 0;
     const code = load<u16>(ptr);
     if (code == 0x22) return ptr + 2;
     if (code < 0x20) return 0;
@@ -151,18 +208,18 @@ function scanLiteral(
   return ptr + byteLength;
 }
 
-function scanJSONValue(ptr: usize, end: usize, states: u8[]): usize {
+function scanJSONValue(ptr: usize, end: usize): usize {
   if (ptr >= end) return 0;
   const code = load<u16>(ptr);
   if (code == 0x22) return scanJSONString(ptr, end);
   if (code == 0x5b) {
-    if (states.length >= MAX_JSON_DEPTH) return 0;
-    states.push(ARRAY_FIRST_OR_END);
+    if (jsonStateDepth >= MAX_JSON_DEPTH) return 0;
+    unchecked((JSON_STATE_STACK[jsonStateDepth++] = ARRAY_FIRST_OR_END));
     return ptr + 2;
   }
   if (code == 0x7b) {
-    if (states.length >= MAX_JSON_DEPTH) return 0;
-    states.push(OBJECT_FIRST_KEY_OR_END);
+    if (jsonStateDepth >= MAX_JSON_DEPTH) return 0;
+    unchecked((JSON_STATE_STACK[jsonStateDepth++] = OBJECT_FIRST_KEY_OR_END));
     return ptr + 2;
   }
   if (code == 0x74) return scanLiteral(ptr, end, 0x74, 0x72, 0x75, 0x65); // true
@@ -204,75 +261,75 @@ export function validateJSON(data: string): bool {
   ptr = skipJSONWhitespace(ptr, end);
   if (ptr >= end) return false;
 
-  const states = new Array<u8>();
-  ptr = scanJSONValue(ptr, end, states);
+  jsonStateDepth = 0;
+  ptr = scanJSONValue(ptr, end);
   if (!ptr) return false;
-  let rootComplete = states.length == 0;
+  let rootComplete = jsonStateDepth == 0;
 
   while (true) {
     ptr = skipJSONWhitespace(ptr, end);
-    if (states.length == 0) return rootComplete && ptr == end;
+    if (jsonStateDepth == 0) return rootComplete && ptr == end;
     if (ptr >= end) return false;
 
-    const top = states.length - 1;
-    const state = states[top];
+    const top = jsonStateDepth - 1;
+    const state = unchecked(JSON_STATE_STACK[top]);
     const code = load<u16>(ptr);
 
     if (state == ARRAY_FIRST_OR_END) {
       if (code == 0x5d) {
-        states.pop();
+        jsonStateDepth--;
         ptr += 2;
-        if (states.length == 0) rootComplete = true;
+        if (jsonStateDepth == 0) rootComplete = true;
       } else {
-        states[top] = ARRAY_COMMA_OR_END;
-        ptr = scanJSONValue(ptr, end, states);
+        unchecked((JSON_STATE_STACK[top] = ARRAY_COMMA_OR_END));
+        ptr = scanJSONValue(ptr, end);
         if (!ptr) return false;
       }
     } else if (state == ARRAY_VALUE) {
-      states[top] = ARRAY_COMMA_OR_END;
-      ptr = scanJSONValue(ptr, end, states);
+      unchecked((JSON_STATE_STACK[top] = ARRAY_COMMA_OR_END));
+      ptr = scanJSONValue(ptr, end);
       if (!ptr) return false;
     } else if (state == ARRAY_COMMA_OR_END) {
       if (code == 0x2c) {
-        states[top] = ARRAY_VALUE;
+        unchecked((JSON_STATE_STACK[top] = ARRAY_VALUE));
         ptr += 2;
       } else if (code == 0x5d) {
-        states.pop();
+        jsonStateDepth--;
         ptr += 2;
-        if (states.length == 0) rootComplete = true;
+        if (jsonStateDepth == 0) rootComplete = true;
       } else {
         return false;
       }
     } else if (state == OBJECT_FIRST_KEY_OR_END) {
       if (code == 0x7d) {
-        states.pop();
+        jsonStateDepth--;
         ptr += 2;
-        if (states.length == 0) rootComplete = true;
+        if (jsonStateDepth == 0) rootComplete = true;
       } else {
         ptr = scanJSONString(ptr, end);
         if (!ptr) return false;
-        states[top] = OBJECT_COLON;
+        unchecked((JSON_STATE_STACK[top] = OBJECT_COLON));
       }
     } else if (state == OBJECT_KEY) {
       ptr = scanJSONString(ptr, end);
       if (!ptr) return false;
-      states[top] = OBJECT_COLON;
+      unchecked((JSON_STATE_STACK[top] = OBJECT_COLON));
     } else if (state == OBJECT_COLON) {
       if (code != 0x3a) return false;
-      states[top] = OBJECT_VALUE;
+      unchecked((JSON_STATE_STACK[top] = OBJECT_VALUE));
       ptr += 2;
     } else if (state == OBJECT_VALUE) {
-      states[top] = OBJECT_COMMA_OR_END;
-      ptr = scanJSONValue(ptr, end, states);
+      unchecked((JSON_STATE_STACK[top] = OBJECT_COMMA_OR_END));
+      ptr = scanJSONValue(ptr, end);
       if (!ptr) return false;
     } else {
       if (code == 0x2c) {
-        states[top] = OBJECT_KEY;
+        unchecked((JSON_STATE_STACK[top] = OBJECT_KEY));
         ptr += 2;
       } else if (code == 0x7d) {
-        states.pop();
+        jsonStateDepth--;
         ptr += 2;
-        if (states.length == 0) rootComplete = true;
+        if (jsonStateDepth == 0) rootComplete = true;
       } else {
         return false;
       }
