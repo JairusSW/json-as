@@ -15,7 +15,7 @@
   },
   "runOptions": {
     "runtime": {
-      "cmd": "wago <file>"
+      "cmd": "node ./scripts/run-as-test-wasi.mjs <file>"
     }
   },
   "modes": {
