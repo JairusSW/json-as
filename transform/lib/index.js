@@ -1790,6 +1790,74 @@ export class JSONTransform extends Visitor {
             DESERIALIZE_FAST += i2 + "return srcStart;\n";
             DESERIALIZE_FAST += i1 + "} while (false);\n\n";
         }
+        const keyedUnionAlternatives = this.schema.members.filter((member) => member.node.type.isNullable &&
+            this.getSchema(stripNull(member.type)) != null).length;
+        if (tier2Ok &&
+            this.schema.members.length > 0 &&
+            this.schema.members.length <= 24 &&
+            keyedUnionAlternatives >= 2) {
+            const i1 = "  ";
+            const i2 = "    ";
+            const i3 = "      ";
+            DESERIALIZE_FAST += i1 + "srcStart = start;\n";
+            DESERIALIZE_FAST += i1 + "this.__INITIALIZE();\n";
+            DESERIALIZE_FAST += i1 + "do {\n";
+            DESERIALIZE_FAST +=
+                i2 + "srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
+            DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7b) break; // {\n";
+            DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
+            DESERIALIZE_FAST += i2 + "while (true) {\n";
+            DESERIALIZE_FAST +=
+                i3 + "srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
+            DESERIALIZE_FAST += i3 + "let code = load<u16>(srcStart);\n";
+            DESERIALIZE_FAST += i3 + "if (code == 0x7d) return srcStart + 2; // }\n";
+            DESERIALIZE_FAST += i3 + "if (code != 0x22) break; // opening quote\n";
+            DESERIALIZE_FAST += i3 + "const keyStart = srcStart;\n";
+            DESERIALIZE_FAST +=
+                i3 +
+                    "const keyEnd = JSON.Util.scanValueEnd<string>(keyStart, srcEnd);\n";
+            DESERIALIZE_FAST += i3 + "if (!keyEnd) break;\n";
+            DESERIALIZE_FAST +=
+                i3 + "srcStart = JSON.Util.skipWhitespace(keyEnd, srcEnd);\n";
+            DESERIALIZE_FAST += i3 + "if (load<u16>(srcStart) != 0x3a) break; // :\n";
+            DESERIALIZE_FAST +=
+                i3 + "srcStart = JSON.Util.skipWhitespace(srcStart + 2, srcEnd);\n";
+            DESERIALIZE_FAST += i3 + "const keyBytes = keyEnd - keyStart;\n";
+            DESERIALIZE_FAST += i3 + "let matched = false;\n";
+            for (let i = 0; i < this.schema.members.length; i++) {
+                const member = this.schema.members[i];
+                const key = JSON.stringify(member.alias || member.name);
+                const condition = [
+                    `keyBytes == ${key.length << 1}`,
+                    ...getComparisions(key, "keyStart", "=="),
+                ].join(" &&\n" + i3 + "  ");
+                DESERIALIZE_FAST += i3 + `if (!matched && (${condition})) {\n`;
+                DESERIALIZE_FAST += i3 + "  matched = true;\n";
+                DESERIALIZE_FAST +=
+                    i3 + "  " + tier2Desers[i].join("\n" + i3 + "  ") + "\n";
+                DESERIALIZE_FAST += i3 + "}\n";
+            }
+            DESERIALIZE_FAST += i3 + "if (!matched) {\n";
+            if (STRICT) {
+                DESERIALIZE_FAST += i3 + "  break;\n";
+            }
+            else {
+                DESERIALIZE_FAST +=
+                    i3 +
+                        "  const valueEnd = JSON.Util.scanValueEnd<usize>(srcStart, srcEnd);\n";
+                DESERIALIZE_FAST += i3 + "  if (!valueEnd) break;\n";
+                DESERIALIZE_FAST += i3 + "  srcStart = valueEnd;\n";
+            }
+            DESERIALIZE_FAST += i3 + "}\n";
+            DESERIALIZE_FAST +=
+                i3 + "srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
+            DESERIALIZE_FAST += i3 + "code = load<u16>(srcStart);\n";
+            DESERIALIZE_FAST += i3 + "if (code == 0x7d) return srcStart + 2; // }\n";
+            DESERIALIZE_FAST += i3 + "if (code != 0x2c) break; // comma\n";
+            DESERIALIZE_FAST += i3 + "srcStart += 2;\n";
+            DESERIALIZE_FAST += i2 + "}\n";
+            DESERIALIZE_FAST += i1 + "} while (false);\n\n";
+        }
         if (THROW_FAST_PATH) {
             DESERIALIZE_FAST +=
                 indent + "const failAt = srcStart ? srcStart : start;\n";

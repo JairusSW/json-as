@@ -161,6 +161,27 @@ class FastMixedOptionalFields {
   id: i32 = 0;
 }
 
+
+@json
+class FastUnionA {
+  value: i32 = 0;
+}
+
+
+@json
+class FastUnionB {
+  value: i32 = 0;
+}
+
+
+@json
+class FastKeyedUnion {
+  tag: string = "";
+  a: FastUnionA | null = null;
+  b: FastUnionB | null = null;
+  tail: i32 = 0;
+}
+
 describe("Fast-path deserialization should handle direct field types", () => {
   const payload =
     '{"id":7,"total":42,"ratio":3.5,"ok":true,"name":"alpha","note":"line\\nbreak","child":{"id":1,"label":"nested"},"maybeChild":{"id":2,"label":"optional"},"tags":["a","b","c"],"children":[{"id":3,"label":"x"},{"id":4,"label":"y"}],"scores":[5,6,7]}';
@@ -186,6 +207,26 @@ describe("Fast-path deserialization should handle direct field types", () => {
   expect(parsed.scores.length).toBe(3);
   expect(parsed.scores[1]).toBe(6);
   expect(JSON.stringify(parsed)).toBe(payload);
+});
+
+describe("Fast-path keyed fallback handles union alternatives and resets omissions", () => {
+  const reused = JSON.parse<FastKeyedUnion>(
+    '{"tag":"alpha","a":{"value":1},"tail":9}',
+  );
+  expect(reused.tag).toBe("alpha");
+  expect(reused.a!.value).toBe(1);
+  expect((reused.b == null).toString()).toBe("true");
+  expect(reused.tail).toBe(9);
+
+  const reparsed = JSON.parse<FastKeyedUnion>(
+    '{ "b" : { "value" : 2 }, "tag" : "beta" }',
+    reused,
+  );
+  expect(reparsed === reused).toBe(true);
+  expect(reparsed.tag).toBe("beta");
+  expect((reparsed.a == null).toString()).toBe("true");
+  expect(reparsed.b!.value).toBe(2);
+  expect(reparsed.tail).toBe(0);
 });
 
 describe("Fast-path deserialization should handle nullable direct fields", () => {
