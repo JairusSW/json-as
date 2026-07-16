@@ -187,10 +187,10 @@ export function bench(
   // Optional framed measurement: split the timed run into BENCH_FRAMES frames
   // and run a full __collect() (untimed) between them. Each frame's allocation
   // churn stays bounded and the heap is reset between frames, which keeps
-  // runtimes that destabilize under one long single-shot allocation loop (e.g.
-  // WARP) inside their safe envelope while still timing the same total ops. The
-  // between-frame GC pauses are excluded from `elapsed`; the incremental GC that
-  // runs *within* each frame is still timed, exactly as in the unframed loop.
+  // memory-constrained or single-shot runtimes inside their safe envelope while
+  // still timing the same total ops. The between-frame GC pauses are excluded
+  // from `elapsed`; the incremental GC that runs *within* each frame is still
+  // timed, exactly as in the unframed loop.
   // Defaults to a single frame (identical to the original behavior).
   // @ts-expect-error: BENCH_FRAMES may be undefined.
   const frames: u64 = isDefined(BENCH_FRAMES) ? u64(BENCH_FRAMES) : 1;

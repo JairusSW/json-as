@@ -606,9 +606,9 @@ How `json-as` stacks up against other JSON libraries on a ~5 KiB GitHub-repo pay
 
 ### Runtime Comparison
 
-How fast the **same** `json-as` classic bench deserializes the minified payloads across six WebAssembly runtimes — including [WARP](https://github.com/wasm-ecosystem/wasm-compiler), a single-pass compiler built for embedded targets, alongside the optimizing JITs (Wasmtime, WAVM), the pure-Go wazero, and JS engines (V8, Bun).
+How fast the **same** `json-as` classic bench deserializes the minified payloads across six WebAssembly runtimes — including [WAGO](https://github.com/wago-org/wago), a pure-Go, no-cgo single-pass JIT, alongside the optimizing JITs (Wasmtime, WAVM), the pure-Go wazero, and JS engines (V8, Bun).
 
-Each runtime runs the real `bench()` lib (warm up, time the loop, report MB/s itself) on a `NAIVE`-mode build with a shared feature set (no SIMD / bulk-memory / non-trapping float-to-int) so the executed code is equivalent. The WASI runtimes read the payload over WASI; V8/Bun via an `env`-ABI host. WARP has no WASI and — by design ("no recursions") — can't re-enter the module from a host import, so it runs through a small custom C++ host that links `performance.now`/`console.log`/`writeFile` with the payload embedded. The timed run is split into small frames with a full GC between them (the bench lib's `BENCH_FRAMES`, applied to every runtime so the measurement is identical); this excludes stop-the-world GC pauses and keeps WARP — an embedded, single-shot-oriented compiler — inside its stable envelope. Even so, WARP's single-pass codegen lands within a few percent of the optimizing JITs.
+Each runtime runs the real `bench()` lib (warm up, time the loop, report MB/s itself) on a `NAIVE`-mode build with a shared feature set (no SIMD / bulk-memory / non-trapping float-to-int) so the executed code is equivalent. The WASI runtimes read the payload over WASI; V8/Bun use an `env`-ABI host. WAGO runs through a small Go host built against its public API with the documented `wago_guardpage` mode; the payload is embedded so the comparison does not require a filesystem plugin, while `performance.now`/`console.log`/`writeFile` still keep measurement and result reporting inside the real guest benchmark.
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/runtimes-deserialize.svg" alt="Deserialization throughput across WebAssembly runtimes">
 
@@ -618,10 +618,10 @@ Each runtime runs the real `bench()` lib (warm up, time the loop, report MB/s it
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/runtimes-serialize.svg" alt="Serialization throughput across WebAssembly runtimes">
 </details>
 
-Reproduce locally (the JS engines and standalone runtimes are auto-detected; point `WARP_SRC` at a [wasm-ecosystem/wasm-compiler](https://github.com/wasm-ecosystem/wasm-compiler) checkout with its libs built — see the script header for the cmake flags):
+Reproduce locally (the JS engines and standalone runtimes are auto-detected; point `WAGO_SRC` at a [wago-org/wago](https://github.com/wago-org/wago) checkout so the small benchmark host can be built):
 
 ```bash
-WARP_SRC=/path/to/wasm-compiler npm run bench:runtimes
+WAGO_SRC=/path/to/wago npm run bench:runtimes
 npm run charts:runtimes
 ```
 
