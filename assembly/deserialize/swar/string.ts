@@ -256,7 +256,11 @@ function deserializeEscapedStringField_SWAR(
 ): usize {
   const prefixLen = <u32>(escapeStart - payloadStart);
   bs.offset = bs.buffer;
-  bs.ensureSize(<u32>(srcEnd - payloadStart) + 8); // +8 slack for u64 overcopy
+  // `srcEnd` may be the end of a containing map/document when a generated
+  // parser is cursor-driven. Reserving that entire remainder for one escaped
+  // field retained multi-megabyte scratch buffers. Grow with the decoded
+  // string instead; escapes only shrink relative to the source.
+  bs.ensureSize(prefixLen + 1024);
   if (prefixLen != 0) {
     memory.copy(bs.buffer, payloadStart, prefixLen);
     bs.offset += prefixLen;
@@ -264,8 +268,13 @@ function deserializeEscapedStringField_SWAR(
 
   let srcStart = escapeStart;
   const srcEnd8 = srcEnd - 8;
+  let scratchEnd = bs.buffer + bs.bufferSize - 8;
 
   while (srcStart <= srcEnd8) {
+    if (bs.offset > scratchEnd) {
+      bs.ensureSize(1024);
+      scratchEnd = bs.buffer + bs.bufferSize - 8;
+    }
     const block = load<u64>(srcStart);
     let mask = backslash_or_quote_mask(block);
     if (mask == 0) {
@@ -285,6 +294,10 @@ function deserializeEscapedStringField_SWAR(
           srcStart += 8;
         }
         const runLen = <u32>(srcStart - runStart);
+        if (bs.offset + runLen > scratchEnd) {
+          bs.ensureSize(runLen + 1024);
+          scratchEnd = bs.buffer + bs.bufferSize - 8;
+        }
         memory.copy(bs.offset, runStart, runLen);
         bs.offset += runLen;
       }
@@ -330,6 +343,7 @@ function deserializeEscapedStringField_SWAR(
   }
 
   // scalar tail (< 8 bytes remaining)
+  bs.ensureSize(<u32>(srcEnd - srcStart) + 2);
   while (srcStart < srcEnd) {
     const char = load<u16>(srcStart);
     if (char == QUOTE) {
@@ -372,14 +386,37 @@ export function deserializeStringField_SWAR<T extends string | null>(
 
   const payloadStart = srcStart + 2;
   srcStart = payloadStart;
+  let pendingMask: u64 = 0;
 
-  // Consume each word exactly once. The old 16-byte pre-scan discarded the
-  // hit mask and the following loop recomputed it for the same word. That was
-  // especially expensive for the short string values dominating object
-  // corpora, where essentially every call paid for two equality masks.
+  // Wide pre-scan: skip 16 bytes per iter while both halves are clean. The
+  // common case (plain ASCII payloads, no escape) hits this loop exclusively
+  // and is bound by load+SWAR throughput, not branch frequency.
+  if (srcEnd >= 16) {
+    const srcEnd16 = srcEnd - 16;
+    while (srcStart <= srcEnd16) {
+      // Test the first word before loading the second: short values and keys
+      // close (or escape) within the first 8 bytes, so this skips the second
+      // load on the common case while still skipping 16 bytes when both clean.
+      const firstMask = backslash_or_quote_mask(load<u64>(srcStart));
+      if (firstMask != 0) {
+        pendingMask = firstMask;
+        break;
+      }
+      const secondMask = backslash_or_quote_mask(load<u64>(srcStart, 8));
+      if (secondMask != 0) {
+        srcStart += 8;
+        pendingMask = secondMask;
+        break;
+      }
+      srcStart += 16;
+    }
+  }
+
   const srcEnd8 = srcEnd - 8;
   while (srcStart <= srcEnd8) {
-    let mask = backslash_or_quote_mask(load<u64>(srcStart));
+    let mask = pendingMask;
+    if (mask == 0) mask = backslash_or_quote_mask(load<u64>(srcStart));
+    pendingMask = 0;
     if (mask === 0) {
       srcStart += 8;
       continue;

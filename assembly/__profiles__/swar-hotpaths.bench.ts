@@ -112,3 +112,30 @@ suite("canada shape", () => {
     blackbox(canadaReused.features.length);
   });
 });
+
+
+@json
+class ProfileMapValue {
+  id: i32 = 0;
+  name: string = "";
+  description: string = "";
+}
+
+const mapSource =
+  '{"1001":{"id":1,"name":"alpha","description":"first mapped object"},"1002":{"id":2,"name":"beta","description":"second mapped object"},"1003":{"id":3,"name":"gamma","description":"third mapped object"},"1004":{"id":4,"name":"delta","description":"fourth mapped object"}}';
+const mapStart = changetype<usize>(mapSource);
+const mapEnd = mapStart + (mapSource.length << 1);
+const mapReused = JSON.parse<Map<string, ProfileMapValue>>(mapSource);
+
+suite("generated map values", () => {
+  bench("deserialize reused", () => {
+    for (let i = 0; i < 32; i++) {
+      JSON.__deserialize<Map<string, ProfileMapValue>>(
+        mapStart,
+        mapEnd,
+        changetype<usize>(mapReused),
+      );
+    }
+    blackbox(mapReused.size);
+  });
+});

@@ -14,11 +14,10 @@ export function serializeString_SWAR(src: string): void {
   const srcInitial = srcStart;
   const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
   const srcEnd = srcStart + srcSize;
+  bs.proposeSize(srcSize + 4);
+  const dstStart = bs.offset;
   do {
     const srcEnd8Fast = srcEnd - 8;
-    bs.proposeSize(srcSize + 4);
-
-    const dstStart = bs.offset;
     let dst = dstStart + 2;
 
     while (srcStart < srcEnd8Fast) {
@@ -39,7 +38,7 @@ export function serializeString_SWAR(src: string): void {
 
     while (srcStart <= srcEnd - 2) {
       const code = load<u16>(srcStart);
-      if (code > 0x7f || code == BACK_SLASH || code == QUOTE || code < 32)
+      if (code < 32 || code > 0x7f || code == BACK_SLASH || code == QUOTE)
         break;
       store<u16>(dst, code);
       srcStart += 2;
@@ -56,7 +55,6 @@ export function serializeString_SWAR(src: string): void {
   srcStart = srcInitial;
   const srcEnd8 = srcEnd - 8;
 
-  bs.proposeSize(srcSize + 4);
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
 
