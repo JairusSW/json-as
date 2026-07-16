@@ -1,10 +1,10 @@
 // Cross-runtime throughput chart for the classic payloads. Compares how fast the
 // SAME json-as NAIVE-mode bench deserializes the minified payloads under six
-// WebAssembly runtimes (WARP / wasmtime / wavm / wazero / v8 / bun). Every bar is
+// WebAssembly runtimes (WAGO / wasmtime / wavm / wazero / v8 / bun). Every bar is
 // the runtime's own bench()-reported MB/s - see scripts/run-bench.runtimes.sh.
 //
 // Populate the logs first:
-//   WARP_SRC=/path/to/wasm-compiler bash scripts/run-bench.runtimes.sh
+//   WAGO_SRC=/path/to/wago bash scripts/run-bench.runtimes.sh
 // Then:
 //   bun scripts/build-chart-runtimes.ts
 import fs from "node:fs";
@@ -16,11 +16,11 @@ import {
 } from "./lib/bench-utils";
 import { rgba, BASE } from "./lib/palette";
 
-// One distinct hue per runtime; WARP (the subject) gets the hero blue.
+// One distinct hue per runtime; WAGO (the subject) gets the hero blue.
 const RUNTIMES: { key: string; label: string; bg: string; border: string }[] = [
   {
-    key: "warp",
-    label: "WARP",
+    key: "wago",
+    label: "WAGO",
     bg: rgba("pacificBlue", 0.9),
     border: BASE.pacificBlue,
   },
