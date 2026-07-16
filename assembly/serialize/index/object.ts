@@ -5,6 +5,23 @@ import { serializeArbitrary } from "./arbitrary";
 import { serializeStringRange } from "../naive/string";
 
 export function serializeObject(src: JSON.Obj): void {
+  const rawStart = src._rawStart;
+  if (rawStart != 0) {
+    const rawSize = src._rawEnd - rawStart;
+    // At top level, `bs.out` can copy the anchored source slice straight into
+    // the returned string. Nested objects already have parent bytes in the
+    // staging buffer and therefore keep the regular append path below.
+    if (bs.offset == bs.buffer && bs.cacheOutput == 0) {
+      bs.cacheOutput = rawStart;
+      bs.cacheOutputLen = rawSize;
+      return;
+    }
+    bs.proposeSize(rawSize);
+    memory.copy(bs.offset, rawStart, rawSize);
+    bs.offset += rawSize;
+    return;
+  }
+
   const srcSize = src.size;
 
   if (srcSize == 0) {

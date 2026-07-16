@@ -171,6 +171,42 @@ describe("Should round-trip maps with nested object values", () => {
   );
 });
 
+describe("Should reuse mapped structs and remove stale keys", () => {
+  const target = JSON.parse<Map<string, MapValue>>(
+    '{"a":{"id":1,"name":"old-a"},"b":{"id":2,"name":"old-b"}}',
+  );
+  const targetPtr = changetype<usize>(target);
+  const reusedA = target.get("a");
+
+  const result = JSON.parse<Map<string, MapValue>>(
+    '{"a":{"id":10,"name":"new-a"},"c":{"id":3,"name":"new-c"}}',
+    target,
+  );
+  expect((changetype<usize>(result) == targetPtr).toString()).toBe("true");
+  expect(
+    (
+      changetype<usize>(result.get("a")) == changetype<usize>(reusedA)
+    ).toString(),
+  ).toBe("true");
+  expect(result.get("a").id).toBe(10);
+  expect(result.get("a").name).toBe("new-a");
+  expect(result.has("b").toString()).toBe("false");
+  expect(result.get("c").id).toBe(3);
+  expect(result.size).toBe(2);
+
+  JSON.parse<Map<string, MapValue>>(
+    '{"a":{"id":20,"name":"first"},"a":{"id":21,"name":"last"}}',
+    result,
+  );
+  expect(result.size).toBe(1);
+  expect(result.has("c").toString()).toBe("false");
+  expect(result.get("a").id).toBe(21);
+  expect(result.get("a").name).toBe("last");
+
+  JSON.parse<Map<string, MapValue>>("{}", result);
+  expect(result.size).toBe(0);
+});
+
 describe("Should deserialize top-level map arrays", () => {
   const input = '[{"a":1},{"b":2,"c":3},{}]';
   const parsed = JSON.parse<Map<string, i32>[]>(input);

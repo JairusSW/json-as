@@ -336,6 +336,28 @@ describe("Should deserialize string fields without mutating literal defaults", (
   expect((originalLiteral == box.value).toString()).toBe("false");
 });
 
+describe("Should specialize default string literals and preserve mutation fallback", () => {
+  const fresh = new LiteralStringFieldBox();
+  expect(JSON.stringify(fresh)).toBe('{"value":"alpha"}');
+
+  fresh.value = 'changed "value" with \\ slash';
+  expect(JSON.stringify(fresh)).toBe(
+    '{"value":"changed \\"value\\" with \\\\ slash"}',
+  );
+
+  const parsedDefault = JSON.parse<LiteralStringFieldBox>('{"value":"alpha"}');
+  expect(parsedDefault.value).toBe("alpha");
+  expect(JSON.stringify(parsedDefault)).toBe('{"value":"alpha"}');
+
+  const parsedOther = JSON.parse<LiteralStringFieldBox>('{"value":"omega"}');
+  expect(parsedOther.value).toBe("omega");
+  expect(JSON.stringify(parsedOther)).toBe('{"value":"omega"}');
+
+  const parsedShort = JSON.parse<LiteralStringFieldBox>('{"value":"a"}');
+  expect(parsedShort.value).toBe("a");
+  expect(JSON.stringify(parsedShort)).toBe('{"value":"a"}');
+});
+
 describe("Additional regression coverage - primitives and arrays", () => {
   expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe(
     '"regression"',

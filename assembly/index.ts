@@ -10,7 +10,9 @@ import {
   serializeSet,
   serializeStaticArray,
   serializeBool,
+  serializeBoolUnsafe,
   serializeInteger,
+  serializeIntegerUnsafe,
   serializeFloat32,
   serializeFloat64,
   serializeStruct,
@@ -373,6 +375,15 @@ export namespace JSON {
     if (JSON_MODE == JSONMode.NAIVE && JSON_STRICT) {
       data = normalizeJSONEncoding(data);
       if (!validateJSON(data)) throw new Error("Invalid JSON syntax");
+    }
+    // Generated scalar-only schemas cannot create lazy JSON.Obj/Arr/Value
+    // slices. Avoid two global reference writes (and their barriers) for these
+    // very small, latency-sensitive parses.
+    if (isReference<T>() || isManaged<T>()) {
+      const type = changetype<nonnull<T>>(0);
+      // @ts-expect-error: marker supplied by the json-as transform
+      if (isDefined(type.__DESERIALIZE_SOURCE_FREE))
+        return parseInternal<T>(data, out);
     }
     // Anchor the source for any lazy JSON.Obj/JSON.Value built while parsing, so
     // their stored slice pointers (into `data`'s buffer) stay valid and resolve
@@ -1261,10 +1272,36 @@ export namespace JSON {
     _vused: i32 = 0;
     /** Source string the lazy slot pointers index into; anchors it for GC. */
     _src: string = "";
+    /** Untouched source range for whole-object serialization passthrough. */
+    _rawStart: usize = 0;
+    _rawEnd: usize = 0;
     private _index: StaticArray<i32> | null = null;
     private _indexMask: i32 = 0;
 
     constructor() {}
+
+    /**
+     * Pre-sizes the three flat parse buffers from the source span. The parser
+     * still grows normally if an unusual key-heavy document exceeds the
+     * estimate; ordinary API-shaped objects avoid the repeated 8→16→32...
+     * allocation/copy ladder.
+     */
+    reserveForParse(sourceUnits: usize): void {
+      let keyNeed = <i32>((sourceUnits + 2) / 3);
+      if (keyNeed < 16) keyNeed = 16;
+      let keyCap = 16;
+      while (keyCap < keyNeed) keyCap <<= 1;
+      if (this._kbuf.length < keyCap) this._kbuf = new StaticArray<u16>(keyCap);
+
+      let slotNeed = <i32>(sourceUnits >> 6);
+      if (slotNeed < 8) slotNeed = 8;
+      let slotCap = 8;
+      while (slotCap < slotNeed) slotCap <<= 1;
+      if (this._kpos.length < slotCap)
+        this._kpos = new StaticArray<i32>(slotCap);
+      if (this._vals.length < slotCap)
+        this._vals = new StaticArray<u64>(slotCap);
+    }
 
     /**
      * Gets the number of key-value pairs in the object.
@@ -1462,6 +1499,11 @@ export namespace JSON {
     private materializeSlot(i: i32): u64 {
       const slot = unchecked(this._vals[i]);
       if (!JSON.Value.slotIsLazy(slot)) return slot;
+      // A materialized nested object can subsequently be mutated through the
+      // returned reference. Stop whole-object passthrough so serialization
+      // observes that mutation and walks the cached slots instead.
+      this._rawStart = 0;
+      this._rawEnd = 0;
       const base = changetype<usize>(this._src);
       const start = JSON.Value.slotPtr(slot, base);
       const end = JSON.Value.slotEnd(slot, base, this.srcEnd());
@@ -1476,10 +1518,47 @@ export namespace JSON {
      * per-key string allocation, no per-value object, no hashing.
      */
     appendRawSlot(keyStart: usize, keyEnd: usize, bits: u64): void {
+      this._rawStart = 0;
+      this._rawEnd = 0;
       const slotIndex = this._vused;
       this.pushKeyBytes(keyStart, keyEnd, slotIndex);
       this.pushValSlot(bits);
       this.insertIndex(slotIndex);
+    }
+
+    /**
+     * Parser-only append for slots produced by parseSlotBits. Those bits are
+     * either immediate scalars or source-relative Lazy slices, so they never
+     * require a GC link. The common pre-sized case writes all three buffers
+     * directly; unusual key-heavy documents retain the general growth path.
+     */
+    appendParsedSlot(keyStart: usize, keyEnd: usize, bits: u64): void {
+      this._rawStart = 0;
+      this._rawEnd = 0;
+      const slotIndex = this._vused;
+      const len = <i32>((keyEnd - keyStart) >> 1);
+      const keyPos = this._kused;
+      if (
+        keyPos + 1 + len <= this._kbuf.length &&
+        slotIndex < this._kpos.length &&
+        slotIndex < this._vals.length
+      ) {
+        const keyBuf = changetype<usize>(this._kbuf);
+        store<u16>(keyBuf + ((<usize>keyPos) << 1), <u16>len);
+        if (len)
+          memory.copy(
+            keyBuf + ((<usize>(keyPos + 1)) << 1),
+            keyStart,
+            (<usize>len) << 1,
+          );
+        unchecked((this._kpos[slotIndex] = keyPos));
+        unchecked((this._vals[slotIndex] = bits));
+        this._kused = keyPos + 1 + len;
+        this._vused = slotIndex + 1;
+        return;
+      }
+      this.pushKeyBytes(keyStart, keyEnd, slotIndex);
+      this.pushValSlot(bits);
     }
 
     /**
@@ -1554,6 +1633,8 @@ export namespace JSON {
      * @param value - The value (will be wrapped in JSON.Value)
      */
     set<T>(key: string, value: T): void {
+      this._rawStart = 0;
+      this._rawEnd = 0;
       const bits = JSON.Value.bitsFrom<T>(value);
       const i = this.indexOf(key);
       if (i >= 0) {
@@ -1624,6 +1705,8 @@ export namespace JSON {
     delete(key: string): bool {
       const removed = this.indexOf(key);
       if (removed < 0) return false;
+      this._rawStart = 0;
+      this._rawEnd = 0;
       const keys = this.keys();
       const oldVals = this._vals;
       const n = this._vused;
@@ -1656,9 +1739,10 @@ export namespace JSON {
      */
     clear(): void {
       this._kused = 0;
-      this._kpos = EMPTY_I32S;
       this._vused = 0;
       this._src = "";
+      this._rawStart = 0;
+      this._rawEnd = 0;
       this._index = null;
       this._indexMask = 0;
     }
@@ -2372,6 +2456,24 @@ export namespace JSON {
       serializeDate(changetype<nonnull<T>>(data));
     } else {
       serializeReference<T>(data);
+    }
+  }
+
+  /**
+   * Primitive serializer for generated structs that already reserved the
+   * complete worst-case output size in `__SERIALIZE`. Avoids repeating buffer
+   * capacity and stack-size accounting for every integer/boolean field.
+   * Internal: emitted only for non-nullable primitive fields by the transform.
+   */
+  function __serializePrimitiveUnsafe<T>(data: T): void {
+    if (isBoolean<T>()) {
+      serializeBoolUnsafe(data as bool);
+    } else if (isInteger<T>()) {
+      // @ts-expect-error: transform emits this only for integer T
+      serializeIntegerUnsafe<T>(data);
+    } else {
+      // Defensive fallback for hand-written transformed code.
+      __serialize<T>(data);
     }
   }
 

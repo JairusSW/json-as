@@ -369,6 +369,22 @@ describe("Lazy-by-default: access materializes one level, siblings stay raw", ()
   expect(JSON.stringify(obj)).toBe('{"keep":[1.0,2.0,3.0],"touch":9}');
 });
 
+describe("JSON.Obj whole-source passthrough invalidates for deep mutation", () => {
+  const src = '{ "child" : {"x":1}, "keep" : [1.0,2.0] }';
+  const obj = JSON.parse<JSON.Obj>(src);
+  expect(JSON.stringify(obj)).toBe(src);
+
+  // A nested/custom serialization owns only a slice of the shared staging
+  // buffer, so it must copy the object there instead of claiming the next
+  // top-level output cache.
+  expect(JSON.internal.stringify(obj)).toBe(src);
+  expect(JSON.stringify(obj)).toBe(src);
+
+  const child = obj.getAs<JSON.Obj>("child");
+  child.set("x", 2);
+  expect(JSON.stringify(obj)).toBe('{"child":{"x":2},"keep":[1.0,2.0]}');
+});
+
 describe("Lazy-by-default: deep nesting peels one level at a time", () => {
   const root = JSON.parse<JSON.Value>('{"a":{"b":{"c":[10,20]}}}');
   const c = root

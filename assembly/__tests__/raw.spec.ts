@@ -32,6 +32,42 @@ describe("Should deserialize Map<string, JSON.Raw>", () => {
   );
 });
 
+describe("Should reuse mapped Raw values", () => {
+  const raws = JSON.parse<Map<string, JSON.Raw>>('{"a":{"x":1},"b":[2,3]}');
+  const firstA = raws.get("a");
+  const reused = JSON.parse<Map<string, JSON.Raw>>(
+    '{"a":{"x":4},"b":[5]}',
+    raws,
+  );
+
+  expect(reused === raws).toBe(true);
+  expect(reused.get("a") === firstA).toBe(true);
+  // Serialization reads the renewed backing string without replacing wrappers.
+  expect(JSON.stringify(reused)).toBe('{"a":{"x":4},"b":[5]}');
+  expect(reused.get("a").data).toBe('{"x":4}');
+
+  // Explicit mutation still replaces the renewed backing string normally.
+  reused.get("a").set("false");
+  expect(JSON.stringify(reused)).toBe('{"a":false,"b":[5]}');
+});
+
+describe("Should reuse pre-seeded Raw values across size changes", () => {
+  const seeded = new Map<string, JSON.Raw>();
+  const raw = new JSON.Raw("null");
+  seeded.set("a", raw);
+
+  JSON.parse<Map<string, JSON.Raw>>(
+    '{"a":{"aMuchLongerPayload":[1,2,3]}}',
+    seeded,
+  );
+  expect(seeded.get("a") === raw).toBe(true);
+  expect(seeded.get("a").data).toBe('{"aMuchLongerPayload":[1,2,3]}');
+
+  JSON.parse<Map<string, JSON.Raw>>('{"a":0}', seeded);
+  expect(seeded.get("a") === raw).toBe(true);
+  expect(seeded.get("a").data).toBe("0");
+});
+
 describe("Additional regression coverage - primitives and arrays", () => {
   expect(JSON.stringify(JSON.parse<string>('"regression"'))).toBe(
     '"regression"',

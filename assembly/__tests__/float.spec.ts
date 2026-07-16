@@ -1,5 +1,6 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
+import { eiselLemire22 } from "../util/eisel-lemire";
 
 
 @json
@@ -93,6 +94,42 @@ describe("Should deserialize additional float edge cases", () => {
   expect(JSON.parse<f64>("42").toString()).toBe("42.0");
   expect(JSON.parse<f64>(" 42 ").toString()).toBe("42.0");
   expect(JSON.parse<f64>("1e0").toString()).toBe("1.0");
+});
+
+describe("Eisel-Lemire medium-exponent conversion is bit-identical", () => {
+  // FNV-1a hashes of the raw IEEE-754 results for 256 deterministic mantissas
+  // per exponent, generated independently with V8's correctly-rounded decimal
+  // parser. This covers the branch above 2^53 without relying on AS's legacy
+  // `scientific()` conversion (which is itself occasionally one ULP off).
+  const expected: u64[] = [
+    0x7488c1b45bc974a5, 0x062461a248ac1323, 0x7c4a28fa32e7a16a,
+    0x7996a8b0e1aec7d0, 0x91746b3370d54425, 0x4b1da780e1544a98,
+    0xa95c33f4f92d3577, 0x7d483b197cd7df5d, 0xd284fd2ff4ca1e0f,
+    0x9ee7f049ca8491df, 0xf8b2542275ceda5c, 0x0dc154ea6930e163,
+    0xd035e00dfd90c25e, 0xdbf7ebbe025c7b0e, 0x422c453f328aed00,
+    0x8f6893c18541d638, 0xd71a2ce63040b130, 0xf0a73187adc792c2,
+    0x8f33718fcd52c119, 0x7d0203a3f4f0274c, 0xd39e05f126f64d0a,
+    0x1007c5ff39056a08, 0x28f85148d1b72053, 0x73fb74de2fa9e84e,
+    0xc454d689536e57ee, 0x514108b4d4d81964, 0x92771f914b5263fe,
+    0x17bff9d392bc2e3e, 0x99d61380189e144d, 0x904b1dedd0cf79f7,
+    0xb6a5904ebca20b9f, 0x4dc5bd621fa587b8, 0x6170889f333d3b54,
+    0xdaad87a0739b7bc3, 0xdfa12d3ec5610a91, 0x40b1519813f89bc1,
+    0xc71c1a8945fea9af, 0xb815cae4f69d80c4, 0x958d15fbec3628d6,
+    0x7f2730ba99d0ab83, 0xfd4ed76dd9899520, 0xce8fe75803d07314,
+    0xb79f695096d3f833, 0xdcad5c89b0fcb198, 0xa355ee4ac7de21a5,
+  ];
+  let state: u64 = 0x9e3779b97f4a7c15;
+  for (let power = -22; power <= 22; power++) {
+    let hash: u64 = 14695981039346656037;
+    for (let i = 0; i < 256; i++) {
+      state = state * 6364136223846793005 + 1442695040888963407;
+      const significand = state | ((<u64>1) << 53);
+      hash =
+        (hash ^ reinterpret<u64>(eiselLemire22(significand, power))) *
+        1099511628211;
+    }
+    expect<u64>(hash).toBe(unchecked(expected[power + 22]));
+  }
 });
 
 describe("Should support more exponent forms", () => {

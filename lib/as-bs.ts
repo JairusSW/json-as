@@ -41,9 +41,13 @@ export namespace bs {
    * @param newSize - The new size to incorporate into the average
    */
   function updateTypicalSize(newSize: usize): void {
-    // EMA: typicalSize = (newSize >> 3) + typicalSize - (typicalSize >> 3)
-    // Simplified: typicalSize += (newSize - typicalSize) >> 3
-    typicalSize += (newSize - typicalSize) >> EMA_ALPHA_SHIFT;
+    // Keep the delta unsigned in both directions. `(newSize - typicalSize)`
+    // underflows when output shrinks because usize arithmetic wraps.
+    if (newSize >= typicalSize) {
+      typicalSize += (newSize - typicalSize) >> EMA_ALPHA_SHIFT;
+    } else {
+      typicalSize -= (typicalSize - newSize) >> EMA_ALPHA_SHIFT;
+    }
   }
 
   function renewBuffer(newSize: usize): void {
@@ -66,9 +70,12 @@ export namespace bs {
 
   function finalizeDynamicOutput(len: usize): void {
     counter += 1;
-    updateTypicalSize(len);
-    if ((counter & SHRINK_EVERY_N_MASK) == 0 && bufferSize > typicalSize << 2) {
-      resize(u32(typicalSize << 1));
+    // Resizing is intentionally sampled. Updating an EMA on every tiny
+    // stringify used to put several integer ops on the hottest return path even
+    // though we only consult it once per 256 outputs.
+    if ((counter & SHRINK_EVERY_N_MASK) == 0) {
+      updateTypicalSize(len);
+      if (bufferSize > typicalSize << 2) resize(u32(typicalSize << 1));
     }
     offset = buffer;
     stackSize = 0;
@@ -106,6 +113,8 @@ export namespace bs {
   export function reset(): void {
     offset = buffer;
     stackSize = 0;
+    cacheOutput = 0;
+    cacheOutputLen = 0;
     pauseOffsets.length = 0;
     pauseStackSizes.length = 0;
   }
@@ -173,6 +182,19 @@ export namespace bs {
    * @returns The new object containing the buffer's content.
    */
   export function cpyOut<T>(): T {
+    if (cacheOutput !== 0) {
+      // A nested/internal stringify can still cover its complete local output
+      // with a cached source slice when its saved offset is zero. Copy that
+      // slice and restore the caller's staging state just like the regular
+      // paused-buffer branch below.
+      // @ts-expect-error: __new is a runtime builtin
+      const _out = __new(cacheOutputLen, idof<T>());
+      memory.copy(_out, cacheOutput, cacheOutputLen);
+      cacheOutput = 0;
+      cacheOutputLen = 0;
+      bs.loadState();
+      return changetype<T>(_out);
+    }
     if (pauseOffsets.length == 0) {
       const len = offset - buffer;
       // @ts-expect-error: __new is a runtime builtin

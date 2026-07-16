@@ -262,7 +262,9 @@ function deserializeEscapedStringField_SIMD(
 ): usize {
   const prefixLen = <u32>(escapeStart - payloadStart);
   bs.offset = bs.buffer;
-  bs.ensureSize(<u32>(srcEnd - payloadStart) + 16); // +16 slack for overcopy
+  // The containing parser may pass document-end bounds. Reserve according to
+  // decoded output rather than retaining the entire remaining document.
+  bs.ensureSize(prefixLen + 1024);
   if (prefixLen != 0) {
     memory.copy(bs.buffer, payloadStart, prefixLen);
     bs.offset += prefixLen;
@@ -270,8 +272,13 @@ function deserializeEscapedStringField_SIMD(
 
   let srcStart = escapeStart;
   const srcEnd16 = srcEnd - 16;
+  let scratchEnd = bs.buffer + bs.bufferSize - 16;
 
   while (srcStart <= srcEnd16) {
+    if (bs.offset > scratchEnd) {
+      bs.ensureSize(1024);
+      scratchEnd = bs.buffer + bs.bufferSize - 16;
+    }
     const block = load<v128>(srcStart);
     const mask = i16x8.bitmask(
       v128.or(i16x8.eq(block, SPLAT_5C), i16x8.eq(block, SPLAT_22)),
@@ -302,6 +309,10 @@ function deserializeEscapedStringField_SIMD(
             srcStart += 16;
           }
           const runLen = <u32>(srcStart - runStart);
+          if (bs.offset + runLen > scratchEnd) {
+            bs.ensureSize(runLen + 1024);
+            scratchEnd = bs.buffer + bs.bufferSize - 16;
+          }
           memory.copy(bs.offset, runStart, runLen);
           bs.offset += runLen;
         }
@@ -338,6 +349,7 @@ function deserializeEscapedStringField_SIMD(
   }
 
   // scalar tail (< 16 bytes remaining): emit chars directly.
+  bs.ensureSize(<u32>(srcEnd - srcStart) + 2);
   while (srcStart < srcEnd) {
     const char = load<u16>(srcStart);
     if (char == QUOTE) {
