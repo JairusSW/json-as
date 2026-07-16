@@ -4112,6 +4112,11 @@ export default class Transformer extends Transform {
       );
 
     program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE));
+    program.registerConstantInteger(
+      "JSON_STRICT",
+      Type.bool,
+      STRICT ? i64_one : i64_zero,
+    );
     if (JSON_CACHE_CONFIG.enabled) {
       program.registerConstantInteger("JSON_CACHE", Type.bool, i64_one);
       program.registerConstantInteger(

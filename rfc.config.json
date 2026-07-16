@@ -15,7 +15,7 @@
   },
   "runOptions": {
     "runtime": {
-      "cmd": "wasmtime <file>"
+      "cmd": "wago <file>"
     }
   },
   "modes": {
