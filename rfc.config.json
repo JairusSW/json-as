@@ -1,6 +1,9 @@
 {
   "$schema": "./node_modules/as-test/as-test.config.schema.json",
-  "input": ["./assembly/__tests__/rfc/*.spec.ts"],
+  "input": [
+    "./assembly/__tests__/rfc/*.spec.ts",
+    "./assembly/__tests__/strict/*.spec.ts"
+  ],
   "outDir": "./.as-test/build",
   "logs": "./.as-test/logs",
   "snapshotDir": "./.as-test/snapshots",
