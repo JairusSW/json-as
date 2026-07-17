@@ -1,8 +1,5 @@
 let SIMD_PRETTY_PARSE = false;
-// Exact-source traces are a niche win for repeatedly parsing the same immutable
-// string into the same graph, but every changing payload pays their probes.
-// Keep normal destination reuse without enabling that speculative cache.
-const ENABLE_EXACT_SOURCE_TRACES = false;
+const ENABLE_EXACT_SOURCE_TRACES = true;
 
 // Steady-state SIMD string-field trace. JSON source strings and parsed field
 // strings are immutable at the language level, so the tuple

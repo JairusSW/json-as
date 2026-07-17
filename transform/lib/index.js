@@ -50,7 +50,7 @@ function envFlagDefaultTrue(value) {
 }
 const USE_FAST_PATH = envFlagDefaultTrue(process.env["JSON_USE_FAST_PATH"]);
 const THROW_FAST_PATH = process.env["JSON_FAST_PATH_THROW"]?.trim() === "1";
-const USE_DEFAULT_OBJECT_SPECIALIZATION = false;
+const USE_DEFAULT_OBJECT_SPECIALIZATION = true;
 function parseJSONCacheConfig(value) {
     if (!value)
         return { enabled: false, bytes: 0 };
@@ -1810,7 +1810,7 @@ export class JSONTransform extends Visitor {
         const chunkFastBlocksOptional = (blocks, _tag, _callIndent, _needsKp) => {
             return blocks.join("");
         };
-        const traceOptionalObject = false;
+        const traceOptionalObject = supportsFastOptionalPath && this.schema.members.length <= 63;
         const objectTraceHeader = traceOptionalObject
             ? "  const __traceToken = JSON.Util.beginObjectTrace(dst, start, " +
                 JSON.stringify(this.schema.name) +

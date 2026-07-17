@@ -132,9 +132,7 @@ function envFlagDefaultTrue(value: string | undefined): boolean {
 
 const USE_FAST_PATH = envFlagDefaultTrue(process.env["JSON_USE_FAST_PATH"]);
 const THROW_FAST_PATH = process.env["JSON_FAST_PATH_THROW"]?.trim() === "1";
-// Keep default initialization semantics on the normal generated path. Whole-
-// object literal matching loses on request payloads that vary between calls.
-const USE_DEFAULT_OBJECT_SPECIALIZATION = false;
+const USE_DEFAULT_OBJECT_SPECIALIZATION = true;
 type JSONCacheConfig = {
   enabled: boolean;
   bytes: number;
@@ -2734,10 +2732,8 @@ export class JSONTransform extends Visitor {
       return blocks.join("");
     };
 
-    // Optional-field layout traces only pay off when the exact source and
-    // destination graph repeat. Changing request payloads pay the probe and
-    // branch cost on every object, so keep the normal generated checks.
-    const traceOptionalObject = false;
+    const traceOptionalObject =
+      supportsFastOptionalPath && this.schema.members.length <= 63;
     const objectTraceHeader = traceOptionalObject
       ? "  const __traceToken = JSON.Util.beginObjectTrace(dst, start, " +
         JSON.stringify(this.schema.name) +
