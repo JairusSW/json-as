@@ -1,6 +1,12 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench";
+import {
+  bench,
+  blackbox,
+  ChangingPayloads,
+  dumpToFile,
+  utf8ByteLength,
+} from "./lib/bench";
 import { nonDefaultValues } from "./lib/nondefault";
 
 
@@ -61,6 +67,9 @@ const v1 = new MediumAPIResponse();
 const v2: string = JSON.stringify<MediumAPIResponse>(v1);
 const nonDefaultJson = nonDefaultValues(v2);
 const nonDefaultValue = JSON.parse<MediumAPIResponse>(nonDefaultJson);
+const defaultPayloads = new ChangingPayloads(v2);
+const nonDefaultPayloads = new ChangingPayloads(nonDefaultJson);
+const objPayloads = new ChangingPayloads(v2);
 const byteLength: usize = utf8ByteLength(v2);
 const v2Ptr: usize = changetype<usize>(v2);
 const v2End: usize = v2Ptr + (v2.length << 1);
@@ -88,7 +97,7 @@ dumpToFile("medium", "serialize");
 bench(
   "Deserialize Medium API Response",
   () => {
-    blackbox(JSON.parse<MediumAPIResponse>(v2));
+    blackbox(JSON.parse<MediumAPIResponse>(defaultPayloads.next()));
   },
   500_000,
   byteLength,
@@ -107,7 +116,7 @@ dumpToFile("medium-nondefault", "serialize");
 bench(
   "Deserialize Medium API Response (non-default)",
   () => {
-    blackbox(JSON.parse<MediumAPIResponse>(nonDefaultJson));
+    blackbox(JSON.parse<MediumAPIResponse>(nonDefaultPayloads.next()));
   },
   500_000,
   utf8ByteLength(nonDefaultJson),
@@ -128,7 +137,7 @@ dumpToFile("medium-obj", "serialize");
 bench(
   "Deserialize Medium (JSON.Obj)",
   () => {
-    blackbox(JSON.parse<JSON.Obj>(v2));
+    blackbox(JSON.parse<JSON.Obj>(objPayloads.next()));
   },
   500_000,
   byteLength,

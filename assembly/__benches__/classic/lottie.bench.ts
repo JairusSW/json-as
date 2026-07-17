@@ -3,6 +3,7 @@ import { expect } from "../../__tests__/lib";
 import {
   blackbox,
   bench,
+  ChangingPayloads,
   dumpToFile,
   readFile,
   utf8ByteLength,
@@ -88,12 +89,14 @@ const minJson = readFile("./assembly/__benches__/payloads/lottie.min.json");
 expect(JSON.parse<Lottie>(minJson).layers.length).toBe(23);
 
 const lottie = JSON.parse<Lottie>(prettyJson);
+const prettyPayloads = new ChangingPayloads(prettyJson);
+const minPayloads = new ChangingPayloads(minJson);
 const out = "";
 
 bench(
   "Deserialize Lottie (pretty)",
   () => {
-    blackbox(JSON.parse<Lottie>(prettyJson, lottie));
+    blackbox(JSON.parse<Lottie>(prettyPayloads.next()));
   },
   3000,
   utf8ByteLength(prettyJson),
@@ -103,7 +106,7 @@ dumpToFile("lottie-pretty", "deserialize");
 bench(
   "Deserialize Lottie (min)",
   () => {
-    blackbox(JSON.parse<Lottie>(minJson, lottie));
+    blackbox(JSON.parse<Lottie>(minPayloads.next()));
   },
   3000,
   utf8ByteLength(minJson),
