@@ -63,6 +63,7 @@ export declare class Src {
     private traverse;
     getQualifiedName(node: DeclarationStatement): string;
     getClass(qualifiedName: string): ClassDeclaration | null;
+    getClasses(): ClassDeclaration[];
     getEnum(qualifiedName: string): EnumDeclaration | null;
     getImportedClass(qualifiedName: string, parser: Parser): ClassDeclaration | null;
     getAvailableClass(qualifiedName: string, parser: Parser): ClassDeclaration | null;

@@ -182,6 +182,163 @@ class FastKeyedUnion {
   tail: i32 = 0;
 }
 
+
+@json
+class FastDefaultLeaf {
+  label: string = "leaf";
+  count: i32 = 3;
+}
+
+
+@json
+class FastDefaultObject {
+  id: i32 = 7;
+  ok: bool = true;
+  name: string = "ready";
+  child: FastDefaultLeaf = new FastDefaultLeaf();
+  children: FastDefaultLeaf[] = [new FastDefaultLeaf(), new FastDefaultLeaf()];
+  tags: string[] = ["alpha", "beta"];
+  note: string | null = null;
+}
+
+
+@json
+class FastDefaultCacheA {
+  value: i32 = 1;
+}
+
+
+@json
+class FastDefaultCacheB {
+  value: i32 = 2;
+}
+
+
+@json
+class FastTraceChild {
+  name: string = "";
+  escaped: string = "";
+}
+
+
+@json
+class FastTraceReuse {
+  title: string = "";
+  child: FastTraceChild = new FastTraceChild();
+  tail: i32 = 0;
+}
+
+describe("SIMD default-object specialization preserves fresh graph identity", () => {
+  const canonical = JSON.stringify(new FastDefaultObject());
+  const first = JSON.parse<FastDefaultObject>(canonical);
+  const second = JSON.parse<FastDefaultObject>(canonical);
+
+  expect(first.id).toBe(7);
+  expect(first.ok).toBe(true);
+  expect(first.name).toBe("ready");
+  expect(first.child.label).toBe("leaf");
+  expect(first.children.length).toBe(2);
+  expect(first.tags[1]).toBe("beta");
+  expect((first.note == null).toString()).toBe("true");
+  expect((first === second).toString()).toBe("false");
+  expect((first.child === second.child).toString()).toBe("false");
+  expect((first.children === second.children).toString()).toBe("false");
+  expect((first.children[0] === second.children[0]).toString()).toBe("false");
+
+  first.name = "changed";
+  first.child.label = "changed";
+  first.children[0].count = 99;
+  expect(second.name).toBe("ready");
+  expect(second.child.label).toBe("leaf");
+  expect(second.children[0].count).toBe(3);
+});
+
+describe("SIMD default-object specialization falls through on any mismatch", () => {
+  const payload =
+    '{"id":8,"ok":false,"name":"other","child":{"label":"nested","count":4},"children":[{"label":"left","count":5}],"tags":["gamma"],"note":"present"}';
+  const parsed = JSON.parse<FastDefaultObject>(payload);
+  expect(parsed.id).toBe(8);
+  expect(parsed.ok).toBe(false);
+  expect(parsed.name).toBe("other");
+  expect(parsed.child.label).toBe("nested");
+  expect(parsed.children.length).toBe(1);
+  expect(parsed.children[0].count).toBe(5);
+  expect(parsed.tags[0]).toBe("gamma");
+  expect(parsed.note!).toBe("present");
+
+  const spaced = JSON.parse<FastDefaultObject>(
+    ' { "id" : 9, "ok" : true, "name" : "spaced", "child" : { "label" : "x", "count" : 6 }, "children" : [], "tags" : [], "note" : null } ',
+  );
+  expect(spaced.id).toBe(9);
+  expect(spaced.name).toBe("spaced");
+  expect(spaced.child.count).toBe(6);
+  expect(spaced.children.length).toBe(0);
+});
+
+describe("SIMD default-object cache is keyed by generated type", () => {
+  const shared = '{"value":1}';
+  const a = JSON.parse<FastDefaultCacheA>(shared);
+  const b = JSON.parse<FastDefaultCacheB>(shared);
+
+  expect(a.value).toBe(1);
+  expect(b.value).toBe(1);
+});
+
+describe("SIMD steady-state traces restore mutations and survive source switches", () => {
+  const pretty =
+    '{\n  "title": "alpha",\n  "child": {\n    "name": "nested",\n    "escaped": "line\\nbreak"\n  },\n  "tail": 7\n}';
+  const other =
+    '{\n    "title" :  "other",\n    "child" : { "name" : "second", "escaped" : "tab\\tvalue" },\n    "tail" : 9\n}';
+  const out = JSON.parse<FastTraceReuse>(pretty);
+
+  // Populate the steady-state trace, then force both string-slot misses and a
+  // nested graph-address miss while keeping the exact immutable source.
+  JSON.parse<FastTraceReuse>(pretty, out);
+  out.title = "mutated";
+  out.child = new FastTraceChild();
+  const replacement = out.child;
+  replacement.name = "wrong";
+  replacement.escaped = "wrong";
+  out.tail = -1;
+
+  const restored = JSON.parse<FastTraceReuse>(pretty, out);
+  expect(restored === out).toBe(true);
+  expect(restored.child === replacement).toBe(true);
+  expect(restored.title).toBe("alpha");
+  expect(restored.child.name).toBe("nested");
+  expect(restored.child.escaped).toBe("line\nbreak");
+  expect(restored.tail).toBe(7);
+
+  // Mutate the now-stable graph so the next parse exercises object-trace hits
+  // together with the string trace's current-reference validation.
+  restored.title = "again";
+  restored.child.name = "again";
+  restored.child.escaped = "again";
+  JSON.parse<FastTraceReuse>(pretty, restored);
+  expect(restored.title).toBe("alpha");
+  expect(restored.child.name).toBe("nested");
+  expect(restored.child.escaped).toBe("line\nbreak");
+
+  // A different source invalidates all positions. Its deliberately irregular
+  // whitespace remains on tier 2; repeating it verifies that tier is cached
+  // without assuming canonical pretty separators.
+  JSON.parse<FastTraceReuse>(other, restored);
+  expect(restored.title).toBe("other");
+  expect(restored.child.name).toBe("second");
+  expect(restored.child.escaped).toBe("tab\tvalue");
+  expect(restored.tail).toBe(9);
+  restored.title = "changed";
+  restored.child.name = "changed";
+  JSON.parse<FastTraceReuse>(other, restored);
+  expect(restored.title).toBe("other");
+  expect(restored.child.name).toBe("second");
+
+  JSON.parse<FastTraceReuse>(pretty, restored);
+  expect(restored.title).toBe("alpha");
+  expect(restored.child.name).toBe("nested");
+  expect(restored.tail).toBe(7);
+});
+
 describe("Fast-path deserialization should handle direct field types", () => {
   const payload =
     '{"id":7,"total":42,"ratio":3.5,"ok":true,"name":"alpha","note":"line\\nbreak","child":{"id":1,"label":"nested"},"maybeChild":{"id":2,"label":"optional"},"tags":["a","b","c"],"children":[{"id":3,"label":"x"},{"id":4,"label":"y"}],"scores":[5,6,7]}';

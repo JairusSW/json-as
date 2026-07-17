@@ -23,7 +23,10 @@ function deserializeStringArrayBody<T extends string[]>(
   // Reused struct fields normally retain their array backing store. Cache the
   // original slot range so the common path avoids an Array.length load and
   // growth branch for every string.
-  const reusableLength = out.length;
+  const reusableLength = load<i32>(
+    changetype<usize>(out),
+    offsetof<T>("length_"),
+  );
   const reusableDataStart = out.dataStart;
   const elementSize = sizeof<valueof<T>>();
 
@@ -76,7 +79,7 @@ function deserializeStringArrayBody<T extends string[]>(
       }
       if (code == BRACKET_RIGHT) {
         const nextLen = index + 1;
-        if (out.length != nextLen) out.length = nextLen;
+        if (reusableLength != nextLen) out.length = nextLen;
         return srcStart + 2;
       }
       break;

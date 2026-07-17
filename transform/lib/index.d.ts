@@ -21,6 +21,12 @@ export declare class JSONTransform extends Visitor {
     private collectInheritedFieldMembers;
     visitClassDeclarationRef(node: ClassDeclaration): void;
     resolveType(type: string, source: Src, visited?: Set<string>): string;
+    private getDefaultSchema;
+    private getDefaultElementType;
+    private getDefaultExpressionJSON;
+    private getImplicitDefaultJSON;
+    private getDefaultObjectJSON;
+    private getDefaultMatcherSource;
     visitClassDeclaration(node: ClassDeclaration): void;
     getSchema(name: string): Schema | null;
     generateEmptyMethods(node: ClassDeclaration): void;

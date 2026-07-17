@@ -397,7 +397,10 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
     dst || changetype<usize>(instantiate<T>()),
   );
   const originalSrcStart = srcStart;
-  const reusableLength = out.length;
+  const reusableLength = load<i32>(
+    changetype<usize>(out),
+    offsetof<T>("length_"),
+  );
 
   if (reusableLength != 0) {
     const dataStart = out.dataStart;
@@ -455,7 +458,7 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
             continue;
           }
           if (code == BRACKET_RIGHT) {
-            out.length = index;
+            if (index != reusableLength) out.length = index;
             return out;
           }
           break;
@@ -494,7 +497,7 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
             continue;
           }
           if (code == BRACKET_RIGHT) {
-            out.length = index;
+            if (index != reusableLength) out.length = index;
             return out;
           }
           break;

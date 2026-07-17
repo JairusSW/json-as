@@ -677,6 +677,16 @@ describe("SIMD: 9-a prefix before \\n triggers scalar tail backslash in deserial
   expect(v.x.charCodeAt(9)).toBe(10);
 });
 
+describe("SIMD: wide string-field pre-scan retains first and second block hits", () => {
+  const first = JSON.parse<S1>('{"x":"AAAAAAAAAAAAAAAAAA\\nBBBBBBBBBBBBBBBB"}');
+  expect(first.x.charCodeAt(18)).toBe(10);
+
+  const second = JSON.parse<S1>(
+    '{"x":"AAAAAAAAAAAAAAAAAAAAAAAAAA\\nBBBBBBBB"}',
+  );
+  expect(second.x.charCodeAt(26)).toBe(10);
+});
+
 // swar/string.ts: escaped string field covers deserializeEscapedStringField_SWAR
 describe("SWAR: struct string field with \\n escape roundtrips correctly", () => {
   const v = JSON.parse<S1>('{"x":"hello\\nworld"}');

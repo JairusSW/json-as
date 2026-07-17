@@ -2,6 +2,27 @@ import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { deserializeFloatArrayBody } from "./float";
 import { ensureArrayField, scanValueEnd, skipWhitespace } from "./shared";
+import { skipPrettyWhitespace_SIMD } from "../../../util/prettyWhitespaceSimd";
+
+
+@inline
+function skipNestedArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
+  const code = load<u16>(srcStart);
+  if (ASC_FEATURE_SIMD && code == 10) {
+    // Common JSON.stringify(..., null, 2) shape at Canada's coordinate depth:
+    // LF + twelve spaces + the next nested array. Two fixed compares avoid a
+    // general whitespace mask, bitmask, and ctz on every coordinate pair.
+    if (
+      srcStart + 28 <= srcEnd &&
+      !v128.any_true(v128.xor(load<v128>(srcStart, 2), i16x8.splat(0x20))) &&
+      load<u64>(srcStart, 18) == 0x0020_0020_0020_0020 &&
+      load<u16>(srcStart, 26) == BRACKET_LEFT
+    )
+      return srcStart + 26;
+    return skipPrettyWhitespace_SIMD(srcStart, srcEnd);
+  }
+  return skipWhitespace(srcStart, srcEnd);
+}
 
 export function deserializeArrayArrayBody<T extends unknown[][]>(
   srcStart: usize,
@@ -9,14 +30,21 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
   out: T,
 ): usize {
   let index = 0;
-  const reusableLength = out.length;
+  const reusableLength = load<i32>(
+    changetype<usize>(out),
+    offsetof<T>("length_"),
+  );
   const reusableDataStart = out.dataStart;
   const elementSize = sizeof<valueof<T>>();
 
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
-    srcStart = skipWhitespace(srcStart, srcEnd);
+    if (srcStart < srcEnd) {
+      const code = load<u16>(srcStart);
+      if (code != BRACKET_LEFT)
+        srcStart = skipNestedArrayWhitespace(srcStart, srcEnd);
+    }
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
       out.length = 0;
@@ -82,11 +110,18 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
         srcStart = valueEnd;
       }
 
-      srcStart = skipWhitespace(srcStart, srcEnd);
-      const code = load<u16>(srcStart);
+      let code = load<u16>(srcStart);
+      if (code != COMMA && code != BRACKET_RIGHT) {
+        srcStart = skipWhitespace(srcStart, srcEnd);
+        code = load<u16>(srcStart);
+      }
       if (code == COMMA) {
         srcStart += 2;
-        srcStart = skipWhitespace(srcStart, srcEnd);
+        if (srcStart < srcEnd) {
+          code = load<u16>(srcStart);
+          if (code != BRACKET_LEFT)
+            srcStart = skipNestedArrayWhitespace(srcStart, srcEnd);
+        }
         index++;
         continue;
       }

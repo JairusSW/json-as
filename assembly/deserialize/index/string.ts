@@ -2,14 +2,17 @@ import { JSONMode } from "../..";
 import {
   deserializeString_NAIVE,
   deserializeStringField_NAIVE,
+  deserializeStringFieldTrusted_NAIVE,
 } from "../naive/string";
 import {
   deserializeString_SIMD,
   deserializeStringField_SIMD,
+  deserializeStringFieldTrusted_SIMD,
 } from "../simd/string";
 import {
   deserializeString_SWAR,
   deserializeStringField_SWAR,
+  deserializeStringFieldTrusted_SWAR,
 } from "../swar/string";
 
 export function deserializeString(srcStart: usize, srcEnd: usize): string {
@@ -38,5 +41,35 @@ export function deserializeStringField<T extends string | null>(
     return deserializeStringField_NAIVE<T>(srcStart, srcEnd, dstObj, dstOffset);
   } else {
     return deserializeStringField_SWAR<T>(srcStart, srcEnd, dstObj, dstOffset);
+  }
+}
+
+export function deserializeStringFieldTrusted(
+  payloadStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
+  if (JSON_MODE == JSONMode.SIMD) {
+    return deserializeStringFieldTrusted_SIMD(
+      payloadStart,
+      srcEnd,
+      dstObj,
+      dstOffset,
+    );
+  } else if (JSON_MODE == JSONMode.NAIVE) {
+    return deserializeStringFieldTrusted_NAIVE(
+      payloadStart,
+      srcEnd,
+      dstObj,
+      dstOffset,
+    );
+  } else {
+    return deserializeStringFieldTrusted_SWAR(
+      payloadStart,
+      srcEnd,
+      dstObj,
+      dstOffset,
+    );
   }
 }

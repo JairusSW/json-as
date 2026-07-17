@@ -1,6 +1,6 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
-import { eiselLemire22 } from "../util/eisel-lemire";
+import { eiselLemire22, eiselLemireMinus14 } from "../util/eisel-lemire";
 
 
 @json
@@ -129,6 +129,28 @@ describe("Eisel-Lemire medium-exponent conversion is bit-identical", () => {
         1099511628211;
     }
     expect<u64>(hash).toBe(unchecked(expected[power + 22]));
+  }
+});
+
+describe("SWAR/SIMD float parsers use bit-identical medium-exponent conversion", () => {
+  expect<u64>(reinterpret<u64>(JSON.parse<f64>("9007199254740993e-7"))).toBe(
+    0x41cad7f29abcaf49,
+  );
+
+  const field = JSON.parse<FloatFieldBox>(
+    '{"value64":9007199254740993e7,"value32":0}',
+  );
+  expect<u64>(reinterpret<u64>(field.value64)).toBe(0x44b312d000000001);
+});
+
+describe("Fixed -14 Eisel-Lemire conversion is bit-identical", () => {
+  let state: u64 = 0x6a09e667f3bcc909;
+  for (let i = 0; i < 1024; i++) {
+    state = state * 6364136223846793005 + 1442695040888963407;
+    const significand = state | ((<u64>1) << 53);
+    expect<u64>(reinterpret<u64>(eiselLemireMinus14(significand))).toBe(
+      reinterpret<u64>(eiselLemire22(significand, -14)),
+    );
   }
 });
 

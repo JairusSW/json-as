@@ -402,14 +402,26 @@ export function deserializeStringField_SWAR<T extends string | null>(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
-  const dstFieldPtr = dstObj + dstOffset;
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) {
     markProductionParseError();
     return 0;
   }
+  return deserializeStringFieldTrusted_SWAR(
+    srcStart + 2,
+    srcEnd,
+    dstObj,
+    dstOffset,
+  );
+}
 
-  const payloadStart = srcStart + 2;
-  srcStart = payloadStart;
+export function deserializeStringFieldTrusted_SWAR(
+  payloadStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
+  const dstFieldPtr = dstObj + dstOffset;
+  let srcStart = payloadStart;
   let pendingMask: u64 = 0;
 
   // Wide pre-scan: skip 16 bytes per iter while both halves are clean. The

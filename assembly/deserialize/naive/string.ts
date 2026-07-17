@@ -181,14 +181,26 @@ export function deserializeStringField_NAIVE<T extends string | null>(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
-  const dstFieldPtr = dstObj + dstOffset;
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) {
     markProductionParseError();
     return 0;
   }
+  return deserializeStringFieldTrusted_NAIVE(
+    srcStart + 2,
+    srcEnd,
+    dstObj,
+    dstOffset,
+  );
+}
 
-  const payloadStart = srcStart + 2;
-  srcStart = payloadStart;
+export function deserializeStringFieldTrusted_NAIVE(
+  payloadStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
+  const dstFieldPtr = dstObj + dstOffset;
+  let srcStart = payloadStart;
 
   // Scan for the closing quote without touching the scratch buffer. For the
   // common escape-free case the bytes are a verbatim slice of the source, so we
