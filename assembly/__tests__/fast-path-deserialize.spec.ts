@@ -228,7 +228,7 @@ class FastTraceReuse {
   tail: i32 = 0;
 }
 
-describe("SIMD default-object specialization preserves fresh graph identity", () => {
+describe("Default-valued parsing preserves fresh graph identity", () => {
   const canonical = JSON.stringify(new FastDefaultObject());
   const first = JSON.parse<FastDefaultObject>(canonical);
   const second = JSON.parse<FastDefaultObject>(canonical);
@@ -253,7 +253,7 @@ describe("SIMD default-object specialization preserves fresh graph identity", ()
   expect(second.children[0].count).toBe(3);
 });
 
-describe("SIMD default-object specialization falls through on any mismatch", () => {
+describe("Default-valued parsing handles mismatched payloads", () => {
   const payload =
     '{"id":8,"ok":false,"name":"other","child":{"label":"nested","count":4},"children":[{"label":"left","count":5}],"tags":["gamma"],"note":"present"}';
   const parsed = JSON.parse<FastDefaultObject>(payload);
@@ -275,7 +275,7 @@ describe("SIMD default-object specialization falls through on any mismatch", () 
   expect(spaced.children.length).toBe(0);
 });
 
-describe("SIMD default-object cache is keyed by generated type", () => {
+describe("Default-valued parsing is keyed by generated type", () => {
   const shared = '{"value":1}';
   const a = JSON.parse<FastDefaultCacheA>(shared);
   const b = JSON.parse<FastDefaultCacheB>(shared);
@@ -284,15 +284,15 @@ describe("SIMD default-object cache is keyed by generated type", () => {
   expect(b.value).toBe(1);
 });
 
-describe("SIMD steady-state traces restore mutations and survive source switches", () => {
+describe("SIMD reuse restores mutations and survives source switches", () => {
   const pretty =
     '{\n  "title": "alpha",\n  "child": {\n    "name": "nested",\n    "escaped": "line\\nbreak"\n  },\n  "tail": 7\n}';
   const other =
     '{\n    "title" :  "other",\n    "child" : { "name" : "second", "escaped" : "tab\\tvalue" },\n    "tail" : 9\n}';
   const out = JSON.parse<FastTraceReuse>(pretty);
 
-  // Populate the steady-state trace, then force both string-slot misses and a
-  // nested graph-address miss while keeping the exact immutable source.
+  // Populate the reusable graph, then replace both strings and the nested
+  // object while keeping the same source.
   JSON.parse<FastTraceReuse>(pretty, out);
   out.title = "mutated";
   out.child = new FastTraceChild();
@@ -314,8 +314,7 @@ describe("SIMD steady-state traces restore mutations and survive source switches
   expect(restored.child.escaped).toBe("line\nbreak");
   expect(restored.tail).toBe(7);
 
-  // Mutate the now-stable graph so the next parse exercises object-trace hits
-  // together with the string trace's current-reference validation.
+  // Mutate the now-stable graph so the next parse must restore every value.
   restored.title = "again";
   restored.child.name = "again";
   restored.child.escaped = "again";
@@ -325,7 +324,7 @@ describe("SIMD steady-state traces restore mutations and survive source switches
   expect(restored.child.escaped).toBe("line\nbreak");
 
   // A different source invalidates all positions. Its deliberately irregular
-  // whitespace remains on tier 2; repeating it verifies that tier is cached
+  // whitespace remains on tier 2; repeating it verifies stable handling
   // without assuming canonical pretty separators.
   JSON.parse<FastTraceReuse>(other, restored);
   expect(restored.title).toBe("other");

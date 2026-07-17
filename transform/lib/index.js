@@ -50,6 +50,7 @@ function envFlagDefaultTrue(value) {
 }
 const USE_FAST_PATH = envFlagDefaultTrue(process.env["JSON_USE_FAST_PATH"]);
 const THROW_FAST_PATH = process.env["JSON_FAST_PATH_THROW"]?.trim() === "1";
+const USE_DEFAULT_OBJECT_SPECIALIZATION = false;
 function parseJSONCacheConfig(value) {
     if (!value)
         return { enabled: false, bytes: 0 };
@@ -1809,7 +1810,7 @@ export class JSONTransform extends Visitor {
         const chunkFastBlocksOptional = (blocks, _tag, _callIndent, _needsKp) => {
             return blocks.join("");
         };
-        const traceOptionalObject = supportsFastOptionalPath && this.schema.members.length <= 63;
+        const traceOptionalObject = false;
         const objectTraceHeader = traceOptionalObject
             ? "  const __traceToken = JSON.Util.beginObjectTrace(dst, start, " +
                 JSON.stringify(this.schema.name) +
@@ -3072,7 +3073,8 @@ export class JSONTransform extends Visitor {
         const FULL_WRITE_METHOD = useFastPath && !supportsFastOptionalPath
             ? SimpleParser.parseClassMember("__DESERIALIZE_FULL_WRITE(): void {}", node)
             : null;
-        const defaultObjectJSON = this.program.options.hasFeature(16) &&
+        const defaultObjectJSON = USE_DEFAULT_OBJECT_SPECIALIZATION &&
+            this.program.options.hasFeature(16) &&
             useFastPath &&
             !supportsFastOptionalPath &&
             !DESERIALIZE_CUSTOM &&

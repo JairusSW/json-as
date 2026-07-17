@@ -132,6 +132,9 @@ function envFlagDefaultTrue(value: string | undefined): boolean {
 
 const USE_FAST_PATH = envFlagDefaultTrue(process.env["JSON_USE_FAST_PATH"]);
 const THROW_FAST_PATH = process.env["JSON_FAST_PATH_THROW"]?.trim() === "1";
+// Keep default initialization semantics on the normal generated path. Whole-
+// object literal matching loses on request payloads that vary between calls.
+const USE_DEFAULT_OBJECT_SPECIALIZATION = false;
 type JSONCacheConfig = {
   enabled: boolean;
   bytes: number;
@@ -2731,8 +2734,10 @@ export class JSONTransform extends Visitor {
       return blocks.join("");
     };
 
-    const traceOptionalObject =
-      supportsFastOptionalPath && this.schema.members.length <= 63;
+    // Optional-field layout traces only pay off when the exact source and
+    // destination graph repeat. Changing request payloads pay the probe and
+    // branch cost on every object, so keep the normal generated checks.
+    const traceOptionalObject = false;
     const objectTraceHeader = traceOptionalObject
       ? "  const __traceToken = JSON.Util.beginObjectTrace(dst, start, " +
         JSON.stringify(this.schema.name) +
@@ -4401,6 +4406,7 @@ export class JSONTransform extends Visitor {
     // an exact hit. Every other spelling/value falls through to the normal fast
     // parser, so this is a specialization rather than a separate parser mode.
     const defaultObjectJSON =
+      USE_DEFAULT_OBJECT_SPECIALIZATION &&
       this.program.options.hasFeature(Feature.Simd) &&
       useFastPath &&
       !supportsFastOptionalPath &&

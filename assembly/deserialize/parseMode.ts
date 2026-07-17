@@ -1,4 +1,8 @@
 let SIMD_PRETTY_PARSE = false;
+// Exact-source traces are a niche win for repeatedly parsing the same immutable
+// string into the same graph, but every changing payload pays their probes.
+// Keep normal destination reuse without enabling that speculative cache.
+const ENABLE_EXACT_SOURCE_TRACES = false;
 
 // Steady-state SIMD string-field trace. JSON source strings and parsed field
 // strings are immutable at the language level, so the tuple
@@ -47,6 +51,7 @@ export function beginStringFieldTrace(
   out: usize,
   typeId: u32,
 ): void {
+  if (!ENABLE_EXACT_SOURCE_TRACES) return;
   STRING_TRACE_DEPTH++;
   if (!ASC_FEATURE_SIMD || STRING_TRACE_DEPTH != 1 || out == 0) return;
 
@@ -82,6 +87,7 @@ export function beginStringFieldTrace(
 /** Leave the matching public parse call. */
 @inline
 export function endStringFieldTrace(success: bool): void {
+  if (!ENABLE_EXACT_SOURCE_TRACES) return;
   if (STRING_TRACE_DEPTH == 1) {
     STRING_TRACE_ACTIVE = false;
     STRING_TRACE_COMPLETE = success;
@@ -95,6 +101,7 @@ export function probeStringFieldTrace(
   dstFieldPtr: usize,
   payloadStart: usize,
 ): usize {
+  if (!ENABLE_EXACT_SOURCE_TRACES) return 0;
   if (!STRING_TRACE_ACTIVE || STRING_TRACE_DEPTH != 1) return 0;
   const slot = STRING_TRACE_INDEX++;
   STRING_TRACE_SLOT = slot;
@@ -116,6 +123,7 @@ export function recordStringFieldTrace(
   payloadStart: usize,
   next: usize,
 ): void {
+  if (!ENABLE_EXACT_SOURCE_TRACES) return;
   if (!STRING_TRACE_ACTIVE || STRING_TRACE_DEPTH != 1) return;
   const slot = STRING_TRACE_SLOT;
   const value = load<string>(dstFieldPtr);
@@ -146,6 +154,7 @@ export function beginObjectFieldTrace(
   srcStart: usize,
   typeTag: string,
 ): i32 {
+  if (!ENABLE_EXACT_SOURCE_TRACES) return i32.MIN_VALUE;
   if (!STRING_TRACE_ACTIVE || STRING_TRACE_DEPTH != 1) return i32.MIN_VALUE;
   const slot = OBJECT_TRACE_INDEX++;
   if (
