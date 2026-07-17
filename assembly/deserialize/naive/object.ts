@@ -14,6 +14,11 @@ import {
 import { isSpace, scanStringEnd } from "../../util";
 import { deserializeFloat } from "../index/float";
 import { deserializeString } from "../index/string";
+import {
+  failProductionParse,
+  markProductionParseError,
+  takeProductionParseError,
+} from "../error";
 
 // "true"  as a u64 of UTF-16 code units (LE).
 const TRUE_WORD: u64 = 28429475166421108;
@@ -42,6 +47,7 @@ export function setParseSrc(s: string): void {
 export function getParseSrc(): string {
   return parseSrc;
 }
+export { markProductionParseError, takeProductionParseError };
 
 export function deserializeObject(
   srcStart: usize,
@@ -58,22 +64,19 @@ export function deserializeObject(
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
-  if (srcEnd == srcStart)
-    throw new Error("Input string had zero length or was all whitespace");
-  if (load<u16>(srcStart) != BRACE_LEFT)
-    throw new Error(
-      "Expected '{' at start of object at position " +
-        (srcEnd - srcStart).toString(),
-    );
-  if (load<u16>(srcEnd - 2) != BRACE_RIGHT)
-    throw new Error(
-      "Expected '}' at end of object at position " +
-        (srcEnd - srcStart).toString(),
-    );
+  if (
+    srcEnd == srcStart ||
+    load<u16>(srcStart) != BRACE_LEFT ||
+    load<u16>(srcEnd - 2) != BRACE_RIGHT
+  ) {
+    failProductionParse();
+    return changetype<JSON.Obj>(0);
+  }
 
   out.reserveForParse((srcEnd - srcStart) >> 1);
-  parseObjectBody(out, srcStart + 2, srcEnd);
-  return out;
+  return parseObjectBody(out, srcStart + 2, srcEnd) != 0
+    ? out
+    : changetype<JSON.Obj>(0);
 }
 
 export function deserializeJsonArray(
@@ -89,15 +92,18 @@ export function deserializeJsonArray(
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
-  if (srcEnd == srcStart)
-    throw new Error("Input string had zero length or was all whitespace");
-  if (load<u16>(srcStart) != BRACKET_LEFT)
-    throw new Error("Expected '[' at start of array");
-  if (load<u16>(srcEnd - 2) != BRACKET_RIGHT)
-    throw new Error("Expected ']' at end of array");
+  if (
+    srcEnd == srcStart ||
+    load<u16>(srcStart) != BRACKET_LEFT ||
+    load<u16>(srcEnd - 2) != BRACKET_RIGHT
+  ) {
+    failProductionParse();
+    return changetype<JSON.Arr>(0);
+  }
 
-  parseArrayBodySlots(out, srcStart + 2, srcEnd);
-  return out;
+  return parseArrayBodySlots(out, srcStart + 2, srcEnd) != 0
+    ? out
+    : changetype<JSON.Arr>(0);
 }
 
 /**
@@ -121,13 +127,14 @@ export function parseArrayBodySlots(
     if (parseSrc.length != 0) {
       out.pushRawSlot(parseSlotBits(srcStart, srcEnd));
     } else {
-      out.pushRawSlot(
-        JSON.Value.bitsFrom<JSON.Value>(parseValue(srcStart, srcEnd)),
-      );
+      const value = parseValue(srcStart, srcEnd);
+      if (parseValueEnd == 0) return 0;
+      out.pushRawSlot(JSON.Value.bitsFrom<JSON.Value>(value));
     }
+    if (parseValueEnd == 0) return 0;
     srcStart = parseValueEnd;
   }
-  return srcEnd;
+  return 0;
 }
 
 /**
@@ -138,9 +145,19 @@ export function parseArrayBodySlots(
  * to be set (the caller guards), since a lazy slot points into it.
  */
 function parseSlotBits(srcStart: usize, srcEnd: usize): u64 {
+  if (srcStart >= srcEnd) {
+    parseValueEnd = 0;
+    markProductionParseError();
+    return JSON.Value.nullBits();
+  }
   const code = load<u16>(srcStart);
   if (code == QUOTE || code == BRACE_LEFT || code == BRACKET_LEFT) {
     const end = JSON.Util.scanValueEnd<JSON.Value>(srcStart, srcEnd);
+    if (end == 0) {
+      parseValueEnd = 0;
+      markProductionParseError();
+      return JSON.Value.nullBits();
+    }
     parseValueEnd = end;
     return JSON.Value.lazyBits(changetype<usize>(parseSrc), srcStart, end);
   } else if (code - 48 <= 9 || code == 45) {
@@ -154,24 +171,33 @@ function parseSlotBits(srcStart: usize, srcEnd: usize): u64 {
     parseValueEnd = p;
     return JSON.Value.f64Bits(deserializeFloat<f64>(srcStart, p));
   } else if (code == CHAR_T) {
-    if (load<u64>(srcStart) != TRUE_WORD)
-      throw new Error("Expected 'true' in JSON");
+    if (srcEnd - srcStart < 8 || load<u64>(srcStart) != TRUE_WORD) {
+      parseValueEnd = 0;
+      markProductionParseError();
+      return JSON.Value.nullBits();
+    }
     parseValueEnd = srcStart + 8;
     return JSON.Value.boolBits(true);
   } else if (code == CHAR_F) {
-    if (load<u64>(srcStart, 2) != ALSE_WORD)
-      throw new Error("Expected 'false' in JSON");
+    if (srcEnd - srcStart < 10 || load<u64>(srcStart, 2) != ALSE_WORD) {
+      parseValueEnd = 0;
+      markProductionParseError();
+      return JSON.Value.nullBits();
+    }
     parseValueEnd = srcStart + 10;
     return JSON.Value.boolBits(false);
   } else if (code == CHAR_N) {
-    if (load<u64>(srcStart) != NULL_WORD)
-      throw new Error("Expected 'null' in JSON");
+    if (srcEnd - srcStart < 8 || load<u64>(srcStart) != NULL_WORD) {
+      parseValueEnd = 0;
+      markProductionParseError();
+      return JSON.Value.nullBits();
+    }
     parseValueEnd = srcStart + 8;
     return JSON.Value.nullBits();
   }
-  throw new Error(
-    "Unexpected character in JSON '" + String.fromCharCode(code) + "'",
-  );
+  parseValueEnd = 0;
+  markProductionParseError();
+  return JSON.Value.nullBits();
 }
 
 /**
@@ -186,12 +212,27 @@ export function lastValueEnd(): usize {
 }
 
 export function parseValue(srcStart: usize, srcEnd: usize): JSON.Value {
+  if (srcStart >= srcEnd) {
+    parseValueEnd = 0;
+    markProductionParseError();
+    return changetype<JSON.Value>(0);
+  }
   const code = load<u16>(srcStart);
   if (code == QUOTE) {
     const end = scanStringEnd(srcStart, srcEnd);
-    if (end >= srcEnd) throw new Error("Unterminated string in JSON");
+    if (end >= srcEnd) {
+      parseValueEnd = 0;
+      markProductionParseError();
+      return changetype<JSON.Value>(0);
+    }
     parseValueEnd = end + 2;
-    return JSON.Value.from(deserializeString(srcStart, end + 2));
+    const value = deserializeString(srcStart, end + 2);
+    if (changetype<usize>(value) == 0) {
+      parseValueEnd = 0;
+      markProductionParseError();
+      return changetype<JSON.Value>(0);
+    }
+    return JSON.Value.from(value);
   } else if (code == BRACE_LEFT) {
     const obj = new JSON.Obj();
     parseValueEnd = parseObjectBody(obj, srcStart + 2, srcEnd);
@@ -211,24 +252,33 @@ export function parseValue(srcStart: usize, srcEnd: usize): JSON.Value {
     parseValueEnd = p;
     return JSON.Value.from(deserializeFloat<f64>(srcStart, p));
   } else if (code == CHAR_T) {
-    if (load<u64>(srcStart) != TRUE_WORD)
-      throw new Error("Expected 'true' in JSON");
+    if (srcEnd - srcStart < 8 || load<u64>(srcStart) != TRUE_WORD) {
+      parseValueEnd = 0;
+      markProductionParseError();
+      return changetype<JSON.Value>(0);
+    }
     parseValueEnd = srcStart + 8;
     return JSON.Value.from(true);
   } else if (code == CHAR_F) {
-    if (load<u64>(srcStart, 2) != ALSE_WORD)
-      throw new Error("Expected 'false' in JSON");
+    if (srcEnd - srcStart < 10 || load<u64>(srcStart, 2) != ALSE_WORD) {
+      parseValueEnd = 0;
+      markProductionParseError();
+      return changetype<JSON.Value>(0);
+    }
     parseValueEnd = srcStart + 10;
     return JSON.Value.from(false);
   } else if (code == CHAR_N) {
-    if (load<u64>(srcStart) != NULL_WORD)
-      throw new Error("Expected 'null' in JSON");
+    if (srcEnd - srcStart < 8 || load<u64>(srcStart) != NULL_WORD) {
+      parseValueEnd = 0;
+      markProductionParseError();
+      return changetype<JSON.Value>(0);
+    }
     parseValueEnd = srcStart + 8;
     return JSON.Value.from<usize>(0);
   }
-  throw new Error(
-    "Unexpected character in JSON '" + String.fromCharCode(code) + "'",
-  );
+  parseValueEnd = 0;
+  markProductionParseError();
+  return changetype<JSON.Value>(0);
 }
 
 /**
@@ -255,14 +305,20 @@ export function parseArrayBody(
       // Defer strings and composites (the allocating shapes): store the raw
       // slice, parse on first access. Cheap primitives stay eager below.
       const end = JSON.Util.scanValueEnd<JSON.Value>(srcStart, srcEnd);
+      if (end == 0) {
+        markProductionParseError();
+        return 0;
+      }
       out.push(JSON.Value.fromSlice(srcStart, end, parseSrc));
       srcStart = end;
     } else {
-      out.push(parseValue(srcStart, srcEnd));
+      const value = parseValue(srcStart, srcEnd);
+      if (parseValueEnd == 0) return 0;
+      out.push(value);
       srcStart = parseValueEnd;
     }
   }
-  return srcEnd;
+  return 0;
 }
 
 /**
@@ -297,41 +353,35 @@ export function parseObjectBody(
     }
 
     // --- key ---
-    if (code != QUOTE)
-      throw new Error(
-        "Unexpected character in JSON object '" +
-          String.fromCharCode(code) +
-          "' at position " +
-          (srcEnd - srcStart).toString(),
-      );
+    if (code != QUOTE) return failProductionParse();
     const keyStart = srcStart + 2;
     srcStart = scanStringEnd(srcStart, srcEnd);
-    if (srcStart >= srcEnd)
-      throw new Error("Unterminated string in JSON object");
+    if (srcStart >= srcEnd) return failProductionParse();
     const keyEnd = srcStart;
     srcStart += 2;
 
     // --- colon ---
     while (srcStart < srcEnd && isSpace((code = load<u16>(srcStart))))
       srcStart += 2;
-    if (srcStart >= srcEnd || code != COLON)
-      throw new Error(
-        "Expected ':' after key at position " + (srcEnd - srcStart).toString(),
-      );
+    if (srcStart >= srcEnd || code != COLON) return failProductionParse();
     srcStart += 2;
 
     // --- value ---
     while (srcStart < srcEnd && isSpace((code = load<u16>(srcStart))))
       srcStart += 2;
+    if (srcStart >= srcEnd) return failProductionParse();
     if (parseSrc.length != 0) {
       // Parsing: store a NaN-boxed slot directly (strings/composites deferred,
       // scalars eager) - no per-value JSON.Value object.
       out.appendParsedSlot(keyStart, keyEnd, parseSlotBits(srcStart, srcEnd));
+      if (parseValueEnd == 0) return 0;
     } else {
       // Off the parse path (no source anchor): box eagerly.
-      out.appendRaw(keyStart, keyEnd, parseValue(srcStart, srcEnd));
+      const value = parseValue(srcStart, srcEnd);
+      if (parseValueEnd == 0) return 0;
+      out.appendRaw(keyStart, keyEnd, value);
     }
     srcStart = parseValueEnd;
   }
-  return srcEnd;
+  return 0;
 }

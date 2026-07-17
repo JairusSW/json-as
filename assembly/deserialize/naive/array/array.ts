@@ -28,6 +28,7 @@ export function deserializeArrayArray<T extends unknown[][]>(
       if (load<u16>(srcStart) == BRACKET_LEFT) {
         const inner = instantiate<JSON.Value[]>();
         srcStart = parseArrayBody(inner, srcStart + 2, srcEnd);
+        if (srcStart == 0) return changetype<T>(0);
         // @ts-ignore: valueof<T> is JSON.Value[] in this branch
         out.push(changetype<valueof<T>>(changetype<usize>(inner)));
       } else {

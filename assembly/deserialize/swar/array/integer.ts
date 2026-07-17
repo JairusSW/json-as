@@ -1,6 +1,7 @@
 import { deserializeIntegerArray_NAIVE } from "../../naive/array/integer";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
+import { markProductionParseError } from "../../error";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 import { parse4Digits_PairMul } from "../../../util/swar-int";
 
@@ -176,7 +177,8 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
 
   out.length = 0;
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) {
-    throw new Error("Failed to parse JSON!");
+    markProductionParseError();
+    return changetype<T>(0);
   }
 
   srcStart += 2;
@@ -244,7 +246,8 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
     break;
   }
 
-  throw new Error("Failed to parse JSON!");
+  markProductionParseError();
+  return changetype<T>(0);
 }
 
 function deserializeIntegerArrayImpl<T extends number[]>(
@@ -639,7 +642,8 @@ function deserializeIntegerArrayBody<T extends number[]>(
     }
   } while (false);
 
-  throw new Error("Failed to parse JSON!");
+  markProductionParseError();
+  return 0;
 }
 
 export function deserializeIntegerArrayField<T extends number[]>(

@@ -1,1 +1,1 @@
-export { deserializeBoolean } from "../naive/bool";
+export { deserializeBoolean, deserializeBooleanCode } from "../naive/bool";

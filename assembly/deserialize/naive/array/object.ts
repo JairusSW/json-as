@@ -34,6 +34,7 @@ export function deserializeObjectArray<T extends unknown[]>(
     if (load<u16>(srcStart) == BRACE_LEFT) {
       const obj = new JSON.Obj();
       srcStart = parseObjectBody(obj, srcStart + 2, srcEnd);
+      if (srcStart == 0) return changetype<T>(0);
       out.push(changetype<valueof<T>>(changetype<usize>(obj)));
     } else {
       srcStart += 2;

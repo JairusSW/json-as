@@ -1,4 +1,4 @@
-import { JSON, JSONMode } from "../..";
+import { JSON } from "../..";
 import { expect } from "as-test";
 
 export const ROOT_OBJECT: u32 = 1 << 0;
@@ -94,9 +94,6 @@ function expectLazyEnvelope(data: string): void {
  * target. Strict validation must reject before target-specific parsing begins.
  */
 export function expectRejectEveryTarget(data: string): void {
-  // This PR's strict validator is intentionally scoped to the naive backend.
-  if (JSON_MODE != JSONMode.NAIVE) return;
-
   expectReject<bool>(data);
   expectReject<i8>(data);
   expectReject<u8>(data);

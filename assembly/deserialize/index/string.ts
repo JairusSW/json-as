@@ -13,6 +13,10 @@ import {
 } from "../swar/string";
 
 export function deserializeString(srcStart: usize, srcEnd: usize): string {
+  // Whole-value decoders strip two UTF-16 code units before entering their
+  // optimized loops. Guard the actual memory-safety invariant here; complete
+  // RFC quote framing remains the strict-mode validator's job.
+  if (srcEnd - srcStart < 4) return changetype<string>(0);
   if (JSON_MODE == JSONMode.SIMD) {
     return deserializeString_SIMD(srcStart, srcEnd);
   } else if (JSON_MODE == JSONMode.NAIVE) {

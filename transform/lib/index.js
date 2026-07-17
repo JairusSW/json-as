@@ -1943,19 +1943,48 @@ export class JSONTransform extends Visitor {
                 "  while (srcEnd > srcStart && JSON.Util.isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;\n";
         DESERIALIZE +=
             indent +
-                '  if (srcStart - srcEnd == 0) throw new Error("Input string had zero length or was all whitespace");\n';
+                "  if (srcStart == srcEnd) return JSON.Util.failProductionParse();\n";
         DESERIALIZE +=
             indent +
-                "  if (load<u16>(srcStart) != 123) throw new Error(\"Expected '{' at start of object at position \" + (srcEnd - srcStart).toString());\n";
+                "  if (load<u16>(srcStart) != 123) return JSON.Util.failProductionParse();\n";
         DESERIALIZE +=
             indent +
-                "  if (load<u16>(srcEnd - 2) != 125) throw new Error(\"Expected '}' at end of object at position \" + (srcEnd - srcStart).toString());\n";
+                "  if (load<u16>(srcEnd - 2) != 125) return JSON.Util.failProductionParse();\n";
+        DESERIALIZE += indent + "  const objectStart = srcStart;\n";
         DESERIALIZE += indent + "  srcStart += 2;\n\n";
         DESERIALIZE += indent + "  while (srcStart < srcEnd) {\n";
         DESERIALIZE += indent + "    let code = load<u16>(srcStart);\n";
+        DESERIALIZE += indent + "    while (JSON.Util.isSpace(code)) {\n";
+        DESERIALIZE += indent + "      srcStart += 2;\n";
         DESERIALIZE +=
             indent +
-                "    while (JSON.Util.isSpace(code)) code = load<u16>(srcStart += 2);\n";
+                "      if (srcStart >= srcEnd) return JSON.Util.failProductionParse();\n";
+        DESERIALIZE += indent + "      code = load<u16>(srcStart);\n";
+        DESERIALIZE += indent + "    }\n";
+        DESERIALIZE += indent + "    if (keyStart == 0 && !isKey) {\n";
+        DESERIALIZE += indent + "      let prev = srcStart - 2;\n";
+        DESERIALIZE +=
+            indent +
+                "      while (prev > objectStart && JSON.Util.isSpace(load<u16>(prev))) prev -= 2;\n";
+        DESERIALIZE += indent + "      const prevCode = load<u16>(prev);\n";
+        DESERIALIZE += indent + "      if (code == 125) {\n";
+        DESERIALIZE +=
+            indent +
+                "        if (prevCode == 44) return JSON.Util.failProductionParse();\n";
+        DESERIALIZE += indent + "        return srcStart + 2;\n";
+        DESERIALIZE += indent + "      }\n";
+        DESERIALIZE += indent + "      if (code == 44) {\n";
+        DESERIALIZE +=
+            indent +
+                "        if (prevCode == 123 || prevCode == 44) return JSON.Util.failProductionParse();\n";
+        DESERIALIZE += indent + "      } else if (code == 34) {\n";
+        DESERIALIZE +=
+            indent +
+                "        if (prevCode != 123 && prevCode != 44) return JSON.Util.failProductionParse();\n";
+        DESERIALIZE += indent + "      } else {\n";
+        DESERIALIZE += indent + "        return JSON.Util.failProductionParse();\n";
+        DESERIALIZE += indent + "      }\n";
+        DESERIALIZE += indent + "    }\n";
         DESERIALIZE += indent + "    if (keyStart == 0) {\n";
         DESERIALIZE +=
             indent + "      if (code == 34 && load<u16>(srcStart - 2) !== 92) {\n";
@@ -1968,20 +1997,16 @@ export class JSONTransform extends Visitor {
                     '          console.log("Key: " + JSON.Util.ptrToStr(keyStart, keyEnd));\n';
         DESERIALIZE +=
             indent +
-                "          while (JSON.Util.isSpace((code = load<u16>((srcStart += 2))))) {}\n";
+                "          do { srcStart += 2; if (srcStart >= srcEnd) return JSON.Util.failProductionParse(); code = load<u16>(srcStart); } while (JSON.Util.isSpace(code));\n";
         DESERIALIZE +=
             indent +
-                "          if (code !== 58) throw new Error(\"Expected ':' after key at position \" + (srcEnd - srcStart).toString());\n";
+                "          if (code !== 58) return JSON.Util.failProductionParse();\n";
         DESERIALIZE += indent + "          isKey = false;\n";
         DESERIALIZE += indent + "        } else {\n";
         DESERIALIZE += indent + "          isKey = true;\n";
         DESERIALIZE += indent + "          lastIndex = srcStart + 2;\n";
         DESERIALIZE += indent + "        }\n";
         DESERIALIZE += indent + "      }\n";
-        if (STRICT)
-            DESERIALIZE +=
-                indent +
-                    '      else if (!isKey && code != 44 && code != 125) throw new Error("Expected \'\\"\' to start key in JSON object at position " + (srcEnd - srcStart).toString());\n';
         DESERIALIZE += indent + "      srcStart += 2;\n";
         DESERIALIZE += indent + "    } else {\n";
         const groupMembers = (members) => {
@@ -2605,6 +2630,11 @@ export class JSONTransform extends Visitor {
         indentDec();
         DESERIALIZE += `  }\n`;
         indentDec();
+        DESERIALIZE +=
+            `  if (srcStart == srcEnd && lastIndex != 0) {\n` +
+                `    const lastCode = load<u16>(lastIndex);\n` +
+                `    if (lastCode == 123 || lastCode == 91) return 0;\n` +
+                `  }\n`;
         DESERIALIZE += `  return srcStart;\n}\n`;
         indent = "  ";
         this.schema.byteSize += 2;
@@ -2642,11 +2672,12 @@ export class JSONTransform extends Visitor {
         const sourceFreeDeserialize = !DESERIALIZE_CUSTOM &&
             this.schema.members.every((member) => {
                 const type = stripNull(member.type);
-                return (isPrimitive(type) ||
-                    isString(type) ||
-                    type == "Date" ||
-                    type == "JSON.Raw" ||
-                    type == "Raw");
+                return (!member.flags.has(PropertyFlags.Lazy) &&
+                    (isPrimitive(type) ||
+                        isString(type) ||
+                        type == "Date" ||
+                        type == "JSON.Raw" ||
+                        type == "Raw"));
             });
         const SOURCE_FREE_METHOD = sourceFreeDeserialize
             ? SimpleParser.parseClassMember("__DESERIALIZE_SOURCE_FREE(): void {}", node)

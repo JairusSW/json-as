@@ -7,6 +7,7 @@ import {
 import { isSpace } from "../../../util";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 import { deserializeStringField_SWAR } from "../string";
+import { markProductionParseError } from "../../error";
 
 function skipStringArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
@@ -82,7 +83,8 @@ function deserializeStringArrayBody<T extends string[]>(
     }
   } while (false);
 
-  throw new Error("Failed to parse JSON!");
+  markProductionParseError();
+  return 0;
 }
 
 export function deserializeStringArrayField<T extends string[]>(
@@ -115,6 +117,11 @@ export function deserializeStringArray_SWAR<T extends string[]>(
     dst || changetype<usize>(instantiate<T>()),
   );
 
+  // Top-level exact-range entry. Field arrays use the cursor-returning body
+  // above, so trimming here preserves valid document whitespace without
+  // touching the hot generated-struct path.
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
+
   // Worst-case sizing: shortest possible element is `""` followed by `,` =
   // 6 UTF-16 bytes, so `(srcLen + 5) / 6` upper-bounds the count. Clamp to
   // AS's BLOCK_MAXSIZE / sizeof<string ref> = (1<<28) - 4 elements; payloads
@@ -135,11 +142,16 @@ export function deserializeStringArray_SWAR<T extends string[]>(
   // Caller guarantees srcStart is at the opening `[`.
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) {
     out.length = 0;
-    return out;
+    markProductionParseError();
+    return changetype<T>(0);
   }
   srcStart += 2;
   srcStart = skipStringArrayWhitespace(srcStart, srcEnd);
   if (srcStart < srcEnd && load<u16>(srcStart) == BRACKET_RIGHT) {
+    if (srcStart + 2 != srcEnd) {
+      markProductionParseError();
+      return changetype<T>(0);
+    }
     out.length = 0;
     return out;
   }
@@ -168,6 +180,10 @@ export function deserializeStringArray_SWAR<T extends string[]>(
       continue;
     }
     if (code == BRACKET_RIGHT) {
+      if (srcStart + 2 != srcEnd) {
+        markProductionParseError();
+        return changetype<T>(0);
+      }
       const finalLen = i32(<usize>(writePtr - dataStart) / elementSize);
       if (out.length != finalLen) out.length = finalLen;
       return out;
@@ -175,5 +191,6 @@ export function deserializeStringArray_SWAR<T extends string[]>(
     break;
   }
 
-  throw new Error("Failed to parse JSON!");
+  markProductionParseError();
+  return changetype<T>(0);
 }

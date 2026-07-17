@@ -7,6 +7,7 @@ import {
 } from "../../../custom/chars";
 import { isSpace } from "../../../util";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
+import { markProductionParseError } from "../../error";
 
 function deserializeBooleanArrayBody<T extends boolean[]>(
   srcStart: usize,
@@ -62,7 +63,8 @@ function deserializeBooleanArrayBody<T extends boolean[]>(
     }
   } while (false);
 
-  throw new Error("Failed to parse JSON!");
+  markProductionParseError();
+  return 0;
 }
 
 export function deserializeBooleanArrayField<T extends boolean[]>(
