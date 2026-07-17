@@ -10,6 +10,41 @@ import { isSpace } from "../../util";
 import { scanValueEnd } from "../../util/scanValueEnd";
 import { lastValueEnd, parseValue } from "./object";
 import { deserializeRaw } from "./raw";
+import { isPrettyParse } from "../parseMode";
+
+
+@unmanaged
+class ReusableMapEntry<K, V> {
+  key: K;
+  value: V;
+  taggedNext: usize;
+}
+
+
+@inline
+function reusableMapEntrySize<K, V>(): usize {
+  const maxKV = sizeof<K>() > sizeof<V>() ? sizeof<K>() : sizeof<V>();
+  const align = (maxKV > sizeof<usize>() ? maxKV : sizeof<usize>()) - 1;
+  return (offsetof<ReusableMapEntry<K, V>>() + align) & ~align;
+}
+
+
+@inline
+function skipMapWhitespace(srcStart: usize, srcEnd: usize): usize {
+  // Root dynamic maps produced with a two-space JSON.stringify indent repeat
+  // LF + two spaces + quote for every key. Validate that fixed shape in two
+  // loads, retaining the scalar grammar path for all other whitespace.
+  if (
+    ASC_FEATURE_SIMD &&
+    srcStart + 8 <= srcEnd &&
+    load<u16>(srcStart) == 10 &&
+    load<u32>(srcStart, 2) == 0x0020_0020 &&
+    load<u16>(srcStart, 6) == QUOTE
+  )
+    return srcStart + 6;
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  return srcStart;
+}
 
 function rawMapKeyEquals(key: string, start: usize, end: usize): bool {
   const byteLength = end - start;
@@ -106,6 +141,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
   out: T,
   reuseExisting: bool = false,
 ): usize {
+  const pretty = ASC_FEATURE_SIMD && isPrettyParse();
   let arbitraryValue = false;
   let rawValue = false;
   if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
@@ -115,15 +151,43 @@ export function deserializeMapBody<T extends Map<any, any>>(
     rawValue = changetype<nonnull<valueof<T>>>(0) instanceof JSON.Raw;
   }
 
-  const previousKeys = reuseExisting
-    ? changetype<nonnull<T>>(out).keys()
-    : changetype<Array<indexof<T>>>(0);
+  let previousKeys = changetype<Array<indexof<T>>>(0);
+  const previousEntries = reuseExisting
+    ? load<ArrayBuffer>(
+        changetype<usize>(out),
+        offsetof<Map<indexof<T>, valueof<T>>>("entries"),
+      )
+    : changetype<ArrayBuffer>(0);
+  const previousEntrySize = reusableMapEntrySize<indexof<T>, valueof<T>>();
+  let previousEntry = changetype<usize>(previousEntries);
+  const previousEntryEnd = reuseExisting
+    ? previousEntry +
+      <usize>(
+        load<i32>(
+          changetype<usize>(out),
+          offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"),
+        )
+      ) *
+        previousEntrySize
+    : 0;
+  const previousCount = reuseExisting ? changetype<nonnull<T>>(out).size : 0;
+  while (
+    previousEntry < previousEntryEnd &&
+    (load<usize>(
+      previousEntry,
+      offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("taggedNext"),
+    ) &
+      1) !=
+      0
+  )
+    previousEntry += previousEntrySize;
   let seenKeys = changetype<Set<indexof<T>>>(0);
   let parsedKeyCount = 0;
 
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACE_LEFT) return 0;
   srcStart += 2;
-  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  if (srcStart < srcEnd && load<u16>(srcStart) != QUOTE)
+    srcStart = skipMapWhitespace(srcStart, srcEnd);
   if (srcStart >= srcEnd) return 0;
   if (load<u16>(srcStart) == BRACE_RIGHT) {
     if (reuseExisting) changetype<nonnull<T>>(out).clear();
@@ -139,18 +203,25 @@ export function deserializeMapBody<T extends Map<any, any>>(
     const keyEnd = keyValueEnd - 2;
 
     srcStart = keyEnd + 2;
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    if (srcStart < srcEnd && load<u16>(srcStart) != COLON)
+      srcStart = skipMapWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd || load<u16>(srcStart) != COLON) break;
     srcStart += 2;
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    if (srcStart < srcEnd && isSpace(load<u16>(srcStart)))
+      srcStart = skipMapWhitespace(srcStart, srcEnd);
 
     let reusableKey = "";
     const canReuseKey =
       isString<indexof<T>>() &&
       reuseExisting &&
-      parsedKeyCount < previousKeys.length;
+      previousEntry < previousEntryEnd;
     if (canReuseKey) {
-      reusableKey = changetype<string>(unchecked(previousKeys[parsedKeyCount]));
+      reusableKey = changetype<string>(
+        load<indexof<T>>(
+          previousEntry,
+          offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("key"),
+        ),
+      );
     }
     const key = deserializeMapKey<indexof<T>>(
       keyStart,
@@ -158,12 +229,17 @@ export function deserializeMapBody<T extends Map<any, any>>(
       reusableKey,
       canReuseKey,
     );
+    const matchedPreviousKey =
+      reuseExisting &&
+      previousEntry < previousEntryEnd &&
+      key ==
+        load<indexof<T>>(
+          previousEntry,
+          offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("key"),
+        );
     if (reuseExisting) {
-      if (
-        changetype<usize>(seenKeys) == 0 &&
-        (parsedKeyCount >= previousKeys.length ||
-          key != unchecked(previousKeys[parsedKeyCount]))
-      ) {
+      if (changetype<usize>(seenKeys) == 0 && !matchedPreviousKey) {
+        previousKeys = changetype<nonnull<T>>(out).keys();
         seenKeys = new Set<indexof<T>>();
         for (let i = 0; i < parsedKeyCount; i++) {
           seenKeys.add(unchecked(previousKeys[i]));
@@ -213,9 +289,16 @@ export function deserializeMapBody<T extends Map<any, any>>(
         // cursor after `}`, so drive them directly and reuse a mapped instance
         // when the key was present in the destination map.
         let value = changetype<valueof<T>>(0);
-        if (changetype<nonnull<T>>(out).has(key)) {
+        if (matchedPreviousKey) {
+          value = load<valueof<T>>(
+            previousEntry,
+            offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value"),
+          );
+        } else if (changetype<nonnull<T>>(out).has(key)) {
           value = changetype<nonnull<T>>(out).get(key);
         }
+        const reusedMappedValue =
+          matchedPreviousKey && changetype<usize>(value) != 0;
         if (changetype<usize>(value) == 0) {
           value = changetype<valueof<T>>(
             __new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
@@ -232,11 +315,19 @@ export function deserializeMapBody<T extends Map<any, any>>(
         // @ts-ignore: supplied by the json-as transform
         if (isDefined(valueType.__DESERIALIZE_FAST)) {
           // @ts-ignore: supplied by the json-as transform
-          next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST(
-            srcStart,
-            srcEnd,
-            value,
-          );
+          if (pretty && isDefined(valueType.__DESERIALIZE_FAST_PRETTY)) {
+            // @ts-ignore: supplied by the json-as transform
+            next = changetype<nonnull<valueof<T>>>(
+              value,
+            ).__DESERIALIZE_FAST_PRETTY(srcStart, srcEnd, value);
+          } else {
+            // @ts-ignore: supplied by the json-as transform
+            next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST(
+              srcStart,
+              srcEnd,
+              value,
+            );
+          }
         }
         if (!next) {
           const valueEnd = scanValueEnd(valueStart, srcEnd);
@@ -256,7 +347,10 @@ export function deserializeMapBody<T extends Map<any, any>>(
           next = valueEnd;
         }
 
-        changetype<nonnull<T>>(out).set(key, value);
+        // Stable-order re-parses mutate the same mapped object in place. Avoid
+        // hashing the key and re-linking the identical reference on every
+        // entry; shape/order changes still take the ordinary Map path.
+        if (!reusedMappedValue) changetype<nonnull<T>>(out).set(key, value);
         srcStart = next;
       } else {
         const valueEnd = scanValueEnd(srcStart, srcEnd);
@@ -279,15 +373,44 @@ export function deserializeMapBody<T extends Map<any, any>>(
       srcStart = valueEnd;
     }
 
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    if (matchedPreviousKey) {
+      previousEntry += previousEntrySize;
+      while (
+        previousEntry < previousEntryEnd &&
+        (load<usize>(
+          previousEntry,
+          offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("taggedNext"),
+        ) &
+          1) !=
+          0
+      )
+        previousEntry += previousEntrySize;
+    } else {
+      // Once insertion order diverges, ordinary Map lookup is the safe path
+      // for all remaining values. `seenKeys` tracks stale-key cleanup.
+      previousEntry = previousEntryEnd;
+    }
+
     if (srcStart >= srcEnd) break;
-    const code = load<u16>(srcStart);
+    let code = load<u16>(srcStart);
+    if (code != COMMA && code != BRACE_RIGHT) {
+      srcStart = skipMapWhitespace(srcStart, srcEnd);
+      if (srcStart >= srcEnd) break;
+      code = load<u16>(srcStart);
+    }
     if (code == COMMA) {
       srcStart += 2;
-      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+      if (srcStart < srcEnd && load<u16>(srcStart) != QUOTE)
+        srcStart = skipMapWhitespace(srcStart, srcEnd);
       continue;
     }
     if (code == BRACE_RIGHT) {
+      if (
+        reuseExisting &&
+        changetype<usize>(previousKeys) == 0 &&
+        parsedKeyCount != previousCount
+      )
+        previousKeys = changetype<nonnull<T>>(out).keys();
       removeStaleMapKeys<T>(out, previousKeys, seenKeys, parsedKeyCount);
       return srcStart + 2;
     }

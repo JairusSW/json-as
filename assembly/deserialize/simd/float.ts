@@ -1,7 +1,7 @@
-// SIMD float deserializers. Same Lemire-style fast path / `scientific()` /
-// `f*.parse` cascade as `swar/float.ts`, but the fractional digit loop uses
-// `parse8Digits_SIMD` (16 bytes / 8 digits) before falling through to
-// `parse4Digits_PairMul` (8 bytes / 4 digits) and finally the scalar tail.
+// SIMD float deserializers. Same Eisel-Lemire / `scientific()` / `f*.parse`
+// cascade as `swar/float.ts`, but the fractional digit loop starts with a
+// `parse16Digits_SIMD` stride before falling through to `parse4Digits_PairMul`
+// and finally the scalar tail.
 //
 // Output is bit-identical to `f64.parse` / `f32.parse` for every input - the
 // SIMD strides only change how the u64 mantissa is accumulated, not what it
@@ -14,6 +14,7 @@ import { ptrToStr } from "../../util/ptrToStr";
 import { parse4Digits_PairMul } from "../../util/swar-int";
 import { parse16Digits_SIMD } from "../../util/simd-int";
 import { scientific } from "../../util/scientific";
+import { eiselLemire22 } from "../../util/eisel-lemire";
 import { loadPow10, MAX_EXACT_MANTISSA, MAX_EXACT_POW10 } from "../swar/float";
 
 const ASCII_PLUS: u16 = 43;
@@ -56,48 +57,47 @@ export function deserializeFloat_SIMD<T>(srcStart: usize, srcEnd: usize): T {
   }
 
   let mantissa: u64 = 0;
-  let intDigits: i32 = 0;
+  const intStart = p;
   while (p < srcEnd) {
     const d = <u32>load<u16>(p) - ASCII_ZERO;
     if (d > 9) break;
     mantissa = mantissa * 10 + <u64>d;
-    intDigits++;
     p += 2;
   }
+  const intDigits = <i32>((p - intStart) >> 1);
 
-  // Fractional part: parse8 SIMD stride → parse4 SWAR stride → scalar tail.
-  // `intDigits + fracDigits <= 11` gate keeps `mantissa * 10^8 + parsed8`
-  // under u64 max even when the integer part is large.
-  let fracDigits: i32 = 0;
+  // Fractional part: one parse16 SIMD stride → parse4 SWAR stride →
+  // scalar tail. The parse16 gate keeps the combined mantissa within u64.
+  let fracStart = p;
   if (p < srcEnd && load<u16>(p) == ASCII_DOT) {
     p += 2;
+    fracStart = p;
     // parse16 SIMD only fires on long fractions (>=16 digits ahead, with
     // <=3 integer digits to keep mantissa * 1e16 under u64 max). Rare in
     // typical JSON but a big win when it does fire (8 digits per stride in
     // SWAR's parse8 was benched even/worse than parse4, so we skip parse8
     // entirely and let parse4 handle the 4-15 char tail).
-    while (p + 30 < srcEnd && intDigits + fracDigits <= 3) {
+    if (p + 30 < srcEnd && intDigits <= 3) {
       const parsed = parse16Digits_SIMD(p);
-      if (parsed == U64.MAX_VALUE) break;
-      mantissa = mantissa * 10_000_000_000_000_000 + parsed;
-      fracDigits += 16;
-      p += 32;
+      if (parsed != U64.MAX_VALUE) {
+        mantissa = mantissa * 10_000_000_000_000_000 + parsed;
+        p += 32;
+      }
     }
     while (p + 6 < srcEnd) {
       const parsed = parse4Digits_PairMul(load<u64>(p));
       if (parsed == U32.MAX_VALUE) break;
       mantissa = mantissa * 10_000 + <u64>parsed;
-      fracDigits += 4;
       p += 8;
     }
     while (p < srcEnd) {
       const d = <u32>load<u16>(p) - ASCII_ZERO;
       if (d > 9) break;
       mantissa = mantissa * 10 + <u64>d;
-      fracDigits++;
       p += 2;
     }
   }
+  const fracDigits = <i32>((p - fracStart) >> 1);
 
   const mantDigits = intDigits + fracDigits;
   if (mantDigits == 0) return fallback<T>(origStart, srcEnd);
@@ -148,7 +148,10 @@ export function deserializeFloat_SIMD<T>(srcStart: usize, srcEnd: usize): T {
       result /= loadPow10(<u32>-exponent);
     }
   } else if (mantDigits <= 19) {
-    result = scientific(mantissa, exponent);
+    result =
+      exponent >= -22 && exponent <= 22
+        ? eiselLemire22(mantissa, exponent)
+        : scientific(mantissa, exponent);
   } else {
     return fallback<T>(origStart, srcEnd);
   }
@@ -178,45 +181,45 @@ export function deserializeFloatField_SIMD<T extends number>(
   }
 
   let mantissa: u64 = 0;
-  let intDigits: i32 = 0;
+  const intStart = p;
   while (p < srcEnd) {
     const d = <u32>load<u16>(p) - ASCII_ZERO;
     if (d > 9) break;
     mantissa = mantissa * 10 + <u64>d;
-    intDigits++;
     p += 2;
   }
+  const intDigits = <i32>((p - intStart) >> 1);
 
-  let fracDigits: i32 = 0;
+  let fracStart = p;
   if (p < srcEnd && load<u16>(p) == ASCII_DOT) {
     p += 2;
+    fracStart = p;
     // parse16 SIMD only fires on long fractions (>=16 digits ahead, with
     // <=3 integer digits to keep mantissa * 1e16 under u64 max). Rare in
     // typical JSON but a big win when it does fire (8 digits per stride in
     // SWAR's parse8 was benched even/worse than parse4, so we skip parse8
     // entirely and let parse4 handle the 4-15 char tail).
-    while (p + 30 < srcEnd && intDigits + fracDigits <= 3) {
+    if (p + 30 < srcEnd && intDigits <= 3) {
       const parsed = parse16Digits_SIMD(p);
-      if (parsed == U64.MAX_VALUE) break;
-      mantissa = mantissa * 10_000_000_000_000_000 + parsed;
-      fracDigits += 16;
-      p += 32;
+      if (parsed != U64.MAX_VALUE) {
+        mantissa = mantissa * 10_000_000_000_000_000 + parsed;
+        p += 32;
+      }
     }
     while (p + 6 < srcEnd) {
       const parsed = parse4Digits_PairMul(load<u64>(p));
       if (parsed == U32.MAX_VALUE) break;
       mantissa = mantissa * 10_000 + <u64>parsed;
-      fracDigits += 4;
       p += 8;
     }
     while (p < srcEnd) {
       const d = <u32>load<u16>(p) - ASCII_ZERO;
       if (d > 9) break;
       mantissa = mantissa * 10 + <u64>d;
-      fracDigits++;
       p += 2;
     }
   }
+  const fracDigits = <i32>((p - fracStart) >> 1);
 
   const mantDigits = intDigits + fracDigits;
   if (mantDigits == 0) unreachable();
@@ -279,7 +282,10 @@ export function deserializeFloatField_SIMD<T extends number>(
       result /= loadPow10(<u32>-exponent);
     }
   } else if (mantDigits <= 19) {
-    result = scientific(mantissa, exponent);
+    result =
+      exponent >= -22 && exponent <= 22
+        ? eiselLemire22(mantissa, exponent)
+        : scientific(mantissa, exponent);
   } else {
     fallbackField<T>(origStart, p, fieldPtr);
     return p;

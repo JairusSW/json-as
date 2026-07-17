@@ -3,6 +3,7 @@ import { expect } from "../../__tests__/lib";
 import {
   blackbox,
   bench,
+  ChangingPayloads,
   dumpToFile,
   readFile,
   utf8ByteLength,
@@ -58,12 +59,14 @@ const minJson = readFile("./assembly/__benches__/payloads/gsoc-2018.min.json");
 expect(JSON.parse<Map<string, Org>>(minJson).size).toBe(1264);
 
 const gsoc = JSON.parse<Map<string, Org>>(prettyJson);
+const prettyPayloads = new ChangingPayloads(prettyJson);
+const minPayloads = new ChangingPayloads(minJson);
 const out = "";
 
 bench(
   "Deserialize GSOC (pretty)",
   () => {
-    blackbox(JSON.parse<Map<string, Org>>(prettyJson, gsoc));
+    blackbox(JSON.parse<Map<string, Org>>(prettyPayloads.next()));
   },
   500,
   utf8ByteLength(prettyJson),
@@ -73,7 +76,7 @@ dumpToFile("gsoc-2018-pretty", "deserialize");
 bench(
   "Deserialize GSOC (min)",
   () => {
-    blackbox(JSON.parse<Map<string, Org>>(minJson, gsoc));
+    blackbox(JSON.parse<Map<string, Org>>(minPayloads.next()));
   },
   500,
   utf8ByteLength(minJson),

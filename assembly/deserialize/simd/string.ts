@@ -7,6 +7,7 @@ import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { hex4_to_u16_swar } from "../../util/swar";
 import { markProductionParseError } from "../error";
 import { isValidStringEscape } from "../string-validation";
+import { probeStringFieldTrace, recordStringFieldTrace } from "../parseMode";
 
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_5C = i16x8.splat(0x5c); // \
@@ -413,15 +414,32 @@ export function deserializeStringField_SIMD<T extends string | null>(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
-  const dstFieldPtr = dstObj + dstOffset;
   if (srcStart + 2 > srcEnd || load<u16>(srcStart) != QUOTE) {
     markProductionParseError();
     return 0;
   }
+  return deserializeStringFieldTrusted_SIMD(
+    srcStart + 2,
+    srcEnd,
+    dstObj,
+    dstOffset,
+  );
+}
 
-  const payloadStart = srcStart + 2;
+// Generated compact-object paths have already matched the key and validated
+// the opening quote. Enter at the payload so that proof replaces (rather than
+// duplicates) the public field decoder's framing load.
+export function deserializeStringFieldTrusted_SIMD(
+  payloadStart: usize,
+  srcEnd: usize,
+  dstObj: usize,
+  dstOffset: usize = 0,
+): usize {
+  const dstFieldPtr = dstObj + dstOffset;
+  const cachedEnd = probeStringFieldTrace(dstFieldPtr, payloadStart);
+  if (cachedEnd != 0) return cachedEnd;
   const srcEnd16 = srcEnd - 16;
-  srcStart = payloadStart;
+  let srcStart = payloadStart;
 
   while (srcStart <= srcEnd16) {
     const block = load<v128>(srcStart);
@@ -442,15 +460,19 @@ export function deserializeStringField_SIMD<T extends string | null>(
         payloadStart,
         <u32>(srcIdx - payloadStart),
       );
-      return srcIdx + 2;
+      const next = srcIdx + 2;
+      recordStringFieldTrace(dstFieldPtr, payloadStart, next);
+      return next;
     }
     // backslash → vectorized escaped scan (no more SWAR fallback)
-    return deserializeEscapedStringField_SIMD(
+    const next = deserializeEscapedStringField_SIMD(
       payloadStart,
       srcIdx,
       srcEnd,
       dstFieldPtr,
     );
+    if (next != 0) recordStringFieldTrace(dstFieldPtr, payloadStart, next);
+    return next;
   }
 
   while (srcStart < srcEnd) {
@@ -461,15 +483,19 @@ export function deserializeStringField_SIMD<T extends string | null>(
         payloadStart,
         <u32>(srcStart - payloadStart),
       );
-      return srcStart + 2;
+      const next = srcStart + 2;
+      recordStringFieldTrace(dstFieldPtr, payloadStart, next);
+      return next;
     }
     if (char == BACK_SLASH) {
-      return deserializeEscapedStringField_SIMD(
+      const next = deserializeEscapedStringField_SIMD(
         payloadStart,
         srcStart,
         srcEnd,
         dstFieldPtr,
       );
+      if (next != 0) recordStringFieldTrace(dstFieldPtr, payloadStart, next);
+      return next;
     }
     srcStart += 2;
   }

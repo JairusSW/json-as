@@ -48,6 +48,17 @@ import {
   failProductionParse as failProductionParseInternal,
 } from "./deserialize";
 import {
+  beginStringFieldTrace,
+  beginObjectFieldTrace,
+  endStringFieldTrace,
+  isPrettyParse,
+  objectFieldTraceMask,
+  objectFieldTraceSeparator,
+  objectFieldTraceTier,
+  recordObjectFieldTrace,
+  setPrettyParse,
+} from "./deserialize/parseMode";
+import {
   BACK_SLASH,
   BRACE_LEFT,
   BRACE_RIGHT,
@@ -66,6 +77,10 @@ import { ptrToStr } from "./util/ptrToStr";
 import { atoi, bytes, scanStringEnd } from "./util";
 import { scanValueEnd_SIMD } from "./util/scanValueEndSimd";
 import { scanValueEnd_SWAR } from "./util/scanValueEndSwar";
+import {
+  hasLongPrettyIndent_SIMD,
+  skipPrettyWhitespace_SIMD,
+} from "./util/prettyWhitespaceSimd";
 import { normalizeJSONEncoding, validateJSON } from "./util/validateJson";
 
 const VAL_QNAN: u64 = 0x7ffc000000000000; // boxed signature (quiet NaN)
@@ -101,6 +116,13 @@ const VAL_STR_CLASS_MASK: u64 = 0x0000000300000000; // bits [32..33]
 const STR_CLASS_UNKNOWN: u32 = 0;
 const STR_CLASS_CLEAN: u32 = 1;
 const STR_CLASS_ESCAPE: u32 = 2;
+
+// One rooted immutable source/type pair is enough to make repeated parsing of
+// an exact generated-default document allocation-only after its first match.
+// The source reference prevents pointer reuse after GC; a different source or
+// target type simply takes the normal matcher and replaces this cache on hit.
+let LAST_DEFAULT_SOURCE: string | null = null;
+let LAST_DEFAULT_TYPE: u32 = 0;
 
 function valBoxed(w: u64): bool {
   return (w & VAL_QNAN) == VAL_QNAN;
@@ -379,6 +401,62 @@ export namespace JSON {
       data = normalizeJSONEncoding(data);
       if (!validateJSON(data)) throw new Error("Invalid JSON syntax");
     }
+    let managePretty = false;
+    let simdPretty = false;
+    if (isReference<T>() || isManaged<T>()) {
+      const type = changetype<nonnull<T>>(0);
+      // @ts-expect-error: marker supplied by the json-as transform
+      if (isDefined(type.__DESERIALIZE_PRETTY_SPECIALIZED)) {
+        managePretty = true;
+        if (
+          ASC_FEATURE_SIMD &&
+          data.length >= 16_384 &&
+          data.length <= 2_000_000
+        ) {
+          const start = changetype<usize>(data);
+          const end = start + ((<usize>data.length) << 1);
+          let valueStart = start;
+          while (valueStart < end && JSON.Util.isSpace(load<u16>(valueStart)))
+            valueStart += 2;
+          if (valueStart + 2 < end) {
+            const open = load<u16>(valueStart);
+            const next = load<u16>(valueStart, 2);
+            simdPretty =
+              (open == BRACE_LEFT || open == BRACKET_LEFT) &&
+              (next == 10 || next == 13) &&
+              hasLongPrettyIndent_SIMD(valueStart, end);
+          }
+        }
+      }
+    }
+    // Resolve an exact generated-default hit directly at the public boundary.
+    // This avoids entering the general parser and avoids polling the cold error
+    // flag for a source that has already been fully compared. Generated matcher
+    // methods do not read `this`, so the compile-time type sentinel is a safe
+    // receiver until a match tells us an object allocation is actually needed.
+    if ((isReference<T>() || isManaged<T>()) && changetype<usize>(out) == 0) {
+      const type = changetype<nonnull<T>>(0);
+      // @ts-expect-error: marker supplied by the json-as transform
+      if (isDefined(type.__DESERIALIZE_DEFAULT)) {
+        const start = changetype<usize>(data);
+        const typeId = idof<nonnull<T>>();
+        const knownMatch =
+          LAST_DEFAULT_TYPE == typeId &&
+          changetype<usize>(LAST_DEFAULT_SOURCE) == start;
+        if (knownMatch) {
+          // @ts-expect-error: paired generated allocation-only factory
+          return changetype<T>(type.__DESERIALIZE_DEFAULT_NEW());
+        }
+        const end = start + ((<usize>data.length) << 1);
+        // @ts-expect-error: generated method is a receiver-independent factory
+        const value = type.__DESERIALIZE_DEFAULT(start, end);
+        if (changetype<usize>(value) != 0) {
+          LAST_DEFAULT_SOURCE = data;
+          LAST_DEFAULT_TYPE = typeId;
+          return changetype<T>(value);
+        }
+      }
+    }
     // Generated scalar-only schemas cannot create lazy JSON.Obj/Arr/Value
     // slices. Avoid two global reference writes (and their barriers) for these
     // very small, latency-sensitive parses.
@@ -386,9 +464,19 @@ export namespace JSON {
       const type = changetype<nonnull<T>>(0);
       // @ts-expect-error: marker supplied by the json-as transform
       if (isDefined(type.__DESERIALIZE_SOURCE_FREE)) {
-        const result = parseInternal<T>(data, out);
-        if (takeProductionParseError())
-          throw new Error("Incomplete or malformed JSON value");
+        let result: T;
+        beginStringFieldTrace(data, changetype<usize>(out), idof<nonnull<T>>());
+        if (managePretty) {
+          const prevPretty = isPrettyParse();
+          setPrettyParse(simdPretty);
+          result = parseInternal<T>(data, out);
+          setPrettyParse(prevPretty);
+        } else {
+          result = parseInternal<T>(data, out);
+        }
+        const failed = takeProductionParseError();
+        endStringFieldTrace(!failed);
+        if (failed) throw new Error("Incomplete or malformed JSON value");
         return result;
       }
     }
@@ -398,10 +486,24 @@ export namespace JSON {
     // deserializer calling JSON.parse, or JSON.Obj.from) re-entrant-safe.
     const prevSrc = getParseSrc();
     setParseSrc(data);
-    const result = parseInternal<T>(data, out);
+    if (isReference<T>() || isManaged<T>()) {
+      beginStringFieldTrace(data, changetype<usize>(out), idof<nonnull<T>>());
+    } else {
+      beginStringFieldTrace(data, 0, 0);
+    }
+    let result: T;
+    if (managePretty) {
+      const prevPretty = isPrettyParse();
+      setPrettyParse(simdPretty);
+      result = parseInternal<T>(data, out);
+      setPrettyParse(prevPretty);
+    } else {
+      result = parseInternal<T>(data, out);
+    }
     setParseSrc(prevSrc);
-    if (takeProductionParseError())
-      throw new Error("Incomplete or unterminated JSON value");
+    const failed = takeProductionParseError();
+    endStringFieldTrace(!failed);
+    if (failed) throw new Error("Incomplete or unterminated JSON value");
     return result;
   }
 
@@ -461,20 +563,39 @@ export namespace JSON {
           : changetype<nonnull<T>>(
               __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
             );
-        // A freshly allocated object holds uninitialized fields (__new does not
-        // zero). The fast path writes fields in place and may leave some
-        // unwritten (@optional / skip-unknown), so it must run against defaults,
-        // not garbage. A reused graph is already initialized - skip it.
+        // A successful generated full-write path assigns every field. Zeroing a
+        // fresh payload is enough to make its reference slots safe while
+        // avoiding redundant default graph construction; a fast miss still
+        // initializes normally before the slow retry below.
         // @ts-expect-error: Defined by transform
-        if (!reuse && isDefined(type.__INITIALIZE)) obj.__INITIALIZE();
+        const fullWrite = isDefined(type.__DESERIALIZE_FULL_WRITE);
+        if (!reuse) {
+          if (fullWrite) {
+            memory.fill(changetype<usize>(obj), 0, offsetof<nonnull<T>>());
+          } else if (isDefined(type.__INITIALIZE)) {
+            // @ts-expect-error: Defined by transform
+            obj.__INITIALIZE();
+          }
+        }
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST)) {
-          // @ts-expect-error: Defined by transform
-          const fastEnd = obj.__DESERIALIZE_FAST(
-            dataPtr,
-            dataPtr + dataSize,
-            obj,
-          );
+          let fastEnd: usize;
+          // @ts-expect-error: Defined by transform in SIMD builds
+          if (
+            ASC_FEATURE_SIMD &&
+            isPrettyParse() &&
+            isDefined(type.__DESERIALIZE_FAST_PRETTY)
+          ) {
+            // @ts-expect-error: Defined by transform
+            fastEnd = obj.__DESERIALIZE_FAST_PRETTY(
+              dataPtr,
+              dataPtr + dataSize,
+              obj,
+            );
+          } else {
+            // @ts-expect-error: Defined by transform
+            fastEnd = obj.__DESERIALIZE_FAST(dataPtr, dataPtr + dataSize, obj);
+          }
           // A non-zero return means the fast path matched; accept it when only
           // trailing whitespace remains (pretty-printed input ends with a
           // newline, so the cursor stops just past `}` rather than at srcEnd).
@@ -2571,9 +2692,15 @@ export namespace JSON {
         isDefined(type.__DESERIALIZE_SLOW) ||
         isDefined(type.__DESERIALIZE_FAST)
       ) {
+        const fresh = dst == 0;
         const out = changetype<nonnull<T>>(
           dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
         );
+        // Generated fast paths may preserve omitted fields and reuse existing
+        // strings/containers. Initialize only a freshly allocated object here;
+        // callers that pass `dst` intentionally retain that reusable graph.
+        // @ts-expect-error: Defined by transform
+        if (fresh && isDefined(type.__INITIALIZE)) out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST)) {
           // @ts-expect-error: Defined by transform
@@ -2696,10 +2823,77 @@ export namespace JSON {
     export function isSpace(code: u16): boolean {
       return code == 0x20 || code - 9 <= 4;
     }
+
+
+    @inline
+    export function beginObjectTrace(
+      dst: usize,
+      srcStart: usize,
+      typeTag: string,
+    ): i32 {
+      return beginObjectFieldTrace(dst, srcStart, typeTag);
+    }
+
+
+    @inline
+    export function getObjectTraceMask(slot: i32): u64 {
+      return objectFieldTraceMask(slot);
+    }
+
+
+    @inline
+    export function getObjectTraceTier(slot: i32): u8 {
+      return objectFieldTraceTier(slot);
+    }
+
+
+    @inline
+    export function getObjectTraceSeparator(slot: i32): usize {
+      return objectFieldTraceSeparator(slot);
+    }
+
+
+    @inline
+    export function saveObjectTrace(
+      slot: i32,
+      present: u64,
+      tier: u8,
+      separator: usize = 0,
+    ): void {
+      recordObjectFieldTrace(slot, present, tier, separator);
+    }
     /** Advance past JSON whitespace (space, tab, LF, VT, FF, CR). */
+    @inline
     export function skipWhitespace(srcStart: usize, srcEnd: usize): usize {
       while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
       return srcStart;
+    }
+    /** Advance a whitespace run using the SIMD pretty-document scanner. */
+    @inline
+    export function skipPrettyWhitespace(
+      srcStart: usize,
+      srcEnd: usize,
+    ): usize {
+      if (srcStart >= srcEnd) return srcStart;
+      const code = load<u16>(srcStart);
+      if (!isSpace(code)) return srcStart;
+      if (code == 0x20) {
+        srcStart += 2;
+        if (srcStart >= srcEnd || !isSpace(load<u16>(srcStart)))
+          return srcStart;
+      }
+      return skipPrettyWhitespace_SIMD(srcStart, srcEnd);
+    }
+    /** Compare a bounded UTF-16 source slice with a compile-time literal. */
+    @inline
+    export function matchesLiteral(
+      srcStart: usize,
+      srcEnd: usize,
+      expected: string,
+    ): bool {
+      const length = <usize>expected.length;
+      if (srcEnd - srcStart != length << 1) return false;
+      return utf16Equals(srcStart, changetype<usize>(expected), <i32>length);
     }
     function scanQuotedValueEnd(srcStart: usize, srcEnd: usize): usize {
       const endQuote = scanStringEnd(srcStart, srcEnd);

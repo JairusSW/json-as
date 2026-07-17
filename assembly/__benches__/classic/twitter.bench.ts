@@ -3,6 +3,7 @@ import { expect } from "../../__tests__/lib";
 import {
   blackbox,
   bench,
+  ChangingPayloads,
   dumpToFile,
   readFile,
   utf8ByteLength,
@@ -251,11 +252,13 @@ const outStr = "";
 expect(JSON.parse<Twitter>(minJson).statuses.length).toBe(100);
 
 const twitter = JSON.parse<Twitter>(prettyJson);
+const prettyPayloads = new ChangingPayloads(prettyJson);
+const minPayloads = new ChangingPayloads(minJson);
 
 bench(
   "Deserialize Twitter (pretty)",
   () => {
-    blackbox(JSON.parse<Twitter>(prettyJson, twitter));
+    blackbox(JSON.parse<Twitter>(prettyPayloads.next()));
   },
   2000,
   utf8ByteLength(prettyJson),
@@ -265,7 +268,7 @@ dumpToFile("twitter-pretty", "deserialize");
 bench(
   "Deserialize Twitter (min)",
   () => {
-    blackbox(JSON.parse<Twitter>(minJson, twitter));
+    blackbox(JSON.parse<Twitter>(minPayloads.next()));
   },
   2000,
   utf8ByteLength(minJson),

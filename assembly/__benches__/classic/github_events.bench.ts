@@ -3,6 +3,7 @@ import { expect } from "../../__tests__/lib";
 import {
   blackbox,
   bench,
+  ChangingPayloads,
   dumpToFile,
   readFile,
   utf8ByteLength,
@@ -249,12 +250,14 @@ const minJson = readFile(
 expect(JSON.parse<GhEvent[]>(minJson).length).toBe(30);
 
 const events = JSON.parse<GhEvent[]>(prettyJson);
+const prettyPayloads = new ChangingPayloads(prettyJson);
+const minPayloads = new ChangingPayloads(minJson);
 const out = "";
 
 bench(
   "Deserialize GitHubEvents (pretty)",
   () => {
-    blackbox(JSON.parse<GhEvent[]>(prettyJson, events));
+    blackbox(JSON.parse<GhEvent[]>(prettyPayloads.next()));
   },
   20000,
   utf8ByteLength(prettyJson),
@@ -264,7 +267,7 @@ dumpToFile("github_events-pretty", "deserialize");
 bench(
   "Deserialize GitHubEvents (min)",
   () => {
-    blackbox(JSON.parse<GhEvent[]>(minJson, events));
+    blackbox(JSON.parse<GhEvent[]>(minPayloads.next()));
   },
   20000,
   utf8ByteLength(minJson),

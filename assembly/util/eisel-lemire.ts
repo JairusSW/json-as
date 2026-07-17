@@ -57,6 +57,74 @@ function mul64High(a: u64, b: u64): u64 {
 }
 
 /**
+ * Fixed-power Eisel-Lemire conversion for GeoJSON-style coordinates with 14
+ * fractional digits. This is the `power == -14` specialization of
+ * {@link eiselLemire22}: the cached-power address and binary-exponent base are
+ * constants, and the exact-halfway correction is unreachable for this power.
+ */
+export function eiselLemireMinus14(significand: u64): f64 {
+  let i = significand;
+  let leading = <i32>clz(i);
+  i <<= leading;
+
+  let lower = i * 0xb424dc35095cd80f;
+  let upper = mul64High(i, 0xb424dc35095cd80f);
+
+  if ((upper & 0x1ff) == 0x1ff) {
+    const secondUpper = mul64High(i, 0x538484c19ef38c95);
+    const oldLower = lower;
+    lower += secondUpper;
+    if (lower < oldLower) upper++;
+  }
+
+  const upperBit = upper >> 63;
+  let mantissa = upper >> (<i32>(upperBit + 9));
+  leading += <i32>(1 ^ upperBit);
+  let realExponent = 1040 - leading;
+
+  mantissa += mantissa & 1;
+  mantissa >>= 1;
+
+  if (mantissa >= (<u64>1) << 53) {
+    mantissa = (<u64>1) << 52;
+    realExponent++;
+  }
+
+  const bits = (mantissa & ~((<u64>1) << 52)) | ((<u64>realExponent) << 52);
+  return reinterpret<f64>(bits);
+}
+
+/** Fixed -14 conversion for significands in [2^53, 2^54). */
+export function eiselLemireMinus14_54Bit(significand: u64): f64 {
+  const i = significand << 10;
+
+  let lower = i * 0xb424dc35095cd80f;
+  let upper = mul64High(i, 0xb424dc35095cd80f);
+
+  if ((upper & 0x1ff) == 0x1ff) {
+    const secondUpper = mul64High(i, 0x538484c19ef38c95);
+    const oldLower = lower;
+    lower += secondUpper;
+    if (lower < oldLower) upper++;
+  }
+
+  const upperBit = upper >> 63;
+  let mantissa = upper >> (<i32>(upperBit + 9));
+  let realExponent = 1030 - <i32>(1 ^ upperBit);
+
+  mantissa += mantissa & 1;
+  mantissa >>= 1;
+
+  if (mantissa >= (<u64>1) << 53) {
+    mantissa = (<u64>1) << 52;
+    realExponent++;
+  }
+
+  const bits = (mantissa & ~((<u64>1) << 52)) | ((<u64>realExponent) << 52);
+  return reinterpret<f64>(bits);
+}
+
+/**
  * Convert a non-zero u64 significand at a decimal exponent in [-22, 22].
  * The result is correctly rounded to IEEE-754 binary64.
  */

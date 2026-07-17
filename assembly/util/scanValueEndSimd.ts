@@ -4,7 +4,6 @@ import {
   BRACE_RIGHT,
   BRACKET_LEFT,
   BRACKET_RIGHT,
-  COLON,
   COMMA,
   QUOTE,
 } from "../custom/chars";
@@ -104,49 +103,73 @@ function scanQuotedValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
 }
 
 function scanCompositeValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
-  // Process structural tokens scalar-side (cheap, and token-dense regions stay
-  // in a tight loop), but bulk-skip the bytes between them: nested string VALUES
-  // via the vectorized quoted scan (URLs, base64, prose), and runs of digits /
-  // punctuation / whitespace (numeric arrays like coordinate lists) via a
-  // vectorized hunt for the next `"`/`{`/`}`/`[`/`]`.
+  // Walk every structural event in a loaded block before advancing. This is
+  // substantially cheaper for object-heavy values than restarting a SIMD hunt
+  // after every short key: one v128 load now covers all quotes and brackets in
+  // its eight UTF-16 lanes. Brackets inside strings are ignored, and a closing
+  // quote is active only when preceded by an even-length backslash run.
   let depth: i32 = 1;
   let ptr = srcStart + 2;
   const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
+  let inString = false;
+
+  while (ptr <= srcEnd16) {
+    let mask = structuralOrQuoteMask(load<v128>(ptr));
+    while (mask != 0) {
+      const lane = usize(ctz(mask) << 1);
+      mask &= mask - 1;
+      const eventPtr = ptr + lane;
+      const code = load<u16>(eventPtr);
+
+      if (code == QUOTE) {
+        if (!inString) {
+          inString = true;
+        } else {
+          let slash = eventPtr - 2;
+          let escaped = false;
+          while (slash > srcStart && load<u16>(slash) == BACK_SLASH) {
+            escaped = !escaped;
+            slash -= 2;
+          }
+          if (!escaped) inString = false;
+        }
+        continue;
+      }
+      if (inString) continue;
+
+      const folded = code & 0xffdf;
+      if (folded == BRACKET_LEFT) {
+        depth++;
+      } else if (folded == BRACKET_RIGHT && --depth == 0) {
+        return eventPtr + 2;
+      }
+    }
+    ptr += 16;
+  }
+
   while (ptr < srcEnd) {
     const code = load<u16>(ptr);
     if (code == QUOTE) {
-      ptr = scanQuotedValueEnd_SIMD(ptr, srcEnd);
-      if (!ptr) return 0;
-      continue;
-    }
-    const folded = code & 0xffdf;
-    if (folded == BRACKET_LEFT) {
-      // `[` or `{`
-      depth++;
-      ptr += 2;
-      continue;
-    }
-    if (folded == BRACKET_RIGHT) {
-      // `]` or `}`
-      if (--depth == 0) return ptr + 2;
-      ptr += 2;
-      continue;
+      if (!inString) {
+        inString = true;
+      } else {
+        let slash = ptr - 2;
+        let escaped = false;
+        while (slash > srcStart && load<u16>(slash) == BACK_SLASH) {
+          escaped = !escaped;
+          slash -= 2;
+        }
+        if (!escaped) inString = false;
+      }
+    } else if (!inString) {
+      const folded = code & 0xffdf;
+      if (folded == BRACKET_LEFT) {
+        depth++;
+      } else if (folded == BRACKET_RIGHT && --depth == 0) {
+        return ptr + 2;
+      }
     }
     ptr += 2;
-    // `,` and `:` sit one byte from the next token, so vectorizing them only
-    // adds SIMD setup on string-dense objects - stay scalar. Other fillers
-    // (number digits, whitespace, true/false/null) can run long; vectorize past
-    // them to the next `"`/`{`/`}`/`[`/`]`.
-    if (code == COMMA || code == COLON) continue;
-    while (ptr <= srcEnd16) {
-      const mask = structuralOrQuoteMask(load<v128>(ptr));
-      if (mask == 0) {
-        ptr += 16;
-        continue;
-      }
-      ptr += usize(ctz(mask) << 1);
-      break;
-    }
   }
   return 0;
 }

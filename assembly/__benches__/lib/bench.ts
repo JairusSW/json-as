@@ -5,6 +5,91 @@ import {
 } from "as-heap-analyzer/assembly/index";
 import { bs } from "../../../lib/as-bs";
 
+/**
+ * Prebuild a small set of same-shape payloads whose values differ by one
+ * character. Cycling them keeps parser benchmarks representative of request
+ * traffic without charging input construction to the parser: consecutive
+ * calls never share a source pointer or an identical payload.
+ */
+export class ChangingPayloads {
+  private readonly payloads: string[];
+  private index: i32 = 0;
+
+  constructor(source: string) {
+    this.payloads = [
+      varyStringValue(source, 0),
+      varyStringValue(source, 1),
+      varyStringValue(source, 2),
+      varyStringValue(source, 3),
+    ];
+  }
+
+
+  @inline
+  next(): string {
+    const payload = unchecked(this.payloads[this.index]);
+    this.index = (this.index + 1) & 3;
+    return payload;
+  }
+}
+
+function varyStringValue(source: string, ordinal: i32): string {
+  let valueIndex = 0;
+  let i = 0;
+  while (i < source.length) {
+    if (source.charCodeAt(i) != 34) {
+      i++;
+      continue;
+    }
+
+    const start = ++i;
+    let escaped = false;
+    while (i < source.length) {
+      const code = source.charCodeAt(i);
+      if (escaped) {
+        escaped = false;
+      } else if (code == 92) {
+        escaped = true;
+      } else if (code == 34) {
+        break;
+      }
+      i++;
+    }
+
+    let next = i + 1;
+    while (next < source.length) {
+      const code = source.charCodeAt(next);
+      if (code != 32 && code != 9 && code != 10 && code != 13) break;
+      next++;
+    }
+    const isKey = next < source.length && source.charCodeAt(next) == 58;
+    if (!isKey) {
+      for (let at = start; at < i; at++) {
+        const code = source.charCodeAt(at);
+        let replacement = 0;
+        if (code >= 48 && code <= 57) replacement = code == 57 ? 48 : code + 1;
+        else if (code >= 65 && code <= 90)
+          replacement = code == 90 ? 65 : code + 1;
+        else if (code >= 97 && code <= 122)
+          replacement = code == 122 ? 97 : code + 1;
+        if (replacement == 0) continue;
+        if (valueIndex++ == ordinal) {
+          return (
+            source.substring(0, at) +
+            String.fromCharCode(replacement) +
+            source.substring(at + 1)
+          );
+        }
+      }
+    }
+    i++;
+  }
+
+  // These benchmarks all contain many string values. Keep a safe fallback for
+  // future numeric-only fixtures while still forcing a distinct source/layout.
+  return " " + source;
+}
+
 // Mirrors MEMORY_DETAIL_SIZE (default 1024) inside as-heap-analyzer. The
 // package preallocates a u32-per-runtime-ID table at `memoryDetail`; we keep
 // our own snapshot of it so we can diff fixture state vs post-bench state.

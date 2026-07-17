@@ -13,7 +13,10 @@ function deserializeObjectArrayBody<T extends unknown[]>(
   out: T,
 ): usize {
   let index = 0;
-  const reusableLength = out.length;
+  const reusableLength = load<i32>(
+    changetype<usize>(out),
+    offsetof<T>("length_"),
+  );
   const reusableDataStart = out.dataStart;
   const elementSize = sizeof<valueof<T>>();
 

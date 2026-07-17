@@ -228,6 +228,9 @@ export class Src {
     getClass(qualifiedName) {
         return this.classes[qualifiedName] || null;
     }
+    getClasses() {
+        return Object.values(this.classes);
+    }
     getEnum(qualifiedName) {
         return this.enums[qualifiedName] || null;
     }

@@ -260,7 +260,10 @@ function deserializeIntegerArrayImpl<T extends number[]>(
     dst || changetype<usize>(instantiate<T>()),
   );
   const originalSrcStart = srcStart;
-  const reusableLength = out.length;
+  const reusableLength = load<i32>(
+    changetype<usize>(out),
+    offsetof<T>("length_"),
+  );
 
   if (useSWAR && reusableLength != 0) {
     const dataStart = out.dataStart;

@@ -1,4 +1,9 @@
-import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
+import {
+  BRACE_LEFT,
+  BRACKET_LEFT,
+  BRACKET_RIGHT,
+  COMMA,
+} from "../../../custom/chars";
 import { isSpace } from "../../../util";
 import {
   ensureArrayElementSlot,
@@ -7,7 +12,22 @@ import {
 } from "./shared";
 import { markProductionParseError } from "../../error";
 
+
+@inline
 function skipStructArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
+  // JSON.stringify(..., null, 2) at a root struct-array boundary emits exactly
+  // LF + two spaces + the next object (or LF + closing bracket). Keep that
+  // overwhelmingly common shape to two scalar loads; nested/foreign layouts
+  // retain the fully general fallback below.
+  if (
+    ASC_FEATURE_SIMD &&
+    srcStart + 8 <= srcEnd &&
+    load<u16>(srcStart) == 10 &&
+    load<u32>(srcStart, 2) == 0x0020_0020
+  ) {
+    const next = load<u16>(srcStart, 6);
+    if (next == BRACE_LEFT || next == BRACKET_RIGHT) return srcStart + 6;
+  }
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   return srcStart;
 }
@@ -33,14 +53,22 @@ function deserializeStructArrayBody<T extends unknown[]>(
   out: T,
 ): usize {
   let index = 0;
-  const reusableLength = out.length;
+  const reusableLength = load<i32>(
+    changetype<usize>(out),
+    offsetof<T>("length_"),
+  );
   const reusableDataStart = out.dataStart;
   const elementSize = sizeof<valueof<T>>();
+  let pretty = false;
 
   do {
     if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
     srcStart += 2;
-    srcStart = skipStructArrayWhitespace(srcStart, srcEnd);
+    if (srcStart < srcEnd && load<u16>(srcStart) != BRACE_LEFT) {
+      const code = load<u16>(srcStart);
+      pretty = ASC_FEATURE_SIMD && (code == 10 || code == 13);
+      srcStart = skipStructArrayWhitespace(srcStart, srcEnd);
+    }
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
       out.length = 0;
@@ -76,11 +104,24 @@ function deserializeStructArrayBody<T extends unknown[]>(
         // generic (e.g. GenericTest<string>) because AS resolves `T` against
         // the element class's own generic rather than this function's `T`.
         // @ts-ignore: supplied by transform
-        next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST(
-          srcStart,
-          srcEnd,
-          value,
-        );
+        // @ts-ignore: supplied by transform in SIMD builds
+        if (
+          pretty &&
+          isDefined(
+            changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST_PRETTY,
+          )
+        ) {
+          // @ts-ignore: supplied by transform
+          next = changetype<nonnull<valueof<T>>>(
+            value,
+          ).__DESERIALIZE_FAST_PRETTY(srcStart, srcEnd, value);
+        } else {
+          next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST(
+            srcStart,
+            srcEnd,
+            value,
+          );
+        }
       }
       if (!next) {
         // __DESERIALIZE_SLOW requires srcEnd to point just past the closing
@@ -104,13 +145,18 @@ function deserializeStructArrayBody<T extends unknown[]>(
       }
       if (!next) break;
       srcStart = next;
-      srcStart = skipStructArrayWhitespace(srcStart, srcEnd);
       if (srcStart >= srcEnd) break;
 
-      const code = load<u16>(srcStart);
+      let code = load<u16>(srcStart);
+      if (code != COMMA && code != BRACKET_RIGHT) {
+        srcStart = skipStructArrayWhitespace(srcStart, srcEnd);
+        if (srcStart >= srcEnd) break;
+        code = load<u16>(srcStart);
+      }
       if (code == COMMA) {
         srcStart += 2;
-        srcStart = skipStructArrayWhitespace(srcStart, srcEnd);
+        if (srcStart < srcEnd && load<u16>(srcStart) != BRACE_LEFT)
+          srcStart = skipStructArrayWhitespace(srcStart, srcEnd);
         index++;
         continue;
       }

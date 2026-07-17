@@ -3,6 +3,7 @@ import { expect } from "../../__tests__/lib";
 import {
   blackbox,
   bench,
+  ChangingPayloads,
   dumpToFile,
   readFile,
   utf8ByteLength,
@@ -45,12 +46,14 @@ expect(JSON.stringify(JSON.parse<Canada>(prettyJson))).toBe(minJson);
 expect(JSON.stringify(JSON.parse<Canada>(minJson))).toBe(minJson);
 
 const canada = JSON.parse<Canada>(prettyJson);
+const prettyPayloads = new ChangingPayloads(prettyJson);
+const minPayloads = new ChangingPayloads(minJson);
 const out = "";
 
 bench(
   "Deserialize Canada (pretty)",
   () => {
-    blackbox(JSON.parse<Canada>(prettyJson, canada));
+    blackbox(JSON.parse<Canada>(prettyPayloads.next()));
   },
   500,
   utf8ByteLength(prettyJson),
@@ -60,7 +63,7 @@ dumpToFile("canada-pretty", "deserialize");
 bench(
   "Deserialize Canada (min)",
   () => {
-    blackbox(JSON.parse<Canada>(minJson, canada));
+    blackbox(JSON.parse<Canada>(minPayloads.next()));
   },
   500,
   utf8ByteLength(minJson),

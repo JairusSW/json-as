@@ -3,6 +3,7 @@ import { expect } from "../../__tests__/lib";
 import {
   blackbox,
   bench,
+  ChangingPayloads,
   dumpToFile,
   readFile,
   utf8ByteLength,
@@ -87,12 +88,14 @@ const minJson = readFile(
 expect(JSON.parse<Citm>(minJson).performances.length).toBe(243);
 
 const citm = JSON.parse<Citm>(prettyJson);
+const prettyPayloads = new ChangingPayloads(prettyJson);
+const minPayloads = new ChangingPayloads(minJson);
 const out = "";
 
 bench(
   "Deserialize CITM (pretty)",
   () => {
-    blackbox(JSON.parse<Citm>(prettyJson, citm));
+    blackbox(JSON.parse<Citm>(prettyPayloads.next()));
   },
   2000,
   utf8ByteLength(prettyJson),
@@ -102,7 +105,7 @@ dumpToFile("citm_catalog-pretty", "deserialize");
 bench(
   "Deserialize CITM (min)",
   () => {
-    blackbox(JSON.parse<Citm>(minJson, citm));
+    blackbox(JSON.parse<Citm>(minPayloads.next()));
   },
   2000,
   utf8ByteLength(minJson),

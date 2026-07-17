@@ -20,7 +20,10 @@ export function deserializeGenericArrayBody<T extends unknown[]>(
   if (load<u16>(srcStart) == BRACKET_RIGHT) return srcStart + 2;
 
   let index = 0;
-  const reusableLength = out.length;
+  const reusableLength = load<i32>(
+    changetype<usize>(out),
+    offsetof<T>("length_"),
+  );
   const reusableDataStart = out.dataStart;
   const elementSize = sizeof<valueof<T>>();
 

@@ -317,6 +317,11 @@ export class Src {
     return this.classes[qualifiedName] || null;
   }
 
+  /** Classes declared in this source, including namespaced declarations. */
+  getClasses(): ClassDeclaration[] {
+    return Object.values(this.classes);
+  }
+
   /**
    * Get an enum declaration by its qualified name.
    * @param qualifiedName Qualified name (eg. "Namespace.MyEnum")
