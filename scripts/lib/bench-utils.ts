@@ -4,6 +4,7 @@ import { execSync } from "child_process";
 import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import type { ChartConfiguration } from "chart.js";
 import { MODE_BARS, INK } from "./palette";
+import { withAdaptiveLogScale } from "./chart-outliers";
 
 export interface BenchResult {
   language: "as" | "js";
@@ -204,7 +205,7 @@ export function createBarChart(
           align: "end",
           rotation: options.labelRotation ?? 0,
           font: { weight: "bold", size: options.labelFontSize ?? 12 },
-          formatter: (v: number) => v.toFixed(0),
+          formatter: (v: number) => Math.round(v).toLocaleString("en-US"),
         },
         subtitle: {
           display: true,
@@ -323,6 +324,8 @@ export function generateChart(
   dims?: { width?: number; height?: number },
 ) {
   const isSvg = outfile.endsWith(".svg");
+
+  config = withAdaptiveLogScale(config);
 
   // SVG is resolution-independent (dpr 1); PNG renders at 3x density so the
   // logical 1000x600 layout becomes a crisp 3000x1800 raster.

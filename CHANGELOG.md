@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- bench/charts: charts with a sparse extreme throughput tail now switch their measured axis to a log10 scale so ordinary values remain readable without clipping any result. The detector combines Tukey's far-outlier fence with median absolute deviation and requires a clearly separated upper tail; charts without extreme outliers remain linear. Classic-payload serialization always uses log10 because its JSON.Obj series is a distinct, much faster population
+
 ## 2026-06-10 - v1.5.0
 
 - perf(dynamic): **`JSON.Obj`, `JSON.Value`, and `JSON.Arr` are now lazy by default** - a near-alloc-less, simdjson On-Demand-style rework of dynamic parsing. `JSON.parse<JSON.Obj>` no longer eagerly materializes the whole tree: each nested value stores its raw source slice and is parsed only on first access (`.get<T>()` / `.getAs<T>()` / `.at(i)`), then cached - a value you never read is never parsed, and an untouched value re-serializes by copying its original source bytes verbatim. `JSON.Obj` is backed by a `StaticArray<u64>` value-slot buffer plus a length-prefixed key buffer (keys emit straight from their slice - no per-key string materialization), and a new buffer-backed `JSON.Arr` mirrors it (`.at(i)` → `JSON.Value`, `.getAs<T>(i)`, `.push<T>`, `.set<T>`, `.length`). Deferred composites reuse the NaN-boxed `JSON.Value` slot, and the SIMD/SWAR value scanners gained a vectorized composite (`{}`/`[]`) scan. Net for proxy / filter / forward workloads over large payloads: dynamic deserialize is several× faster with far fewer allocations, and untouched round-trips are byte-exact passthrough. A new `dynamic-interop` suite covers `Map`, `Date`, `JSON.Box`, `JSON.Raw`, and nested-struct interop

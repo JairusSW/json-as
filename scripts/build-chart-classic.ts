@@ -16,6 +16,7 @@ import {
   type BenchKind,
   type BenchResult,
 } from "./lib/bench-utils";
+import { withAdaptiveLogScale } from "./lib/chart-outliers";
 import { MODE_BARS, OBJ_BAR, rgba, BASE } from "./lib/palette";
 
 const RUNTIMES = ["v8", "wavm"] as const;
@@ -97,7 +98,7 @@ for (const runtime of RUNTIMES) {
       continue;
     }
 
-    const config = createBarChart(chartData, payloadLabels, {
+    let config = createBarChart(chartData, payloadLabels, {
       title: TITLES[kind],
       yLabel: "Throughput (MB/s)",
       xLabel: "",
@@ -117,6 +118,10 @@ for (const runtime of RUNTIMES) {
       labelFontSize: 11,
       labelRotation: -90,
     });
+
+    // JSON.Obj serialization is a distinct, much faster population. Force the
+    // complete chart onto log10 so every bar remains visible without clipping.
+    if (kind === "serialize") config = withAdaptiveLogScale(config, true);
 
     const out = `./build/charts/classic-payload-${kind}-${runtime}`;
     generateChart(config, `${out}.svg`);
