@@ -25,7 +25,7 @@
     "fast-json-stringify": "^6.4.0",
     "husky": "^9.1.7",
     "json-as": "file:./",
-    "prettier": "3.8.3",
+    "prettier": "3.9.5",
     "serve": "^14.2.6",
     "tinybench": "^6.0.2",
     "try-as": "^1.1.4",
