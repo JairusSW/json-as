@@ -3,6 +3,7 @@ import { expect } from "../../__tests__/lib";
 import {
   blackbox,
   bench,
+  ChangingPayloads,
   dumpToFile,
   readFile,
   utf8ByteLength,
@@ -245,6 +246,9 @@ const prettyJson = readFile(
 const minJson = readFile(
   "./assembly/__benches__/payloads/github_events.min.json",
 );
+const freshPayloads = new ChangingPayloads(minJson);
+const reusePayloads = new ChangingPayloads(minJson);
+const reuseTarget = JSON.parse<GhEvent[]>(minJson);
 
 expect(JSON.parse<GhEvent[]>(minJson).length).toBe(30);
 
@@ -264,12 +268,21 @@ dumpToFile("github_events-pretty", "deserialize");
 bench(
   "Deserialize GitHubEvents (min)",
   () => {
-    blackbox(JSON.parse<GhEvent[]>(minJson));
+    blackbox(JSON.parse<GhEvent[]>(freshPayloads.next()));
   },
   20000,
   utf8ByteLength(minJson),
 );
 dumpToFile("github_events-min", "deserialize");
+bench(
+  "Deserialize GitHubEvents (min, reuse)",
+  () => {
+    blackbox(JSON.parse<GhEvent[]>(reusePayloads.next(), reuseTarget));
+  },
+  20000,
+  utf8ByteLength(minJson),
+);
+dumpToFile("github_events-min-reuse", "deserialize");
 
 bench(
   "Serialize GitHubEvents (min)",
