@@ -13,6 +13,10 @@ import { probeStringFieldTrace, recordStringFieldTrace } from "../parseMode";
 @lazy const SPLAT_5C = i16x8.splat(0x5c); // \
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_22 = i16x8.splat(0x22); // "
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const SPLAT_5C_I8 = i8x16.splat(0x5c); // \
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const SPLAT_22_I8 = i8x16.splat(0x22); // "
 
 // Overflow Pattern for Unicode Escapes (READ)
 // \u0001        0  \u0001__|      + 0
@@ -438,8 +442,81 @@ export function deserializeStringFieldTrusted_SIMD(
   const dstFieldPtr = dstObj + dstOffset;
   const cachedEnd = probeStringFieldTrace(dstFieldPtr, payloadStart);
   if (cachedEnd != 0) return cachedEnd;
+  const srcEnd32 = srcEnd - 32;
   const srcEnd16 = srcEnd - 16;
   let srcStart = payloadStart;
+
+  // Most JSON strings end in their first eight code units. Keep that case on
+  // the smaller single-load path and use packed scanning only for longer runs.
+  if (srcStart <= srcEnd16) {
+    const block = load<v128>(srcStart);
+    const mask = i16x8.bitmask(
+      v128.or(i16x8.eq(block, SPLAT_5C), i16x8.eq(block, SPLAT_22)),
+    );
+    if (mask != 0) {
+      const laneIdx = usize(ctz(mask) << 1);
+      const srcIdx = srcStart + laneIdx;
+      const char = load<u16>(srcIdx);
+      if (char == QUOTE) {
+        writeStringToField_SIMD(
+          dstFieldPtr,
+          payloadStart,
+          <u32>(srcIdx - payloadStart),
+        );
+        const next = srcIdx + 2;
+        recordStringFieldTrace(dstFieldPtr, payloadStart, next);
+        return next;
+      }
+      const next = deserializeEscapedStringField_SIMD(
+        payloadStart,
+        srcIdx,
+        srcEnd,
+        dstFieldPtr,
+      );
+      if (next != 0) recordStringFieldTrace(dstFieldPtr, payloadStart, next);
+      return next;
+    }
+    srcStart += 16;
+  }
+
+  // Narrow two UTF-16 vectors into one byte vector. Unsigned narrowing
+  // saturates non-ASCII code units to 0xff, so they cannot alias either JSON
+  // delimiter and do not require a separate ASCII-classification pass.
+  while (srcStart <= srcEnd32) {
+    const packed = i8x16.narrow_i16x8_u(
+      load<v128>(srcStart),
+      load<v128>(srcStart, 16),
+    );
+    const mask = i8x16.bitmask(
+      v128.or(i8x16.eq(packed, SPLAT_5C_I8), i8x16.eq(packed, SPLAT_22_I8)),
+    );
+    if (mask == 0) {
+      srcStart += 32;
+      continue;
+    }
+
+    const laneIdx = usize(ctz(mask) << 1);
+    const srcIdx = srcStart + laneIdx;
+    const char = load<u16>(srcIdx);
+    if (char == QUOTE) {
+      writeStringToField_SIMD(
+        dstFieldPtr,
+        payloadStart,
+        <u32>(srcIdx - payloadStart),
+      );
+      const next = srcIdx + 2;
+      recordStringFieldTrace(dstFieldPtr, payloadStart, next);
+      return next;
+    }
+    const next = deserializeEscapedStringField_SIMD(
+      payloadStart,
+      srcIdx,
+      srcEnd,
+      dstFieldPtr,
+    );
+    if (next != 0) recordStringFieldTrace(dstFieldPtr, payloadStart, next);
+    return next;
+  }
 
   while (srcStart <= srcEnd16) {
     const block = load<v128>(srcStart);
