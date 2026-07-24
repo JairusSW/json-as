@@ -15,9 +15,9 @@ import {
 
 @json({ lazy: "auto" })
 class Poem {
-  desc: string = "";
-  name: string = "";
-  id: string = "";
+  desc!: string;
+  name!: string;
+  id!: string;
 }
 
 function touchRoot(root: Poem[]): f64 {

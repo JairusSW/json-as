@@ -17,66 +17,66 @@ import {
 
 @json({ lazy: "auto" })
 class Price {
-  amount: i64 = 0;
-  audienceSubCategoryId: i64 = 0;
-  seatCategoryId: i64 = 0;
+  amount!: i64;
+  audienceSubCategoryId!: i64;
+  seatCategoryId!: i64;
 }
 
 
 @json({ lazy: "auto" })
 class Area {
-  areaId: i64 = 0;
-  blockIds: i64[] = [];
+  areaId!: i64;
+  blockIds!: i64[];
 }
 
 
 @json({ lazy: "auto" })
 class SeatCategory {
-  areas: Area[] = [];
-  seatCategoryId: i64 = 0;
+  areas!: Area[];
+  seatCategoryId!: i64;
 }
 
 
 @json({ lazy: "auto" })
 class Performance {
-  eventId: i64 = 0;
-  id: i64 = 0;
-  logo: string | null = null;
-  name: string | null = null;
-  prices: Price[] = [];
-  seatCategories: SeatCategory[] = [];
-  seatMapImage: string | null = null;
-  start: i64 = 0;
-  venueCode: string = "";
+  eventId!: i64;
+  id!: i64;
+  logo!: string | null;
+  name!: string | null;
+  prices!: Price[];
+  seatCategories!: SeatCategory[];
+  seatMapImage!: string | null;
+  start!: i64;
+  venueCode!: string;
 }
 
 
 @json({ lazy: "auto" })
 class CitmEvent {
-  description: string | null = null;
-  id: i64 = 0;
-  logo: string | null = null;
-  name: string = "";
-  subTopicIds: i64[] = [];
-  subjectCode: string | null = null;
-  subtitle: string | null = null;
-  topicIds: i64[] = [];
+  description!: string | null;
+  id!: i64;
+  logo!: string | null;
+  name!: string;
+  subTopicIds!: i64[];
+  subjectCode!: string | null;
+  subtitle!: string | null;
+  topicIds!: i64[];
 }
 
 
 @json({ lazy: "auto" })
 class Citm {
-  areaNames: Map<string, string> = new Map<string, string>();
-  audienceSubCategoryNames: Map<string, string> = new Map<string, string>();
-  blockNames: Map<string, string> = new Map<string, string>();
-  events: Map<string, CitmEvent> = new Map<string, CitmEvent>();
-  performances: Performance[] = [];
-  seatCategoryNames: Map<string, string> = new Map<string, string>();
-  subTopicNames: Map<string, string> = new Map<string, string>();
-  subjectNames: Map<string, string> = new Map<string, string>();
-  topicNames: Map<string, string> = new Map<string, string>();
-  topicSubTopics: Map<string, i64[]> = new Map<string, i64[]>();
-  venueNames: Map<string, string> = new Map<string, string>();
+  areaNames!: Map<string, string>;
+  audienceSubCategoryNames!: Map<string, string>;
+  blockNames!: Map<string, string>;
+  events!: Map<string, CitmEvent>;
+  performances!: Performance[];
+  seatCategoryNames!: Map<string, string>;
+  subTopicNames!: Map<string, string>;
+  subjectNames!: Map<string, string>;
+  topicNames!: Map<string, string>;
+  topicSubTopics!: Map<string, i64[]>;
+  venueNames!: Map<string, string>;
 }
 
 function touchRoot(root: Citm): f64 {

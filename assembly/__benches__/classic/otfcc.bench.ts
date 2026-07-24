@@ -18,21 +18,21 @@ import {
 
 @json
 class Otfcc {
-  head: JSON.Raw | null = null;
-  hhea: JSON.Raw | null = null;
-  maxp: JSON.Raw | null = null;
-  vhea: JSON.Raw | null = null;
-  post: JSON.Raw | null = null;
-  OS_2: JSON.Raw | null = null;
-  name: JSON.Raw | null = null;
-  cmap: JSON.Raw | null = null;
-  cmap_uvs: JSON.Raw | null = null;
-  CFF_: JSON.Raw | null = null;
-  glyf: JSON.Raw | null = null;
-  glyph_order: JSON.Raw | null = null;
-  GSUB: JSON.Raw | null = null;
-  GPOS: JSON.Raw | null = null;
-  BASE: JSON.Raw | null = null;
+  head!: JSON.Raw | null;
+  hhea!: JSON.Raw | null;
+  maxp!: JSON.Raw | null;
+  vhea!: JSON.Raw | null;
+  post!: JSON.Raw | null;
+  OS_2!: JSON.Raw | null;
+  name!: JSON.Raw | null;
+  cmap!: JSON.Raw | null;
+  cmap_uvs!: JSON.Raw | null;
+  CFF_!: JSON.Raw | null;
+  glyf!: JSON.Raw | null;
+  glyph_order!: JSON.Raw | null;
+  GSUB!: JSON.Raw | null;
+  GPOS!: JSON.Raw | null;
+  BASE!: JSON.Raw | null;
 }
 
 const minJson = readFile("./assembly/__benches__/payloads/otfcc.min.json");

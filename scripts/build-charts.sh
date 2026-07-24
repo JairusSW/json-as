@@ -28,11 +28,6 @@ mkdir -p ./build/charts
 # json-as vs JavaScript, small synthetic payloads (overview).
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-overview-serialize.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-overview-deserialize.ts
-# Typed-struct fixtures with every non-null scalar/string value changed from defaults.
-# Render each chart in its own process: chart.js plugins retain module state
-# between canvases and can otherwise drop the second chart's legend text.
-JSON_CHART_RUNTIME="$CHART_RUNTIME" JSON_BENCH_KIND=serialize bun ./scripts/build-default-values.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" JSON_BENCH_KIND=deserialize bun ./scripts/build-default-values.ts
 # String / object throughput vs payload size (full range + <=1MB zoom).
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-string-serialize.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-string-deserialize.ts

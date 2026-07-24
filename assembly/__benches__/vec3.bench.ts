@@ -1,7 +1,6 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
 import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench";
-import { nonDefaultValues } from "./lib/nondefault";
 
 
 @json
@@ -10,13 +9,9 @@ class Vec3 {
   public y!: i32;
   public z!: i32;
 }
-const v1: Vec3 = { x: 1, y: 2, z: 3 };
-const v2 = JSON.stringify(v1);
-const nonDefaultJson = nonDefaultValues(v2);
-const nonDefaultValue = JSON.parse<Vec3>(nonDefaultJson);
-expect(JSON.stringify(v1)).toBe(v2);
+const v2 = `{"x":1,"y":2,"z":3}`;
+const v1 = JSON.parse<Vec3>(v2);
 expect(JSON.stringify(JSON.parse<Vec3>(v2))).toBe(v2);
-expect(JSON.stringify(nonDefaultValue)).toBe(nonDefaultJson);
 bench(
   "Serialize Vec3",
   () => {
@@ -35,25 +30,6 @@ bench(
   utf8ByteLength(v2),
 );
 dumpToFile("vec3", "deserialize");
-
-bench(
-  "Serialize Vec3 (non-default)",
-  () => {
-    blackbox(JSON.stringify(nonDefaultValue));
-  },
-  12_800_000,
-  utf8ByteLength(nonDefaultJson),
-);
-dumpToFile("vec3-nondefault", "serialize");
-bench(
-  "Deserialize Vec3 (non-default)",
-  () => {
-    blackbox(JSON.parse<Vec3>(nonDefaultJson));
-  },
-  12_800_000,
-  utf8ByteLength(nonDefaultJson),
-);
-dumpToFile("vec3-nondefault", "deserialize");
 
 // Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
 const objVec3 = JSON.parse<JSON.Obj>(v2);

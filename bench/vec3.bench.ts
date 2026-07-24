@@ -6,8 +6,8 @@ class Vec3 {
   public z!: number;
 }
 
-const v1: Vec3 = { x: 1, y: 2, z: 3 };
 const v2 = '{"x":1,"y":2,"z":3}';
+const v1 = JSON.parse(v2) as Vec3;
 
 bench(
   "Serialize Vec3",

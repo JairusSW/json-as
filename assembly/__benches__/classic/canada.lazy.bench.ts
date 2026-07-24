@@ -13,29 +13,29 @@ import {
 
 @json({ lazy: "auto" })
 class CanadaProperties {
-  name: string = "";
+  name!: string;
 }
 
 
 @json({ lazy: "auto" })
 class CanadaGeometry {
-  type: string = "";
-  coordinates: Array<Array<Array<f64>>> = [];
+  type!: string;
+  coordinates!: Array<Array<Array<f64>>>;
 }
 
 
 @json({ lazy: "auto" })
 class CanadaFeature {
-  type: string = "";
-  properties: CanadaProperties = new CanadaProperties();
-  geometry: CanadaGeometry = new CanadaGeometry();
+  type!: string;
+  properties!: CanadaProperties;
+  geometry!: CanadaGeometry;
 }
 
 
 @json({ lazy: "auto" })
 class Canada {
-  type: string = "";
-  features: Array<CanadaFeature> = [];
+  type!: string;
+  features!: Array<CanadaFeature>;
 }
 
 function touchRoot(root: Canada): f64 {

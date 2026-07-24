@@ -1,16 +1,12 @@
 import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench.js";
 
 class Token {
-  public id!: number;
+  public uid!: number;
   public token!: string;
 }
 
-const v1: Token = {
-  id: 256,
-  token: "dewf32df@#G43g3Gs!@3sdfDS#2",
-};
-
 const v2 = '{"uid":256,"token":"dewf32df@#G43g3Gs!@3sdfDS#2"}';
+const v1 = JSON.parse(v2) as Token;
 
 bench(
   "Serialize Token",

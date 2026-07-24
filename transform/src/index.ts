@@ -3194,6 +3194,20 @@ export class JSONTransform extends Visitor {
           );
         if (["string", "String"].includes(member.type))
           return `store<${member.type}>(dst, "", ${offset});`;
+        if (member.type.endsWith("[]")) {
+          const element = member.type.slice(0, -2).trim();
+          return `store<${member.type}>(dst, new Array<${element}>(), ${offset});`;
+        }
+        if (
+          member.type.startsWith("Array<") ||
+          member.type.startsWith("Map<") ||
+          member.type.startsWith("Set<")
+        )
+          return `store<${member.type}>(dst, new ${member.type}(), ${offset});`;
+        if (member.type.startsWith("StaticArray<")) {
+          const element = member.type.slice("StaticArray<".length, -1).trim();
+          return `store<${member.type}>(dst, new StaticArray<${element}>(0), ${offset});`;
+        }
         return `store<${member.type}>(dst, 0, ${offset});`;
       });
       DESERIALIZE_FAST += i1 + "srcStart = start;\n";

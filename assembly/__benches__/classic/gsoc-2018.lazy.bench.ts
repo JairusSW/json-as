@@ -19,12 +19,12 @@ import {
 class Sponsor {
 
   @alias("@type")
-  type: string = "";
-  name: string = "";
-  disambiguatingDescription: string = "";
-  description: string = "";
-  url: string = "";
-  logo: string = "";
+  type!: string;
+  name!: string;
+  disambiguatingDescription!: string;
+  description!: string;
+  url!: string;
+  logo!: string;
 }
 
 
@@ -32,8 +32,8 @@ class Sponsor {
 class Author {
 
   @alias("@type")
-  type: string = "";
-  name: string = "";
+  type!: string;
+  name!: string;
 }
 
 
@@ -41,15 +41,15 @@ class Author {
 class Org {
 
   @alias("@context")
-  context: string = "";
+  context!: string;
 
 
   @alias("@type")
-  type: string = "";
-  name: string = "";
-  description: string = "";
-  sponsor: Sponsor = new Sponsor();
-  author: Author = new Author();
+  type!: string;
+  name!: string;
+  description!: string;
+  sponsor!: Sponsor;
+  author!: Author;
 }
 
 function touchRoot(root: Map<string, Org>): f64 {

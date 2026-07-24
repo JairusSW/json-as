@@ -21,65 +21,65 @@ import {
 // animation data kept as JSON.Raw passthrough.
 @json({ lazy: "auto" })
 class Layer {
-  ddd: i64 = 0;
-  ind: i64 = 0;
-  ty: i64 = 0;
-  nm: string = "";
+  ddd!: i64;
+  ind!: i64;
+  ty!: i64;
+  nm!: string;
 
 
-  @optional refId: string = "";
+  @optional refId!: string;
 
 
-  @optional parent: JSON.Box<i64> | null = null;
-  ks: JSON.Raw | null = null;
-  ao: i64 = 0;
+  @optional parent!: JSON.Box<i64> | null;
+  ks!: JSON.Raw | null;
+  ao!: i64;
 
 
-  @optional ef: JSON.Raw | null = null;
+  @optional ef!: JSON.Raw | null;
 
 
-  @optional w: i64 = 0;
+  @optional w!: i64;
 
 
-  @optional h: i64 = 0;
+  @optional h!: i64;
 
 
-  @optional shapes: JSON.Raw | null = null;
+  @optional shapes!: JSON.Raw | null;
 
 
-  @optional sw: i64 = 0;
+  @optional sw!: i64;
 
 
-  @optional sh: i64 = 0;
+  @optional sh!: i64;
 
 
-  @optional sc: string = "";
-  ip: f64 = 0;
-  op: f64 = 0;
-  st: f64 = 0;
-  bm: i64 = 0;
-  sr: i64 = 0;
+  @optional sc!: string;
+  ip!: f64;
+  op!: f64;
+  st!: f64;
+  bm!: i64;
+  sr!: i64;
 }
 
 
 @json({ lazy: "auto" })
 class Asset {
-  id: string = "";
-  layers: Layer[] = [];
+  id!: string;
+  layers!: Layer[];
 }
 
 
 @json({ lazy: "auto" })
 class Lottie {
-  v: string = "";
-  fr: f64 = 0;
-  ip: i64 = 0;
-  op: f64 = 0;
-  w: i64 = 0;
-  h: i64 = 0;
-  ddd: i64 = 0;
-  assets: Asset[] = [];
-  layers: Layer[] = [];
+  v!: string;
+  fr!: f64;
+  ip!: i64;
+  op!: f64;
+  w!: i64;
+  h!: i64;
+  ddd!: i64;
+  assets!: Asset[];
+  layers!: Layer[];
 }
 
 function touchRoot(root: Lottie): f64 {

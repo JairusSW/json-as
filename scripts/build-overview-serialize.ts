@@ -25,9 +25,9 @@ const PAYLOADS: Record<string, string> = {
   uuidv4: "UUIDv4\n   (36b)",
   vec3: "3D Vector\n     (19b)",
   token: "Token\n  (49b)",
-  small: "Small Payload\n       (108b)",
+  small: "Small Payload\n        (44b)",
   medium: "Medium Payload\n        (1.1kb)",
-  large: "Large Payload\n      (5.5kb)",
+  large: "Large Payload\n      (5.3kb)",
 };
 
 const KIND: BenchKind = "serialize";

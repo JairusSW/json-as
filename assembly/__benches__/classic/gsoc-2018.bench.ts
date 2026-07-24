@@ -3,7 +3,6 @@ import { expect } from "../../__tests__/lib";
 import {
   blackbox,
   bench,
-  ChangingPayloads,
   dumpToFile,
   readFile,
   utf8ByteLength,
@@ -18,12 +17,12 @@ import {
 class Sponsor {
 
   @alias("@type")
-  type: string = "";
-  name: string = "";
-  disambiguatingDescription: string = "";
-  description: string = "";
-  url: string = "";
-  logo: string = "";
+  type!: string;
+  name!: string;
+  disambiguatingDescription!: string;
+  description!: string;
+  url!: string;
+  logo!: string;
 }
 
 
@@ -31,8 +30,8 @@ class Sponsor {
 class Author {
 
   @alias("@type")
-  type: string = "";
-  name: string = "";
+  type!: string;
+  name!: string;
 }
 
 
@@ -40,15 +39,15 @@ class Author {
 class Org {
 
   @alias("@context")
-  context: string = "";
+  context!: string;
 
 
   @alias("@type")
-  type: string = "";
-  name: string = "";
-  description: string = "";
-  sponsor: Sponsor = new Sponsor();
-  author: Author = new Author();
+  type!: string;
+  name!: string;
+  description!: string;
+  sponsor!: Sponsor;
+  author!: Author;
 }
 
 const prettyJson = readFile(
@@ -59,14 +58,12 @@ const minJson = readFile("./assembly/__benches__/payloads/gsoc-2018.min.json");
 expect(JSON.parse<Map<string, Org>>(minJson).size).toBe(1264);
 
 const gsoc = JSON.parse<Map<string, Org>>(prettyJson);
-const prettyPayloads = new ChangingPayloads(prettyJson);
-const minPayloads = new ChangingPayloads(minJson);
 const out = "";
 
 bench(
   "Deserialize GSOC (pretty)",
   () => {
-    blackbox(JSON.parse<Map<string, Org>>(prettyPayloads.next()));
+    blackbox(JSON.parse<Map<string, Org>>(prettyJson));
   },
   500,
   utf8ByteLength(prettyJson),
@@ -76,7 +73,7 @@ dumpToFile("gsoc-2018-pretty", "deserialize");
 bench(
   "Deserialize GSOC (min)",
   () => {
-    blackbox(JSON.parse<Map<string, Org>>(minPayloads.next()));
+    blackbox(JSON.parse<Map<string, Org>>(minJson));
   },
   500,
   utf8ByteLength(minJson),

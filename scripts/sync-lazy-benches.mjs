@@ -81,7 +81,7 @@ function extractJsonClasses(src) {
       );
     const fields = [];
     const fieldRe =
-      /^\s*(?:@optional\s+)?([A-Za-z_]\w*)\s*:\s*([^=;]+?)(?:\s*=\s*[^;]*)?;/gm;
+      /^\s*(?:@optional\s+)?([A-Za-z_]\w*)!?\s*:\s*([^=;]+?)(?:\s*=\s*[^;]*)?;/gm;
     for (const f of body.matchAll(fieldRe)) {
       fields.push({ name: f[1], type: f[2].trim() });
     }

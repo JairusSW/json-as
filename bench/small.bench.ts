@@ -6,12 +6,8 @@ class SmallJSON {
   public active!: boolean;
 }
 
-const v1: SmallJSON = {
-  id: 1,
-  name: "Small Object",
-  active: true,
-};
 const v2 = '{"id":1,"name":"Small Object","active":true}';
+const v1 = JSON.parse(v2) as SmallJSON;
 
 bench(
   "Serialize Small Object",

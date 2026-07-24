@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2026-06-10 - v1.6.0
 
-- bench/charts: charts with a sparse extreme throughput tail now switch their measured axis to a log10 scale so ordinary values remain readable without clipping any result. The detector combines Tukey's far-outlier fence with median absolute deviation and requires a clearly separated upper tail; charts without extreme outliers remain linear. Classic-payload serialization always uses log10 because its JSON.Obj series is a distinct, much faster population
+- perf: much faster deserialization. uses default values as cache.
 
 ## 2026-06-10 - v1.5.0
 
