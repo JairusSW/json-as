@@ -22,6 +22,21 @@ function skipFloatArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   return srcStart;
 }
 
+// AssemblyScript's regular Array constructor reserves at least eight slots.
+// GeoJSON coordinate pairs need exactly two, so construct the standard Array
+// layout directly and avoid 6 unused f64/f32 slots per fresh pair.
+export function createExactFloatPair<T extends number[]>(): T {
+  const byteLength = usize(2 * sizeof<valueof<T>>());
+  const buffer = __new(byteLength, idof<ArrayBuffer>());
+  const out = __new(offsetof<T>(), idof<T>());
+  store<usize>(out, buffer, offsetof<T>("buffer"));
+  store<usize>(out, buffer, offsetof<T>("dataStart"));
+  store<i32>(out, <i32>byteLength, offsetof<T>("byteLength"));
+  store<i32>(out, 2, offsetof<T>("length_"));
+  __link(out, buffer, false);
+  return changetype<T>(out);
+}
+
 function fallbackStore<E>(origStart: usize, end: usize, slot: usize): void {
   const s = ptrToStr(origStart, end);
   if (sizeof<E>() == sizeof<f32>()) {
