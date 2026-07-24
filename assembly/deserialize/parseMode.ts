@@ -10,6 +10,7 @@ const ENABLE_EXACT_SOURCE_TRACES = true;
 let STRING_TRACE_DEPTH = 0;
 let STRING_TRACE_ACTIVE = false;
 let STRING_TRACE_COMPLETE = false;
+let STRING_TRACE_ADMITTED = false;
 let STRING_TRACE_SOURCE: string | null = null;
 let STRING_TRACE_OUT: usize = 0;
 let STRING_TRACE_TYPE: u32 = 0;
@@ -54,11 +55,25 @@ export function beginStringFieldTrace(
 
   const sourcePtr = changetype<usize>(source);
   const sameRoot =
+    STRING_TRACE_ADMITTED &&
     STRING_TRACE_COMPLETE &&
     STRING_TRACE_OUT == out &&
     STRING_TRACE_TYPE == typeId &&
     changetype<usize>(STRING_TRACE_SOURCE) == sourcePtr;
   if (!sameRoot) {
+    const repeatedCandidate =
+      !STRING_TRACE_ADMITTED &&
+      STRING_TRACE_OUT == out &&
+      STRING_TRACE_TYPE == typeId &&
+      changetype<usize>(STRING_TRACE_SOURCE) == sourcePtr;
+    if (repeatedCandidate) {
+      // Admit a trace only after the same immutable source/output pair repeats.
+      // Request-style workloads that cycle through changing payloads otherwise
+      // pay to record and clear every field without ever producing a cache hit.
+      STRING_TRACE_ADMITTED = true;
+    } else {
+      STRING_TRACE_ADMITTED = false;
+    }
     STRING_TRACE_SOURCE = source;
     STRING_TRACE_OUT = out;
     STRING_TRACE_TYPE = typeId;
@@ -74,6 +89,11 @@ export function beginStringFieldTrace(
     OBJECT_TRACE_MASKS.length = 0;
     OBJECT_TRACE_TIERS.length = 0;
     OBJECT_TRACE_SEPARATORS.length = 0;
+    if (!STRING_TRACE_ADMITTED) {
+      STRING_TRACE_COMPLETE = false;
+      STRING_TRACE_ACTIVE = false;
+      return;
+    }
   }
   STRING_TRACE_INDEX = 0;
   OBJECT_TRACE_INDEX = 0;
@@ -85,7 +105,7 @@ export function beginStringFieldTrace(
 @inline
 export function endStringFieldTrace(success: bool): void {
   if (!ENABLE_EXACT_SOURCE_TRACES) return;
-  if (STRING_TRACE_DEPTH == 1) {
+  if (STRING_TRACE_DEPTH == 1 && STRING_TRACE_ACTIVE) {
     STRING_TRACE_ACTIVE = false;
     STRING_TRACE_COMPLETE = success;
   }
