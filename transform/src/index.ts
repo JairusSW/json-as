@@ -2108,6 +2108,16 @@ export class JSONTransform extends Visitor {
     const STRING_FIELD_DESERIALIZER = "__deserializeStringField";
     const STRING_FIELD_TRUSTED_DESERIALIZER = "__deserializeStringFieldTrusted";
 
+    // Custom deserializers are instance methods, but generated code must invoke
+    // them before an instance exists. AssemblyScript's static dispatch lets a
+    // zero reference select the method without dereferencing `this`.
+    const getCustomDeserializeExpression = (
+      type: string,
+      valueStart: string,
+      valueEnd: string,
+    ): string =>
+      `changetype<nonnull<${stripNull(type)}>>(0).__DESERIALIZE_CUSTOM(JSON.Util.ptrToStr(${valueStart}, ${valueEnd}))`;
+
     const getArrayValueType = (type: string): string | null => {
       if (!type.startsWith("Array<") && !type.startsWith("StaticArray<"))
         return null;
@@ -2324,6 +2334,29 @@ export class JSONTransform extends Visitor {
         out.push(
           `${srcPtr} = __deserializeFloatField<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
         );
+      } else if (resolvedSchema?.custom) {
+        out.push("{");
+        if (member.node.type.isNullable) {
+          out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
+          out.push(
+            `    store<${member.type}>(${outPtr}, changetype<${member.type}>(0), ${fieldOffset});`,
+          );
+          out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
+          out.push("  } else {");
+        }
+        out.push(`  const valueStart = ${valuePtr};`);
+        out.push(
+          `  const valueEnd = JSON.Util.scanValueEnd<${resolvedType}>(valueStart, srcEnd);`,
+        );
+        out.push("  if (!valueEnd) break;");
+        out.push(
+          `  store<${member.type}>(${outPtr}, ${getCustomDeserializeExpression(resolvedType, "valueStart", "valueEnd")}, ${fieldOffset});`,
+        );
+        out.push(`  ${srcPtr} = valueEnd;`);
+        if (member.node.type.isNullable) {
+          out.push("  }");
+        }
+        out.push("}");
       } else if (resolvedSchema && !resolvedSchema.custom) {
         if (fastPath) {
           out.push("{");
@@ -3567,6 +3600,13 @@ export class JSONTransform extends Visitor {
       if (member.flags.has(PropertyFlags.Lazy))
         return getLazyRangeStore(member, valueStart, valueEnd, prefix);
       const offset = JSON.stringify(member.name);
+      const memberSchema = this.getSchema(member.type);
+      if (memberSchema?.custom) {
+        return (
+          prefix +
+          `store<${member.type}>(changetype<usize>(out), ${getCustomDeserializeExpression(member.type, valueStart, valueEnd)}, offsetof<this>(${offset}));\n`
+        );
+      }
       // TypedArrays and ArrayBuffer are reference types whose JSON form is
       // `[...]`. Pass the existing field pointer as `dst` so the deserializer
       // can reuse the allocation when size matches instead of always allocating.
@@ -4515,11 +4555,24 @@ export class JSONTransform extends Visitor {
   }
   getSchema(name: string): Schema | null {
     name = stripNull(name);
-    return (
+    const local =
       this.schemas
         .get(this.schema.node.range.source.internalPath)
-        .find((s) => s.name == name) || null
+        .find((s) => s.name == name) || null;
+    if (local) return local;
+
+    const exact = this.schema.deps.filter(
+      (schema) => schema && schema.name == name,
     );
+    if (exact.length == 1) return exact[0];
+
+    // A short type spelling can refer to a namespaced dependency. Accept that
+    // fallback only when it identifies one schema; selecting the first suffix
+    // match could silently call an unrelated type's custom deserializer.
+    const qualified = this.schema.deps.filter(
+      (schema) => schema && schema.name.endsWith("." + name),
+    );
+    return qualified.length == 1 ? qualified[0] : null;
   }
   generateEmptyMethods(node: ClassDeclaration): void {
     const SERIALIZE_EMPTY =
