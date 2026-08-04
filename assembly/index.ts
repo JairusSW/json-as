@@ -82,6 +82,10 @@ import {
   skipPrettyWhitespace_SIMD,
 } from "./util/prettyWhitespaceSimd";
 import { normalizeJSONEncoding, validateJSON } from "./util/validateJson";
+import {
+  trySerializeCleanStringV512,
+  trySerializeCleanStringV512Into,
+} from "./serialize/simd/string";
 
 const VAL_QNAN: u64 = 0x7ffc000000000000; // boxed signature (quiet NaN)
 const VAL_TAG_SHIFT: u8 = 45;
@@ -342,6 +346,12 @@ export namespace JSON {
       }
       return NULL_WORD;
     } else if (isString<nonnull<T>>()) {
+      if (JSON_WAGO_WIDE && JSON_SIMD_WIDTH == 512) {
+        const direct = out
+          ? trySerializeCleanStringV512Into(data as string, out)
+          : trySerializeCleanStringV512(data as string);
+        if (direct != 0) return changetype<string>(direct);
+      }
       serializeString(data as string);
       return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
       // @ts-expect-error: Defined by transform

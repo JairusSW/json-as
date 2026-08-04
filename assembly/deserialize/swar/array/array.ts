@@ -1,6 +1,6 @@
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
-import { deserializeFloatArrayBody } from "./float";
+import { createExactFloatPair, deserializeFloatArrayBody } from "./float";
 import { ensureArrayField, scanValueEnd, skipWhitespace } from "./shared";
 import { skipPrettyWhitespace_SIMD } from "../../../util/prettyWhitespaceSimd";
 
@@ -59,7 +59,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
             reusableDataStart + <usize>index * elementSize,
           );
         } else {
-          value = changetype<valueof<T>>(instantiate<valueof<T>>());
+          value = createExactFloatPair<valueof<T>>();
           out.push(value);
         }
         srcStart = deserializeFloatArrayBody<valueof<T>>(

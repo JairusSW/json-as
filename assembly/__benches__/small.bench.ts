@@ -1,6 +1,12 @@
 import { JSON } from "..";
 import { expect } from "../__tests__/lib";
-import { bench, blackbox, dumpToFile, utf8ByteLength } from "./lib/bench";
+import {
+  bench,
+  blackbox,
+  ChangingPayloads,
+  dumpToFile,
+  utf8ByteLength,
+} from "./lib/bench";
 
 
 @json
@@ -11,6 +17,9 @@ class SmallJSON {
 }
 const v2 = `{"id":1,"name":"Small Object","active":true}`;
 const v1 = JSON.parse<SmallJSON>(v2);
+const freshPayloads = new ChangingPayloads(v2);
+const reusePayloads = new ChangingPayloads(v2);
+const reuseTarget = JSON.parse<SmallJSON>(v2);
 const byteLength: usize = utf8ByteLength(v2);
 expect(JSON.stringify(JSON.parse<SmallJSON>(v2))).toBe(v2);
 bench(
@@ -25,12 +34,21 @@ dumpToFile("small", "serialize");
 bench(
   "Deserialize Small Object",
   () => {
-    blackbox(JSON.parse<SmallJSON>(v2));
+    blackbox(JSON.parse<SmallJSON>(freshPayloads.next()));
   },
   5_000_000,
   byteLength,
 );
 dumpToFile("small", "deserialize");
+bench(
+  "Deserialize Small Object (reuse)",
+  () => {
+    blackbox(JSON.parse<SmallJSON>(reusePayloads.next(), reuseTarget));
+  },
+  5_000_000,
+  byteLength,
+);
+dumpToFile("small-reuse", "deserialize");
 
 // Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
 const objSmall = JSON.parse<JSON.Obj>(v2);

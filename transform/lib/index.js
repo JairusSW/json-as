@@ -3405,7 +3405,12 @@ var JSONMode;
 })(JSONMode || (JSONMode = {}));
 let MODE = JSONMode.SWAR;
 let MODE_TEXT = "SWAR";
+let SIMD_WIDTH = 128;
 const STAGES = process.env["JSON_STAGES"] !== undefined;
+const WAGO_WIDE = (process.env["WAGO_PLUGINS"] ?? "")
+    .toLowerCase()
+    .split(/[\s,;]+/)
+    .includes("wide");
 export default class Transformer extends Transform {
     afterInitialize(program) {
         if (program.options.hasFeature(16))
@@ -3437,11 +3442,24 @@ export default class Transformer extends Transform {
                 MODE_TEXT = "NAIVE";
                 break;
         }
+        SIMD_WIDTH = 128;
+        const configuredWidth = process.env["JSON_SIMD_WIDTH"];
+        if (configuredWidth !== undefined) {
+            SIMD_WIDTH = Number.parseInt(configuredWidth.trim(), 10);
+            if (SIMD_WIDTH !== 128 && SIMD_WIDTH !== 256 && SIMD_WIDTH !== 512) {
+                throw new Error("JSON_SIMD_WIDTH must be one of 128, 256, or 512");
+            }
+            if (SIMD_WIDTH !== 128 && !program.options.hasFeature(16)) {
+                throw new Error("JSON_SIMD_WIDTH=256/512 requires AssemblyScript SIMD");
+            }
+        }
         if (STAGES)
             console.log("[transform]: Finished initializing transformer in " +
                 MODE_TEXT +
                 " mode");
         program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE));
+        program.registerConstantInteger("JSON_SIMD_WIDTH", Type.i32, i64_new(SIMD_WIDTH));
+        program.registerConstantInteger("JSON_WAGO_WIDE", Type.bool, WAGO_WIDE ? i64_one : i64_zero);
         program.registerConstantInteger("JSON_STRICT", Type.bool, STRICT ? i64_one : i64_zero);
         if (JSON_CACHE_CONFIG.enabled) {
             program.registerConstantInteger("JSON_CACHE", Type.bool, i64_one);

@@ -22,6 +22,21 @@ function skipFloatArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   return srcStart;
 }
 
+// AssemblyScript's regular Array constructor reserves at least eight slots.
+// GeoJSON coordinate pairs need exactly two, so construct the standard Array
+// layout directly and avoid 6 unused f64/f32 slots per fresh pair.
+export function createExactFloatPair<T extends number[]>(): T {
+  const byteLength = usize(2 * sizeof<valueof<T>>());
+  const buffer = __new(byteLength, idof<ArrayBuffer>());
+  const out = __new(offsetof<T>(), idof<T>());
+  store<usize>(out, buffer, offsetof<T>("buffer"));
+  store<usize>(out, buffer, offsetof<T>("dataStart"));
+  store<i32>(out, <i32>byteLength, offsetof<T>("byteLength"));
+  store<i32>(out, 2, offsetof<T>("length_"));
+  __link(out, buffer, false);
+  return changetype<T>(out);
+}
+
 function fallbackStore<E>(origStart: usize, end: usize, slot: usize): void {
   const s = ptrToStr(origStart, end);
   if (sizeof<E>() == sizeof<f32>()) {
@@ -603,22 +618,27 @@ export function deserializeFloatArrayBody<T extends number[]>(
       return srcStart + 2;
     }
 
-    // GeoJSON's innermost coordinate arrays are overwhelmingly reused
-    // `[longitude,latitude]` pairs. Unroll that stable-shape case so neither
-    // element pays the generic index/capacity selection or loop backedge. A
-    // mismatch restores the first-value cursor and falls through unchanged.
-    if (ASC_FEATURE_SIMD && reusableLength == 2) {
+    // GeoJSON's innermost coordinate arrays are overwhelmingly
+    // `[longitude,latitude]` pairs. Fresh arrays are sized once before the
+    // attempt; reused arrays write into their existing two slots. A mismatch
+    // restores the cursor (and fresh logical length) before the generic loop.
+    if (ASC_FEATURE_SIMD && (reusableLength == 0 || reusableLength == 2)) {
       const firstStart = srcStart;
+      let pairDataStart = reusableDataStart;
+      if (reusableLength == 0) {
+        out.length = 2;
+        pairDataStart = out.dataStart;
+      }
       const pairEnd = parseFixed14Pair<valueof<T>>(
         srcStart,
         srcEnd,
-        reusableDataStart,
+        pairDataStart,
       );
       if (pairEnd) return pairEnd;
       let next = parseFloatElementSWAR<valueof<T>>(
         srcStart,
         srcEnd,
-        reusableDataStart,
+        pairDataStart,
       );
       if (next) {
         srcStart = next;
@@ -634,7 +654,7 @@ export function deserializeFloatArrayBody<T extends number[]>(
           next = parseFloatElementSWAR<valueof<T>>(
             srcStart,
             srcEnd,
-            reusableDataStart + elementSize,
+            pairDataStart + elementSize,
           );
           if (next) {
             srcStart = next;
@@ -646,6 +666,7 @@ export function deserializeFloatArrayBody<T extends number[]>(
         }
       }
       srcStart = firstStart;
+      if (reusableLength == 0) out.length = 0;
     }
 
     while (srcStart < srcEnd) {

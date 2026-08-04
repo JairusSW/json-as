@@ -3,6 +3,7 @@ import { expect } from "../../__tests__/lib";
 import {
   blackbox,
   bench,
+  ChangingPayloads,
   dumpToFile,
   readFile,
   utf8ByteLength,
@@ -246,6 +247,9 @@ const prettyJson = readFile(
   "./assembly/__benches__/payloads/twitter.pretty.json",
 );
 const minJson = readFile("./assembly/__benches__/payloads/twitter.min.json");
+const freshPayloads = new ChangingPayloads(minJson);
+const reusePayloads = new ChangingPayloads(minJson);
+const reuseTarget = JSON.parse<Twitter>(minJson);
 const outStr = "";
 
 expect(JSON.parse<Twitter>(minJson).statuses.length).toBe(100);
@@ -265,12 +269,21 @@ dumpToFile("twitter-pretty", "deserialize");
 bench(
   "Deserialize Twitter (min)",
   () => {
-    blackbox(JSON.parse<Twitter>(minJson));
+    blackbox(JSON.parse<Twitter>(freshPayloads.next()));
   },
   2000,
   utf8ByteLength(minJson),
 );
 dumpToFile("twitter-min", "deserialize");
+bench(
+  "Deserialize Twitter (min, reuse)",
+  () => {
+    blackbox(JSON.parse<Twitter>(reusePayloads.next(), reuseTarget));
+  },
+  2000,
+  utf8ByteLength(minJson),
+);
+dumpToFile("twitter-min-reuse", "deserialize");
 
 bench(
   "Serialize Twitter (min)",

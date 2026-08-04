@@ -681,6 +681,15 @@ Here's a short list:
 
 **JSON_MODE** (default: SWAR) - Selects which mode should be used. Can be `NAIVE,SWAR,SIMD`. Note that `--enable simd` may be required.
 
+**JSON_SIMD_WIDTH** (default: 128) - Selects 128-, 256-, or 512-bit string scans in SIMD mode. The 256/512 paths use [`as-simd`](https://github.com/JairusSW/as-simd) fused memory predicates, while general wide operations use the portable externref ABI consumed by Wago's [`JairusSW/wide`](https://github.com/JairusSW/wide) plugin:
+
+```bash
+WAGO_PLUGINS=wide JSON_MODE=SIMD JSON_SIMD_WIDTH=512 \
+  asc app.ts --transform json-as --transform as-simd --enable simd
+```
+
+Run `npm run test:wago-wide` to compile and execute both native-width variants against current Wago and Wide. `JSON_SIMD_WIDTH=256/512` without `--enable simd` is rejected at compile time.
+
 **JSON_USE_FAST_PATH** (default: 1) - The transform emits the fast `__DESERIALIZE` implementation for generated structs by default. Set to `0`, `false`, `off`, or `no` to force slow-path-only output. See [FAST_PATH_DESERIALIZE.md](./FAST_PATH_DESERIALIZE.md) for the current support matrix, known gaps, and dedicated test command.
 
 **JSON_WRITE** (default: "") - Select a series of files to output after transform and optimization passes have completed for easy inspection. Usage: `JSON_WRITE=.path-to-file-a.ts,./path-to-file-b.ts`
