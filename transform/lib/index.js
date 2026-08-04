@@ -1400,6 +1400,7 @@ export class JSONTransform extends Visitor {
         const INTEGER_TYPES = [...UNSIGNED_INTEGER_TYPES, ...SIGNED_INTEGER_TYPES];
         const STRING_FIELD_DESERIALIZER = "__deserializeStringField";
         const STRING_FIELD_TRUSTED_DESERIALIZER = "__deserializeStringFieldTrusted";
+        const getCustomDeserializeExpression = (type, valueStart, valueEnd) => `changetype<nonnull<${stripNull(type)}>>(0).__DESERIALIZE_CUSTOM(JSON.Util.ptrToStr(${valueStart}, ${valueEnd}))`;
         const getArrayValueType = (type) => {
             if (!type.startsWith("Array<") && !type.startsWith("StaticArray<"))
                 return null;
@@ -1566,7 +1567,7 @@ export class JSONTransform extends Visitor {
                 out.push(`  const valueStart = ${valuePtr};`);
                 out.push(`  const valueEnd = JSON.Util.scanValueEnd<${resolvedType}>(valueStart, srcEnd);`);
                 out.push("  if (!valueEnd) break;");
-                out.push(`  store<${member.type}>(${outPtr}, changetype<nonnull<${resolvedType}>>(0).__DESERIALIZE_CUSTOM(JSON.Util.ptrToStr(valueStart, valueEnd)), ${fieldOffset});`);
+                out.push(`  store<${member.type}>(${outPtr}, ${getCustomDeserializeExpression(resolvedType, "valueStart", "valueEnd")}, ${fieldOffset});`);
                 out.push(`  ${srcPtr} = valueEnd;`);
                 if (member.node.type.isNullable) {
                     out.push("  }");
@@ -2495,7 +2496,7 @@ export class JSONTransform extends Visitor {
             const memberSchema = this.getSchema(member.type);
             if (memberSchema?.custom) {
                 return (prefix +
-                    `store<${member.type}>(changetype<usize>(out), changetype<nonnull<${stripNull(member.type)}>>(0).__DESERIALIZE_CUSTOM(JSON.Util.ptrToStr(${valueStart}, ${valueEnd})), offsetof<this>(${offset}));\n`);
+                    `store<${member.type}>(changetype<usize>(out), ${getCustomDeserializeExpression(member.type, valueStart, valueEnd)}, offsetof<this>(${offset}));\n`);
             }
             if (needsReferenceLoad(member.type)) {
                 return (prefix +
@@ -3184,10 +3185,11 @@ export class JSONTransform extends Visitor {
             .find((s) => s.name == name) || null;
         if (local)
             return local;
-        return (this.schema.deps.find((schema) => schema &&
-            (schema.name == name ||
-                schema.name.endsWith("." + name) ||
-                name.endsWith("." + schema.name))) || null);
+        const exact = this.schema.deps.filter((schema) => schema && schema.name == name);
+        if (exact.length == 1)
+            return exact[0];
+        const qualified = this.schema.deps.filter((schema) => schema && schema.name.endsWith("." + name));
+        return qualified.length == 1 ? qualified[0] : null;
     }
     generateEmptyMethods(node) {
         const SERIALIZE_EMPTY = "__SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";

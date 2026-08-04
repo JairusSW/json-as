@@ -2108,6 +2108,16 @@ export class JSONTransform extends Visitor {
     const STRING_FIELD_DESERIALIZER = "__deserializeStringField";
     const STRING_FIELD_TRUSTED_DESERIALIZER = "__deserializeStringFieldTrusted";
 
+    // Custom deserializers are instance methods, but generated code must invoke
+    // them before an instance exists. AssemblyScript's static dispatch lets a
+    // zero reference select the method without dereferencing `this`.
+    const getCustomDeserializeExpression = (
+      type: string,
+      valueStart: string,
+      valueEnd: string,
+    ): string =>
+      `changetype<nonnull<${stripNull(type)}>>(0).__DESERIALIZE_CUSTOM(JSON.Util.ptrToStr(${valueStart}, ${valueEnd}))`;
+
     const getArrayValueType = (type: string): string | null => {
       if (!type.startsWith("Array<") && !type.startsWith("StaticArray<"))
         return null;
@@ -2340,7 +2350,7 @@ export class JSONTransform extends Visitor {
         );
         out.push("  if (!valueEnd) break;");
         out.push(
-          `  store<${member.type}>(${outPtr}, changetype<nonnull<${resolvedType}>>(0).__DESERIALIZE_CUSTOM(JSON.Util.ptrToStr(valueStart, valueEnd)), ${fieldOffset});`,
+          `  store<${member.type}>(${outPtr}, ${getCustomDeserializeExpression(resolvedType, "valueStart", "valueEnd")}, ${fieldOffset});`,
         );
         out.push(`  ${srcPtr} = valueEnd;`);
         if (member.node.type.isNullable) {
@@ -3594,7 +3604,7 @@ export class JSONTransform extends Visitor {
       if (memberSchema?.custom) {
         return (
           prefix +
-          `store<${member.type}>(changetype<usize>(out), changetype<nonnull<${stripNull(member.type)}>>(0).__DESERIALIZE_CUSTOM(JSON.Util.ptrToStr(${valueStart}, ${valueEnd})), offsetof<this>(${offset}));\n`
+          `store<${member.type}>(changetype<usize>(out), ${getCustomDeserializeExpression(member.type, valueStart, valueEnd)}, offsetof<this>(${offset}));\n`
         );
       }
       // TypedArrays and ArrayBuffer are reference types whose JSON form is
@@ -4551,15 +4561,18 @@ export class JSONTransform extends Visitor {
         .find((s) => s.name == name) || null;
     if (local) return local;
 
-    return (
-      this.schema.deps.find(
-        (schema) =>
-          schema &&
-          (schema.name == name ||
-            schema.name.endsWith("." + name) ||
-            name.endsWith("." + schema.name)),
-      ) || null
+    const exact = this.schema.deps.filter(
+      (schema) => schema && schema.name == name,
     );
+    if (exact.length == 1) return exact[0];
+
+    // A short type spelling can refer to a namespaced dependency. Accept that
+    // fallback only when it identifies one schema; selecting the first suffix
+    // match could silently call an unrelated type's custom deserializer.
+    const qualified = this.schema.deps.filter(
+      (schema) => schema && schema.name.endsWith("." + name),
+    );
+    return qualified.length == 1 ? qualified[0] : null;
   }
   generateEmptyMethods(node: ClassDeclaration): void {
     const SERIALIZE_EMPTY =
