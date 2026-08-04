@@ -268,6 +268,23 @@ declare function deserializer(
 declare const JSON_MODE: JSONMode;
 
 /**
+ * SIMD scan width selected by the json-as transform. The default is 128.
+ *
+ * Set `JSON_SIMD_WIDTH=256` or `JSON_SIMD_WIDTH=512` and compile with both
+ * `json-as` and `as-simd` transforms plus `--enable simd` to emit Wago Wide
+ * imports.
+ */
+declare const JSON_SIMD_WIDTH: i32;
+
+/**
+ * Whether this build targets Wago with the JairusSW/wide plugin.
+ *
+ * Injected from `WAGO_PLUGINS=wide`; used to retain native custom-instruction
+ * calls only when the matching runtime plugin is present.
+ */
+declare const JSON_WAGO_WIDE: bool;
+
+/**
  * Whether strict RFC 8259 validation is enabled. Injected by the transform from
  * the `JSON_STRICT` build-time environment variable (default `false`).
  */

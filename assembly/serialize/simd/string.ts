@@ -3,6 +3,12 @@ import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
 import { u16_to_hex4_swar } from "../../util/swar";
+import {
+  copyStringAndEscapeMask64,
+  copyStringAndEscapeMask256,
+  copyStringAndEscapeMaskBulkV512,
+  fusedStringBlockBytes,
+} from "../../util/wideSimd";
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const U00_MARKER = 13511005048209500;
 // @ts-expect-error: @lazy is a valid decorator
@@ -15,6 +21,92 @@ import { u16_to_hex4_swar } from "../../util/swar";
 @lazy const SPLAT_0020 = i16x8.splat(0x0020); // space and control check
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_FFD8 = i16x8.splat(i16(0xd7fe));
+
+/**
+ * Serializes an escape-free string directly into its final managed result.
+ *
+ * Returns the result pointer on success and zero when the regular escaping
+ * serializer must be used. This is intentionally a top-level Wago/v512 fast
+ * path: writing into the final allocation avoids both the shared byte-buffer
+ * staging copy and `bs.out`'s second copy.
+ */
+function trySerializeCleanStringV512At(
+  src: string,
+  out: usize,
+  srcSize: usize,
+): usize {
+  let srcStart = changetype<usize>(src);
+  const srcEnd = srcStart + srcSize;
+  let dst = out + 2;
+
+  store<u16>(out, 34);
+
+  const bulkSize = (srcSize >> 6) << 6;
+  if (bulkSize != 0) {
+    if (
+      copyStringAndEscapeMaskBulkV512(
+        dst,
+        srcStart,
+        dst + bulkSize - 64,
+        srcStart + bulkSize - 64,
+      ) != 0
+    )
+      return 0;
+    srcStart += bulkSize;
+    dst += bulkSize;
+  }
+  while (srcStart + 16 <= srcEnd) {
+    const block = load<v128>(srcStart);
+    const mask = i8x16.bitmask(
+      v128.or(
+        i16x8.eq(block, SPLAT_0022),
+        v128.or(
+          i16x8.eq(block, SPLAT_005C),
+          v128.or(i16x8.lt_u(block, SPLAT_0020), i8x16.gt_u(block, SPLAT_FFD8)),
+        ),
+      ),
+    );
+    if (mask != 0) return 0;
+    store<v128>(dst, block);
+    srcStart += 16;
+    dst += 16;
+  }
+  while (srcStart < srcEnd) {
+    const code = load<u16>(srcStart);
+    if (
+      code == 34 ||
+      code == BACK_SLASH ||
+      code < 32 ||
+      (code >= 0xd800 && code <= 0xdfff)
+    )
+      return 0;
+    store<u16>(dst, code);
+    srcStart += 2;
+    dst += 2;
+  }
+
+  store<u16>(dst, 34);
+  return out;
+}
+
+/** Direct-result clean-string path with a fresh managed allocation. */
+export function trySerializeCleanStringV512(src: string): usize {
+  const srcPtr = changetype<usize>(src);
+  const srcSize = changetype<OBJECT>(srcPtr - TOTAL_OVERHEAD).rtSize;
+  const out = __new(srcSize + 4, idof<string>());
+  return trySerializeCleanStringV512At(src, out, srcSize);
+}
+
+/** Direct-result clean-string path using JSON.stringify's reusable output. */
+export function trySerializeCleanStringV512Into(
+  src: string,
+  out: string,
+): usize {
+  const srcPtr = changetype<usize>(src);
+  const srcSize = changetype<OBJECT>(srcPtr - TOTAL_OVERHEAD).rtSize;
+  const renewed = __renew(changetype<usize>(out), srcSize + 4);
+  return trySerializeCleanStringV512At(src, renewed, srcSize);
+}
 
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
@@ -31,6 +123,22 @@ export function serializeString_SIMD(src: string): void {
 
     const dstStart = bs.offset;
     let dst = dstStart + 2;
+
+    if (JSON_SIMD_WIDTH > 128) {
+      const wideBytes = fusedStringBlockBytes();
+      if (JSON_SIMD_WIDTH == 512) {
+        while (srcStart + 256 <= srcEnd) {
+          if (copyStringAndEscapeMask256(dst, srcStart) != 0) break;
+          srcStart += 256;
+          dst += 256;
+        }
+      }
+      while (srcStart + wideBytes <= srcEnd) {
+        if (copyStringAndEscapeMask64(dst, srcStart) != 0) break;
+        srcStart += wideBytes;
+        dst += wideBytes;
+      }
+    }
 
     while (srcStart < srcEnd16Fast) {
       const block = load<v128>(srcStart);
@@ -71,6 +179,22 @@ export function serializeString_SIMD(src: string): void {
   bs.proposeSize(srcSize + 4);
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
+
+  if (JSON_SIMD_WIDTH > 128) {
+    const wideBytes = fusedStringBlockBytes();
+    if (JSON_SIMD_WIDTH == 512) {
+      while (srcStart + 256 <= srcEnd) {
+        if (copyStringAndEscapeMask256(bs.offset, srcStart) != 0) break;
+        bs.offset += 256;
+        srcStart += 256;
+      }
+    }
+    while (srcStart + wideBytes <= srcEnd) {
+      if (copyStringAndEscapeMask64(bs.offset, srcStart) != 0) break;
+      bs.offset += wideBytes;
+      srcStart += wideBytes;
+    }
+  }
 
   while (srcStart < srcEnd16) {
     const block = load<v128>(srcStart);

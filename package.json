@@ -94,6 +94,7 @@
     "test": "ast test --parallel --enable try-as",
     "test:rfc": "ast test --config rfc.config.json --parallel --enable try-as",
     "test:transform": "node transform/__tests__/normalize-base-rel.test.mjs && node transform/__tests__/compute-base-rel.test.mjs && node transform/__tests__/resolve-imports.test.mjs",
+    "test:wago-wide": "npm run build:transform && node scripts/test-wago-wide.mjs",
     "test:fast": "npm run build:transform && JSON_USE_FAST_PATH=1 ast test --parallel --mode swar,simd --enable try-as",
     "fuzz": "ast fuzz",
     "test:fuzz": "ast test --fuzz --parallel",
@@ -147,6 +148,7 @@
   "type": "module",
   "types": "assembly/index.ts",
   "dependencies": {
+    "as-simd": "git+https://github.com/JairusSW/as-simd.git#486d5c0",
     "xjb-as": "^0.1.0"
   }
 }
