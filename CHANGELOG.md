@@ -1,8 +1,10 @@
 # Changelog
 
-## 2026-06-10 - v1.6.0
+## 2026-08-03 - v1.6.0
 
-- perf: much faster deserialization. uses default values as cache.
+- perf: much faster deserialization by using default values as a cache.
+- fix(transform): resolve imported nested custom types across source-file dependencies and invoke their custom deserializers, including for nullable and reordered fields ([#215](https://github.com/JairusSW/json-as/pull/215)).
+- chore: add Guillermo Diez to the contributor list.
 
 ## 2026-06-10 - v1.5.0
 
