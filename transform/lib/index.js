@@ -1400,6 +1400,7 @@ export class JSONTransform extends Visitor {
         const INTEGER_TYPES = [...UNSIGNED_INTEGER_TYPES, ...SIGNED_INTEGER_TYPES];
         const STRING_FIELD_DESERIALIZER = "__deserializeStringField";
         const STRING_FIELD_TRUSTED_DESERIALIZER = "__deserializeStringFieldTrusted";
+        const getCustomDeserializeExpression = (type, valueStart, valueEnd) => `changetype<nonnull<${stripNull(type)}>>(0).__DESERIALIZE_CUSTOM(JSON.Util.ptrToStr(${valueStart}, ${valueEnd}))`;
         const getArrayValueType = (type) => {
             if (!type.startsWith("Array<") && !type.startsWith("StaticArray<"))
                 return null;
@@ -1554,6 +1555,24 @@ export class JSONTransform extends Visitor {
             }
             else if (FLOAT_TYPES.includes(resolvedType)) {
                 out.push(`${srcPtr} = __deserializeFloatField<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+            }
+            else if (resolvedSchema?.custom) {
+                out.push("{");
+                if (member.node.type.isNullable) {
+                    out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
+                    out.push(`    store<${member.type}>(${outPtr}, changetype<${member.type}>(0), ${fieldOffset});`);
+                    out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
+                    out.push("  } else {");
+                }
+                out.push(`  const valueStart = ${valuePtr};`);
+                out.push(`  const valueEnd = JSON.Util.scanValueEnd<${resolvedType}>(valueStart, srcEnd);`);
+                out.push("  if (!valueEnd) break;");
+                out.push(`  store<${member.type}>(${outPtr}, ${getCustomDeserializeExpression(resolvedType, "valueStart", "valueEnd")}, ${fieldOffset});`);
+                out.push(`  ${srcPtr} = valueEnd;`);
+                if (member.node.type.isNullable) {
+                    out.push("  }");
+                }
+                out.push("}");
             }
             else if (resolvedSchema && !resolvedSchema.custom) {
                 if (fastPath) {
@@ -2474,6 +2493,11 @@ export class JSONTransform extends Visitor {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
             const offset = JSON.stringify(member.name);
+            const memberSchema = this.getSchema(member.type);
+            if (memberSchema?.custom) {
+                return (prefix +
+                    `store<${member.type}>(changetype<usize>(out), ${getCustomDeserializeExpression(member.type, valueStart, valueEnd)}, offsetof<this>(${offset}));\n`);
+            }
             if (needsReferenceLoad(member.type)) {
                 return (prefix +
                     `store<${member.type}>(changetype<usize>(out), JSON.__deserialize<${member.type}>(${valueStart}, ${valueEnd}, changetype<usize>(load<${member.type}>(changetype<usize>(out), offsetof<this>(${offset})))), offsetof<this>(${offset}));\n`);
@@ -3156,9 +3180,16 @@ export class JSONTransform extends Visitor {
     }
     getSchema(name) {
         name = stripNull(name);
-        return (this.schemas
+        const local = this.schemas
             .get(this.schema.node.range.source.internalPath)
-            .find((s) => s.name == name) || null);
+            .find((s) => s.name == name) || null;
+        if (local)
+            return local;
+        const exact = this.schema.deps.filter((schema) => schema && schema.name == name);
+        if (exact.length == 1)
+            return exact[0];
+        const qualified = this.schema.deps.filter((schema) => schema && schema.name.endsWith("." + name));
+        return qualified.length == 1 ? qualified[0] : null;
     }
     generateEmptyMethods(node) {
         const SERIALIZE_EMPTY = "__SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
