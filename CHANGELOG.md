@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-09-01 - v1.6.1
+
+- fix(transform): preserve exports from a consumer's default `assembly/index.ts` while retaining `JSON.Value`'s custom GC visitor; direct-source builds now identify json-as's library entry explicitly with `JSON_AS_LIBRARY_SOURCE` instead of inferring it from host filesystem paths ([#217](https://github.com/JairusSW/json-as/pull/217)).
+- test(transform): compile a consumer entry with the real transform and assert its exports remain in the generated WebAssembly module; run the transform regression suite in CI.
+
 ## 2026-08-03 - v1.6.0
 
 - perf: much faster deserialization by using default values as a cache.
