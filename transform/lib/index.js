@@ -3501,12 +3501,11 @@ export default class Transformer extends Transform {
                 writeFileSync(path.join(process.cwd(), this.baseDir, removeExtension(source.normalizedPath) + ".tmp.ts"), toString(source));
             }
         }
-        const jsonAsAssemblyIndex = path.join(path.resolve(fileURLToPath(import.meta.url), "..", "..", ".."), "assembly", "index.ts");
+        const configuredLibrarySource = process.env["JSON_AS_LIBRARY_SOURCE"]?.trim();
         for (const source of parser.sources) {
             const p = source.internalPath;
-            const sourcePath = path.resolve(process.cwd(), this.baseDir, source.normalizedPath);
             if (p.endsWith("/json-as/assembly/index") ||
-                sourcePath === jsonAsAssemblyIndex) {
+                (configuredLibrarySource && p === configuredLibrarySource)) {
                 source.sourceKind = 2;
             }
         }
