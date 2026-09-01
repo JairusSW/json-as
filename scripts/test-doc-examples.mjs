@@ -54,7 +54,7 @@ for (const file of process.argv.slice(2)) {
 
   try {
     execSync(
-      `JSON_MODE=SIMD npx asc ${tmp} --transform ./transform -o /tmp/doctest.wasm ` +
+      `JSON_AS_LIBRARY_SOURCE=assembly/index JSON_MODE=SIMD npx asc ${tmp} --transform ./transform -o /tmp/doctest.wasm ` +
         `-O0 --runtime incremental --enable simd ` +
         `--config ./node_modules/@assemblyscript/wasi-shim/asconfig.json`,
       { stdio: "pipe" },

@@ -85,7 +85,7 @@ for entry in "${PAYLOADS[@]}"; do
 
   # asc: compile through the json-as transform; JSON_WRITE drops the post-transform
   # .tmp.ts that warpo consumes.
-  JSON_WRITE="$src" JSON_MODE=NAIVE npx asc "$src" --transform ./transform -o "$WASM_DIR/$name.asc.wasm" \
+  JSON_AS_LIBRARY_SOURCE=assembly/index JSON_WRITE="$src" JSON_MODE=NAIVE npx asc "$src" --transform ./transform -o "$WASM_DIR/$name.asc.wasm" \
     -O3 --runtime incremental --exportRuntime --enable bulk-memory
 
   # warpo: compile the post-transform .tmp.ts (no transform). bulk-memory must
