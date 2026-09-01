@@ -5109,9 +5109,22 @@ export default class Transformer extends Transform {
     // so mark json-as's own index as a library source. This is done after the
     // processing above so the transform's source ordering is unaffected; the
     // compiler reads `isLibrary` later, during compilation.
+    const jsonAsAssemblyIndex = path.join(
+      path.resolve(fileURLToPath(import.meta.url), "..", "..", ".."),
+      "assembly",
+      "index.ts",
+    );
     for (const source of parser.sources) {
       const p = source.internalPath;
-      if (p === "assembly/index" || p.endsWith("/json-as/assembly/index")) {
+      const sourcePath = path.resolve(
+        process.cwd(),
+        this.baseDir,
+        source.normalizedPath,
+      );
+      if (
+        p.endsWith("/json-as/assembly/index") ||
+        sourcePath === jsonAsAssemblyIndex
+      ) {
         source.sourceKind = SourceKind.Library;
       }
     }
