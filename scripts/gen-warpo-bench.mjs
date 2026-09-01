@@ -11,7 +11,7 @@
 //
 // The same generated source is compiled two ways for an apples-to-apples
 // COMPILER comparison on one runtime (v8):
-//   asc:   npx asc <src> --transform ./transform ...      (baseline)
+//   asc:   JSON_AS_LIBRARY_SOURCE=assembly/index npx asc <src> --transform ./transform ...
 //   warpo: asc emits <src>.tmp.ts (post-transform), warpo build <src>.tmp.ts ...
 //
 // Usage: node scripts/gen-warpo-bench.mjs <name> <RootType> <checksumExpr> <out.ts>

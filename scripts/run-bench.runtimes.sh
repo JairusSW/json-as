@@ -112,7 +112,7 @@ for name in "${PAYLOADS[@]}"; do
   # --- WASI build: wasmtime / wavm / wazero -------------------------------
   if has wasmtime || has wavm || has wazero; then
     wasi_wasm="$WASM_DIR/$name.wasi.wasm"
-    JSON_MODE=NAIVE npx asc "$classic" --transform ./transform -o "$wasi_wasm" \
+    JSON_AS_LIBRARY_SOURCE=assembly/index JSON_MODE=NAIVE npx asc "$classic" --transform ./transform -o "$wasi_wasm" \
       "${COMMON_FLAGS[@]}" --use AS_BENCH_RUNTIME_WAVM=1 --config "$WASI_SHIM_CONFIG" --enable sign-extension
     has wasmtime && wasmtime run --dir . "$wasi_wasm" 2>/dev/null | capture wasmtime
     has wavm && wavm run --mount-root "$ROOT_DIR" --abi=wasi --enable sign-extension "$wasi_wasm" 2>/dev/null | capture wavm
@@ -122,7 +122,7 @@ for name in "${PAYLOADS[@]}"; do
   # --- env build: v8 / bun -----------------------------------------------
   if has v8 || has bun; then
     env_wasm="$WASM_DIR/$name.env.wasm"
-    JSON_MODE=NAIVE npx asc "$classic" --transform ./transform -o "$env_wasm" \
+    JSON_AS_LIBRARY_SOURCE=assembly/index JSON_MODE=NAIVE npx asc "$classic" --transform ./transform -o "$env_wasm" \
       "${COMMON_FLAGS[@]}" --exportStart start --exportRuntime
     has v8 && v8 --module "$ENV_RUNNER" -- "$env_wasm" 2>/dev/null | capture v8
     has bun && bun "$ENV_RUNNER" "$env_wasm" 2>/dev/null | capture bun
@@ -133,7 +133,7 @@ for name in "${PAYLOADS[@]}"; do
     warp_src="$GEN_DIR/$name.warp.ts"
     warp_wasm="$WASM_DIR/$name.warp.wasm"
     node scripts/gen-warp-bench.mjs "$name" "$warp_src" >/dev/null
-    JSON_MODE=NAIVE npx asc "$warp_src" --transform ./transform -o "$warp_wasm" "${COMMON_FLAGS[@]}"
+    JSON_AS_LIBRARY_SOURCE=assembly/index JSON_MODE=NAIVE npx asc "$warp_src" --transform ./transform -o "$warp_wasm" "${COMMON_FLAGS[@]}"
     "$WARP_HOST" "$warp_wasm" 2>/dev/null | capture warp
   fi
 done

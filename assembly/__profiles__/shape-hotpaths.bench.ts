@@ -1,5 +1,5 @@
 import { bench, blackbox, settings, suite } from "as-bench/assembly/index";
-import { JSON } from "..";
+import { JSON } from "json-as";
 
 settings.warmupTime = 500;
 settings.measurementTime = 1000;
