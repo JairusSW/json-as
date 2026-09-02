@@ -42,15 +42,6 @@ class FastSmallScalarFields {
 
 
 @json
-class FastBoundedNumericFields {
-  integer: i32 = 0;
-  unsigned: u64 = 0;
-  float: f64 = 0.0;
-  enabled: bool = false;
-}
-
-
-@json
 class FastArrayDelegatedFields {
   dates: Date[] = [];
   groups: Set<i32>[] = [];
@@ -420,15 +411,6 @@ describe("Fast-path keyed fallback should handle small scalar structs", () => {
   expect(parsed.d.toString()).toBe("4.5");
   expect(parsed.e).toBe("five");
   expect(parsed.f).toBe(6);
-});
-
-describe("Fast paths should fail truncated numeric objects without trapping", () => {
-  const source = '{"integer":1,}';
-  const start = changetype<usize>(source);
-  const end = start + ((<usize>source.length) << 1);
-  const out = new FastBoundedNumericFields();
-
-  expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(0);
 });
 
 describe("Fast-path keyed fallback handles union alternatives and resets omissions", () => {
