@@ -3,8 +3,7 @@
 ## 2026-09-02
 
 - perf(deserialize): extend the generated one-pass keyed fallback to bounded scalar and collection-bearing schemas, and group fallback dispatch by encoded key length. Focused reordered mixed payloads improve by roughly 1.5x and unknown-field payloads by roughly 1.4x, with canonical input remaining flat.
-- perf(strict): fuse RFC validation with generated materialization for eligible non-nullable numeric, boolean, and string structs. Focused strict numeric records improve by roughly 3.5x in canonical order and 1.8x when reordered; a 12-field string record improves by 1.3x. Nullable, nested, collection, lazy, and custom schemas retain the standalone validator.
-- fix(strict): make generated numeric and string field parsers reject malformed complete tokens without trapping, including leading zeros, incomplete fractions/exponents, raw string control characters, invalid escapes, and unterminated strings.
+- fix(strict): make generated numeric and string field parsers reject malformed complete tokens without trapping, including leading zeros, incomplete fractions/exponents, raw string control characters, invalid escapes, and unterminated strings; float fallbacks now consume complete long exponents. Standalone RFC validation remains ahead of generated parsing.
 - bench/test: add tiered fallback and strict typed-parser benchmarks, direct generated-parser safety regressions, full public-boundary malformed-input coverage, and a measured deserialization performance plan.
 
 ## 2026-09-01 - v1.6.1

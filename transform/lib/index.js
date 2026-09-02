@@ -3139,21 +3139,6 @@ export class JSONTransform extends Visitor {
         const SOURCE_FREE_METHOD = sourceFreeDeserialize
             ? SimpleParser.parseClassMember("__DESERIALIZE_SOURCE_FREE(): void {}", node)
             : null;
-        const strictSelfValidating = STRICT &&
-            keyedFallbackEnabled &&
-            !DESERIALIZE_CUSTOM &&
-            this.schema.members.length > 0 &&
-            this.schema.members.every((member) => {
-                const type = stripNull(member.type);
-                return (!member.node.type.isNullable &&
-                    (INTEGER_TYPES.includes(type) ||
-                        FLOAT_TYPES.includes(type) ||
-                        ["string", "String"].includes(type) ||
-                        isBoolean(type)));
-            });
-        const STRICT_SELF_VALIDATING_METHOD = strictSelfValidating
-            ? SimpleParser.parseClassMember("__DESERIALIZE_STRICT_SELF_VALIDATING(): void {}", node)
-            : null;
         const FULL_WRITE_METHOD = useFastPath && !supportsFastOptionalPath
             ? SimpleParser.parseClassMember("__DESERIALIZE_FULL_WRITE(): void {}", node)
             : null;
@@ -3208,9 +3193,6 @@ export class JSONTransform extends Visitor {
         if (SOURCE_FREE_METHOD &&
             !node.members.find((v) => v.name.text == "__DESERIALIZE_SOURCE_FREE"))
             node.members.push(SOURCE_FREE_METHOD);
-        if (STRICT_SELF_VALIDATING_METHOD &&
-            !node.members.find((v) => v.name.text == "__DESERIALIZE_STRICT_SELF_VALIDATING"))
-            node.members.push(STRICT_SELF_VALIDATING_METHOD);
         if (FULL_WRITE_METHOD &&
             !node.members.find((v) => v.name.text == "__DESERIALIZE_FULL_WRITE"))
             node.members.push(FULL_WRITE_METHOD);

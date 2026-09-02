@@ -78,6 +78,25 @@ A paired 3,000,000-operation run measured:
 | Six-field, same-length keys | 445.59 ns/op | 446.77 ns/op | -0.3% |
 | Optimized focused Wasm | 166,591 B | 166,402 B | -189 B |
 
+The original "lead space" probe did not force tier 2 because the public parser
+removes root-leading whitespace. It now puts whitespace after `{`. Late-miss
+cases also cover nearly complete tier-1/tier-2 attempts before fallback. One
+3,000,000-operation current-branch run measured:
+
+| Case | Latency | Relative to canonical |
+|---|---:|---:|
+| Mixed canonical | 406.57 ns/op | 1.00x |
+| Fully reversed | 541.48 ns/op | 1.33x |
+| Unknown key first | 519.49 ns/op | 1.28x |
+| Last two fields swapped | 612.92 ns/op | 1.51x |
+| Unknown key before final field | 780.45 ns/op | 1.92x |
+| Late whitespace deviation | 521.92 ns/op | 1.28x |
+| Last two fields swapped, reused output | 279.70 ns/op | 0.69x |
+
+The late unknown-key case is the worst observed fallback shape and should remain
+an explicit regression target rather than being hidden by favorable early
+misses.
+
 ## Rejected experiment
 
 Calling the nested slow parser directly with the enclosing object's end looked
@@ -87,11 +106,11 @@ reordered-child case regressed from about 320 ns/op to 749 ns/op. Keep the
 boundary scan until the slow parser has an explicit composable/end-returning
 entry point.
 
-## Fourth implementation
+## Reverted strict-validation experiment
 
-Fuse strict validation with materialization for the closed subset of
+The experiment fused strict validation with materialization for the subset of
 non-nullable numeric/boolean-only typed structs that also have keyed fallback.
-The transform initially emits an explicit self-validating marker only for those
+The transform emitted an explicit self-validating marker only for those
 schemas; nullable fields, containers, nested objects, lazy fields, and custom
 deserializers retain the standalone whole-document validator.
 
@@ -111,14 +130,19 @@ Repeated 3,000,000-operation SWAR runs measured:
 | Strict telemetry, reordered | 494.04 ns/op | 272.82-277.34 ns/op | 1.78-1.81x faster |
 | Optimized focused Wasm | 67,010 B | 59,035 B | -11.9% |
 
-The safety regression exercises malformed signs, leading zeros, fractions,
+The safety regression exercised malformed signs, leading zeros, fractions,
 exponents, types, separators, keys, trailing bytes, and unknown fields directly
 against the generated fast method and through public `JSON.parse` in NAIVE,
 SWAR, and SIMD modes.
 
-## Fifth implementation
+The optimization was reverted before merge. Complete scalar-token validation
+did not prove that every generated structural/key load was bounded by `srcEnd`,
+and progressive writes were not failure-atomic for reused output objects. Keep
+the standalone RFC validator until those contracts are explicit and tested.
 
-Extend fused strict validation to non-nullable string fields. The backend field
+## Reverted strict-string extension
+
+The follow-up extended fused strict validation to non-nullable string fields. The backend field
 scanner still performs materialization, then a strict-only token validator
 checks the exact quote-inclusive range it consumed. Generated code propagates a
 zero cursor only in strict builds. This deliberately scans each string value a
@@ -133,9 +157,11 @@ measured:
 | Strict string record, canonical | 703.18-714.95 ns/op | 521.86-531.04 ns/op | 1.32-1.37x faster |
 | Optimized focused Wasm | 81,480 B | 74,987 B | -8.0% |
 
-The new regression covers valid escapes and rejects raw control characters,
+The new regression covered valid escapes and rejected raw control characters,
 invalid escapes, unterminated values, and wrong value types through both the
 generated fast method and public `JSON.parse` in NAIVE, SWAR, and SIMD modes.
+This extension was reverted with the parent experiment; the measurements remain
+as evidence for a future fully bounded implementation.
 
 ## Rejected validator experiment
 
@@ -152,5 +178,6 @@ for schemas whose field helpers can prove correctness while materializing.
   unbounded per-schema code generation.
 - Keep canonical regressions below 2% on repeated measurements.
 - Run fast-path tests in SWAR and SIMD modes, the RFC/strict matrix, transform
-  tests, type checking, and lint before landing parser-codegen changes.
+  tests, strict public tests with fast generation both disabled and enabled,
+  type checking, and lint before landing parser-codegen changes.
 - Add a representative benchmark before optimizing a fallback shape.

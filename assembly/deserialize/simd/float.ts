@@ -258,6 +258,10 @@ export function deserializeFloatField_SIMD<T extends number>(
         exp = exp * 10 + <i32>d;
         expDigits++;
         if (expDigits > 4) {
+          do {
+            p += 2;
+            if (p >= srcEnd) break;
+          } while (<u32>load<u16>(p) - ASCII_ZERO <= 9);
           fallbackField<T>(origStart, p, fieldPtr);
           return p;
         }

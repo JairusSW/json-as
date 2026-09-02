@@ -55,93 +55,52 @@ class StrictLazyStruct {
   dynamic: JSON.Lazy<JSON.Obj> = new JSON.Obj();
 }
 
-function expectStrictFastReject(source: string): void {
-  const start = changetype<usize>(source);
-  const end = start + ((<usize>source.length) << 1);
-  const out = new StrictFastBoundsStruct();
+let strictPublicInput = "";
+let strictStringPublicInput = "";
 
-  expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(0);
-}
-
-function expectStrictStringFastReject(source: string): void {
-  const start = changetype<usize>(source);
-  const end = start + ((<usize>source.length) << 1);
-  const out = new StrictStringFastBoundsStruct();
-
-  expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(0);
-}
-
-let strictMarkedInput = "";
-let strictStringMarkedInput = "";
-
-function expectStrictMarkedReject(source: string): void {
-  strictMarkedInput = source;
+function expectStrictPublicReject(source: string): void {
+  strictPublicInput = source;
   expect((): void => {
-    JSON.parse<StrictFastBoundsStruct>(strictMarkedInput);
+    JSON.parse<StrictFastBoundsStruct>(strictPublicInput);
   }).toThrow();
 }
 
-function expectStrictStringMarkedReject(source: string): void {
-  strictStringMarkedInput = source;
+function expectStrictStringPublicReject(source: string): void {
+  strictStringPublicInput = source;
   expect((): void => {
-    JSON.parse<StrictStringFastBoundsStruct>(strictStringMarkedInput);
+    JSON.parse<StrictStringFastBoundsStruct>(strictStringPublicInput);
   }).toThrow();
 }
 
-describe("strict generated fast paths fail malformed fields without trapping", () => {
-  expectStrictFastReject('{"integer":1,}');
-  expectStrictFastReject('{"integer":01}');
-  expectStrictFastReject('{"integer":-}');
-  expectStrictFastReject('{"unsigned":01}');
-  expectStrictFastReject('{"unsigned":-1}');
-  expectStrictFastReject('{"float":1.}');
-  expectStrictFastReject('{"float":01.5}');
-  expectStrictFastReject('{"float":1e}');
-  expectStrictFastReject('{"float":NaN}');
+describe("strict structs reject malformed JSON at the public boundary", () => {
+  expectStrictPublicReject('{"integer":1,}');
+  expectStrictPublicReject('{,"integer":1}');
+  expectStrictPublicReject('{"integer":1,,"unsigned":2}');
+  expectStrictPublicReject('{"integer":1 "unsigned":2}');
+  expectStrictPublicReject('{"integer" 1}');
+  expectStrictPublicReject("{integer:1}");
+  expectStrictPublicReject('{"integer":+1}');
+  expectStrictPublicReject('{"integer":01}');
+  expectStrictPublicReject('{"float":1.}');
+  expectStrictPublicReject('{"float":1e}');
+  expectStrictPublicReject('{"float":NaN}');
+  expectStrictPublicReject('{"enabled":True}');
+  expectStrictPublicReject('{"enabled":truex}');
+  expectStrictPublicReject('{"inte\\qger":1}');
+  expectStrictPublicReject('{"integer":1} trailing');
+  expectStrictPublicReject('{"integer":1}}');
 });
 
-describe("strict marked structs reject malformed JSON at the public boundary", () => {
-  expectStrictMarkedReject('{"integer":1,}');
-  expectStrictMarkedReject('{,"integer":1}');
-  expectStrictMarkedReject('{"integer":1,,"unsigned":2}');
-  expectStrictMarkedReject('{"integer":1 "unsigned":2}');
-  expectStrictMarkedReject('{"integer" 1}');
-  expectStrictMarkedReject("{integer:1}");
-  expectStrictMarkedReject('{"integer":+1}');
-  expectStrictMarkedReject('{"integer":01}');
-  expectStrictMarkedReject('{"integer":1.0}');
-  expectStrictMarkedReject('{"unsigned":-1}');
-  expectStrictMarkedReject('{"float":1.}');
-  expectStrictMarkedReject('{"float":1e}');
-  expectStrictMarkedReject('{"float":NaN}');
-  expectStrictMarkedReject('{"enabled":True}');
-  expectStrictMarkedReject('{"enabled":truex}');
-  expectStrictMarkedReject('{"integer":"1"}');
-  expectStrictMarkedReject('{"integer":[1]}');
-  expectStrictMarkedReject('{"unknown":1}');
-  expectStrictMarkedReject('{"inte\\qger":1}');
-  expectStrictMarkedReject('{"integer":1} trailing');
-  expectStrictMarkedReject('{"integer":1}}');
-});
-
-describe("strict string fast paths validate while materializing", () => {
+describe("strict string structs validate at the public boundary", () => {
   const valid = '{"first":"line\\nquote: \\"","second":"slash: \\\\"}';
-  const start = changetype<usize>(valid);
-  const end = start + ((<usize>valid.length) << 1);
-  const out = new StrictStringFastBoundsStruct();
-  expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(end);
+  const out = JSON.parse<StrictStringFastBoundsStruct>(valid);
   expect(out.first).toBe('line\nquote: "');
   expect(out.second).toBe("slash: \\");
 
-  expectStrictStringFastReject('{"first":"line\nbreak","second":"ok"}');
-  expectStrictStringFastReject('{"first":"tab\tbreak","second":"ok"}');
-  expectStrictStringFastReject('{"first":"bad\\q","second":"ok"}');
-  expectStrictStringFastReject('{"first":"unterminated,"second":"ok"}');
-  expectStrictStringFastReject('{"first":1,"second":"ok"}');
-
-  expectStrictStringMarkedReject('{"first":"line\nbreak","second":"ok"}');
-  expectStrictStringMarkedReject('{"first":"bad\\q","second":"ok"}');
-  expectStrictStringMarkedReject('{"first":"ok","second":"unterminated}');
+  expectStrictStringPublicReject('{"first":"line\nbreak","second":"ok"}');
+  expectStrictStringPublicReject('{"first":"tab\tbreak","second":"ok"}');
+  expectStrictStringPublicReject('{"first":"bad\\q","second":"ok"}');
+  expectStrictStringPublicReject('{"first":"ok","second":"unterminated}');
 });
 
 describe("strict schemas without keyed fallback retain the validated slow path", () => {

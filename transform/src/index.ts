@@ -4475,30 +4475,6 @@ export class JSONTransform extends Visitor {
           node,
         )
       : null;
-    // Scalar field helpers validate their complete tokens in strict builds.
-    // This closed subset can therefore validate while it materializes instead
-    // of taking the separate whole-document pass.
-    const strictSelfValidating =
-      STRICT &&
-      keyedFallbackEnabled &&
-      !DESERIALIZE_CUSTOM &&
-      this.schema.members.length > 0 &&
-      this.schema.members.every((member) => {
-        const type = stripNull(member.type);
-        return (
-          !member.node.type.isNullable &&
-          (INTEGER_TYPES.includes(type) ||
-            FLOAT_TYPES.includes(type) ||
-            ["string", "String"].includes(type) ||
-            isBoolean(type))
-        );
-      });
-    const STRICT_SELF_VALIDATING_METHOD = strictSelfValidating
-      ? SimpleParser.parseClassMember(
-          "__DESERIALIZE_STRICT_SELF_VALIDATING(): void {}",
-          node,
-        )
-      : null;
     // A successful straight-line fast parse assigns every declared field. A
     // fresh object can therefore start zeroed instead of constructing defaults;
     // on a fast miss parseInternal initializes normally before the slow retry.
@@ -4589,13 +4565,6 @@ export class JSONTransform extends Visitor {
       !node.members.find((v) => v.name.text == "__DESERIALIZE_SOURCE_FREE")
     )
       node.members.push(SOURCE_FREE_METHOD);
-    if (
-      STRICT_SELF_VALIDATING_METHOD &&
-      !node.members.find(
-        (v) => v.name.text == "__DESERIALIZE_STRICT_SELF_VALIDATING",
-      )
-    )
-      node.members.push(STRICT_SELF_VALIDATING_METHOD);
     if (
       FULL_WRITE_METHOD &&
       !node.members.find((v) => v.name.text == "__DESERIALIZE_FULL_WRITE")

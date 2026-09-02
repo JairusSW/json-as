@@ -2,8 +2,9 @@ import { JSON } from "../../index";
 import { expect } from "../../__tests__/lib";
 import { bench, blackbox } from "../lib/bench";
 
-// Numeric/boolean-only records are candidates for validating during typed
-// materialization: every field helper already enforces its complete token.
+// Strict parsing retains the standalone RFC validator. This benchmark records
+// the cost of validation plus typed materialization for future bounded-parser
+// work.
 @json
 class StrictTelemetry {
   a: i32 = 0;
@@ -24,9 +25,8 @@ class StrictTelemetry {
   p: u32 = 0;
 }
 
-// String-bearing schemas retain the standalone strict validator. Long clean
-// keys and values isolate its SWAR string-scanning throughput. Twelve fields
-// also exercise the same keyed fallback tier as the numeric record above.
+// Long clean keys and values isolate strict string-scanning throughput. Twelve
+// fields also exercise the same keyed fallback tier as the numeric record.
 @json
 class StrictStringRecord {
   account_identifier: string = "";

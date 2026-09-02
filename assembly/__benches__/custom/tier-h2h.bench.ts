@@ -5,10 +5,8 @@ import { bench, blackbox } from "../lib/bench";
 // Head-to-head: tier-1 (exact, minified) vs tier-2 (whitespace-tolerant) on the
 // SAME medium struct. Three inputs of identical data:
 //   1. min     - minified              -> tier 1
-//   2. lead    - one leading space     -> tier 2, but minified body (≈same byte
-//                                          count) so this isolates the PURE path
-//                                          overhead: extra no-op skipWhitespace
-//                                          calls + per-token matching, no real ws
+//   2. tier2   - one space after `{`   -> tier 2 with an otherwise minified
+//                                          body, isolating the path overhead
 //   3. pretty  - fully indented        -> tier 2 doing real whitespace skipping
 // Allocation cost is identical across all three (same object shape), so the
 // per-op delta is purely the parse path.
@@ -211,7 +209,7 @@ class DirectSlowParent {
 
 const v = new MediumAPIResponse();
 const min: string = JSON.stringify<MediumAPIResponse>(v);
-const lead: string = " " + min;
+const tier2: string = "{ " + min.substring(1);
 const pretty: string = prettyPrint(min);
 
 // Structurally identical twin with NO optional fields -> flat tier-1. Benching
@@ -253,17 +251,17 @@ expect(JSON.stringify(JSON.parse<OptMedium>(opretty))).toBe(omin);
 
 const dv = new FieldDense();
 const dmin: string = JSON.stringify<FieldDense>(dv);
-const dlead: string = " " + dmin;
+const dtier2: string = "{ " + dmin.substring(1);
 const dpretty: string = prettyPrint(dmin);
 
 expect(JSON.stringify(JSON.parse<FieldDense>(dmin))).toBe(dmin);
-expect(JSON.stringify(JSON.parse<FieldDense>(dlead))).toBe(dmin);
+expect(JSON.stringify(JSON.parse<FieldDense>(dtier2))).toBe(dmin);
 expect(JSON.stringify(JSON.parse<FieldDense>(dpretty))).toBe(dmin);
 
 // All three must parse to the same data (and confirm the fast path actually
 // produces correct output for tier 2, not just tier 1).
 expect(JSON.stringify(JSON.parse<MediumAPIResponse>(min))).toBe(min);
-expect(JSON.stringify(JSON.parse<MediumAPIResponse>(lead))).toBe(min);
+expect(JSON.stringify(JSON.parse<MediumAPIResponse>(tier2))).toBe(min);
 expect(JSON.stringify(JSON.parse<MediumAPIResponse>(pretty))).toBe(min);
 
 const mixedCanonical =
@@ -272,6 +270,12 @@ const mixedReordered =
   '{"count":2,"children":[{"value":2,"label":"two"},{"value":3,"label":"three"}],"child":{"value":1,"label":"one"},"tags":["fast","typed"],"score":12.5,"active":true,"name":"probe","id":42}';
 const mixedUnknown =
   '{"unknown":{"nested":[1,{"label":"skip"},true]},"id":42,"name":"probe","active":true,"score":12.5,"tags":["fast","typed"],"child":{"label":"one","value":1},"children":[{"label":"two","value":2},{"label":"three","value":3}],"count":2}';
+const mixedLateSwap =
+  '{"id":42,"name":"probe","active":true,"score":12.5,"tags":["fast","typed"],"child":{"label":"one","value":1},"count":2,"children":[{"label":"two","value":2},{"label":"three","value":3}]}';
+const mixedLateUnknown =
+  '{"id":42,"name":"probe","active":true,"score":12.5,"tags":["fast","typed"],"child":{"label":"one","value":1},"children":[{"label":"two","value":2},{"label":"three","value":3}],"unknown":{"nested":[1,true]},"count":2}';
+const mixedLateWhitespace =
+  '{"id":42,"name":"probe","active":true,"score":12.5,"tags":["fast","typed"],"child":{"label":"one","value":1},"children":[{"label":"two","value":2},{"label":"three","value":3}],"count" :2}';
 const midCanonical =
   '{"id":7,"items":[{"a":"one","b":2,"c":true,"d":4.5,"e":"five","f":6},{"a":"seven","b":8,"c":false,"d":10.5,"e":"eleven","f":12}],"tail":"done"}';
 const midReordered =
@@ -290,6 +294,19 @@ expect(JSON.stringify(JSON.parse<MixedFallbackProbe>(mixedReordered))).toBe(
 expect(JSON.stringify(JSON.parse<MixedFallbackProbe>(mixedUnknown))).toBe(
   mixedCanonical,
 );
+expect(JSON.stringify(JSON.parse<MixedFallbackProbe>(mixedLateSwap))).toBe(
+  mixedCanonical,
+);
+expect(JSON.stringify(JSON.parse<MixedFallbackProbe>(mixedLateUnknown))).toBe(
+  mixedCanonical,
+);
+expect(
+  JSON.stringify(JSON.parse<MixedFallbackProbe>(mixedLateWhitespace)),
+).toBe(mixedCanonical);
+const mixedReuse = JSON.parse<MixedFallbackProbe>(mixedCanonical);
+expect(
+  JSON.stringify(JSON.parse<MixedFallbackProbe>(mixedLateSwap, mixedReuse)),
+).toBe(mixedCanonical);
 expect(JSON.stringify(JSON.parse<MidScalarParent>(midCanonical))).toBe(
   midCanonical,
 );
@@ -315,12 +332,12 @@ bench(
 );
 
 bench(
-  "Deserialize medium - lead space (tier 2, pure path overhead)",
+  "Deserialize medium - internal space (tier 2 overhead)",
   () => {
-    blackbox(inline.always(JSON.parse<MediumAPIResponse>(lead)));
+    blackbox(inline.always(JSON.parse<MediumAPIResponse>(tier2)));
   },
   N,
-  String.UTF8.byteLength(lead),
+  String.UTF8.byteLength(tier2),
 );
 
 bench(
@@ -342,12 +359,12 @@ bench(
 );
 
 bench(
-  "Deserialize field-dense - lead space (tier 2, pure path overhead)",
+  "Deserialize field-dense - internal space (tier 2 overhead)",
   () => {
-    blackbox(inline.always(JSON.parse<FieldDense>(dlead)));
+    blackbox(inline.always(JSON.parse<FieldDense>(dtier2)));
   },
   N,
-  String.UTF8.byteLength(dlead),
+  String.UTF8.byteLength(dtier2),
 );
 
 bench(
@@ -411,6 +428,46 @@ bench(
   },
   N,
   String.UTF8.byteLength(mixedUnknown),
+);
+
+bench(
+  "Deserialize mixed - late-swap fallback",
+  () => {
+    blackbox(inline.always(JSON.parse<MixedFallbackProbe>(mixedLateSwap)));
+  },
+  N,
+  String.UTF8.byteLength(mixedLateSwap),
+);
+
+bench(
+  "Deserialize mixed - late-swap fallback (reused out)",
+  () => {
+    blackbox(
+      inline.always(JSON.parse<MixedFallbackProbe>(mixedLateSwap, mixedReuse)),
+    );
+  },
+  N,
+  String.UTF8.byteLength(mixedLateSwap),
+);
+
+bench(
+  "Deserialize mixed - late unknown-key fallback",
+  () => {
+    blackbox(inline.always(JSON.parse<MixedFallbackProbe>(mixedLateUnknown)));
+  },
+  N,
+  String.UTF8.byteLength(mixedLateUnknown),
+);
+
+bench(
+  "Deserialize mixed - late whitespace (tier 2)",
+  () => {
+    blackbox(
+      inline.always(JSON.parse<MixedFallbackProbe>(mixedLateWhitespace)),
+    );
+  },
+  N,
+  String.UTF8.byteLength(mixedLateWhitespace),
 );
 
 bench(
