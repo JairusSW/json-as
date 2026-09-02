@@ -17,6 +17,35 @@ class StrictStruct {
 }
 
 
+@json
+class StrictFastBoundsStruct {
+  integer: i32 = 0;
+  unsigned: u64 = 0;
+  float: f64 = 0;
+  enabled: bool = false;
+}
+
+
+@json
+class StrictUnmarkedMidStruct {
+  a: i32 = 0;
+  b: i32 = 0;
+  c: i32 = 0;
+  d: i32 = 0;
+  e: i32 = 0;
+  f: i32 = 0;
+  g: i32 = 0;
+  h: i32 = 0;
+}
+
+
+@json
+class StrictStringFastBoundsStruct {
+  first: string = "";
+  second: string = "";
+}
+
+
 @json({ lazy: "all" })
 class StrictLazyStruct {
   name: string = "";
@@ -25,6 +54,103 @@ class StrictLazyStruct {
   lookup: JSON.Lazy<Map<string, i32>> = new Map<string, i32>();
   dynamic: JSON.Lazy<JSON.Obj> = new JSON.Obj();
 }
+
+function expectStrictFastReject(source: string): void {
+  const start = changetype<usize>(source);
+  const end = start + ((<usize>source.length) << 1);
+  const out = new StrictFastBoundsStruct();
+
+  expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(0);
+}
+
+function expectStrictStringFastReject(source: string): void {
+  const start = changetype<usize>(source);
+  const end = start + ((<usize>source.length) << 1);
+  const out = new StrictStringFastBoundsStruct();
+
+  expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(0);
+}
+
+let strictMarkedInput = "";
+let strictStringMarkedInput = "";
+
+function expectStrictMarkedReject(source: string): void {
+  strictMarkedInput = source;
+  expect((): void => {
+    JSON.parse<StrictFastBoundsStruct>(strictMarkedInput);
+  }).toThrow();
+}
+
+function expectStrictStringMarkedReject(source: string): void {
+  strictStringMarkedInput = source;
+  expect((): void => {
+    JSON.parse<StrictStringFastBoundsStruct>(strictStringMarkedInput);
+  }).toThrow();
+}
+
+describe("strict generated fast paths fail malformed fields without trapping", () => {
+  expectStrictFastReject('{"integer":1,}');
+  expectStrictFastReject('{"integer":01}');
+  expectStrictFastReject('{"integer":-}');
+  expectStrictFastReject('{"unsigned":01}');
+  expectStrictFastReject('{"unsigned":-1}');
+  expectStrictFastReject('{"float":1.}');
+  expectStrictFastReject('{"float":01.5}');
+  expectStrictFastReject('{"float":1e}');
+  expectStrictFastReject('{"float":NaN}');
+});
+
+describe("strict marked structs reject malformed JSON at the public boundary", () => {
+  expectStrictMarkedReject('{"integer":1,}');
+  expectStrictMarkedReject('{,"integer":1}');
+  expectStrictMarkedReject('{"integer":1,,"unsigned":2}');
+  expectStrictMarkedReject('{"integer":1 "unsigned":2}');
+  expectStrictMarkedReject('{"integer" 1}');
+  expectStrictMarkedReject("{integer:1}");
+  expectStrictMarkedReject('{"integer":+1}');
+  expectStrictMarkedReject('{"integer":01}');
+  expectStrictMarkedReject('{"integer":1.0}');
+  expectStrictMarkedReject('{"unsigned":-1}');
+  expectStrictMarkedReject('{"float":1.}');
+  expectStrictMarkedReject('{"float":1e}');
+  expectStrictMarkedReject('{"float":NaN}');
+  expectStrictMarkedReject('{"enabled":True}');
+  expectStrictMarkedReject('{"enabled":truex}');
+  expectStrictMarkedReject('{"integer":"1"}');
+  expectStrictMarkedReject('{"integer":[1]}');
+  expectStrictMarkedReject('{"unknown":1}');
+  expectStrictMarkedReject('{"inte\\qger":1}');
+  expectStrictMarkedReject('{"integer":1} trailing');
+  expectStrictMarkedReject('{"integer":1}}');
+});
+
+describe("strict string fast paths validate while materializing", () => {
+  const valid = '{"first":"line\\nquote: \\"","second":"slash: \\\\"}';
+  const start = changetype<usize>(valid);
+  const end = start + ((<usize>valid.length) << 1);
+  const out = new StrictStringFastBoundsStruct();
+  expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(end);
+  expect(out.first).toBe('line\nquote: "');
+  expect(out.second).toBe("slash: \\");
+
+  expectStrictStringFastReject('{"first":"line\nbreak","second":"ok"}');
+  expectStrictStringFastReject('{"first":"tab\tbreak","second":"ok"}');
+  expectStrictStringFastReject('{"first":"bad\\q","second":"ok"}');
+  expectStrictStringFastReject('{"first":"unterminated,"second":"ok"}');
+  expectStrictStringFastReject('{"first":1,"second":"ok"}');
+
+  expectStrictStringMarkedReject('{"first":"line\nbreak","second":"ok"}');
+  expectStrictStringMarkedReject('{"first":"bad\\q","second":"ok"}');
+  expectStrictStringMarkedReject('{"first":"ok","second":"unterminated}');
+});
+
+describe("strict schemas without keyed fallback retain the validated slow path", () => {
+  const parsed = JSON.parse<StrictUnmarkedMidStruct>(
+    '{"h":8,"g":7,"f":6,"e":5,"d":4,"c":3,"b":2,"a":1}',
+  );
+  expect(parsed.a).toBe(1);
+  expect(parsed.h).toBe(8);
+});
 
 describe("strict mode accepts every parse target family", () => {
   const struct = JSON.parse<StrictStruct>(

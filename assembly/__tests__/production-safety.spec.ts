@@ -29,6 +29,27 @@ class ProductionSafetySlowStruct {
   arr: f64[] = [];
 }
 
+
+@json
+class ProductionSafetyKeyedCollectionStruct {
+  a: string = "";
+  n: f64 = 0;
+  b: bool = false;
+  arr: f64[] = [];
+  tail: i32 = 0;
+}
+
+
+@json
+class ProductionSafetyKeyedScalarStruct {
+  a: string = "";
+  b: i32 = 0;
+  c: bool = false;
+  d: f64 = 0.0;
+  e: string = "";
+  f: i32 = 0;
+}
+
 let malformedInput = "";
 
 function expectProductionReject<T>(data: string): void {
@@ -77,6 +98,8 @@ describe("production parsing reports cold malformed paths at the boundary", () =
   expectProductionReject<string[]>('["\\uqqqq"]');
   expectProductionReject<JSON.Value[]>("[nul]");
   expectProductionReject<ProductionSafetySlowStruct>('{"a":"x",}');
+  expectProductionReject<ProductionSafetyKeyedCollectionStruct>('{"a":"x",}');
+  expectProductionReject<ProductionSafetyKeyedScalarStruct>('{"a":"x",}');
   expectProductionReject<ProductionSafetySlowStruct>('{"a":"x",,"n":1}');
   expectProductionReject<ProductionSafetySlowStruct>('{"a" "x"}');
   expectProductionReject<ProductionSafetySlowStruct[]>('[{"a":"x"}');

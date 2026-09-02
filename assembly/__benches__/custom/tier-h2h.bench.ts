@@ -146,6 +146,69 @@ class OptMedium {
   is_verified: boolean = false;
 }
 
+// Mixed fields exercise the capped collection-bearing tier-3 path. Reordered
+// and unknown-key variants keep its benefit directly comparable with the
+// generic fallback used before collection schemas became eligible.
+@json
+class FallbackChild {
+  label: string = "";
+  value: i32 = 0;
+}
+
+
+@json
+class MixedFallbackProbe {
+  id: i32 = 0;
+  name: string = "";
+  active: boolean = false;
+  score: f64 = 0.0;
+  tags: string[] = [];
+  child: FallbackChild = new FallbackChild();
+  children: FallbackChild[] = [];
+  count: i32 = 0;
+}
+
+
+@json
+class MidScalarChild {
+  a: string = "";
+  b: i32 = 0;
+  c: boolean = false;
+  d: f64 = 0.0;
+  e: string = "";
+  f: i32 = 0;
+}
+
+
+@json
+class MidScalarParent {
+  id: i32 = 0;
+  items: MidScalarChild[] = [];
+  tail: string = "";
+}
+
+// Eight scalar fields deliberately miss the <=6 keyed-fallback cap. The
+// reordered child therefore isolates the nested fast-miss -> slow-parser path.
+@json
+class DirectSlowChild {
+  a: string = "";
+  b: i32 = 0;
+  c: boolean = false;
+  d: f64 = 0.0;
+  e: string = "";
+  f: i32 = 0;
+  g: string = "";
+  h: i32 = 0;
+}
+
+
+@json
+class DirectSlowParent {
+  id: i32 = 0;
+  child: DirectSlowChild = new DirectSlowChild();
+  tail: string = "";
+}
+
 const v = new MediumAPIResponse();
 const min: string = JSON.stringify<MediumAPIResponse>(v);
 const lead: string = " " + min;
@@ -202,6 +265,43 @@ expect(JSON.stringify(JSON.parse<FieldDense>(dpretty))).toBe(dmin);
 expect(JSON.stringify(JSON.parse<MediumAPIResponse>(min))).toBe(min);
 expect(JSON.stringify(JSON.parse<MediumAPIResponse>(lead))).toBe(min);
 expect(JSON.stringify(JSON.parse<MediumAPIResponse>(pretty))).toBe(min);
+
+const mixedCanonical =
+  '{"id":42,"name":"probe","active":true,"score":12.5,"tags":["fast","typed"],"child":{"label":"one","value":1},"children":[{"label":"two","value":2},{"label":"three","value":3}],"count":2}';
+const mixedReordered =
+  '{"count":2,"children":[{"value":2,"label":"two"},{"value":3,"label":"three"}],"child":{"value":1,"label":"one"},"tags":["fast","typed"],"score":12.5,"active":true,"name":"probe","id":42}';
+const mixedUnknown =
+  '{"unknown":{"nested":[1,{"label":"skip"},true]},"id":42,"name":"probe","active":true,"score":12.5,"tags":["fast","typed"],"child":{"label":"one","value":1},"children":[{"label":"two","value":2},{"label":"three","value":3}],"count":2}';
+const midCanonical =
+  '{"id":7,"items":[{"a":"one","b":2,"c":true,"d":4.5,"e":"five","f":6},{"a":"seven","b":8,"c":false,"d":10.5,"e":"eleven","f":12}],"tail":"done"}';
+const midReordered =
+  '{"tail":"done","items":[{"f":6,"e":"five","d":4.5,"c":true,"b":2,"a":"one"},{"f":12,"e":"eleven","d":10.5,"c":false,"b":8,"a":"seven"}],"id":7}';
+const directSlowCanonical =
+  '{"id":7,"child":{"a":"one","b":2,"c":true,"d":4.5,"e":"five","f":6,"g":"seven","h":8},"tail":"done"}';
+const directSlowReordered =
+  '{"id":7,"child":{"h":8,"g":"seven","f":6,"e":"five","d":4.5,"c":true,"b":2,"a":"one"},"tail":"done"}';
+
+expect(JSON.stringify(JSON.parse<MixedFallbackProbe>(mixedCanonical))).toBe(
+  mixedCanonical,
+);
+expect(JSON.stringify(JSON.parse<MixedFallbackProbe>(mixedReordered))).toBe(
+  mixedCanonical,
+);
+expect(JSON.stringify(JSON.parse<MixedFallbackProbe>(mixedUnknown))).toBe(
+  mixedCanonical,
+);
+expect(JSON.stringify(JSON.parse<MidScalarParent>(midCanonical))).toBe(
+  midCanonical,
+);
+expect(JSON.stringify(JSON.parse<MidScalarParent>(midReordered))).toBe(
+  midCanonical,
+);
+expect(JSON.stringify(JSON.parse<DirectSlowParent>(directSlowCanonical))).toBe(
+  directSlowCanonical,
+);
+expect(JSON.stringify(JSON.parse<DirectSlowParent>(directSlowReordered))).toBe(
+  directSlowCanonical,
+);
 
 const N = 300_000;
 
@@ -284,4 +384,67 @@ bench(
   },
   N,
   String.UTF8.byteLength(opretty),
+);
+
+bench(
+  "Deserialize mixed - canonical",
+  () => {
+    blackbox(inline.always(JSON.parse<MixedFallbackProbe>(mixedCanonical)));
+  },
+  N,
+  String.UTF8.byteLength(mixedCanonical),
+);
+
+bench(
+  "Deserialize mixed - reordered fallback",
+  () => {
+    blackbox(inline.always(JSON.parse<MixedFallbackProbe>(mixedReordered)));
+  },
+  N,
+  String.UTF8.byteLength(mixedReordered),
+);
+
+bench(
+  "Deserialize mixed - unknown-key fallback",
+  () => {
+    blackbox(inline.always(JSON.parse<MixedFallbackProbe>(mixedUnknown)));
+  },
+  N,
+  String.UTF8.byteLength(mixedUnknown),
+);
+
+bench(
+  "Deserialize mid-scalar child - canonical",
+  () => {
+    blackbox(inline.always(JSON.parse<MidScalarParent>(midCanonical)));
+  },
+  N,
+  String.UTF8.byteLength(midCanonical),
+);
+
+bench(
+  "Deserialize mid-scalar child - reordered fallback",
+  () => {
+    blackbox(inline.always(JSON.parse<MidScalarParent>(midReordered)));
+  },
+  N,
+  String.UTF8.byteLength(midReordered),
+);
+
+bench(
+  "Deserialize nested direct-slow child - canonical",
+  () => {
+    blackbox(inline.always(JSON.parse<DirectSlowParent>(directSlowCanonical)));
+  },
+  N,
+  String.UTF8.byteLength(directSlowCanonical),
+);
+
+bench(
+  "Deserialize nested direct-slow child - reordered fallback",
+  () => {
+    blackbox(inline.always(JSON.parse<DirectSlowParent>(directSlowReordered)));
+  },
+  N,
+  String.UTF8.byteLength(directSlowReordered),
 );

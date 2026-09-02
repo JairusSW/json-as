@@ -221,7 +221,10 @@ export function deserializeFloatField_SWAR<T extends number>(
   const fracDigits = <i32>((p - fracStart) >> 1);
 
   const mantDigits = intDigits + fracDigits;
-  if (mantDigits == 0) unreachable();
+  if (mantDigits == 0) {
+    if (JSON_STRICT) return 0;
+    unreachable();
+  }
 
   let exponent: i32 = -fracDigits;
 

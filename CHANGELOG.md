@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-02
+
+- perf(deserialize): extend the generated one-pass keyed fallback to bounded scalar and collection-bearing schemas, and group fallback dispatch by encoded key length. Focused reordered mixed payloads improve by roughly 1.5x and unknown-field payloads by roughly 1.4x, with canonical input remaining flat.
+- perf(strict): fuse RFC validation with generated materialization for eligible non-nullable numeric, boolean, and string structs. Focused strict numeric records improve by roughly 3.5x in canonical order and 1.8x when reordered; a 12-field string record improves by 1.3x. Nullable, nested, collection, lazy, and custom schemas retain the standalone validator.
+- fix(strict): make generated numeric and string field parsers reject malformed complete tokens without trapping, including leading zeros, incomplete fractions/exponents, raw string control characters, invalid escapes, and unterminated strings.
+- bench/test: add tiered fallback and strict typed-parser benchmarks, direct generated-parser safety regressions, full public-boundary malformed-input coverage, and a measured deserialization performance plan.
+
 ## 2026-09-01 - v1.6.1
 
 - fix(transform): preserve exports from a consumer's default `assembly/index.ts` while retaining `JSON.Value`'s custom GC visitor; direct-source builds now identify json-as's library entry explicitly with `JSON_AS_LIBRARY_SOURCE` instead of inferring it from host filesystem paths ([#217](https://github.com/JairusSW/json-as/pull/217)).

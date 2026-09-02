@@ -399,7 +399,15 @@ export namespace JSON {
   export function parse<T>(data: string, out: T = __zero<T>()): T {
     if (JSON_STRICT) {
       data = normalizeJSONEncoding(data);
-      if (!validateJSON(data)) throw new Error("Invalid JSON syntax");
+      let needsValidation = true;
+      if (isReference<T>() || isManaged<T>()) {
+        const type = changetype<nonnull<T>>(0);
+        // @ts-expect-error: marker supplied by the json-as transform
+        if (isDefined(type.__DESERIALIZE_STRICT_SELF_VALIDATING))
+          needsValidation = false;
+      }
+      if (needsValidation && !validateJSON(data))
+        throw new Error("Invalid JSON syntax");
     }
     let managePretty = false;
     let simdPretty = false;
@@ -609,6 +617,18 @@ export namespace JSON {
             if (isDefined(obj.__SET_SRC)) obj.__SET_SRC(data);
             return obj;
           }
+        }
+        // Strict self-validating schemas use the fast parser as their combined
+        // validator/materializer. A miss is a complete syntax failure; routing
+        // it through the legacy strict slow parser can abort instead of setting
+        // the recoverable production-error flag.
+        // @ts-expect-error: marker supplied by the json-as transform
+        if (
+          JSON_STRICT &&
+          isDefined(type.__DESERIALIZE_STRICT_SELF_VALIDATING)
+        ) {
+          markProductionParseError();
+          return obj;
         }
         if (isDefined(type.__INITIALIZE)) obj.__INITIALIZE();
         // @ts-expect-error: Defined by transform
