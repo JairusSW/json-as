@@ -49,9 +49,9 @@ bun ./scripts/build-lazy.ts
 bun ./scripts/build-chart-classic.ts
 # Per-fixture RFC matrix coverage (custom cell grid, no benchmark logs needed).
 bun ./scripts/build-rfc-coverage.ts
-# Cross-runtime comparison (WARP/wasmtime/wasmer/wavm/v8/bun). Opt-in: only built
+# Cross-runtime comparison (Wago/wasmtime/wasmer/wavm/v8/bun). Opt-in: only built
 # when scripts/run-bench.runtimes.sh has produced logs (it needs external
-# runtimes + a WARP vb_bench build), so the default chart build never fails on it.
+# runtimes), so the default chart build never fails on it.
 if compgen -G "./build/logs/runtimes/*/*.deserialize.json" >/dev/null 2>&1; then
   bun ./scripts/build-chart-runtimes.ts
 fi

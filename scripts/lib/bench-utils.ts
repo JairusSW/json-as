@@ -42,8 +42,18 @@ const BENCH_RUNTIME: ASBenchRuntime = ((): ASBenchRuntime => {
 
 const VERSION =
   "v" + JSON.parse(fs.readFileSync("./package.json", "utf-8")).version;
-let V8_VERSION = execSync("v8").toString().trim().slice(11);
-V8_VERSION = V8_VERSION.slice(0, V8_VERSION.indexOf("\n")).trim();
+let V8_VERSION = "unavailable";
+try {
+  const firstLine = execSync("v8", {
+    stdio: ["ignore", "pipe", "ignore"],
+  })
+    .toString()
+    .trim()
+    .split("\n", 1)[0];
+  V8_VERSION = firstLine.slice(11).trim();
+} catch {
+  // Runtime-only charts do not require a local V8 binary.
+}
 const GIT_HASH = execSync("git rev-parse --short HEAD").toString().trim();
 const GIT_BRANCH = execSync("git rev-parse --abbrev-ref HEAD")
   .toString()

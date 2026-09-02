@@ -2,6 +2,7 @@
 
 ## 2026-09-02
 
+- bench(runtime): replace the WARP-specific C++ host and embedded-payload path with a pinned Wago Go runner. Wago now executes the same WASI artifact and payloads as Wasmtime, WAVM, and wazero without depending on global plugin configuration.
 - perf(deserialize): extend the generated one-pass keyed fallback to bounded scalar and collection-bearing schemas, and group fallback dispatch by encoded key length. Focused reordered mixed payloads improve by roughly 1.5x and unknown-field payloads by roughly 1.4x, with canonical input remaining flat.
 - fix(strict): make generated numeric and string field parsers reject malformed complete tokens without trapping, including leading zeros, incomplete fractions/exponents, raw string control characters, invalid escapes, and unterminated strings; float fallbacks now consume complete long exponents. Standalone RFC validation remains ahead of generated parsing.
 - bench/test: add tiered fallback and strict typed-parser benchmarks, direct generated-parser safety regressions, full public-boundary malformed-input coverage, and a measured deserialization performance plan.
