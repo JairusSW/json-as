@@ -144,6 +144,12 @@ function scanJSONString(ptr: usize, end: usize): usize {
   return 0;
 }
 
+/** Validates one already-delimited, quote-inclusive JSON string token. */
+export function validateJSONStringToken(ptr: usize, end: usize): bool {
+  const tokenEnd = scanJSONString(ptr, end);
+  return tokenEnd != 0 && tokenEnd == end;
+}
+
 function scanJSONNumber(ptr: usize, end: usize): usize {
   if (ptr < end && load<u16>(ptr) == 0x2d) ptr += 2;
   if (ptr >= end) return 0;
@@ -184,6 +190,12 @@ function scanJSONNumber(ptr: usize, end: usize): usize {
   }
 
   return ptr;
+}
+
+/** Validates one already-delimited JSON number token. */
+export function validateJSONNumberToken(ptr: usize, end: usize): bool {
+  const tokenEnd = scanJSONNumber(ptr, end);
+  return tokenEnd != 0 && tokenEnd == end;
 }
 
 function scanLiteral(

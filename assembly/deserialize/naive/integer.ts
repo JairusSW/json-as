@@ -14,15 +14,16 @@ export function deserializeIntegerField_NAIVE<T extends number>(
   dstOffset: usize = 0,
 ): usize {
   const fieldPtr = dstObj + dstOffset;
+  if (srcStart >= srcEnd) return 0;
   let negative = false;
   if (load<u16>(srcStart) == 45) {
     negative = true;
     srcStart += 2;
-    if (srcStart >= srcEnd) unreachable();
+    if (srcStart >= srcEnd) return 0;
   }
 
   let digit = <u32>load<u16>(srcStart) - 48;
-  if (digit > 9) unreachable();
+  if (digit > 9) return 0;
 
   let value: u64 = digit;
   srcStart += 2;

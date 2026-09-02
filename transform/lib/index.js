@@ -1428,6 +1428,7 @@ export class JSONTransform extends Visitor {
                     ? "__deserializeIntegerField"
                     : "__deserializeUnsignedField";
                 out.push(`${srcPtr} = ${helper}<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+                out.push(`if (!${srcPtr}) break;`);
             }
             else if (["string", "String"].includes(resolvedType)) {
                 out.push("{");
@@ -1467,6 +1468,7 @@ export class JSONTransform extends Visitor {
                     out.push("  }");
                 }
                 out.push("}");
+                out.push(`if (JSON_STRICT && !${srcPtr}) break;`);
             }
             else if (resolvedType == "Date") {
                 out.push("{");
@@ -1555,6 +1557,7 @@ export class JSONTransform extends Visitor {
             }
             else if (FLOAT_TYPES.includes(resolvedType)) {
                 out.push(`${srcPtr} = __deserializeFloatField<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+                out.push(`if (!${srcPtr}) break;`);
             }
             else if (resolvedSchema?.custom) {
                 out.push("{");
@@ -2187,12 +2190,24 @@ export class JSONTransform extends Visitor {
                 isBoolean(type) ||
                 this.getSchema(type) != null);
         });
+        const hasCollectionMembers = this.schema.members.some((member) => {
+            const type = stripNull(member.type);
+            return (type.endsWith("[]") ||
+                type.startsWith("Array<") ||
+                type.startsWith("StaticArray<") ||
+                type.startsWith("Map<") ||
+                type.startsWith("Set<"));
+        });
         const keyedFallbackEnabled = tier2Ok &&
+            !hasLazyMembers &&
             this.schema.members.length > 0 &&
             this.schema.members.length <= 24 &&
             (keyedUnionAlternatives >= 2 ||
-                (scalarKeyedSchema && this.schema.members.length >= 12) ||
-                (structKeyedSchema && hasExplicitOptionalMembers));
+                (scalarKeyedSchema &&
+                    (this.schema.members.length <= 6 ||
+                        this.schema.members.length >= 12)) ||
+                (structKeyedSchema && hasExplicitOptionalMembers) ||
+                (hasCollectionMembers && this.schema.members.length <= 12));
         if (keyedFallbackEnabled) {
             const i1 = "  ";
             const i2 = "    ";
@@ -2230,16 +2245,19 @@ export class JSONTransform extends Visitor {
             DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
             DESERIALIZE_FAST += i2 + "let seen: u32 = 0;\n";
             DESERIALIZE_FAST += i2 + "let complete = false;\n";
+            DESERIALIZE_FAST += i2 + "let afterComma = false;\n";
             DESERIALIZE_FAST += i2 + "while (true) {\n";
             DESERIALIZE_FAST +=
                 i3 + "srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
             DESERIALIZE_FAST += i3 + "let code = load<u16>(srcStart);\n";
             DESERIALIZE_FAST += i3 + "if (code == 0x7d) {\n";
+            DESERIALIZE_FAST += i3 + "  if (afterComma) break;\n";
             DESERIALIZE_FAST += i3 + "  srcStart += 2;\n";
             DESERIALIZE_FAST += i3 + "  complete = true;\n";
             DESERIALIZE_FAST += i3 + "  break;\n";
             DESERIALIZE_FAST += i3 + "}\n";
             DESERIALIZE_FAST += i3 + "if (code != 0x22) break; // opening quote\n";
+            DESERIALIZE_FAST += i3 + "afterComma = false;\n";
             DESERIALIZE_FAST += i3 + "const keyStart = srcStart;\n";
             DESERIALIZE_FAST +=
                 i3 +
@@ -2252,20 +2270,34 @@ export class JSONTransform extends Visitor {
                 i3 + "srcStart = JSON.Util.skipWhitespace(srcStart + 2, srcEnd);\n";
             DESERIALIZE_FAST += i3 + "const keyBytes = keyEnd - keyStart;\n";
             DESERIALIZE_FAST += i3 + "let matched = false;\n";
+            const keyedMembersByBytes = new Map();
             for (let i = 0; i < this.schema.members.length; i++) {
                 const member = this.schema.members[i];
-                const key = JSON.stringify(member.alias || member.name);
-                const condition = [
-                    `keyBytes == ${key.length << 1}`,
-                    ...getComparisions(key, "keyStart", "=="),
-                ].join(" &&\n" + i3 + "  ");
-                DESERIALIZE_FAST += i3 + `if (!matched && (${condition})) {\n`;
-                DESERIALIZE_FAST += i3 + "  matched = true;\n";
-                DESERIALIZE_FAST +=
-                    i3 + "  " + tier2Desers[i].join("\n" + i3 + "  ") + "\n";
-                DESERIALIZE_FAST += i3 + `  seen |= <u32>1 << ${i};\n`;
-                DESERIALIZE_FAST += i3 + "}\n";
+                const keyBytes = JSON.stringify(member.alias || member.name).length << 1;
+                const group = keyedMembersByBytes.get(keyBytes);
+                if (group)
+                    group.push(i);
+                else
+                    keyedMembersByBytes.set(keyBytes, [i]);
             }
+            DESERIALIZE_FAST += i3 + "switch (keyBytes) {\n";
+            for (const [keyBytes, memberIndexes] of keyedMembersByBytes) {
+                DESERIALIZE_FAST += i3 + `  case ${keyBytes}: {\n`;
+                for (const i of memberIndexes) {
+                    const member = this.schema.members[i];
+                    const key = JSON.stringify(member.alias || member.name);
+                    const condition = getComparisions(key, "keyStart", "==").join(" &&\n" + i3 + "      ");
+                    DESERIALIZE_FAST += i3 + `    if (!matched && (${condition})) {\n`;
+                    DESERIALIZE_FAST += i3 + "      matched = true;\n";
+                    DESERIALIZE_FAST +=
+                        i3 + "      " + tier2Desers[i].join("\n" + i3 + "      ") + "\n";
+                    DESERIALIZE_FAST += i3 + `      seen |= <u32>1 << ${i};\n`;
+                    DESERIALIZE_FAST += i3 + "    }\n";
+                }
+                DESERIALIZE_FAST += i3 + "    break;\n";
+                DESERIALIZE_FAST += i3 + "  }\n";
+            }
+            DESERIALIZE_FAST += i3 + "}\n";
             DESERIALIZE_FAST += i3 + "if (!matched) {\n";
             if (STRICT) {
                 DESERIALIZE_FAST += i3 + "  break;\n";
@@ -2287,6 +2319,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE_FAST += i3 + "  break;\n";
             DESERIALIZE_FAST += i3 + "}\n";
             DESERIALIZE_FAST += i3 + "if (code != 0x2c) break; // comma\n";
+            DESERIALIZE_FAST += i3 + "afterComma = true;\n";
             DESERIALIZE_FAST += i3 + "srcStart += 2;\n";
             DESERIALIZE_FAST += i2 + "}\n";
             DESERIALIZE_FAST += i2 + "if (!complete) break;\n";

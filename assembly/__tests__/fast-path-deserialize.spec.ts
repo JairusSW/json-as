@@ -31,6 +31,17 @@ class FastDirectFields {
 
 
 @json
+class FastSmallScalarFields {
+  a: string = "";
+  b: i32 = 0;
+  c: bool = false;
+  d: f64 = 0.0;
+  e: string = "";
+  f: i32 = 0;
+}
+
+
+@json
 class FastArrayDelegatedFields {
   dates: Date[] = [];
   groups: Set<i32>[] = [];
@@ -368,6 +379,38 @@ describe("Fast-path deserialization should handle direct field types", () => {
   expect(parsed.scores.length).toBe(3);
   expect(parsed.scores[1]).toBe(6);
   expect(JSON.stringify(parsed)).toBe(payload);
+});
+
+describe("Fast-path keyed fallback should handle collection-bearing structs", () => {
+  const payload =
+    '{"unknown":{"nested":[1,true]},"scores":[5,6,7],"children":[{"label":"x","id":3},{"label":"y","id":4}],"tags":["a","b","c"],"maybeChild":{"label":"optional","id":2},"child":{"label":"nested","id":1},"note":"line\\nbreak","name":"alpha","ok":true,"ratio":3.5,"total":42,"id":7}';
+
+  const parsed = JSON.parse<FastDirectFields>(payload);
+
+  expect(parsed.id).toBe(7);
+  expect(parsed.total.toString()).toBe("42");
+  expect(parsed.ratio.toString()).toBe("3.5");
+  expect(parsed.ok.toString()).toBe("true");
+  expect(parsed.name).toBe("alpha");
+  expect(parsed.note!).toBe("line\nbreak");
+  expect(parsed.child.label).toBe("nested");
+  expect(parsed.maybeChild!.id).toBe(2);
+  expect(parsed.tags.length).toBe(3);
+  expect(parsed.children[1].label).toBe("y");
+  expect(parsed.scores[2]).toBe(7);
+});
+
+describe("Fast-path keyed fallback should handle small scalar structs", () => {
+  const parsed = JSON.parse<FastSmallScalarFields>(
+    '{"unknown":[1,true],"f":6,"e":"five","d":4.5,"c":true,"b":2,"a":"one"}',
+  );
+
+  expect(parsed.a).toBe("one");
+  expect(parsed.b).toBe(2);
+  expect(parsed.c.toString()).toBe("true");
+  expect(parsed.d.toString()).toBe("4.5");
+  expect(parsed.e).toBe("five");
+  expect(parsed.f).toBe(6);
 });
 
 describe("Fast-path keyed fallback handles union alternatives and resets omissions", () => {

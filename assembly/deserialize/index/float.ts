@@ -11,6 +11,7 @@ import {
   deserializeFloat_SIMD,
   deserializeFloatField_SIMD,
 } from "../simd/float";
+import { validateJSONNumberToken } from "../../util/validateJson";
 
 export function deserializeFloat<T>(srcStart: usize, srcEnd: usize): T {
   if (JSON_MODE == JSONMode.SIMD) {
@@ -28,11 +29,14 @@ export function deserializeFloatField<T extends number>(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
+  let end: usize;
   if (JSON_MODE == JSONMode.SIMD) {
-    return deserializeFloatField_SIMD<T>(srcStart, srcEnd, dstObj, dstOffset);
+    end = deserializeFloatField_SIMD<T>(srcStart, srcEnd, dstObj, dstOffset);
   } else if (JSON_MODE == JSONMode.NAIVE) {
-    return deserializeFloatField_NAIVE<T>(srcStart, srcEnd, dstObj, dstOffset);
+    end = deserializeFloatField_NAIVE<T>(srcStart, srcEnd, dstObj, dstOffset);
   } else {
-    return deserializeFloatField_SWAR<T>(srcStart, srcEnd, dstObj, dstOffset);
+    end = deserializeFloatField_SWAR<T>(srcStart, srcEnd, dstObj, dstOffset);
   }
+  if (JSON_STRICT && !validateJSONNumberToken(srcStart, end)) return 0;
+  return end;
 }

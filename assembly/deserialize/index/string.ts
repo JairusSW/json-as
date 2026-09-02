@@ -14,6 +14,7 @@ import {
   deserializeStringField_SWAR,
   deserializeStringFieldTrusted_SWAR,
 } from "../swar/string";
+import { validateJSONStringToken } from "../../util/validateJson";
 
 export function deserializeString(srcStart: usize, srcEnd: usize): string {
   // Whole-value decoders strip two UTF-16 code units before entering their
@@ -35,13 +36,16 @@ export function deserializeStringField<T extends string | null>(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
+  let end: usize;
   if (JSON_MODE == JSONMode.SIMD) {
-    return deserializeStringField_SIMD<T>(srcStart, srcEnd, dstObj, dstOffset);
+    end = deserializeStringField_SIMD<T>(srcStart, srcEnd, dstObj, dstOffset);
   } else if (JSON_MODE == JSONMode.NAIVE) {
-    return deserializeStringField_NAIVE<T>(srcStart, srcEnd, dstObj, dstOffset);
+    end = deserializeStringField_NAIVE<T>(srcStart, srcEnd, dstObj, dstOffset);
   } else {
-    return deserializeStringField_SWAR<T>(srcStart, srcEnd, dstObj, dstOffset);
+    end = deserializeStringField_SWAR<T>(srcStart, srcEnd, dstObj, dstOffset);
   }
+  if (JSON_STRICT && !validateJSONStringToken(srcStart, end)) return 0;
+  return end;
 }
 
 export function deserializeStringFieldTrusted(
@@ -50,26 +54,29 @@ export function deserializeStringFieldTrusted(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
+  let end: usize;
   if (JSON_MODE == JSONMode.SIMD) {
-    return deserializeStringFieldTrusted_SIMD(
+    end = deserializeStringFieldTrusted_SIMD(
       payloadStart,
       srcEnd,
       dstObj,
       dstOffset,
     );
   } else if (JSON_MODE == JSONMode.NAIVE) {
-    return deserializeStringFieldTrusted_NAIVE(
+    end = deserializeStringFieldTrusted_NAIVE(
       payloadStart,
       srcEnd,
       dstObj,
       dstOffset,
     );
   } else {
-    return deserializeStringFieldTrusted_SWAR(
+    end = deserializeStringFieldTrusted_SWAR(
       payloadStart,
       srcEnd,
       dstObj,
       dstOffset,
     );
   }
+  if (JSON_STRICT && !validateJSONStringToken(payloadStart - 2, end)) return 0;
+  return end;
 }

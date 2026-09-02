@@ -17,6 +17,35 @@ class StrictStruct {
 }
 
 
+@json
+class StrictFastBoundsStruct {
+  integer: i32 = 0;
+  unsigned: u64 = 0;
+  float: f64 = 0;
+  enabled: bool = false;
+}
+
+
+@json
+class StrictUnmarkedMidStruct {
+  a: i32 = 0;
+  b: i32 = 0;
+  c: i32 = 0;
+  d: i32 = 0;
+  e: i32 = 0;
+  f: i32 = 0;
+  g: i32 = 0;
+  h: i32 = 0;
+}
+
+
+@json
+class StrictStringFastBoundsStruct {
+  first: string = "";
+  second: string = "";
+}
+
+
 @json({ lazy: "all" })
 class StrictLazyStruct {
   name: string = "";
@@ -25,6 +54,62 @@ class StrictLazyStruct {
   lookup: JSON.Lazy<Map<string, i32>> = new Map<string, i32>();
   dynamic: JSON.Lazy<JSON.Obj> = new JSON.Obj();
 }
+
+let strictPublicInput = "";
+let strictStringPublicInput = "";
+
+function expectStrictPublicReject(source: string): void {
+  strictPublicInput = source;
+  expect((): void => {
+    JSON.parse<StrictFastBoundsStruct>(strictPublicInput);
+  }).toThrow();
+}
+
+function expectStrictStringPublicReject(source: string): void {
+  strictStringPublicInput = source;
+  expect((): void => {
+    JSON.parse<StrictStringFastBoundsStruct>(strictStringPublicInput);
+  }).toThrow();
+}
+
+describe("strict structs reject malformed JSON at the public boundary", () => {
+  expectStrictPublicReject('{"integer":1,}');
+  expectStrictPublicReject('{,"integer":1}');
+  expectStrictPublicReject('{"integer":1,,"unsigned":2}');
+  expectStrictPublicReject('{"integer":1 "unsigned":2}');
+  expectStrictPublicReject('{"integer" 1}');
+  expectStrictPublicReject("{integer:1}");
+  expectStrictPublicReject('{"integer":+1}');
+  expectStrictPublicReject('{"integer":01}');
+  expectStrictPublicReject('{"float":1.}');
+  expectStrictPublicReject('{"float":1e}');
+  expectStrictPublicReject('{"float":NaN}');
+  expectStrictPublicReject('{"enabled":True}');
+  expectStrictPublicReject('{"enabled":truex}');
+  expectStrictPublicReject('{"inte\\qger":1}');
+  expectStrictPublicReject('{"integer":1} trailing');
+  expectStrictPublicReject('{"integer":1}}');
+});
+
+describe("strict string structs validate at the public boundary", () => {
+  const valid = '{"first":"line\\nquote: \\"","second":"slash: \\\\"}';
+  const out = JSON.parse<StrictStringFastBoundsStruct>(valid);
+  expect(out.first).toBe('line\nquote: "');
+  expect(out.second).toBe("slash: \\");
+
+  expectStrictStringPublicReject('{"first":"line\nbreak","second":"ok"}');
+  expectStrictStringPublicReject('{"first":"tab\tbreak","second":"ok"}');
+  expectStrictStringPublicReject('{"first":"bad\\q","second":"ok"}');
+  expectStrictStringPublicReject('{"first":"ok","second":"unterminated}');
+});
+
+describe("strict schemas without keyed fallback retain the validated slow path", () => {
+  const parsed = JSON.parse<StrictUnmarkedMidStruct>(
+    '{"h":8,"g":7,"f":6,"e":5,"d":4,"c":3,"b":2,"a":1}',
+  );
+  expect(parsed.a).toBe(1);
+  expect(parsed.h).toBe(8);
+});
 
 describe("strict mode accepts every parse target family", () => {
   const struct = JSON.parse<StrictStruct>(

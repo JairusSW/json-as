@@ -28,7 +28,13 @@ jobs:
         run: bun run test:transform
 
       - name: Run Tests (Slow)
-        run: JSON_USE_FAST_PATH=0 bun run test:ci
+        run: JSON_USE_FAST_PATH=0 bun run test:ci -- --no-cache
 
       - name: Run Tests (Fast)
-        run: JSON_USE_FAST_PATH=1 bun run test:ci
+        run: JSON_USE_FAST_PATH=1 bun run test:ci -- --no-cache
+
+      - name: Run Strict Public Tests (Slow)
+        run: JSON_USE_FAST_PATH=0 bun run test:rfc:public -- --no-cache
+
+      - name: Run Strict Tests (Fast)
+        run: JSON_USE_FAST_PATH=1 bun run test:rfc -- --no-cache

@@ -11,6 +11,7 @@ import {
   deserializeUnsigned_SIMD,
   deserializeUnsignedField_SIMD,
 } from "../simd/integer";
+import { validateJSONNumberToken } from "../../util/validateJson";
 
 /**
  * Compile-time dispatch for {@link deserializeUnsigned_NAIVE},
@@ -51,26 +52,19 @@ export function deserializeUnsignedField<T extends number>(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
+  let end: usize;
   if (JSON_MODE == JSONMode.SIMD) {
-    return deserializeUnsignedField_SIMD<T>(
-      srcStart,
-      srcEnd,
-      dstObj,
-      dstOffset,
-    );
+    end = deserializeUnsignedField_SIMD<T>(srcStart, srcEnd, dstObj, dstOffset);
   } else if (JSON_MODE == JSONMode.NAIVE) {
-    return deserializeUnsignedField_NAIVE<T>(
+    end = deserializeUnsignedField_NAIVE<T>(
       srcStart,
       srcEnd,
       dstObj,
       dstOffset,
     );
   } else {
-    return deserializeUnsignedField_SWAR<T>(
-      srcStart,
-      srcEnd,
-      dstObj,
-      dstOffset,
-    );
+    end = deserializeUnsignedField_SWAR<T>(srcStart, srcEnd, dstObj, dstOffset);
   }
+  if (JSON_STRICT && !validateJSONNumberToken(srcStart, end)) return 0;
+  return end;
 }
