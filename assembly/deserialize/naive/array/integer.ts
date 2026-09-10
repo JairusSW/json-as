@@ -1,6 +1,7 @@
 import { atoi, isSpace } from "../../../util";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { markProductionParseError } from "../../error";
+import { validateJSONIntegerRange } from "../../../util/validateJson";
 
 // Strict RFC 8259 integer-token check over [start, end): optional minus (signed
 // types only), then a lone `0` or [1-9] digits - no leading zeros, fraction,
@@ -68,7 +69,8 @@ export function deserializeIntegerArray_NAIVE<T extends number[]>(
     }
     if (
       srcStart == tokenStart ||
-      !validateJSONInteger(tokenStart, srcStart, signed)
+      !validateJSONInteger(tokenStart, srcStart, signed) ||
+      !validateJSONIntegerRange<valueof<T>>(tokenStart, srcStart, true)
     ) {
       markProductionParseError();
       return changetype<T>(0);

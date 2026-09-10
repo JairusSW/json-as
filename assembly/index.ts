@@ -81,7 +81,11 @@ import {
   hasLongPrettyIndent_SIMD,
   skipPrettyWhitespace_SIMD,
 } from "./util/prettyWhitespaceSimd";
-import { normalizeJSONEncoding, validateJSON } from "./util/validateJson";
+import {
+  hasSafeJSONDepth,
+  normalizeJSONEncoding,
+  validateJSON,
+} from "./util/validateJson";
 
 const VAL_QNAN: u64 = 0x7ffc000000000000; // boxed signature (quiet NaN)
 const VAL_TAG_SHIFT: u8 = 45;
@@ -399,8 +403,19 @@ export namespace JSON {
   export function parse<T>(data: string, out: T = __zero<T>()): T {
     if (JSON_STRICT) {
       data = normalizeJSONEncoding(data);
-      if (!validateJSON(data)) throw new Error("Invalid JSON syntax");
     }
+    if (isReference<T>() || isManaged<T>()) {
+      const type = changetype<nonnull<T>>(0);
+      // @ts-expect-error: marker supplied for self-referential generated types
+      if (
+        isDefined(type.__DESERIALIZE_RECURSIVE) &&
+        !JSON_STRICT &&
+        !hasSafeJSONDepth(data)
+      )
+        throw new Error("JSON nesting exceeds the maximum depth of 256");
+    }
+    if (JSON_STRICT && !validateJSON(data))
+      throw new Error("Invalid JSON syntax");
     let managePretty = false;
     let simdPretty = false;
     if (isReference<T>() || isManaged<T>()) {
@@ -785,8 +800,18 @@ export namespace JSON {
    * ```
    */
   export class Raw {
-    /** The raw JSON string data */
-    public data: string;
+    private _data: string = "null";
+
+    /** The validated raw JSON string data. */
+    get data(): string {
+      return this._data;
+    }
+
+    set data(value: string) {
+      if (!validateJSON(value))
+        throw new Error("JSON.Raw requires exactly one valid JSON value");
+      this._data = value;
+    }
 
     /**
      * Creates a new Raw JSON wrapper.
@@ -1501,18 +1526,18 @@ export namespace JSON {
     private pushKeyBytes(keyStart: usize, keyEnd: usize, slotIndex: i32): void {
       const len = <i32>((keyEnd - keyStart) >> 1);
       const pos = this._kused;
-      this.ensureKeyCap(pos + 1 + len);
+      this.ensureKeyCap(pos + 2 + len);
       this.ensureKeyPosCap(slotIndex + 1);
       const buf = changetype<usize>(this._kbuf);
-      store<u16>(buf + ((<usize>pos) << 1), <u16>len);
+      store<u32>(buf + ((<usize>pos) << 1), <u32>len);
       if (len)
         memory.copy(
-          buf + ((<usize>(pos + 1)) << 1),
+          buf + ((<usize>(pos + 2)) << 1),
           keyStart,
           (<usize>len) << 1,
         );
       unchecked((this._kpos[slotIndex] = pos));
-      this._kused = pos + 1 + len;
+      this._kused = pos + 2 + len;
     }
 
     /** Materializes a key string from `len` code units starting at slot `at`. */
@@ -1578,29 +1603,29 @@ export namespace JSON {
     private keyEquals(i: i32, key: string): bool {
       const pos = unchecked(this._kpos[i]);
       const buf = changetype<usize>(this._kbuf) + ((<usize>pos) << 1);
-      const len = <i32>load<u16>(buf);
+      const len = <i32>load<u32>(buf);
       if (len != <i32>key.length) return false;
-      return utf16Equals(changetype<usize>(key), buf + 2, len);
+      return utf16Equals(changetype<usize>(key), buf + 4, len);
     }
 
     /** Compares two stored key slots without materializing strings. */
     private slotEqualsSlot(a: i32, b: i32): bool {
       const posa = unchecked(this._kpos[a]);
       const bufA = changetype<usize>(this._kbuf) + ((<usize>posa) << 1);
-      const lenA = <i32>load<u16>(bufA);
+      const lenA = <i32>load<u32>(bufA);
       const posb = unchecked(this._kpos[b]);
       const bufB = changetype<usize>(this._kbuf) + ((<usize>posb) << 1);
-      const lenB = <i32>load<u16>(bufB);
+      const lenB = <i32>load<u32>(bufB);
       if (lenA != lenB) return false;
-      return utf16Equals(bufA + 2, bufB + 2, lenA);
+      return utf16Equals(bufA + 4, bufB + 4, lenA);
     }
 
     /** Hashes the stored key for slot `i`. */
     private keyHashAt(i: i32): u32 {
       const pos = unchecked(this._kpos[i]);
       const buf = changetype<usize>(this._kbuf) + ((<usize>pos) << 1);
-      const len = <i32>load<u16>(buf);
-      return hashUtf16(buf + 2, len);
+      const len = <i32>load<u32>(buf);
+      return hashUtf16(buf + 4, len);
     }
 
     /** Resolves a key to its slot index, or -1 if absent. */
@@ -1620,8 +1645,8 @@ export namespace JSON {
         for (let i = n - 1; i >= 0; i--) {
           const buf = kbuf + ((<usize>unchecked(kpos[i])) << 1);
           if (
-            <i32>load<u16>(buf) == keyLen &&
-            utf16Equals(keyPtr, buf + 2, keyLen)
+            <i32>load<u32>(buf) == keyLen &&
+            utf16Equals(keyPtr, buf + 4, keyLen)
           )
             return i;
         }
@@ -1694,21 +1719,21 @@ export namespace JSON {
       const len = <i32>((keyEnd - keyStart) >> 1);
       const keyPos = this._kused;
       if (
-        keyPos + 1 + len <= this._kbuf.length &&
+        keyPos + 2 + len <= this._kbuf.length &&
         slotIndex < this._kpos.length &&
         slotIndex < this._vals.length
       ) {
         const keyBuf = changetype<usize>(this._kbuf);
-        store<u16>(keyBuf + ((<usize>keyPos) << 1), <u16>len);
+        store<u32>(keyBuf + ((<usize>keyPos) << 1), <u32>len);
         if (len)
           memory.copy(
-            keyBuf + ((<usize>(keyPos + 1)) << 1),
+            keyBuf + ((<usize>(keyPos + 2)) << 1),
             keyStart,
             (<usize>len) << 1,
           );
         unchecked((this._kpos[slotIndex] = keyPos));
         unchecked((this._vals[slotIndex] = bits));
-        this._kused = keyPos + 1 + len;
+        this._kused = keyPos + 2 + len;
         this._vused = slotIndex + 1;
         return;
       }
@@ -1764,8 +1789,8 @@ export namespace JSON {
         for (let i = 0; i < used; i++) {
           const keyPos = unchecked(this._kpos[i]);
           const buf = changetype<usize>(this._kbuf) + ((<usize>keyPos) << 1);
-          const len = <i32>load<u16>(buf);
-          let slot = <i32>(hashUtf16(buf + 2, len) & (<u32>mask));
+          const len = <i32>load<u32>(buf);
+          let slot = <i32>(hashUtf16(buf + 4, len) & (<u32>mask));
           while (unchecked(idx[slot]) != 0) {
             const entry = unchecked(idx[slot]) - 1;
             if (this.slotEqualsSlot(entry, i)) {
@@ -1913,9 +1938,9 @@ export namespace JSON {
       let pos = 0;
       let i = 0;
       while (pos < used) {
-        const len = <i32>load<u16>(buf + ((<usize>pos) << 1));
-        unchecked((out[i++] = this.makeKey(pos + 1, len)));
-        pos += 1 + len;
+        const len = <i32>load<u32>(buf + ((<usize>pos) << 1));
+        unchecked((out[i++] = this.makeKey(pos + 2, len)));
+        pos += 2 + len;
       }
       return out;
     }

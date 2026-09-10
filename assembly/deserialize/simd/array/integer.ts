@@ -1,6 +1,8 @@
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { deserializeIntegerArray_SLOW } from "../../swar/array/integer";
 import { isSpace } from "../../../util";
+import { validateJSONIntegerRange } from "../../../util/validateJson";
+import { markProductionParseError } from "../../error";
 
 const ASCII_LANE_MASK_4: u64 = 0x00ff00ff00ff00ff;
 const ASCII_ZERO_4: u64 = 0x0030003000300030;
@@ -95,6 +97,16 @@ function parseSignedIntegerSIMD<T extends number[]>(
   srcEnd: usize,
   slot: usize,
 ): usize {
+  const tokenStart = srcStart;
+  if (sizeof<valueof<T>>() == 8) {
+    const tokenEnd = validateJSONIntegerRange<valueof<T>>(
+      srcStart,
+      srcEnd,
+      false,
+    );
+    if (!tokenEnd) return 0;
+    srcEnd = tokenEnd;
+  }
   let negative = false;
   let code = load<u16>(srcStart);
   if (code == 45) {
@@ -124,6 +136,15 @@ function parseSignedIntegerSIMD<T extends number[]>(
     srcStart += 2;
   }
 
+  const digits = i32((srcStart - tokenStart) >> 1) - (negative ? 1 : 0);
+  if (
+    (sizeof<valueof<T>>() == 2 &&
+      (digits > 5 || value > (negative ? 32_768 : 32_767))) ||
+    (sizeof<valueof<T>>() == 4 &&
+      (digits > 10 || value > (negative ? 2_147_483_648 : 2_147_483_647)))
+  )
+    return 0;
+
   storeSignedInteger<T>(slot, negative ? -(<i64>value) : <i64>value);
   return srcStart;
 }
@@ -133,6 +154,16 @@ function parseUnsignedIntegerSIMD<T extends number[]>(
   srcEnd: usize,
   slot: usize,
 ): usize {
+  const tokenStart = srcStart;
+  if (sizeof<valueof<T>>() == 8) {
+    const tokenEnd = validateJSONIntegerRange<valueof<T>>(
+      srcStart,
+      srcEnd,
+      false,
+    );
+    if (!tokenEnd) return 0;
+    srcEnd = tokenEnd;
+  }
   let digit = <u32>load<u16>(srcStart) - 48;
   if (digit > 9) return 0;
 
@@ -152,6 +183,13 @@ function parseUnsignedIntegerSIMD<T extends number[]>(
     value = value * 10 + digit;
     srcStart += 2;
   }
+
+  const digits = i32((srcStart - tokenStart) >> 1);
+  if (
+    (sizeof<valueof<T>>() == 2 && (digits > 5 || value > 65_535)) ||
+    (sizeof<valueof<T>>() == 4 && (digits > 10 || value > 4_294_967_295))
+  )
+    return 0;
 
   storeUnsignedInteger<T>(slot, value);
   return srcStart;
@@ -241,6 +279,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_3_8);
           const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
           const v2 = i32x4.extract_lane(dot, 2) + i32x4.extract_lane(dot, 3);
+          if ((v1 | v2) > 255) break;
           store<valueof<T>>(writePtr, <valueof<T>>v1);
           store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
           writePtr += elementSize << 1;
@@ -252,6 +291,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_2_8);
           const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
           const v2 = i32x4.extract_lane(dot, 2);
+          if ((v1 | v2) > 255) break;
           store<valueof<T>>(writePtr, <valueof<T>>v1);
           store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
           writePtr += elementSize << 1;
@@ -263,6 +303,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_2_3_8);
           const v1 = i32x4.extract_lane(dot, 0);
           const v2 = i32x4.extract_lane(dot, 1) + i32x4.extract_lane(dot, 2);
+          if ((v1 | v2) > 255) break;
           store<valueof<T>>(writePtr, <valueof<T>>v1);
           store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
           writePtr += elementSize << 1;
@@ -274,6 +315,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_2_2_8);
           const v1 = i32x4.extract_lane(dot, 0);
           const v2 = i32x4.extract_lane(dot, 1) + i32x4.extract_lane(dot, 2);
+          if ((v1 | v2) > 255) break;
           store<valueof<T>>(writePtr, <valueof<T>>v1);
           store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
           writePtr += elementSize << 1;
@@ -285,6 +327,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_1_8);
           const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
           const v2 = i32x4.extract_lane(dot, 2);
+          if ((v1 | v2) > 255) break;
           store<valueof<T>>(writePtr, <valueof<T>>v1);
           store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
           writePtr += elementSize << 1;
@@ -296,6 +339,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_1_3_8);
           const v1 = i32x4.extract_lane(dot, 0);
           const v2 = i32x4.extract_lane(dot, 1) + i32x4.extract_lane(dot, 2);
+          if ((v1 | v2) > 255) break;
           store<valueof<T>>(writePtr, <valueof<T>>v1);
           store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
           writePtr += elementSize << 1;
@@ -317,7 +361,12 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           const d0 = <u32>(digits & 0xffff);
           const d1 = <u32>((digits >> 16) & 0xffff);
           const d2 = <u32>((digits >> 32) & 0xffff);
-          store<valueof<T>>(writePtr, <valueof<T>>(d0 * 100 + d1 * 10 + d2));
+          const value = d0 * 100 + d1 * 10 + d2;
+          if (value > 255) {
+            markProductionParseError();
+            return changetype<T>(0);
+          }
+          store<valueof<T>>(writePtr, <valueof<T>>value);
           writePtr += elementSize;
           srcStart += 8;
           continue;
@@ -352,6 +401,12 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
       while (srcStart < srcEnd) {
         const c = load<u16>(srcStart);
         if (c == COMMA || c == BRACKET_RIGHT || isSpace(c)) {
+          if (
+            !validateJSONIntegerRange<valueof<T>>(lastIndex, srcStart, true)
+          ) {
+            markProductionParseError();
+            return changetype<T>(0);
+          }
           let value: u64 = 0;
           let p = lastIndex;
           if (isSigned<valueof<T>>() && load<u16>(p) == 45) {

@@ -24,6 +24,44 @@ const MAX_JSON_DEPTH: i32 = 256;
 @lazy const JSON_STATE_STACK = new StaticArray<u8>(MAX_JSON_DEPTH);
 let jsonStateDepth: i32 = 0;
 
+/**
+ * Lightweight nesting guard for generated recursive schemas.
+ *
+ * This deliberately checks only structural depth, not complete RFC syntax:
+ * relaxed builds retain their documented grammar while self-referential typed
+ * parsers cannot recurse far enough to corrupt the Wasm runtime. Strings are
+ * skipped iteratively so braces and brackets inside them do not affect depth.
+ */
+export function hasSafeJSONDepth(data: string): bool {
+  let ptr = changetype<usize>(data);
+  const end = ptr + ((<usize>data.length) << 1);
+  let depth: i32 = 0;
+
+  while (ptr < end) {
+    const code = load<u16>(ptr);
+    if (code == 0x22) {
+      ptr += 2;
+      while (ptr < end) {
+        const stringCode = load<u16>(ptr);
+        if (stringCode == 0x5c) {
+          ptr += 4;
+          continue;
+        }
+        ptr += 2;
+        if (stringCode == 0x22) break;
+      }
+      continue;
+    }
+    if (code == 0x5b || code == 0x7b) {
+      if (++depth > MAX_JSON_DEPTH) return false;
+    } else if ((code == 0x5d || code == 0x7d) && depth > 0) {
+      depth--;
+    }
+    ptr += 2;
+  }
+  return true;
+}
+
 // Four UTF-16 lanes per word. These masks only identify candidates; every hit
 // is re-read as u16 before it can affect validation, so lane-borrow false
 // positives are harmless while plain string runs advance eight bytes at once.
@@ -196,6 +234,61 @@ function scanJSONNumber(ptr: usize, end: usize): usize {
 export function validateJSONNumberToken(ptr: usize, end: usize): bool {
   const tokenEnd = scanJSONNumber(ptr, end);
   return tokenEnd != 0 && tokenEnd == end;
+}
+
+/**
+ * Returns the end of an integer token when it fits in `T`, or zero on syntax
+ * or range failure. `complete` additionally requires the remaining input to be
+ * whitespace, as required by a top-level scalar parse.
+ */
+export function validateJSONIntegerRange<T>(
+  ptr: usize,
+  end: usize,
+  complete: bool = true,
+): usize {
+  const start = ptr;
+  let negative = false;
+  if (ptr < end && load<u16>(ptr) == 0x2d) {
+    if (!isSigned<T>()) return 0;
+    negative = true;
+    ptr += 2;
+  }
+  if (ptr >= end) return 0;
+
+  let limit: u64;
+  if (isSigned<T>()) {
+    if (sizeof<T>() == 1) limit = negative ? 128 : 127;
+    else if (sizeof<T>() == 2) limit = negative ? 32_768 : 32_767;
+    else if (sizeof<T>() == 4) limit = negative ? 2_147_483_648 : 2_147_483_647;
+    else
+      limit = negative ? 9_223_372_036_854_775_808 : 9_223_372_036_854_775_807;
+  } else {
+    if (sizeof<T>() == 1) limit = 255;
+    else if (sizeof<T>() == 2) limit = 65_535;
+    else if (sizeof<T>() == 4) limit = 4_294_967_295;
+    else limit = u64.MAX_VALUE;
+  }
+
+  let value: u64 = 0;
+  let digits = 0;
+  while (ptr < end) {
+    const digit = <u32>load<u16>(ptr) - 0x30;
+    if (digit > 9) break;
+    if (value > (limit - digit) / 10) return 0;
+    value = value * 10 + digit;
+    digits++;
+    ptr += 2;
+  }
+  if (digits == 0 || ptr == start) return 0;
+  const tokenEnd = ptr;
+  if (complete) {
+    while (ptr < end) {
+      const code = load<u16>(ptr);
+      if (code != 0x20 && (code < 0x09 || code > 0x0d)) return 0;
+      ptr += 2;
+    }
+  }
+  return tokenEnd;
 }
 
 function scanLiteral(

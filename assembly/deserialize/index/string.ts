@@ -17,10 +17,15 @@ import {
 import { validateJSONStringToken } from "../../util/validateJson";
 
 export function deserializeString(srcStart: usize, srcEnd: usize): string {
-  // Whole-value decoders strip two UTF-16 code units before entering their
-  // optimized loops. Guard the actual memory-safety invariant here; complete
-  // RFC quote framing remains the strict-mode validator's job.
-  if (srcEnd - srcStart < 4) return changetype<string>(0);
+  // Whole-value decoders strip the first and last UTF-16 code units before
+  // entering their optimized loops. Verify both are actually quotes so SWAR
+  // and SIMD cannot silently treat a payload byte as a closing delimiter.
+  if (
+    srcEnd - srcStart < 4 ||
+    load<u16>(srcStart) != 0x22 ||
+    load<u16>(srcEnd - 2) != 0x22
+  )
+    return changetype<string>(0);
   if (JSON_MODE == JSONMode.SIMD) {
     return deserializeString_SIMD(srcStart, srcEnd);
   } else if (JSON_MODE == JSONMode.NAIVE) {

@@ -1,6 +1,8 @@
 import { COMMA, BRACKET_RIGHT } from "../../custom/chars";
 import { deserializeFloat_NAIVE } from "./float";
 import { atoi, isSpace } from "../../util";
+import { validateJSONIntegerRange } from "../../util/validateJson";
+import { markProductionParseError } from "../error";
 
 function countTypedArrayElements(srcStart: usize, srcEnd: usize): i32 {
   let count = 0;
@@ -54,6 +56,12 @@ export function deserializeTypedArray_NAIVE<T extends ArrayLike<number>>(
               )),
             );
           } else {
+            if (
+              !validateJSONIntegerRange<valueof<T>>(lastIndex, srcStart, true)
+            ) {
+              markProductionParseError();
+              return changetype<T>(0);
+            }
             unchecked((out[index++] = atoi<valueof<T>>(lastIndex, srcStart)));
           }
           break;
@@ -92,6 +100,10 @@ export function deserializeArrayBuffer_NAIVE(
       while (srcStart < srcEnd) {
         const code = load<u16>(srcStart);
         if (code == COMMA || code == BRACKET_RIGHT || isSpace(code)) {
+          if (!validateJSONIntegerRange<u8>(lastIndex, srcStart, true)) {
+            markProductionParseError();
+            return changetype<ArrayBuffer>(0);
+          }
           store<u8>(outStart + index++, atoi<u8>(lastIndex, srcStart));
           break;
         }

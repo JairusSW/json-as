@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- security: bound recursive typed-struct parsing at 256 levels before generated recursion, preventing malformed abort pointers and persistent WebAssembly instance poisoning.
+- security: validate SWAR/SIMD string boundaries, integer target ranges, oversized dynamic-object keys, and `JSON.Raw` values; strict RFC validation is now enabled by default with an explicit `JSON_STRICT=false` trusted-input opt-out.
+- security: grow typed-array and ArrayBuffer outputs from parsed element counts instead of source span, preventing whitespace-driven memory amplification.
+- perf(security): fuse 8/16/32-bit array range checks into existing SWAR/SIMD folds, retain non-amplifying exact allocation for narrow typed arrays, and avoid a redundant depth scan after strict validation.
+
 ## 2026-09-02
 
 - perf(deserialize): extend the generated one-pass keyed fallback to bounded scalar and collection-bearing schemas, and group fallback dispatch by encoded key length. Focused reordered mixed payloads improve by roughly 1.5x and unknown-field payloads by roughly 1.4x, with canonical input remaining flat.

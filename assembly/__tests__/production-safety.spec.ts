@@ -50,6 +50,19 @@ class ProductionSafetyKeyedScalarStruct {
   f: i32 = 0;
 }
 
+
+@json
+class ProductionSafetyRecursiveNode {
+  value: i32 = 0;
+  child: ProductionSafetyRecursiveNode | null = null;
+}
+
+
+@json
+class ProductionSafetyNarrowInteger {
+  value: u8 = 7;
+}
+
 let malformedInput = "";
 
 function expectProductionReject<T>(data: string): void {
@@ -60,6 +73,13 @@ function expectProductionReject<T>(data: string): void {
 }
 
 describe("production parsing rejects incomplete source ranges", () => {
+  if (JSON_STRICT) {
+    expect(JSON_STRICT).toBe(true);
+    // Default builds validate the complete document before dispatching to fast
+    // parsers. Unsafe trusted-input behavior requires an explicit opt-out.
+    expectProductionReject<JSON.Obj>('{"x":1,}');
+  }
+
   // Lazy values must never retain an absent/zero end pointer. Materializing or
   // serializing such a slice can otherwise read outside the source value.
   expectProductionReject<JSON.Value>('"unterminated');
@@ -85,6 +105,63 @@ describe("production parsing rejects incomplete source ranges", () => {
   expectProductionReject<JSON.Value>("nul");
   expectProductionReject<bool>("t");
   expectProductionReject<string>('"');
+  expectProductionReject<string>('"xx');
+});
+
+describe("production parsing bounds recursive typed structs", () => {
+  let source = "null";
+  for (let i = 0; i < 257; i++) source = '{"value":1,"child":' + source + "}";
+
+  expectProductionReject<ProductionSafetyRecursiveNode>(source);
+
+  const healthy = JSON.parse<ProductionSafetyRecursiveNode>(
+    '{"value":7,"child":null}',
+  );
+  expect(healthy.value).toBe(7);
+  expect(healthy.child).toBeNull();
+  expect(JSON.stringify(healthy)).toBe('{"value":7,"child":null}');
+});
+
+describe("typed arrays do not preallocate from whitespace span", () => {
+  const source = "[0" + " ".repeat(8 << 20) + "]";
+  const pagesBefore = memory.size();
+  const parsed = JSON.parse<Float64Array>(source);
+  const pagesAfter = memory.size();
+
+  expect(parsed.length).toBe(1);
+  expect(parsed[0]).toBe(0.0);
+  expect(pagesAfter - pagesBefore <= 8).toBe(true);
+});
+
+describe("dynamic objects preserve oversized keys without corrupting slots", () => {
+  const key = "a".repeat(65_536);
+  const obj = JSON.parse<JSON.Obj>('{"' + key + '":1}');
+  const keys = obj.keys();
+  expect(keys.length).toBe(1);
+  expect(keys[0]).toBe(key);
+  expect(obj.has(key)).toBe(true);
+  obj.set("z", 2);
+  expect(JSON.stringify(obj)).toBe('{"' + key + '":1,"z":2}');
+});
+
+describe("production parsing rejects integer range overflow", () => {
+  expectProductionReject<u8>("256");
+  expectProductionReject<u8>("-1");
+  expectProductionReject<i8>("128");
+  expectProductionReject<i8>("-129");
+  expectProductionReject<u64>("18446744073709551616");
+  expectProductionReject<i64>("9223372036854775808");
+  expectProductionReject<i64>("-9223372036854775809");
+  expectProductionReject<ProductionSafetyNarrowInteger>('{"value":256}');
+  expectProductionReject<u8[]>("[256]");
+  expectProductionReject<u32[]>("[4294967296]");
+  expectProductionReject<u32[]>("[18446744073709551616]");
+  expectProductionReject<i32[]>("[2147483648]");
+  expectProductionReject<i32[]>("[-2147483649]");
+  expectProductionReject<Uint8Array>("[256]");
+
+  const healthy = JSON.parse<ProductionSafetyNarrowInteger>('{"value":7}');
+  expect(healthy.value).toBe(7);
 });
 
 describe("production parsing reports cold malformed paths at the boundary", () => {

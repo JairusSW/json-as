@@ -4,6 +4,7 @@ import { isSpace } from "../../../util";
 import { markProductionParseError } from "../../error";
 import { ensureArrayElementSlot, ensureArrayField } from "./shared";
 import { parse4Digits_PairMul } from "../../../util/swar-int";
+import { validateJSONIntegerRange } from "../../../util/validateJson";
 
 // Store helpers parameterised on the element type `E` directly, so they
 // serve both `Array<E>` and `TypedArray<E>` callers. The integer-array
@@ -55,6 +56,12 @@ export function parseSignedIntegerSWAR<E extends number>(
   srcEnd: usize,
   slot: usize,
 ): usize {
+  const tokenStart = srcStart;
+  if (sizeof<E>() == 8) {
+    const tokenEnd = validateJSONIntegerRange<E>(srcStart, srcEnd, false);
+    if (!tokenEnd) return 0;
+    srcEnd = tokenEnd;
+  }
   let negative = false;
   let code = load<u16>(srcStart);
   if (code == 45) {
@@ -94,6 +101,16 @@ export function parseSignedIntegerSWAR<E extends number>(
     srcStart += 2;
   }
 
+  const digits = i32((srcStart - tokenStart) >> 1) - (negative ? 1 : 0);
+  if (
+    (sizeof<E>() == 1 && (digits > 3 || value > (negative ? 128 : 127))) ||
+    (sizeof<E>() == 2 &&
+      (digits > 5 || value > (negative ? 32_768 : 32_767))) ||
+    (sizeof<E>() == 4 &&
+      (digits > 10 || value > (negative ? 2_147_483_648 : 2_147_483_647)))
+  )
+    return 0;
+
   storeSignedIntegerE<E>(slot, negative ? -(<i64>value) : <i64>value);
   return srcStart;
 }
@@ -103,6 +120,12 @@ export function parseUnsignedIntegerSWAR<E extends number>(
   srcEnd: usize,
   slot: usize,
 ): usize {
+  const tokenStart = srcStart;
+  if (sizeof<E>() == 8) {
+    const tokenEnd = validateJSONIntegerRange<E>(srcStart, srcEnd, false);
+    if (!tokenEnd) return 0;
+    srcEnd = tokenEnd;
+  }
   // Narrow-type path mirrors the NAIVE structure: a tight scan loop to find
   // the element terminator, then a fixed-count fold with no per-digit break.
   // TurboFan tends to schedule this better than a single combined
@@ -123,6 +146,8 @@ export function parseUnsignedIntegerSWAR<E extends number>(
       value = value * 10 + (<u32>load<u16>(p) - 48);
       p += 2;
     }
+    if (sizeof<E>() == 1 && value > 255) return 0;
+    if (sizeof<E>() == 2 && value > 65_535) return 0;
     storeUnsignedIntegerE<E>(slot, value);
     return srcStart;
   }
@@ -152,6 +177,14 @@ export function parseUnsignedIntegerSWAR<E extends number>(
     value = value * 10 + digit;
     srcStart += 2;
   }
+
+  const digits = i32((srcStart - tokenStart) >> 1);
+  if (
+    (sizeof<E>() == 4 && (digits > 10 || value > 4_294_967_295)) ||
+    (sizeof<E>() == 2 && (digits > 5 || value > 65_535)) ||
+    (sizeof<E>() == 1 && (digits > 3 || value > 255))
+  )
+    return 0;
 
   storeUnsignedIntegerE<E>(slot, value);
   return srcStart;
@@ -188,6 +221,10 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
 
     let code = load<u16>(srcStart);
     if (code == BRACKET_RIGHT) return out;
+    if (!validateJSONIntegerRange<valueof<T>>(srcStart, srcEnd, false)) {
+      markProductionParseError();
+      return changetype<T>(0);
+    }
 
     if (isSigned<valueof<T>>()) {
       let negative = false;
@@ -280,6 +317,8 @@ function deserializeIntegerArrayImpl<T extends number[]>(
 
       if (isSigned<valueof<T>>()) {
         while (srcStart < srcEnd) {
+          if (!validateJSONIntegerRange<valueof<T>>(srcStart, srcEnd, false))
+            break;
           let negative = false;
           let code = load<u16>(srcStart);
           if (code == 45) {
@@ -332,6 +371,8 @@ function deserializeIntegerArrayImpl<T extends number[]>(
         }
       } else {
         while (srcStart < srcEnd) {
+          if (!validateJSONIntegerRange<valueof<T>>(srcStart, srcEnd, false))
+            break;
           let digit = <u32>load<u16>(srcStart) - 48;
           if (digit > 9) break;
 
@@ -528,7 +569,12 @@ function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
           const d0 = <u32>(digits & 0xffff);
           const d1 = <u32>((digits >> 16) & 0xffff);
           const d2 = <u32>((digits >> 32) & 0xffff);
-          store<valueof<T>>(writePtr, <valueof<T>>(d0 * 100 + d1 * 10 + d2));
+          const value = d0 * 100 + d1 * 10 + d2;
+          if (value > 255) {
+            markProductionParseError();
+            return changetype<T>(0);
+          }
+          store<valueof<T>>(writePtr, <valueof<T>>value);
           writePtr += elementSize;
           srcStart += 8;
           continue;
@@ -562,6 +608,12 @@ function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
       while (srcStart < srcEnd) {
         const c = load<u16>(srcStart);
         if (c == COMMA || c == BRACKET_RIGHT || isSpace(c)) {
+          if (
+            !validateJSONIntegerRange<valueof<T>>(lastIndex, srcStart, true)
+          ) {
+            markProductionParseError();
+            return changetype<T>(0);
+          }
           let value: u64 = 0;
           let p = lastIndex;
           if (isSigned<valueof<T>>() && load<u16>(p) == 45) {

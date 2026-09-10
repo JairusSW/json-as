@@ -269,7 +269,8 @@ declare const JSON_MODE: JSONMode;
 
 /**
  * Whether strict RFC 8259 validation is enabled. Injected by the transform from
- * the `JSON_STRICT` build-time environment variable (default `false`).
+ * the `JSON_STRICT` build-time environment variable (default `true`). Set it
+ * to `false` only when every input is trusted and already validated.
  */
 declare const JSON_STRICT: bool;
 

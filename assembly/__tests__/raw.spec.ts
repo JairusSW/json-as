@@ -1,10 +1,31 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+let rawUnderTest = new JSON.Raw("null");
+
+function constructInvalidRaw(): void {
+  new JSON.Raw('0,"admin":true');
+}
+
+function setInvalidRaw(): void {
+  rawUnderTest.set("undefined");
+}
+
+function assignInvalidRaw(): void {
+  rawUnderTest.data = "[1,]";
+}
+
 describe("Should serialize JSON.Raw", () => {
   expect(
     JSON.stringify<JSON.Raw>(JSON.Raw.from('{"x":1.0,"y":2.0,"z":3.0}')),
   ).toBe('{"x":1.0,"y":2.0,"z":3.0}');
+});
+
+describe("Should reject invalid JSON.Raw injection", () => {
+  expect(constructInvalidRaw).toThrow();
+  expect(setInvalidRaw).toThrow();
+  expect(assignInvalidRaw).toThrow();
+  expect(rawUnderTest.data).toBe("null");
 });
 
 describe("Should deserialize JSON.Raw", () => {

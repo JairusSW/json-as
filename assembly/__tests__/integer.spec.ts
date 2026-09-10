@@ -83,7 +83,6 @@ describe("Should round-trip a wider unsigned integer matrix", () => {
 });
 
 describe("Should handle integer whitespace and zero variants", () => {
-  expect(JSON.stringify(JSON.parse<u32>("00042"))).toBe("42");
   expect(JSON.stringify(JSON.parse<i32[]>("[0,-1,2,-3,4]"))).toBe(
     "[0,-1,2,-3,4]",
   );

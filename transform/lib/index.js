@@ -19,7 +19,8 @@ const DEBUG = rawValue === "true"
         : isNaN(Number(rawValue))
             ? 0
             : Number(rawValue);
-const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
+const STRICT_DEFAULT = envFlagDefaultTrue(process.env["JSON_STRICT"]);
+const STRICT = false;
 const DEFAULT_JSON_CACHE_BYTES = 1 << 20;
 export function normalizeJsonAsBaseRel(baseRel) {
     if (baseRel.endsWith("json-as")) {
@@ -3139,6 +3140,10 @@ export class JSONTransform extends Visitor {
         const SOURCE_FREE_METHOD = sourceFreeDeserialize
             ? SimpleParser.parseClassMember("__DESERIALIZE_SOURCE_FREE(): void {}", node)
             : null;
+        const recursiveDeserialize = !sourceFreeDeserialize;
+        const RECURSIVE_METHOD = recursiveDeserialize
+            ? SimpleParser.parseClassMember("__DESERIALIZE_RECURSIVE(): void {}", node)
+            : null;
         const FULL_WRITE_METHOD = useFastPath && !supportsFastOptionalPath
             ? SimpleParser.parseClassMember("__DESERIALIZE_FULL_WRITE(): void {}", node)
             : null;
@@ -3193,6 +3198,9 @@ export class JSONTransform extends Visitor {
         if (SOURCE_FREE_METHOD &&
             !node.members.find((v) => v.name.text == "__DESERIALIZE_SOURCE_FREE"))
             node.members.push(SOURCE_FREE_METHOD);
+        if (RECURSIVE_METHOD &&
+            !node.members.find((v) => v.name.text == "__DESERIALIZE_RECURSIVE"))
+            node.members.push(RECURSIVE_METHOD);
         if (FULL_WRITE_METHOD &&
             !node.members.find((v) => v.name.text == "__DESERIALIZE_FULL_WRITE"))
             node.members.push(FULL_WRITE_METHOD);
@@ -3475,7 +3483,7 @@ export default class Transformer extends Transform {
                 MODE_TEXT +
                 " mode");
         program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE));
-        program.registerConstantInteger("JSON_STRICT", Type.bool, STRICT ? i64_one : i64_zero);
+        program.registerConstantInteger("JSON_STRICT", Type.bool, STRICT_DEFAULT ? i64_one : i64_zero);
         if (JSON_CACHE_CONFIG.enabled) {
             program.registerConstantInteger("JSON_CACHE", Type.bool, i64_one);
             program.registerConstantInteger("JSON_CACHE_SIZE", Type.u32, i64_new(JSON_CACHE_CONFIG.bytes));

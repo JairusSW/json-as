@@ -4,16 +4,10 @@
 // (count digit-starts, then call `JSON.__deserialize` per element which
 // re-scans the same digits). This rewrite replaces both passes:
 //
-//   - **No count pass.** TypedArrays have a fixed length at construction,
-//     so the natural approach is to count first then allocate. We tried
-//     that with a SWAR comma counter - it cut the per-element cost but
-//     kept us ~30% below the top-level `f64[]` path because the count
-//     scan still touched the whole input twice. Instead we allocate
-//     worst-case (`(srcEnd - srcStart) >> 2 + 1` elements - each
-//     element needs >= "D," = 2 UTF-16 chars = 4 bytes) and `__renew`
-//     the underlying buffer down to the exact byte count after parsing.
-//     The over-allocation peaks at ~2-3× the final size for typical
-//     payloads; the trim is a single `memory.copy` on the GC's terms.
+//   - **No count pass.** Narrow lanes use their non-amplifying source upper
+//     bound. Wider lanes start from a capped buffer and grow geometrically,
+//     then `__renew` to the exact byte count. Whitespace therefore cannot
+//     multiply source size into a large speculative allocation.
 //
 //   - **Inline parse.** The integer parsers come from `./array/integer.ts`
 //     (refactored to take element type `E` so the same
@@ -29,6 +23,7 @@ import {
   parseSignedIntegerSWAR,
   parseUnsignedIntegerSWAR,
 } from "./array/integer";
+import { markProductionParseError } from "../error";
 
 /**
  * SWAR TypedArray deserializer.
@@ -41,20 +36,6 @@ import {
  * Falls through to the underlying SWAR float / integer parsers; the
  * element type (`f32/f64/u8/i32/...`) is detected via `isFloat<E>()` /
  * `isSigned<E>()` and AS folds the type dispatch at compile time.
- */
-/**
- * Worst-case element count: each element occupies >= 1 digit + 1
- * delimiter = 2 UTF-16 chars = 4 bytes. So `(srcEnd - srcStart) >> 2`
- * upper-bounds the count. Allocating to worst-case lets us skip a
- * full count pass over the input - at the cost of an over-allocated
- * underlying buffer that we trim via `__renew` once we know the
- * actual element count.
- *
- * For a top-level f64[] payload of ~64 MiB JSON encoding 6M floats,
- * worst-case alloc is ~16M f64 = 128 MB temporarily. We trim back
- * to ~48 MB after parse. The trim is a wasm `memory.copy` (or just
- * a length update if the runtime supports in-place shrink), much
- * cheaper than a second 64 MB scan over the input.
  */
 export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   srcStart: usize,
@@ -80,21 +61,46 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   }
 
   const elementSize = sizeof<valueof<T>>();
-  const maxElements = i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
+  const sourceBound = i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
+  // One- and two-byte lanes cannot allocate more output bytes than the source
+  // itself, even at the densest valid encoding. Wider lanes are capped at a
+  // 64 KiB initial buffer so whitespace cannot multiply attacker-controlled
+  // input into a large speculative allocation.
+  const initialLimit =
+    elementSize <= 2 ? sourceBound : i32(65_536 / elementSize);
+  const initialCapacity =
+    sourceBound < initialLimit ? sourceBound : initialLimit;
   let out = changetype<T>(
-    dst || changetype<usize>(instantiate<T>(maxElements)),
+    dst || changetype<usize>(instantiate<T>(initialCapacity)),
   );
-  if (out.length != maxElements) {
-    out = changetype<T>(instantiate<T>(maxElements));
+  let capacity = out.length;
+  if (capacity == 0) {
+    capacity = initialCapacity > 0 ? initialCapacity : 1;
+    out = changetype<T>(instantiate<T>(capacity));
   }
 
-  const dataStart = out.dataStart;
+  let dataStart = out.dataStart;
   let writePtr = dataStart;
 
   // Parse loop. Each element parses into the slot at `writePtr`, then
   // the separator (`,` or `]`) is consumed. Whitespace surrounding the
   // separator is skipped to match the naive variant's behaviour.
   while (srcStart < srcEnd) {
+    const count = i32(<usize>(writePtr - dataStart) / elementSize);
+    if (count == capacity) {
+      if (capacity > i32.MAX_VALUE >> 1) {
+        markProductionParseError();
+        return changetype<T>(0);
+      }
+      const nextCapacity = capacity << 1;
+      const grown = changetype<T>(instantiate<T>(nextCapacity));
+      memory.copy(grown.dataStart, dataStart, <usize>capacity * elementSize);
+      out = grown;
+      capacity = nextCapacity;
+      dataStart = out.dataStart;
+      writePtr = dataStart + <usize>count * elementSize;
+    }
+
     let next: usize = 0;
     if (isFloat<valueof<T>>()) {
       next = parseFloatElementSWAR<valueof<T>>(srcStart, srcEnd, writePtr);
@@ -103,7 +109,10 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
     } else {
       next = parseUnsignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, writePtr);
     }
-    if (!next) break;
+    if (!next) {
+      markProductionParseError();
+      return changetype<T>(0);
+    }
     writePtr += elementSize;
     srcStart = next;
     if (srcStart >= srcEnd) break;
@@ -127,7 +136,7 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   // structure has `buffer`, `dataStart` (= buffer), `byteLength`
   // (capacity in bytes) in that order - same layout as ArrayBufferView.
   const actualCount = i32(<usize>(writePtr - dataStart) / elementSize);
-  if (actualCount != maxElements) {
+  if (actualCount != capacity) {
     const actualBytes = <usize>actualCount * elementSize;
     const oldBuffer = changetype<ArrayBuffer>(
       load<usize>(changetype<usize>(out)),
@@ -179,23 +188,43 @@ export function deserializeArrayBuffer_SWAR(
     return out;
   }
 
-  // Worst-case byte count: each element is `D,` minimum = 4 bytes.
-  const maxBytes = i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
-  let out = dst ? changetype<ArrayBuffer>(dst) : new ArrayBuffer(maxBytes);
-  if (out.byteLength != maxBytes) {
-    out = new ArrayBuffer(maxBytes);
+  // A byte array's maximum element count is bounded by half the source code
+  // units, so this upper-bound allocation cannot amplify input memory.
+  const initialCapacity = i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
+  let out = dst
+    ? changetype<ArrayBuffer>(dst)
+    : new ArrayBuffer(initialCapacity);
+  let capacity = out.byteLength;
+  if (capacity == 0) {
+    capacity = initialCapacity > 0 ? initialCapacity : 1;
+    out = new ArrayBuffer(capacity);
   }
 
-  const dataStart = changetype<usize>(out);
+  let dataStart = changetype<usize>(out);
   let writePtr: usize = 0;
 
   while (srcStart < srcEnd) {
+    if (writePtr == <usize>capacity) {
+      if (capacity > i32.MAX_VALUE >> 1) {
+        markProductionParseError();
+        return changetype<ArrayBuffer>(0);
+      }
+      const nextCapacity = capacity << 1;
+      const grown = new ArrayBuffer(nextCapacity);
+      memory.copy(changetype<usize>(grown), dataStart, writePtr);
+      out = grown;
+      capacity = nextCapacity;
+      dataStart = changetype<usize>(out);
+    }
     const next = parseUnsignedIntegerSWAR<u8>(
       srcStart,
       srcEnd,
       dataStart + writePtr,
     );
-    if (!next) break;
+    if (!next) {
+      markProductionParseError();
+      return changetype<ArrayBuffer>(0);
+    }
     writePtr += 1;
     srcStart = next;
     if (srcStart >= srcEnd) break;
@@ -214,7 +243,7 @@ export function deserializeArrayBuffer_SWAR(
 
   // Trim to actual byte count via `__renew`.
   const actualBytes = i32(writePtr);
-  if (actualBytes != maxBytes) {
+  if (actualBytes != capacity) {
     out = changetype<ArrayBuffer>(
       __renew(changetype<usize>(out), <usize>actualBytes),
     );

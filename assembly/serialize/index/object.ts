@@ -49,12 +49,12 @@ export function serializeObject(src: JSON.Obj): void {
   let pos = 0;
   let i = 0;
   while (pos < kused) {
-    const len = <i32>load<u16>(kbuf + ((<usize>pos) << 1));
+    const len = <i32>load<u32>(kbuf + ((<usize>pos) << 1));
     if (i != 0) {
       store<u16>(bs.offset, COMMA);
       bs.offset += 2;
     }
-    serializeStringRange(kbuf + ((<usize>(pos + 1)) << 1), (<usize>len) << 1);
+    serializeStringRange(kbuf + ((<usize>(pos + 2)) << 1), (<usize>len) << 1);
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
 
@@ -75,7 +75,7 @@ export function serializeObject(src: JSON.Obj): void {
       const nb = v.__bits();
       if (nb != slot) unchecked((vals[i] = nb));
     }
-    pos += 1 + len;
+    pos += 2 + len;
     i++;
   }
 

@@ -185,10 +185,6 @@ describe("Should parse the pow10 lookup table across the f64 range", () => {
 
   expect(JSON.parse<f64>("3.125e+2").toString()).toBe("312.5");
   expect(JSON.parse<f64>("3.125e-2").toString()).toBe("0.03125");
-
-  // NaN through both f32 and f64 paths.
-  expect(JSON.parse<f32>("NaN").toString()).toBe("NaN");
-  expect(JSON.parse<f64>("NaN").toString()).toBe("NaN");
 });
 
 describe("Should populate f64/f32 struct fields with default-offset stores", () => {

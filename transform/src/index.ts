@@ -53,8 +53,11 @@ const DEBUG =
         ? 0
         : Number(rawValue);
 
-const STRICT =
-  process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
+const STRICT_DEFAULT = envFlagDefaultTrue(process.env["JSON_STRICT"]);
+// Complete-document validation at JSON.parse is authoritative. Keep generated
+// field dispatch permissive so valid unknown fields remain forward-compatible;
+// rejecting malformed syntax here is redundant once JSON_STRICT is enabled.
+const STRICT = false;
 const DEFAULT_JSON_CACHE_BYTES = 1 << 20;
 
 /**
@@ -4475,6 +4478,17 @@ export class JSONTransform extends Visitor {
           node,
         )
       : null;
+    // Any generated type containing a composite member may participate in an
+    // indirect cycle (A -> B -> A), even when its own name is absent from the
+    // immediate field spelling. Mark the conservative set; source-free scalar
+    // schemas cannot recurse and avoid the extra depth scan in relaxed builds.
+    const recursiveDeserialize = !sourceFreeDeserialize;
+    const RECURSIVE_METHOD = recursiveDeserialize
+      ? SimpleParser.parseClassMember(
+          "__DESERIALIZE_RECURSIVE(): void {}",
+          node,
+        )
+      : null;
     // A successful straight-line fast parse assigns every declared field. A
     // fresh object can therefore start zeroed instead of constructing defaults;
     // on a fast miss parseInternal initializes normally before the slow retry.
@@ -4565,6 +4579,11 @@ export class JSONTransform extends Visitor {
       !node.members.find((v) => v.name.text == "__DESERIALIZE_SOURCE_FREE")
     )
       node.members.push(SOURCE_FREE_METHOD);
+    if (
+      RECURSIVE_METHOD &&
+      !node.members.find((v) => v.name.text == "__DESERIALIZE_RECURSIVE")
+    )
+      node.members.push(RECURSIVE_METHOD);
     if (
       FULL_WRITE_METHOD &&
       !node.members.find((v) => v.name.text == "__DESERIALIZE_FULL_WRITE")
@@ -5056,7 +5075,7 @@ export default class Transformer extends Transform {
     program.registerConstantInteger(
       "JSON_STRICT",
       Type.bool,
-      STRICT ? i64_one : i64_zero,
+      STRICT_DEFAULT ? i64_one : i64_zero,
     );
     if (JSON_CACHE_CONFIG.enabled) {
       program.registerConstantInteger("JSON_CACHE", Type.bool, i64_one);

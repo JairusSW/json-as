@@ -675,6 +675,8 @@ Lazy cost scales with how much you actually read. For each payload (vec3 → lar
 Instead of using flags for setting options, `json-as` is configured by environmental variables.
 Here's a short list:
 
+**JSON_STRICT** (default: true) - Validates each input as one complete RFC 8259 JSON value before deserialization. This is the safe setting for untrusted input. `JSON_STRICT=false` is an explicit trusted-input performance opt-out; the typed recursive-depth limit and integer range checks remain enforced.
+
 **JSON_CACHE** (default: 0) - Enables and sizes string cache. Supports `true|false`, raw bytes (`JSON_CACHE=1048576`), bits (`JSON_CACHE=512kb`, `2mb`, `1gb`), and bytes (`JSON_CACHE=64KB`, `2MB`, `1GB`). May boost string serialization in excess of 22 GB/s.
 
 **JSON_DEBUG** (default: 0) - Sets the debug level. May be within range `0-3`
