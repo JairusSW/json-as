@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2026-09-10 - v1.6.2
 
 - security: bound recursive typed-struct parsing at 256 levels before generated recursion, preventing malformed abort pointers and persistent WebAssembly instance poisoning.
 - security: validate SWAR/SIMD string boundaries, integer target ranges, oversized dynamic-object keys, and `JSON.Raw` values; strict RFC validation is now enabled by default with an explicit `JSON_STRICT=false` trusted-input opt-out.
