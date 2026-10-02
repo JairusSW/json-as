@@ -17,6 +17,56 @@ function wideSource(count: i32): string {
   return src + "}";
 }
 
+function wideDeferredSource(mutated: bool = false): string {
+  const fields = new Array<string>(2049);
+  fields[0] = '"payload":"' + "d".repeat(131072) + '"';
+  for (let i = 0; i < 2048; i++) {
+    const value = i.toString();
+    let field = '"entry' + value + '":';
+    switch (i & 3) {
+      case 0:
+        field += '"value' + value + '"';
+        break;
+      case 1:
+        field += "[" + value + ',"item' + value + '"]';
+        break;
+      case 2:
+        field += '{"value":' + value + ',"label":"nested' + value + '"}';
+        break;
+      default:
+        field += mutated && i == 2047 ? "-1" : value;
+        break;
+    }
+    fields[i + 1] = field;
+  }
+  return "{" + fields.join(",") + "}";
+}
+
+// Keep construction and parsing outside the collecting caller's stack frame.
+// Only the returned object should retain the dynamically allocated source.
+function parseWideDeferred(): JSON.Obj {
+  return JSON.parse<JSON.Obj>(wideDeferredSource());
+}
+
+// Assert booleans for strings so the test framework does not root the values.
+function expectPayload(obj: JSON.Obj): void {
+  expect(obj.getAs<string>("payload") == "d".repeat(131072)).toBe(true);
+}
+
+function expectDeferredGroup(obj: JSON.Obj, first: i32): void {
+  const str = first.toString();
+  const arr = (first + 1).toString();
+  const nested = (first + 2).toString();
+  expect(obj.getAs<string>("entry" + str) == "value" + str).toBe(true);
+  const items = obj.getAs<JSON.Arr>("entry" + arr);
+  expect(items.length).toBe(2);
+  expect(items.getAs<f64>(0)).toBe(<f64>(first + 1));
+  expect(items.getAs<string>(1) == "item" + arr).toBe(true);
+  const inner = obj.getAs<JSON.Obj>("entry" + nested);
+  expect(inner.getAs<f64>("value")).toBe(<f64>(first + 2));
+  expect(inner.getAs<string>("label") == "nested" + nested).toBe(true);
+}
+
 describe("JSON.Obj reserve: a large string does not inflate parse buffers", () => {
   const big = "x".repeat(131072);
   const src = '{"payload":"' + big + '"}';
@@ -85,7 +135,49 @@ describe("JSON.Obj reserve: wide objects grow beyond the initial estimate", () =
   expect(obj.getAs<f64>("entry2047")).toBe(2047.0);
   expect(obj.has("absent")).toBe(false);
   expect(obj.keys().length).toBe(2048);
+  // A same-value write disables raw passthrough without changing the output.
+  obj.set<f64>("entry2047", 2047.0);
   expect(JSON.stringify(obj)).toBe(src);
+});
+
+describe("JSON.Obj reserve: grown lazy slots retain their source across GC", () => {
+  const obj = parseWideDeferred();
+  __collect();
+
+  expect(obj.size).toBe(2049);
+  expect(backingBytes(obj) > 32768).toBe(true);
+  expect(obj._kused > 8192).toBe(true);
+  expect(obj._kpos.length >= obj.size).toBe(true);
+  expect(obj._vals.length >= obj.size).toBe(true);
+  expect(JSON.Value.slotIsLazy(unchecked(obj._vals[0]))).toBe(true);
+
+  // Include lazy values on both sides of the 256/512/1024 slot-growth
+  // boundaries, plus the first and last groups. Slot 0 is the large payload.
+  const groups = [0, 252, 256, 508, 512, 1020, 1024, 2044];
+  for (let i = 0; i < groups.length; i++) {
+    const first = unchecked(groups[i]);
+    for (let j = 0; j < 3; j++) {
+      expect(JSON.Value.slotIsLazy(unchecked(obj._vals[first + j + 1]))).toBe(
+        true,
+      );
+    }
+    expectDeferredGroup(obj, first);
+  }
+
+  // All materialization helpers have returned before collecting again, so
+  // cached strings and containers must now be traced through the grown slots.
+  __collect();
+  for (let i = 0; i < groups.length; i++) {
+    expectDeferredGroup(obj, unchecked(groups[i]));
+  }
+  expectPayload(obj);
+  expect(obj.getAs<f64>("entry2047")).toBe(2047.0);
+  // Leave the other deferred slots untouched for the serializer to consume.
+  expect(JSON.Value.slotIsLazy(unchecked(obj._vals[5]))).toBe(true);
+  obj.set<f64>("entry2047", -1.0);
+  __collect();
+  // Build the expected source only after the lifetime checks and collections.
+  expect(JSON.stringify(obj)).toBe(wideDeferredSource(true));
 });
 
 describe("JSON.Obj reserve: long keys grow the key buffer without truncation", () => {
