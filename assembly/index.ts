@@ -1436,12 +1436,14 @@ export namespace JSON {
     constructor() {}
 
     /**
-     * Pre-sizes the three flat parse buffers from the source span. The parser
-     * still grows normally if an unusual key-heavy document exceeds the
-     * estimate; ordinary API-shaped objects avoid the repeated 8→16→32...
-     * allocation/copy ladder.
+     * Pre-sizes the three flat parse buffers from a bounded source span.
+     * Large or nested values do not imply many keys in this object, so limit
+     * speculative reservation to the first 16,384 UTF-16 code units. Actual
+     * keys and slots still grow normally beyond the estimate; ordinary
+     * API-shaped objects avoid the repeated 8→16→32... allocation/copy ladder.
      */
     reserveForParse(sourceUnits: usize): void {
+      sourceUnits = min<usize>(sourceUnits, 16384);
       let keyNeed = <i32>((sourceUnits + 2) / 3);
       if (keyNeed < 16) keyNeed = 16;
       let keyCap = 16;
