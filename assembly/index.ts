@@ -1810,22 +1810,16 @@ export namespace JSON {
 
     /**
      * Gets a value by key as a JSON.Value (dynamic access).
+     * Deferred slots are parsed and cached on access, as with `getAs`. The
+     * returned wrapper holds the same nested object/array reference as the
+     * slot; replacing the wrapper's value does not replace the slot (use `set`).
      * @param key - The key to look up
      * @returns The JSON.Value or null if not found
      */
     get(key: string): JSON.Value | null {
       const i = this.indexOf(key);
       if (i < 0) return null;
-      const slot = unchecked(this._vals[i]);
-      if (JSON.Value.slotIsLazy(slot)) {
-        // Hand back a self-contained lazy value (its own slice + anchor) so it
-        // can materialize independently of this object.
-        const base = changetype<usize>(this._src);
-        const start = JSON.Value.slotPtr(slot, base);
-        const end = JSON.Value.slotEnd(slot, base, this.srcEnd());
-        return JSON.Value.fromSlice(start, end, this._src);
-      }
-      return JSON.Value.fromBits(slot);
+      return JSON.Value.fromBits(this.materializeSlot(i));
     }
 
     /**
@@ -1924,22 +1918,15 @@ export namespace JSON {
 
     /**
      * Gets all values in the object.
+     * Deferred slots are parsed and cached, sharing nested references with
+     * `get` and `getAs`. Each returned wrapper is independently replaceable.
      * @returns Array of JSON.Value instances (in insertion order)
      */
     values(): JSON.Value[] {
       const n = this._vused;
       const out = new Array<JSON.Value>(n);
-      const base = changetype<usize>(this._src);
-      const srcEnd = this.srcEnd();
       for (let i = 0; i < n; i++) {
-        const slot = unchecked(this._vals[i]);
-        if (JSON.Value.slotIsLazy(slot)) {
-          const start = JSON.Value.slotPtr(slot, base);
-          const end = JSON.Value.slotEnd(slot, base, srcEnd);
-          unchecked((out[i] = JSON.Value.fromSlice(start, end, this._src)));
-        } else {
-          unchecked((out[i] = JSON.Value.fromBits(slot)));
-        }
+        unchecked((out[i] = JSON.Value.fromBits(this.materializeSlot(i))));
       }
       return out;
     }
@@ -2107,17 +2094,14 @@ export namespace JSON {
       return bits;
     }
 
-    /** Element access as a JSON.Value: `arr.at(i)`. */
+    /**
+     * Element access as a JSON.Value: `arr.at(i)`. Deferred slots are parsed
+     * and cached, sharing nested references with `getAs`. Replacing the
+     * returned wrapper's value does not replace the slot (use `set`).
+     */
     at(index: i32): JSON.Value {
       if (<u32>index >= <u32>this._vused) throw new Error("Index out of range");
-      const slot = unchecked(this._vals[index]);
-      if (JSON.Value.slotIsLazy(slot)) {
-        const base = changetype<usize>(this._src);
-        const start = JSON.Value.slotPtr(slot, base);
-        const end = JSON.Value.slotEnd(slot, base, this.srcEnd());
-        return JSON.Value.fromSlice(start, end, this._src);
-      }
-      return JSON.Value.fromBits(slot);
+      return JSON.Value.fromBits(this.materializeSlot(index));
     }
 
     /**
@@ -2376,7 +2360,8 @@ export namespace JSON {
       return out;
     }
 
-    /** New JSON.Arr of elements passing `fn` (lazy-preserving). */
+    /** New JSON.Arr of elements passing `fn`. Visited slots are materialized;
+     *  their untouched descendants stay lazy. */
     filter(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
     ): JSON.Arr {
