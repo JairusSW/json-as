@@ -25,7 +25,10 @@ Kinds cover ASCII strings, mixed/null/numeric/boolean/nested values, all-null
 arrays, Unicode strings, nested arrays, and custom serializers at 8/256/4096
 items, with empty and two-code-unit separators. Results are specific to this
 runtime, compiler, machine and warmed workload. Retaining converted strings and
-a temporary reference array can trade tiny/all-null overhead for linear copying;
+a temporary reference array can trade tiny/all-null overhead for linear copying. Managed
+containers/structs take a conservative snapshot path so serializers that reuse
+aliased string or separator output preserve the original prefix-copy timing;
+that path creates linear-sized fragments before the final output copy. In all cases,
 use actual measurements rather than assuming every case is faster.
 
 To focus on tiny ASCII-string joins, set `JSON_JOIN_LENGTHS=0,1,2 JSON_JOIN_KINDS=0`

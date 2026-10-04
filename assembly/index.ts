@@ -2491,6 +2491,18 @@ export namespace JSON {
       if (n == 0) return "";
       if (n == 1) return this.elemStr(0);
 
+      // A serializer may overwrite aliased strings through stringify's public
+      // output-reuse argument. Containers can contain such serializers too.
+      // Unmaterialized JSON has no user objects, so lazy slots are safe here.
+      for (let i = 0; i < n; i++) {
+        const slot = unchecked(this._vals[i]);
+        if (valBoxed(slot)) {
+          const tag = valTag(slot);
+          if (tag >= JSON.Types.Object && tag != JSON.Types.Lazy)
+            return this.joinWithSnapshots(separator, n);
+        }
+      }
+
       // Convert each slot once, in order. In particular, stringify may invoke
       // user serializers or reuse its shared buffer, so do not convert again
       // while copying the result or build the join in that shared buffer.
@@ -2507,6 +2519,34 @@ export namespace JSON {
       // The standard string-array join allocates the final string once. The
       // wide length check above also makes its i32 size arithmetic safe.
       return joinStringArray(changetype<usize>(parts), n, separator);
+    }
+
+    /** Preserve concat's snapshot timing when conversions may run user code. */
+    private joinWithSnapshots(separator: string, n: i32): string {
+      const first = this.elemStr(0);
+      const second = separator + this.elemStr(1);
+      if (n == 2) return first + second;
+
+      const parts = new StaticArray<string>(n);
+      // The old loop did not copy the first string until after converting the
+      // second. Later prefixes and separators were already owned snapshots.
+      const firstCopy = first + "";
+      unchecked((parts[0] = firstCopy));
+      unchecked((parts[1] = second));
+      let length = <u64>firstCopy.length + <u64>second.length;
+      if (length > <u64>(OBJECT_MAXSIZE >> 1))
+        throw new RangeError("Invalid string length");
+      for (let i = 2; i < n; i++) {
+        const part = separator + this.elemStr(i);
+        length += <u64>part.length;
+        if (length > <u64>(OBJECT_MAXSIZE >> 1))
+          throw new RangeError("Invalid string length");
+        unchecked((parts[i] = part));
+      }
+      if (length == 0) return "";
+      // Each snapshot is copied once into the final result, never into a
+      // growing prefix. No shared stringify buffer is used for the join.
+      return joinStringArray(changetype<usize>(parts), n, "");
     }
 
     // See JSON.Obj.__visit - same custom GC visitor for the slot buffer.

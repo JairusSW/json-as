@@ -101,3 +101,51 @@ describe("JSON.Arr.join: rejects oversized output before allocation", () => {
     a.join("x".repeat(65536));
   }).toThrow();
 });
+
+let reusedElement: string = "";
+let reusedSeparator: string = "";
+
+
+@json
+class ReusesJoinOutput {
+
+  @serializer("string")
+  serialize(self: ReusesJoinOutput): string {
+    // The public output-reuse API can overwrite managed strings in place.
+    JSON.stringify<string>("bb", reusedElement);
+    JSON.stringify<string>("y", reusedSeparator);
+    return JSON.stringify<string>("done");
+  }
+}
+
+describe("JSON.Arr.join: snapshots earlier parts and separators before callbacks", () => {
+  reusedElement = JSON.stringify<string>("aa");
+  reusedSeparator = JSON.stringify<string>("x");
+  const a = new JSON.Arr();
+  a.push<string>(reusedElement);
+  a.push<string>("middle");
+  a.push<ReusesJoinOutput>(new ReusesJoinOutput());
+  expect(a.join(reusedSeparator)).toBe('"aa""x"middle"y""done"');
+});
+
+describe("JSON.Arr.join: the second conversion can still change the first string", () => {
+  reusedElement = JSON.stringify<string>("aa");
+  reusedSeparator = JSON.stringify<string>("x");
+  const a = new JSON.Arr();
+  a.push<string>(reusedElement);
+  a.push<ReusesJoinOutput>(new ReusesJoinOutput());
+  a.push<string>("tail");
+  expect(a.join(reusedSeparator)).toBe('"bb""y""done""y"tail');
+});
+
+describe("JSON.Arr.join: nested serializers preserve prior string snapshots", () => {
+  reusedElement = JSON.stringify<string>("aa");
+  reusedSeparator = JSON.stringify<string>("x");
+  const nested = new JSON.Obj();
+  nested.set<ReusesJoinOutput>("value", new ReusesJoinOutput());
+  const a = new JSON.Arr();
+  a.push<string>(reusedElement);
+  a.push<string>("middle");
+  a.push<JSON.Obj>(nested);
+  expect(a.join(reusedSeparator)).toBe('"aa""x"middle"y"{"value":"done"}');
+});
