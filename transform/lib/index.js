@@ -3579,8 +3579,8 @@ function toMemCDecl(n, indent) {
         offset += 4;
         n -= 4;
     }
-    if (n == 1)
-        out += `${indent}const codeS${(index += 1)} = load<u16>(keyStart, ${offset});\n`;
+    if (n == 2)
+        out += `${indent}const codeS${(index += 2)} = load<u16>(keyStart, ${offset});\n`;
     return out;
 }
 function toMemCCheck(data) {
@@ -3598,8 +3598,8 @@ function toMemCCheck(data) {
         offset += 4;
         n -= 4;
     }
-    if (n == 1)
-        out += ` && codeS${(index += 1)} == ${toU16(data, offset >> 1)}`;
+    if (n == 2)
+        out += ` && codeS${(index += 2)} == ${toU16(data, offset >> 1)}`;
     return out.slice(4);
 }
 function strToNum(data, simd = false, offset = 0) {
