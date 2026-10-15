@@ -104,15 +104,11 @@ export function serializeArbitrary(src: JSON.Value): void {
       break;
     case JSON.Types.String: {
       const str = src.get<string>();
-      // Reuse the cached escape class; classify once on first serialize. Clean
-      // strings (the common case) then emit as a single memcpy on every reuse.
-      let cls = src.__strClass();
-      if (cls == 0) {
-        cls = stringNeedsEscape(str) ? 2 : 1;
-        src.__setStrClass(cls);
-      }
-      if (cls == 1) serializeStringClean(str);
-      else serializeString(str);
+      // JSON.stringify(value, out) can overwrite a managed string through any
+      // alias without changing its pointer or length. Recheck the current bytes
+      // before taking the clean-copy path; a per-wrapper cache can be stale.
+      if (stringNeedsEscape(str)) serializeString(str);
+      else serializeStringClean(str);
       break;
     }
     case JSON.Types.Bool:
