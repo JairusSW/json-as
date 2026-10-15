@@ -1,4 +1,4 @@
-import { JSON } from "../..";
+import { JSON, JSONMode } from "../..";
 import { bs } from "../../../lib/as-bs";
 import { bytes } from "../../util/bytes";
 import { QUOTE } from "../../custom/chars";
@@ -104,11 +104,16 @@ export function serializeArbitrary(src: JSON.Value): void {
       break;
     case JSON.Types.String: {
       const str = src.get<string>();
-      // JSON.stringify(value, out) can overwrite a managed string through any
-      // alias without changing its pointer or length. Recheck the current bytes
-      // before taking the clean-copy path; a per-wrapper cache can be stale.
-      if (stringNeedsEscape(str)) serializeString(str);
-      else serializeStringClean(str);
+      // Output reuse can mutate any managed-string alias, so never cache its
+      // escape class. SIMD/SWAR check the current bytes while emitting them;
+      // avoid a separate scalar prescan in front of those optimized paths.
+      if (JSON_MODE != JSONMode.NAIVE) {
+        serializeString(str);
+      } else if (stringNeedsEscape(str)) {
+        serializeString(str);
+      } else {
+        serializeStringClean(str);
+      }
       break;
     }
     case JSON.Types.Bool:
