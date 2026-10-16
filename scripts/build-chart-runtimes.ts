@@ -1,13 +1,14 @@
 // Cross-runtime throughput chart for the classic payloads. Compares how fast the
 // SAME json-as NAIVE-mode bench deserializes the minified payloads under six
-// WebAssembly runtimes (WARP / wasmtime / wavm / wazero / v8 / bun). Every bar is
+// WebAssembly runtimes (Wago / wasmtime / wavm / wazero / v8 / bun). Every bar is
 // the runtime's own bench()-reported MB/s - see scripts/run-bench.runtimes.sh.
 //
 // Populate the logs first:
-//   WARP_SRC=/path/to/wasm-compiler bash scripts/run-bench.runtimes.sh
+//   bash scripts/run-bench.runtimes.sh
 // Then:
 //   bun scripts/build-chart-runtimes.ts
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import {
   createBarChart,
   generateChart,
@@ -16,11 +17,11 @@ import {
 } from "./lib/bench-utils";
 import { rgba, BASE } from "./lib/palette";
 
-// One distinct hue per runtime; WARP (the subject) gets the hero blue.
+// One distinct hue per runtime; Wago (the subject) gets the hero blue.
 const RUNTIMES: { key: string; label: string; bg: string; border: string }[] = [
   {
-    key: "warp",
-    label: "WARP",
+    key: "wago",
+    label: "Wago",
     bg: rgba("pacificBlue", 0.9),
     border: BASE.pacificBlue,
   },
@@ -85,9 +86,52 @@ function sizeLabel(bytes: number): string {
   return mb >= 1 ? `${mb.toFixed(1)}MB` : `${Math.round(bytes / 1e3)}KB`;
 }
 
+// Isolate Chart.js/canvas state between chart kinds, including PNG DPR state.
+const selectedKind = process.argv[2];
+if (!selectedKind) {
+  for (const kind of ["deserialize", "serialize"]) {
+    execFileSync(process.execPath, [process.argv[1], kind], {
+      stdio: "inherit",
+    });
+  }
+  process.exit(0);
+}
+if (selectedKind !== "deserialize" && selectedKind !== "serialize") {
+  throw new Error(`Unknown chart kind: ${selectedKind}`);
+}
+
 fs.mkdirSync("./build/charts", { recursive: true });
 
-for (const kind of ["deserialize", "serialize"] as BenchKind[]) {
+// Keep the chart inputs alongside published images for reproducibility.
+const results = Object.fromEntries(
+  RUNTIMES.map(({ key }) => [
+    key,
+    Object.fromEntries(
+      DATASETS.map(({ key: suite }) => [
+        suite,
+        Object.fromEntries(
+          (["deserialize", "serialize"] as BenchKind[]).map((kind) => [
+            kind,
+            read(key, `${suite}-min`, kind),
+          ]),
+        ),
+      ]),
+    ),
+  ]),
+);
+fs.writeFileSync(
+  "./build/charts/runtimes-results.json",
+  JSON.stringify(
+    {
+      wagoDependencies: fs.readFileSync("bench/runners/wago/go.mod", "utf8"),
+      results,
+    },
+    null,
+    2,
+  ) + "\n",
+);
+
+for (const kind of [selectedKind] as BenchKind[]) {
   const chartData: Record<string, BenchResult[]> = {};
   const payloadLabels: Record<string, string> = {};
   let present = 0;
@@ -109,19 +153,21 @@ for (const kind of ["deserialize", "serialize"] as BenchKind[]) {
     continue;
   }
 
-  const config = createBarChart(chartData, payloadLabels, {
-    title: TITLES[kind],
-    yLabel: "Throughput (MB/s)",
-    xLabel: "Classic payload",
-    datasetLabels: RUNTIMES.map((r) => r.label),
-    colors: RUNTIMES.map((r) => ({ bg: r.bg, border: r.border })),
-    yStep: 250,
-    labelAnchor: "end",
-    labelFontSize: 11,
-    labelRotation: -90,
-  });
+  const makeConfig = () =>
+    createBarChart(chartData, payloadLabels, {
+      title: TITLES[kind],
+      runtimeLabel: "Six runtimes · NAIVE",
+      yLabel: "Throughput (MB/s)",
+      xLabel: "",
+      datasetLabels: RUNTIMES.map((r) => r.label),
+      colors: RUNTIMES.map((r) => ({ bg: r.bg, border: r.border })),
+      yStep: 250,
+      labelAnchor: "end",
+      labelFontSize: 11,
+      labelRotation: -90,
+    });
 
   const out = `./build/charts/runtimes-${kind}`;
-  generateChart(config, `${out}.svg`);
-  generateChart(config, `${out}.png`);
+  generateChart(makeConfig(), `${out}.svg`);
+  generateChart(makeConfig(), `${out}.png`);
 }

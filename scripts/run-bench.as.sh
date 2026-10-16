@@ -18,6 +18,7 @@ MODE_FILTER=${JSON_MODE:-""}
 TURBOFAN_FLAGS=${TURBOFAN_FLAGS:-"--no-liftoff"}
 D8_BIN=${D8_BIN:-""}
 WAVM_BIN=${WAVM_BIN:-"wavm"}
+WAZERO_BIN=${WAZERO_BIN:-"wazero"}
 WAVM_RUN_FLAGS=${WAVM_RUN_FLAGS:-"--abi=wasi --enable simd --enable bulk-memory --enable sign-extension"}
 # Deserialize-biased alternative to try manually:
 # TURBOFAN_FLAGS="--no-liftoff --no-wasm-stack-checks --no-wasm-bounds-checks --no-wasm-tier-up --minor-ms --minor-ms-concurrent-marking-trigger=30 --turboshaft-wasm-load-elimination"
@@ -25,6 +26,8 @@ BENCH_NAME=""
 ARGS=()
 RUN_V8=0
 RUN_WAVM=0
+RUN_WAZERO=0
+RUN_WAGO=0
 BENCH_MEMORY=0
 
 read -r -a WAVM_RUN_FLAGS_ARR <<< "$WAVM_RUN_FLAGS"
@@ -44,6 +47,17 @@ while [[ $# -gt 0 ]]; do
       RUN_WAVM=1
       shift
       ;;
+    --wazero)
+      RUN_WAZERO=1
+      shift
+      ;;
+    --wago)
+      RUN_WAGO=1
+      shift
+      ;;
+    --)
+      shift
+      ;;
     --memory)
       BENCH_MEMORY=1
       shift
@@ -55,8 +69,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Preserve the historical default: V8 only. Pass --wavm or --v8 --wavm explicitly for WAVM runs.
-if [[ $RUN_V8 -eq 0 && $RUN_WAVM -eq 0 ]]; then
+# Preserve the historical default: V8 only unless a runtime is selected.
+if [[ $RUN_V8 -eq 0 && $RUN_WAVM -eq 0 && $RUN_WAZERO -eq 0 && $RUN_WAGO -eq 0 ]]; then
   RUN_V8=1
 fi
 
@@ -78,6 +92,24 @@ if [[ $RUN_WAVM -eq 1 ]]; then
     echo "❌ wavm not found in PATH (or WAVM_BIN is invalid)"
     exit 1
   fi
+fi
+
+if [[ $RUN_WAZERO -eq 1 ]]; then
+  if ! command -v "$WAZERO_BIN" >/dev/null 2>&1; then
+    echo "❌ wazero not found in PATH (or WAZERO_BIN is invalid)"
+    exit 1
+  fi
+fi
+
+if [[ $RUN_WAGO -eq 1 ]]; then
+  if ! command -v go >/dev/null 2>&1; then
+    echo "❌ Go is required to build the pinned Wago WASI runner"
+    exit 1
+  fi
+  WAGO_HOST="$ROOT_DIR/build/runtimes/wago-run"
+  mkdir -p "$(dirname "$WAGO_HOST")"
+  echo "Building wago-run (pinned Wago + WASI dependencies)..."
+  (cd bench/runners/wago && GOWORK=off go build -mod=readonly -o "$WAGO_HOST" .)
 fi
 
 if [[ ${#ARGS[@]} -gt 0 ]]; then
@@ -118,7 +150,7 @@ if [[ -n "$BENCH_NAME" ]]; then
     # Directory form (`multilib/`, `custom/`, `throughput/`): run every bench in
     # that subdir.
     DIR_REL="${RAW_BENCH_NAME%/}"
-    for f in ./assembly/__benches__/$DIR_REL/*.bench.ts; do
+    for f in "./assembly/__benches__/$DIR_REL/"*.bench.ts; do
       [[ -f "$f" ]] && FILES+=("$f")
     done
 
@@ -203,6 +235,7 @@ run_v8_module() {
 
 consume_bench_output() {
   local tmp="$1"
+  local engine="${2:-wavm}"
 
   while IFS= read -r line; do
     if [[ "$line" == __AS_BENCH_JSON__* ]]; then
@@ -210,6 +243,7 @@ consume_bench_output() {
       payload="${line#__AS_BENCH_JSON__}"
       file_name="${payload%%$'\t'*}"
       json="${payload#*$'\t'}"
+      file_name="${file_name%.wavm.json}.${engine}.json"
       mkdir -p "$(dirname "$file_name")"
       printf "%s" "$json" >"$file_name"
     else
@@ -218,20 +252,32 @@ consume_bench_output() {
   done <"$tmp"
 }
 
-run_wavm_module() {
-  local wasm_arg="$1"
+run_wasi_module() {
+  local engine="$1"
+  local wasm_arg="$2"
   local tmp
   tmp="$(mktemp)"
 
-  # Mount the project root as the WASI root (fd 3) so file-reading benches
-  # (canada/twitter/... via readFile) can open payloads by relative path.
-  if ! "$WAVM_BIN" run --mount-root "$ROOT_DIR" "${WAVM_RUN_FLAGS_ARR[@]}" "./build/$wasm_arg" >"$tmp" 2>&1; then
+  # Every WASI runtime sees the project root at / for payload reads.
+  local status=0
+  case "$engine" in
+    wavm)
+      "$WAVM_BIN" run --mount-root "$ROOT_DIR" "${WAVM_RUN_FLAGS_ARR[@]}" "./build/$wasm_arg" >"$tmp" 2>&1 || status=$?
+      ;;
+    wazero)
+      "$WAZERO_BIN" run -mount "$ROOT_DIR:/" "./build/$wasm_arg" >"$tmp" 2>&1 || status=$?
+      ;;
+    wago)
+      "$WAGO_HOST" "./build/$wasm_arg" >"$tmp" 2>&1 || status=$?
+      ;;
+  esac
+  if [[ $status -ne 0 ]]; then
     cat "$tmp"
     rm -f "$tmp"
-    return 1
+    return "$status"
   fi
 
-  consume_bench_output "$tmp"
+  consume_bench_output "$tmp" "$engine"
   rm -f "$tmp"
 }
 
@@ -284,7 +330,7 @@ build_v8_mode() {
   optimize_or_fallback "${output}.tmp" "$out_wasm" "${opt_flags[@]}"
 }
 
-build_wavm_mode() {
+build_wasi_mode() {
   local file="$1"
   local output="$2"
   local write_target="$3"
@@ -296,8 +342,8 @@ build_wavm_mode() {
     features+=(--enable simd)
   fi
 
-  JSON_AS_LIBRARY_SOURCE=assembly/index JSON_CACHE=0 JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.wavm.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --use AS_BENCH_RUNTIME_WAVM=1 --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json "${features[@]}" --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
-  mv "${output}.wavm.tmp" "$out_wasm"
+  JSON_AS_LIBRARY_SOURCE=assembly/index JSON_CACHE=0 JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.wasi.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --use AS_BENCH_RUNTIME_WAVM=1 --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json "${features[@]}" --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
+  mv "${output}.wasi.tmp" "$out_wasm"
 }
 
 should_run_mode() {
@@ -346,14 +392,21 @@ for file in "${FILES[@]}"; do
         done
       fi
 
-      if [[ $RUN_WAVM -eq 1 ]]; then
-        arg="${filename%.ts}.${runtime}.wavm.${mode_lower}.wasm"
-        if ! build_wavm_mode "$file" "$output" "$write_target" "$runtime" "$mode" "${output}.wavm.${mode_lower}.wasm"; then
-          echo "WAVM WASI $mode build failed"
+      if [[ $RUN_WAVM -eq 1 || $RUN_WAZERO -eq 1 || $RUN_WAGO -eq 1 ]]; then
+        arg="${filename%.ts}.${runtime}.wasi.${mode_lower}.wasm"
+        if ! build_wasi_mode "$file" "$output" "$write_target" "$runtime" "$mode" "./build/$arg"; then
+          echo "WASI $mode build failed"
           exit 1
         fi
-        echo -e "$filename (asc/$runtime/wavm/$mode_lower/wavm)\n"
-        run_wavm_module "$arg"
+        for wasi_engine in wavm wazero wago; do
+          case "$wasi_engine" in
+            wavm) [[ $RUN_WAVM -eq 1 ]] || continue ;;
+            wazero) [[ $RUN_WAZERO -eq 1 ]] || continue ;;
+            wago) [[ $RUN_WAGO -eq 1 ]] || continue ;;
+          esac
+          echo -e "$filename (asc/$runtime/$wasi_engine/$mode_lower/$wasi_engine)\n"
+          run_wasi_module "$wasi_engine" "$arg"
+        done
       fi
     done
   done

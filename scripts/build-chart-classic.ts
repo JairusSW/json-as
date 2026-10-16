@@ -100,6 +100,7 @@ for (const runtime of RUNTIMES) {
 
     let config = createBarChart(chartData, payloadLabels, {
       title: TITLES[kind],
+      runtimeLabel: runtime,
       yLabel: "Throughput (MB/s)",
       xLabel: "",
       datasetLabels: [

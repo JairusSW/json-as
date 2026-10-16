@@ -273,7 +273,7 @@ export function bench(
   // and run a full __collect() (untimed) between them. Each frame's allocation
   // churn stays bounded and the heap is reset between frames, which keeps
   // runtimes that destabilize under one long single-shot allocation loop (e.g.
-  // WARP) inside their safe envelope while still timing the same total ops. The
+  // constrained hosts) inside their safe envelope while still timing the same total ops. The
   // between-frame GC pauses are excluded from `elapsed`; the incremental GC that
   // runs *within* each frame is still timed, exactly as in the unframed loop.
   // Defaults to a single frame (identical to the original behavior).

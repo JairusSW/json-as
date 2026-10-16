@@ -512,138 +512,83 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 - **SWAR** — *SIMD-Within-A-Register*: processes 8 bytes at a time with ordinary 64-bit integer math. The default.
 - **SIMD** — true 128-bit vector scanning. Fastest on large and string-heavy payloads; enable with `--enable simd`.
 
-The mode is chosen per build via `JSON_MODE` (see [Performance Tuning](#performance-tuning)). Orthogonal to the scan mode, the generated **struct** path can be swapped for **[lazy](#lazy-fields)** fields (defer parsing until first access) or the fully dynamic, schema-less **`JSON.Obj`** path.
-
-> All figures below are **end-to-end**: deserialization includes allocating the destination object/array, not just scanning bytes — raw parser throughput is higher. Charts are generated locally and pushed to the [`docs`](https://github.com/JairusSW/json-as/tree/docs) branch, and reflect the **latest release** (older versions may differ).
->
-> Benchmark machine: AMD Ryzen 7 7800X3D (8 cores, 96 MB 3D V-Cache), 32 GB RAM, Zorin OS 18.1 (Linux 6.17). JavaScript baselines run on V8's turboshaft optimizer.
-
-📊 **[Browse the full chart set for this release →](https://github.com/JairusSW/json-as/tree/docs/charts/v1.5.0)**
+📊 **[Browse the full chart set for this release →](https://github.com/JairusSW/json-as/tree/docs/charts/v1.6.1)**
 
 ### Real-World Throughput
 
-The headline benchmark: nine standard JSON payloads — drawn from the [yyjson](https://github.com/ibireme/yyjson) and [`nativejson-benchmark`](https://github.com/miloyip/nativejson-benchmark) corpora — measured in all three scan modes, with the SIMD lazy-struct and dynamic `JSON.Obj` paths shown alongside.
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/classic-payload-deserialize-v8.svg" alt="Deserialization throughput across nine classic JSON payloads">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/classic-payload-deserialize-v8.svg" alt="Deserialization throughput across nine classic JSON payloads">
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/classic-payload-serialize-v8.svg" alt="Serialization throughput across nine classic JSON payloads">
-
-Each payload stresses a different document shape:
-
-| Payload | Size | What it stresses |
-|---------|------|------------------|
-| **Twitter** | 467 KB | API response, fully-modeled struct schema with `@optional` keys |
-| **Canada** | 2.1 MB | GeoJSON — deeply nested arrays of floating-point coordinates |
-| **CITM** | 500 KB | Concert catalog — dynamic-key `Map`s plus uniform struct arrays |
-| **Poet** | 3.3 MB | ~8,900 flat `{desc, name, id}` records — pure struct fast path |
-| **GitHub** | 53 KB | 30 GitHub events — a wide union of per-event-type fields |
-| **GSOC** | 3.1 MB | ~1,264 org records keyed by id (schema.org JSON-LD `Map`) |
-| **Lottie** | 289 KB | Vector-animation doc — structs over deeply variable layer data |
-| **otfcc** | 66.4 MB | OpenType font dump — 15 tables captured as `JSON.Raw` |
-| **FGO** | 48.8 MB | Game-data dump — 193 irregular tables as `Map<string, JSON.Raw>` |
-
-The five series in each chart:
-
-- **NAIVE / SWAR / SIMD** — the generated struct path under each scan backend, parsing every field into a typed schema.
-- **Lazy (SIMD)** — `@json({ lazy: "auto" })`: each field's raw slice is stored at parse time and decoded only on first access; on serialize, untouched fields stream their original bytes straight back out. Reading or rewriting a subset is dramatically cheaper — see [Lazy Fields](#lazy-fields).
-- **JSON.Obj (SIMD)** — a fully dynamic, schema-less parse into `JSON.Obj`, with no generated per-type code.
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/classic-payload-serialize-v8.svg" alt="Serialization throughput across nine classic JSON payloads">
 
 ### Comparison to JavaScript
 
-`json-as` against JavaScript's native `JSON`, parsed and stringified in a fresh V8 — as close to apples-to-apples as a Wasm-vs-native comparison gets.
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/overview-serialize.svg" alt="Performance Chart 1">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/overview-serialize.svg" alt="Performance Chart 1">
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/overview-deserialize.svg" alt="Performance Chart 2">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/overview-deserialize.svg" alt="Performance Chart 2">
 
 <details>
 <summary>String serialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/string-serialize.svg" alt="Performance Chart 3">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/string-serialize.svg" alt="Performance Chart 3">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/string-serialize-1mb.svg" alt="Performance Chart 7">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/string-serialize-1mb.svg" alt="Performance Chart 7">
 </details>
 
 <details>
 <summary>String deserialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/string-deserialize.svg" alt="Performance Chart 4">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/string-deserialize.svg" alt="Performance Chart 4">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/string-deserialize-1mb.svg" alt="Performance Chart 8">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/string-deserialize-1mb.svg" alt="Performance Chart 8">
 </details>
 
 <details>
 <summary>Object serialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/object-serialize.svg" alt="Performance Chart 5">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/object-serialize.svg" alt="Performance Chart 5">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/object-serialize-1mb.svg" alt="Performance Chart 9">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/object-serialize-1mb.svg" alt="Performance Chart 9">
 </details>
 
 <details>
 <summary>Object deserialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/object-deserialize.svg" alt="Performance Chart 6">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/object-deserialize.svg" alt="Performance Chart 6">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/object-deserialize-1mb.svg" alt="Performance Chart 10">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/object-deserialize-1mb.svg" alt="Performance Chart 10">
 </details>
 
 <details>
 <summary>Primitive (de)serialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/primitive-serialize.svg" alt="Primitive serialization performance">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/primitive-serialize.svg" alt="Primitive serialization performance">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/primitive-deserialize.svg" alt="Primitive deserialization performance">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/primitive-deserialize.svg" alt="Primitive deserialization performance">
 </details>
 
 ### Library Comparison
 
-How `json-as` stacks up against other JSON libraries on a ~5 KiB GitHub-repo payload: JavaScript's native `JSON` and `fast-json` (each in a fresh V8), plus the `assemblyscript-json` package. The `json-as` bars (generated struct, lazy struct, and dynamic `JSON.Obj`) are averaged across the NAIVE / SWAR / SIMD scan modes.
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/library-deserialize.svg" alt="Library comparison - deserialize throughput">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/library-deserialize.svg" alt="Library comparison - deserialize throughput">
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/library-serialize.svg" alt="Library comparison - serialize throughput">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/library-serialize.svg" alt="Library comparison - serialize throughput">
 
 ### Runtime Comparison
 
-How fast the **same** `json-as` classic bench deserializes the minified payloads across six WebAssembly runtimes — including [WARP](https://github.com/wasm-ecosystem/wasm-compiler), a single-pass compiler built for embedded targets, alongside the optimizing JITs (Wasmtime, WAVM), the pure-Go wazero, and JS engines (V8, Bun).
-
-Each runtime runs the real `bench()` lib (warm up, time the loop, report MB/s itself) on a `NAIVE`-mode build with a shared feature set (no SIMD / bulk-memory / non-trapping float-to-int) so the executed code is equivalent. The WASI runtimes read the payload over WASI; V8/Bun via an `env`-ABI host. WARP has no WASI and — by design ("no recursions") — can't re-enter the module from a host import, so it runs through a small custom C++ host that links `performance.now`/`console.log`/`writeFile` with the payload embedded. The timed run is split into small frames with a full GC between them (the bench lib's `BENCH_FRAMES`, applied to every runtime so the measurement is identical); this excludes stop-the-world GC pauses and keeps WARP — an embedded, single-shot-oriented compiler — inside its stable envelope. Even so, WARP's single-pass codegen lands within a few percent of the optimizing JITs.
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/runtimes-deserialize.svg" alt="Deserialization throughput across WebAssembly runtimes">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/runtimes-deserialize.svg" alt="Deserialization throughput across WebAssembly runtimes">
 
 <details>
 <summary>Serialization throughput (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/runtimes-serialize.svg" alt="Serialization throughput across WebAssembly runtimes">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/runtimes-serialize.svg" alt="Serialization throughput across WebAssembly runtimes">
 </details>
 
-Reproduce locally (the JS engines and standalone runtimes are auto-detected; point `WARP_SRC` at a [wasm-ecosystem/wasm-compiler](https://github.com/wasm-ecosystem/wasm-compiler) checkout with its libs built — see the script header for the cmake flags):
+Reproduce locally (requires Go for the Wago host; the other engines are auto-detected):
 
 ```bash
-WARP_SRC=/path/to/wasm-compiler npm run bench:runtimes
+npm run bench:runtimes
 npm run charts:runtimes
-```
-
-### Compiler Comparison
-
-A different axis: same source, same runtime (V8), different **compiler**. [warpo](https://github.com/wasm-ecosystem/warpo) is a next-generation AssemblyScript compiler; this compares `json-as` when built with stock `asc` vs `warpo`, each before and after a `wasm-opt -O4` pass.
-
-warpo produces consistently faster code on both directions, and the gap widens with number/structure density (Canada). `wasm-opt -O4` barely moves either (both already run binaryen optimizations), so the difference is the compilers' own codegen, not a missing post-pass.
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/warpo-vs-asc-deserialize.svg" alt="json-as deserialization: asc vs warpo compiler on V8">
-
-<details>
-<summary>Serialization (click to expand)</summary>
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/warpo-vs-asc-serialize.svg" alt="json-as serialization: asc vs warpo compiler on V8">
-</details>
-
-warpo can't run asc transform plugins, so the bench compiles the post-transform `.tmp.ts` (emitted via `JSON_WRITE`); see `scripts/run-bench.warpo.sh`. Reproduce:
-
-```bash
-npm run bench:warpo   # builds with asc + warpo, wasm-opt -O4 each, runs on v8
-npm run charts:warpo
+# Publish only these charts to the docs branch:
+bash scripts/publish-benchmarks.sh --runtimes --no-run
 ```
 
 ### Lazy Fields
@@ -652,22 +597,22 @@ Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "a
 
 Skipping the deferred fields makes deserialization several times faster, and the win grows with payload size:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/lazy-deserialize.svg" alt="Lazy deserialize: eager vs lazy by payload size">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/lazy-deserialize.svg" alt="Lazy deserialize: eager vs lazy by payload size">
 
 The proxy / filter / forward case - parse then re-serialize without reading the deferred fields - copies their raw bytes straight through:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/lazy-roundtrip.svg" alt="Lazy round-trip: eager vs lazy by payload size">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/lazy-roundtrip.svg" alt="Lazy round-trip: eager vs lazy by payload size">
 
 Re-emitting a parsed object forwards the untouched fields' raw bytes instead of rebuilding them:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/lazy-serialize.svg" alt="Lazy serialize: eager vs lazy by payload size">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/lazy-serialize.svg" alt="Lazy serialize: eager vs lazy by payload size">
 
 <details>
 <summary>Access-pattern comparison (click to expand)</summary>
 
 Lazy cost scales with how much you actually read. For each payload (vec3 → large) the chart compares a lazy parse that reads none, one, half, or all of its deferred fields against the eager full-parse baseline. Reading nothing or a single field is far faster than eager; reading everything approaches it (the work is deferred, not removed). SWAR only, since that's the mode the lazy fast-path is showcased in:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.5.0/lazy-access-pattern.svg" alt="Lazy mode access patterns: deferred-field reads vs eager baseline">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.6.1/lazy-access-pattern.svg" alt="Lazy mode access patterns: deferred-field reads vs eager baseline">
 </details>
 
 ### Performance Tuning
@@ -716,6 +661,16 @@ npm run bench:as
 npm run bench:js
 ```
 
+Select a WebAssembly runtime for an individual AS benchmark:
+
+```bash
+bun run bench:as -- medium.bench.ts --wago
+bun run bench:as -- medium.bench.ts --wazero
+bun run bench:as -- medium.bench.ts --wago --wazero --mode simd
+```
+
+Runtime flags can be combined with `--v8` and `--wavm`; V8 remains the default when no runtime flag is supplied. Wago builds its host from pinned dependencies and requires Go; wazero requires the `wazero` CLI in `PATH` (or `WAZERO_BIN`). Each selected WASI runtime executes the same compiled module per mode, with separate `.wago.json`, `.wazero.json`, or `.wavm.json` result files under `build/logs/as/<mode>/`.
+
 The AS suite includes **lazy variants** - `small.lazy.bench.ts`, `medium.lazy.bench.ts`, `large.lazy.bench.ts`, `token.lazy.bench.ts`, and `vec3.lazy.bench.ts` - which mark their structs `@json({ lazy: "auto" })` and dump to `<name>-lazy` logs, so eager and lazy can be compared side by side. Run one on its own with:
 
 ```bash
@@ -730,10 +685,12 @@ bun run bench:as medium.lazy --mode simd
 npm run charts:build
 ```
 
-Or run the full local benchmark flow in one step:
+To refresh every published benchmark category and the runtime comparison:
 
 ```bash
-npm run bench
+npm run bench:all -- --v8 --wavm
+npm run bench:runtimes
+npm run charts:build
 ```
 
 ## Debugging

@@ -25,7 +25,7 @@ export function serializeString_NAIVE(src: string): void {
  * without first materializing a heap `string`.
  */
 export function serializeStringRange(srcPtr: usize, srcSize: usize): void {
-  bs.proposeSize(srcSize + 4);
+  bs.proposeSize(u32(srcSize + 4));
   const srcEnd = srcPtr + srcSize;
 
   store<u16>(bs.offset, QUOTE);

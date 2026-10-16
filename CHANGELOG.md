@@ -1,10 +1,19 @@
 # Changelog
 
-## 2026-09-02
+## 2026-10-15 - v1.6.2
 
 - perf(deserialize): extend the generated one-pass keyed fallback to bounded scalar and collection-bearing schemas, and group fallback dispatch by encoded key length. Focused reordered mixed payloads improve by roughly 1.5x and unknown-field payloads by roughly 1.4x, with canonical input remaining flat.
 - fix(strict): make generated numeric and string field parsers reject malformed complete tokens without trapping, including leading zeros, incomplete fractions/exponents, raw string control characters, invalid escapes, and unterminated strings; float fallbacks now consume complete long exponents. Standalone RFC validation remains ahead of generated parsing.
 - bench/test: add tiered fallback and strict typed-parser benchmarks, direct generated-parser safety regressions, full public-boundary malformed-input coverage, and a measured deserialization performance plan.
+- perf(dynamic): bound `JSON.Obj` parse reservations so large deferred values do not cause oversized backing buffers, while allowing wide objects and long keys to grow safely ([#220](https://github.com/JairusSW/json-as/pull/220)).
+- perf(dynamic): assemble `JSON.Arr.join` output without quadratic prefix copying, preserving element snapshots when custom serializers mutate the array ([#221](https://github.com/JairusSW/json-as/pull/221)).
+- fix(dynamic): cache nested object and array access so repeated reads preserve identity and nested mutations survive serialization ([#222](https://github.com/JairusSW/json-as/pull/222)).
+- fix(transform): compare odd-length key tails correctly in generated deserializers, preventing similarly prefixed keys from matching the wrong field ([#223](https://github.com/JairusSW/json-as/pull/223)).
+- test(dynamic): add regressions for bounded object reservations, buffer growth and GC safety, repeated nested access, join scaling, and serializer side effects; compare large strings before asserting to avoid expensive assertion formatting.
+- bench: replace the WARP runtime comparison with a pinned Wago WASI runner and remove the Warpo compiler comparison tooling and dependency. Runtime charts include Wago results and identify the runtime, package version, and source revision.
+- bench: add `--wago` and `--wazero` to `bench:as` for individual benchmarks and directories, with combinable runtime flags, shared WASI builds, and separate result logs per runtime.
+- tooling: support runtime-only benchmark chart publication with `charts:publish -- --runtimes`, preserve other charts when publishing runtime results, and make README chart URL updates work across platforms.
+- ci(release): gate releases on transform regressions, both fast and slow parser suites, slow-path strict public tests, and the full fast-path strict suite.
 
 ## 2026-09-01 - v1.6.1
 

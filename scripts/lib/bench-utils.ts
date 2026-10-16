@@ -49,8 +49,14 @@ const GIT_BRANCH = execSync("git rev-parse --abbrev-ref HEAD")
   .toString()
   .trim();
 
-export function subtitle() {
-  return `${new Date().toDateString()} • ${VERSION} • v8 ${V8_VERSION} • ${GIT_HASH} • ${GIT_BRANCH}`;
+export function subtitle(runtime: string = BENCH_RUNTIME) {
+  const engine =
+    runtime === "v8"
+      ? `V8 ${V8_VERSION}`
+      : runtime === "wavm"
+        ? "WAVM"
+        : runtime;
+  return `${new Date().toDateString()} • ${VERSION} • ${engine} • ${GIT_HASH} • ${GIT_BRANCH}`;
 }
 
 function readBenchLog(filePath: string): BenchResult {
@@ -124,6 +130,7 @@ export function createBarChart(
   payloadLabels: Record<string, string>,
   options: {
     title: string;
+    runtimeLabel?: string;
     yLabel?: string;
     xLabel?: string;
     datasetLabels?: string[];
@@ -187,6 +194,7 @@ export function createBarChart(
     },
     options: {
       responsive: true,
+      layout: { padding: 8 },
       plugins: {
         title: {
           display: !!options.title,
@@ -209,7 +217,7 @@ export function createBarChart(
         },
         subtitle: {
           display: true,
-          text: subtitle(),
+          text: subtitle(options.runtimeLabel),
           font: { size: 14, weight: "bold" },
           color: INK.subtitle,
           padding: 16,
@@ -234,6 +242,7 @@ export function createBarChart(
           title: {
             display: true,
             text: options.xLabel ?? "Payload",
+            padding: 12,
             font: { size: 16, weight: "bold" },
           },
           ticks: {

@@ -34,7 +34,7 @@ export function serializeJsonArray(src: JSON.Arr): void {
       const start = JSON.Value.slotPtr(slot, srcBase);
       const end = JSON.Value.slotEnd(slot, srcBase, srcEnd);
       const size = end - start;
-      bs.proposeSize(size);
+      bs.proposeSize(u32(size));
       memory.copy(bs.offset, start, size);
       bs.offset += size;
     } else {

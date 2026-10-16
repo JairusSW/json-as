@@ -1,6 +1,6 @@
 {
   "name": "json-as",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "author": "Jairus Tanaka <me@jairus.dev>",
   "repository": {
     "type": "git",
@@ -30,8 +30,7 @@
     "tinybench": "^6.0.2",
     "try-as": "^1.1.4",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.60.1",
-    "warpo": "^3.1.1"
+    "typescript-eslint": "^8.60.1"
   },
   "bugs": {
     "url": "https://github.com/JairusSW/json-as/issues"
@@ -106,11 +105,9 @@
     "bench:as": "bash ./scripts/run-bench.as.sh",
     "bench:js": "bash ./scripts/run-bench.js.sh",
     "bench:runtimes": "bash ./scripts/run-bench.runtimes.sh",
-    "bench:warpo": "bash ./scripts/run-bench.warpo.sh",
     "charts": "bun run charts:build && bun run charts:serve",
     "charts:build": "bash ./scripts/build-charts.sh",
     "charts:runtimes": "bun ./scripts/build-chart-runtimes.ts",
-    "charts:warpo": "bun ./scripts/build-chart-warpo.ts",
     "charts:rfc": "bun ./scripts/build-rfc-coverage.ts",
     "charts:publish": "bash ./scripts/publish-benchmarks.sh",
     "charts:serve": "serve ./build/charts/",

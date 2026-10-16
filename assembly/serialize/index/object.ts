@@ -16,7 +16,7 @@ export function serializeObject(src: JSON.Obj): void {
       bs.cacheOutputLen = rawSize;
       return;
     }
-    bs.proposeSize(rawSize);
+    bs.proposeSize(u32(rawSize));
     memory.copy(bs.offset, rawStart, rawSize);
     bs.offset += rawSize;
     return;
@@ -63,7 +63,7 @@ export function serializeObject(src: JSON.Obj): void {
       const start = JSON.Value.slotPtr(slot, srcBase);
       const end = JSON.Value.slotEnd(slot, srcBase, srcEnd);
       const size = end - start;
-      bs.proposeSize(size);
+      bs.proposeSize(u32(size));
       memory.copy(bs.offset, start, size);
       bs.offset += size;
     } else {

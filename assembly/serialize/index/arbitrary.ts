@@ -39,7 +39,7 @@ import { serializeDynamic } from "./typedarray";
 // serializeString would otherwise do (and its trailing second pass).
 function serializeStringClean(src: string): void {
   const size = <usize>bytes(src);
-  bs.proposeSize(size + 4);
+  bs.proposeSize(u32(size + 4));
   store<u16>(bs.offset, QUOTE);
   bs.offset += 2;
   memory.copy(bs.offset, changetype<usize>(src), size);
@@ -56,7 +56,7 @@ export function serializeArbitrary(src: JSON.Value): void {
   if (lz != 0) {
     const start = <usize>(lz >>> 32);
     const size = <usize>(<u32>lz) - start;
-    bs.proposeSize(size);
+    bs.proposeSize(u32(size));
     memory.copy(bs.offset, start, size);
     bs.offset += size;
     return;

@@ -1,6 +1,8 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+// Compare large strings before asserting: as-test eagerly escapes both operands
+// of toBe(), even on success, making large string assertions very expensive.
 // Speculative parse capacity must follow a bounded estimate rather than the
 // size of lazy values. These bounds deliberately allow changes to the estimate
 // without baking its exact constants into the regression tests.
@@ -75,11 +77,11 @@ describe("JSON.Obj reserve: a large string does not inflate parse buffers", () =
   expect(obj.size).toBe(1);
   expect(backingBytes(obj) <= 32768).toBe(true);
   expect(JSON.Value.slotIsLazy(unchecked(obj._vals[0]))).toBe(true);
-  expect(JSON.stringify(obj)).toBe(src);
+  expect(JSON.stringify(obj) == src).toBe(true);
   __collect();
-  expect(obj.getAs<string>("payload")).toBe(big);
+  expect(obj.getAs<string>("payload") == big).toBe(true);
   __collect();
-  expect(JSON.stringify(obj)).toBe(src);
+  expect(JSON.stringify(obj) == src).toBe(true);
 });
 
 describe("JSON.Obj reserve: a large deferred array keeps small object buffers", () => {
@@ -94,7 +96,7 @@ describe("JSON.Obj reserve: a large deferred array keeps small object buffers", 
   expect(items.getAs<f64>(0)).toBe(0.0);
   expect(items.getAs<f64>(32767)).toBe(1.0);
   __collect();
-  expect(JSON.stringify(obj)).toBe(src);
+  expect(JSON.stringify(obj) == src).toBe(true);
 });
 
 describe("JSON.Obj reserve: nested objects stay bounded when materialized", () => {
@@ -114,8 +116,8 @@ describe("JSON.Obj reserve: nested objects stay bounded when materialized", () =
   expect(backingBytes(inner) <= 32768).toBe(true);
   expect(JSON.Value.slotIsLazy(unchecked(inner._vals[0]))).toBe(true);
   __collect();
-  expect(inner.getAs<string>("payload")).toBe(big);
-  expect(JSON.stringify(obj)).toBe(src);
+  expect(inner.getAs<string>("payload") == big).toBe(true);
+  expect(JSON.stringify(obj) == src).toBe(true);
 });
 
 describe("JSON.Obj reserve: wide objects grow beyond the initial estimate", () => {
@@ -137,7 +139,7 @@ describe("JSON.Obj reserve: wide objects grow beyond the initial estimate", () =
   expect(obj.keys().length).toBe(2048);
   // A same-value write disables raw passthrough without changing the output.
   obj.set<f64>("entry2047", 2047.0);
-  expect(JSON.stringify(obj)).toBe(src);
+  expect(JSON.stringify(obj) == src).toBe(true);
 });
 
 describe("JSON.Obj reserve: grown lazy slots retain their source across GC", () => {
@@ -177,7 +179,7 @@ describe("JSON.Obj reserve: grown lazy slots retain their source across GC", () 
   obj.set<f64>("entry2047", -1.0);
   __collect();
   // Build the expected source only after the lifetime checks and collections.
-  expect(JSON.stringify(obj)).toBe(wideDeferredSource(true));
+  expect(JSON.stringify(obj) == wideDeferredSource(true)).toBe(true);
 });
 
 describe("JSON.Obj reserve: long keys grow the key buffer without truncation", () => {
@@ -194,10 +196,10 @@ describe("JSON.Obj reserve: long keys grow the key buffer without truncation", (
   __collect();
   expect(obj.getAs<f64>(key)).toBe(17.0);
   expect(obj.getAs<f64>("tail")).toBe(23.0);
-  expect(obj.keys()[0]).toBe(key);
+  expect(obj.keys()[0] == key).toBe(true);
   // Disable raw passthrough so serialization reads the grown key buffer.
   obj.set<f64>("tail", 24.0);
-  expect(JSON.stringify(obj)).toBe('{"' + key + '":17,"tail":24}');
+  expect(JSON.stringify(obj) == '{"' + key + '":17,"tail":24}').toBe(true);
 });
 
 describe("JSON.Obj reserve: reuse preserves grown buffers and drops stale entries", () => {
@@ -222,8 +224,8 @@ describe("JSON.Obj reserve: reuse preserves grown buffers and drops stale entrie
   expect(obj.has("entry0")).toBe(false);
   expect(obj.has("entry511")).toBe(false);
   __collect();
-  expect(obj.getAs<string>("payload")).toBe(big);
-  expect(JSON.stringify(obj)).toBe(src);
+  expect(obj.getAs<string>("payload") == big).toBe(true);
+  expect(JSON.stringify(obj) == src).toBe(true);
 
   JSON.parse<JSON.Obj>("{}", obj);
   __collect();
@@ -252,5 +254,5 @@ describe("JSON.Obj reserve: duplicate and escaped keys survive buffer growth", (
   // Preserve that behavior here; decoded key semantics are a separate concern.
   expect(obj.getAs<f64>("line\\nkey")).toBe(17.0);
   expect(obj.getAs<f64>('quote\\"key')).toBe(23.0);
-  expect(JSON.stringify(obj)).toBe(src);
+  expect(JSON.stringify(obj) == src).toBe(true);
 });

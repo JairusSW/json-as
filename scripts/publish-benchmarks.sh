@@ -9,6 +9,7 @@ DOCS_BRANCH="${DOCS_BRANCH:-docs}"
 VERSION="$(node -p "require('./package.json').version")"
 FAST_PATH="${JSON_USE_FAST_PATH:-1}"
 RUN_BENCHES=1
+RUNTIMES_ONLY=0
 CHART_ARGS=()
 TMP_CHARTS_DIR="$(mktemp -d)"
 TMP_DOCS_DIR="$(mktemp -d)"
@@ -16,6 +17,10 @@ WORKTREE_ADDED=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --runtimes)
+      RUNTIMES_ONLY=1
+      shift
+      ;;
     --no-run)
       RUN_BENCHES=0
       shift
@@ -26,7 +31,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: ./scripts/publish-benchmarks.sh [--no-run] [--v8|--wavm|--llvm]"
+      echo "Usage: ./scripts/publish-benchmarks.sh [--runtimes] [--no-run] [--v8|--wavm|--llvm]"
       exit 1
       ;;
   esac
@@ -56,7 +61,11 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   echo "⚠️  Working tree has uncommitted changes - charts will reflect them (HEAD: $(git rev-parse --short HEAD))."
 fi
 
-if [[ "$RUN_BENCHES" == "1" ]]; then
+if [[ "$RUNTIMES_ONLY" == "1" ]]; then
+  if [[ "$RUN_BENCHES" == "1" ]]; then
+    ./scripts/run-bench.runtimes.sh
+  fi
+elif [[ "$RUN_BENCHES" == "1" ]]; then
   echo "Running AssemblyScript benchmarks..."
   JSON_USE_FAST_PATH="$FAST_PATH" ./scripts/run-bench.as.sh
 
@@ -67,14 +76,20 @@ else
 fi
 
 echo "Building charts..."
-if [[ ${#CHART_ARGS[@]} -gt 0 ]]; then
+if [[ "$RUNTIMES_ONLY" == "1" ]]; then
+  bun ./scripts/build-chart-runtimes.ts
+elif [[ ${#CHART_ARGS[@]} -gt 0 ]]; then
   ./scripts/build-charts.sh "${CHART_ARGS[@]}"
 else
   ./scripts/build-charts.sh
 fi
 test -d ./build/charts
 compgen -G "./build/charts/*" > /dev/null
-cp -R ./build/charts/. "$TMP_CHARTS_DIR/"
+if [[ "$RUNTIMES_ONLY" == "1" ]]; then
+  cp ./build/charts/runtimes-{deserialize,serialize}.{svg,png} ./build/charts/runtimes-results.json "$TMP_CHARTS_DIR/"
+else
+  cp -R ./build/charts/. "$TMP_CHARTS_DIR/"
+fi
 
 echo "Preparing ${DOCS_BRANCH} worktree..."
 git fetch "$REMOTE_NAME" "$DOCS_BRANCH" >/dev/null 2>&1 || true
@@ -99,7 +114,13 @@ fi
 # Re-publishing a version overwrites just that folder; other versions untouched.
 DEST="v${VERSION}"
 echo "Updating charts/${DEST} on ${DOCS_BRANCH}..."
-rm -rf "$TMP_DOCS_DIR/charts/${DEST}"
+if [[ "$RUNTIMES_ONLY" != "1" ]]; then
+  rm -rf "$TMP_DOCS_DIR/charts/${DEST}"
+fi
+# Remove the retired compiler comparison from every published version.
+if [[ -d "$TMP_DOCS_DIR/charts" ]]; then
+  find "$TMP_DOCS_DIR/charts" -type f -name 'warpo-vs-asc-*' -delete
+fi
 mkdir -p "$TMP_DOCS_DIR/charts/${DEST}"
 cp -R "$TMP_CHARTS_DIR/." "$TMP_DOCS_DIR/charts/${DEST}/"
 
@@ -122,11 +143,24 @@ cp -R "$TMP_CHARTS_DIR/." "$TMP_DOCS_DIR/charts/${DEST}/"
 # legacy path (.../charts/<name>.svg) and an existing versioned one. Left
 # uncommitted for you to review and commit.
 echo "Pinning README chart URLs to charts/${DEST}/..."
-sed -i -E "s#(/refs/heads/${DOCS_BRANCH}/charts/)([^\"']*/)?([^/\"']+\.(svg|png))#\1${DEST}/\3#g" README.md
-# Also re-point the "Browse the full chart set" tree link to this version's
-# folder (e.g. /tree/docs/charts/v1.4.0 -> /tree/docs/charts/v1.5.0). The bare
-# /tree/${DOCS_BRANCH} branch link has no /charts/ segment, so it stays put.
-sed -i -E "s#(/tree/${DOCS_BRANCH}/charts/)v[0-9][0-9.]*#\1${DEST}#g" README.md
+DOCS_BRANCH="$DOCS_BRANCH" DEST="$DEST" RUNTIMES_ONLY="$RUNTIMES_ONLY" node --input-type=module <<'JS'
+import fs from "node:fs";
+const { DOCS_BRANCH, DEST, RUNTIMES_ONLY } = process.env;
+const prefix = `/refs/heads/${DOCS_BRANCH}/charts/`;
+let readme = fs.readFileSync("README.md", "utf8");
+readme = readme.replace(/https:\/\/raw\.githubusercontent\.com\/[^"'\s]+/g, url => {
+  const at = url.indexOf(prefix);
+  if (at < 0) return url;
+  const file = url.slice(url.lastIndexOf("/") + 1);
+  if (!/\.(svg|png)$/.test(file)) return url;
+  if (RUNTIMES_ONLY === "1" && !/^runtimes-/.test(file)) return url;
+  return url.slice(0, at) + prefix + DEST + "/" + file;
+});
+if (RUNTIMES_ONLY !== "1") {
+  readme = readme.replace(new RegExp(`(/tree/${DOCS_BRANCH}/charts/)v[0-9][0-9.]*`, "g"), `$1${DEST}`);
+}
+fs.writeFileSync("README.md", readme);
+JS
 
 echo "Benchmark charts published to ${REMOTE_NAME}/${DOCS_BRANCH}:charts/${DEST}/."
 echo "README pinned to https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/${DOCS_BRANCH}/charts/${DEST}/"

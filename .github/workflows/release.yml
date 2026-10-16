@@ -20,7 +20,7 @@ jobs:
       - name: Install Wasmtime
         run: |
           curl https://wasmtime.dev/install.sh -sSf | bash
-          echo "$HOME/.wasmtime/bin" >> $GITHUB_PATH
+          echo "$HOME/.wasmtime/bin" >> "$GITHUB_PATH"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -37,8 +37,20 @@ jobs:
       - name: Build Transform
         run: bun run build:transform
 
-      - name: Run Tests
-        run: bun run test:ci
+      - name: Test Transform
+        run: bun run test:transform
+
+      - name: Run Tests (Slow)
+        run: JSON_USE_FAST_PATH=0 bun run test:ci -- --no-cache
+
+      - name: Run Tests (Fast)
+        run: JSON_USE_FAST_PATH=1 bun run test:ci -- --no-cache
+
+      - name: Run Strict Public Tests (Slow)
+        run: JSON_USE_FAST_PATH=0 bun run test:rfc:public -- --no-cache
+
+      - name: Run Strict Tests (Fast)
+        run: JSON_USE_FAST_PATH=1 bun run test:rfc -- --no-cache
 
   # Create GitHub Release
   release:
@@ -70,7 +82,7 @@ jobs:
             COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
           else
             # Get commits since last tag
-            COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+            COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges)
           fi
 
           # Write to file for the release

@@ -91,15 +91,4 @@ export default tseslint.config(
       },
     },
   },
-  {
-    files: ["bench/runners/warpo-run.mjs"],
-    languageOptions: {
-      globals: {
-        arguments: "readonly",
-        readbuffer: "readonly",
-        performance: "readonly",
-        print: "readonly",
-      },
-    },
-  },
 );
