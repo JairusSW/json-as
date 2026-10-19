@@ -88,3 +88,43 @@ describe("Extended regression coverage - nested and escaped payloads", () => {
     '"line\\nbreak"',
   );
 });
+
+
+@json
+class DateHolder {
+  date: Date = new Date(0);
+}
+
+describe("Should serialize ordinary and extended years completely", () => {
+  const years = [-1, 0, 9999, 10000];
+  const expected = [
+    '"-000001-01-01T00:00:00.000Z"',
+    '"0000-01-01T00:00:00.000Z"',
+    '"9999-01-01T00:00:00.000Z"',
+    '"+010000-01-01T00:00:00.000Z"',
+  ];
+  // Start with managed output, then exercise shrinking and growing reuse.
+  let out = JSON.stringify<Date>(new Date(0));
+  for (let i = 0; i < years.length; i++) {
+    const date = new Date(0);
+    // Date.UTC treats years 0 through 99 as 1900 through 1999.
+    date.setUTCFullYear(years[i]);
+    const json = expected[i];
+    expect(JSON.stringify<Date>(date)).toBe(json);
+    out = JSON.stringify<Date>(date, out);
+    expect(out).toBe(json);
+    expect(out.length).toBe(json.length);
+
+    // Same-size reuse must retain the provided output object.
+    const ptr = changetype<usize>(out);
+    out = JSON.stringify<Date>(date, out);
+    expect(out).toBe(json);
+    expect(changetype<usize>(out)).toBe(ptr);
+
+    // Nested dates already use the full ISO string; keep these paths aligned.
+    expect(JSON.stringify<Date[]>([date])).toBe("[" + json + "]");
+    const holder = new DateHolder();
+    holder.date = date;
+    expect(JSON.stringify<DateHolder>(holder)).toBe('{"date":' + json + "}");
+  }
+});
