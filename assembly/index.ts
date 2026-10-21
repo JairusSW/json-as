@@ -118,13 +118,6 @@ const STR_CLASS_UNKNOWN: u32 = 0;
 const STR_CLASS_CLEAN: u32 = 1;
 const STR_CLASS_ESCAPE: u32 = 2;
 
-// One rooted immutable source/type pair is enough to make repeated parsing of
-// an exact generated-default document allocation-only after its first match.
-// The source reference prevents pointer reuse after GC; a different source or
-// target type simply takes the normal matcher and replaces this cache on hit.
-let LAST_DEFAULT_SOURCE: string | null = null;
-let LAST_DEFAULT_TYPE: u32 = 0;
-
 function valBoxed(w: u64): bool {
   return (w & VAL_QNAN) == VAL_QNAN;
 }
@@ -432,28 +425,19 @@ export namespace JSON {
     }
     // Resolve an exact generated-default hit directly at the public boundary.
     // This avoids entering the general parser and avoids polling the cold error
-    // flag for a source that has already been fully compared. Generated matcher
-    // methods do not read `this`, so the compile-time type sentinel is a safe
+    // flag for a source that has been fully compared. Check the current bytes on
+    // every parse: stringify(value, out) can overwrite the same source string.
+    // Generated matcher methods do not read `this`, so the type sentinel is a safe
     // receiver until a match tells us an object allocation is actually needed.
     if ((isReference<T>() || isManaged<T>()) && changetype<usize>(out) == 0) {
       const type = changetype<nonnull<T>>(0);
       // @ts-expect-error: marker supplied by the json-as transform
       if (isDefined(type.__DESERIALIZE_DEFAULT)) {
         const start = changetype<usize>(data);
-        const typeId = idof<nonnull<T>>();
-        const knownMatch =
-          LAST_DEFAULT_TYPE == typeId &&
-          changetype<usize>(LAST_DEFAULT_SOURCE) == start;
-        if (knownMatch) {
-          // @ts-expect-error: paired generated allocation-only factory
-          return changetype<T>(type.__DESERIALIZE_DEFAULT_NEW());
-        }
         const end = start + ((<usize>data.length) << 1);
         // @ts-expect-error: generated method is a receiver-independent factory
         const value = type.__DESERIALIZE_DEFAULT(start, end);
         if (changetype<usize>(value) != 0) {
-          LAST_DEFAULT_SOURCE = data;
-          LAST_DEFAULT_TYPE = typeId;
           return changetype<T>(value);
         }
       }
