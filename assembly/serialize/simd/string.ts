@@ -32,7 +32,7 @@ export function serializeString_SIMD(src: string): void {
     const dstStart = bs.offset;
     let dst = dstStart + 2;
 
-    while (srcStart < srcEnd16Fast) {
+    while (srcStart <= srcEnd16Fast) {
       const block = load<v128>(srcStart);
       const eq22 = i16x8.eq(block, SPLAT_0022);
       const eq5C = i16x8.eq(block, SPLAT_005C);
@@ -48,11 +48,17 @@ export function serializeString_SIMD(src: string): void {
       srcStart += 16;
       dst += 16;
     }
-    if (srcStart < srcEnd16Fast) break;
+    if (srcStart <= srcEnd16Fast) break;
 
     while (srcStart <= srcEnd - 2) {
       const code = load<u16>(srcStart);
-      if (code > 0x7f || code == BACK_SLASH || code == 34 || code < 32) break;
+      if (
+        (code >= 0xd800 && code <= 0xdfff) ||
+        code == BACK_SLASH ||
+        code == 34 ||
+        code < 32
+      )
+        break;
       store<u16>(dst, code);
       srcStart += 2;
       dst += 2;
@@ -103,11 +109,14 @@ export function serializeString_SIMD(src: string): void {
       const srcIdx = srcStart + laneIdx;
 
       mask &= mask - 1;
-      // Even (0 2 4 6 8 10 12 14) -> Confirmed ASCII Escape
+      // Even (0 2 4 6 8 10 12 14) -> Possible ASCII escape
       // Odd (1 3 5 7 9 11 13 15) -> Possibly a Unicode code unit or surrogate
 
       if ((laneIdx & 1) === 0) {
         const code = load<u16>(srcIdx);
+        // The byte mask is conservative: a non-ASCII code unit can also set
+        // this bit. Only actual JSON escapes may index the ASCII escape table.
+        if (code >= 32 && code != 34 && code != BACK_SLASH) continue;
         const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
 
         if ((escaped & 0xffff) != BACK_SLASH) {
@@ -142,6 +151,13 @@ export function serializeString_SIMD(src: string): void {
         const next = load<u16>(srcIdx, 1);
         if (next >= 0xdc00 && next <= 0xdfff) {
           // paired surrogate
+          // If the low surrogate is in the next block, copy and consume it
+          // now so the next iteration cannot treat it as an unpaired unit.
+          if (laneIdx == 15) {
+            store<u16>(bs.offset + 16, next);
+            srcStart += 2;
+            bs.offset += 2;
+          }
           mask &= ~(0b11 << (laneIdx + 1));
           continue;
         }
