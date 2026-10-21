@@ -50,7 +50,7 @@ export function serializeStaticArray<T extends StaticArray<any>>(src: T): void {
 
   while (i < end) {
     const block = unchecked(src[i++]);
-    if (isString<valueof<T>>()) {
+    if (isString<valueof<T>>() && !isNullable<valueof<T>>()) {
       serializeString(block as string);
     } else if (isBoolean<valueof<T>>()) {
       serializeBoolUnsafe(<bool>block);
@@ -67,7 +67,7 @@ export function serializeStaticArray<T extends StaticArray<any>>(src: T): void {
   }
 
   const lastBlock = unchecked(src[end]);
-  if (isString<valueof<T>>()) {
+  if (isString<valueof<T>>() && !isNullable<valueof<T>>()) {
     serializeString(lastBlock as string);
   } else if (isBoolean<valueof<T>>()) {
     serializeBoolUnsafe(<bool>lastBlock);
