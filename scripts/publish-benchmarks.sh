@@ -10,6 +10,7 @@ VERSION="$(node -p "require('./package.json').version")"
 FAST_PATH="${JSON_USE_FAST_PATH:-1}"
 RUN_BENCHES=1
 RUNTIMES_ONLY=0
+RUNTIME_RUN="${JSON_RUNTIME_RUN:-}"
 CHART_ARGS=()
 TMP_CHARTS_DIR="$(mktemp -d)"
 TMP_DOCS_DIR="$(mktemp -d)"
@@ -21,6 +22,10 @@ while [[ $# -gt 0 ]]; do
       RUNTIMES_ONLY=1
       shift
       ;;
+    --run)
+      RUNTIME_RUN="${2:?--run requires a run ID}"
+      shift 2
+      ;;
     --no-run)
       RUN_BENCHES=0
       shift
@@ -31,7 +36,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: ./scripts/publish-benchmarks.sh [--runtimes] [--no-run] [--v8|--wavm|--llvm]"
+      echo "Usage: ./scripts/publish-benchmarks.sh [--runtimes] [--no-run] [--run ID] [--v8|--wavm|--llvm]"
       exit 1
       ;;
   esac
@@ -47,10 +52,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ -n "$RUNTIME_RUN" && ( "$RUNTIMES_ONLY" != "1" || "$RUN_BENCHES" != "0" ) ]]; then
+  echo "--run / JSON_RUNTIME_RUN requires --runtimes --no-run" >&2
+  exit 1
+fi
+
 # Publishing never commits the main working tree: it builds charts into
 # ./build/charts (build output) and commits them only inside a separate `docs`
 # worktree. A dirty/changed/untracked main tree is therefore safe, so proceed by
-# default - charts just reflect your current (possibly uncommitted) source. Set
+# default - fresh benchmarks reflect your current (possibly uncommitted) source.
+# Reused runtime logs retain their recorded provenance instead. Set
 # PUBLISH_REQUIRE_CLEAN=1 to restore the old refuse-if-dirty guard.
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   if [[ "${PUBLISH_REQUIRE_CLEAN:-0}" == "1" ]]; then
@@ -58,7 +69,7 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
     echo "Commit or stash your changes first."
     exit 1
   fi
-  echo "⚠️  Working tree has uncommitted changes - charts will reflect them (HEAD: $(git rev-parse --short HEAD))."
+  echo "⚠️  Working tree has uncommitted changes (HEAD: $(git rev-parse --short HEAD)); reused runtime logs keep their original provenance."
 fi
 
 if [[ "$RUNTIMES_ONLY" == "1" ]]; then
@@ -73,6 +84,15 @@ elif [[ "$RUN_BENCHES" == "1" ]]; then
   ./scripts/run-bench.js.sh
 else
   echo "Skipping benchmark runs. Reusing existing logs."
+fi
+
+if [[ "$RUNTIMES_ONLY" == "1" ]]; then
+  # Pin the run before rendering, and publish into its recorded release folder.
+  # --no-run must not relabel old measurements with the current package version.
+  RUNTIME_RUN="$(node scripts/lib/runtime-bench-run.mjs select "$RUNTIME_RUN")"
+  export JSON_RUNTIME_RUN="$RUNTIME_RUN"
+  VERSION="$(node scripts/lib/runtime-bench-run.mjs version "$RUNTIME_RUN")"
+  echo "Using runtime run $RUNTIME_RUN (v$VERSION)."
 fi
 
 echo "Building charts..."
