@@ -3891,9 +3891,19 @@ export class JSONTransform extends Visitor {
       DESERIALIZE += "        while (srcStart < srcEnd) {\n";
       DESERIALIZE += "          const code = load<u16>(srcStart);\n";
       DESERIALIZE += "          if (code == 34) {\n";
+      // Quotes after an even backslash run close the string. Match the
+      // top-level string scanner instead of checking only the previous code unit.
       DESERIALIZE += "            srcStart += 2;\n";
+      DESERIALIZE += "            let escaped = false;\n";
+      DESERIALIZE += "            while (srcStart < srcEnd) {\n";
+      DESERIALIZE += "              const stringCode = load<u16>(srcStart);\n";
+      DESERIALIZE += "              if (stringCode == 34 && !escaped) break;\n";
       DESERIALIZE +=
-        "            while (!(load<u16>(srcStart) == 34 && load<u16>(srcStart - 2) != 92)) srcStart += 2;\n";
+        "              escaped = stringCode == 92 ? !escaped : false;\n";
+      DESERIALIZE += "              srcStart += 2;\n";
+      DESERIALIZE += "            }\n";
+      DESERIALIZE +=
+        "            if (srcStart >= srcEnd) return JSON.Util.failProductionParse();\n";
       DESERIALIZE += "          } else if (code == 125) {\n";
       DESERIALIZE += "            if (--depth == 0) {\n";
       DESERIALIZE += "              srcStart += 2;\n";
@@ -3980,9 +3990,19 @@ export class JSONTransform extends Visitor {
       DESERIALIZE += "        while (srcStart < srcEnd) {\n";
       DESERIALIZE += "          const code = load<u16>(srcStart);\n";
       DESERIALIZE += "          if (code == 34) {\n";
+      // Quotes after an even backslash run close the string. Match the
+      // top-level string scanner instead of checking only the previous code unit.
       DESERIALIZE += "            srcStart += 2;\n";
+      DESERIALIZE += "            let escaped = false;\n";
+      DESERIALIZE += "            while (srcStart < srcEnd) {\n";
+      DESERIALIZE += "              const stringCode = load<u16>(srcStart);\n";
+      DESERIALIZE += "              if (stringCode == 34 && !escaped) break;\n";
       DESERIALIZE +=
-        "            while (!(load<u16>(srcStart) == 34 && load<u16>(srcStart - 2) != 92)) srcStart += 2;\n";
+        "              escaped = stringCode == 92 ? !escaped : false;\n";
+      DESERIALIZE += "              srcStart += 2;\n";
+      DESERIALIZE += "            }\n";
+      DESERIALIZE +=
+        "            if (srcStart >= srcEnd) return JSON.Util.failProductionParse();\n";
       DESERIALIZE += "          } else if (code == 93) {\n";
       DESERIALIZE += "            if (--depth == 0) {\n";
       DESERIALIZE += "              srcStart += 2;\n";
