@@ -2,6 +2,7 @@ import { bs } from "../../../lib/as-bs";
 import { JSON } from "../..";
 import { BRACE_LEFT, BRACE_RIGHT, COLON, COMMA } from "../../custom/chars";
 import { serializeArbitrary } from "./arbitrary";
+import { serializePrimitiveSlot } from "./primitive";
 import { serializeStringRange } from "../naive/string";
 
 export function serializeObject(src: JSON.Obj): void {
@@ -66,7 +67,7 @@ export function serializeObject(src: JSON.Obj): void {
       bs.proposeSize(u32(size));
       memory.copy(bs.offset, start, size);
       bs.offset += size;
-    } else {
+    } else if (!serializePrimitiveSlot(slot)) {
       const v = JSON.Value.fromBits(slot);
       serializeArbitrary(v);
       // Persist any escape-class the serializer cached on a materialized String
