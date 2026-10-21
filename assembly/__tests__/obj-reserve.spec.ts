@@ -250,9 +250,16 @@ describe("JSON.Obj reserve: duplicate and escaped keys survive buffer growth", (
   __collect();
   expect(obj.getAs<f64>("entry0")).toBe(999.0);
   expect(obj.getAs<f64>("entry511")).toBe(511.0);
-  // JSON.Obj currently stores raw key spellings, including escape sequences.
-  // Preserve that behavior here; decoded key semantics are a separate concern.
-  expect(obj.getAs<f64>("line\\nkey")).toBe(17.0);
-  expect(obj.getAs<f64>('quote\\"key')).toBe(23.0);
+  // Decoded keys must survive buffer growth just like unescaped keys.
+  expect(obj.getAs<f64>("line\nkey")).toBe(17.0);
+  expect(obj.getAs<f64>('quote"key')).toBe(23.0);
+  expect(obj.has("line\\nkey")).toBe(false);
+  expect(obj.has('quote\\"key')).toBe(false);
   expect(JSON.stringify(obj) == src).toBe(true);
+  // Disable raw passthrough and ensure decoded keys are escaped on output.
+  obj.set<f64>("line\nkey", 19.0);
+  const roundtrip = JSON.parse<JSON.Obj>(JSON.stringify(obj));
+  expect(roundtrip.size).toBe(515);
+  expect(roundtrip.getAs<f64>("line\nkey")).toBe(19.0);
+  expect(roundtrip.getAs<f64>('quote"key')).toBe(23.0);
 });
