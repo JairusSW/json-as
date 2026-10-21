@@ -2183,7 +2183,8 @@ export namespace JSON {
     // move the raw u64 slots directly - no per-element JSON.Value - and keep any
     // managed pointers linked to the same owner. New single-source results share
     // `_src`, so copied deferred ranges stay lazy. Callbacks get a JSON.Value view
-    // of each element via `at(i)`.
+    // of each element via `at(i)`. Forward callbacks observe replacements and
+    // shrinking length, but never visit indices beyond the initial length.
 
     /** Concrete, source-independent bits for slot `i` (resolves a deferred slot
      *  without caching it back into this array - used by cross-source ops). */
@@ -2359,32 +2360,41 @@ export namespace JSON {
       return this.indexOf<T>(value, fromIndex) >= 0;
     }
 
-    /** Calls `fn` for each element. */
+    /** Calls `fn` for each remaining element, capped at the initial length. */
     forEach(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => void,
     ): void {
-      for (let i = 0, n = this._vused; i < n; i++) fn(this.at(i), i, this);
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++)
+        fn(this.at(i), i, this);
     }
 
-    /** New JSON.Arr of `fn`'s results. */
+    /** New JSON.Arr of `fn`'s results, with the initial length. If the source
+     *  shrinks during traversal, unvisited positions remain `null`. */
     map(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => JSON.Value,
     ): JSON.Arr {
       const n = this._vused;
       const out = new JSON.Arr();
       out.ensureValCap(n);
-      for (let i = 0; i < n; i++) out.push<JSON.Value>(fn(this.at(i), i, this));
+      for (let i = 0; i < min(n, this._vused); i++)
+        out.push<JSON.Value>(fn(this.at(i), i, this));
+      out.length = n;
       return out;
     }
 
-    /** New JSON.Arr of elements passing `fn`. Visited slots are materialized;
-     *  their untouched descendants stay lazy. */
+    /** New JSON.Arr of callback values passing `fn`, not subsequently replaced
+     *  source slots. Replacing a callback wrapper affects the result, not the
+     *  source. Visited slots are materialized; untouched descendants stay lazy. */
     filter(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
     ): JSON.Arr {
       const out = new JSON.Arr();
-      for (let i = 0, n = this._vused; i < n; i++)
-        if (fn(this.at(i), i, this)) this.copyInto(out, i, 1);
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++) {
+        // Keep the inspected value rooted even if the callback replaces its
+        // source slot, clears the array, or grows the backing buffer.
+        const value = this.at(i);
+        if (fn(value, i, this)) out.push<JSON.Value>(value);
+      }
       return out;
     }
 
@@ -2392,7 +2402,7 @@ export namespace JSON {
     find(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
     ): JSON.Value | null {
-      for (let i = 0, n = this._vused; i < n; i++) {
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++) {
         const v = this.at(i);
         if (fn(v, i, this)) return v;
       }
@@ -2403,7 +2413,7 @@ export namespace JSON {
     findIndex(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
     ): i32 {
-      for (let i = 0, n = this._vused; i < n; i++)
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++)
         if (fn(this.at(i), i, this)) return i;
       return -1;
     }
@@ -2430,14 +2440,14 @@ export namespace JSON {
 
     /** Whether every element passes `fn`. */
     every(fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool): bool {
-      for (let i = 0, n = this._vused; i < n; i++)
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++)
         if (!fn(this.at(i), i, this)) return false;
       return true;
     }
 
     /** Whether any element passes `fn`. */
     some(fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool): bool {
-      for (let i = 0, n = this._vused; i < n; i++)
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++)
         if (fn(this.at(i), i, this)) return true;
       return false;
     }
@@ -2448,7 +2458,7 @@ export namespace JSON {
       initialValue: U,
     ): U {
       let acc = initialValue;
-      for (let i = 0, n = this._vused; i < n; i++)
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++)
         acc = fn(acc, this.at(i), i, this);
       return acc;
     }
