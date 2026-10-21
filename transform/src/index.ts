@@ -36,6 +36,7 @@ import { NodeKind } from "./types.js";
 import { Property, PropertyFlags, Schema, SourceSet, Src } from "./types.js";
 import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
+import { keyDispatch, KeyDispatch } from "./key-dispatch.js";
 
 let indent = "  ";
 
@@ -3563,7 +3564,22 @@ export class JSONTransform extends Visitor {
         for (const group of groups) {
           const groupLen = (group[0].alias || group[0].name).length << 1;
           DESERIALIZE += "           case " + groupLen + ": {\n";
-          cb(group);
+          const emitDispatch = (tree: KeyDispatch<Property>): void => {
+            if ("members" in tree) {
+              cb(tree.members);
+            } else {
+              // Use if/else, not an inner switch: the existing matcher's
+              // break must still exit the outer key-length switch.
+              DESERIALIZE += `if (load<u16>(keyStart, ${tree.offset << 1}) < ${tree.pivot}) {\n`;
+              emitDispatch(tree.left);
+              DESERIALIZE += "} else {\n";
+              emitDispatch(tree.right);
+              DESERIALIZE += "}\n";
+            }
+          };
+          emitDispatch(
+            keyDispatch(group, (member) => member.alias || member.name),
+          );
           DESERIALIZE += "\n            }\n";
         }
 
@@ -4023,7 +4039,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE +=
               indent +
               " else if (" +
-              (mem.generic ? "isArray" + mem.type + ">() && " : "") +
+              (mem.generic ? "isArray<" + mem.type + ">() && " : "") +
               getComparison(memName) +
               ") { // " +
               memName +
