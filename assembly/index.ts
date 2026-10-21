@@ -2127,6 +2127,7 @@ export namespace JSON {
      * @param i - element index
      */
     getAs<T>(i: i32): T {
+      if (<u32>i >= <u32>this._vused) throw new Error("Index out of range");
       let slot = unchecked(this._vals[i]);
       if (JSON.Value.slotIsLazy(slot)) slot = this.materializeSlot(i);
       return JSON.Value.decodeBits<T>(slot);
@@ -2139,6 +2140,7 @@ export namespace JSON {
 
     /** Overwrites element `i`. */
     set<T>(i: i32, value: T): void {
+      if (<u32>i >= <u32>this._vused) throw new Error("Index out of range");
       this.storeSlot(i, JSON.Value.bitsFrom<T>(value));
     }
 
