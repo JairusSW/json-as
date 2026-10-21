@@ -40,23 +40,31 @@ const BENCH_RUNTIME: ASBenchRuntime = ((): ASBenchRuntime => {
   return value === "wavm" ? "wavm" : "v8";
 })();
 
-const VERSION =
-  "v" + JSON.parse(fs.readFileSync("./package.json", "utf-8")).version;
-let V8_VERSION = execSync("v8").toString().trim().slice(11);
-V8_VERSION = V8_VERSION.slice(0, V8_VERSION.indexOf("\n")).trim();
-const GIT_HASH = execSync("git rev-parse --short HEAD").toString().trim();
-const GIT_BRANCH = execSync("git rev-parse --abbrev-ref HEAD")
-  .toString()
-  .trim();
-
 export function subtitle(runtime: string = BENCH_RUNTIME) {
+  // Runtime comparison charts supply recorded provenance instead. Do not probe
+  // the current checkout or require a locally installed V8 just to render them.
+  const version =
+    "v" + JSON.parse(fs.readFileSync("./package.json", "utf-8")).version;
+  const gitHash = execSync("git rev-parse --short HEAD").toString().trim();
+  const gitBranch = execSync("git rev-parse --abbrev-ref HEAD")
+    .toString()
+    .trim();
+  let v8Version = "";
+  if (runtime === "v8") {
+    v8Version = execSync("v8")
+      .toString()
+      .trim()
+      .slice(11)
+      .split("\n")[0]
+      .trim();
+  }
   const engine =
     runtime === "v8"
-      ? `V8 ${V8_VERSION}`
+      ? `V8 ${v8Version}`
       : runtime === "wavm"
         ? "WAVM"
         : runtime;
-  return `${new Date().toDateString()} • ${VERSION} • ${engine} • ${GIT_HASH} • ${GIT_BRANCH}`;
+  return `${new Date().toDateString()} • ${version} • ${engine} • ${gitHash} • ${gitBranch}`;
 }
 
 function readBenchLog(filePath: string): BenchResult {
@@ -131,6 +139,8 @@ export function createBarChart(
   options: {
     title: string;
     runtimeLabel?: string;
+    /** Recorded provenance for charts rebuilt from an earlier benchmark run. */
+    subtitleText?: string;
     yLabel?: string;
     xLabel?: string;
     datasetLabels?: string[];
@@ -217,7 +227,7 @@ export function createBarChart(
         },
         subtitle: {
           display: true,
-          text: subtitle(options.runtimeLabel),
+          text: options.subtitleText ?? subtitle(options.runtimeLabel),
           font: { size: 14, weight: "bold" },
           color: INK.subtitle,
           padding: 16,
