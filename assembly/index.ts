@@ -1127,6 +1127,20 @@ export namespace JSON {
       } else if (isBoolean<T>()) {
         return <T>valPayload(w);
       } else if (isReference<T>()) {
+        // Array-tagged values store JSON.Arr, whose slot buffers do not have
+        // the native Array<JSON.Value> layout. Materialize wrapper elements
+        // for the legacy typed getter instead of reinterpreting that handle.
+        // @ts-expect-error: valueof<T> is only used for array targets
+        if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) {
+          const ptr = valPtr(w);
+          if (ptr == 0) return changetype<T>(0);
+          const arr = changetype<JSON.Arr>(ptr);
+          const out = new Array<JSON.Value>(arr.length);
+          for (let i = 0; i < arr.length; i++) {
+            unchecked((out[i] = arr.at(i)));
+          }
+          return changetype<T>(out);
+        }
         return changetype<T>(valPtr(w));
       }
       return unreachable();
@@ -1292,6 +1306,8 @@ export namespace JSON {
 
     /**
      * Gets the value of the JSON.Value instance.
+     * A JSON.Value[] target returns a fresh array of wrappers; nested objects
+     * and arrays retain their references. Use JSON.Arr for direct array access.
      * @returns The encapsulated value.
      */
     get<T>(): T {
