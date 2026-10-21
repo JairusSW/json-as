@@ -4,13 +4,15 @@ import { deserializeArrayArray } from "../naive/array/array";
 import { deserializeBooleanArray } from "../naive/array/bool";
 import { deserializeBoxArray } from "../naive/array/box";
 import { deserializeFloatArray_NAIVE } from "../naive/array/float";
-import { deserializeGenericArray } from "../naive/array/generic";
+import {
+  deserializeCustomArray,
+  deserializeGenericArray,
+} from "../naive/array/generic";
 import { deserializeIntegerArray_NAIVE } from "../naive/array/integer";
 import { deserializeMapArray } from "../naive/array/map";
 import { deserializeObjectArray } from "../naive/array/object";
 import { deserializeRawArray } from "../naive/array/raw";
 import { deserializeStringArray_NAIVE } from "../naive/array/string";
-import { deserializeStructArray } from "../naive/array/struct";
 import { deserializeStructArray_SWAR } from "../swar/array/struct";
 import { deserializeIntegerArray_SIMD } from "../simd/array/integer";
 import { deserializeIntegerArray_SWAR } from "../swar/array/integer";
@@ -77,7 +79,9 @@ export function deserializeArray<T extends unknown[]>(
       return deserializeMapArray<T>(srcStart, srcEnd, dst);
       // @ts-ignore: defined by transform
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-      return deserializeStructArray<T>(srcStart, srcEnd, dst);
+      // Custom codecs may consume any JSON value shape and return a new
+      // instance rather than mutating a reusable struct element.
+      return deserializeCustomArray<T>(srcStart, srcEnd, dst);
       // @ts-ignore: defined by transform
     } else if (
       isDefined(type.__DESERIALIZE_SLOW) ||
