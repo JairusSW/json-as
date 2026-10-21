@@ -1866,7 +1866,7 @@ export namespace JSON {
     }
 
     /**
-     * Deletes a key-value pair from the object.
+     * Deletes a key and all of its occurrences from the object.
      * @param key - The key to delete
      * @returns true if the key was found and deleted
      */
@@ -1884,8 +1884,10 @@ export namespace JSON {
       this._vals = EMPTY_VALS;
       this._vused = 0;
       for (let j = 0; j < n; j++) {
-        if (j == removed) continue;
         const k = unchecked(keys[j]);
+        // Parsed objects retain duplicate slots. Removing only the last-wins
+        // lookup result would expose an earlier value for the deleted key.
+        if (k == key) continue;
         this.pushKeyBytes(
           changetype<usize>(k),
           changetype<usize>(k) + ((<usize>k.length) << 1),
