@@ -7,6 +7,7 @@ import {
   CHAR_F,
   CHAR_T,
   COMMA,
+  NULL_WORD_U64,
   QUOTE,
 } from "../../custom/chars";
 import { isSpace, atoi, scanStringEnd } from "../../util";
@@ -67,12 +68,24 @@ function deserializeSetDirect<T extends Set<any>>(
 
     // @ts-ignore: type
     if (isString<indexof<T>>()) {
-      if (code != QUOTE) break;
-      const end = scanStringEnd(srcStart, srcEnd);
-      if (end >= srcEnd) break;
-      // @ts-ignore: type
-      out.add(JSON.__deserialize<indexof<T>>(srcStart, end + 2));
-      srcStart = end + 2;
+      if (code == QUOTE) {
+        const end = scanStringEnd(srcStart, srcEnd);
+        if (end >= srcEnd) break;
+        // @ts-ignore: type
+        out.add(JSON.__deserialize<indexof<T>>(srcStart, end + 2));
+        srcStart = end + 2;
+      } else if (
+        // @ts-ignore: type
+        isNullable<indexof<T>>() &&
+        srcEnd - srcStart >= 8 &&
+        load<u64>(srcStart) == NULL_WORD_U64
+      ) {
+        // @ts-ignore: type
+        out.add(changetype<indexof<T>>(0));
+        srcStart += 8;
+      } else {
+        break;
+      }
       // @ts-ignore: type
     } else if (isBoolean<indexof<T>>()) {
       if (code == CHAR_T) {
