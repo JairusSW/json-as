@@ -23,7 +23,11 @@ function serializeRawMapFast<T extends Map<any, any>>(
     serializeString(key);
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
-    serializeRaw(value);
+    if (isNullable<valueof<T>>()) {
+      JSON.__serialize<valueof<T>>(changetype<valueof<T>>(value));
+    } else {
+      serializeRaw(value);
+    }
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }
