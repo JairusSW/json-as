@@ -29,6 +29,12 @@ function reservePrimitiveArray<T>(len: i32): void {
 }
 
 function serializeArrayElement<T>(value: T): void {
+  // Nullable strings also satisfy isString<T>(); handle null before any
+  // string or custom serializer can dereference the value.
+  if (isNullable<T>() && changetype<usize>(value) == 0) {
+    JSON.__serialize<T>(value);
+    return;
+  }
   if (isString<T>()) {
     serializeString(value as string);
     return;
@@ -351,7 +357,7 @@ export function serializeArray<T extends any[]>(src: T): void {
     serializeIntegerArrayFast<T>(src);
     return;
   }
-  if (isString<valueof<T>>()) {
+  if (isString<valueof<T>>() && !isNullable<valueof<T>>()) {
     // @ts-expect-error: T is string[]
     serializeStringArrayFast(changetype<string[]>(src));
     return;

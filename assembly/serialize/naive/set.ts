@@ -51,7 +51,7 @@ export function serializeSet<T extends Set<any>>(src: T): void {
   const end = srcSize - 1;
   for (let i = 0; i < end; i++) {
     const block = unchecked(values[i]);
-    if (isString<indexof<T>>()) {
+    if (isString<indexof<T>>() && !isNullable<indexof<T>>()) {
       serializeString(block as string);
     } else if (isBoolean<indexof<T>>()) {
       serializeBoolUnsafe(<bool>block);
@@ -69,7 +69,7 @@ export function serializeSet<T extends Set<any>>(src: T): void {
   }
 
   const lastBlock = unchecked(values[end]);
-  if (isString<indexof<T>>()) {
+  if (isString<indexof<T>>() && !isNullable<indexof<T>>()) {
     serializeString(lastBlock as string);
   } else if (isBoolean<indexof<T>>()) {
     serializeBoolUnsafe(<bool>lastBlock);

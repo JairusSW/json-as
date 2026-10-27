@@ -1,4 +1,4 @@
-import { JSON } from "../..";
+import { JSON, JSONMode } from "../..";
 import { bs } from "../../../lib/as-bs";
 import { bytes } from "../../util/bytes";
 import { QUOTE } from "../../custom/chars";
@@ -104,15 +104,16 @@ export function serializeArbitrary(src: JSON.Value): void {
       break;
     case JSON.Types.String: {
       const str = src.get<string>();
-      // Reuse the cached escape class; classify once on first serialize. Clean
-      // strings (the common case) then emit as a single memcpy on every reuse.
-      let cls = src.__strClass();
-      if (cls == 0) {
-        cls = stringNeedsEscape(str) ? 2 : 1;
-        src.__setStrClass(cls);
+      // Output reuse can mutate any managed-string alias, so never cache its
+      // escape class. SIMD/SWAR check the current bytes while emitting them;
+      // avoid a separate scalar prescan in front of those optimized paths.
+      if (JSON_MODE != JSONMode.NAIVE) {
+        serializeString(str);
+      } else if (stringNeedsEscape(str)) {
+        serializeString(str);
+      } else {
+        serializeStringClean(str);
       }
-      if (cls == 1) serializeStringClean(str);
-      else serializeString(str);
       break;
     }
     case JSON.Types.Bool:
