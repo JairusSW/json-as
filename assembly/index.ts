@@ -344,17 +344,15 @@ export namespace JSON {
       data.__SERIALIZE(changetype<usize>(data));
       return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
     } else if (data instanceof Date) {
+      const iso = data.toISOString();
+      const bytes = (<usize>iso.length) << 1;
       out = out
-        ? changetype<string>(__renew(changetype<usize>(out), 52))
-        : changetype<string>(__new(52, idof<string>()));
+        ? changetype<string>(__renew(changetype<usize>(out), bytes + 4))
+        : changetype<string>(__new(bytes + 4, idof<string>()));
 
       store<u16>(changetype<usize>(out), QUOTE);
-      memory.copy(
-        changetype<usize>(out) + 2,
-        changetype<usize>(data.toISOString()),
-        48,
-      );
-      store<u16>(changetype<usize>(out), QUOTE, 50);
+      memory.copy(changetype<usize>(out) + 2, changetype<usize>(iso), bytes);
+      store<u16>(changetype<usize>(out) + bytes + 2, QUOTE);
       return changetype<string>(out);
     } else {
       serializeReference<T>(data);
