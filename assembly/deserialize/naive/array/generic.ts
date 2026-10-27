@@ -47,3 +47,32 @@ export function deserializeGenericArray<T extends unknown[]>(
 
   throw new Error("Failed to parse JSON!");
 }
+
+export function deserializeCustomArray<T extends unknown[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  dst: usize,
+): T {
+  const valueEnd = scanValueEnd(srcStart, srcEnd);
+  if (!valueEnd) throw new Error("Failed to parse JSON!");
+  let end = valueEnd;
+  while (end < srcEnd && isSpace(load<u16>(end))) end += 2;
+  if (end != srcEnd) throw new Error("Failed to parse JSON!");
+  return deserializeGenericArray<T>(srcStart, valueEnd, dst);
+}
+
+// Custom array fields cannot use the generated struct-element fast path:
+// their wire values need not be objects, and their hooks return replacements.
+export function deserializeCustomArrayField<T extends unknown[]>(
+  srcStart: usize,
+  srcEnd: usize,
+  fieldPtr: usize,
+): usize {
+  const valueEnd = scanValueEnd(srcStart, srcEnd);
+  if (!valueEnd) throw new Error("Failed to parse JSON!");
+  store<T>(
+    fieldPtr,
+    deserializeGenericArray<T>(srcStart, valueEnd, load<usize>(fieldPtr)),
+  );
+  return valueEnd;
+}

@@ -1,4 +1,5 @@
 import { JSON } from "../..";
+import { deserializeCustomArrayField } from "../naive/array/generic";
 import { deserializeArbitraryArrayField } from "./array/arbitrary";
 import { deserializeArrayArrayField } from "./array/array";
 import { deserializeBooleanArrayField } from "./array/bool";
@@ -48,7 +49,7 @@ export function deserializeArrayField<T extends unknown[]>(
       return deserializeMapArrayField<T>(srcStart, srcEnd, fieldPtr);
       // @ts-ignore: defined by transform
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-      return deserializeStructArrayField<T>(srcStart, srcEnd, fieldPtr);
+      return deserializeCustomArrayField<T>(srcStart, srcEnd, fieldPtr);
       // @ts-ignore: defined by transform
     } else if (
       isDefined(type.__DESERIALIZE_SLOW) ||

@@ -5,6 +5,7 @@ import { deserializeArrayArray } from "./array/array";
 import { deserializeBooleanArray } from "./array/bool";
 import { deserializeBoxArray } from "./array/box";
 import { deserializeFloatArray_NAIVE } from "./array/float";
+import { deserializeCustomArray } from "./array/generic";
 import { deserializeIntegerArray_NAIVE } from "./array/integer";
 import { deserializeMapArray } from "./array/map";
 import { deserializeObjectArray } from "./array/object";
@@ -95,7 +96,7 @@ export function deserializeStaticArray<T extends StaticArray<any>>(
       // @ts-ignore: supplied by transform
     } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
       return materializeStaticArray<T>(
-        deserializeStructArray<valueof<T>[]>(srcStart, srcEnd, 0),
+        deserializeCustomArray<valueof<T>[]>(srcStart, srcEnd, 0),
         dst,
       );
       // @ts-ignore: supplied by transform
