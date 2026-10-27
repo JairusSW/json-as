@@ -517,8 +517,9 @@ export namespace JSON {
       return deserializeFloat<T>(dataPtr, dataPtr + dataSize);
     } else if (
       isNullable<T>() &&
-      dataSize == 8 &&
-      load<u64>(dataPtr) == NULL_WORD_U64
+      dataSize >= 8 &&
+      load<u64>(dataPtr) == NULL_WORD_U64 &&
+      JSON.Util.skipWhitespace(dataPtr + 8, dataEnd) == dataEnd
     ) {
       return null;
     } else if (isString<T>()) {
@@ -2686,8 +2687,9 @@ export namespace JSON {
       return deserializeFloat<T>(srcStart, srcEnd);
     } else if (
       isNullable<T>() &&
-      srcEnd - srcStart == 8 &&
-      load<u64>(srcStart) == NULL_WORD_U64
+      srcEnd - srcStart >= 8 &&
+      load<u64>(srcStart) == NULL_WORD_U64 &&
+      JSON.Util.skipWhitespace(srcStart + 8, srcEnd) == srcEnd
     ) {
       // A `null` literal must be matched before the string branch: a nullable
       // string (`string | null`) reports `isString<T>() == true`, so without
