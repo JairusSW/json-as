@@ -117,7 +117,6 @@ const VAL_STR_CLASS_MASK: u64 = 0x0000000300000000; // bits [32..33]
 const STR_CLASS_UNKNOWN: u32 = 0;
 const STR_CLASS_CLEAN: u32 = 1;
 const STR_CLASS_ESCAPE: u32 = 2;
-
 // One rooted immutable source/type pair is enough to make repeated parsing of
 // an exact generated-default document allocation-only after its first match.
 // The source reference prevents pointer reuse after GC; a different source or
@@ -356,17 +355,15 @@ export namespace JSON {
       data.__SERIALIZE(changetype<usize>(data));
       return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
     } else if (data instanceof Date) {
+      const iso = data.toISOString();
+      const bytes = (<usize>iso.length) << 1;
       out = out
-        ? changetype<string>(__renew(changetype<usize>(out), 52))
-        : changetype<string>(__new(52, idof<string>()));
+        ? changetype<string>(__renew(changetype<usize>(out), bytes + 4))
+        : changetype<string>(__new(bytes + 4, idof<string>()));
 
       store<u16>(changetype<usize>(out), QUOTE);
-      memory.copy(
-        changetype<usize>(out) + 2,
-        changetype<usize>(data.toISOString()),
-        48,
-      );
-      store<u16>(changetype<usize>(out), QUOTE, 50);
+      memory.copy(changetype<usize>(out) + 2, changetype<usize>(iso), bytes);
+      store<u16>(changetype<usize>(out) + bytes + 2, QUOTE);
       return changetype<string>(out);
     } else {
       serializeReference<T>(data);
@@ -432,28 +429,19 @@ export namespace JSON {
     }
     // Resolve an exact generated-default hit directly at the public boundary.
     // This avoids entering the general parser and avoids polling the cold error
-    // flag for a source that has already been fully compared. Generated matcher
-    // methods do not read `this`, so the compile-time type sentinel is a safe
+    // flag for a source that has been fully compared. Check the current bytes on
+    // every parse: stringify(value, out) can overwrite the same source string.
+    // Generated matcher methods do not read `this`, so the type sentinel is a safe
     // receiver until a match tells us an object allocation is actually needed.
     if ((isReference<T>() || isManaged<T>()) && changetype<usize>(out) == 0) {
       const type = changetype<nonnull<T>>(0);
       // @ts-expect-error: marker supplied by the json-as transform
       if (isDefined(type.__DESERIALIZE_DEFAULT)) {
         const start = changetype<usize>(data);
-        const typeId = idof<nonnull<T>>();
-        const knownMatch =
-          LAST_DEFAULT_TYPE == typeId &&
-          changetype<usize>(LAST_DEFAULT_SOURCE) == start;
-        if (knownMatch) {
-          // @ts-expect-error: paired generated allocation-only factory
-          return changetype<T>(type.__DESERIALIZE_DEFAULT_NEW());
-        }
         const end = start + ((<usize>data.length) << 1);
         // @ts-expect-error: generated method is a receiver-independent factory
         const value = type.__DESERIALIZE_DEFAULT(start, end);
         if (changetype<usize>(value) != 0) {
-          LAST_DEFAULT_SOURCE = data;
-          LAST_DEFAULT_TYPE = typeId;
           return changetype<T>(value);
         }
       }
@@ -531,8 +519,9 @@ export namespace JSON {
       return deserializeFloat<T>(dataPtr, dataPtr + dataSize);
     } else if (
       isNullable<T>() &&
-      dataSize == 8 &&
-      load<u64>(dataPtr) == NULL_WORD_U64
+      dataSize >= 8 &&
+      load<u64>(dataPtr) == NULL_WORD_U64 &&
+      JSON.Util.skipWhitespace(dataPtr + 8, dataEnd) == dataEnd
     ) {
       return null;
     } else if (isString<T>()) {
@@ -1010,25 +999,7 @@ export namespace JSON {
       return changetype<LazyRef>(valPtr(w)).lz;
     }
 
-    /**
-     * The cached serialize-escape class of a materialized String value: 0 = not
-     * yet classified, 1 = clean (no chars need escaping, so it serializes via a
-     * single memcpy), 2 = needs escaping. Stored in two spare payload bits so the
-     * scan is paid once and reused. Only meaningful for String-tagged values.
-     */
-    __strClass(): u32 {
-      return <u32>((this.bits >> VAL_STR_CLASS_SHIFT) & 3);
-    }
-    /** Records the serialize-escape class on this String value (see __strClass). */
-    __setStrClass(c: u32): void {
-      this.bits =
-        (this.bits & ~VAL_STR_CLASS_MASK) | ((<u64>c) << VAL_STR_CLASS_SHIFT);
-    }
-    /**
-     * Raw boxed bits. Lets the JSON.Obj/JSON.Arr serializers read back a class
-     * the serializer cached on a transient value (see `serializeArbitrary`) and
-     * persist it into their flat u64 slot, so re-serializing reuses it.
-     */
+    /** Raw boxed bits. */
     __bits(): u64 {
       return this.bits;
     }
@@ -2183,7 +2154,8 @@ export namespace JSON {
     // move the raw u64 slots directly - no per-element JSON.Value - and keep any
     // managed pointers linked to the same owner. New single-source results share
     // `_src`, so copied deferred ranges stay lazy. Callbacks get a JSON.Value view
-    // of each element via `at(i)`.
+    // of each element via `at(i)`. Forward callbacks observe replacements and
+    // shrinking length, but never visit indices beyond the initial length.
 
     /** Concrete, source-independent bits for slot `i` (resolves a deferred slot
      *  without caching it back into this array - used by cross-source ops). */
@@ -2359,32 +2331,41 @@ export namespace JSON {
       return this.indexOf<T>(value, fromIndex) >= 0;
     }
 
-    /** Calls `fn` for each element. */
+    /** Calls `fn` for each remaining element, capped at the initial length. */
     forEach(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => void,
     ): void {
-      for (let i = 0, n = this._vused; i < n; i++) fn(this.at(i), i, this);
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++)
+        fn(this.at(i), i, this);
     }
 
-    /** New JSON.Arr of `fn`'s results. */
+    /** New JSON.Arr of `fn`'s results, with the initial length. If the source
+     *  shrinks during traversal, unvisited positions remain `null`. */
     map(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => JSON.Value,
     ): JSON.Arr {
       const n = this._vused;
       const out = new JSON.Arr();
       out.ensureValCap(n);
-      for (let i = 0; i < n; i++) out.push<JSON.Value>(fn(this.at(i), i, this));
+      for (let i = 0; i < min(n, this._vused); i++)
+        out.push<JSON.Value>(fn(this.at(i), i, this));
+      out.length = n;
       return out;
     }
 
-    /** New JSON.Arr of elements passing `fn`. Visited slots are materialized;
-     *  their untouched descendants stay lazy. */
+    /** New JSON.Arr of callback values passing `fn`, not subsequently replaced
+     *  source slots. Replacing a callback wrapper affects the result, not the
+     *  source. Visited slots are materialized; untouched descendants stay lazy. */
     filter(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
     ): JSON.Arr {
       const out = new JSON.Arr();
-      for (let i = 0, n = this._vused; i < n; i++)
-        if (fn(this.at(i), i, this)) this.copyInto(out, i, 1);
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++) {
+        // Keep the inspected value rooted even if the callback replaces its
+        // source slot, clears the array, or grows the backing buffer.
+        const value = this.at(i);
+        if (fn(value, i, this)) out.push<JSON.Value>(value);
+      }
       return out;
     }
 
@@ -2392,7 +2373,7 @@ export namespace JSON {
     find(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
     ): JSON.Value | null {
-      for (let i = 0, n = this._vused; i < n; i++) {
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++) {
         const v = this.at(i);
         if (fn(v, i, this)) return v;
       }
@@ -2403,7 +2384,7 @@ export namespace JSON {
     findIndex(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
     ): i32 {
-      for (let i = 0, n = this._vused; i < n; i++)
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++)
         if (fn(this.at(i), i, this)) return i;
       return -1;
     }
@@ -2430,14 +2411,14 @@ export namespace JSON {
 
     /** Whether every element passes `fn`. */
     every(fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool): bool {
-      for (let i = 0, n = this._vused; i < n; i++)
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++)
         if (!fn(this.at(i), i, this)) return false;
       return true;
     }
 
     /** Whether any element passes `fn`. */
     some(fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool): bool {
-      for (let i = 0, n = this._vused; i < n; i++)
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++)
         if (fn(this.at(i), i, this)) return true;
       return false;
     }
@@ -2448,7 +2429,7 @@ export namespace JSON {
       initialValue: U,
     ): U {
       let acc = initialValue;
-      for (let i = 0, n = this._vused; i < n; i++)
+      for (let i = 0, n = this._vused; i < min(n, this._vused); i++)
         acc = fn(acc, this.at(i), i, this);
       return acc;
     }
@@ -2718,8 +2699,9 @@ export namespace JSON {
       return deserializeFloat<T>(srcStart, srcEnd);
     } else if (
       isNullable<T>() &&
-      srcEnd - srcStart == 8 &&
-      load<u64>(srcStart) == NULL_WORD_U64
+      srcEnd - srcStart >= 8 &&
+      load<u64>(srcStart) == NULL_WORD_U64 &&
+      JSON.Util.skipWhitespace(srcStart + 8, srcEnd) == srcEnd
     ) {
       // A `null` literal must be matched before the string branch: a nullable
       // string (`string | null`) reports `isString<T>() == true`, so without
