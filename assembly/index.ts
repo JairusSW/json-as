@@ -106,18 +106,6 @@ const LZ_OFF_MASK: u64 = 0x7fffff; // (1 << 23) - 1
 const LZ_LEN_MASK: u64 = 0x1fffff; // (1 << 21) - 1
 const LZ_ABS_FLAG: u64 = 0x100000000000; // 1 << 44
 
-// A materialized String box only uses the low 32 payload bits for its pointer,
-// so two spare bits [32..33] cache the value's serialize-escape class. This lets
-// re-serializing a dynamic string skip the per-char escape scan - a clean string
-// emits via a single memcpy. `valPtr` masks bit 32+ off, so the pointer (and GC)
-// are unaffected.
-//   0 = unclassified · 1 = clean (no escaping -> memcpy) · 2 = needs escaping
-const VAL_STR_CLASS_SHIFT: u64 = 32;
-const VAL_STR_CLASS_MASK: u64 = 0x0000000300000000; // bits [32..33]
-const STR_CLASS_UNKNOWN: u32 = 0;
-const STR_CLASS_CLEAN: u32 = 1;
-const STR_CLASS_ESCAPE: u32 = 2;
-
 // One rooted immutable source/type pair is enough to make repeated parsing of
 // an exact generated-default document allocation-only after its first match.
 // The source reference prevents pointer reuse after GC; a different source or
@@ -1010,25 +998,7 @@ export namespace JSON {
       return changetype<LazyRef>(valPtr(w)).lz;
     }
 
-    /**
-     * The cached serialize-escape class of a materialized String value: 0 = not
-     * yet classified, 1 = clean (no chars need escaping, so it serializes via a
-     * single memcpy), 2 = needs escaping. Stored in two spare payload bits so the
-     * scan is paid once and reused. Only meaningful for String-tagged values.
-     */
-    __strClass(): u32 {
-      return <u32>((this.bits >> VAL_STR_CLASS_SHIFT) & 3);
-    }
-    /** Records the serialize-escape class on this String value (see __strClass). */
-    __setStrClass(c: u32): void {
-      this.bits =
-        (this.bits & ~VAL_STR_CLASS_MASK) | ((<u64>c) << VAL_STR_CLASS_SHIFT);
-    }
-    /**
-     * Raw boxed bits. Lets the JSON.Obj/JSON.Arr serializers read back a class
-     * the serializer cached on a transient value (see `serializeArbitrary`) and
-     * persist it into their flat u64 slot, so re-serializing reuses it.
-     */
+    /** Raw boxed bits. */
     __bits(): u64 {
       return this.bits;
     }

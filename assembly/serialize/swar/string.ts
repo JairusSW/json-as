@@ -21,7 +21,7 @@ export function serializeString_SWAR(src: string): void {
     const dstStart = bs.offset;
     let dst = dstStart + 2;
 
-    while (srcStart < srcEnd8Fast) {
+    while (srcStart <= srcEnd8Fast) {
       const block = load<u64>(srcStart);
       if ((block & 0xff00_ff00_ff00_ff00) != 0) break;
       const lo = block & 0x00ff_00ff_00ff_00ff;
@@ -35,11 +35,16 @@ export function serializeString_SWAR(src: string): void {
       srcStart += 8;
       dst += 8;
     }
-    if (srcStart < srcEnd8Fast) break;
+    if (srcStart <= srcEnd8Fast) break;
 
     while (srcStart <= srcEnd - 2) {
       const code = load<u16>(srcStart);
-      if (code > 0x7f || code == BACK_SLASH || code == QUOTE || code < 32)
+      if (
+        (code >= 0xd800 && code <= 0xdfff) ||
+        code == BACK_SLASH ||
+        code == QUOTE ||
+        code < 32
+      )
         break;
       store<u16>(dst, code);
       srcStart += 2;
@@ -74,11 +79,14 @@ export function serializeString_SWAR(src: string): void {
     do {
       const laneIdx = usize(ctz(mask) >> 3);
       const srcIdx = srcStart + laneIdx;
-      // Even (0 2 4 6) -> Confirmed ASCII Escape
+      // Even (0 2 4 6) -> Possible ASCII escape
       // Odd (1 3 5 7) -> Possibly a Unicode code unit or surrogate
       if ((laneIdx & 1) === 0) {
         mask &= mask - 1;
         const code = load<u16>(srcIdx);
+        // The byte mask is conservative: a non-ASCII code unit can also set
+        // this bit. Only actual JSON escapes may index the ASCII escape table.
+        if (code >= 32 && code != 34 && code != BACK_SLASH) continue;
         const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
 
         if ((escaped & 0xffff) != BACK_SLASH) {
@@ -106,6 +114,13 @@ export function serializeString_SWAR(src: string): void {
         const next = load<u16>(srcIdx, 1);
         if (next >= 0xdc00 && next <= 0xdfff) {
           // paired surrogate
+          // If the low surrogate is in the next block, copy and consume it
+          // now so the next iteration cannot treat it as an unpaired unit.
+          if (laneIdx == 7) {
+            store<u16>(bs.offset + 8, next);
+            srcStart += 2;
+            bs.offset += 2;
+          }
           // mask &= ~(0xFF << ((laneIdx+2) << 3));
           mask &= mask - 1;
           continue;
