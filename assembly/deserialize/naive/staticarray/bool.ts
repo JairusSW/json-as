@@ -1,43 +1,68 @@
 import { resizeStaticArray } from "../../../util/resizeStaticArray";
+import { isSpace } from "../../../util";
+import {
+  BRACKET_LEFT,
+  BRACKET_RIGHT,
+  COMMA,
+  FALSE_WORD_U64,
+  TRUE_WORD_U64,
+} from "../../../custom/chars";
+import { markProductionParseError } from "../../error";
 export function deserializeStaticArrayBoolean<T extends StaticArray<any>>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
 ): T {
-  // First pass: count elements using same logic as Array deserializer
-  let count: i32 = 0;
-  let ptr = srcStart + 2; // skip [
-  while (ptr < srcEnd) {
-    const block = load<u64>(ptr);
-    if (block == 28429475166421108) {
-      count++;
-      ptr += 10;
-    } else if (block == 32370086184550502 && load<u16>(ptr, 8) == 101) {
-      count++;
-      ptr += 12;
-    } else {
-      ptr += 2;
-    }
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
+  if (
+    srcStart >= srcEnd ||
+    load<u16>(srcStart) != BRACKET_LEFT ||
+    load<u16>(srcEnd - 2) != BRACKET_RIGHT
+  ) {
+    markProductionParseError();
+    return changetype<T>(0);
   }
 
-  // Allocate StaticArray with correct size
-  const out = resizeStaticArray<T>(dst, count);
+  const bodyStart = srcStart + 2;
+  const bodyEnd = srcEnd - 2;
+  let ptr = bodyStart;
+  while (ptr < bodyEnd && isSpace(load<u16>(ptr))) ptr += 2;
+  if (ptr == bodyEnd) return resizeStaticArray<T>(dst, 0);
 
-  // Second pass: populate values
+  // A compact `true,` element occupies at least ten UTF-16 bytes. Allocate
+  // that safe upper bound, validate and populate in one pass, then shrink.
+  const maxCount = i32((bodyEnd - ptr + 2) / 10);
+  let out = resizeStaticArray<T>(dst, maxCount);
   let index = 0;
-  srcStart += 2; // skip [
-  while (srcStart < srcEnd) {
-    const block = load<u64>(srcStart);
-    if (block == 28429475166421108) {
-      unchecked((out[index++] = <valueof<T>>true));
-      srcStart += 10;
-    } else if (block == 32370086184550502 && load<u16>(srcStart, 8) == 101) {
-      unchecked((out[index++] = <valueof<T>>false));
-      srcStart += 12;
+  while (true) {
+    if (ptr + 8 <= bodyEnd && load<u64>(ptr) == TRUE_WORD_U64) {
+      unchecked((out[index] = <valueof<T>>true));
+      ptr += 8;
+    } else if (
+      ptr + 10 <= bodyEnd &&
+      load<u64>(ptr) == FALSE_WORD_U64 &&
+      load<u16>(ptr, 8) == 101
+    ) {
+      unchecked((out[index] = <valueof<T>>false));
+      ptr += 10;
     } else {
-      srcStart += 2;
+      markProductionParseError();
+      return changetype<T>(0);
+    }
+    index++;
+    while (ptr < bodyEnd && isSpace(load<u16>(ptr))) ptr += 2;
+    if (ptr == bodyEnd)
+      return resizeStaticArray<T>(changetype<usize>(out), index);
+    if (ptr >= bodyEnd || load<u16>(ptr) != COMMA) {
+      markProductionParseError();
+      return changetype<T>(0);
+    }
+    ptr += 2;
+    while (ptr < bodyEnd && isSpace(load<u16>(ptr))) ptr += 2;
+    if (ptr == bodyEnd) {
+      markProductionParseError();
+      return changetype<T>(0);
     }
   }
-
-  return out;
 }

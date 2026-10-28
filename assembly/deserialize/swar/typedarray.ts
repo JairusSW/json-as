@@ -29,6 +29,26 @@ import {
   parseSignedIntegerSWAR,
   parseUnsignedIntegerSWAR,
 } from "./array/integer";
+import { markProductionParseError } from "../error";
+import { countArrayElements } from "../../util/countArrayElements";
+import { validateJSONNumberTokenLoose } from "../../util/validateJson";
+import { deserializeFloat_NAIVE } from "../naive/float";
+
+function parseLooseFloatFallback<E>(
+  srcStart: usize,
+  srcEnd: usize,
+  slot: usize,
+): usize {
+  let tokenEnd = srcStart;
+  while (tokenEnd < srcEnd) {
+    const code = load<u16>(tokenEnd);
+    if (code == COMMA || isSpace(code)) break;
+    tokenEnd += 2;
+  }
+  if (!validateJSONNumberTokenLoose(srcStart, tokenEnd)) return 0;
+  store<E>(slot, deserializeFloat_NAIVE<E>(srcStart, tokenEnd));
+  return tokenEnd;
+}
 
 /**
  * SWAR TypedArray deserializer.
@@ -56,45 +76,27 @@ import {
  * a length update if the runtime supports in-place shrink), much
  * cheaper than a second 64 MB scan over the input.
  */
-// A supplied view can share its buffer and begin at a nonzero byte offset.
-// Count only on the reuse path so valid fresh parses retain their single pass.
-function reusableElementCount(start: usize, end: usize): i32 {
-  let count = 1;
-  let p = start;
-  while (p + 8 <= end) {
-    const word = load<u64>(p) ^ 0x002c_002c_002c_002c;
-    // Exact per-lane equality, without the borrow false positives of the
-    // usual (x - 1) & ~x mask (important for comma followed by minus).
-    const commas = ~(
-      ((word & 0x7fff_7fff_7fff_7fff) + 0x7fff_7fff_7fff_7fff) |
-      word |
-      0x7fff_7fff_7fff_7fff
-    );
-    count += <i32>popcnt(commas);
-    p += 8;
-  }
-  for (; p < end; p += 2) if (load<u16>(p) == COMMA) count++;
-  return count;
-}
-
 export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize = 0,
 ): T {
-  // Find the opening `[`, then skip whitespace to the first non-WS char.
-  while (srcStart < srcEnd) {
-    const ch = load<u16>(srcStart);
-    if (ch == BRACKET_LEFT) {
-      srcStart += 2;
-      break;
-    }
-    srcStart += 2;
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
+  if (
+    srcStart >= srcEnd ||
+    load<u16>(srcStart) != BRACKET_LEFT ||
+    load<u16>(srcEnd - 2) != BRACKET_RIGHT
+  ) {
+    markProductionParseError();
+    return changetype<T>(0);
   }
+  srcStart += 2;
+  srcEnd -= 2;
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
 
   // Empty-array fast path.
-  if (srcStart >= srcEnd || load<u16>(srcStart) == BRACKET_RIGHT) {
+  if (srcStart == srcEnd) {
     let out = changetype<T>(dst || changetype<usize>(instantiate<T>(0)));
     if (out.length != 0) out = changetype<T>(instantiate<T>(0));
     return out;
@@ -102,7 +104,7 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
 
   const elementSize = sizeof<valueof<T>>();
   const maxElements = dst
-    ? reusableElementCount(srcStart, srcEnd)
+    ? countArrayElements(srcStart, srcEnd)
     : i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
   let out = changetype<T>(
     dst || changetype<usize>(instantiate<T>(maxElements)),
@@ -122,30 +124,40 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
     if (changetype<T>(0) instanceof Uint8ClampedArray) {
       const scratch = memory.data(8);
       next = parseFloatElementSWAR<f64>(srcStart, srcEnd, scratch);
+      if (!next && !JSON_STRICT)
+        next = parseLooseFloatFallback<f64>(srcStart, srcEnd, scratch);
       if (next)
         store<u8>(writePtr, <u8>max<f64>(0, min<f64>(255, load<f64>(scratch))));
     } else if (isFloat<valueof<T>>()) {
       next = parseFloatElementSWAR<valueof<T>>(srcStart, srcEnd, writePtr);
+      if (!next && !JSON_STRICT)
+        next = parseLooseFloatFallback<valueof<T>>(srcStart, srcEnd, writePtr);
     } else if (isSigned<valueof<T>>()) {
       next = parseSignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, writePtr);
     } else {
       next = parseUnsignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, writePtr);
     }
-    if (!next) break;
+    if (!next) {
+      markProductionParseError();
+      return changetype<T>(0);
+    }
     writePtr += elementSize;
     srcStart = next;
-    if (srcStart >= srcEnd) break;
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-    if (srcStart >= srcEnd) break;
+    if (srcStart == srcEnd) break;
     const ch = load<u16>(srcStart);
     if (ch == COMMA) {
       srcStart += 2;
       while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+      if (srcStart == srcEnd) {
+        markProductionParseError();
+        return changetype<T>(0);
+      }
       continue;
     }
-    if (ch == BRACKET_RIGHT) break;
-    break;
+    markProductionParseError();
+    return changetype<T>(0);
   }
 
   // Trim to actual count. `out.length =` on a typed-array isn't legal
@@ -196,17 +208,21 @@ export function deserializeArrayBuffer_SWAR(
   srcEnd: usize,
   dst: usize = 0,
 ): ArrayBuffer {
-  while (srcStart < srcEnd) {
-    const ch = load<u16>(srcStart);
-    if (ch == BRACKET_LEFT) {
-      srcStart += 2;
-      break;
-    }
-    srcStart += 2;
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
+  if (
+    srcStart >= srcEnd ||
+    load<u16>(srcStart) != BRACKET_LEFT ||
+    load<u16>(srcEnd - 2) != BRACKET_RIGHT
+  ) {
+    markProductionParseError();
+    return changetype<ArrayBuffer>(0);
   }
+  srcStart += 2;
+  srcEnd -= 2;
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
 
-  if (srcStart >= srcEnd || load<u16>(srcStart) == BRACKET_RIGHT) {
+  if (srcStart == srcEnd) {
     let out = dst ? changetype<ArrayBuffer>(dst) : new ArrayBuffer(0);
     if (out.byteLength != 0) out = new ArrayBuffer(0);
     return out;
@@ -214,7 +230,7 @@ export function deserializeArrayBuffer_SWAR(
 
   // Worst-case byte count: each element is `D,` minimum = 4 bytes.
   const maxBytes = dst
-    ? reusableElementCount(srcStart, srcEnd)
+    ? countArrayElements(srcStart, srcEnd)
     : i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
   let out = dst ? changetype<ArrayBuffer>(dst) : new ArrayBuffer(maxBytes);
   if (out.byteLength != maxBytes) {
@@ -230,21 +246,27 @@ export function deserializeArrayBuffer_SWAR(
       srcEnd,
       dataStart + writePtr,
     );
-    if (!next) break;
+    if (!next) {
+      markProductionParseError();
+      return changetype<ArrayBuffer>(0);
+    }
     writePtr += 1;
     srcStart = next;
-    if (srcStart >= srcEnd) break;
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-    if (srcStart >= srcEnd) break;
+    if (srcStart == srcEnd) break;
     const ch = load<u16>(srcStart);
     if (ch == COMMA) {
       srcStart += 2;
       while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+      if (srcStart == srcEnd) {
+        markProductionParseError();
+        return changetype<ArrayBuffer>(0);
+      }
       continue;
     }
-    if (ch == BRACKET_RIGHT) break;
-    break;
+    markProductionParseError();
+    return changetype<ArrayBuffer>(0);
   }
 
   // Trim to actual byte count via `__renew`.

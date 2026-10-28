@@ -198,6 +198,93 @@ export function validateJSONNumberToken(ptr: usize, end: usize): bool {
   return tokenEnd != 0 && tokenEnd == end;
 }
 
+function matchesASCIIFolded(
+  ptr: usize,
+  end: usize,
+  a: u16,
+  b: u16,
+  c: u16,
+  d: u16 = 0,
+  e: u16 = 0,
+  f: u16 = 0,
+  g: u16 = 0,
+  h: u16 = 0,
+): bool {
+  const length = h ? 8 : g ? 7 : f ? 6 : e ? 5 : d ? 4 : 3;
+  if (end - ptr != <usize>(length << 1)) return false;
+  if ((load<u16>(ptr) | 32) != a) return false;
+  if ((load<u16>(ptr, 2) | 32) != b) return false;
+  if ((load<u16>(ptr, 4) | 32) != c) return false;
+  if (d && (load<u16>(ptr, 6) | 32) != d) return false;
+  if (e && (load<u16>(ptr, 8) | 32) != e) return false;
+  if (f && (load<u16>(ptr, 10) | 32) != f) return false;
+  if (g && (load<u16>(ptr, 12) | 32) != g) return false;
+  if (h && (load<u16>(ptr, 14) | 32) != h) return false;
+  return true;
+}
+
+/**
+ * Validates one complete number token under the default parser's compatibility
+ * grammar: leading zeroes and an empty fractional tail are retained, together
+ * with the historical NaN/Infinity extension. Exponents still require digits.
+ */
+export function validateJSONNumberTokenLoose(ptr: usize, end: usize): bool {
+  if (ptr < end && load<u16>(ptr) == 0x2d) ptr += 2;
+  if (ptr >= end) return false;
+  if (
+    matchesASCIIFolded(ptr, end, 110, 97, 110) ||
+    matchesASCIIFolded(ptr, end, 105, 110, 102, 105, 110, 105, 116, 121)
+  )
+    return true;
+
+  const integerStart = ptr;
+  while (ptr < end && isDigit(load<u16>(ptr))) ptr += 2;
+  if (ptr == integerStart) return false;
+  if (ptr < end && load<u16>(ptr) == 0x2e) {
+    ptr += 2;
+    while (ptr < end && isDigit(load<u16>(ptr))) ptr += 2;
+  }
+  if (ptr < end) {
+    const code = load<u16>(ptr);
+    if (code == 0x65 || code == 0x45) {
+      ptr += 2;
+      if (ptr < end) {
+        const sign = load<u16>(ptr);
+        if (sign == 0x2b || sign == 0x2d) ptr += 2;
+      }
+      const exponentStart = ptr;
+      while (ptr < end && isDigit(load<u16>(ptr))) ptr += 2;
+      if (ptr == exponentStart) return false;
+    }
+  }
+  return ptr == end;
+}
+
+/** Validates one already-delimited JSON integer token. */
+export function validateJSONIntegerToken(
+  ptr: usize,
+  end: usize,
+  signed: bool,
+): bool {
+  if (ptr < end && load<u16>(ptr) == 0x2d) {
+    if (!signed) return false;
+    ptr += 2;
+  }
+  if (ptr >= end) return false;
+
+  const first = load<u16>(ptr);
+  if (first == 0x30) {
+    ptr += 2;
+    return ptr == end;
+  }
+  if (first < 0x31 || first > 0x39) return false;
+
+  do {
+    ptr += 2;
+  } while (ptr < end && isDigit(load<u16>(ptr)));
+  return ptr == end;
+}
+
 function scanLiteral(
   ptr: usize,
   end: usize,

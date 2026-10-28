@@ -66,6 +66,13 @@ export function parseSignedIntegerSWAR<E extends number>(
 
   let digit = <u32>code - 48;
   if (digit > 9) return 0;
+  if (
+    JSON_STRICT &&
+    digit == 0 &&
+    srcStart + 2 < srcEnd &&
+    <u32>(load<u16>(srcStart, 2) - 48) <= 9
+  )
+    return 0;
 
   let value: u64 = digit;
   srcStart += 2;
@@ -110,6 +117,13 @@ export function parseUnsignedIntegerSWAR<E extends number>(
   if (sizeof<E>() <= 2) {
     const first = <u32>load<u16>(srcStart) - 48;
     if (first > 9) return 0;
+    if (
+      JSON_STRICT &&
+      first == 0 &&
+      srcStart + 2 < srcEnd &&
+      <u32>(load<u16>(srcStart, 2) - 48) <= 9
+    )
+      return 0;
     const lastIndex = srcStart;
     srcStart += 2;
     while (srcStart < srcEnd) {
@@ -129,6 +143,13 @@ export function parseUnsignedIntegerSWAR<E extends number>(
 
   let digit = <u32>load<u16>(srcStart) - 48;
   if (digit > 9) return 0;
+  if (
+    JSON_STRICT &&
+    digit == 0 &&
+    srcStart + 2 < srcEnd &&
+    <u32>(load<u16>(srcStart, 2) - 48) <= 9
+  )
+    return 0;
 
   let value: u64 = digit;
   srcStart += 2;

@@ -4,7 +4,6 @@ import { deserializeArbitraryArray } from "./array/arbitrary";
 import { deserializeArrayArray } from "./array/array";
 import { deserializeBooleanArray } from "./array/bool";
 import { deserializeBoxArray } from "./array/box";
-import { deserializeFloatArray_NAIVE } from "./array/float";
 import { deserializeCustomArray } from "./array/generic";
 import { deserializeIntegerArray_NAIVE } from "./array/integer";
 import { deserializeMapArray } from "./array/map";
@@ -15,13 +14,13 @@ import { deserializeStringArray_NAIVE } from "./array/string";
 import { deserializeStaticArrayBoolean } from "./staticarray/bool";
 import { deserializeStaticArrayFloat } from "./staticarray/float";
 import { deserializeStaticArrayInteger } from "./staticarray/integer";
-import { deserializeStaticArrayString } from "./staticarray/string";
 import { scanValueEnd } from "../../util/scanValueEnd";
 
 function materializeStaticArray<T extends StaticArray<any>>(
   src: valueof<T>[],
   dst: usize,
 ): T {
+  if (changetype<usize>(src) == 0) return changetype<T>(0);
   const len = src.length;
   const typed = resizeStaticArray<T>(dst, len);
   for (let i = 0; i < len; i++) {
@@ -36,8 +35,11 @@ export function deserializeStaticArray<T extends StaticArray<any>>(
   dst: usize,
 ): T {
   if (isString<valueof<T>>()) {
-    return changetype<T>(
-      deserializeStaticArrayString<T>(srcStart, srcEnd, dst),
+    return materializeStaticArray<T>(
+      changetype<valueof<T>[]>(
+        deserializeStringArray_NAIVE(srcStart, srcEnd, 0),
+      ),
+      dst,
     );
   } else if (isBoolean<valueof<T>>()) {
     return deserializeStaticArrayBoolean<T>(srcStart, srcEnd, dst);

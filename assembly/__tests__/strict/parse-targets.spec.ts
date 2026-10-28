@@ -177,6 +177,12 @@ describe("strict mode rejects malformed JSON for every target family", () => {
     JSON.parse<JSON.Value>("01");
   }).toThrow();
   expect((): void => {
+    JSON.parse<JSON.Value>("1.");
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<JSON.Value>("-Infinity");
+  }).toThrow();
+  expect((): void => {
     JSON.parse<JSON.Raw>("true false");
   }).toThrow();
   expect((): void => {

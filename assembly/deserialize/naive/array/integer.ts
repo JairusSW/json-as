@@ -1,29 +1,7 @@
 import { atoi, isSpace } from "../../../util";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { markProductionParseError } from "../../error";
-
-// Strict RFC 8259 integer-token check over [start, end): optional minus (signed
-// types only), then a lone `0` or [1-9] digits - no leading zeros, fraction,
-// exponent, or trailing garbage. Returns false otherwise.
-function validateJSONInteger(start: usize, end: usize, signed: bool): bool {
-  let ptr = start;
-  if (ptr < end && load<u16>(ptr) == 45) {
-    if (!signed) return false;
-    ptr += 2;
-  }
-  if (ptr >= end) return false;
-  const first = load<u16>(ptr);
-  if (first == 48) {
-    ptr += 2;
-    if (ptr < end && <u32>(load<u16>(ptr) - 48) <= 9) return false;
-  } else if (<u32>(first - 48) <= 9) {
-    ptr += 2;
-    while (ptr < end && <u32>(load<u16>(ptr) - 48) <= 9) ptr += 2;
-  } else {
-    return false;
-  }
-  return ptr == end;
-}
+import { validateJSONIntegerToken } from "../../../util/validateJson";
 
 /**
  * Strict integer-array deserializer (`i8[]`..`i64[]`, `u8[]`..`u64[]`).
@@ -68,7 +46,7 @@ export function deserializeIntegerArray_NAIVE<T extends number[]>(
     }
     if (
       srcStart == tokenStart ||
-      !validateJSONInteger(tokenStart, srcStart, signed)
+      !validateJSONIntegerToken(tokenStart, srcStart, signed)
     ) {
       markProductionParseError();
       return changetype<T>(0);

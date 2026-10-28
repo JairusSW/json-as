@@ -2,6 +2,10 @@ import { isSpace } from "../../../util";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON } from "../../..";
 import { markProductionParseError } from "../../error";
+import {
+  validateJSONNumberToken,
+  validateJSONNumberTokenLoose,
+} from "../../../util/validateJson";
 
 /**
  * Strict float-array deserializer (`f64[]` / `f32[]`).
@@ -25,6 +29,7 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
   out.length = 0;
 
   // Trim surrounding whitespace and require the enclosing brackets.
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   if (
     srcStart >= srcEnd ||
@@ -50,6 +55,13 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
       srcStart += 2;
     }
     if (srcStart == tokenStart) {
+      markProductionParseError();
+      return changetype<T>(0);
+    }
+    const valid = JSON_STRICT
+      ? validateJSONNumberToken(tokenStart, srcStart)
+      : validateJSONNumberTokenLoose(tokenStart, srcStart);
+    if (!valid) {
       markProductionParseError();
       return changetype<T>(0);
     }

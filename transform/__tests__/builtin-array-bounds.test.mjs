@@ -59,14 +59,170 @@ try {
         wasm.__unpin(ptr);
       }
     }
-    for (const name of ["rawLength", "boxLength"]) {
-      for (const input of ["[] []", "[]0]", "[true] [false]", "{}"]) {
-        assert.throws(() => run(name, input), /JSON decoder rejected input/);
+    function runAtMemoryEnd(name, source) {
+      const instance = new WebAssembly.Instance(module, {
+        env: {
+          abort() {
+            throw new Error("JSON decoder rejected input");
+          },
+        },
+      });
+      const wasm = instance.exports;
+      wasm.memory.grow(1);
+      const bytes = Buffer.from(source, "utf16le");
+      const ptr = wasm.memory.buffer.byteLength - bytes.length;
+      new Uint8Array(wasm.memory.buffer, ptr, bytes.length).set(bytes);
+      return wasm[name](ptr, bytes.length);
+    }
+    const rejectionCases = {
+      rawLength: ["[] []", "[]0]", "[true] [false]", "{}"],
+      boxLength: ["[] []", "[]0]", "[true] [false]", "{}"],
+      typedLength: [
+        "12",
+        "{}",
+        '{"n":1}',
+        '"[1,2]"',
+        "null",
+        "true",
+        "[1,2] trailing",
+        "prefix [1,2]",
+        "[1 2]",
+        "[1,,2]",
+        "[1,]",
+        "[1.0]",
+        "[1e1]",
+      ],
+      floatLength: [
+        "12",
+        "{}",
+        '"[1,2]"',
+        "[1,2] trailing",
+        "prefix [1,2]",
+        "[1 2]",
+        "[1,,2]",
+        "[1,]",
+        "[1e]",
+      ],
+      bufferLength: [
+        "12",
+        "{}",
+        '{"n":1}',
+        '"[1,2]"',
+        "null",
+        "true",
+        "[1,2] trailing",
+        "prefix [1,2]",
+        "[1 2]",
+        "[1,,2]",
+        "[1,]",
+        "[-1]",
+        "[1.0]",
+      ],
+      staticBoolLength: [
+        "true",
+        "{}",
+        '"[true]"',
+        "[true] trailing",
+        "prefix [true]",
+        "[true false]",
+        "[true,,false]",
+        "[true,]",
+        "[trux]",
+        "[falsx]",
+      ],
+      staticIntLength: [
+        "12",
+        "{}",
+        '"[1,2]"',
+        "[1,2] trailing",
+        "[1 2]",
+        "[1,,2]",
+        "[1,]",
+        "[1.0]",
+      ],
+      staticFloatLength: [
+        "12",
+        "{}",
+        '"[1,2]"',
+        "[1,2] trailing",
+        "[1 2]",
+        "[1,,2]",
+        "[1,]",
+        "[1e]",
+      ],
+      staticStringLength: [
+        '"x"',
+        "{}",
+        '["x"] trailing',
+        '["x" "y"]',
+        '["x",, "y"]',
+        '["x",]',
+        '["unterminated]',
+      ],
+      boolValue: ["truex", "falsex", "true false", "false true", '"true"'],
+      valueType: [
+        "nullx",
+        "null true",
+        "truex",
+        "1e",
+        '"ok" trailing',
+        "[] trailing",
+        "{} trailing",
+      ],
+      valueTypeInternal: [
+        "nullx",
+        "truex",
+        "1e",
+        '"ok" trailing',
+        "[] trailing",
+        "{} trailing",
+      ],
+    };
+    for (const [name, inputs] of Object.entries(rejectionCases)) {
+      for (const input of inputs) {
+        assert.throws(
+          () => run(name, input),
+          /JSON decoder rejected input/,
+          `${mode}: ${name} accepted ${JSON.stringify(input)}`,
+        );
         checks++;
       }
-      assert.equal(run(name, "[true,false]"), 2);
-      checks++;
     }
+    assert.equal(run("rawLength", "[true,false]"), 2);
+    assert.equal(run("boxLength", "[true,false]"), 2);
+    assert.equal(run("typedLength", "[-1,2]"), 2);
+    assert.equal(run("floatLength", "[1.5,-2e3]"), 2);
+    assert.equal(run("bufferLength", "[0,255,256]"), 3);
+    assert.equal(run("staticBoolLength", "[true,false]"), 2);
+    assert.equal(run("staticIntLength", "[-1,2]"), 2);
+    assert.equal(run("staticFloatLength", "[1.5,-2e3]"), 2);
+    assert.equal(run("staticStringLength", '["x","y"]'), 2);
+    assert.equal(runAtMemoryEnd("staticBoolLengthAt", "[true ]"), 1);
+    assert.equal(runAtMemoryEnd("staticBoolLengthAt", "[false ]"), 1);
+    assert.equal(runAtMemoryEnd("staticBoolLengthAt", "[true,false ]"), 2);
+    assert.equal(run("boolValue", "true \n"), 1);
+    assert.equal(run("boolValue", "false\t"), 0);
+    assert.equal(run("valueType", "null \n"), 0);
+    assert.equal(run("valueType", '"ok" \n'), 13);
+    assert.equal(run("valueType", "[] \n"), 15);
+    assert.equal(run("valueType", "{} \n"), 14);
+    assert.equal(run("valueType", "01"), 11);
+    assert.equal(run("valueType", "1."), 11);
+    assert.equal(run("valueType", "-Infinity"), 11);
+    assert.equal(run("valueType", "NaN"), 11);
+    assert.equal(run("valueTypeInternal", '"ok" \n'), 13);
+    assert.equal(run("valueTypeInternal", "[] \n"), 15);
+    assert.equal(run("valueTypeInternal", "{} \n"), 14);
+    assert.equal(run("typedLength", "[01]"), 1);
+    assert.equal(run("floatLength", "[01,1.]"), 2);
+    assert.equal(run("floatFirst", "[1e00001]"), 10);
+    assert.equal(run("bufferLength", "[01]"), 1);
+    assert.equal(run("staticIntLength", "[01]"), 1);
+    assert.equal(run("staticFloatLength", "[01,1.]"), 2);
+    assert.ok(Number.isNaN(run("floatFirst", "[NaN]")));
+    assert.equal(run("floatFirst", "[Infinity]"), Infinity);
+    assert.equal(run("floatFirst", "[-Infinity]"), -Infinity);
+    checks += 34;
   }
 } finally {
   fs.rmSync(directory, { recursive: true, force: true });

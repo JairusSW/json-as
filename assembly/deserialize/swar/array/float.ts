@@ -286,6 +286,13 @@ export function parseFloatElementSWAR<E>(
 
   let firstDigit = <u32>code - 48;
   if (firstDigit > 9) return 0;
+  if (
+    JSON_STRICT &&
+    firstDigit == 0 &&
+    p + 2 < srcEnd &&
+    <u32>(load<u16>(p, 2) - 48) <= 9
+  )
+    return 0;
 
   // GeoJSON coordinates overwhelmingly use one of these two fixed layouts:
   // `DD.ffffffffffffff` or `DDD.ffffffffffffff`. Recognize them before the
@@ -392,7 +399,9 @@ function parseFloatElementGeneric<E>(
   // Fractional mantissa: parse4 SWAR stride + scalar tail. Same u64
   // accumulator as the integer part - exponent compensates for fracDigits.
   let fracStart = p;
+  let hasFraction = false;
   if (p < srcEnd && load<u16>(p) == 46) {
+    hasFraction = true;
     p += 2;
     fracStart = p;
     while (p + 6 < srcEnd) {
@@ -409,6 +418,7 @@ function parseFloatElementGeneric<E>(
     }
   }
   const fracDigits = <i32>((p - fracStart) >> 1);
+  if (JSON_STRICT && hasFraction && fracDigits == 0) return 0;
 
   const mantDigits = intDigits + fracDigits;
   let exponent: i32 = -fracDigits;
@@ -443,6 +453,7 @@ function parseFloatElementGeneric<E>(
         exp = exp * 10 + <i32>d;
         expDigits++;
         if (expDigits > 4) {
+          while (p < srcEnd && <u32>(load<u16>(p) - 48) <= 9) p += 2;
           fallbackStore<E>(origStart, p, slot);
           return p;
         }

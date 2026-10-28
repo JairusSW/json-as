@@ -2864,9 +2864,23 @@ export namespace JSON {
         type instanceof Float32Array ||
         type instanceof Float64Array
       ) {
-        return deserializeTypedArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
+        const value = deserializeTypedArray<nonnull<T>>(
+          srcStart,
+          srcEnd,
+          dst,
+        ) as T;
+        if (changetype<usize>(value) == 0) {
+          takeProductionParseError();
+          throw new Error("Malformed JSON typed array");
+        }
+        return value;
       } else if (type instanceof ArrayBuffer) {
-        return deserializeArrayBuffer(srcStart, srcEnd, dst) as T;
+        const value = deserializeArrayBuffer(srcStart, srcEnd, dst) as T;
+        if (changetype<usize>(value) == 0) {
+          takeProductionParseError();
+          throw new Error("Malformed JSON ArrayBuffer");
+        }
+        return value;
       } else if (type instanceof Set) {
         // @ts-expect-error: type
         return deserializeSet<T>(srcStart, srcEnd, dst);
