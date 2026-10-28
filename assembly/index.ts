@@ -1067,6 +1067,10 @@ export namespace JSON {
     static f64Bits(v: f64): u64 {
       return isNaN(v) ? 0x7ff8000000000000 : reinterpret<u64>(v);
     }
+    /** Internal storage tag without materializing or inspecting a struct header. */
+    static slotTag(w: u64): u32 {
+      return valBoxed(w) ? valTag(w) : JSON.Types.F64;
+    }
     /** Whether a slot is still a deferred (start-pointer) slice. */
     static slotIsLazy(w: u64): bool {
       return valLazy(w);
