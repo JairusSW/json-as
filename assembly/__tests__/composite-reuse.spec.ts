@@ -1,7 +1,6 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
-
 @json
 class ReviewCollections {
   maps: Map<string, i32>[] = [];

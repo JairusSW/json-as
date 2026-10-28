@@ -17,15 +17,21 @@ export function deserializeGenericArray<T extends unknown[]>(
 
   if (srcStart >= srcEnd)
     throw new Error("Input string had zero length or was all whitespace");
-  if (load<u16>(srcStart) != BRACKET_LEFT)
-    throw new Error("Expected '[' at start of array");
+  if (
+    load<u16>(srcStart) != BRACKET_LEFT ||
+    load<u16>(srcEnd - 2) != BRACKET_RIGHT
+  )
+    throw new Error("Expected array brackets");
   srcStart += 2;
 
   while (srcStart < srcEnd) {
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;
 
-    if (load<u16>(srcStart) == BRACKET_RIGHT) return out;
+    if (load<u16>(srcStart) == BRACKET_RIGHT) {
+      if (srcStart + 2 != srcEnd) break;
+      return out;
+    }
 
     const valueEnd = scanValueEnd(srcStart, srcEnd);
     if (!valueEnd || valueEnd <= srcStart) break;
@@ -41,7 +47,10 @@ export function deserializeGenericArray<T extends unknown[]>(
       srcStart += 2;
       continue;
     }
-    if (code == BRACKET_RIGHT) return out;
+    if (code == BRACKET_RIGHT) {
+      if (srcStart + 2 != srcEnd) break;
+      return out;
+    }
     break;
   }
 

@@ -1,4 +1,4 @@
-import { deserializeCustomArray } from "./generic";
+import { deserializeGenericArray } from "./generic";
 
 // Raw values need exact JSON token ranges, including null and nested values.
 export function deserializeRawArray<T extends unknown[]>(
@@ -6,5 +6,5 @@ export function deserializeRawArray<T extends unknown[]>(
   srcEnd: usize,
   dst: usize,
 ): T {
-  return deserializeCustomArray<T>(srcStart, srcEnd, dst);
+  return deserializeGenericArray<T>(srcStart, srcEnd, dst);
 }
