@@ -73,6 +73,19 @@ describe("Review: bounded internal output reuse", () => {
   expect(object.getAs<f64>("key")).toBe(1);
 });
 
+describe("Review: Raw reuse protects static literal storage", () => {
+  const shared = "99";
+  const out = new JSON.Raw(shared);
+  expect(JSON.parse<JSON.Raw>("42", out) === out).toBe(true);
+  expect(shared.charCodeAt(0)).toBe(57);
+  expect(shared.charCodeAt(1)).toBe(57);
+  expect(out.data).toBe("42");
+  const empty = new JSON.Raw("");
+  JSON.parse<JSON.Raw>("[1,2,3,4,5,6,7,8]", empty);
+  expect(empty.data).toBe("[1,2,3,4,5,6,7,8]");
+  expect("".length).toBe(0);
+});
+
 describe("Review: reference-array replacement and nullable elements", () => {
   const maps = JSON.parse<Map<string, i32>[]>('[{"old":9}]');
   JSON.parse<Map<string, i32>[]>('[{"new":1}]', maps);

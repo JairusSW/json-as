@@ -8,7 +8,13 @@ export function resizeStaticArray<T extends StaticArray<any>>(
 ): T {
   const bytes = <usize>length * sizeof<valueof<T>>();
   if (!dst) return changetype<T>(__new(bytes, idof<T>()));
-  if (changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize != <u32>bytes)
+  const oldBytes = changetype<OBJECT>(dst - TOTAL_OVERHEAD).rtSize;
+  if (oldBytes != <u32>bytes) {
     dst = __renew(dst, bytes);
+    // In-place regrowth exposes the old allocation's untraced tail. Clear it
+    // before decoding an element can allocate and trigger the GC visitor.
+    if (isReference<valueof<T>>() && bytes > oldBytes)
+      memory.fill(dst + oldBytes, 0, bytes - oldBytes);
+  }
   return changetype<T>(dst);
 }

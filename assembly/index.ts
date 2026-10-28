@@ -2371,7 +2371,18 @@ export namespace JSON {
       if (isFloat<T>() && isNaN(value)) {
         const n = this._vused;
         let i = fromIndex < 0 ? max(n + fromIndex, 0) : fromIndex;
-        for (; i < n; i++) if (isNaN(this.getAs<T>(i))) return true;
+        for (; i < n; i++) {
+          const slot = unchecked(this._vals[i]);
+          const tag = JSON.Value.slotTag(slot);
+          // Other tags use NaN-shaped bits too. Only decode a slot whose
+          // stored floating-point width matches this typed search.
+          if (
+            ((sizeof<T>() == 8 && tag == JSON.Types.F64) ||
+              (sizeof<T>() == 4 && tag == JSON.Types.F32)) &&
+            isNaN(JSON.Value.decodeBits<T>(slot))
+          )
+            return true;
+        }
         return false;
       }
       return this.indexOf<T>(value, fromIndex) >= 0;

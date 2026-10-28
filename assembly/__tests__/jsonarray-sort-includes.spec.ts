@@ -28,4 +28,16 @@ describe("Review: includes uses SameValueZero", () => {
   expect(values.includes<f64>(NaN)).toBe(true);
   expect(values.indexOf<f64>(NaN)).toBe(-1);
   expect(values.includes<f64>(0.0)).toBe(true);
+  const mixed = new JSON.Arr();
+  mixed.push<i32>(1);
+  mixed.push<string>("text");
+  mixed.push<usize>(0);
+  mixed.push<f32>(1);
+  expect(mixed.includes<f64>(NaN)).toBe(false);
+  expect(mixed.includes<f32>(NaN)).toBe(false);
+  mixed.push<f32>(f32.NaN);
+  expect(mixed.includes<f32>(f32.NaN)).toBe(true);
+  expect(mixed.includes<f64>(NaN)).toBe(false);
+  mixed.push<f64>(NaN);
+  expect(mixed.includes<f64>(NaN)).toBe(true);
 });
