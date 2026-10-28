@@ -4741,7 +4741,46 @@ export class JSONTransform extends Visitor {
       path.join(baseDir),
     );
 
-    // console.log("relPath", baseRel);
+    // Imports added in afterParse must point at modules the parser already
+    // loaded. Recomputing a filesystem/package path can give the same file a
+    // different internal identity, especially with absolute imports or pnpm.
+    const runtimeSource =
+      this.parser.sources.find(
+        (source) =>
+          (source.internalPath === jsonImport?.internalPath ||
+            source.internalPath === jsonImport?.internalPath + "/index") &&
+          source.internalPath.endsWith("assembly/index"),
+      ) ??
+      this.parser.sources.find(
+        (source) =>
+          source.internalPath.endsWith("/json-as/assembly/index") ||
+          source.internalPath === "assembly/index",
+      );
+    const runtimeRoot = runtimeSource?.internalPath.slice(
+      0,
+      -"assembly/index".length,
+    );
+    const runtimeImport = (...segments: string[]): string => {
+      const subpath = segments.join("/");
+      if (runtimeRoot !== undefined) {
+        const target = runtimeRoot + subpath;
+        const parsed = this.parser.sources.find(
+          (source) =>
+            source.internalPath === target ||
+            source.internalPath === target + "/index",
+        );
+        if (parsed) {
+          if (parsed.internalPath.startsWith("~lib/"))
+            return parsed.internalPath.slice(5);
+          const relative = path.posix.relative(
+            path.posix.dirname(node.internalPath),
+            parsed.internalPath,
+          );
+          return relative.startsWith(".") ? relative : "./" + relative;
+        }
+      }
+      return path.posix.join(baseRel, ...segments);
+    };
 
     if (!bsImport) {
       const replaceNode = Node.createImportStatement(
@@ -4753,7 +4792,7 @@ export class JSONTransform extends Visitor {
           ),
         ],
         Node.createStringLiteralExpression(
-          path.posix.join(baseRel, "lib", "as-bs"),
+          runtimeImport("lib", "as-bs"),
           node.range,
         ),
         node.range,
@@ -4779,7 +4818,7 @@ export class JSONTransform extends Visitor {
           ),
         ],
         Node.createStringLiteralExpression(
-          path.posix.join(baseRel, "assembly", "index"),
+          runtimeImport("assembly", "index"),
           node.range,
         ), // Ensure POSIX-style path for 'assembly'
         node.range,
@@ -4805,7 +4844,7 @@ export class JSONTransform extends Visitor {
           ),
         ],
         Node.createStringLiteralExpression(
-          path.posix.join(baseRel, "assembly", "util", "atoi"),
+          runtimeImport("assembly", "util", "atoi"),
           node.range,
         ),
         node.range,
@@ -4831,14 +4870,7 @@ export class JSONTransform extends Visitor {
           ),
         ],
         Node.createStringLiteralExpression(
-          path.posix.join(
-            baseRel,
-            "assembly",
-            "deserialize",
-            "swar",
-            "array",
-            "shared",
-          ),
+          runtimeImport("assembly", "deserialize", "swar", "array", "shared"),
           node.range,
         ),
         node.range,
@@ -4883,7 +4915,7 @@ export class JSONTransform extends Visitor {
           ),
         ],
         Node.createStringLiteralExpression(
-          path.posix.join(baseRel, "assembly", "deserialize"),
+          runtimeImport("assembly", "deserialize"),
           node.range,
         ),
         node.range,

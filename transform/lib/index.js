@@ -3267,10 +3267,31 @@ export class JSONTransform extends Visitor {
         const sourceText = node.text;
         const hasLocalScanValueEnd = /\bscanValueEnd\b/.test(sourceText);
         const baseRel = computeImportBaseRel(path.dirname(fromPath), path.join(baseDir));
+        const runtimeSource = this.parser.sources.find((source) => (source.internalPath === jsonImport?.internalPath ||
+            source.internalPath === jsonImport?.internalPath + "/index") &&
+            source.internalPath.endsWith("assembly/index")) ??
+            this.parser.sources.find((source) => source.internalPath.endsWith("/json-as/assembly/index") ||
+                source.internalPath === "assembly/index");
+        const runtimeRoot = runtimeSource?.internalPath.slice(0, -"assembly/index".length);
+        const runtimeImport = (...segments) => {
+            const subpath = segments.join("/");
+            if (runtimeRoot !== undefined) {
+                const target = runtimeRoot + subpath;
+                const parsed = this.parser.sources.find((source) => source.internalPath === target ||
+                    source.internalPath === target + "/index");
+                if (parsed) {
+                    if (parsed.internalPath.startsWith("~lib/"))
+                        return parsed.internalPath.slice(5);
+                    const relative = path.posix.relative(path.posix.dirname(node.internalPath), parsed.internalPath);
+                    return relative.startsWith(".") ? relative : "./" + relative;
+                }
+            }
+            return path.posix.join(baseRel, ...segments);
+        };
         if (!bsImport) {
             const replaceNode = Node.createImportStatement([
                 Node.createImportDeclaration(Node.createIdentifierExpression("bs", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "lib", "as-bs"), node.range), node.range);
+            ], Node.createStringLiteralExpression(runtimeImport("lib", "as-bs"), node.range), node.range);
             node.range.source.statements.unshift(replaceNode);
             if (DEBUG > 0)
                 console.log("Added import: " +
@@ -3282,7 +3303,7 @@ export class JSONTransform extends Visitor {
         if (!jsonImport) {
             const replaceNode = Node.createImportStatement([
                 Node.createImportDeclaration(Node.createIdentifierExpression("JSON", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "index"), node.range), node.range);
+            ], Node.createStringLiteralExpression(runtimeImport("assembly", "index"), node.range), node.range);
             node.range.source.statements.unshift(replaceNode);
             if (DEBUG > 0)
                 console.log("Added import: " +
@@ -3294,7 +3315,7 @@ export class JSONTransform extends Visitor {
         if (!atoiImport) {
             const replaceNode = Node.createImportStatement([
                 Node.createImportDeclaration(Node.createIdentifierExpression("atoi", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "util", "atoi"), node.range), node.range);
+            ], Node.createStringLiteralExpression(runtimeImport("assembly", "util", "atoi"), node.range), node.range);
             node.range.source.statements.unshift(replaceNode);
             if (DEBUG > 0)
                 console.log("Added import: " +
@@ -3306,7 +3327,7 @@ export class JSONTransform extends Visitor {
         if (!scanValueEndImport && !hasLocalScanValueEnd) {
             const replaceNode = Node.createImportStatement([
                 Node.createImportDeclaration(Node.createIdentifierExpression("scanValueEnd", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize", "swar", "array", "shared"), node.range), node.range);
+            ], Node.createStringLiteralExpression(runtimeImport("assembly", "deserialize", "swar", "array", "shared"), node.range), node.range);
             node.range.source.statements.unshift(replaceNode);
             if (DEBUG > 0)
                 console.log("Added import: " +
@@ -3327,7 +3348,7 @@ export class JSONTransform extends Visitor {
                 fieldHelper("deserializeMapField", "__deserializeMapField"),
                 fieldHelper("deserializeSetField", "__deserializeSetField"),
                 fieldHelper("deserializeStaticArrayField", "__deserializeStaticArrayField"),
-            ], Node.createStringLiteralExpression(path.posix.join(baseRel, "assembly", "deserialize"), node.range), node.range);
+            ], Node.createStringLiteralExpression(runtimeImport("assembly", "deserialize"), node.range), node.range);
             node.range.source.statements.unshift(replaceNode);
             if (DEBUG > 0)
                 console.log("Added import: " +
