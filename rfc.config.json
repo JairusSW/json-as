@@ -22,9 +22,7 @@
     "enabled": false
   },
   "buildOptions": {
-    "args": [
-      "--debug"
-    ],
+    "args": ["--debug"],
     "target": "wasi"
   },
   "runOptions": {
@@ -40,9 +38,7 @@
         "JSON_AS_LIBRARY_SOURCE": "assembly/index"
       },
       "buildOptions": {
-        "args": [
-          "--transform ./"
-        ]
+        "args": ["--transform ./"]
       }
     },
     "swar": {
@@ -52,9 +48,7 @@
         "JSON_AS_LIBRARY_SOURCE": "assembly/index"
       },
       "buildOptions": {
-        "args": [
-          "--transform ./"
-        ]
+        "args": ["--transform ./"]
       }
     },
     "simd": {
@@ -64,11 +58,7 @@
         "JSON_AS_LIBRARY_SOURCE": "assembly/index"
       },
       "buildOptions": {
-        "args": [
-          "--debug",
-          "--enable simd",
-          "--transform ./"
-        ]
+        "args": ["--debug", "--enable simd", "--transform ./"]
       }
     }
   }
