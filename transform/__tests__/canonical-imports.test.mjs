@@ -12,6 +12,8 @@ const root = path.resolve(path.dirname(self), "../..");
 if (process.argv[2] === "--compile") {
   const { main } = await import("assemblyscript/asc");
   const layout = process.argv[3];
+  const relative = layout.startsWith("relative");
+  const split = layout === "split" || layout === "relative-split";
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-canonical-"));
   try {
     fs.mkdirSync(path.join(dir, "node_modules"));
@@ -21,18 +23,16 @@ if (process.argv[2] === "--compile") {
       path.join(dir, "node_modules/xjb-as"),
       "dir",
     );
-    const runtime =
-      layout === "relative"
-        ? path.relative(dir, path.join(root, "assembly/index"))
-        : "json-as/assembly";
-    const bs =
-      layout === "relative"
-        ? path.relative(dir, path.join(root, "lib/as-bs"))
-        : "json-as/lib/as-bs";
+    const runtime = relative
+      ? path.relative(dir, path.join(root, "assembly/index"))
+      : "json-as/assembly";
+    const bs = relative
+      ? path.relative(dir, path.join(root, "lib/as-bs"))
+      : "json-as/lib/as-bs";
     const src = `
 import { JSON } from ${JSON.stringify(runtime.replaceAll(path.sep, "/"))};
-${layout === "no-bs" ? "" : `import { bs } from ${JSON.stringify(bs.replaceAll(path.sep, "/"))};`}
-${layout === "split" ? `import { Item } from "./model";` : "@json\nclass Item { amount: f64 = 0; }"}
+${layout.endsWith("no-bs") ? "" : `import { bs } from ${JSON.stringify(bs.replaceAll(path.sep, "/"))};`}
+${split ? `import { Item } from "./models/model";` : "@json\nclass Item { amount: f64 = 0; }"}
 @json
 class Body { items: Item[] = []; }
 export function verify(): i32 {
@@ -52,14 +52,14 @@ export function verify(): i32 {
         dir,
         "--transform",
         path.join(root, "transform/lib/index.js"),
-        ...(layout === "split" ? ["--disable", "simd"] : ["--enable", "simd"]),
+        ...(split ? ["--disable", "simd"] : ["--enable", "simd"]),
         "--outFile",
         "result.wasm",
       ],
       {
         readFile(name, baseDir) {
           if (name === "entry.ts") return src;
-          if (name === "model.ts")
+          if (name === "models/model.ts")
             return "@json\nexport class Item { amount: f64 = 0; }";
           try {
             return fs.readFileSync(path.resolve(baseDir, name), "utf8");
@@ -86,7 +86,14 @@ export function verify(): i32 {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 } else {
-  for (const layout of ["package", "relative", "no-bs", "split"]) {
+  for (const layout of [
+    "package",
+    "relative",
+    "no-bs",
+    "split",
+    "relative-no-bs",
+    "relative-split",
+  ]) {
     const result = spawnSync(process.execPath, [self, "--compile", layout], {
       encoding: "utf8",
       timeout: 60000,

@@ -3299,8 +3299,9 @@ export class JSONTransform extends Visitor {
         const runtimeSource = this.parser.sources.find((source) => (source.internalPath === jsonImport?.internalPath ||
             source.internalPath === jsonImport?.internalPath + "/index") &&
             source.internalPath.endsWith("assembly/index")) ??
-            this.parser.sources.find((source) => source.internalPath.endsWith("/json-as/assembly/index") ||
-                source.internalPath === "assembly/index");
+            this.parser.sources.find((source) => source.internalPath.endsWith("assembly/index") &&
+                source.statements.some((statement) => statement.kind === NodeKind.NamespaceDeclaration &&
+                    statement.name.text === "JSON"));
         const runtimeRoot = runtimeSource?.internalPath.slice(0, -"assembly/index".length);
         const runtimeImport = (...segments) => {
             const subpath = segments.join("/");
@@ -3311,7 +3312,17 @@ export class JSONTransform extends Visitor {
                 if (parsed) {
                     if (parsed.internalPath.startsWith("~lib/"))
                         return parsed.internalPath.slice(5);
-                    const relative = path.posix.relative(path.posix.dirname(node.internalPath), parsed.internalPath);
+                    const from = path.posix.dirname(node.internalPath).split("/");
+                    if (from[0] === ".")
+                        from.shift();
+                    const to = parsed.internalPath.split("/");
+                    let shared = 0;
+                    while (shared < from.length && from[shared] === to[shared])
+                        shared++;
+                    const relative = [
+                        ...from.slice(shared).map(() => ".."),
+                        ...to.slice(shared),
+                    ].join("/");
                     return relative.startsWith(".") ? relative : "./" + relative;
                 }
             }
