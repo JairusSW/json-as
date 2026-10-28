@@ -512,9 +512,17 @@ export namespace JSON {
       if (code == 0) markProductionParseError();
       return (code == 2) as T;
     } else if (isInteger<T>()) {
+      // Consume-to-end integer kernels require digit-only bounds. Trim this
+      // branch alone so JSON.Raw and other handlers retain their source slice.
+      let integerEnd = dataEnd;
+      while (
+        integerEnd > dataPtr &&
+        JSON.Util.isSpace(load<u16>(integerEnd - 2))
+      )
+        integerEnd -= 2;
       return isSigned<T>()
-        ? deserializeInteger<T>(dataPtr, dataPtr + dataSize)
-        : deserializeUnsigned<T>(dataPtr, dataPtr + dataSize);
+        ? deserializeInteger<T>(dataPtr, integerEnd)
+        : deserializeUnsigned<T>(dataPtr, integerEnd);
     } else if (isFloat<T>()) {
       return deserializeFloat<T>(dataPtr, dataPtr + dataSize);
     } else if (
@@ -2694,9 +2702,15 @@ export namespace JSON {
       if (code == 0) throw new Error("Expected 'true' or 'false' in JSON");
       return code == 2;
     } else if (isInteger<T>()) {
+      let integerEnd = srcEnd;
+      while (
+        integerEnd > srcStart &&
+        JSON.Util.isSpace(load<u16>(integerEnd - 2))
+      )
+        integerEnd -= 2;
       return isSigned<T>()
-        ? deserializeInteger<T>(srcStart, srcEnd)
-        : deserializeUnsigned<T>(srcStart, srcEnd);
+        ? deserializeInteger<T>(srcStart, integerEnd)
+        : deserializeUnsigned<T>(srcStart, integerEnd);
     } else if (isFloat<T>()) {
       return deserializeFloat<T>(srcStart, srcEnd);
     } else if (
