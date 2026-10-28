@@ -11,7 +11,14 @@
     "./assembly/__tests__/nullable-set-parse.spec.ts",
     "./assembly/__tests__/nullable-struct-map.spec.ts",
     "./assembly/__tests__/nested-array-boundaries.spec.ts",
-    "./assembly/__tests__/generated-field-escapes.spec.ts"
+    "./assembly/__tests__/generated-field-escapes.spec.ts",
+    "./assembly/__tests__/composite-reuse.spec.ts",
+    "./assembly/__tests__/date-decoding-reuse.spec.ts",
+    "./assembly/__tests__/jsonarray-sort-includes.spec.ts",
+    "./assembly/__tests__/jsonarray-reverse-callbacks.spec.ts",
+    "./assembly/__tests__/typedarray-view-reuse.spec.ts",
+    "./assembly/__tests__/nullable-struct-array.spec.ts",
+    "./assembly/__tests__/static-struct-boundaries.spec.ts"
   ],
   "outDir": "./.as-test/build",
   "logs": "./.as-test/logs",

@@ -1,18 +1,24 @@
+import { resizeStaticArray } from "../../../util/resizeStaticArray";
 import { JSON } from "../../..";
-import { QUOTE } from "../../../custom/chars";
+import { QUOTE, NULL_WORD_U64 } from "../../../custom/chars";
 import { isUnescapedQuote } from "../../../util";
 
-export function deserializeStaticArrayString(
+export function deserializeStaticArrayString<T extends StaticArray<any>>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
-): StaticArray<string> {
+): T {
   // First pass: count elements using same logic as Array deserializer
   let count: i32 = 0;
   let ptr = srcStart;
   let inString = false;
   while (ptr < srcEnd) {
     const code = load<u16>(ptr);
+    if (!inString && ptr + 8 <= srcEnd && load<u64>(ptr) == NULL_WORD_U64) {
+      count++;
+      ptr += 8;
+      continue;
+    }
     if (code == QUOTE) {
       if (!inString) {
         inString = true;
@@ -25,10 +31,7 @@ export function deserializeStaticArrayString(
   }
 
   // Allocate StaticArray with correct size
-  const outSize = (<usize>count) << alignof<string>();
-  const out = changetype<StaticArray<string>>(
-    dst || __new(outSize, idof<StaticArray<string>>()),
-  );
+  const out = resizeStaticArray<T>(dst, count);
 
   // Second pass: populate values
   let index = 0;
@@ -36,13 +39,24 @@ export function deserializeStaticArrayString(
   inString = false;
   while (srcStart < srcEnd) {
     const code = load<u16>(srcStart);
+    if (
+      !inString &&
+      srcStart + 8 <= srcEnd &&
+      load<u64>(srcStart) == NULL_WORD_U64
+    ) {
+      unchecked((out[index++] = changetype<valueof<T>>(0)));
+      srcStart += 8;
+      continue;
+    }
     if (code == QUOTE) {
       if (!inString) {
         inString = true;
         lastPos = srcStart;
       } else if (isUnescapedQuote(srcStart)) {
         unchecked(
-          (out[index++] = JSON.__deserialize<string>(lastPos, srcStart + 2)),
+          (out[index++] = changetype<valueof<T>>(
+            JSON.__deserialize<string>(lastPos, srcStart + 2),
+          )),
         );
         inString = false;
       }

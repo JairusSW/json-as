@@ -44,7 +44,7 @@ export function deserializeArray<T extends unknown[]>(
       return deserializeObjectArray<T>(srcStart, srcEnd, dst);
     } else if (type instanceof JSON.Raw) {
       // @ts-ignore: type
-      return deserializeRawArray(srcStart, srcEnd, dst);
+      return deserializeRawArray<T>(srcStart, srcEnd, dst);
     } else if (type instanceof Date) {
       // @ts-ignore: type
       return deserializeGenericArray<T>(srcStart, srcEnd, dst);

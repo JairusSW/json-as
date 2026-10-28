@@ -1,4 +1,4 @@
-import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { resizeStaticArray } from "../../util/resizeStaticArray";
 import { JSON } from "../..";
 import { deserializeArbitraryArray } from "./array/arbitrary";
 import { deserializeArrayArray } from "./array/array";
@@ -23,16 +23,7 @@ function materializeStaticArray<T extends StaticArray<any>>(
   dst: usize,
 ): T {
   const len = src.length;
-  const byteLength = <usize>len * sizeof<valueof<T>>();
-  let out = dst;
-
-  if (!out) {
-    out = __new(byteLength, idof<T>());
-  } else if (changetype<OBJECT>(out - TOTAL_OVERHEAD).rtSize != byteLength) {
-    out = __renew(out, byteLength);
-  }
-
-  const typed = changetype<T>(out);
+  const typed = resizeStaticArray<T>(dst, len);
   for (let i = 0; i < len; i++) {
     unchecked((typed[i] = unchecked(src[i])));
   }
@@ -45,7 +36,9 @@ export function deserializeStaticArray<T extends StaticArray<any>>(
   dst: usize,
 ): T {
   if (isString<valueof<T>>()) {
-    return changetype<T>(deserializeStaticArrayString(srcStart, srcEnd, dst));
+    return changetype<T>(
+      deserializeStaticArrayString<T>(srcStart, srcEnd, dst),
+    );
   } else if (isBoolean<valueof<T>>()) {
     return deserializeStaticArrayBoolean<T>(srcStart, srcEnd, dst);
   } else if (isInteger<valueof<T>>()) {
@@ -85,7 +78,9 @@ export function deserializeStaticArray<T extends StaticArray<any>>(
       );
     } else if (type instanceof JSON.Raw) {
       return materializeStaticArray<T>(
-        changetype<valueof<T>[]>(deserializeRawArray(srcStart, srcEnd, 0)),
+        changetype<valueof<T>[]>(
+          deserializeRawArray<valueof<T>[]>(srcStart, srcEnd, 0),
+        ),
         dst,
       );
     } else if (type instanceof Map) {

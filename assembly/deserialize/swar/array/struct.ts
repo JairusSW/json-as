@@ -3,6 +3,7 @@ import {
   BRACKET_LEFT,
   BRACKET_RIGHT,
   COMMA,
+  NULL_WORD_U64,
 } from "../../../custom/chars";
 import { isSpace } from "../../../util";
 import {
@@ -80,68 +81,77 @@ function deserializeStructArrayBody<T extends unknown[]>(
         index < reusableLength
           ? reusableDataStart + <usize>index * elementSize
           : ensureArrayElementSlot<T>(out, index);
-      let value = load<valueof<T>>(slot);
-      if (changetype<usize>(value) == 0) {
-        value = changetype<valueof<T>>(
-          __new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
-        );
-        // @ts-ignore: supplied by transform
-        if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {
-          // @ts-ignore: supplied by transform
-          changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
-        }
-        store<valueof<T>>(slot, value);
-      }
-
-      const valueStart = srcStart;
       let next: usize = 0;
       if (
-        // @ts-ignore: supplied by transform
-        isDefined(changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST)
+        isNullable<valueof<T>>() &&
+        srcStart + 8 <= srcEnd &&
+        load<u64>(srcStart) == NULL_WORD_U64
       ) {
-        // Omit the explicit type arg so AS infers it from `value` — passing
-        // `<valueof<T>>` explicitly collides when the element type is itself
-        // generic (e.g. GenericTest<string>) because AS resolves `T` against
-        // the element class's own generic rather than this function's `T`.
-        // @ts-ignore: supplied by transform
-        // @ts-ignore: supplied by transform in SIMD builds
-        if (
-          pretty &&
-          isDefined(
-            changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST_PRETTY,
-          )
-        ) {
+        store<valueof<T>>(slot, changetype<valueof<T>>(0));
+        next = srcStart + 8;
+      } else {
+        let value = load<valueof<T>>(slot);
+        if (changetype<usize>(value) == 0) {
+          value = changetype<valueof<T>>(
+            __new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
+          );
           // @ts-ignore: supplied by transform
-          next = changetype<nonnull<valueof<T>>>(
-            value,
-          ).__DESERIALIZE_FAST_PRETTY(srcStart, srcEnd, value);
-        } else {
-          next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST(
-            srcStart,
-            srcEnd,
+          if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {
+            // @ts-ignore: supplied by transform
+            changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
+          }
+          store<valueof<T>>(slot, value);
+        }
+
+        const valueStart = srcStart;
+        if (
+          // @ts-ignore: supplied by transform
+          isDefined(changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST)
+        ) {
+          // Omit the explicit type arg so AS infers it from `value` — passing
+          // `<valueof<T>>` explicitly collides when the element type is itself
+          // generic (e.g. GenericTest<string>) because AS resolves `T` against
+          // the element class's own generic rather than this function's `T`.
+          // @ts-ignore: supplied by transform
+          // @ts-ignore: supplied by transform in SIMD builds
+          if (
+            pretty &&
+            isDefined(
+              changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST_PRETTY,
+            )
+          ) {
+            // @ts-ignore: supplied by transform
+            next = changetype<nonnull<valueof<T>>>(
+              value,
+            ).__DESERIALIZE_FAST_PRETTY(srcStart, srcEnd, value);
+          } else {
+            next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST(
+              srcStart,
+              srcEnd,
+              value,
+            );
+          }
+        }
+        if (!next) {
+          // __DESERIALIZE_SLOW requires srcEnd to point just past the closing
+          // `}` of *this* element (it asserts srcEnd-2 == `}`). Scan the value
+          // boundary first, then re-initialize the object so any partial state
+          // from the failed FAST attempt is cleared.
+          const valueEnd = scanValueEnd(valueStart, srcEnd);
+          if (!valueEnd) break;
+          // @ts-ignore: supplied by transform
+          if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {
+            // @ts-ignore: supplied by transform
+            changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
+          }
+          // @ts-ignore: supplied by transform
+          changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW(
+            valueStart,
+            valueEnd,
             value,
           );
+          next = valueEnd;
         }
-      }
-      if (!next) {
-        // __DESERIALIZE_SLOW requires srcEnd to point just past the closing
-        // `}` of *this* element (it asserts srcEnd-2 == `}`). Scan the value
-        // boundary first, then re-initialize the object so any partial state
-        // from the failed FAST attempt is cleared.
-        const valueEnd = scanValueEnd(valueStart, srcEnd);
-        if (!valueEnd) break;
-        // @ts-ignore: supplied by transform
-        if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {
-          // @ts-ignore: supplied by transform
-          changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
-        }
-        // @ts-ignore: supplied by transform
-        changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW(
-          valueStart,
-          valueEnd,
-          value,
-        );
-        next = valueEnd;
       }
       if (!next) break;
       srcStart = next;

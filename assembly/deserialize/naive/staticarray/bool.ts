@@ -1,3 +1,4 @@
+import { resizeStaticArray } from "../../../util/resizeStaticArray";
 export function deserializeStaticArrayBoolean<T extends StaticArray<any>>(
   srcStart: usize,
   srcEnd: usize,
@@ -20,8 +21,7 @@ export function deserializeStaticArrayBoolean<T extends StaticArray<any>>(
   }
 
   // Allocate StaticArray with correct size
-  const outSize = count * sizeof<valueof<T>>();
-  const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
+  const out = resizeStaticArray<T>(dst, count);
 
   // Second pass: populate values
   let index = 0;

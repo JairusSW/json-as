@@ -56,6 +56,14 @@ import {
  * a length update if the runtime supports in-place shrink), much
  * cheaper than a second 64 MB scan over the input.
  */
+// A supplied view can share its buffer and begin at a nonzero byte offset.
+// Count only on the reuse path so valid fresh parses retain their single pass.
+function reusableElementCount(start: usize, end: usize): i32 {
+  let count = 1;
+  for (let p = start; p < end; p += 2) if (load<u16>(p) == COMMA) count++;
+  return count;
+}
+
 export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   srcStart: usize,
   srcEnd: usize,
@@ -80,7 +88,9 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   }
 
   const elementSize = sizeof<valueof<T>>();
-  const maxElements = i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
+  const maxElements = dst
+    ? reusableElementCount(srcStart, srcEnd)
+    : i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
   let out = changetype<T>(
     dst || changetype<usize>(instantiate<T>(maxElements)),
   );
@@ -96,7 +106,12 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   // separator is skipped to match the naive variant's behaviour.
   while (srcStart < srcEnd) {
     let next: usize = 0;
-    if (isFloat<valueof<T>>()) {
+    if (changetype<T>(0) instanceof Uint8ClampedArray) {
+      const scratch = memory.data(8);
+      next = parseFloatElementSWAR<f64>(srcStart, srcEnd, scratch);
+      if (next)
+        store<u8>(writePtr, <u8>max<f64>(0, min<f64>(255, load<f64>(scratch))));
+    } else if (isFloat<valueof<T>>()) {
       next = parseFloatElementSWAR<valueof<T>>(srcStart, srcEnd, writePtr);
     } else if (isSigned<valueof<T>>()) {
       next = parseSignedIntegerSWAR<valueof<T>>(srcStart, srcEnd, writePtr);
@@ -129,6 +144,11 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   const actualCount = i32(<usize>(writePtr - dataStart) / elementSize);
   if (actualCount != maxElements) {
     const actualBytes = <usize>actualCount * elementSize;
+    if (dst && changetype<usize>(out) == dst) {
+      const resized = instantiate<T>(actualCount);
+      memory.copy(resized.dataStart, dataStart, actualBytes);
+      return resized;
+    }
     const oldBuffer = changetype<ArrayBuffer>(
       load<usize>(changetype<usize>(out)),
     );
@@ -180,7 +200,9 @@ export function deserializeArrayBuffer_SWAR(
   }
 
   // Worst-case byte count: each element is `D,` minimum = 4 bytes.
-  const maxBytes = i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
+  const maxBytes = dst
+    ? reusableElementCount(srcStart, srcEnd)
+    : i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
   let out = dst ? changetype<ArrayBuffer>(dst) : new ArrayBuffer(maxBytes);
   if (out.byteLength != maxBytes) {
     out = new ArrayBuffer(maxBytes);
@@ -215,6 +237,11 @@ export function deserializeArrayBuffer_SWAR(
   // Trim to actual byte count via `__renew`.
   const actualBytes = i32(writePtr);
   if (actualBytes != maxBytes) {
+    if (dst && changetype<usize>(out) == dst) {
+      const resized = new ArrayBuffer(actualBytes);
+      memory.copy(changetype<usize>(resized), dataStart, actualBytes);
+      return resized;
+    }
     out = changetype<ArrayBuffer>(
       __renew(changetype<usize>(out), <usize>actualBytes),
     );

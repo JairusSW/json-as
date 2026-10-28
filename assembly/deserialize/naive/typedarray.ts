@@ -46,7 +46,19 @@ export function deserializeTypedArray_NAIVE<T extends ArrayLike<number>>(
       while (srcStart < srcEnd) {
         const code = load<u16>(srcStart);
         if (code == COMMA || code == BRACKET_RIGHT || isSpace(code)) {
-          if (isFloat<valueof<T>>()) {
+          if (changetype<T>(0) instanceof Uint8ClampedArray) {
+            unchecked(
+              (changetype<Uint8ClampedArray>(out)[index++] = <i32>(
+                max<f64>(
+                  0,
+                  min<f64>(
+                    255,
+                    deserializeFloat_NAIVE<f64>(lastIndex, srcStart),
+                  ),
+                )
+              )),
+            );
+          } else if (isFloat<valueof<T>>()) {
             unchecked(
               (out[index++] = deserializeFloat_NAIVE<valueof<T>>(
                 lastIndex,

@@ -17,7 +17,10 @@ export function deserializeGenericArrayBody<T extends unknown[]>(
   srcStart += 2;
   srcStart = skipWhitespace(srcStart, srcEnd);
   if (srcStart >= srcEnd) throw new Error("Failed to parse JSON!");
-  if (load<u16>(srcStart) == BRACKET_RIGHT) return srcStart + 2;
+  if (load<u16>(srcStart) == BRACKET_RIGHT) {
+    out.length = 0;
+    return srcStart + 2;
+  }
 
   let index = 0;
   const reusableLength = load<i32>(

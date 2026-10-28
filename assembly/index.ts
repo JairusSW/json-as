@@ -629,7 +629,7 @@ export namespace JSON {
         return deserializeStaticArray<nonnull<T>>(
           dataPtr,
           dataPtr + dataSize,
-          0,
+          changetype<usize>(out),
         );
       } else if (type instanceof Array) {
         // Reuse the caller-supplied array when given (no allocation); the
@@ -660,13 +660,21 @@ export namespace JSON {
         return deserializeTypedArray<nonnull<T>>(
           dataPtr,
           dataPtr + dataSize,
-          0,
+          changetype<usize>(out),
         ) as T;
       } else if (type instanceof ArrayBuffer) {
-        return deserializeArrayBuffer(dataPtr, dataPtr + dataSize, 0) as T;
+        return deserializeArrayBuffer(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(out),
+        ) as T;
       } else if (type instanceof Set) {
         // @ts-expect-error
-        return deserializeSet<nonnull<T>>(dataPtr, dataPtr + dataSize, 0);
+        return deserializeSet<nonnull<T>>(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(out),
+        );
       } else if (type instanceof Map) {
         // Reuse the caller-supplied map when given (keys overwrite in place).
         // @ts-expect-error
@@ -679,10 +687,18 @@ export namespace JSON {
         return value;
       } else if (type instanceof Date) {
         // @ts-expect-error
-        return deserializeDate(dataPtr, dataPtr + dataSize);
+        return deserializeDate(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(out),
+        );
       } else if (type instanceof JSON.Raw) {
         // @ts-expect-error: type
-        return deserializeRaw(dataPtr, dataPtr + dataSize);
+        return deserializeRaw(
+          dataPtr,
+          dataPtr + dataSize,
+          changetype<usize>(out),
+        );
       } else if (type instanceof JSON.Value) {
         // Reuse the caller-supplied JSON.Value handle when given (`out`); the
         // deserializer writes the parsed bits into it. Otherwise allocate.
@@ -716,7 +732,11 @@ export namespace JSON {
         return value;
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error
-        return new JSON.Box(parseBox(data, changetype<nonnull<T>>(0).value));
+        return parseBox(
+          data,
+          changetype<nonnull<T>>(0).value,
+          changetype<usize>(out),
+        );
       } else {
         throw new Error(
           `Could not deserialize JSON to type '${nameof<T>()}'. ` +
@@ -2348,6 +2368,12 @@ export namespace JSON {
 
     /** Whether `value` is present. */
     includes<T>(value: T, fromIndex: i32 = 0): bool {
+      if (isFloat<T>() && isNaN(value)) {
+        const n = this._vused;
+        let i = fromIndex < 0 ? max(n + fromIndex, 0) : fromIndex;
+        for (; i < n; i++) if (isNaN(this.getAs<T>(i))) return true;
+        return false;
+      }
       return this.indexOf<T>(value, fromIndex) >= 0;
     }
 
@@ -2414,6 +2440,7 @@ export namespace JSON {
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
     ): JSON.Value | null {
       for (let i = this._vused - 1; i >= 0; i--) {
+        if (i >= this._vused) continue;
         const v = this.at(i);
         if (fn(v, i, this)) return v;
       }
@@ -2424,8 +2451,10 @@ export namespace JSON {
     findLastIndex(
       fn: (value: JSON.Value, index: i32, array: JSON.Arr) => bool,
     ): i32 {
-      for (let i = this._vused - 1; i >= 0; i--)
+      for (let i = this._vused - 1; i >= 0; i--) {
+        if (i >= this._vused) continue;
         if (fn(this.at(i), i, this)) return i;
+      }
       return -1;
     }
 
@@ -2460,8 +2489,10 @@ export namespace JSON {
       initialValue: U,
     ): U {
       let acc = initialValue;
-      for (let i = this._vused - 1; i >= 0; i--)
+      for (let i = this._vused - 1; i >= 0; i--) {
+        if (i >= this._vused) continue;
         acc = fn(acc, this.at(i), i, this);
+      }
       return acc;
     }
 
@@ -2472,6 +2503,9 @@ export namespace JSON {
       const view = new Array<JSON.Value>(n);
       for (let i = 0; i < n; i++) unchecked((view[i] = this.at(i)));
       view.sort(comparator);
+      // Comparator callbacks can shrink or clear the receiver. Restore the
+      // snapshot's live range before writing back; preserve any appended tail.
+      if (this._vused < n) this.length = n;
       for (let i = 0; i < n; i++)
         this.storeSlot(i, JSON.Value.bitsFrom<JSON.Value>(unchecked(view[i])));
       return this;
@@ -2835,13 +2869,13 @@ export namespace JSON {
         return value;
       } else if (type instanceof Date) {
         // @ts-expect-error: type
-        return deserializeDate(srcStart, srcEnd);
+        return deserializeDate(srcStart, srcEnd, dst);
       } else if (type instanceof JSON.Raw) {
         // @ts-expect-error: type
-        return deserializeRaw(srcStart, srcEnd);
+        return deserializeRaw(srcStart, srcEnd, dst);
       } else if (type instanceof JSON.Value) {
         // @ts-expect-error: type
-        const value = deserializeArbitrary(srcStart, srcEnd, 0);
+        const value = deserializeArbitrary(srcStart, srcEnd, dst);
         if (changetype<usize>(value) == 0) {
           takeProductionParseError();
           throw new Error("Incomplete JSON value");
@@ -2849,7 +2883,7 @@ export namespace JSON {
         return value;
       } else if (type instanceof JSON.Obj) {
         // @ts-expect-error: type
-        const value = deserializeObject(srcStart, srcEnd, 0);
+        const value = deserializeObject(srcStart, srcEnd, dst);
         if (changetype<usize>(value) == 0) {
           takeProductionParseError();
           throw new Error("Unterminated object in JSON");
@@ -2857,7 +2891,7 @@ export namespace JSON {
         return value;
       } else if (type instanceof JSON.Arr) {
         // @ts-expect-error: type
-        const value = deserializeJsonArray(srcStart, srcEnd, 0);
+        const value = deserializeJsonArray(srcStart, srcEnd, dst);
         if (changetype<usize>(value) == 0) {
           takeProductionParseError();
           throw new Error("Unterminated array in JSON");
@@ -2865,13 +2899,11 @@ export namespace JSON {
         return value;
       } else if (type instanceof JSON.Box) {
         // @ts-expect-error: type
-        return new JSON.Box(
-          deserializeBox(
-            srcStart,
-            srcEnd,
-            dst,
-            changetype<nonnull<T>>(0).value,
-          ),
+        return deserializeBox(
+          srcStart,
+          srcEnd,
+          dst,
+          changetype<nonnull<T>>(0).value,
         );
       }
     }
@@ -3145,8 +3177,14 @@ export enum JSONMode {
   NAIVE = 2,
 }
 
-function parseBox<T>(data: string, ty: T): T {
-  return JSON.parse<T>(data);
+function parseBox<T>(data: string, ty: T, dst: usize = 0): JSON.Box<T> {
+  const value = JSON.parse<T>(data);
+  if (dst) {
+    const out = changetype<JSON.Box<T>>(dst);
+    out.value = value;
+    return out;
+  }
+  return new JSON.Box<T>(value);
 }
 
 function deserializeBox<T>(
@@ -3154,8 +3192,14 @@ function deserializeBox<T>(
   srcEnd: usize,
   dst: usize,
   ty: T,
-): T {
-  return JSON.__deserialize<T>(srcStart, srcEnd, dst);
+): JSON.Box<T> {
+  const value = JSON.__deserialize<T>(srcStart, srcEnd);
+  if (dst) {
+    const out = changetype<JSON.Box<T>>(dst);
+    out.value = value;
+    return out;
+  }
+  return new JSON.Box<T>(value);
 }
 
 export function toRaw(data: string): JSON.Raw {

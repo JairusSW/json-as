@@ -70,7 +70,7 @@ export function deserializeArray<T extends unknown[]>(
     } else if (type instanceof JSON.Obj) {
       return deserializeObjectArray<T>(srcStart, srcEnd, dst);
     } else if (type instanceof JSON.Raw) {
-      return deserializeRawArray(srcStart, srcEnd, dst) as T;
+      return deserializeRawArray<T>(srcStart, srcEnd, dst) as T;
     } else if (type instanceof Date) {
       return deserializeGenericArray<T>(srcStart, srcEnd, dst);
     } else if (type instanceof Set) {

@@ -1,3 +1,4 @@
+import { resizeStaticArray } from "../../../util/resizeStaticArray";
 import { atoi, isSpace } from "../../../util";
 import { COMMA, BRACKET_RIGHT } from "../../../custom/chars";
 
@@ -22,8 +23,7 @@ export function deserializeStaticArrayInteger<T extends StaticArray<any>>(
     ptr += 2;
   }
 
-  const outSize = count * sizeof<valueof<T>>();
-  const out = changetype<nonnull<T>>(dst || __new(outSize, idof<T>()));
+  const out = resizeStaticArray<T>(dst, count);
 
   // Second pass: populate values
   let index = 0;

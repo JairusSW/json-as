@@ -9,6 +9,7 @@ export function deserializeArbitraryArray(
   const out = changetype<JSON.Value[]>(
     dst || changetype<usize>(instantiate<JSON.Value[]>()),
   );
+  out.length = 0;
   // Skip the opening '[' and parse elements single-pass until the matching ']'.
   return parseArrayBody(out, srcStart + 2, srcEnd) != 0
     ? out
