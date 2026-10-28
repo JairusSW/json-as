@@ -31,7 +31,11 @@ function fixture(t) {
     "rm",
     "find",
   ]) {
-    fs.symlinkSync(`/bin/${command}`, path.join(bin, command));
+    const executable = ["/bin", "/usr/bin"]
+      .map((directory) => path.join(directory, command))
+      .find((file) => fs.existsSync(file));
+    assert.ok(executable, `Missing fixture command: ${command}`);
+    fs.symlinkSync(executable, path.join(bin, command));
   }
   fs.symlinkSync(process.execPath, path.join(bin, "node"));
   for (const file of [
