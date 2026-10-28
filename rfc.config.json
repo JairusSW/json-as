@@ -3,6 +3,7 @@
   "input": [
     "./assembly/__tests__/custom-array.spec.ts",
     "./assembly/__tests__/nullable-whitespace.spec.ts",
+    "./assembly/__tests__/integer-whitespace.spec.ts",
     "./assembly/__tests__/rfc/*.spec.ts",
     "./assembly/__tests__/rfc-matrix/*.spec.ts",
     "./assembly/__tests__/strict/*.spec.ts",
