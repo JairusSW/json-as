@@ -93,10 +93,13 @@ export function scanQuotedValueEnd_SWAR(srcStart: usize, srcEnd: usize): usize {
     break;
   }
 
+  // Every preceding SWAR chunk was free of backslashes. Scan the entire
+  // current chunk/tail so escape parity is retained across chunk boundaries.
+  let escaped = false;
   while (srcStart < srcEnd) {
     const char = load<u16>(srcStart);
-    if (char == QUOTE && load<u16>(srcStart - 2) != BACK_SLASH)
-      return srcStart + 2;
+    if (char == QUOTE && !escaped) return srcStart + 2;
+    escaped = char == BACK_SLASH ? !escaped : false;
     srcStart += 2;
   }
 
