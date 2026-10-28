@@ -2172,15 +2172,19 @@ export namespace JSON {
       return JSON.Value.parseSliceBits(start, end, this._src);
     }
 
-    /** Appends `count` raw slots from `this[from..]` into a fresh `dst`, sharing
-     *  `_src` so copied deferred ranges still resolve. */
+    /** Appends `count` raw slots from `this[from..]` into `dst`, sharing `_src`
+     *  only when a copied deferred range needs it. Concrete children retain
+     *  their own source, and scalar-only copies need no source anchor. */
     private copyInto(dst: JSON.Arr, from: i32, count: i32): void {
       if (count <= 0) return;
-      dst._src = this._src;
       const at = dst._vused;
       dst.ensureValCap(at + count);
-      for (let k = 0; k < count; k++)
-        dst.storeSlot(at + k, unchecked(this._vals[from + k]));
+      for (let k = 0; k < count; k++) {
+        const slot = unchecked(this._vals[from + k]);
+        // Do not clear an anchor needed by slots already appended to dst.
+        if (JSON.Value.slotIsLazy(slot)) dst._src = this._src;
+        dst.storeSlot(at + k, slot);
+      }
       dst._vused = at + count;
     }
 
