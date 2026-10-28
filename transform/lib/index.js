@@ -8,6 +8,7 @@ import { NodeKind } from "./types.js";
 import { Property, PropertyFlags, Schema, SourceSet } from "./types.js";
 import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
+import { keyDispatch } from "./key-dispatch.js";
 let indent = "  ";
 let id = 0;
 const WRITE = process.env["JSON_WRITE"]?.trim();
@@ -2471,7 +2472,19 @@ export class JSONTransform extends Visitor {
                 for (const group of groups) {
                     const groupLen = (group[0].alias || group[0].name).length << 1;
                     DESERIALIZE += "           case " + groupLen + ": {\n";
-                    cb(group);
+                    const emitDispatch = (tree) => {
+                        if ("members" in tree) {
+                            cb(tree.members);
+                        }
+                        else {
+                            DESERIALIZE += `if (load<u16>(keyStart, ${tree.offset << 1}) < ${tree.pivot}) {\n`;
+                            emitDispatch(tree.left);
+                            DESERIALIZE += "} else {\n";
+                            emitDispatch(tree.right);
+                            DESERIALIZE += "}\n";
+                        }
+                    };
+                    emitDispatch(keyDispatch(group, (member) => member.alias || member.name));
                     DESERIALIZE += "\n            }\n";
                 }
                 DESERIALIZE += "    default: {\n";
@@ -2716,8 +2729,16 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "          const code = load<u16>(srcStart);\n";
             DESERIALIZE += "          if (code == 34) {\n";
             DESERIALIZE += "            srcStart += 2;\n";
+            DESERIALIZE += "            let escaped = false;\n";
+            DESERIALIZE += "            while (srcStart < srcEnd) {\n";
+            DESERIALIZE += "              const stringCode = load<u16>(srcStart);\n";
+            DESERIALIZE += "              if (stringCode == 34 && !escaped) break;\n";
             DESERIALIZE +=
-                "            while (!(load<u16>(srcStart) == 34 && load<u16>(srcStart - 2) != 92)) srcStart += 2;\n";
+                "              escaped = stringCode == 92 ? !escaped : false;\n";
+            DESERIALIZE += "              srcStart += 2;\n";
+            DESERIALIZE += "            }\n";
+            DESERIALIZE +=
+                "            if (srcStart >= srcEnd) return JSON.Util.failProductionParse();\n";
             DESERIALIZE += "          } else if (code == 125) {\n";
             DESERIALIZE += "            if (--depth == 0) {\n";
             DESERIALIZE += "              srcStart += 2;\n";
@@ -2788,8 +2809,16 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "          const code = load<u16>(srcStart);\n";
             DESERIALIZE += "          if (code == 34) {\n";
             DESERIALIZE += "            srcStart += 2;\n";
+            DESERIALIZE += "            let escaped = false;\n";
+            DESERIALIZE += "            while (srcStart < srcEnd) {\n";
+            DESERIALIZE += "              const stringCode = load<u16>(srcStart);\n";
+            DESERIALIZE += "              if (stringCode == 34 && !escaped) break;\n";
             DESERIALIZE +=
-                "            while (!(load<u16>(srcStart) == 34 && load<u16>(srcStart - 2) != 92)) srcStart += 2;\n";
+                "              escaped = stringCode == 92 ? !escaped : false;\n";
+            DESERIALIZE += "              srcStart += 2;\n";
+            DESERIALIZE += "            }\n";
+            DESERIALIZE +=
+                "            if (srcStart >= srcEnd) return JSON.Util.failProductionParse();\n";
             DESERIALIZE += "          } else if (code == 93) {\n";
             DESERIALIZE += "            if (--depth == 0) {\n";
             DESERIALIZE += "              srcStart += 2;\n";
@@ -2821,7 +2850,7 @@ export class JSONTransform extends Visitor {
                     DESERIALIZE +=
                         indent +
                             " else if (" +
-                            (mem.generic ? "isArray" + mem.type + ">() && " : "") +
+                            (mem.generic ? "isArray<" + mem.type + ">() && " : "") +
                             getComparison(memName) +
                             ") { // " +
                             memName +

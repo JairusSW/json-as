@@ -2,6 +2,7 @@ import { bs } from "../../../lib/as-bs";
 import { JSON } from "../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../custom/chars";
 import { serializeArbitrary } from "./arbitrary";
+import { serializePrimitiveSlot } from "./primitive";
 
 export function serializeJsonArray(src: JSON.Arr): void {
   const n = src.length;
@@ -37,7 +38,7 @@ export function serializeJsonArray(src: JSON.Arr): void {
       bs.proposeSize(u32(size));
       memory.copy(bs.offset, start, size);
       bs.offset += size;
-    } else {
+    } else if (!serializePrimitiveSlot(slot)) {
       const v = JSON.Value.fromBits(slot);
       serializeArbitrary(v);
     }

@@ -5,6 +5,7 @@ import {
   QUOTE,
   BRACE_RIGHT,
   COLON,
+  NULL_WORD_U64,
 } from "../../custom/chars";
 import { isSpace } from "../../util";
 import { scanValueEnd } from "../../util/scanValueEnd";
@@ -275,6 +276,16 @@ export function deserializeMapBody<T extends Map<any, any>>(
         changetype<valueof<T>>(changetype<usize>(value)),
       );
       srcStart = valueEnd;
+    } else if (
+      isNullable<valueof<T>>() &&
+      srcStart + 8 <= srcEnd &&
+      load<u64>(srcStart) == NULL_WORD_U64
+    ) {
+      // Generated object parsers bypass the generic nullable dispatch. Handle
+      // null before allocating or reusing a value; the common tail validates
+      // the following delimiter and advances the reuse/cleanup bookkeeping.
+      changetype<nonnull<T>>(out).set(key, changetype<valueof<T>>(0));
+      srcStart += 8;
     } else if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
       const valueType = changetype<nonnull<valueof<T>>>(0);
       if (

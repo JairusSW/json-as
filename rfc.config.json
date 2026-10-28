@@ -3,10 +3,15 @@
   "input": [
     "./assembly/__tests__/custom-array.spec.ts",
     "./assembly/__tests__/nullable-whitespace.spec.ts",
+    "./assembly/__tests__/integer-whitespace.spec.ts",
     "./assembly/__tests__/rfc/*.spec.ts",
     "./assembly/__tests__/rfc-matrix/*.spec.ts",
     "./assembly/__tests__/strict/*.spec.ts",
-    "./assembly/__tests__/nullable-raw-map.spec.ts"
+    "./assembly/__tests__/nullable-raw-map.spec.ts",
+    "./assembly/__tests__/nullable-set-parse.spec.ts",
+    "./assembly/__tests__/nullable-struct-map.spec.ts",
+    "./assembly/__tests__/nested-array-boundaries.spec.ts",
+    "./assembly/__tests__/generated-field-escapes.spec.ts"
   ],
   "outDir": "./.as-test/build",
   "logs": "./.as-test/logs",

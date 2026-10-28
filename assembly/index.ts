@@ -512,9 +512,17 @@ export namespace JSON {
       if (code == 0) markProductionParseError();
       return (code == 2) as T;
     } else if (isInteger<T>()) {
+      // Consume-to-end integer kernels require digit-only bounds. Trim this
+      // branch alone so JSON.Raw and other handlers retain their source slice.
+      let integerEnd = dataEnd;
+      while (
+        integerEnd > dataPtr &&
+        JSON.Util.isSpace(load<u16>(integerEnd - 2))
+      )
+        integerEnd -= 2;
       return isSigned<T>()
-        ? deserializeInteger<T>(dataPtr, dataPtr + dataSize)
-        : deserializeUnsigned<T>(dataPtr, dataPtr + dataSize);
+        ? deserializeInteger<T>(dataPtr, integerEnd)
+        : deserializeUnsigned<T>(dataPtr, integerEnd);
     } else if (isFloat<T>()) {
       return deserializeFloat<T>(dataPtr, dataPtr + dataSize);
     } else if (
@@ -1058,6 +1066,10 @@ export namespace JSON {
     /** Bits for an f64 (raw IEEE-754, NaN canonicalized off the box signature). */
     static f64Bits(v: f64): u64 {
       return isNaN(v) ? 0x7ff8000000000000 : reinterpret<u64>(v);
+    }
+    /** Internal storage tag without materializing or inspecting a struct header. */
+    static slotTag(w: u64): u32 {
+      return valBoxed(w) ? valTag(w) : JSON.Types.F64;
     }
     /** Whether a slot is still a deferred (start-pointer) slice. */
     static slotIsLazy(w: u64): bool {
@@ -1837,7 +1849,7 @@ export namespace JSON {
     }
 
     /**
-     * Deletes a key-value pair from the object.
+     * Deletes a key and all of its occurrences from the object.
      * @param key - The key to delete
      * @returns true if the key was found and deleted
      */
@@ -1855,8 +1867,10 @@ export namespace JSON {
       this._vals = EMPTY_VALS;
       this._vused = 0;
       for (let j = 0; j < n; j++) {
-        if (j == removed) continue;
         const k = unchecked(keys[j]);
+        // Parsed objects retain duplicate slots. Removing only the last-wins
+        // lookup result would expose an earlier value for the deleted key.
+        if (k == key) continue;
         this.pushKeyBytes(
           changetype<usize>(k),
           changetype<usize>(k) + ((<usize>k.length) << 1),
@@ -2098,6 +2112,7 @@ export namespace JSON {
      * @param i - element index
      */
     getAs<T>(i: i32): T {
+      if (<u32>i >= <u32>this._vused) throw new Error("Index out of range");
       let slot = unchecked(this._vals[i]);
       if (JSON.Value.slotIsLazy(slot)) slot = this.materializeSlot(i);
       return JSON.Value.decodeBits<T>(slot);
@@ -2110,6 +2125,7 @@ export namespace JSON {
 
     /** Overwrites element `i`. */
     set<T>(i: i32, value: T): void {
+      if (<u32>i >= <u32>this._vused) throw new Error("Index out of range");
       this.storeSlot(i, JSON.Value.bitsFrom<T>(value));
     }
 
@@ -2168,15 +2184,19 @@ export namespace JSON {
       return JSON.Value.parseSliceBits(start, end, this._src);
     }
 
-    /** Appends `count` raw slots from `this[from..]` into a fresh `dst`, sharing
-     *  `_src` so copied deferred ranges still resolve. */
+    /** Appends `count` raw slots from `this[from..]` into `dst`, sharing `_src`
+     *  only when a copied deferred range needs it. Concrete children retain
+     *  their own source, and scalar-only copies need no source anchor. */
     private copyInto(dst: JSON.Arr, from: i32, count: i32): void {
       if (count <= 0) return;
-      dst._src = this._src;
       const at = dst._vused;
       dst.ensureValCap(at + count);
-      for (let k = 0; k < count; k++)
-        dst.storeSlot(at + k, unchecked(this._vals[from + k]));
+      for (let k = 0; k < count; k++) {
+        const slot = unchecked(this._vals[from + k]);
+        // Do not clear an anchor needed by slots already appended to dst.
+        if (JSON.Value.slotIsLazy(slot)) dst._src = this._src;
+        dst.storeSlot(at + k, slot);
+      }
       dst._vused = at + count;
     }
 
@@ -2692,9 +2712,15 @@ export namespace JSON {
       if (code == 0) throw new Error("Expected 'true' or 'false' in JSON");
       return code == 2;
     } else if (isInteger<T>()) {
+      let integerEnd = srcEnd;
+      while (
+        integerEnd > srcStart &&
+        JSON.Util.isSpace(load<u16>(integerEnd - 2))
+      )
+        integerEnd -= 2;
       return isSigned<T>()
-        ? deserializeInteger<T>(srcStart, srcEnd)
-        : deserializeUnsigned<T>(srcStart, srcEnd);
+        ? deserializeInteger<T>(srcStart, integerEnd)
+        : deserializeUnsigned<T>(srcStart, integerEnd);
     } else if (isFloat<T>()) {
       return deserializeFloat<T>(srcStart, srcEnd);
     } else if (
