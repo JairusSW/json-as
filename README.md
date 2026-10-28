@@ -589,7 +589,29 @@ npm run bench:runtimes
 npm run charts:runtimes
 # Publish only these charts to the docs branch:
 bash scripts/publish-benchmarks.sh --runtimes --no-run
+# Rebuild or publish an older completed run explicitly:
+npm run charts:runtimes -- --run <run-id>
+bash scripts/publish-benchmarks.sh --runtimes --no-run --run <run-id>
 ```
+
+Each attempt writes to `build/logs/runtimes/runs/<run-id>/`, with a
+`manifest.json` recording its original timestamp, source commit/branch and dirty
+state, package version, host, compiler flags, engine versions (when available),
+and pinned Wago dependencies. `build/logs/runtimes/latest.json` selects the latest
+attempt. Only completed runs can be charted: a failed or interrupted attempt
+never silently falls back to older results, and absent engines are omitted rather
+than inheriting their old bars. Older successful runs remain selectable with
+`--run` (or `JSON_RUNTIME_RUN`).
+
+`runtimes-results.json` includes that manifest alongside the selected results.
+Rebuilding with `--no-run` keeps the original date, checkout, version, and Wago
+dependencies, even after changing branches; runtime-only publication also uses
+the recorded `charts/v<version>/` destination. A dirty flag identifies uncommitted
+source but is not a snapshot of it. Legacy flat logs under
+`build/logs/runtimes/<runtime>/` have no trustworthy run identity and are no longer
+read automatically. Run the runtime benchmark once to create a manifest; existing
+legacy files are left untouched. Other benchmark categories retain their existing
+log format.
 
 ### Lazy Fields
 
