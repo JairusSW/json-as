@@ -10,6 +10,7 @@ import {
   BRACKET_RIGHT,
   CHAR_T,
   COLON,
+  BACK_SLASH,
 } from "../../custom/chars";
 import { isSpace, scanStringEnd } from "../../util";
 import { deserializeFloat } from "../index/float";
@@ -359,6 +360,16 @@ export function parseObjectBody(
     if (srcStart >= srcEnd) return failProductionParse();
     const keyEnd = srcStart;
     srcStart += 2;
+    // Packed keys contain decoded text, just like keys passed to Obj.set.
+    // Keep the allocation-free source slice for the usual unescaped key.
+    let decodedKey: string | null = null;
+    for (let p = keyStart; p < keyEnd; p += 2) {
+      if (load<u16>(p) == BACK_SLASH) {
+        decodedKey = deserializeString(keyStart - 2, keyEnd + 2);
+        if (decodedKey === null) return failProductionParse();
+        break;
+      }
+    }
 
     // --- colon ---
     while (srcStart < srcEnd && isSpace((code = load<u16>(srcStart))))
@@ -373,13 +384,26 @@ export function parseObjectBody(
     if (parseSrc.length != 0) {
       // Parsing: store a NaN-boxed slot directly (strings/composites deferred,
       // scalars eager) - no per-value JSON.Value object.
-      out.appendParsedSlot(keyStart, keyEnd, parseSlotBits(srcStart, srcEnd));
+      const bits = parseSlotBits(srcStart, srcEnd);
       if (parseValueEnd == 0) return 0;
+      const start =
+        decodedKey === null ? keyStart : changetype<usize>(decodedKey);
+      const end =
+        decodedKey === null
+          ? keyEnd
+          : start + ((<usize>decodedKey.length) << 1);
+      out.appendParsedSlot(start, end, bits);
     } else {
       // Off the parse path (no source anchor): box eagerly.
       const value = parseValue(srcStart, srcEnd);
       if (parseValueEnd == 0) return 0;
-      out.appendRaw(keyStart, keyEnd, value);
+      const start =
+        decodedKey === null ? keyStart : changetype<usize>(decodedKey);
+      const end =
+        decodedKey === null
+          ? keyEnd
+          : start + ((<usize>decodedKey.length) << 1);
+      out.appendRaw(start, end, value);
     }
     srcStart = parseValueEnd;
   }
