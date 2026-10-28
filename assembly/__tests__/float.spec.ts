@@ -94,6 +94,48 @@ describe("Should deserialize additional float edge cases", () => {
   expect(JSON.parse<f64>("42").toString()).toBe("42.0");
   expect(JSON.parse<f64>(" 42 ").toString()).toBe("42.0");
   expect(JSON.parse<f64>("1e0").toString()).toBe("1.0");
+  expect(reinterpret<u64>(JSON.parse<f64>("-6.526220000000001e+49"))).toBe(
+    reinterpret<u64>(-6.526220000000001e49),
+  );
+
+  // Exact halfway decimals must use binary round-to-nearest, ties-to-even.
+  expect<u64>(
+    reinterpret<u64>(
+      JSON.parse<f64>(
+        "1.00000000000000011102230246251565404236316680908203125",
+      ),
+    ),
+  ).toBe(0x3ff0000000000000);
+  expect<u64>(
+    reinterpret<u64>(
+      JSON.parse<f64>(
+        "1.00000000000000033306690738754696212708950042724609375",
+      ),
+    ),
+  ).toBe(0x3ff0000000000002);
+
+  // More than 19 significant digits exercises the exact midpoint fallback.
+  expect<u64>(
+    reinterpret<u64>(
+      JSON.parse<f64>("1236402636933056367.623591688782459342e-37"),
+    ),
+  ).toBe(0x3c023eff41c99904);
+  const longArray = JSON.parse<f64[]>(
+    "[-228725936373149199.06054499027147e-46,-5579496761545736467627.82e169]",
+  );
+  expect<u64>(reinterpret<u64>(longArray[0])).toBe(0xb9fcfe94bcc86bcc);
+  expect<u64>(reinterpret<u64>(longArray[1])).toBe(0xe7890b9e85976905);
+
+  const longField = JSON.parse<FloatFieldBox>(
+    '{"value64":1236402636933056367.623591688782459342e-37,"value32":0}',
+  );
+  expect<u64>(reinterpret<u64>(longField.value64)).toBe(0x3c023eff41c99904);
+  const wideExponentField = JSON.parse<FloatFieldBox>(
+    '{"value64":-6.526220000000001e+49,"value32":0}',
+  );
+  expect<u64>(reinterpret<u64>(wideExponentField.value64)).toBe(
+    0xca4653bd2155cafa,
+  );
 });
 
 describe("Eisel-Lemire medium-exponent conversion is bit-identical", () => {
@@ -207,6 +249,12 @@ describe("Should populate f64/f32 struct fields with default-offset stores", () 
   );
   expect(wide.value64).toBe(35000000000.0);
   expect(wide.value32).toBe(<f32>3.5);
+
+  const exceptional = JSON.parse<FloatFieldBox>(
+    '{"value64":NaN,"value32":Infinity}',
+  );
+  expect(isNaN(exceptional.value64)).toBe(true);
+  expect(isFinite(exceptional.value32)).toBe(false);
 });
 
 describe("Should handle float whitespace and nested containers", () => {

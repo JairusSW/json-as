@@ -16,6 +16,7 @@ import {
   eiselLemireMinus14_54Bit,
 } from "../../../util/eisel-lemire";
 import { markProductionParseError } from "../../error";
+import { parseDecimalF64 } from "../../../util/parseDecimal";
 
 function skipFloatArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
@@ -27,7 +28,7 @@ function fallbackStore<E>(origStart: usize, end: usize, slot: usize): void {
   if (sizeof<E>() == sizeof<f32>()) {
     store<f32>(slot, f32.parse(s));
   } else {
-    store<f64>(slot, f64.parse(s));
+    store<f64>(slot, parseDecimalF64(origStart, end));
   }
 }
 
@@ -256,12 +257,10 @@ function parseFixed14Pair<E>(
 /**
  * Inline single-pass Lemire-style float element parser for arrays.
  *
- * Bit-identical output to `f64.parse` / `f32.parse`: u64 mantissa
- * accumulation is exact, and `<f64>mantissa * pow10[exp]` is correctly
- * rounded for the fast-path range (mantissa <= 2^53, |exp| <= 22).
- * Pathological inputs (oversized mantissa or exponent) fall back to
- * `f*.parse` over the float's own substring, again matching the NAIVE
- * baseline.
+ * The u64 mantissa accumulation is exact, and `<f64>mantissa * pow10[exp]` is
+ * correctly rounded for the fast-path range (mantissa <= 2^53, |exp| <= 22).
+ * Wide binary64 inputs use the shared correctly-rounded converter; f32 retains
+ * AssemblyScript parsing over the element's own substring.
  *
  * Returns the advanced source position on success, or `0` to signal "bail
  * to the per-element NAIVE path" only for truly malformed input (no leading

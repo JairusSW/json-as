@@ -3,9 +3,8 @@
 // `parse16Digits_SIMD` stride before falling through to `parse4Digits_PairMul`
 // and finally the scalar tail.
 //
-// Output is bit-identical to `f64.parse` / `f32.parse` for every input - the
-// SIMD strides only change how the u64 mantissa is accumulated, not what it
-// becomes.
+// The shared fallback correctly rounds long binary64 mantissas and wide
+// exponents; f32 and extension literals retain AssemblyScript parsing.
 //
 // Requires `--enable simd` at compile time. Dead-code-eliminated when
 // JSON_MODE != SIMD.
@@ -15,7 +14,13 @@ import { parse4Digits_PairMul } from "../../util/swar-int";
 import { parse16Digits_SIMD } from "../../util/simd-int";
 import { scientific } from "../../util/scientific";
 import { eiselLemire22 } from "../../util/eisel-lemire";
-import { loadPow10, MAX_EXACT_MANTISSA, MAX_EXACT_POW10 } from "../swar/float";
+import {
+  deserializeLooseFloatField,
+  loadPow10,
+  MAX_EXACT_MANTISSA,
+  MAX_EXACT_POW10,
+} from "../swar/float";
+import { parseDecimalF64 } from "../../util/parseDecimal";
 
 const ASCII_PLUS: u16 = 43;
 const ASCII_MINUS: u16 = 45;
@@ -29,7 +34,7 @@ function fallback<T>(srcStart: usize, srcEnd: usize): T {
   // @ts-ignore
   const type: T = 0;
   // @ts-ignore
-  if (type instanceof f64) return <T>f64.parse(s);
+  if (type instanceof f64) return <T>parseDecimalF64(srcStart, srcEnd);
   // @ts-ignore
   return <T>(<f32>f32.parse(s));
 }
@@ -43,7 +48,7 @@ function fallbackField<T extends number>(
   if (sizeof<T>() == sizeof<f32>()) {
     store<f32>(fieldPtr, f32.parse(s));
   } else {
-    store<f64>(fieldPtr, f64.parse(s));
+    store<f64>(fieldPtr, parseDecimalF64(origStart, end));
   }
 }
 
@@ -224,7 +229,7 @@ export function deserializeFloatField_SIMD<T extends number>(
   const mantDigits = intDigits + fracDigits;
   if (mantDigits == 0) {
     if (JSON_STRICT) return 0;
-    unreachable();
+    return deserializeLooseFloatField<T>(origStart, srcEnd, fieldPtr);
   }
 
   let exponent: i32 = -fracDigits;

@@ -1,5 +1,6 @@
 import { ptrToStr } from "../../util/ptrToStr";
 import { isSpace } from "../../util";
+import { parseDecimalF64 } from "../../util/parseDecimal";
 
 // Strict RFC 8259 number-grammar check over [srcStart, srcEnd) (surrounding
 // whitespace tolerated). Throws on any deviation: leading zeros, a bare `-`, a
@@ -65,7 +66,7 @@ export function deserializeFloat_NAIVE<T>(srcStart: usize, srcEnd: usize): T {
   // @ts-ignore
   const type: T = 0;
   // @ts-ignore
-  if (type instanceof f64) return f64.parse(ptrToStr(srcStart, srcEnd));
+  if (type instanceof f64) return parseDecimalF64(srcStart, srcEnd);
   // @ts-ignore
   return f32.parse(ptrToStr(srcStart, srcEnd));
 }
@@ -120,7 +121,7 @@ export function deserializeFloatField_NAIVE<T extends number>(
   if (sizeof<T>() == sizeof<f32>()) {
     store<f32>(fieldPtr, f32.parse(ptrToStr(srcStart, end)));
   } else {
-    store<f64>(fieldPtr, f64.parse(ptrToStr(srcStart, end)));
+    store<f64>(fieldPtr, parseDecimalF64(srcStart, end));
   }
 
   return end;

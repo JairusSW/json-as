@@ -1,14 +1,13 @@
 // SWAR float deserializers. Lemire-style fast path with parse4 SWAR digit
-// folding on the fractional accumulator. Output is bit-identical to
-// `f64.parse` / `f32.parse` (the NAIVE baseline) on the fast path because:
+// folding on the fractional accumulator. Output is correctly rounded on the
+// fast path because:
 //
 //   - the u64 mantissa accumulator is exact (no rounding in the digit loop),
 //   - `1e0 .. 1e22` are exactly representable in f64, and
 //   - a single fmul/fdiv on two exact operands is correctly rounded.
 //
-// Pathological inputs (>19 mantissa digits, mantissa > 2^53, or |exp| > 22)
-// fall through to `f64.parse` / `f32.parse` over the float's own range so the
-// SWAR result matches the NAIVE result for every input.
+// Wide inputs use the shared binary64 converter. f32 still falls through to
+// AssemblyScript's parser over the float's own token range.
 //
 // Inspired by Daniel Lemire, "Number parsing at a gigabyte per second" (2021)
 // and the simdjson `fast_float` implementation. The integer-part loop stays
@@ -20,6 +19,9 @@ import { ptrToStr } from "../../util/ptrToStr";
 import { parse4Digits_PairMul } from "../../util/swar-int";
 import { scientific } from "../../util/scientific";
 import { eiselLemire22 } from "../../util/eisel-lemire";
+import { parseDecimalF64 } from "../../util/parseDecimal";
+import { isSpace } from "../../util/isSpace";
+import { validateJSONNumberTokenLoose } from "../../util/validateJson";
 
 export const POW10_F64_POS: usize = memory.data<f64>([
   1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14,
@@ -44,7 +46,7 @@ function fallback<T>(srcStart: usize, srcEnd: usize): T {
   // @ts-ignore
   const type: T = 0;
   // @ts-ignore
-  if (type instanceof f64) return <T>f64.parse(s);
+  if (type instanceof f64) return <T>parseDecimalF64(srcStart, srcEnd);
   // @ts-ignore
   return <T>(<f32>f32.parse(s));
 }
@@ -57,8 +59,24 @@ function fallbackField<T extends number>(
   if (sizeof<T>() == sizeof<f32>()) {
     store<f32>(fieldPtr, f32.parse(s));
   } else {
-    store<f64>(fieldPtr, f64.parse(s));
+    store<f64>(fieldPtr, parseDecimalF64(origStart, end));
   }
+}
+
+export function deserializeLooseFloatField<T extends number>(
+  srcStart: usize,
+  srcEnd: usize,
+  fieldPtr: usize,
+): usize {
+  let tokenEnd = srcStart;
+  while (tokenEnd < srcEnd) {
+    const code = load<u16>(tokenEnd);
+    if (code == 44 || code == 93 || code == 125 || isSpace(code)) break;
+    tokenEnd += 2;
+  }
+  if (!validateJSONNumberTokenLoose(srcStart, tokenEnd)) return 0;
+  fallbackField<T>(srcStart, tokenEnd, fieldPtr);
+  return tokenEnd;
 }
 
 export function deserializeFloat_SWAR<T>(srcStart: usize, srcEnd: usize): T {
@@ -142,9 +160,8 @@ export function deserializeFloat_SWAR<T>(srcStart: usize, srcEnd: usize): T {
   }
 
   // Lemire fast path when fully in range; `scientific` for u64-fitting
-  // mantissas that exceed 2^53 or |exp| > 22 (still correctly rounded, but
-  // via the scaledown/scaleup path); `f*.parse` fallback only for >19
-  // mantissa digits where the sticky-bit handling matters.
+  // mantissas that exceed 2^53 or |exp| > 22; the shared decimal parser handles
+  // inputs above 19 significant digits with an exact midpoint comparison.
   let result: f64;
   if (
     mantDigits <= 19 &&
@@ -223,7 +240,7 @@ export function deserializeFloatField_SWAR<T extends number>(
   const mantDigits = intDigits + fracDigits;
   if (mantDigits == 0) {
     if (JSON_STRICT) return 0;
-    unreachable();
+    return deserializeLooseFloatField<T>(origStart, srcEnd, fieldPtr);
   }
 
   let exponent: i32 = -fracDigits;
