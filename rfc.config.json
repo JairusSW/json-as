@@ -10,7 +10,8 @@
     "./assembly/__tests__/nullable-raw-map.spec.ts",
     "./assembly/__tests__/nullable-set-parse.spec.ts",
     "./assembly/__tests__/nullable-struct-map.spec.ts",
-    "./assembly/__tests__/nested-array-boundaries.spec.ts"
+    "./assembly/__tests__/nested-array-boundaries.spec.ts",
+    "./assembly/__tests__/generated-field-escapes.spec.ts"
   ],
   "outDir": "./.as-test/build",
   "logs": "./.as-test/logs",
