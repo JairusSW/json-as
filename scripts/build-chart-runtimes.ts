@@ -16,6 +16,10 @@ import {
   type BenchResult,
 } from "./lib/bench-utils";
 import { rgba, BASE } from "./lib/palette";
+import {
+  readRuntimeRun,
+  runtimeRunSubtitle,
+} from "./lib/runtime-bench-run.mjs";
 
 // One distinct hue per runtime; Wago (the subject) gets the hero blue.
 const RUNTIMES: { key: string; label: string; bg: string; border: string }[] = [
@@ -68,64 +72,45 @@ const TITLES: Record<BenchKind, string> = {
   serialize: "Serialization throughput across WebAssembly runtimes",
 };
 
-function read(
-  runtime: string,
-  suite: string,
-  kind: BenchKind,
-): BenchResult | null {
-  const p = `./build/logs/runtimes/${runtime}/${suite}.${kind}.json`;
-  try {
-    return JSON.parse(fs.readFileSync(p, "utf-8")) as BenchResult;
-  } catch {
-    return null;
-  }
-}
-
 function sizeLabel(bytes: number): string {
   const mb = bytes / 1e6;
   return mb >= 1 ? `${mb.toFixed(1)}MB` : `${Math.round(bytes / 1e3)}KB`;
 }
 
-// Isolate Chart.js/canvas state between chart kinds, including PNG DPR state.
-const selectedKind = process.argv[2];
+// Resolve once, then pin both renderer processes to the same run even if a
+// new benchmark starts while charts are being generated.
+const args = process.argv.slice(2);
+let selectedKind: string | undefined;
+let runId = process.env.JSON_RUNTIME_RUN ?? "";
+while (args.length) {
+  const arg = args.shift();
+  if (arg === "--run") {
+    runId = args.shift() ?? "";
+    if (!runId) throw new Error("--run requires a run ID");
+  } else if (!selectedKind && (arg === "deserialize" || arg === "serialize")) {
+    selectedKind = arg;
+  } else throw new Error(`Unknown chart argument: ${arg}`);
+}
+const { manifest, results } = readRuntimeRun(process.cwd(), runId);
 if (!selectedKind) {
   for (const kind of ["deserialize", "serialize"]) {
-    execFileSync(process.execPath, [process.argv[1], kind], {
-      stdio: "inherit",
-    });
+    execFileSync(
+      process.execPath,
+      [process.argv[1], kind, "--run", manifest.id],
+      {
+        stdio: "inherit",
+      },
+    );
   }
   process.exit(0);
 }
-if (selectedKind !== "deserialize" && selectedKind !== "serialize") {
-  throw new Error(`Unknown chart kind: ${selectedKind}`);
-}
-
+const runtimes = RUNTIMES.filter(({ key }) => manifest.runtimes.includes(key));
 fs.mkdirSync("./build/charts", { recursive: true });
-
-// Keep the chart inputs alongside published images for reproducibility.
-const results = Object.fromEntries(
-  RUNTIMES.map(({ key }) => [
-    key,
-    Object.fromEntries(
-      DATASETS.map(({ key: suite }) => [
-        suite,
-        Object.fromEntries(
-          (["deserialize", "serialize"] as BenchKind[]).map((kind) => [
-            kind,
-            read(key, `${suite}-min`, kind),
-          ]),
-        ),
-      ]),
-    ),
-  ]),
-);
+// Export the original provenance, not the renderer's checkout/time/dependencies.
 fs.writeFileSync(
   "./build/charts/runtimes-results.json",
   JSON.stringify(
-    {
-      wagoDependencies: fs.readFileSync("bench/runners/wago/go.mod", "utf8"),
-      results,
-    },
+    { manifest, wagoDependencies: manifest.wagoDependencies, results },
     null,
     2,
   ) + "\n",
@@ -137,9 +122,7 @@ for (const kind of [selectedKind] as BenchKind[]) {
   let present = 0;
 
   for (const { key, label } of DATASETS) {
-    const row = RUNTIMES.map(
-      (rt) => read(rt.key, `${key}-min`, kind) ?? ({ mbps: 0 } as BenchResult),
-    );
+    const row = runtimes.map((rt) => results[rt.key][key][kind] as BenchResult);
     if (row.some((r) => r.mbps > 0)) present++;
     chartData[key] = row;
     const sized = row.find((r) => r.bytes);
@@ -156,11 +139,11 @@ for (const kind of [selectedKind] as BenchKind[]) {
   const makeConfig = () =>
     createBarChart(chartData, payloadLabels, {
       title: TITLES[kind],
-      runtimeLabel: "Six runtimes · NAIVE",
+      subtitleText: runtimeRunSubtitle(manifest),
       yLabel: "Throughput (MB/s)",
       xLabel: "",
-      datasetLabels: RUNTIMES.map((r) => r.label),
-      colors: RUNTIMES.map((r) => ({ bg: r.bg, border: r.border })),
+      datasetLabels: runtimes.map((r) => r.label),
+      colors: runtimes.map((r) => ({ bg: r.bg, border: r.border })),
       yStep: 250,
       labelAnchor: "end",
       labelFontSize: 11,

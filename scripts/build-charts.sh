@@ -52,6 +52,9 @@ bun ./scripts/build-rfc-coverage.ts
 # Cross-runtime comparison (Wago/wasmtime/wavm/wazero/v8/bun). Opt-in: only built
 # when scripts/run-bench.runtimes.sh has produced logs (it needs external
 # runtimes + Go for the Wago host), so the default chart build never fails on it.
-if compgen -G "./build/logs/runtimes/*/*.deserialize.json" >/dev/null 2>&1; then
+if [[ -f ./build/logs/runtimes/latest.json || -n "${JSON_RUNTIME_RUN:-}" ]]; then
   bun ./scripts/build-chart-runtimes.ts
+else
+  # Do not carry old runtime images into a publication without a selected run.
+  rm -f ./build/charts/runtimes-{deserialize,serialize}.{svg,png} ./build/charts/runtimes-results.json
 fi

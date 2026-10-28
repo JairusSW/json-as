@@ -27,9 +27,8 @@ cd "$ROOT_DIR"
 
 WASI_SHIM_CONFIG="./node_modules/@assemblyscript/wasi-shim/asconfig.json"
 WASM_DIR="build/runtimes"
-LOG_DIR="build/logs/runtimes"
 ENV_RUNNER="bench/runners/runtimes-env.mjs"
-mkdir -p "$WASM_DIR" "$LOG_DIR"
+mkdir -p "$WASM_DIR"
 
 # Common NAIVE-mode feature set. Each timed run uses the same number of
 # frames, with untimed full GC between frames on every runtime.
@@ -39,6 +38,14 @@ COMMON_FLAGS=(-O3 --noAssert --uncheckedBehavior always --runtime incremental
 
 PAYLOADS=("twitter" "citm_catalog" "canada")
 
+# Every attempt owns a fresh directory, including when an optional engine is
+# absent. Publish only a fully validated run, never old files in a shared dir.
+RUN_HELPER="scripts/lib/runtime-bench-run.mjs"
+RUN_ID="$(node "$RUN_HELPER" start "$BENCH_FRAMES" "${COMMON_FLAGS[@]}")"
+LOG_DIR="build/logs/runtimes/runs/$RUN_ID"
+trap 'status=$?; if [[ "$status" != 0 ]]; then node "$RUN_HELPER" failed "$RUN_ID" || true; fi' EXIT
+echo "==> runtime run $RUN_ID"
+
 has() { command -v "$1" >/dev/null 2>&1; }
 
 # Build the Wago WASI host without changing local/global CLI plugins.
@@ -47,7 +54,7 @@ echo "==> building wago-run (pinned Wago + WASI dependencies)"
 (cd bench/runners/wago && GOWORK=off go build -mod=readonly -o "$WAGO_HOST" .)
 
 # Captures a runner's stdout: each __AS_BENCH_JSON__<path>\t<json> line is written
-# to build/logs/runtimes/<runtime>/<suite>.<type>.json (suite/type come from the
+# to this run's <runtime>/<suite>.<type>.json (suite/type come from the
 # bench's own path; the .as.json/.wavm.json suffix is stripped).
 capture() {
   local runtime="$1"
@@ -98,4 +105,5 @@ for name in "${PAYLOADS[@]}"; do
 
 done
 
+node "$RUN_HELPER" complete "$RUN_ID"
 echo "Finished cross-runtime benchmarks -> $LOG_DIR/<runtime>/<suite>.<type>.json"
