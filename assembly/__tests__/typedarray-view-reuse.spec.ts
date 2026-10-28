@@ -30,3 +30,17 @@ describe("Review: clamped typed arrays clamp instead of wrapping", () => {
   const result = JSON.parse<Uint8ClampedArray>("[-1,0,255,256,1000]");
   expect(JSON.stringify(result)).toBe("[0,0,255,255,255]");
 });
+
+describe("Review: reused typed arrays count comma-minus boundaries exactly", () => {
+  const out = new Int32Array(8);
+  const result = JSON.parse<Int32Array>("[-1,-2,-3,-4,-5,-6,-7,-8]", out);
+  expect(result === out).toBe(true);
+  expect(result.length).toBe(8);
+  for (let i = 0; i < 8; i++) expect(result[i]).toBe(-i - 1);
+  const spaced = JSON.parse<Int32Array>(
+    "[ -1 , -2,\n-3, -4, -5,\t-6,-7,-8 ]",
+    out,
+  );
+  expect(spaced === out).toBe(true);
+  expect(spaced[7]).toBe(-8);
+});

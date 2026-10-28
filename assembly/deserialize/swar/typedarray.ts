@@ -60,7 +60,20 @@ import {
 // Count only on the reuse path so valid fresh parses retain their single pass.
 function reusableElementCount(start: usize, end: usize): i32 {
   let count = 1;
-  for (let p = start; p < end; p += 2) if (load<u16>(p) == COMMA) count++;
+  let p = start;
+  while (p + 8 <= end) {
+    const word = load<u64>(p) ^ 0x002c_002c_002c_002c;
+    // Exact per-lane equality, without the borrow false positives of the
+    // usual (x - 1) & ~x mask (important for comma followed by minus).
+    const commas = ~(
+      ((word & 0x7fff_7fff_7fff_7fff) + 0x7fff_7fff_7fff_7fff) |
+      word |
+      0x7fff_7fff_7fff_7fff
+    );
+    count += <i32>popcnt(commas);
+    p += 8;
+  }
+  for (; p < end; p += 2) if (load<u16>(p) == COMMA) count++;
   return count;
 }
 
