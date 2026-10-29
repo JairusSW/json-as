@@ -60,6 +60,7 @@ function deserializeStructArrayBody<T extends unknown[]>(
   );
   const reusableDataStart = out.dataStart;
   const elementSize = sizeof<valueof<T>>();
+  const reusedValues = reusableLength > 1 ? new Set<usize>() : null;
   let pretty = false;
 
   do {
@@ -91,6 +92,11 @@ function deserializeStructArrayBody<T extends unknown[]>(
         next = srcStart + 8;
       } else {
         let value = load<valueof<T>>(slot);
+        if (reusedValues !== null && changetype<usize>(value) != 0) {
+          const ref = changetype<usize>(value);
+          if (reusedValues.has(ref)) value = changetype<valueof<T>>(0);
+          else reusedValues.add(ref);
+        }
         if (changetype<usize>(value) == 0) {
           value = changetype<valueof<T>>(
             __new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
@@ -101,6 +107,7 @@ function deserializeStructArrayBody<T extends unknown[]>(
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
           }
           store<valueof<T>>(slot, value);
+          __link(changetype<usize>(out), changetype<usize>(value), false);
         }
 
         const valueStart = srcStart;

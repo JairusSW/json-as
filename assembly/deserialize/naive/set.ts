@@ -4,13 +4,12 @@ import {
   BRACKET_RIGHT,
   BRACE_LEFT,
   BRACE_RIGHT,
-  CHAR_F,
-  CHAR_T,
   COMMA,
   NULL_WORD_U64,
   QUOTE,
 } from "../../custom/chars";
-import { isSpace, atoi, scanStringEnd } from "../../util";
+import { isSpace, scanStringEnd } from "../../util";
+import { deserializeBooleanCode } from "./bool";
 
 function scanSetElementEnd(srcStart: usize, srcEnd: usize): usize {
   const first = load<u16>(srcStart);
@@ -88,17 +87,13 @@ function deserializeSetDirect<T extends Set<any>>(
       }
       // @ts-ignore: type
     } else if (isBoolean<indexof<T>>()) {
-      if (code == CHAR_T) {
-        // @ts-ignore: type
-        out.add(<indexof<T>>true);
-        srcStart += 8;
-      } else if (code == CHAR_F) {
-        // @ts-ignore: type
-        out.add(<indexof<T>>false);
-        srcStart += 10;
-      } else {
-        break;
-      }
+      const end = scanSetElementEnd(srcStart, srcEnd);
+      if (!end) break;
+      const literal = deserializeBooleanCode(srcStart, end);
+      if (!literal) break;
+      // @ts-ignore: type
+      out.add(<indexof<T>>(literal == 2));
+      srcStart = end;
       // @ts-ignore: type
     } else if (isInteger<indexof<T>>()) {
       if (code - 48 > 9 && code != 45) break;
@@ -109,7 +104,7 @@ function deserializeSetDirect<T extends Set<any>>(
         ptr += 2;
       }
       // @ts-ignore: type
-      out.add(atoi<indexof<T>>(srcStart, ptr));
+      out.add(JSON.__deserialize<indexof<T>>(srcStart, ptr));
       srcStart = ptr;
       // @ts-ignore: type
     } else if (isFloat<indexof<T>>()) {

@@ -39,7 +39,10 @@ export function deserializeGenericArrayBody<T extends unknown[]>(
         ? reusableDataStart + <usize>index * elementSize
         : ensureArrayElementSlot<T>(out, index);
     index++;
-    store<valueof<T>>(slot, JSON.__deserialize<valueof<T>>(srcStart, valueEnd));
+    const value = JSON.__deserialize<valueof<T>>(srcStart, valueEnd);
+    store<valueof<T>>(slot, value);
+    if (isManaged<valueof<T>>())
+      __link(changetype<usize>(out), changetype<usize>(value), false);
     srcStart = valueEnd;
 
     srcStart = skipWhitespace(srcStart, srcEnd);

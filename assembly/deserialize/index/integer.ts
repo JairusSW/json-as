@@ -11,7 +11,11 @@ import {
   deserializeInteger_SIMD,
   deserializeIntegerField_SIMD,
 } from "../simd/integer";
-import { validateJSONNumberToken } from "../../util/validateJson";
+import {
+  validateJSONIntegerToken,
+  validateJSONNumberToken,
+} from "../../util/validateJson";
+import { markProductionParseError } from "../error";
 
 /**
  * Compile-time dispatch for {@link deserializeInteger_NAIVE},
@@ -26,6 +30,10 @@ export function deserializeInteger<T extends number>(
   srcStart: usize,
   srcEnd: usize,
 ): T {
+  if (!validateJSONIntegerToken(srcStart, srcEnd, true, !JSON_STRICT)) {
+    markProductionParseError();
+    return 0 as T;
+  }
   if (JSON_MODE == JSONMode.SIMD) {
     return deserializeInteger_SIMD<T>(srcStart, srcEnd);
   } else if (JSON_MODE == JSONMode.NAIVE) {

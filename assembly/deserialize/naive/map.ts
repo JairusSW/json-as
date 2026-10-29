@@ -6,6 +6,7 @@ import {
   BRACE_RIGHT,
   COLON,
   NULL_WORD_U64,
+  BACK_SLASH,
 } from "../../custom/chars";
 import { isSpace } from "../../util";
 import { scanValueEnd } from "../../util/scanValueEnd";
@@ -53,11 +54,18 @@ function rawMapKeyEquals(key: string, start: usize, end: usize): bool {
   const keyStart = changetype<usize>(key);
   let offset: usize = 0;
   while (offset + 8 <= byteLength) {
-    if (load<u64>(keyStart + offset) != load<u64>(start + offset)) return false;
+    const block = load<u64>(start + offset);
+    if (load<u64>(keyStart + offset) != block) return false;
+    // Compare decoded keys only against unescaped source spellings.
+    const slash = block ^ 0x005c_005c_005c_005c;
+    if ((slash - 0x0001_0001_0001_0001) & ~slash & 0x8000_8000_8000_8000)
+      return false;
     offset += 8;
   }
   while (offset < byteLength) {
-    if (load<u16>(keyStart + offset) != load<u16>(start + offset)) return false;
+    const code = load<u16>(start + offset);
+    if (code == BACK_SLASH || load<u16>(keyStart + offset) != code)
+      return false;
     offset += 2;
   }
   return true;
@@ -125,7 +133,7 @@ export function deserializeMap<T extends Map<any, any>>(
     srcEnd,
     changetype<T>(out),
     reuseExisting,
-  ) != 0
+  ) == srcEnd
     ? changetype<T>(out)
     : changetype<T>(0);
 }
@@ -183,6 +191,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
   )
     previousEntry += previousEntrySize;
   let seenKeys = changetype<Set<indexof<T>>>(0);
+  let reusedValues = changetype<Set<usize>>(0);
   let parsedKeyCount = 0;
 
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACE_LEFT) return 0;
@@ -260,6 +269,13 @@ export function deserializeMapBody<T extends Map<any, any>>(
         changetype<valueof<T>>(changetype<usize>(val)),
       );
       srcStart = next;
+    } else if (
+      isNullable<valueof<T>>() &&
+      srcStart + 8 <= srcEnd &&
+      load<u64>(srcStart) == NULL_WORD_U64
+    ) {
+      changetype<nonnull<T>>(out).set(key, changetype<valueof<T>>(0));
+      srcStart += 8;
     } else if (isReference<valueof<T>>() && rawValue) {
       const valueEnd = scanValueEnd(srcStart, srcEnd);
       if (!valueEnd || valueEnd <= srcStart) break;
@@ -269,6 +285,12 @@ export function deserializeMapBody<T extends Map<any, any>>(
           changetype<usize>(changetype<nonnull<T>>(out).get(key)),
         );
       }
+      if (raw !== null) {
+        if (!changetype<usize>(reusedValues)) reusedValues = new Set<usize>();
+        const ref = changetype<usize>(raw);
+        if (reusedValues.has(ref)) raw = null;
+        else reusedValues.add(ref);
+      }
       const value = deserializeRaw(srcStart, valueEnd, changetype<usize>(raw));
       // @ts-ignore: valueof<T> is JSON.Raw in this branch
       changetype<nonnull<T>>(out).set(
@@ -276,16 +298,6 @@ export function deserializeMapBody<T extends Map<any, any>>(
         changetype<valueof<T>>(changetype<usize>(value)),
       );
       srcStart = valueEnd;
-    } else if (
-      isNullable<valueof<T>>() &&
-      srcStart + 8 <= srcEnd &&
-      load<u64>(srcStart) == NULL_WORD_U64
-    ) {
-      // Generated object parsers bypass the generic nullable dispatch. Handle
-      // null before allocating or reusing a value; the common tail validates
-      // the following delimiter and advances the reuse/cleanup bookkeeping.
-      changetype<nonnull<T>>(out).set(key, changetype<valueof<T>>(0));
-      srcStart += 8;
     } else if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
       const valueType = changetype<nonnull<valueof<T>>>(0);
       if (
@@ -307,6 +319,15 @@ export function deserializeMapBody<T extends Map<any, any>>(
           );
         } else if (changetype<nonnull<T>>(out).has(key)) {
           value = changetype<nonnull<T>>(out).get(key);
+        }
+        // A destination graph may share one instance across different keys.
+        // Only its first occurrence can be mutated without changing an earlier
+        // result. Allocate replacements for subsequent occurrences.
+        if (changetype<usize>(value) != 0) {
+          if (!changetype<usize>(reusedValues)) reusedValues = new Set<usize>();
+          const ref = changetype<usize>(value);
+          if (reusedValues.has(ref)) value = changetype<valueof<T>>(0);
+          else reusedValues.add(ref);
         }
         const reusedMappedValue =
           matchedPreviousKey && changetype<usize>(value) != 0;

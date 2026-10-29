@@ -4,7 +4,10 @@ import { deserializeArbitraryArray } from "./array/arbitrary";
 import { deserializeArrayArray } from "./array/array";
 import { deserializeBooleanArray } from "./array/bool";
 import { deserializeBoxArray } from "./array/box";
-import { deserializeCustomArray } from "./array/generic";
+import {
+  deserializeCustomArray,
+  deserializeGenericArray,
+} from "./array/generic";
 import { deserializeIntegerArray_NAIVE } from "./array/integer";
 import { deserializeMapArray } from "./array/map";
 import { deserializeObjectArray } from "./array/object";
@@ -83,6 +86,15 @@ export function deserializeStaticArray<T extends StaticArray<any>>(
         changetype<valueof<T>[]>(
           deserializeRawArray<valueof<T>[]>(srcStart, srcEnd, 0),
         ),
+        dst,
+      );
+    } else if (
+      type instanceof Date ||
+      type instanceof Set ||
+      type instanceof JSON.Arr
+    ) {
+      return materializeStaticArray<T>(
+        deserializeGenericArray<valueof<T>[]>(srcStart, srcEnd, 0),
         dst,
       );
     } else if (type instanceof Map) {

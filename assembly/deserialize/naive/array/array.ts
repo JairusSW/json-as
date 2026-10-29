@@ -70,6 +70,8 @@ export function deserializeArrayArray<T extends unknown[][]>(
     const code = load<u16>(srcStart);
     if (code == COMMA) {
       srcStart += 2;
+      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+      if (srcStart >= srcEnd || load<u16>(srcStart) == BRACKET_RIGHT) break;
       continue;
     }
     if (code == BRACKET_RIGHT && srcStart + 2 == srcEnd) {

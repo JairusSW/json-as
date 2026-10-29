@@ -260,11 +260,12 @@ export function validateJSONNumberTokenLoose(ptr: usize, end: usize): bool {
   return ptr == end;
 }
 
-/** Validates one already-delimited JSON integer token. */
+/** Validates a delimited integer; scalar callers may allow legacy leading zeros. */
 export function validateJSONIntegerToken(
   ptr: usize,
   end: usize,
   signed: bool,
+  allowLeadingZeros: bool = false,
 ): bool {
   if (ptr < end && load<u16>(ptr) == 0x2d) {
     if (!signed) return false;
@@ -274,10 +275,8 @@ export function validateJSONIntegerToken(
 
   const first = load<u16>(ptr);
   if (first == 0x30) {
-    ptr += 2;
-    return ptr == end;
-  }
-  if (first < 0x31 || first > 0x39) return false;
+    if (!allowLeadingZeros) return ptr + 2 == end;
+  } else if (first < 0x31 || first > 0x39) return false;
 
   do {
     ptr += 2;

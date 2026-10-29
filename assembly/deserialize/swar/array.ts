@@ -41,9 +41,12 @@ export function deserializeArrayField<T extends unknown[]>(
       return deserializeObjectArrayField<T>(srcStart, srcEnd, fieldPtr);
     } else if (type instanceof JSON.Raw) {
       return deserializeRawArrayField(srcStart, srcEnd, fieldPtr);
-    } else if (type instanceof Date) {
-      return deserializeGenericArrayField<T>(srcStart, srcEnd, fieldPtr);
-    } else if (type instanceof Set) {
+    } else if (
+      type instanceof Date ||
+      type instanceof Set ||
+      type instanceof StaticArray ||
+      type instanceof JSON.Arr
+    ) {
       return deserializeGenericArrayField<T>(srcStart, srcEnd, fieldPtr);
     } else if (type instanceof Map) {
       return deserializeMapArrayField<T>(srcStart, srcEnd, fieldPtr);

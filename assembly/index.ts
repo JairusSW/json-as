@@ -2737,13 +2737,30 @@ export namespace JSON {
     }
   }
 
+  /** Materialize a deferred field while retaining its source for descendants. */
+  function __deserializeLazy<T>(
+    srcStart: usize,
+    srcEnd: usize,
+    source: string,
+  ): T {
+    // Deferred children can create their own deferred descendants. Propagate
+    // the original owner while decoding, then restore any surrounding parse.
+    const previous = getParseSrc();
+    setParseSrc(source);
+    const value = __deserialize<T>(srcStart, srcEnd);
+    setParseSrc(previous);
+    if (takeProductionParseError())
+      throw new Error("Malformed lazy JSON value");
+    return value;
+  }
+
   /**
    * Deserializes JSON data directly from the buffer.
    * Should only be used if you know what you are doing.
    * @param srcStart - usize
    * @param srcEnd - usize
    * @param dst - usize
-   * @returns void
+   * @returns T
    */
   function __deserialize<T>(srcStart: usize, srcEnd: usize, dst: usize = 0): T {
     // Skip leading whitespace once here so every handler below may assume
@@ -2940,6 +2957,10 @@ export namespace JSON {
     );
   }
   export namespace Util {
+    /** Source owner for range-backed fields in generated deserializers. */
+    export function getParseSource(): string {
+      return getParseSrc();
+    }
     /** Record a cold malformed-input path and return the zero cursor sentinel. */
     export function failProductionParse(): usize {
       return failProductionParseInternal();
