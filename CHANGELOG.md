@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-10-28 - v1.7.0
+## 2026-10-29 - v1.7.0
 
 - fix(dynamic): materialize native arrays from dynamic `JSON.Value` instances, preserve callback mutation semantics, enforce live-length bounds for typed reads and writes, release retained scalar source strings after copies, delete every duplicate parsed object key, and decode escaped object keys before storage ([#227](https://github.com/JairusSW/json-as/pull/227), [#230](https://github.com/JairusSW/json-as/pull/230), [#233](https://github.com/JairusSW/json-as/pull/233), [#236](https://github.com/JairusSW/json-as/pull/236), [#239](https://github.com/JairusSW/json-as/pull/239), [#240](https://github.com/JairusSW/json-as/pull/240)).
 - fix(collections): safely parse and serialize nullable strings, raw values, and structs in arrays, maps, and sets; preserve nested-array value boundaries; and dispatch custom-codec array elements by their JSON value shape ([#228](https://github.com/JairusSW/json-as/pull/228), [#232](https://github.com/JairusSW/json-as/pull/232), [#237](https://github.com/JairusSW/json-as/pull/237), [#243](https://github.com/JairusSW/json-as/pull/243), [#244](https://github.com/JairusSW/json-as/pull/244), [#245](https://github.com/JairusSW/json-as/pull/245)).
@@ -14,6 +14,7 @@
 - perf(serialize): write primitive `JSON.Value` slots directly without transient wrappers ([#241](https://github.com/JairusSW/json-as/pull/241)).
 - perf(deserialize): count reusable numeric-array elements with exact SWAR delimiter masks and avoid redundant validation scans for built-in reference arrays.
 - bench: isolate runtime benchmark attempts, record source and engine provenance in manifests, reject incomplete runs, and keep older completed runs explicitly selectable ([#235](https://github.com/JairusSW/json-as/pull/235)).
+- ci(release): validate runtime benchmark tooling and npm package contents before publishing, and generate GitHub release notes from the exact versioned changelog section so missing historical tags cannot duplicate changes.
 - test: add broad regressions for composite reuse, built-in array bounds, callback mutation, duplicate and escaped keys, nullable collections, custom codecs, numeric validity and rounding, string escape boundaries, canonical imports, wide-key dispatch, and runtime benchmark provenance.
 
 ## 2026-10-15 - v1.6.2
