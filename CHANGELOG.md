@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-28 - v1.7.0
+
+- fix(dynamic): materialize native arrays from dynamic `JSON.Value` instances, preserve callback mutation semantics, enforce live-length bounds for typed reads and writes, release retained scalar source strings after copies, delete every duplicate parsed object key, and decode escaped object keys before storage ([#227](https://github.com/JairusSW/json-as/pull/227), [#230](https://github.com/JairusSW/json-as/pull/230), [#233](https://github.com/JairusSW/json-as/pull/233), [#236](https://github.com/JairusSW/json-as/pull/236), [#239](https://github.com/JairusSW/json-as/pull/239), [#240](https://github.com/JairusSW/json-as/pull/240)).
+- fix(collections): safely parse and serialize nullable strings, raw values, and structs in arrays, maps, and sets; preserve nested-array value boundaries; and dispatch custom-codec array elements by their JSON value shape ([#228](https://github.com/JairusSW/json-as/pull/228), [#232](https://github.com/JairusSW/json-as/pull/232), [#237](https://github.com/JairusSW/json-as/pull/237), [#243](https://github.com/JairusSW/json-as/pull/243), [#244](https://github.com/JairusSW/json-as/pull/244), [#245](https://github.com/JairusSW/json-as/pull/245)).
+- fix(reuse): make composite, static-array, typed-array, and cached-default reuse respect live payload sizes, GC ownership, and source-buffer replacement; reject typed-array `NaN` membership false positives.
+- fix(numbers): make decimal-to-float conversion exact and consistent across scalar, array, SWAR, and SIMD paths, including long mantissas, midpoint rounding, subnormals, overflow, and signed zero; reject malformed primitive-array tokens instead of partially accepting them.
+- fix(parse): accept valid trailing whitespace after integer and nullable `null` values while keeping malformed complete tokens rejected ([#229](https://github.com/JairusSW/json-as/pull/229), [#234](https://github.com/JairusSW/json-as/pull/234)).
+- fix(strings): preserve escape parity when dynamic or generated string output reuses an existing buffer, including escaped backslash runs at fast-scan block boundaries ([#225](https://github.com/JairusSW/json-as/pull/225), [#242](https://github.com/JairusSW/json-as/pull/242)).
+- fix(date): preserve extended years in top-level `Date` serialization and keep decoded dates safe when their source buffer is reused ([#226](https://github.com/JairusSW/json-as/pull/226)).
+- fix(transform): resolve generated runtime imports through the parsed canonical module path, including aliased, renamed, pnpm, and nested consumer layouts ([#246](https://github.com/JairusSW/json-as/pull/246)).
+- perf(transform): extend bounded packed-key dispatch to wide generated objects while retaining collision-safe fallback behavior ([#238](https://github.com/JairusSW/json-as/pull/238)).
+- perf(serialize): write primitive `JSON.Value` slots directly without transient wrappers ([#241](https://github.com/JairusSW/json-as/pull/241)).
+- perf(deserialize): count reusable numeric-array elements with exact SWAR delimiter masks and avoid redundant validation scans for built-in reference arrays.
+- bench: isolate runtime benchmark attempts, record source and engine provenance in manifests, reject incomplete runs, and keep older completed runs explicitly selectable ([#235](https://github.com/JairusSW/json-as/pull/235)).
+- test: add broad regressions for composite reuse, built-in array bounds, callback mutation, duplicate and escaped keys, nullable collections, custom codecs, numeric validity and rounding, string escape boundaries, canonical imports, wide-key dispatch, and runtime benchmark provenance.
+
 ## 2026-10-15 - v1.6.2
 
 - perf(deserialize): extend the generated one-pass keyed fallback to bounded scalar and collection-bearing schemas, and group fallback dispatch by encoded key length. Focused reordered mixed payloads improve by roughly 1.5x and unknown-field payloads by roughly 1.4x, with canonical input remaining flat.

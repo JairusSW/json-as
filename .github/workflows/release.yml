@@ -40,6 +40,9 @@ jobs:
       - name: Test Transform
         run: bun run test:transform
 
+      - name: Test Runtime Benchmark Tooling
+        run: bun run test:bench:runtimes
+
       - name: Run Tests (Slow)
         run: JSON_USE_FAST_PATH=0 bun run test:ci -- --no-cache
 
@@ -51,6 +54,9 @@ jobs:
 
       - name: Run Strict Tests (Fast)
         run: JSON_USE_FAST_PATH=1 bun run test:rfc -- --no-cache
+
+      - name: Check Package Contents
+        run: npm pack --dry-run --ignore-scripts
 
   # Create GitHub Release
   release:
@@ -72,23 +78,18 @@ jobs:
         run: bun run build:transform
 
       - name: Generate Release Notes
-        id: changelog
         run: |
-          # Get the previous tag
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-
-          if [ -z "$PREV_TAG" ]; then
-            # First release - get all commits
-            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
-          else
-            # Get commits since last tag
-            COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges)
-          fi
-
-          # Write to file for the release
-          echo "## Changes" > RELEASE_NOTES.md
-          echo "" >> RELEASE_NOTES.md
-          echo "$COMMITS" >> RELEASE_NOTES.md
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v suffix=" - v${VERSION}" '
+            /^## / {
+              if (printing) exit
+              printing = substr($0, length($0) - length(suffix) + 1) == suffix
+              next
+            }
+            printing { print }
+            END { if (!printing) exit 1 }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          test -s RELEASE_NOTES.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3

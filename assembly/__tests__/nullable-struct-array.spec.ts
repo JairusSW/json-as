@@ -7,6 +7,7 @@ class ReviewNullableItem {
   n: i32 = 0;
 }
 
+
 @json
 class ReviewNullableHolder {
   items: (ReviewNullableItem | null)[] = [];
