@@ -13,6 +13,7 @@ RUNTIMES_ONLY=0
 RUNTIME_RUN="${JSON_RUNTIME_RUN:-}"
 CHART_ARGS=()
 TMP_CHARTS_DIR="$(mktemp -d)"
+TMP_PINNED_RUNTIME_DIR="$(mktemp -d)"
 TMP_DOCS_DIR="$(mktemp -d)"
 WORKTREE_ADDED=0
 
@@ -44,6 +45,7 @@ done
 
 cleanup() {
   rm -rf "$TMP_CHARTS_DIR"
+  rm -rf "$TMP_PINNED_RUNTIME_DIR"
   if [[ "$WORKTREE_ADDED" == "1" ]]; then
     git worktree remove --force "$TMP_DOCS_DIR" >/dev/null 2>&1 || true
   else
@@ -106,6 +108,10 @@ if [[ "$RUNTIMES_ONLY" == "1" ]]; then
   cp ./build/charts/runtimes-{deserialize,serialize}.{svg,png} ./build/charts/runtimes-results.json "$TMP_CHARTS_DIR/"
 else
   cp -R ./build/charts/. "$TMP_CHARTS_DIR/"
+  # Runtime results have their own provenance-pinned publication path. Never
+  # let an unrelated regular chart refresh replace them with whatever local
+  # run happened to be selected when build-charts.sh ran.
+  rm -f "$TMP_CHARTS_DIR"/runtimes-{deserialize,serialize}.{svg,png} "$TMP_CHARTS_DIR/runtimes-results.json"
 fi
 
 echo "Preparing ${DOCS_BRANCH} worktree..."
@@ -132,6 +138,14 @@ fi
 DEST="v${VERSION}"
 echo "Updating charts/${DEST} on ${DOCS_BRANCH}..."
 if [[ "$RUNTIMES_ONLY" != "1" ]]; then
+  # Preserve the release's already-published runtime artifacts while replacing
+  # the rest of its chart set. `--runtimes` is the only mode allowed to update
+  # these files.
+  for file in runtimes-{deserialize,serialize}.{svg,png} runtimes-results.json; do
+    if [[ -f "$TMP_DOCS_DIR/charts/${DEST}/$file" ]]; then
+      cp "$TMP_DOCS_DIR/charts/${DEST}/$file" "$TMP_PINNED_RUNTIME_DIR/"
+    fi
+  done
   rm -rf "$TMP_DOCS_DIR/charts/${DEST}"
 fi
 # Remove the retired compiler comparison from every published version.
@@ -140,6 +154,9 @@ if [[ -d "$TMP_DOCS_DIR/charts" ]]; then
 fi
 mkdir -p "$TMP_DOCS_DIR/charts/${DEST}"
 cp -R "$TMP_CHARTS_DIR/." "$TMP_DOCS_DIR/charts/${DEST}/"
+if [[ "$RUNTIMES_ONLY" != "1" ]] && compgen -G "$TMP_PINNED_RUNTIME_DIR/*" > /dev/null; then
+  cp "$TMP_PINNED_RUNTIME_DIR"/* "$TMP_DOCS_DIR/charts/${DEST}/"
+fi
 
 (
   cd "$TMP_DOCS_DIR"
