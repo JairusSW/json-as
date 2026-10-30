@@ -93,6 +93,7 @@ esac`,
     root,
     bin,
     env,
+    runner,
     writeCommand,
     run: () =>
       execFileSync("/bin/bash", ["scripts/run-bench.runtimes.sh"], {
@@ -102,6 +103,29 @@ esac`,
       }),
   };
 }
+
+test("runtime manifests use each CLI's supported version command", (t) => {
+  const f = fixture(t);
+  f.writeCommand(
+    "wavm",
+    `
+if [[ "\${1:-}" == version ]]; then echo 'WAVM fixture 1.0'; exit; fi
+if [[ "\${1:-}" == --version ]]; then exit 2; fi
+${f.runner}`,
+  );
+  f.writeCommand(
+    "wazero",
+    `
+if [[ "\${1:-}" == version ]]; then echo 'wazero fixture 1.0'; exit; fi
+if [[ "\${1:-}" == --version ]]; then exit 2; fi
+${f.runner}`,
+  );
+
+  f.run();
+  const { manifest } = readRuntimeRun(f.root);
+  assert.equal(manifest.toolVersions.wavm, "WAVM fixture 1.0");
+  assert.equal(manifest.toolVersions.wazero, "wazero fixture 1.0");
+});
 
 test("a fresh run omits an absent engine instead of reusing prior or legacy logs", (t) => {
   const f = fixture(t);
