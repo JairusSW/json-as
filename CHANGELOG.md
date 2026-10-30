@@ -19,7 +19,8 @@
 - perf(deserialize): count reusable numeric-array elements with exact SWAR delimiter masks, avoid redundant validation scans for built-in reference arrays, and keep alias-safe reuse allocation-free for small collections while using linear-time identity tracking for larger ones.
 - perf(serialize): batch UTF-16 buffer growth by vector block and keep escape-free BMP strings on their direct SWAR/SIMD paths.
 - bench: isolate runtime benchmark attempts, record source and engine provenance in manifests, reject incomplete runs, and keep older completed runs explicitly selectable ([#235](https://github.com/JairusSW/json-as/pull/235)).
-- ci(release): validate runtime benchmark tooling and npm package contents before publishing, and generate GitHub release notes from the exact versioned changelog section so missing historical tags cannot duplicate changes.
+- ci(release): validate all benchmark tooling and npm package contents before publishing, install the exact committed dependency graph, enforce type and lint failures, reject tags that disagree with the package version, and generate GitHub release notes from the exact versioned changelog section so missing historical tags cannot duplicate changes.
+- chore(deps): refresh development-tooling dependencies and pin patched transitive releases, clearing the release dependency audit without changing the published runtime dependency graph.
 - test: add broad regressions for composite reuse, built-in array bounds, callback mutation, duplicate and escaped keys, nullable collections, custom codecs, numeric validity and rounding, string escape boundaries, canonical imports, wide-key dispatch, and runtime benchmark provenance.
 
 ## 2026-10-15 - v1.6.2

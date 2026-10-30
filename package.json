@@ -150,5 +150,13 @@
   "types": "assembly/index.ts",
   "dependencies": {
     "xjb-as": "^0.1.0"
+  },
+  "overrides": {
+    "minimatch@10.2.6": {
+      "brace-expansion": "5.0.12"
+    },
+    "serve": {
+      "compression": "1.8.2"
+    }
   }
 }
