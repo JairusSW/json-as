@@ -971,6 +971,7 @@ export namespace JSON {
       if (valBoxed(bits)) {
         const tag = valTag(bits);
         if (
+          tag == JSON.Types.Raw ||
           tag >= JSON.Types.String ||
           ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
             (bits & VAL_BOX64) != 0)
@@ -1428,9 +1429,8 @@ export namespace JSON {
         __visit(valPtr(w), cookie);
         return;
       }
-      // String(13)..ArrayBuffer(19) and Struct all carry a managed pointer;
-      // Raw(1) is intentionally not traced (matches prior behavior).
-      if (tag >= JSON.Types.String) {
+      // Raw(1), String(13)..ArrayBuffer(19), and Struct carry managed pointers.
+      if (tag == JSON.Types.Raw || tag >= JSON.Types.String) {
         __visit(valPtr(w), cookie);
       } else if (
         (tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
@@ -1595,7 +1595,8 @@ export namespace JSON {
         // field), not an owned object - never link those.
         if (
           tag != JSON.Types.Lazy &&
-          (tag >= JSON.Types.String ||
+          (tag == JSON.Types.Raw ||
+            tag >= JSON.Types.String ||
             ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
               bits & VAL_BOX64))
         ) {
@@ -2027,7 +2028,7 @@ export namespace JSON {
         if (!valBoxed(w)) continue; // raw f64, no reference
         const tag = valTag(w);
         if (tag == JSON.Types.Lazy) continue; // interior _src pointer
-        if (tag >= JSON.Types.String) {
+        if (tag == JSON.Types.Raw || tag >= JSON.Types.String) {
           __visit(valPtr(w), cookie);
         } else if (
           (tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
@@ -2103,7 +2104,8 @@ export namespace JSON {
         const tag = valTag(bits);
         if (
           tag != JSON.Types.Lazy &&
-          (tag >= JSON.Types.String ||
+          (tag == JSON.Types.Raw ||
+            tag >= JSON.Types.String ||
             ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
               bits & VAL_BOX64))
         ) {
@@ -2628,7 +2630,7 @@ export namespace JSON {
         if (!valBoxed(w)) continue;
         const tag = valTag(w);
         if (tag == JSON.Types.Lazy) continue;
-        if (tag >= JSON.Types.String) {
+        if (tag == JSON.Types.Raw || tag >= JSON.Types.String) {
           __visit(valPtr(w), cookie);
         } else if (
           (tag == JSON.Types.U64 || tag == JSON.Types.I64) &&

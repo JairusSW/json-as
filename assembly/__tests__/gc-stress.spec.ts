@@ -33,6 +33,34 @@ function collect(): void {
   __collect();
 }
 
+function makeRawValue(): JSON.Value {
+  return JSON.Value.from(JSON.Raw.from('{"kept":"value"}'));
+}
+
+function makeRawObject(): JSON.Obj {
+  const out = new JSON.Obj();
+  out.set("raw", JSON.Raw.from('{"kept":"object"}'));
+  return out;
+}
+
+function makeRawArray(): JSON.Arr {
+  const out = new JSON.Arr();
+  out.push(JSON.Raw.from('{"kept":"array"}'));
+  return out;
+}
+
+function churnRawObjects(): JSON.Raw[] {
+  const garbage = new Array<JSON.Raw>(256);
+  for (let i = 0; i < garbage.length; i++) {
+    unchecked(
+      (garbage[i] = JSON.Raw.from(
+        '{"garbage":' + i.toString() + ',"pad":"xxxxxxxx"}',
+      )),
+    );
+  }
+  return garbage;
+}
+
 describe("GC: small JSON.Obj (linear path) survives collection", () => {
   const o = JSON.parse<JSON.Obj>('{"a":1,"b":2,"c":3}');
   collect();
@@ -94,6 +122,22 @@ describe("GC: JSON.Arr survives collection", () => {
   expect(a.getAs<string>(1)).toBe("two");
   expect(a.at(3).get<JSON.Obj>().getAs<f64>("k")).toBe(4.0);
   expect(JSON.stringify(a)).toBe('[1,"two",3,{"k":4},[5,6]]');
+});
+
+describe("GC: dynamic containers retain JSON.Raw payloads", () => {
+  const value = makeRawValue();
+  const object = makeRawObject();
+  const array = makeRawArray();
+
+  // Drop the factories' temporary Raw references, then force reuse of freed
+  // blocks with same-shaped live objects before inspecting the containers.
+  __collect();
+  const garbage = churnRawObjects();
+  blackhole(garbage.length);
+
+  expect(value.get<JSON.Raw>().data).toBe('{"kept":"value"}');
+  expect(object.getAs<JSON.Raw>("raw").data).toBe('{"kept":"object"}');
+  expect(array.getAs<JSON.Raw>(0).data).toBe('{"kept":"array"}');
 });
 
 describe("GC: lazy JSON.Value materializes correctly after collection", () => {
