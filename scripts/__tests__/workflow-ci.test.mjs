@@ -6,6 +6,25 @@ import test from "node:test";
 const root = path.resolve(import.meta.dirname, "../..");
 
 test("CI installs exactly the dependency graph from package-lock.json", () => {
+  const packageJson = JSON.parse(
+    fs.readFileSync(path.join(root, "package.json"), "utf8"),
+  );
+  const packageLock = JSON.parse(
+    fs.readFileSync(path.join(root, "package-lock.json"), "utf8"),
+  );
+  const gitignore = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
+
+  assert.doesNotMatch(
+    gitignore,
+    /^package-lock\.json$/m,
+    "package-lock.json must be committed for npm ci",
+  );
+  assert.equal(
+    packageLock.packages[""].version,
+    packageJson.version,
+    "package-lock.json must describe the release package version",
+  );
+
   for (const workflow of ["tests.yml", "release.yml", "lint.yml"]) {
     const source = fs.readFileSync(
       path.join(root, ".github", "workflows", workflow),
