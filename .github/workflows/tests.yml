@@ -19,7 +19,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install Dependencies
-        run: bun install
+        run: npm ci
 
       - name: Test Benchmark Tooling
         run: bun run test:bench

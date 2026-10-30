@@ -14,12 +14,10 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install Dependencies
-        run: bun install
+        run: npm ci
 
       - name: TypeScript Type Check
         run: bun run typecheck
-        continue-on-error: true
 
       - name: Lint
         run: bun run lint
-        continue-on-error: true

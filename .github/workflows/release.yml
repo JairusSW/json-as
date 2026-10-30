@@ -26,7 +26,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install Dependencies
-        run: bun install
+        run: npm ci
 
       - name: TypeScript Type Check
         run: bun run typecheck
@@ -72,7 +72,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install Dependencies
-        run: bun install
+        run: npm ci
 
       - name: Build Transform
         run: bun run build:transform
