@@ -21,8 +21,8 @@ jobs:
       - name: Install Dependencies
         run: bun install
 
-      - name: Test Runtime Benchmark Tooling
-        run: bun run test:bench:runtimes
+      - name: Test Benchmark Tooling
+        run: bun run test:bench
 
       - name: Build Transform
         run: bun run build:transform

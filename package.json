@@ -105,6 +105,7 @@
     "bench:as": "bash ./scripts/run-bench.as.sh",
     "bench:js": "bash ./scripts/run-bench.js.sh",
     "bench:runtimes": "bash ./scripts/run-bench.runtimes.sh",
+    "test:bench": "node --test scripts/__tests__/*.test.mjs",
     "test:bench:publish": "node --test scripts/__tests__/benchmark-publish.test.mjs",
     "test:bench:runtimes": "node --test scripts/__tests__/runtime-bench-run.test.mjs",
     "charts": "bun run charts:build && bun run charts:serve",
