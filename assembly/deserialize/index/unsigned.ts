@@ -30,7 +30,12 @@ export function deserializeUnsigned<T extends number>(
   srcStart: usize,
   srcEnd: usize,
 ): T {
-  if (!validateJSONIntegerToken(srcStart, srcEnd, false, !JSON_STRICT)) {
+  // The optimized consume-to-end parsers validate while folding digits. Keep
+  // the standalone scan only for the naive backend.
+  if (
+    JSON_MODE == JSONMode.NAIVE &&
+    !validateJSONIntegerToken(srcStart, srcEnd, false, !JSON_STRICT)
+  ) {
     markProductionParseError();
     return 0 as T;
   }

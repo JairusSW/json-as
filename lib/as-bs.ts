@@ -148,6 +148,22 @@ export namespace bs {
     reserve(stackSize, MIN_BUFFER_SIZE);
   }
 
+  /** Reserve one vector block's worst-case expansion, then account for the
+   * actual expansion with `addSize` while emitting its lanes. */
+  @inline
+  export function prepareGrowth(maxGrowth: u32, writeExtent: u32): void {
+    reserve(
+      max(stackSize + maxGrowth, offset - buffer + writeExtent),
+      MIN_BUFFER_SIZE,
+    );
+  }
+
+
+  @inline
+  export function addSize(size: u32): void {
+    stackSize += size;
+  }
+
   /**
    * Resizes the buffer to the specified size.
    * @param newSize - The new buffer size.

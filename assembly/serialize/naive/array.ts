@@ -205,7 +205,12 @@ function serializeF64ArrayFast(src: f64[]): void {
   let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
     const v = load<f64>(dataStart + ((<usize>i) << 3));
-    offset += dtoa_buffered(offset, v) << 1;
+    if ((reinterpret<u64>(v) & 0x7ff0000000000000) == 0x7ff0000000000000) {
+      store<u64>(offset, 0x006c006c0075006e); // null
+      offset += 8;
+    } else {
+      offset += dtoa_buffered(offset, v) << 1;
+    }
     store<u16>(offset, COMMA);
     offset += 2;
   }
@@ -232,7 +237,12 @@ function serializeF32ArrayFast(src: f32[]): void {
   let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
     const v = load<f32>(dataStart + ((<usize>i) << 2));
-    offset += ftoa_buffered(offset, v) << 1;
+    if ((reinterpret<u32>(v) & 0x7f800000) == 0x7f800000) {
+      store<u64>(offset, 0x006c006c0075006e); // null
+      offset += 8;
+    } else {
+      offset += ftoa_buffered(offset, v) << 1;
+    }
     store<u16>(offset, COMMA);
     offset += 2;
   }

@@ -10,7 +10,7 @@ export function serializeBoolUnsafe(data: bool): void {
     bs.offset += 8;
   } else {
     store<u64>(bs.offset, 32370086184550502);
-    store<u64>(bs.offset, 101, 8);
+    store<u16>(bs.offset, 101, 8);
     bs.offset += 10;
   }
 }
@@ -23,7 +23,7 @@ export function serializeBool(data: bool): void {
   } else {
     bs.proposeSize(10);
     store<u64>(bs.offset, 32370086184550502);
-    store<u64>(bs.offset, 101, 8);
+    store<u16>(bs.offset, 101, 8);
     bs.offset += 10;
   }
 }

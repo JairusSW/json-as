@@ -207,6 +207,25 @@ describe("Should reuse mapped structs and remove stale keys", () => {
   expect(result.size).toBe(0);
 });
 
+describe("Should separate aliases when reusing large stable-order maps", () => {
+  let input = "{";
+  for (let i = 0; i < 24; i++) {
+    if (i) input += ",";
+    input += '"k' + i.toString() + '":{"id":' + i.toString() + "}";
+  }
+  input += "}";
+
+  const target = JSON.parse<Map<string, MapValue>>(input);
+  target.set("k17", target.get("k0"));
+  JSON.parse<Map<string, MapValue>>(input, target);
+
+  expect(target.get("k0").id).toBe(0);
+  expect(target.get("k17").id).toBe(17);
+  expect(
+    changetype<usize>(target.get("k0")) == changetype<usize>(target.get("k17")),
+  ).toBe(false);
+});
+
 describe("Should deserialize top-level map arrays", () => {
   const input = '[{"a":1},{"b":2,"c":3},{}]';
   const parsed = JSON.parse<Map<string, i32>[]>(input);

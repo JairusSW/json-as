@@ -14,6 +14,8 @@ import { lastValueEnd, parseValue } from "./object";
 import { deserializeRaw } from "./raw";
 import { isPrettyParse } from "../parseMode";
 
+const ALIAS_SCAN_LIMIT: i32 = 16;
+
 
 @unmanaged
 class ReusableMapEntry<K, V> {
@@ -28,6 +30,64 @@ function reusableMapEntrySize<K, V>(): usize {
   const maxKV = sizeof<K>() > sizeof<V>() ? sizeof<K>() : sizeof<V>();
   const align = (maxKV > sizeof<usize>() ? maxKV : sizeof<usize>()) - 1;
   return (offsetof<ReusableMapEntry<K, V>>() + align) & ~align;
+}
+
+
+@inline
+function reusedMapValueEarlier<T extends Map<any, any>>(
+  entry: usize,
+  current: usize,
+  entrySize: usize,
+  ref: usize,
+): bool {
+  while (entry < current) {
+    if (
+      (load<usize>(
+        entry,
+        offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("taggedNext"),
+      ) &
+        1) ==
+        0 &&
+      changetype<usize>(
+        load<valueof<T>>(
+          entry,
+          offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value"),
+        ),
+      ) == ref
+    )
+      return true;
+    entry += entrySize;
+  }
+  return false;
+}
+
+
+@inline
+function collectEarlierMapValues<T extends Map<any, any>>(
+  entry: usize,
+  current: usize,
+  entrySize: usize,
+  refs: Set<usize>,
+): void {
+  while (entry < current) {
+    if (
+      (load<usize>(
+        entry,
+        offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("taggedNext"),
+      ) &
+        1) ==
+      0
+    ) {
+      const ref = changetype<usize>(
+        load<valueof<T>>(
+          entry,
+          offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value"),
+        ),
+      );
+      if (ref != 0) refs.add(ref);
+    }
+    entry += entrySize;
+  }
 }
 
 
@@ -168,7 +228,8 @@ export function deserializeMapBody<T extends Map<any, any>>(
       )
     : changetype<ArrayBuffer>(0);
   const previousEntrySize = reusableMapEntrySize<indexof<T>, valueof<T>>();
-  let previousEntry = changetype<usize>(previousEntries);
+  const previousEntryStart = changetype<usize>(previousEntries);
+  let previousEntry = previousEntryStart;
   const previousEntryEnd = reuseExisting
     ? previousEntry +
       <usize>(
@@ -191,6 +252,12 @@ export function deserializeMapBody<T extends Map<any, any>>(
   )
     previousEntry += previousEntrySize;
   let seenKeys = changetype<Set<indexof<T>>>(0);
+  // Small stable-order maps avoid allocating by scanning prior slots. Larger
+  // maps track identities incrementally so alias protection stays linear.
+  // A key-order divergence also materializes the set for a small map because
+  // the previous-entry cursor can no longer represent the parsed prefix.
+  // Allocate the large-map identity set lazily: scalar and other non-reused
+  // value types cannot alias and should not pay for reference tracking.
   let reusedValues = changetype<Set<usize>>(0);
   let parsedKeyCount = 0;
 
@@ -286,10 +353,39 @@ export function deserializeMapBody<T extends Map<any, any>>(
         );
       }
       if (raw !== null) {
-        if (!changetype<usize>(reusedValues)) reusedValues = new Set<usize>();
+        if (
+          !changetype<usize>(reusedValues) &&
+          previousCount > ALIAS_SCAN_LIMIT
+        )
+          reusedValues = new Set<usize>();
         const ref = changetype<usize>(raw);
-        if (reusedValues.has(ref)) raw = null;
-        else reusedValues.add(ref);
+        if (matchedPreviousKey) {
+          if (changetype<usize>(reusedValues)) {
+            if (reusedValues.has(ref)) raw = null;
+            else reusedValues.add(ref);
+          } else if (
+            reusedMapValueEarlier<T>(
+              previousEntryStart,
+              previousEntry,
+              previousEntrySize,
+              ref,
+            )
+          )
+            raw = null;
+        } else {
+          if (!changetype<usize>(reusedValues)) {
+            reusedValues = new Set<usize>();
+            if (parsedKeyCount > 1)
+              collectEarlierMapValues<T>(
+                previousEntryStart,
+                previousEntry,
+                previousEntrySize,
+                reusedValues,
+              );
+          }
+          if (reusedValues.has(ref)) raw = null;
+          else reusedValues.add(ref);
+        }
       }
       const value = deserializeRaw(srcStart, valueEnd, changetype<usize>(raw));
       // @ts-ignore: valueof<T> is JSON.Raw in this branch
@@ -324,10 +420,39 @@ export function deserializeMapBody<T extends Map<any, any>>(
         // Only its first occurrence can be mutated without changing an earlier
         // result. Allocate replacements for subsequent occurrences.
         if (changetype<usize>(value) != 0) {
-          if (!changetype<usize>(reusedValues)) reusedValues = new Set<usize>();
+          if (
+            !changetype<usize>(reusedValues) &&
+            previousCount > ALIAS_SCAN_LIMIT
+          )
+            reusedValues = new Set<usize>();
           const ref = changetype<usize>(value);
-          if (reusedValues.has(ref)) value = changetype<valueof<T>>(0);
-          else reusedValues.add(ref);
+          if (matchedPreviousKey) {
+            if (changetype<usize>(reusedValues)) {
+              if (reusedValues.has(ref)) value = changetype<valueof<T>>(0);
+              else reusedValues.add(ref);
+            } else if (
+              reusedMapValueEarlier<T>(
+                previousEntryStart,
+                previousEntry,
+                previousEntrySize,
+                ref,
+              )
+            )
+              value = changetype<valueof<T>>(0);
+          } else {
+            if (!changetype<usize>(reusedValues)) {
+              reusedValues = new Set<usize>();
+              if (parsedKeyCount > 1)
+                collectEarlierMapValues<T>(
+                  previousEntryStart,
+                  previousEntry,
+                  previousEntrySize,
+                  reusedValues,
+                );
+            }
+            if (reusedValues.has(ref)) value = changetype<valueof<T>>(0);
+            else reusedValues.add(ref);
+          }
         }
         const reusedMappedValue =
           matchedPreviousKey && changetype<usize>(value) != 0;

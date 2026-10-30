@@ -31,3 +31,19 @@ fuzz(
 ).generate((seed: FuzzSeed, run: (value: string) => bool): void => {
   run(makeSafeAscii(seed));
 });
+
+fuzz(
+  "arbitrary UTF-16 blocks survive stringify and parse",
+  (value: string): bool => {
+    const decoded = JSON.parse<string>(JSON.stringify(value));
+    expect(decoded).toBe(value);
+    return decoded == value;
+  },
+).generate((seed: FuzzSeed, run: (value: string) => bool): void => {
+  let value = "";
+  const length = <i32>(seed.u32() % 65);
+  for (let i = 0; i < length; i++) {
+    value += String.fromCharCode(seed.u16());
+  }
+  run(value);
+});

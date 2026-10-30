@@ -41,6 +41,36 @@ describe("Should serialize floats", () => {
   expect(JSON.stringify<f32>(-3.5)).toBe("-3.5");
 });
 
+describe("Should serialize non-finite floats as null", () => {
+  expect(JSON.stringify<f32>(f32.NaN)).toBe("null");
+  expect(JSON.stringify<f32>(f32.POSITIVE_INFINITY)).toBe("null");
+  expect(JSON.stringify<f32>(f32.NEGATIVE_INFINITY)).toBe("null");
+  expect(JSON.stringify<f64>(NaN)).toBe("null");
+  expect(JSON.stringify<f64>(Infinity)).toBe("null");
+  expect(JSON.stringify<f64>(-Infinity)).toBe("null");
+  expect(JSON.stringify<f32[]>([f32.NaN, f32.POSITIVE_INFINITY])).toBe(
+    "[null,null]",
+  );
+  expect(JSON.stringify<f64[]>([NaN, Infinity, -Infinity])).toBe(
+    "[null,null,null]",
+  );
+
+  const fields = new FloatFieldBox();
+  fields.value64 = Infinity;
+  fields.value32 = f32.NaN;
+  expect(JSON.stringify(fields)).toBe('{"value64":null,"value32":null}');
+
+  const typed = new Float64Array(2);
+  typed[0] = NaN;
+  typed[1] = -Infinity;
+  expect(JSON.stringify(typed)).toBe("[null,null]");
+
+  const values = new Set<f64>();
+  values.add(Infinity);
+  expect(JSON.stringify(values)).toBe("[null]");
+  expect(JSON.stringify(JSON.Value.from<f64>(NaN))).toBe("null");
+});
+
 describe("Should deserialize floats", () => {
   expect(JSON.parse<f64>("7.23").toString()).toBe("7.23");
 

@@ -74,7 +74,6 @@ export function serializeString_SIMD(src: string): void {
   srcStart = srcInitial;
   const srcEnd16 = srcEnd - 16;
 
-  bs.proposeSize(srcSize + 4);
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
 
@@ -102,6 +101,9 @@ export function serializeString_SIMD(src: string): void {
       continue;
     }
 
+    const maxGrowth = <u32>popcnt(mask) * 10;
+    bs.prepareGrowth(maxGrowth, maxGrowth + 32);
+
     store<v128>(bs.offset, block);
 
     do {
@@ -120,15 +122,16 @@ export function serializeString_SIMD(src: string): void {
         const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
 
         if ((escaped & 0xffff) != BACK_SLASH) {
-          bs.growSize(10);
+          bs.addSize(10);
+          // The block reservation above covers this optimistic v128 suffix
+          // copy beyond the logical escape expansion.
           const dstIdx = bs.offset + laneIdx;
           store<u64>(dstIdx, U00_MARKER);
           store<u32>(dstIdx, escaped, 8);
-          // memory.copy(dstIdx + 12, srcIdx + 2, 14 - laneIdx);
-          store<v128>(dstIdx, load<v128>(srcIdx, 2), 12); // unsafe. can overflow here
+          store<v128>(dstIdx, load<v128>(srcIdx, 2), 12);
           bs.offset += 10;
         } else {
-          bs.growSize(2);
+          bs.addSize(2);
           const dstIdx = bs.offset + laneIdx;
           store<u32>(dstIdx, escaped);
           store<v128>(dstIdx, load<v128>(srcIdx, 2), 4);
@@ -163,7 +166,7 @@ export function serializeString_SIMD(src: string): void {
         }
       }
 
-      bs.growSize(10);
+      bs.addSize(10);
       // unpaired high/low surrogate
       const dstIdx = bs.offset + laneIdx - 1;
       store<u32>(dstIdx, U_MARKER); // \u

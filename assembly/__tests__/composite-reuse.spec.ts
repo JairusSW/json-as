@@ -16,6 +16,27 @@ class ReviewCollections {
   names: StaticArray<string> = [];
 }
 
+
+@json
+class ReviewReuseItem {
+  id: i32 = 0;
+}
+
+
+@json
+class ReviewReuseItems {
+  items: ReviewReuseItem[] = [];
+}
+
+function reuseItemsInput(count: i32): string {
+  let input = "[";
+  for (let i = 0; i < count; i++) {
+    if (i) input += ",";
+    input += '{"id":' + i.toString() + "}";
+  }
+  return input + "]";
+}
+
 describe("Review: public output reuse", () => {
   const set = new Set<i32>();
   set.add(99);
@@ -125,6 +146,26 @@ describe("Review: reference-array replacement and nullable elements", () => {
   const nullableRaw = JSON.parse<(JSON.Raw | null)[]>("[null,1]");
   expect(nullableRaw.length).toBe(2);
   expect(nullableRaw[0] === null).toBe(true);
+});
+
+describe("Review: large reused struct arrays keep identity tracking linear", () => {
+  const input = reuseItemsInput(24);
+
+  const root = JSON.parse<ReviewReuseItem[]>(input);
+  root[17] = root[0];
+  JSON.parse<ReviewReuseItem[]>(input, root);
+  expect(root[0].id).toBe(0);
+  expect(root[17].id).toBe(17);
+  expect(changetype<usize>(root[0]) == changetype<usize>(root[17])).toBe(false);
+
+  const holder = JSON.parse<ReviewReuseItems>('{"items":' + input + "}");
+  holder.items[17] = holder.items[0];
+  JSON.parse<ReviewReuseItems>('{"items":' + input + "}", holder);
+  expect(holder.items[0].id).toBe(0);
+  expect(holder.items[17].id).toBe(17);
+  expect(
+    changetype<usize>(holder.items[0]) == changetype<usize>(holder.items[17]),
+  ).toBe(false);
 });
 
 describe("Review: static output grows and shrinks across GC", () => {

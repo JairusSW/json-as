@@ -1,5 +1,7 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
+import { bs } from "../../lib/as-bs";
+import { serializeBool } from "../serialize/index/bool";
 
 
 @json
@@ -11,6 +13,23 @@ class BoolEnvelope {
 describe("Should serialize booleans", () => {
   expect(JSON.stringify<bool>(true)).toBe("true");
   expect(JSON.stringify<bool>(false)).toBe("false");
+});
+
+describe("Boolean serialization stays inside its reserved capacity", () => {
+  bs.resize(2048);
+  bs.bufferSize = 1024;
+  memory.fill(bs.buffer + 1024, 0xa5, 16);
+  bs.offset = bs.buffer + 1014;
+  bs.stackSize = 1014;
+  serializeBool(false);
+
+  let preserved = true;
+  for (let i: usize = 0; i < 16; i++) {
+    if (load<u8>(bs.buffer + 1024 + i) != 0xa5) preserved = false;
+  }
+  bs.bufferSize = 2048;
+  bs.reset();
+  expect(preserved).toBe(true);
 });
 
 describe("Should deserialize booleans", () => {

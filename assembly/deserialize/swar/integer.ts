@@ -23,15 +23,20 @@
 
 import {
   parse4Digits_PairMul,
-  parse4Digits_PairMul_Unsafe,
   parse8Digits_PairMul,
-  parse8Digits_PairMul_Unsafe,
   parse16Digits_SWAR,
-  parse16Digits_SWAR_Unsafe,
 } from "../../util/swar-int";
+import { markProductionParseError } from "../error";
 
 const ASCII_MINUS: u16 = 45;
 const ASCII_ZERO: u16 = 48;
+
+
+@inline
+function invalidInteger<T extends number>(): T {
+  markProductionParseError();
+  return 0 as T;
+}
 
 /**
  * Store a signed value into a typed integer field, truncating to `T`'s width.
@@ -78,8 +83,8 @@ function storeUnsignedToField<T extends number>(
  * Parse a signed integer by consuming the entire `[srcStart, srcEnd)` range
  * as a digit run, with an optional leading `-`.
  *
- * Caller guarantees the range is well-formed (optional minus followed by
- * digits only). Uses the unsafe SWAR kernels with no per-stride validation.
+ * Validates the optional sign and every digit while folding the token, so
+ * malformed scalar input does not require a separate validation pass.
  *
  * @param srcStart Pointer to the first UTF-16 code unit.
  * @param srcEnd   Pointer just past the last code unit.
@@ -94,24 +99,39 @@ export function deserializeInteger_SWAR<T extends number>(
     negative = true;
     srcStart += 2;
   }
+  if (srcStart >= srcEnd) return invalidInteger<T>();
+  if (
+    JSON_STRICT &&
+    load<u16>(srcStart) == ASCII_ZERO &&
+    srcStart + 2 != srcEnd
+  )
+    return invalidInteger<T>();
   let value: u64 = 0;
   while (srcStart + 30 < srcEnd) {
-    value =
-      value * 10_000_000_000_000_000 + parse16Digits_SWAR_Unsafe(srcStart);
+    const parsed = parse16Digits_SWAR(srcStart);
+    if (parsed == U64.MAX_VALUE) return invalidInteger<T>();
+    value = value * 10_000_000_000_000_000 + parsed;
     srcStart += 32;
   }
   while (srcStart + 14 < srcEnd) {
-    value =
-      value * 100_000_000 +
-      parse8Digits_PairMul_Unsafe(load<u64>(srcStart), load<u64>(srcStart, 8));
+    const parsed = parse8Digits_PairMul(
+      load<u64>(srcStart),
+      load<u64>(srcStart, 8),
+    );
+    if (parsed == U32.MAX_VALUE) return invalidInteger<T>();
+    value = value * 100_000_000 + parsed;
     srcStart += 16;
   }
   while (srcStart + 6 < srcEnd) {
-    value = value * 10_000 + parse4Digits_PairMul_Unsafe(load<u64>(srcStart));
+    const parsed = parse4Digits_PairMul(load<u64>(srcStart));
+    if (parsed == U32.MAX_VALUE) return invalidInteger<T>();
+    value = value * 10_000 + parsed;
     srcStart += 8;
   }
   while (srcStart < srcEnd) {
-    value = value * 10 + (<u32>load<u16>(srcStart) - ASCII_ZERO);
+    const digit = <u32>load<u16>(srcStart) - ASCII_ZERO;
+    if (digit > 9) return invalidInteger<T>();
+    value = value * 10 + digit;
     srcStart += 2;
   }
   return <T>(negative ? 0 - value : value);
@@ -164,8 +184,8 @@ export function deserializeIntegerField_SWAR<T extends number>(
  * Parse an unsigned integer by consuming the entire `[srcStart, srcEnd)`
  * range as a digit run.
  *
- * Caller guarantees the range is digits only. Uses the unsafe SWAR kernels
- * with no per-stride validation.
+ * Validates every digit while folding the token, so malformed scalar input
+ * does not require a separate validation pass.
  *
  * @param srcStart Pointer to the first UTF-16 code unit.
  * @param srcEnd   Pointer just past the last code unit.
@@ -175,24 +195,39 @@ export function deserializeUnsigned_SWAR<T extends number>(
   srcStart: usize,
   srcEnd: usize,
 ): T {
+  if (srcStart >= srcEnd) return invalidInteger<T>();
+  if (
+    JSON_STRICT &&
+    load<u16>(srcStart) == ASCII_ZERO &&
+    srcStart + 2 != srcEnd
+  )
+    return invalidInteger<T>();
   let value: u64 = 0;
   while (srcStart + 30 < srcEnd) {
-    value =
-      value * 10_000_000_000_000_000 + parse16Digits_SWAR_Unsafe(srcStart);
+    const parsed = parse16Digits_SWAR(srcStart);
+    if (parsed == U64.MAX_VALUE) return invalidInteger<T>();
+    value = value * 10_000_000_000_000_000 + parsed;
     srcStart += 32;
   }
   while (srcStart + 14 < srcEnd) {
-    value =
-      value * 100_000_000 +
-      parse8Digits_PairMul_Unsafe(load<u64>(srcStart), load<u64>(srcStart, 8));
+    const parsed = parse8Digits_PairMul(
+      load<u64>(srcStart),
+      load<u64>(srcStart, 8),
+    );
+    if (parsed == U32.MAX_VALUE) return invalidInteger<T>();
+    value = value * 100_000_000 + parsed;
     srcStart += 16;
   }
   while (srcStart + 6 < srcEnd) {
-    value = value * 10_000 + parse4Digits_PairMul_Unsafe(load<u64>(srcStart));
+    const parsed = parse4Digits_PairMul(load<u64>(srcStart));
+    if (parsed == U32.MAX_VALUE) return invalidInteger<T>();
+    value = value * 10_000 + parsed;
     srcStart += 8;
   }
   while (srcStart < srcEnd) {
-    value = value * 10 + (<u32>load<u16>(srcStart) - ASCII_ZERO);
+    const digit = <u32>load<u16>(srcStart) - ASCII_ZERO;
+    if (digit > 9) return invalidInteger<T>();
+    value = value * 10 + digit;
     srcStart += 2;
   }
   return <T>value;

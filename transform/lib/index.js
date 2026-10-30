@@ -608,7 +608,7 @@ export class JSONTransform extends Visitor {
             }
         }
         if (__hasLazy) {
-            node.members.push(SimpleParser.parseClassMember(`private __src: string = "";`, node), SimpleParser.parseClassMember(`__SET_SRC(s: string): void { this.__src = s; }`, node));
+            node.members.push(SimpleParser.parseClassMember(`private __src: string = "";`, node), SimpleParser.parseClassMember(`@inline __SET_SRC(s: string): void { this.__src = s; }`, node));
         }
         const members = [
             ...node.members.filter((v) => v.kind === NodeKind.FieldDeclaration &&
@@ -1716,7 +1716,7 @@ export class JSONTransform extends Visitor {
                     out.push("  let index = 0;");
                     out.push("  const reusableLength = value.length;");
                     out.push("  const reusableDataStart = value.dataStart;");
-                    out.push("  const reusedValues = reusableLength > 1 ? new Set<usize>() : null;");
+                    out.push("  const reusedValues = reusableLength > 16 ? new Set<usize>() : changetype<Set<usize>>(0);");
                     out.push(`  ${srcPtr} = ${valuePtr} + 2;`);
                     out.push(`  ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`);
                     out.push(`  if (load<u16>(${srcPtr}) == 0x5d) {`);
@@ -1727,10 +1727,21 @@ export class JSONTransform extends Visitor {
                     out.push("    if (index < reusableLength) {");
                     out.push(`      const itemSlot = reusableDataStart + ((<usize>index) << alignof<${valueType}>());`);
                     out.push(`      item = load<${valueType}>(itemSlot);`);
-                    out.push("      if (reusedValues !== null && changetype<usize>(item) != 0) {");
+                    out.push("      if (changetype<usize>(item) != 0) {");
                     out.push("        const ref = changetype<usize>(item);");
-                    out.push(`        if (reusedValues.has(ref)) item = changetype<${valueType}>(0);`);
-                    out.push("        else reusedValues.add(ref);");
+                    out.push("        if (changetype<usize>(reusedValues)) {");
+                    out.push(`          if (reusedValues.has(ref)) item = changetype<${valueType}>(0);`);
+                    out.push("          else reusedValues.add(ref);");
+                    out.push("        } else if (index > 0) {");
+                    out.push("          let prior = 0;");
+                    out.push("          while (prior < index) {");
+                    out.push(`            if (changetype<usize>(load<${valueType}>(reusableDataStart + ((<usize>prior) << alignof<${valueType}>()))) == ref) {`);
+                    out.push(`              item = changetype<${valueType}>(0);`);
+                    out.push("              break;");
+                    out.push("            }");
+                    out.push("            prior++;");
+                    out.push("          }");
+                    out.push("        }");
                     out.push("      }");
                     out.push("      if (changetype<usize>(item) == 0) {");
                     out.push(`        item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
@@ -3112,6 +3123,9 @@ export class JSONTransform extends Visitor {
                 SERIALIZE.slice(32);
         INITIALIZE += "  return this;\n";
         INITIALIZE += "}";
+        if (__hasLazy && !DESERIALIZE_CUSTOM) {
+            node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_RETAINS_SOURCE(): void {}", node));
+        }
         if (DEBUG > 0) {
             console.log(SERIALIZE_CUSTOM || SERIALIZE);
             console.log(INITIALIZE);

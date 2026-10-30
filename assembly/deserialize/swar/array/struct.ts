@@ -13,6 +13,8 @@ import {
 } from "./shared";
 import { markProductionParseError } from "../../error";
 
+const ALIAS_SCAN_LIMIT: i32 = 16;
+
 
 @inline
 function skipStructArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
@@ -60,7 +62,10 @@ function deserializeStructArrayBody<T extends unknown[]>(
   );
   const reusableDataStart = out.dataStart;
   const elementSize = sizeof<valueof<T>>();
-  const reusedValues = reusableLength > 1 ? new Set<usize>() : null;
+  const reusedValues =
+    reusableLength > ALIAS_SCAN_LIMIT
+      ? new Set<usize>()
+      : changetype<Set<usize>>(0);
   let pretty = false;
 
   do {
@@ -92,10 +97,27 @@ function deserializeStructArrayBody<T extends unknown[]>(
         next = srcStart + 8;
       } else {
         let value = load<valueof<T>>(slot);
-        if (reusedValues !== null && changetype<usize>(value) != 0) {
+        if (changetype<usize>(value) != 0) {
           const ref = changetype<usize>(value);
-          if (reusedValues.has(ref)) value = changetype<valueof<T>>(0);
-          else reusedValues.add(ref);
+          if (changetype<usize>(reusedValues)) {
+            if (reusedValues.has(ref)) value = changetype<valueof<T>>(0);
+            else reusedValues.add(ref);
+          } else if (index > 0) {
+            let prior = 0;
+            while (prior < index) {
+              if (
+                changetype<usize>(
+                  load<valueof<T>>(
+                    reusableDataStart + <usize>prior * elementSize,
+                  ),
+                ) == ref
+              ) {
+                value = changetype<valueof<T>>(0);
+                break;
+              }
+              prior++;
+            }
+          }
         }
         if (changetype<usize>(value) == 0) {
           value = changetype<valueof<T>>(

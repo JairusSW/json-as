@@ -21,19 +21,58 @@ export function serializeString_SWAR(src: string): void {
     const dstStart = bs.offset;
     let dst = dstStart + 2;
 
-    while (srcStart <= srcEnd8Fast) {
-      const block = load<u64>(srcStart);
-      if ((block & 0xff00_ff00_ff00_ff00) != 0) break;
-      const lo = block & 0x00ff_00ff_00ff_00ff;
-      const asciiMask =
-        ((lo - 0x0020_0020_0020_0020) |
-          ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
-          ((lo ^ 0x005c_005c_005c_005c) - 0x0001_0001_0001_0001)) &
-        (0x0080_0080_0080_0080 & ~lo);
-      if (asciiMask != 0) break;
-      store<u64>(dst, block);
-      srcStart += 8;
-      dst += 8;
+    if (
+      srcStart <= srcEnd8Fast &&
+      (load<u64>(srcStart) & 0xff00_ff00_ff00_ff00) != 0
+    ) {
+      // A BMP-leading string takes a dedicated path so the overwhelmingly
+      // common ASCII loop below stays byte-for-byte simple.
+      while (srcStart <= srcEnd8Fast) {
+        const block = load<u64>(srcStart);
+        // Ordinary BMP code units can be copied verbatim. Only JSON ASCII
+        // escapes and surrogate code units require the slow path.
+        const c0 = <u16>block;
+        const c1 = <u16>(block >> 16);
+        const c2 = <u16>(block >> 32);
+        const c3 = <u16>(block >> 48);
+        if (
+          c0 < 32 ||
+          c0 == QUOTE ||
+          c0 == BACK_SLASH ||
+          <u16>(c0 - 0xd800) <= 0x07ff ||
+          c1 < 32 ||
+          c1 == QUOTE ||
+          c1 == BACK_SLASH ||
+          <u16>(c1 - 0xd800) <= 0x07ff ||
+          c2 < 32 ||
+          c2 == QUOTE ||
+          c2 == BACK_SLASH ||
+          <u16>(c2 - 0xd800) <= 0x07ff ||
+          c3 < 32 ||
+          c3 == QUOTE ||
+          c3 == BACK_SLASH ||
+          <u16>(c3 - 0xd800) <= 0x07ff
+        )
+          break;
+        store<u64>(dst, block);
+        srcStart += 8;
+        dst += 8;
+      }
+    } else {
+      while (srcStart <= srcEnd8Fast) {
+        const block = load<u64>(srcStart);
+        if ((block & 0xff00_ff00_ff00_ff00) != 0) break;
+        const lo = block & 0x00ff_00ff_00ff_00ff;
+        const asciiMask =
+          ((lo - 0x0020_0020_0020_0020) |
+            ((lo ^ 0x0022_0022_0022_0022) - 0x0001_0001_0001_0001) |
+            ((lo ^ 0x005c_005c_005c_005c) - 0x0001_0001_0001_0001)) &
+          (0x0080_0080_0080_0080 & ~lo);
+        if (asciiMask != 0) break;
+        store<u64>(dst, block);
+        srcStart += 8;
+        dst += 8;
+      }
     }
     if (srcStart <= srcEnd8Fast) break;
 
@@ -61,7 +100,6 @@ export function serializeString_SWAR(src: string): void {
   srcStart = srcInitial;
   const srcEnd8 = srcEnd - 8;
 
-  bs.proposeSize(srcSize + 4);
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
 
@@ -75,6 +113,9 @@ export function serializeString_SWAR(src: string): void {
       bs.offset += 8;
       continue;
     }
+
+    const maxGrowth = <u32>popcnt(mask) * 10;
+    bs.prepareGrowth(maxGrowth, maxGrowth + 24);
 
     do {
       const laneIdx = usize(ctz(mask) >> 3);
@@ -90,14 +131,16 @@ export function serializeString_SWAR(src: string): void {
         const escaped = load<u32>(SERIALIZE_ESCAPE_TABLE + (code << 2));
 
         if ((escaped & 0xffff) != BACK_SLASH) {
-          bs.growSize(10);
+          bs.addSize(10);
+          // The block reservation above covers this optimistic u64 suffix
+          // copy beyond the logical escape expansion.
           const dstIdx = bs.offset + laneIdx;
           store<u64>(dstIdx, U00_MARKER);
           store<u32>(dstIdx, escaped, 8);
           store<u64>(dstIdx, load<u64>(srcIdx, 2), 12);
           bs.offset += 10;
         } else {
-          bs.growSize(2);
+          bs.addSize(2);
           const dstIdx = bs.offset + laneIdx;
           store<u32>(dstIdx, escaped);
           store<u64>(dstIdx, load<u64>(srcIdx, 2), 4);
@@ -127,7 +170,7 @@ export function serializeString_SWAR(src: string): void {
         }
       }
 
-      bs.growSize(10);
+      bs.addSize(10);
 
       // unpaired high/low surrogate
       const dstIdx = bs.offset + laneIdx - 1;

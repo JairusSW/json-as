@@ -325,6 +325,19 @@ export namespace JSON {
       }
       return data.toString();
     } else if (isFloat<T>(data)) {
+      const nonFinite =
+        sizeof<T>() == 4
+          ? (reinterpret<u32>(<f32>data) & 0x7f800000) == 0x7f800000
+          : (reinterpret<u64>(<f64>data) & 0x7ff0000000000000) ==
+            0x7ff0000000000000;
+      if (nonFinite) {
+        if (out) {
+          out = changetype<string>(__renew(changetype<usize>(out), 8));
+          store<u64>(changetype<usize>(out), NULL_WORD_U64);
+          return out;
+        }
+        return NULL_WORD;
+      }
       out = out
         ? changetype<string>(__renew(changetype<usize>(out), 128))
         : changetype<string>(__new(128, idof<string>()));
@@ -604,7 +617,11 @@ export namespace JSON {
           ) {
             // @ts-expect-error: Defined by transform for @lazy-field structs -
             // pins the source so stored slice ranges stay valid.
-            if (isDefined(obj.__SET_SRC)) obj.__SET_SRC(data);
+            if (
+              isDefined(obj.__SET_SRC) &&
+              !isDefined(obj.__DESERIALIZE_RETAINS_SOURCE)
+            )
+              obj.__SET_SRC(data);
             return obj;
           }
         }
@@ -619,7 +636,11 @@ export namespace JSON {
           );
           if (slowEnd == 0) markProductionParseError();
           // @ts-expect-error: Defined by transform for @lazy-field structs.
-          if (isDefined(obj.__SET_SRC)) obj.__SET_SRC(data);
+          if (
+            isDefined(obj.__SET_SRC) &&
+            !isDefined(obj.__DESERIALIZE_RETAINS_SOURCE)
+          )
+            obj.__SET_SRC(data);
           return obj;
         }
         throw new Error(`No deserialize method defined for type ${type}`);

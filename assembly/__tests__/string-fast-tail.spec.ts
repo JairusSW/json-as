@@ -1,5 +1,7 @@
-import { JSON } from "..";
+import { JSON, JSONMode } from "..";
 import { describe, expect } from "as-test";
+import { bs } from "../../lib/as-bs";
+import { serializeString } from "../serialize/index/string";
 
 function checkString(src: string, expected: string): void {
   expect(JSON.stringify<string>(src)).toBe(expected);
@@ -64,6 +66,24 @@ describe("String fast paths: surrogate pairs across block and tail boundaries", 
   }
 });
 
+describe("String fast paths: BMP-leading blocks stop at escapes and surrogates", () => {
+  const leaders: string[] = ["中", "Ā", "￿"];
+  const units: string[] = ['"', "\\", "\n", "\ud800", "\udfff"];
+  const escaped: string[] = ['\\"', "\\\\", "\\n", "\\ud800", "\\udfff"];
+  for (let leader = 0; leader < leaders.length; leader++) {
+    for (let position = 1; position <= 17; position++) {
+      const prefix = leaders[leader] + "a".repeat(position - 1);
+      const suffix = "z".repeat(17 - position);
+      for (let unit = 0; unit < units.length; unit++) {
+        checkString(
+          prefix + units[unit] + suffix,
+          '"' + prefix + escaped[unit] + suffix + '"',
+        );
+      }
+    }
+  }
+});
+
 describe("String slow paths: escaped prefixes and boundary surrogate pairs", () => {
   const units: string[] = ['"', "\\", "\n"];
   const escaped: string[] = ['\\"', "\\\\", "\\n"];
@@ -84,5 +104,48 @@ describe("String slow paths: escaped prefixes and boundary surrogate pairs", () 
         );
       }
     }
+  }
+});
+
+function optimisticStorePreservesGuard(
+  value: string,
+  startOffset: usize,
+): bool {
+  // Keep a real 2 KiB allocation but present a 1 KiB logical capacity. This
+  // makes any optimistic store beyond the reserved output visible without
+  // writing outside the allocation owned by the test.
+  bs.resize(2048);
+  bs.bufferSize = 1024;
+  memory.fill(bs.buffer + 1024, 0xa5, 64);
+  const guardedBuffer = bs.buffer;
+
+  bs.offset = bs.buffer + startOffset;
+  bs.stackSize = startOffset;
+  serializeString(value);
+
+  const capacityGrew = bs.buffer != guardedBuffer || bs.bufferSize > 1024;
+  let preserved = capacityGrew;
+  if (!capacityGrew) {
+    preserved = true;
+    for (let i: usize = 0; i < 64; i++) {
+      if (load<u8>(bs.buffer + 1024 + i) != 0xa5) preserved = false;
+    }
+  }
+  if (!capacityGrew) bs.bufferSize = 2048;
+  bs.reset();
+  return preserved;
+}
+
+describe("String slow paths keep optimistic stores inside reserved capacity", () => {
+  if (JSON_MODE == JSONMode.SIMD) {
+    expect(optimisticStorePreservesGuard("aaaaaaa\u0001z", 992)).toBe(true);
+    expect(optimisticStorePreservesGuard('aaaaaaa"z', 1000)).toBe(true);
+    expect(optimisticStorePreservesGuard("aaaaaaa\ud800z", 992)).toBe(true);
+  } else if (JSON_MODE == JSONMode.SWAR) {
+    expect(optimisticStorePreservesGuard("aaa\u0001z", 1000)).toBe(true);
+    expect(optimisticStorePreservesGuard('aaa"z', 1008)).toBe(true);
+    expect(optimisticStorePreservesGuard("aaa\ud800z", 1000)).toBe(true);
+  } else {
+    expect(optimisticStorePreservesGuard("aaa\u0001z", 1000)).toBe(true);
   }
 });
