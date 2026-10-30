@@ -77,11 +77,8 @@ if [[ "$RUNTIMES_ONLY" == "1" ]]; then
     ./scripts/run-bench.runtimes.sh
   fi
 elif [[ "$RUN_BENCHES" == "1" ]]; then
-  echo "Running AssemblyScript benchmarks..."
-  JSON_USE_FAST_PATH="$FAST_PATH" ./scripts/run-bench.as.sh
-
-  echo "Running JavaScript benchmarks..."
-  ./scripts/run-bench.js.sh
+  echo "Running the full AssemblyScript and JavaScript benchmark matrix..."
+  JSON_USE_FAST_PATH="$FAST_PATH" ./scripts/bench-all.sh
 else
   echo "Skipping benchmark runs. Reusing existing logs."
 fi
