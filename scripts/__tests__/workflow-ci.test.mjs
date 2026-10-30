@@ -43,3 +43,15 @@ test("CI installs exactly the dependency graph from package-lock.json", () => {
     );
   }
 });
+
+test("release tags must match the package version", () => {
+  const release = fs.readFileSync(
+    path.join(root, ".github", "workflows", "release.yml"),
+    "utf8",
+  );
+
+  assert.match(
+    release,
+    /test "v\$\(node -p "require\('\.\/package\.json'\)\.version"\)" = "\$GITHUB_REF_NAME"/,
+  );
+});

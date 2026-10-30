@@ -17,6 +17,10 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v6
 
+      - name: Validate Release Version
+        run: |
+          test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+
       - name: Install Wasmtime
         run: |
           curl https://wasmtime.dev/install.sh -sSf | bash
