@@ -28,7 +28,6 @@ function reservePrimitiveArray<T>(len: i32): void {
   }
 }
 
-
 function serializeArrayElement<T>(value: T): void {
   // Nullable strings also satisfy isString<T>(); handle null before any
   // string or custom serializer can dereference the value.
@@ -60,6 +59,16 @@ function serializeArrayElement<T>(value: T): void {
     if (isDefined(value.__SERIALIZE_CUSTOM)) {
       // @ts-ignore: transform-defined at runtime when present
       value.__SERIALIZE_CUSTOM();
+      return;
+    }
+    // Call the generated method directly after the same null/custom checks.
+    // Routing through JSON.__serialize and serializeStruct adds duplicate
+    // managed-reference frames to every object element. Method dispatch and
+    // the element's own GC root remain intact.
+    // @ts-ignore: transform-defined serializer
+    if (isDefined(value.__SERIALIZE)) {
+      // @ts-ignore: transform-defined serializer
+      changetype<nonnull<T>>(value).__SERIALIZE(changetype<usize>(value));
       return;
     }
   }

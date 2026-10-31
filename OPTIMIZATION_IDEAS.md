@@ -659,3 +659,27 @@ container's grammar state in a local, saving/restoring only parent states at
 container push/pop. The current loop loads a stack byte after every value.
 This is a hypothesis; preserve all empty-container, separator and depth rules
 and measure the full validation matrix before retaining it.
+
+### Shared serialization call layers, 2026-10-31
+
+A refreshed full-harness profile extends stringification to 10,000 operations
+while retaining the other phases and live graphs. Object-element writers and
+integer-array dispatch dominate named samples ahead of map snapshot allocation.
+Named inspection binaries have code sections identical to frozen measurements:
+an object element has four managed frames through element/namespace/struct/
+generated-method calls; its integer-array field has four through namespace/
+reference/array/primitive-array calls.
+
+Direct generated-method calls after the existing null/custom checks remove two
+object-element wrappers. Keeping reference dispatch inside JSON.__serialize
+removes another container wrapper and keeps one dispatch chain for public and
+internal calls. GC rooting and virtual method dispatch stay with the compiler.
+The seven-case broad screen and three-backend CITM comparison are in RESULTS.md.
+This is shared type dispatch, with no corpus or field-signature recognition.
+
+The next writing-region experiment should keep fixed syntax and already-bounded
+integer/boolean writes on a local output cursor. Flush before a call that can
+grow the buffer or invoke user code, then reload afterwards. Existing primitive
+reservation rules provide a starting invariant; nullable/lazy/conditional and
+custom boundaries need explicit treatment. Do not mark allocating writers
+unsafe or drop their GC roots to remove frames.

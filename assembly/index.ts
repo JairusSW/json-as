@@ -32,7 +32,6 @@ import {
   serializeIntegerUnsafe,
   serializeFloat32,
   serializeFloat64,
-  serializeStruct,
   serializeObject,
   serializeJsonArray,
   serializeRaw,
@@ -396,7 +395,7 @@ export namespace JSON {
       store<u16>(changetype<usize>(out) + bytes + 2, QUOTE);
       return changetype<string>(out);
     } else {
-      serializeReference<T>(data);
+      __serialize<T>(data);
       return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
     }
   }
@@ -2910,6 +2909,7 @@ export namespace JSON {
   /**
    * Serializes JSON data but writes directly to the buffer.
    * Should only be used if you know what you are doing.
+   * Reference dispatch stays here to avoid a second managed wrapper frame.
    * @param data - T
    * @returns void
    */
@@ -2940,13 +2940,71 @@ export namespace JSON {
       return data.__SERIALIZE_CUSTOM();
       // @ts-expect-error: Defined by transform
     } else if (isDefined(data.__SERIALIZE)) {
-      // @ts-expect-error: type
-      serializeStruct(changetype<nonnull<T>>(data));
+      // This entry point already roots data; preserve virtual dispatch
+      // without an additional managed-reference wrapper.
+      // @ts-expect-error: transform-generated serializer
+      changetype<nonnull<T>>(data).__SERIALIZE(changetype<usize>(data));
     } else if (data instanceof Date) {
       // @ts-expect-error
       serializeDate(changetype<nonnull<T>>(data));
     } else {
-      serializeReference<T>(data);
+      if (data instanceof Array) {
+        // @ts-expect-error
+        serializeArray(changetype<nonnull<T>>(data));
+      } else if (data instanceof StaticArray) {
+        // @ts-expect-error
+        serializeStaticArray(changetype<nonnull<T>>(data));
+      } else if (data instanceof Int8Array) {
+        serializeTypedArray<Int8Array>(data);
+      } else if (data instanceof Uint8Array) {
+        serializeTypedArray<Uint8Array>(data);
+      } else if (data instanceof Uint8ClampedArray) {
+        serializeTypedArray<Uint8ClampedArray>(data);
+      } else if (data instanceof Int16Array) {
+        serializeTypedArray<Int16Array>(data);
+      } else if (data instanceof Uint16Array) {
+        serializeTypedArray<Uint16Array>(data);
+      } else if (data instanceof Int32Array) {
+        serializeTypedArray<Int32Array>(data);
+      } else if (data instanceof Uint32Array) {
+        serializeTypedArray<Uint32Array>(data);
+      } else if (data instanceof Int64Array) {
+        serializeTypedArray<Int64Array>(data);
+      } else if (data instanceof Uint64Array) {
+        serializeTypedArray<Uint64Array>(data);
+      } else if (data instanceof Float32Array) {
+        serializeTypedArray<Float32Array>(data);
+      } else if (data instanceof Float64Array) {
+        serializeTypedArray<Float64Array>(data);
+      } else if (data instanceof ArrayBuffer) {
+        const dataStart = changetype<usize>(data);
+        serializeArrayBufferUnsafe(
+          dataStart,
+          changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize,
+        );
+      } else if (data instanceof Set) {
+        // @ts-expect-error
+        serializeSet(changetype<nonnull<T>>(data));
+      } else if (data instanceof Map) {
+        // @ts-expect-error
+        serializeMap(changetype<nonnull<T>>(data));
+      } else if (data instanceof JSON.Raw) {
+        serializeRaw(data);
+      } else if (data instanceof JSON.Value) {
+        serializeArbitrary(data);
+      } else if (data instanceof JSON.Obj) {
+        serializeObject(data);
+      } else if (data instanceof JSON.Arr) {
+        serializeJsonArray(data);
+      } else if (data instanceof JSON.Box) {
+        JSON.__serialize(data.value);
+      } else {
+        throw new Error(
+          `Could not serialize data of type '${nameof<T>()}'. ` +
+            `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
+            `Supported types: primitives, string, Array, StaticArray, TypedArray, ArrayBuffer, Map, Date, and @json decorated classes.`,
+        );
+      }
     }
   }
 
@@ -3379,72 +3437,6 @@ export namespace JSON {
       bs.loadState();
       return result;
     }
-  }
-}
-
-/**
- * Shared reference-type serialization chain used by both {@link JSON.stringify}
- * and {@link JSON.__serialize}. Writes directly to the active buffer. Primitive
- * and `Date` fast paths are handled by the callers (which have buffer-reuse
- * optimizations); everything else routes here so the dispatch chain lives once.
- */
-function serializeReference<T>(data: T): void {
-  if (data instanceof Array) {
-    // @ts-expect-error
-    serializeArray(changetype<nonnull<T>>(data));
-  } else if (data instanceof StaticArray) {
-    // @ts-expect-error
-    serializeStaticArray(changetype<nonnull<T>>(data));
-  } else if (data instanceof Int8Array) {
-    serializeTypedArray<Int8Array>(data);
-  } else if (data instanceof Uint8Array) {
-    serializeTypedArray<Uint8Array>(data);
-  } else if (data instanceof Uint8ClampedArray) {
-    serializeTypedArray<Uint8ClampedArray>(data);
-  } else if (data instanceof Int16Array) {
-    serializeTypedArray<Int16Array>(data);
-  } else if (data instanceof Uint16Array) {
-    serializeTypedArray<Uint16Array>(data);
-  } else if (data instanceof Int32Array) {
-    serializeTypedArray<Int32Array>(data);
-  } else if (data instanceof Uint32Array) {
-    serializeTypedArray<Uint32Array>(data);
-  } else if (data instanceof Int64Array) {
-    serializeTypedArray<Int64Array>(data);
-  } else if (data instanceof Uint64Array) {
-    serializeTypedArray<Uint64Array>(data);
-  } else if (data instanceof Float32Array) {
-    serializeTypedArray<Float32Array>(data);
-  } else if (data instanceof Float64Array) {
-    serializeTypedArray<Float64Array>(data);
-  } else if (data instanceof ArrayBuffer) {
-    const dataStart = changetype<usize>(data);
-    serializeArrayBufferUnsafe(
-      dataStart,
-      changetype<OBJECT>(dataStart - TOTAL_OVERHEAD).rtSize,
-    );
-  } else if (data instanceof Set) {
-    // @ts-expect-error
-    serializeSet(changetype<nonnull<T>>(data));
-  } else if (data instanceof Map) {
-    // @ts-expect-error
-    serializeMap(changetype<nonnull<T>>(data));
-  } else if (data instanceof JSON.Raw) {
-    serializeRaw(data);
-  } else if (data instanceof JSON.Value) {
-    serializeArbitrary(data);
-  } else if (data instanceof JSON.Obj) {
-    serializeObject(data);
-  } else if (data instanceof JSON.Arr) {
-    serializeJsonArray(data);
-  } else if (data instanceof JSON.Box) {
-    JSON.__serialize(data.value);
-  } else {
-    throw new Error(
-      `Could not serialize data of type '${nameof<T>()}'. ` +
-        `If this is a custom class, add the @json decorator: @json class ${nameof<T>()} { ... }. ` +
-        `Supported types: primitives, string, Array, StaticArray, TypedArray, ArrayBuffer, Map, Date, and @json decorated classes.`,
-    );
   }
 }
 

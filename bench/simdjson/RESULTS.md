@@ -1095,3 +1095,83 @@ strict/RFC and 2,025 targeted checks passing across all three modes. The heap
 reservation fix is additionally covered by the twenty passing harness tests.
 Artifacts: `comparisons/fixed-pool-{numeric_pairs-min,canada-min,citm_catalog-min}/`
 and `fixed-growth-trace/`, under `build/simdjson-parity/`.
+
+## Shared serialization dispatch
+
+A refreshed V8 profile keeps the full harness and all retained graphs, extending
+only stringification to 10,000 operations. Its 2,531 Wasm self samples include
+530 in Area element writing, 353 in integer-array dispatch, 296 in integer
+formatting and 228 in SeatCategory element writing. These are whole-process
+self samples, not a pure serialization-time breakdown or native-copy profile.
+Map snapshot allocation is not the leading measured opportunity.
+
+The generated Wasm exposes duplicated managed-reference frames. The profiled
+Area element passes through element, namespace, struct and generated-method wrappers.
+After the existing null/custom checks, the element writer can call the generated
+method directly. Reference dispatch also moves into JSON.__serialize, which the
+public reference fallback now shares; its class branch calls the generated
+method directly too. Every original reference branch, payload call and
+unsupported-type error is preserved, checked with a whitespace-normalized source
+comparison. No corpus, field signature, decimal width, unsafe annotation or
+runtime configuration selects the new path.
+
+Both named inspection binaries have code sections byte-identical to their
+respective frozen CITM binaries. Area element frames fall from four to two;
+its integer-array field frames fall from four to three. The compiler still roots
+managed arguments and performs virtual dispatch. A regression test nests a
+custom serializer inside a generated element, removes that current object from
+its parent array, grows the backing buffer, replaces the following object and
+forces collection/allocation before writing the current object's tail. It
+checks original iteration extent, replacement visibility and retained output.
+The test passes against both baseline and candidate across all three modes.
+Additional polymorphism checks cover base-typed arrays, nullable arrays, map
+values and public calls holding derived generated/custom serializers.
+
+Six balanced rounds compare `maps-base-0001`, element-only `maps-call-0001`, and
+full `maps-full-0001` on CITM minified. SIMD stringification throughput ratios:
+
+| Backend | Element-only / baseline | Full / baseline |
+| --- | ---: | ---: |
+| V8 | 1.046× | 1.059× |
+| Checked w2c2 | 1.071× | 1.147× |
+| Default unchecked w2c2 | 1.084× | 1.181× |
+
+The final broad screen compares `disp-base-0001` and `disp-full-0001` over seven
+more classic layouts, six balanced rounds each. Native binaries, changing input
+hashes and toolchain settings match. Every label/backend passes forty complete
+output and retention comparisons. SIMD stringification throughput ratios:
+
+| Layout | V8 | Default unchecked w2c2 |
+| --- | ---: | ---: |
+| Canada minified | 1.037× | 1.071× |
+| CITM pretty | 1.065× | 1.166× |
+| Twitter minified | 1.026× | 1.065× |
+| Poet minified | 1.021× | 1.003× |
+| GitHub events minified | 0.995× | 1.050× |
+| GSOC minified | 1.026× | 1.084× |
+| Lottie minified | 0.989× | 0.996× |
+
+The initial unchecked-w2c2 Poet parse control is 0.947× despite unchanged parser
+algorithms. A separate six-round confirmation is 1.001× for parsing and 1.031×
+for stringification; both artifacts remain recorded. This does not establish
+zero code-generation/timing variability, and no Poet-specific path is added.
+Other parse/validation controls remain in the full result tables, not promoted
+as new parsing or validation algorithms.
+
+No previously qualifying SIMD row drops outside the native budget in the broad
+screen. The selected 21 rows contain 5 V8 or 7 unchecked-w2c2 rows within budget,
+unchanged in count. These are partial screens, not the 48-row completion gate.
+CITM stringification and many other rows remain substantially slower than
+native. Remaining classic layouts still need qualification on a single selected
+backend; checked-w2c2 claims beyond the canary remain unverified.
+
+Verification: 119,301 normal checks, 77,676 strict/RFC checks across all three
+modes, twenty harness checks, typecheck, lint, formatting and diff checks pass.
+SWAR receives the shared implementation but does not gate native parity.
+No builds/tests/oracle processing overlap timings.
+
+Artifacts under `build/simdjson-parity/`: `maps-serialize-profile/`,
+`direct-dispatch-codegen/{baseline/identity,identity,reference-dispatch-identity}.json`,
+`comparisons/direct-{writer,dispatch}-citm-min/`, `comparisons/dispatch-*/`,
+`dispatch-broad-summary.json`, `dispatch-final-source-identity.json`, and
+`dispatch-{full-suite,final-rfc,final-check}.log`.
