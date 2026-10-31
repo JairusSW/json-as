@@ -30,6 +30,15 @@ The parity verdict currently uses median latency. Five alternating process pairs
 are required for reported comparisons; the one-pair smoke check is diagnostic.
 Do not run tests or compilers while collecting timings.
 
+Cross-variant `compare.py` runs reverse the complete process order in adjacent
+rounds, then rotate the base order between those pairs. Prefer six or twelve
+rounds when comparing two variants on all three backends: this balances which
+variant runs first and cycles all backend orders. The ordering regression tests
+run with `python3 bench/simdjson/round-order.test.py`. An earlier implementation
+rotated labels every round before reversal, causing the two-label baseline to
+run first in every round. Historical comparisons retain their original samples;
+new comparisons record the comparison and scheduling source hashes.
+
 The optional `--native-from baseline` build argument reuses a byte-identical
 native binary only after checking the generated model, driver and recorded binary
 hash. Older artifacts without that provenance must be rebuilt. It

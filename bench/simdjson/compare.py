@@ -8,6 +8,7 @@ import re
 import shutil
 import statistics
 import subprocess
+from round_order import round_schedule
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE = ROOT / 'build/simdjson-parity'
@@ -96,7 +97,11 @@ for label in labels:
                         raise ValueError(f'w2c2 backend provenance differs: {field}')
             backend_metadata[f'{label}/{backend}/{mode}'] = meta
 output.mkdir(parents=True)
-(output / 'invocation.json').write_text(json.dumps(vars(args), indent=2) + '\n')
+(output / 'invocation.json').write_text(json.dumps({
+    **vars(args),
+    'comparisonDriverSha256': sha(Path(__file__)),
+    'roundOrderSha256': sha(Path(__file__).with_name('round_order.py')),
+}, indent=2) + '\n')
 for label in labels:
     for backend in backends:
         (output / f'oracles/{backend}/{label}').mkdir(parents=True)
@@ -104,11 +109,7 @@ for label in labels:
 (output / 'metadata.json').write_text(json.dumps(metadata, indent=2) + '\n')
 rows = []
 for pair in range(args.pairs):
-    ordered = labels[pair % len(labels):] + labels[:pair % len(labels)]
-    backend_order = backends[pair % len(backends):] + backends[:pair % len(backends)]
-    schedule = [('native', 'native', 'native')] + [(label, mode, backend) for label in ordered for backend in backend_order for mode in ['swar', 'simd']]
-    if pair % 2:
-        schedule.reverse()
+    schedule = round_schedule(labels, backends, pair)
     for label, engine, backend in schedule:
         print(f'Run {pair + 1}/{args.pairs}: {label}/{backend}/{engine}', flush=True)
         if engine == 'native':
