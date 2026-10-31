@@ -5,6 +5,7 @@ import {
   cppType,
   nativeSchema,
   coordinatePayloads,
+  stringPayloads,
 } from "./generate.mjs";
 const schema = (source) => schemaFromSource(source, "fixture.ts");
 test("retains alias, integer width, nested array and nullable ownership", () => {
@@ -60,4 +61,18 @@ test("numeric diagnostics preserve decimal tokens across shape and value rotatio
   for (let i = 0; i < 4; i++)
     assert.deepEqual(JSON.parse(flat[i]), JSON.parse(pairs[i]).flat());
   assert.throws(() => coordinatePayloads(text, "flat", 5), /Insufficient/);
+});
+
+test("owned string inputs cover clean, escaped and Unicode text with changing lengths", () => {
+  for (const shape of ["short", "clean", "late", "dense", "unicode"]) {
+    const inputs = stringPayloads(shape);
+    const values = inputs.map((input) => JSON.parse(input));
+    assert.equal(new Set(values).size, 4);
+    assert.equal(new Set(values.map((value) => value.length)).size, 4);
+    assert.ok(values.every((value) => typeof value === "string"));
+  }
+  assert.ok(JSON.parse(stringPayloads("late")[0]).endsWith('"'));
+  assert.ok(JSON.parse(stringPayloads("dense")[0]).includes('"\\\n'));
+  assert.ok(JSON.parse(stringPayloads("unicode")[0]).includes("😀"));
+  assert.throws(() => stringPayloads("missing"), /Unknown/);
 });

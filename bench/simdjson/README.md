@@ -212,3 +212,12 @@ input/output paths; unequal label lengths can change data-section placement.
 The flag rejects unequal lengths, and each comparison saves `invocation.json`.
 Matching labels control this particular confound without proving that unrelated
 code-layout or timing variation is absent.
+
+String diagnostics (`string_short`, `string_clean`, `string_late`, `string_dense`,
+`string_unicode`, each with layout `min`) generate four JSON string roots with
+changing values and lengths. They compare fresh owned parsing/stringification
+and full validation with std::string on native. Use 100,000 operations for the
+short case and 5,000 for larger cases. The Unicode input is well formed;
+isolated UTF-16 units remain correctness tests because native UTF-8 input has
+a different representation/policy. These diagnostics do not bypass the overall
+coverage gate.

@@ -9,6 +9,7 @@ import {
   nativeSchema,
   assemblyDriver,
   coordinatePayloads,
+  stringPayloads,
 } from "./generate.mjs";
 
 const root = path.resolve(
@@ -111,18 +112,24 @@ function bootstrap() {
 function prepare() {
   for (const folder of ["generated", "inputs", "oracles", "logs", "results"])
     fs.mkdirSync(path.join(dir, folder), { recursive: true });
-  const schema = corpus.numericShape
-    ? []
-    : readSchema(path.join(root, corpus.source));
+  const schema =
+    corpus.numericShape || corpus.stringShape
+      ? []
+      : readSchema(path.join(root, corpus.source));
   const sourcePath = path.join(
     root,
     corpus.payload ??
       `assembly/__benches__/payloads/${corpus.name}.${layout}.json`,
   );
-  const text = read(sourcePath);
-  const rotations = corpus.numericShape
-    ? coordinatePayloads(text, corpus.numericShape, 4096)
+  const strings = corpus.stringShape
+    ? stringPayloads(corpus.stringShape)
     : null;
+  const text = strings ? strings[0] : read(sourcePath);
+  const rotations =
+    strings ??
+    (corpus.numericShape
+      ? coordinatePayloads(text, corpus.numericShape, 4096)
+      : null);
   const inputs = [];
   for (let i = 0; i < 4; i++) {
     const rotated = rotations ? rotations[i] : rotateText(text, i, varyLength);
@@ -198,11 +205,13 @@ function prepare() {
   const metadata = {
     case: key,
     label,
-    inputVariation: corpus.numericShape
-      ? "Changing numeric values"
-      : varyLength
-        ? "Changing string values and lengths"
-        : "Changing string values",
+    inputVariation: corpus.stringShape
+      ? "Changing string values and lengths"
+      : corpus.numericShape
+        ? "Changing numeric values"
+        : varyLength
+          ? "Changing string values and lengths"
+          : "Changing string values",
     xjb,
     ops,
     simdjson: manifest.simdjson,
@@ -215,7 +224,7 @@ function prepare() {
         ? read(path.join(root, corpus.source))
         : JSON.stringify({ root: corpus.root }),
     ),
-    diagnostic: !!corpus.numericShape,
+    diagnostic: !!(corpus.numericShape || corpus.stringShape),
     payloadSha256: sha(text),
     root: corpus.root,
     inputs,

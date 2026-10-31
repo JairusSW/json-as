@@ -104,6 +104,36 @@
       "numericShape": "pairs",
       "payload": "assembly/__benches__/payloads/canada.min.json",
       "layouts": ["min"]
+    },
+    {
+      "name": "string_short",
+      "root": "string",
+      "stringShape": "short",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_clean",
+      "root": "string",
+      "stringShape": "clean",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_late",
+      "root": "string",
+      "stringShape": "late",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_dense",
+      "root": "string",
+      "stringShape": "dense",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_unicode",
+      "root": "string",
+      "stringShape": "unicode",
+      "layouts": ["min"]
     }
   ]
 }

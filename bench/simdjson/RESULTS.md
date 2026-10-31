@@ -337,3 +337,75 @@ forced-inlining annotation is absent from the retained patch. This is an array
 serialization improvement; standalone copied-byte measurements, direct owned
 output construction, remaining corpora/families and overall simdjson parity are
 still open work.
+
+## Managed output experiment and SIMD string scanning
+
+Five new owned-string diagnostics use ordinary string roots: short ASCII,
+large clean text, a quote near the end, dense short escapes, and valid mixed
+BMP/astral Unicode. Each has four independently allocated inputs with changing
+values and lengths. Native owns std::string values; AS owns normal strings.
+Both sides retain eight prior results. These diagnostics expand coverage;
+they do not certify the complete strings family or whole-goal parity.
+
+The first experiment makes the staging allocation a rooted managed string,
+grows with __renew, restores the original arena at completion, and returns
+that allocation. Oversized spare capacity falls back to an exact owned copy.
+It passes GC/retention/Unicode tests and all full-output oracles, but fails the
+performance screen. Large clean/late-escape strings gain roughly 7–19%; short
+strings slow roughly 9–11%, and Unicode SIMD slows about 5%. Forcing public
+wrapper inlining does not fix the overall result and slows dense SIMD escaping.
+Both versions are rejected and reverted. Their source patches, ownership tests,
+binaries and results are saved in `managed-output-experiment/`,
+`runs/owned-str-{test,line}/` and
+`comparisons/{owned-string,owned-inline}-*-qualified/` under
+`build/simdjson-parity/`. No managed-arena API or public-wrapper annotation is
+retained in the library.
+
+The retained scanner change uses v128.any_true for the optimistic loop's
+boolean event test. The isolated boolean variant changes one Wasm code byte
+from the previous bitmask-based predicate. Separately, paired surrogate masks
+allow valid UTF-16 pairs to stay on the bulk-copy path. A pair crossing the
+vector boundary consumes the next low unit immediately; unpaired units still
+enter the established escaped handler. That full variant adds about 153 bytes
+to the standalone SIMD module.
+
+Nine balanced fresh-process rounds separate the boolean-only and paired-unit
+changes. All input/binary hashes, native baselines, owned-output oracles and
+same-length labels are checked. Final SIMD stringify throughput ratios:
+
+| String shape | Boolean-only | With paired-unit scanning |
+| --- | ---: | ---: |
+| Short | 1.002× | 1.002× |
+| Large clean | 1.235× | 1.235× |
+| Late quote | 1.231× | 1.226× |
+| Dense escapes | 0.995× | 0.996× |
+| Mixed Unicode | 0.999× | 2.521× |
+
+The full Unicode screen fails a SIMD validation control (about 4.7% slower),
+although the lexical validator is unchanged. All other diagnostic screens pass
+for the retained variant. A separate nine-round Unicode backend run measures
+2.591× SIMD stringify throughput in V8, 2.121× with checked w2c2 and 1.752× with
+unchecked w2c2. Its SWAR V8 stringify control slows about 5.6%; its executable
+code section is byte-identical between variants (SHA-256
+`c4745ed30c9ee093fa93580321a4c28a82b2f51dcd6a14cdeef801c014d9d008`).
+Data-section sizes match and nine bytes change in embedded artifact paths.
+This does not turn the failed screen into a pass; it rules out attributing that
+row to a changed SWAR executable algorithm.
+
+Classic confirmation with changing-length inputs finds approximately 1% or
+less SIMD stringify movement on CITM minified/pretty and Canada. Both CITM
+screens pass. Canada fails on an unchanged SWAR stringify control (about 4.7%
+slower). Its SWAR code section is also byte-identical between variants (SHA-256
+`a75314d291a34a4733e0fb3787bfe46977d668c04106c7e360d8f2ebfa74b157`).
+The combined driver serializes during setup and before validation;
+isolating phases remains a qualification task for state-dependent controls.
+No universal regression-free or native-parity claim is made. Native still
+wins the measured stringification rows.
+
+Artifacts: `comparisons/string-scanner-*-qualified/`,
+`comparisons/string-pair-unicode-backends/` and
+`comparisons/string-scan-{citm_catalog-min,citm_catalog-pretty,canada-min}-qualified/`.
+Verification: 117,717 normal checks and 75,537 strict/RFC checks across all modes,
+524,288 public/scalar UTF-16 differential cases per mode, explicit vector-tail
+and paired/unpaired boundary cases, generator tests, lint and complete
+output/retention oracles pass.

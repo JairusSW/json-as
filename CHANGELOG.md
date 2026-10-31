@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(strings): use a boolean SIMD event test and retain valid UTF-16 surrogate pairs on the bulk-copy serialization path.
+
 - perf(serialize): load generic array elements directly while rereading the backing pointer after callbacks.
 
 - perf(strict): defer implicit collection defaults during fresh checked object parsing, constructing empty defaults only for missing fields.

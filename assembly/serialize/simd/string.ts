@@ -19,6 +19,8 @@ import { u16_to_hex4_swar } from "../../util/swar";
 @lazy const SURROGATE_MASK = i16x8.splat(i16(0xf800));
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SURROGATE_BASE = i16x8.splat(i16(0xd800));
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const SURROGATE_LOW_BOUND = i16x8.splat(i16(0xdc00));
 
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
@@ -40,20 +42,40 @@ export function serializeString_SIMD(src: string): void {
       const lt20 = i16x8.lt_u(block, SPLAT_0020);
       const gteD8 = i8x16.gt_u(block, SPLAT_FFD8);
 
-      const mask = i8x16.bitmask(
-        v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))),
-      );
-      if (mask != 0) {
+      const special = v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8)));
+      if (v128.any_true(special)) {
         // The byte-level candidate test can also match ordinary BMP text.
         // Verify only candidate blocks so ASCII keeps the cheaper hot loop.
         const surrogate = i16x8.eq(
           v128.and(block, SURROGATE_MASK),
           SURROGATE_BASE,
         );
-        if (
-          v128.any_true(v128.or(eq22, v128.or(eq5C, v128.or(lt20, surrogate))))
-        )
-          break;
+        if (v128.any_true(v128.or(eq22, v128.or(eq5C, lt20)))) break;
+        const surrogateBits = i8x16.bitmask(surrogate) & 0x5555;
+        if (surrogateBits) {
+          const high =
+            i8x16.bitmask(i16x8.lt_u(block, SURROGATE_LOW_BOUND)) &
+            surrogateBits;
+          const low = surrogateBits ^ high;
+          const unpaired = (high & ~(low >> 2)) | (low & ~(high << 2));
+          if (unpaired) {
+            // A high surrogate at the end may pair with the following unit.
+            // Consume that unit now so the next block never sees a lone low.
+            if (
+              unpaired != 0x4000 ||
+              (high & 0x4000) == 0 ||
+              srcEnd - srcStart < 18
+            )
+              break;
+            const next = load<u16>(srcStart, 16);
+            if (<u32>(next - 0xdc00) > 0x3ff) break;
+            store<v128>(dst, block);
+            store<u16>(dst, next, 16);
+            srcStart += 18;
+            dst += 18;
+            continue;
+          }
+        }
       }
 
       store<v128>(dst, block);

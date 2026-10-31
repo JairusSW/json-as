@@ -24,6 +24,22 @@ export function coordinatePayloads(text, shape, count) {
   });
 }
 
+// Owned string diagnostics preserve ordinary UTF-8/UTF-16 string semantics.
+export function stringPayloads(shape) {
+  const clean = "abcdefghABCDEFGH0123456789-_".repeat(640);
+  const values = {
+    short: "ordinary text 123",
+    clean,
+    late: clean + '"',
+    dense: 'a"\\\n'.repeat(4096),
+    unicode: "é漢字😀".repeat(3000),
+  };
+  if (!Object.hasOwn(values, shape)) throw new Error("Unknown string shape");
+  return Array.from({ length: 4 }, (_, i) =>
+    JSON.stringify(String.fromCharCode(65 + i).repeat(i + 1) + values[shape]),
+  );
+}
+
 export function schemaFromSource(text, filename) {
   const parser = new Parser();
   parser.parseFile(text, filename, true);
