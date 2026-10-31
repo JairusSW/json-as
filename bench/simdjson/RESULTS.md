@@ -409,3 +409,61 @@ Verification: 117,717 normal checks and 75,537 strict/RFC checks across all mode
 524,288 public/scalar UTF-16 differential cases per mode, explicit vector-tail
 and paired/unpaired boundary cases, generator tests, lint and complete
 output/retention oracles pass.
+
+## Empty generic array capacity
+
+Fresh strict cursor parsing now returns an ordinary zero-capacity array literal
+for an empty generic array, instead of reserving eight elements through the
+Array constructor. Each result and its buffer remain independently owned;
+growth, tracing and write barriers use the standard runtime. No shared backing
+buffer, fabricated runtime header or collector-specific construction is used.
+The specialized SWAR/SIMD float-array path is unchanged. Legacy parsing and
+reuse behavior are unchanged.
+
+CITM contains 8,695 empty arrays among 10,451 arrays. Canada contains 56,045
+arrays and no empty arrays. An initial broader experiment also factors the
+float-array prelude, but fails checked-w2c2 SIMD Canada parsing by about 3.6%
+and checked-w2c2 SIMD CITM validation by about 3.5%. That float refactor is
+reverted. Its source patch is saved as
+`build/simdjson-parity/empty-array-broad.patch`, with frozen `array-zero-new`
+binaries and `comparisons/array-zero-*-qualified/` evidence.
+
+The retained narrower candidate uses nine balanced fresh-process rounds,
+same-length labels (`array-zero-old`, `array-zero-int`), frozen input/binary
+hashes, changing string values and lengths, four independently allocated
+inputs and eight retained owned results. V8 15.2.20 uses TurboFan; the same
+incremental-GC Wasm runs through checked and unchecked GCC 16.2 w2c2 builds.
+Builds, tests and profiling do not overlap timing; output oracles run after
+timing. Full native/AS output and retention comparisons pass for every backend.
+
+Owned-parse throughput ratios, candidate / baseline:
+
+| Corpus/layout | V8 SWAR | V8 SIMD | Checked C SWAR | Checked C SIMD | Unchecked C SWAR | Unchecked C SIMD |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CITM minified | 1.068× | 1.096× | 1.070× | 1.072× | 1.008× | 1.035× |
+| CITM pretty | 1.026× | 1.065× | 1.030× | 1.053× | 1.033× | 1.048× |
+| Canada minified | 1.009× | 0.996× | 1.005× | 1.015× | 1.014× | 1.009× |
+
+Every V8 and checked-w2c2 row, including stringify and validation controls,
+passes the explicit 3% regression screen on all three layouts. Canada's complete
+screen passes. Both CITM combined screens still **fail** on unchecked-w2c2 SIMD
+controls: minified stringification is about 3.4% slower and pretty validation
+about 3.2% slower. No stringify or validator algorithm changed in this patch;
+the combined driver constructs objects during setup and runs all phases in one
+process. These failures remain unresolved. Phase isolation remains follow-up
+work; they are not recategorized as passing results. This is a local parsing
+candidate, not a universally regression-free integration recommendation.
+
+Verification: 117,717 normal checks, 75,621 strict/RFC checks across all three
+modes, 10 harness checks, typecheck and lint pass. The new 84-check regression
+covers independently growing empty arrays across integer widths, floats,
+booleans and references, zeroed length growth, GC and later field reuse. A
+retained-memory assertion verifies 128 fresh empty i64 arrays consume less
+backing-buffer memory than the constructors' 8 KiB of payload capacity alone;
+that allocator-specific assertion runs only with incremental GC.
+
+Final artifacts are under
+`build/simdjson-parity/comparisons/array-narrow-{citm_catalog-min,citm_catalog-pretty,canada-min}-qualified/`.
+The candidate modules grow by roughly 100–156 bytes in their code sections.
+Native simdjson remains faster on owned parsing, and the remaining corpora and
+families still prevent a whole-workload parity claim.

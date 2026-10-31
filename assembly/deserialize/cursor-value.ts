@@ -204,8 +204,8 @@ export function readCursorValue<T>(
     }
     if (type instanceof Array) {
       if (depth >= MAX_CURSOR_DEPTH || load<u16>(start) != 91) return 0;
-      const out = new Array<valueof<T>>();
       if (JSON_MODE != JSONMode.NAIVE && isFloat<valueof<T>>()) {
+        const out = new Array<valueof<T>>();
         const next = deserializeFloatArrayBody<nonnull<T>>(
           start,
           end,
@@ -218,11 +218,16 @@ export function readCursorValue<T>(
         return next;
       }
       let ptr = skipCursorWhitespace(start + 2, end);
-      if (ptr < end && load<u16>(ptr) == 93) {
-        store<usize>(field, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+      if (ptr >= end) return 0;
+      if (load<u16>(ptr) == 93) {
+        // An empty literal has no speculative element capacity. It remains an
+        // ordinary independently owned array and grows through the runtime.
+        const empty: Array<valueof<T>> = [];
+        store<usize>(field, changetype<usize>(empty));
+        __link(dst, changetype<usize>(empty), false);
         return ptr + 2;
       }
+      const out = new Array<valueof<T>>();
       const slot = new CursorSlot<valueof<T>>();
       while (ptr < end) {
         ptr = readCursorValue<valueof<T>>(
