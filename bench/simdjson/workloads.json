@@ -1,0 +1,93 @@
+{
+  "simdjson": {
+    "version": "5.0.4",
+    "commit": "3b0b2b53aaffb46208817821dce2cd47a5e6bb2a"
+  },
+  "policies": {
+    "strict": true,
+    "unknownFields": "reject",
+    "outputs": "owned",
+    "inputRotation": 4,
+    "retainedOutputs": 8
+  },
+  "corpora": [
+    {
+      "name": "canada",
+      "source": "assembly/__benches__/classic/canada.bench.ts",
+      "root": "Canada",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "twitter",
+      "source": "assembly/__benches__/classic/twitter.bench.ts",
+      "root": "Twitter",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "citm_catalog",
+      "source": "assembly/__benches__/classic/citm_catalog.bench.ts",
+      "root": "Citm",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "github_events",
+      "source": "assembly/__benches__/classic/github_events.bench.ts",
+      "root": "GhEvent[]",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "poet",
+      "source": "assembly/__benches__/classic/poet.bench.ts",
+      "root": "Poem[]",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "gsoc-2018",
+      "source": "assembly/__benches__/classic/gsoc-2018.bench.ts",
+      "root": "Map<string, Org>",
+      "layouts": ["min", "pretty"],
+      "raw": true
+    },
+    {
+      "name": "lottie",
+      "source": "assembly/__benches__/classic/lottie.bench.ts",
+      "root": "Lottie",
+      "layouts": ["min", "pretty"],
+      "raw": true
+    },
+    {
+      "name": "otfcc",
+      "source": "assembly/__benches__/classic/otfcc.bench.ts",
+      "root": "Otfcc",
+      "layouts": ["min"],
+      "raw": true
+    },
+    {
+      "name": "fgo",
+      "source": "assembly/__benches__/classic/fgo.bench.ts",
+      "root": "Map<string, JSON.Raw>",
+      "layouts": ["min"],
+      "raw": true
+    }
+  ],
+  "requiredFamilies": [
+    "typed-owned-parse",
+    "typed-reused-parse",
+    "typed-owned-serialize",
+    "typed-reused-serialize",
+    "validation",
+    "dynamic-owned-materialization",
+    "lazy-selective-full-validation",
+    "byte-ingestion",
+    "numeric-arrays",
+    "strings",
+    "small-records",
+    "reordered-optional-nested-records"
+  ],
+  "coverageRule": "All corpus layouts and required families must have equivalent-work correctness evidence and a paired result before parity can pass. Missing coverage is a failing gate."
+}
