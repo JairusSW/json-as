@@ -21,6 +21,12 @@ import { u16_to_hex4_swar } from "../../util/swar";
 @lazy const SURROGATE_BASE = i16x8.splat(i16(0xd800));
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SURROGATE_LOW_BOUND = i16x8.splat(i16(0xdc00));
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const BYTE_QUOTE = i8x16.splat(0x22);
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const BYTE_BACKSLASH = i8x16.splat(0x5c);
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const BYTE_SPACE = i8x16.splat(0x20);
 
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
@@ -283,6 +289,32 @@ export function serializeString_SIMD(src: string): void {
 
 /** Copy clean UTF-16 after a byte-level false positive, stopping at an escape. */
 function copyCleanUnicode(src: usize, end: usize, dst: usize): usize {
+  const end32 = end - 32;
+  while (src <= end32) {
+    const first = load<v128>(src);
+    const second = load<v128>(src, 16);
+    // Signed saturation preserves ASCII and maps every other UTF-16 unit to
+    // a byte >= 0x7f. Unsigned saturation would turn negative i16 lanes into 0.
+    const bytes = i8x16.narrow_i16x8_s(first, second);
+    const ascii = v128.or(
+      i8x16.eq(bytes, BYTE_QUOTE),
+      v128.or(i8x16.eq(bytes, BYTE_BACKSLASH), i8x16.lt_u(bytes, BYTE_SPACE)),
+    );
+    const firstSurrogate = i16x8.eq(
+      v128.and(first, SURROGATE_MASK),
+      SURROGATE_BASE,
+    );
+    const secondSurrogate = i16x8.eq(
+      v128.and(second, SURROGATE_MASK),
+      SURROGATE_BASE,
+    );
+    if (v128.any_true(v128.or(ascii, v128.or(firstSurrogate, secondSurrogate))))
+      break;
+    store<v128>(dst, first);
+    store<v128>(dst, second, 16);
+    src += 32;
+    dst += 32;
+  }
   const end16 = end - 16;
   while (src <= end16) {
     const block = load<v128>(src);

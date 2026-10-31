@@ -622,7 +622,8 @@ variants. The SWAR native text sections are also byte-identical for all six
 initial checked/unchecked executable pairs. Hash reports are saved in
 `utf16-swar-{code,native-code}-identity.json`. That rules out changed SWAR
 instructions; it does not turn the failed controls into passes. The GSOC
-serialization regression remains unresolved. Its minified and pretty inputs
+serialization regression remains unresolved in this adaptive candidate. The
+packed-loop follow-up below measures its recovery. Its minified and pretty inputs
 have identical values and map order, while its pretty stringify row is roughly
 flat. Phase/state isolation and generated machine-code inspection remain
 necessary before a universal integration recommendation.
@@ -637,3 +638,98 @@ owned-stringify row; these gains are not whole-workload parity.
 Final artifacts under `build/simdjson-parity/`: `runs/utf16-{base-001,final001}/`,
 `comparisons/utf16-final-*/`, `utf16-final-gates.json`, and
 `utf16-final-*-paired.log`. The earlier rejected variants remain available.
+
+## Packed clean-run scanning
+
+The clean-run helper now scans two UTF-16 vectors before copying either one.
+Signed saturating narrowing packs their units into sixteen bytes for shared
+ASCII quote/backslash/control checks. ASCII is unchanged; all other UTF-16
+units become bytes at least 127. Both original full-width vectors still get
+surrogate checks. An event stops the packed prefix and resumes the established
+16-byte loop at the current block. The ordinary ASCII entry loop is unchanged.
+All loads and stores remain within the source/output ranges already reserved.
+
+The saved proposal's unsigned-narrowing suggestion is corrected: both narrowing
+forms interpret their source lanes as signed, so unsigned saturation would
+turn high UTF-16 values into zero. The implementation uses signed saturation,
+consistent with the [WebAssembly numeric semantics](https://webassembly.github.io/spec/core/exec/numerics.html#op-narrow).
+No runtime mode switch, additional allocation, result cache or compiler-flag
+change is introduced.
+
+All eight initial diagnostic/GSOC/Poet screens pass nine-round V8 comparisons.
+The final source expands checking to all 22 measured workloads, with identical
+native executables and same-length labels `utf16-final001` (adaptive baseline)
+and `utf16-packF001` (candidate). Four workloads also compare checked and
+unchecked w2c2, using the same frozen Wasm, incremental GC, GCC 16.2 flags and
+backend pins. Input values and lengths change across four independent inputs;
+eight owned results remain retained. Full native/AS output and retention
+oracles pass every workload/backend. Timing does not overlap builds, tests,
+profiling or oracle processing.
+
+SIMD stringify throughput ratios, candidate / adaptive baseline:
+
+| Workload | V8 | Checked w2c2 | Unchecked w2c2 |
+| --- | ---: | ---: | ---: |
+| GSOC minified | 1.126× | — | — |
+| GSOC pretty | 1.078× | — | — |
+| Poet minified | 1.034× | 1.044× | 1.099× |
+| Poet pretty | 1.042× | — | — |
+| Clean fullwidth | 1.309× | — | — |
+| Escaped fullwidth | 1.021× | — | — |
+| Short fullwidth | 1.003× | — | — |
+| Fullwidth with pairs | 0.981× | 0.986× | 0.970× |
+| Forced transition | 0.982× | 1.014× | 1.008× |
+| Dense escapes | 1.010× | 1.008× | 0.961× |
+
+All remaining V8 stringify ratios are within about 2% of baseline. Every
+measured V8 and checked-w2c2 stringify row passes the explicit 3% regression
+limit, but that does not make the complete qualification clean.
+
+The GSOC comparisons include three revisions in the same nine-round run:
+the pre-adaptive baseline (`utf16-base-001`), adaptive baseline, and packed
+candidate. V8 SIMD stringify medians, microseconds:
+
+| Layout | Pre-adaptive | Adaptive | Packed |
+| --- | ---: | ---: | ---: |
+| Minified | 1036.66 | 1083.01 | 962.24 |
+| Pretty | 1016.21 | 1028.12 | 953.42 |
+
+The packed candidate recovers the earlier GSOC regression: throughput is
+1.077× minified and 1.066× pretty relative to the pre-adaptive implementation.
+These are direct same-run comparisons, not products of ratios from earlier
+runs. Native stringify remains faster (about 191–196 microseconds).
+
+The full screen still **fails**: 17 of 22 workload screens pass. Eight rows
+exceed the 3% time limit:
+
+- Short-fullwidth V8 SIMD validation: 3.85% slower.
+- Fullwidth/pairs V8 SIMD validation: 3.29% slower.
+- Fullwidth/pairs unchecked-w2c2 SIMD stringify: 3.13% slower.
+- Dense-escape V8 SIMD validation: 3.39% slower.
+- Dense-escape unchecked-w2c2 SIMD stringify: 4.10% slower.
+- Poet-pretty V8 SIMD validation: 3.06% slower.
+- Short-ASCII V8 SWAR parse: 3.32% slower.
+- Short-ASCII V8 SIMD validation: 3.08% slower.
+
+Those parsing/validation algorithms are unchanged. All 22 SWAR code-body
+arrays match bit-for-bit, as do all eight SWAR native-text executable pairs.
+Each classic SIMD module changes one function body; the small string modules
+also change function ordering/references. Reports are saved as
+`pack32-code-body-diff.json` and `pack32-swar-native-identity.json`. Code identity
+does not recategorize a failed screen as passing. The unchecked-w2c2 stringify
+regressions remain unresolved, including cases that do not execute the packed
+loop. Backend code generation and phase/state isolation require follow-up.
+This is a local candidate, not a universal integration recommendation.
+
+Verification: 118,107 normal checks, 75,621 strict/RFC checks across all three
+modes, 13 harness checks, typecheck and lint pass. Public/scalar comparisons
+include 1,114,112 exhaustive UTF-16 lane cases per mode, critical-value checks
+in all sixteen packed positions, and surrogate/tail boundaries through forty
+units. No production parser changes or API changes accompany the scanner.
+Native parity across all workloads remains unachieved.
+
+Artifacts under `build/simdjson-parity/`: `runs/utf16-pack-001/` for the initial
+experiment, `runs/utf16-packF001/` for final qualification,
+`comparisons/pack32-final-*/`, `pack32-final-gates.json`, and
+`pack32-final-*-paired.log`. GSOC's directories contain all three frozen
+revisions and their complete output evidence.

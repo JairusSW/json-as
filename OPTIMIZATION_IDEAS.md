@@ -540,19 +540,29 @@ The proposal above is preserved as supplied. Current implementation notes:
 
 The owned-corpus qualification and adaptive UTF-16 experiment are recorded in
 [RESULTS.md](bench/simdjson/RESULTS.md#adaptive-utf-16-serialization-scanning).
-Poet improves about 1.60×, but GSOC minified stringify regresses about 4.85%;
-the candidate is not universally qualified.
+The adaptive candidate improves Poet about 1.60× but regresses GSOC minified
+stringify about 4.85%. The packed-loop follow-up below measures recovery of
+that regression; full qualification still has failures.
 
-The next scanner experiment should classify two UTF-16 vectors together:
-unsigned-saturating narrowing packs their code units into sixteen bytes for
-shared ASCII quote/backslash/control detection. Values above 255 saturate to
-255, which cannot resemble an ASCII escape. Surrogate checks must still use
-the original full-width units. A first event can leave the established bounded
-reader at its current cursor. Measure both the scan/copy cost and escaped
-fallback overhead; this is an unmeasured hypothesis.
+The packed clean-run experiment classifies two UTF-16 vectors together:
+signed-saturating narrowing packs their code units into sixteen bytes for
+shared ASCII quote/backslash/control detection. ASCII stays unchanged; every
+other UTF-16 unit maps to a byte at least 127. Unsigned narrowing also reads
+signed source lanes and would map negative i16 values to zero. Surrogate checks
+still use the original full-width units. An event leaves the established
+bounded reader at the current block. Measured results and remaining failures
+are recorded in [the packed-loop qualification](bench/simdjson/RESULTS.md#packed-clean-run-scanning).
 
 Separately, compare i16x8.bitmask against the current byte-bitmask-plus-0x5555
 representation for surrogate pair bookkeeping. One bit per UTF-16 lane could
 remove scalar masking and simplify pair shifts. Check all lane/tail boundaries
 and inspect actual lowering before claiming a gain. Phase isolation remains
-necessary to diagnose the GSOC result and unchanged parsing/validation controls.
+necessary for the residual parsing/validation controls and backend-only
+stringify failures.
+
+The pinned native string writer also uses bounded overlapping loads for short
+tails. Poet has 8,692 names of two or three UTF-16 units, so short-tail work
+deserves its own profile and experiment. Keep reads and writes inside their
+logical bounds and preserve isolated-surrogate escaping. These tail changes
+are not implemented here. The length census is saved as
+`build/simdjson-parity/pack32-poet-length-census.json`.

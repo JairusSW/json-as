@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(strings): classify two UTF-16 vectors together in clean runs using signed saturation and full-width surrogate checks.
+
 - perf(strings): continue SIMD copying with exact UTF-16 event checks after ordinary BMP false candidates, and reuse the clean scan after escapes.
 
 - perf(strings): use a boolean SIMD event test and retain valid UTF-16 surrogate pairs on the bulk-copy serialization path.
