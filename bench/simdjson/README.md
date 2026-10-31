@@ -151,3 +151,50 @@ both. Backend metadata captures the translator, source/dependency revisions,
 compiler commands, host and translated sources, and final binary hashes.
 The full RFC suite currently runs under Wasmtime; w2c2 runtime comparisons cover
 the named valid fixtures and complete retained-output oracles.
+
+## Full classic validation matrix
+
+The validation-only driver covers all 16 layouts, including Raw-heavy models
+and Twitter's recursive schema. It uses no typed reflection adapter. Each case
+loads four independent strings with changing values and lengths, verifies all
+four inputs, then times complete validation. Input preparation preserves exact
+numeric tokens. Valid/invalid preflight cases and an input-count oracle must
+also pass in every execution backend.
+
+```sh
+node bench/simdjson/validation.mjs prepare --label validation-before --source-root /path/to/pre-change-checkout
+node bench/simdjson/validation.mjs build --label validation-before
+node bench/simdjson/validation.mjs prepare --label validation-current
+node bench/simdjson/validation.mjs build --label validation-current
+python3 bench/simdjson/w2c2-build.py --case validation-matrix --label validation-before
+python3 bench/simdjson/w2c2-build.py --case validation-matrix --label validation-current
+python3 bench/simdjson/compare.py --case validation-matrix --labels validation-before,validation-current --backends v8,w2c2-checked,w2c2-default --output validation-check --gate-validation w2c2-checked
+```
+
+Both source checkouts need matching dependencies and a built transform. Their
+exact revisions, tracked patches and extra untracked TypeScript sources are
+saved, and build rejects source drift.
+The comparison verifies input and binary hashes and uses one byte-identical
+native baseline for all variants. Corpus-specific iteration counts target at
+least 32 MiB per phase, with at least ten iterations. Warmup, input loading and
+transcoding are excluded; collection within the loop is included. Native DOM
+scratch capacity and AS parser scratch are reusable implementation state.
+
+A validation-family gate checks every layout and both modes. It cannot pass on
+missing layouts or a one-round smoke run. It does not certify any other family,
+including byte ingestion, typed parsing or serialization. `--smoke --pairs 1`
+is available for correctness/setup diagnostics and carries no performance gate.
+
+For a tighter development loop, `prepare --cases canada-min,citm_catalog-pretty,lottie-pretty`
+builds an explicitly partial diagnostic. `compare.py --gate-regression 3` fails
+if a candidate median is more than 3% slower than its baseline on any measured
+row. The threshold is explicit; this screen is not a native parity verdict. A
+partial matrix cannot pass `--gate-validation`. Run the full matrix after a
+candidate survives the smaller screen.
+
+For an explicitly isolated backend-source experiment,
+`compare.py --allow-w2c2-source-change` permits different pinned w2c2 commits.
+Compiler, translator binary, SIMDe, host, Wasm and input checks still apply;
+all backend provenance is saved in `backends.json`. Build requires clean,
+committed w2c2 sources. Keep experiment labels separate to preserve baseline
+executables. This flag does not relax coverage or performance gates.

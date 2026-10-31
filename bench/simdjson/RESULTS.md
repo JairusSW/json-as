@@ -133,3 +133,75 @@ then-tracked-only source patch snapshot; its unchanged source and SHA were saved
 separately after build with that timing explicitly recorded in
 `generated/additional-source.json`. New preparation now copies and checks
 additional untracked TS sources automatically.
+
+## Whole-corpus validation follow-up
+
+The first five-round sweep covers all 16 classic layouts, four changing-value
+and changing-length inputs per layout, SWAR/SIMD, V8 and both w2c2 check modes.
+It includes valid/invalid preflight cases and verifies 64 setup input checks
+per program. Baseline library sources are pinned to `69ecf95`; the scanner
+candidate is pinned to `f54c02e`. Exact source patches, inputs, compiler commands,
+artifacts and raw samples are in `comparisons/validation-matrix-qualified/`.
+
+The checked-w2c2 validation-family gate fails on 30 of 32 rows. Canada minified
+is a win, but the full objective remains far from complete. V8's scanner-candidate
+SIMD results exceed native on only one of 16 layouts; default unchecked w2c2
+exceeds native on two. Several V8 rows are slower than the pre-scanner baseline,
+so the original Canada result is not being generalized.
+
+Pretty layouts expose a larger cost. For example, Lottie pretty takes roughly
+1.35 ms in V8 vs 0.33 ms native DOM validation. A packed-space-loop experiment
+improves V8 across all 16 SIMD rows, including 23% higher throughput on CITM
+pretty and 44% on Lottie pretty, but regresses most w2c2 rows. A wrapper/scan-loop
+split retains V8 improvements without removing the w2c2 regressions. Those
+variants remain experimental snapshots in `validation-spaces-qualified/` and
+`validation-space-split-qualified/`; neither is an integration recommendation.
+
+A smaller three-case regression screen now precedes further whole-matrix runs.
+The bitmap whitespace classifier improves V8 canaries but fails a 3% regression
+screen on three w2c2 rows. Its measured source and evidence are preserved in
+`comparisons/diagnostic-bitmap-qualified/`. This is evidence for rejecting that
+variant, not grounds for relaxing the full goal or its coverage requirements.
+
+The scalar OR classifier and explicit SIMD classifier also fail the cross-backend
+canary screen. The SIMD variant improves V8 throughput by 15–27%, but slows
+checked w2c2 Canada by 16%. The library whitespace implementation is restored;
+all experimental patches remain with their frozen artifacts.
+
+## w2c2 constant lowering experiment
+
+An ARM64 GCC 16.2 code-generation check exposes a concrete backend cost:
+`simde_wasm_i8x16_const` builds the whitespace vector through byte-lane inserts.
+A static byte-array load reduces that construction to a single vector load.
+Local w2c2 commit `a1c6f7e` changes the little-endian GNU/Clang macro, retaining
+the existing big-endian and other-compiler paths. No remote push or merge.
+
+The direct header check passes under GCC/Clang in C and C++, both with native
+SIMD and `SIMDE_NO_NATIVE`, including signed-byte patterns and all 65,536 UTF-16
+classification inputs. The initial five WAST suites pass 326 assertions.
+
+Five balanced rounds over three canaries use byte-identical Wasm, inputs and
+native baseline. Checked SIMD throughput improves 5.8% Canada, 11.5% CITM pretty,
+and 2.5% Lottie pretty. Default unchecked SIMD improves 33.1% CITM and 19.0%
+Lottie; Canada is essentially unchanged. The screen reports one 3.4% SWAR
+regression, but those two SWAR executables have identical SHA-256 hashes, so
+this row measures timing variation rather than changed machine code. These are
+canary results, not a full-matrix or whole-goal pass. Evidence:
+`comparisons/diagnostic-constant-load-qualified/`.
+
+The subsequent full validation run freezes the existing scalar-whitespace parser
+Wasm (`validation-current`) and changes only the w2c2 header. All 24,396 SIMD
+WAST assertions pass before timing. Five balanced rounds and all 64-input/16-case
+preflight oracles pass; no build/test jobs overlap timing. Checked SIMD improves
+14 of 16 layouts by 7.5–80.1%, including GSoc minified 80.1%, GSoc pretty 70.1%,
+Poet pretty 42.8% and Twitter pretty 33.5%. Checked Canada minified slows 8.6%
+and Canada pretty slows 5.2%. The full 3% regression screen fails. Unchecked
+SIMD improves all 16 medians, with 14 gains above 3%. SWAR controls are identical
+executables; their small timing shifts are not attributed to the patch.
+
+The candidate exceeds native DOM on only 4 of 32 checked mode/layout rows
+(5 unchecked); overall parity remains unmet. SIMD executable size stays 169,752
+bytes in the checked full-validation build. Exact medians, hashes, oracle
+summaries and compiler provenance:
+`comparisons/validation-constant-load-qualified/`. Keep this as an unmerged
+backend candidate; investigate the checked Canada regressions before integration.

@@ -17,12 +17,16 @@ parser.add_argument('--case', default='canada-min')
 parser.add_argument('--pairs', type=int, default=5)
 parser.add_argument('--output', required=True)
 parser.add_argument('--backends', default='v8', help='v8,w2c2-checked,w2c2-default')
+parser.add_argument('--allow-w2c2-source-change', action='store_true', help='Backend experiment: permit different pinned w2c2 revisions, retaining compiler/translator/SIMDe checks')
+parser.add_argument('--smoke', action='store_true', help='One diagnostic round; no performance gate')
+parser.add_argument('--gate-validation', choices=['v8','w2c2-checked','w2c2-default'])
+parser.add_argument('--gate-regression', type=float, help='Fail if candidate median regresses beyond this percent')
 args = parser.parse_args()
 labels = args.labels.split(',')
 backends = args.backends.split(',')
 if set(backends) - {'v8', 'w2c2-checked', 'w2c2-default'} or len(set(backends)) != len(backends):
     parser.error('Invalid backend list')
-if len(set(labels)) < 2 or len(set(labels)) != len(labels) or args.pairs < 5:
+if len(set(labels)) < 2 or len(set(labels)) != len(labels) or (args.pairs < 5 and not (args.smoke and args.pairs == 1)):
     parser.error('Use at least two distinct labels and five process pairs')
 for name in [*labels, args.case, args.output]:
     if not re.fullmatch(r'[a-zA-Z0-9_-]+', name):
@@ -44,6 +48,15 @@ def backend_binary(label, engine, backend):
     return BASE / f'runs/{label}/w2c2/{args.case}-{engine}/checks-{check}'
 
 baseline = metadata[labels[0]]
+if args.gate_regression is not None and (args.smoke or not 0 <= args.gate_regression < 100):
+    parser.error('Regression gate needs five pairs and a percentage from 0 to 100')
+if args.gate_validation:
+    if args.smoke or not baseline.get('validationOnly') or args.gate_validation not in backends:
+        parser.error('Validation gate needs the full matrix, five pairs, and a measured backend')
+    manifest = json.loads((ROOT / 'bench/simdjson/workloads.json').read_text())
+    required = {f'validate/{c["name"]}-{layout}' for c in manifest['corpora'] for layout in c['layouts']}
+    if set(baseline['phases']) != required:
+        raise ValueError('Validation matrix coverage is incomplete')
 for label, meta in metadata.items():
     for field in ['ops', 'schemaSha256', 'root', 'simdjson', 'phases', 'toolchain']:
         if meta[field] != baseline[field]:
@@ -74,6 +87,8 @@ for label in labels:
             if backend_metadata:
                 reference = next(iter(backend_metadata.values()))
                 for field in ['w2c2', 'translatorSha256', 'simde', 'compiler', 'hostSha256']:
+                    if field == 'w2c2' and args.allow_w2c2_source_change:
+                        continue
                     if meta[field] != reference[field]:
                         raise ValueError(f'w2c2 backend provenance differs: {field}')
             backend_metadata[f'{label}/{backend}/{mode}'] = meta
@@ -94,7 +109,7 @@ for pair in range(args.pairs):
         print(f'Run {pair + 1}/{args.pairs}: {label}/{backend}/{engine}', flush=True)
         if engine == 'native':
             source = BASE / f'runs/{labels[0]}'
-            command = [str(binary(labels[0], 'native')), str(source / f'inputs/{args.case}'), str(baseline['ops']), str(source / f'oracles/native-{args.case}')]
+            command = [str(binary(labels[0], 'native')), str(source / ('inputs' if baseline.get('validationOnly') else f'inputs/{args.case}')), str(baseline['ops']), str(source / f'oracles/native-{args.case}')]
         elif backend != 'v8':
             command = [str(backend_binary(label, engine, backend))]
         else:
@@ -120,7 +135,18 @@ for label in labels:
                 shutil.copy2(file, oracles / file.name)
         for file in (BASE / f'runs/{labels[0]}/oracles').glob(f'native-{args.case}*.json'):
             shutil.copy2(file, oracles / file.name)
-        subprocess.run(['python3', 'bench/simdjson/check-oracles.py', str(oracles), args.case], cwd=ROOT, check=True)
+        if baseline.get('validationOnly'):
+            native = json.loads((oracles / f'native-{args.case}.json').read_text())
+            if native != baseline['expectedOracle']:
+                raise ValueError('Native preflight/input coverage differs')
+            for mode in ['swar', 'simd']:
+                actual = json.loads((oracles / f'as-{mode}-{args.case}.json').read_text())
+                if actual != native:
+                    raise ValueError(f'Validation oracle differs: {label}/{backend}/{mode}')
+            print(f'Validation oracle passed: {label}/{backend}, {native}', flush=True)
+        else:
+            subprocess.run(['python3', 'bench/simdjson/check-oracles.py', str(oracles), args.case], cwd=ROOT, check=True)
+
 
 def median(label, engine, phase, backend):
     return statistics.median(row['ns'] for row in rows if row['label'] == label and row['engine'] == engine and row['phase'] == phase and row['backend'] == backend)
@@ -138,3 +164,23 @@ for label in labels:
 print('\n'.join(lines))
 print('Diagnostic variant comparison; whole-matrix parity remains a separate gate.')
 print('w2c2-default disables Wasm runtime bounds/table checks; report separately from checked execution.')
+
+exit_status = 0
+if args.gate_validation:
+    candidate = labels[-1]
+    gaps = [(mode, phase) for mode in ['swar','simd'] for phase in baseline['phases']
+            if median(candidate,mode,phase,args.gate_validation) > median('native','native',phase,'native')]
+    print(f'Validation family gate: {len(gaps)} gaps across {len(baseline["phases"])} layouts and two modes')
+    print('All other required workload families remain separate; this is not a whole-goal pass.')
+    exit_status = 1 if gaps else 0
+
+if args.gate_regression is not None:
+    candidate = labels[-1]
+    regressions = [(backend,mode,phase) for backend in backends for mode in ['swar','simd'] for phase in baseline['phases']
+                   if median(candidate,mode,phase,backend) > median(labels[0],mode,phase,backend)*(1+args.gate_regression/100)]
+    print(f'Regression screen: {len(regressions)} rows exceed {args.gate_regression}% tolerance')
+    for row in regressions: print('REGRESSION', '/'.join(row))
+    print('This screen is not a native parity or coverage verdict.')
+    exit_status = max(exit_status, 1 if regressions else 0)
+if args.gate_validation or args.gate_regression is not None:
+    raise SystemExit(exit_status)
