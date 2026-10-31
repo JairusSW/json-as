@@ -60,3 +60,76 @@ measurements.
   native/model build and full-output smoke comparison pass.
 - The smoke parity gate returns 1 for the actual remaining gaps. Whole-matrix
   coverage remains incomplete.
+
+## w2c2 and array-shape experiments
+
+The user's fork was fast-forwarded to upstream main
+`56672df54468f7f57990addae64d873a66d6de42`, then built in an isolated clone.
+All 22 CMake tests pass. The original local checkout remains untouched. A C
+host runs the exact V8 Wasm binaries, with the same incremental runtime and
+full-output/retention oracles. The external SIMDe revision and compiler/host/
+binary hashes are recorded. Five balanced fresh-process rounds per comparison
+complete before any output-oracle processing.
+
+Frozen Canada baseline (`xjb020direct`), before either prototype, medians in ms
+from `comparisons/canada-float-backends/`:
+
+| Execution backend | Owned parse | Owned stringify | Full validation |
+| --- | ---: | ---: | ---: |
+| Native simdjson | 2.565 | 1.723 | 1.257 |
+| V8 SIMD | 6.380 | 2.336 | 1.758 |
+| w2c2 SIMD, runtime checks on | 6.897 | 2.964 | 1.954 |
+| w2c2 SIMD, default checks off | 5.764 | 2.535 | 1.194 |
+
+w2c2 is not uniformly faster than V8. Default unchecked execution is a distinct
+safety configuration, not evidence for the performance of checked execution.
+The native validation baseline is DOM parsing, including its internal tape.
+The comparison does not establish a fastest possible native lexical validator.
+
+The numeric shape diagnostic holds 8,192 original numeric tokens constant.
+Initial SIMD flat-array stringification was 119 us vs native 131 us; grouping
+those values into 4,096 pairs raised AS to 186 us vs native 133 us. Parsing also
+rose substantially. This isolates a real cost from nesting/allocation rather
+than assuming numeric conversion dominates everything.
+
+A fused matrix serializer with a header-sizing pass regressed V8 by roughly
+9% on the pair diagnostic and 13% on Canada, despite passing all correctness
+checks. It was removed. Its exact source patch, regressions, oracles and failed
+performance hypothesis remain in `runs/*-fused/` and
+`comparisons/{nested-float,canada-float}-backends/`.
+
+A four-lane digit scanner using full UTF-16 lanes passed exhaustive checks of
+all 65,536 code units in every lane at every UTF-16 word alignment: 1,048,576
+comparisons per compiled mode. Grouping integer prefixes as well as fractional
+and exponent runs regressed V8 validation, so the final prototype leaves the
+integer prefix scalar. Materializing number conversion is unchanged.
+
+Final fraction/exponent-only prototype, medians from
+`comparisons/fraction-word-backends/`, Canada validation in ms:
+
+| Backend | Previous code | Prototype | Native DOM validation |
+| --- | ---: | ---: | ---: |
+| V8 SWAR | 1.746 | 1.774 | 1.286 |
+| V8 SIMD | 1.791 | 1.744 | 1.286 |
+| w2c2 checked SWAR | 1.999 | 1.148 | 1.286 |
+| w2c2 checked SIMD | 1.969 | 1.184 | 1.286 |
+| w2c2 default SWAR | 1.174 | 1.013 | 1.286 |
+| w2c2 default SIMD | 1.209 | 0.995 | 1.286 |
+
+The prototype improves this checked w2c2 validation row beyond the native DOM
+median, while V8 is roughly unchanged. Parse/stringify differences are controls,
+not attributed gains. The full corpus validation matrix is still required
+before recommending broad integration, and typed parsing/stringification
+remain behind native. No all-workload parity claim is made.
+
+Final source verification: 117,060 integration checks and 75,123 RFC checks pass
+across all three modes; typecheck/lint and six generator tests pass. The C host
+ABI test passes in checked/default configurations, including forced memory
+growth, multilingual text, embedded NUL, paired and unpaired surrogates. The
+discarded fused-writer test remains with its ignored experiment artifacts.
+
+The earlier all-digit prototype's newly added utility was not covered by the
+then-tracked-only source patch snapshot; its unchanged source and SHA were saved
+separately after build with that timing explicitly recorded in
+`generated/additional-source.json`. New preparation now copies and checks
+additional untracked TS sources automatically.

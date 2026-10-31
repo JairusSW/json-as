@@ -89,5 +89,21 @@
     "small-records",
     "reordered-optional-nested-records"
   ],
-  "coverageRule": "All corpus layouts and required families must have equivalent-work correctness evidence and a paired result before parity can pass. Missing coverage is a failing gate."
+  "coverageRule": "All corpus layouts and required families must have equivalent-work correctness evidence and a paired result before parity can pass. Missing coverage is a failing gate.",
+  "diagnostics": [
+    {
+      "name": "numeric_flat",
+      "root": "f64[]",
+      "numericShape": "flat",
+      "payload": "assembly/__benches__/payloads/canada.min.json",
+      "layouts": ["min"]
+    },
+    {
+      "name": "numeric_pairs",
+      "root": "f64[][]",
+      "numericShape": "pairs",
+      "payload": "assembly/__benches__/payloads/canada.min.json",
+      "layouts": ["min"]
+    }
+  ]
 }

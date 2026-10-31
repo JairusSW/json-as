@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { schemaFromSource, cppType, nativeSchema } from "./generate.mjs";
+import {
+  schemaFromSource,
+  cppType,
+  nativeSchema,
+  coordinatePayloads,
+} from "./generate.mjs";
 const schema = (source) => schemaFromSource(source, "fixture.ts");
 test("retains alias, integer width, nested array and nullable ownership", () => {
   const model = schema(
@@ -42,4 +47,17 @@ test("unmapped schema behaviors fail closed", () => {
     "@json @custom class Item { n:i32; }",
   ])
     assert.throws(() => schema(source), /exact mapping|Unsupported/);
+});
+
+test("numeric diagnostics preserve decimal tokens across shape and value rotations", () => {
+  const text =
+    "[[1.00000000000000001,2e-9],[-3.2500,4.5],[6.7,8.9],[10.01,-11.02]]";
+  const pairs = coordinatePayloads(text, "pairs", 4),
+    flat = coordinatePayloads(text, "flat", 4);
+  assert.equal(pairs[0], text);
+  assert.match(flat[0], /1\.00000000000000001,2e-9,-3\.2500/);
+  assert.equal(new Set(flat).size, 4);
+  for (let i = 0; i < 4; i++)
+    assert.deepEqual(JSON.parse(flat[i]), JSON.parse(pairs[i]).flat());
+  assert.throws(() => coordinatePayloads(text, "flat", 5), /Insufficient/);
 });

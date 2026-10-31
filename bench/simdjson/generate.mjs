@@ -1,6 +1,29 @@
 import fs from "node:fs";
 import { Parser, NodeKind, CommonFlags } from "assemblyscript";
 
+// Preserve each numeric token exactly while changing only the array shape.
+// Parsing and re-stringifying the corpus here would round its decimal text.
+export function coordinatePayloads(text, shape, count) {
+  if (
+    !["flat", "pairs"].includes(shape) ||
+    !Number.isInteger(count) ||
+    count < 4
+  )
+    throw new Error("Expected flat/pairs and at least four coordinate pairs");
+  const number = "-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?";
+  const pair = new RegExp(`\\[\\s*(${number})\\s*,\\s*(${number})\\s*\\]`, "g");
+  const pairs = [...text.matchAll(pair)]
+    .slice(0, count)
+    .map((m) => [m[1], m[2]]);
+  if (pairs.length !== count) throw new Error("Insufficient coordinate pairs");
+  return Array.from({ length: 4 }, (_, i) => {
+    const rotated = [...pairs.slice(i), ...pairs.slice(0, i)];
+    return shape === "flat"
+      ? `[${rotated.flat().join(",")}]`
+      : `[${rotated.map((p) => `[${p.join(",")}]`).join(",")}]`;
+  });
+}
+
 export function schemaFromSource(text, filename) {
   const parser = new Parser();
   parser.parseFile(text, filename, true);

@@ -96,3 +96,58 @@ runs all full-output oracles after timing. It preserves raw samples and refuses
 to overwrite an existing comparison. It is diagnostic; it does not pass the
 whole-matrix gate. `build --profile` preserves Wasm function names for V8 profiling;
 keep those binaries separate from speed-qualification labels.
+
+## Numeric-array diagnostics
+
+`numeric_flat-min` and `numeric_pairs-min` use the same first 4,096 coordinate
+pairs from Canada, preserving every decimal token. Only their array shape
+changes. The four input rotations reorder the pairs, so values also change.
+These diagnostic rows supplement the classic corpus matrix; they do not replace
+it or satisfy the entire numeric-array family.
+
+```sh
+node bench/simdjson/run.mjs prepare --case numeric_pairs-min --label pairs --ops 500
+node bench/simdjson/run.mjs build --case numeric_pairs-min --label pairs
+node bench/simdjson/run.mjs run --case numeric_pairs-min --label pairs --pairs 5 --gate-row
+```
+
+Preparation saves tracked source patches and copies additional untracked TS
+sources. Build refuses source drift. Frozen binaries and inputs can subsequently
+be run independently of the current working tree.
+
+## w2c2 backend
+
+The local checkout uses upstream main `56672df54468f7f57990addae64d873a66d6de42`,
+also fast-forwarded to the user's fork with authorization. The original local
+w2c2 checkout and its uncommitted work were preserved. The translator passes its
+22 CMake tests. SIMD uses external SIMDe, pinned here to
+`65c15e6b545361f6dd89b1e3bcc76273e1344653`.
+
+To reproduce, clone those revisions into `build/simdjson-parity/w2c2` and
+`build/simdjson-parity/simde`, then build the translator:
+
+```sh
+cmake -S build/simdjson-parity/w2c2/w2c2 -B build/simdjson-parity/w2c2-host -DCMAKE_BUILD_TYPE=Release
+cmake --build build/simdjson-parity/w2c2-host --parallel 6
+ctest --test-dir build/simdjson-parity/w2c2-host --output-on-failure
+python3 bench/simdjson/w2c2-host.test.py
+python3 bench/simdjson/w2c2-build.py --label baseline --case canada-min
+python3 bench/simdjson/w2c2-build.py --label candidate --case canada-min
+python3 bench/simdjson/compare.py --labels baseline,candidate --backends v8,w2c2-checked,w2c2-default --output runtime-comparison
+```
+
+`W2C2_CC` selects the C compiler (default Homebrew GCC 16). The exact existing
+Wasm is translated, preserving the AS incremental runtime, strict parsing and
+ownership/retention behavior. No conversion to native C++ structs occurs.
+Floating contraction is disabled to preserve separate Wasm operations. The host
+only provides file I/O, UTF-16-to-UTF-8 output, a monotonic clock and logs; it
+preserves V8 oracles in separate runtime folders. Timed validation/parsing runs
+inside the translated module.
+
+`w2c2-checked` sets `W2C2_RUNTIME_CHECKS=1`. `w2c2-default` uses the project's
+default 0, which disables Wasm memory/table bounds checks. Keep its results
+separate from checked execution. JSON syntax validation is still enabled in
+both. Backend metadata captures the translator, source/dependency revisions,
+compiler commands, host and translated sources, and final binary hashes.
+The full RFC suite currently runs under Wasmtime; w2c2 runtime comparisons cover
+the named valid fixtures and complete retained-output oracles.

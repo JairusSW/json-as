@@ -3,7 +3,12 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { readSchema, nativeSchema, assemblyDriver } from "./generate.mjs";
+import {
+  readSchema,
+  nativeSchema,
+  assemblyDriver,
+  coordinatePayloads,
+} from "./generate.mjs";
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -23,8 +28,8 @@ const dir = path.join(baseDir, "runs", label);
 const key = option("--case", "canada-min");
 const ops = Number(option("--ops", "100"));
 const pairs = Number(option("--pairs", "5"));
-const corpus = manifest.corpora.find((c) =>
-  c.layouts.some((l) => `${c.name}-${l}` === key),
+const corpus = [...manifest.corpora, ...(manifest.diagnostics ?? [])].find(
+  (c) => c.layouts.some((l) => `${c.name}-${l}` === key),
 );
 if (!corpus) throw new Error(`Unknown workload ${key}`);
 const layout = key.slice(corpus.name.length + 1);
@@ -143,15 +148,21 @@ function rotateText(text, ordinal) {
 function prepare() {
   for (const folder of ["generated", "inputs", "oracles", "logs", "results"])
     fs.mkdirSync(path.join(dir, folder), { recursive: true });
-  const schema = readSchema(path.join(root, corpus.source));
+  const schema = corpus.numericShape
+    ? []
+    : readSchema(path.join(root, corpus.source));
   const sourcePath = path.join(
     root,
-    `assembly/__benches__/payloads/${corpus.name}.${layout}.json`,
+    corpus.payload ??
+      `assembly/__benches__/payloads/${corpus.name}.${layout}.json`,
   );
   const text = read(sourcePath);
+  const rotations = corpus.numericShape
+    ? coordinatePayloads(text, corpus.numericShape, 4096)
+    : null;
   const inputs = [];
   for (let i = 0; i < 4; i++) {
-    const rotated = rotateText(text, i);
+    const rotated = rotations ? rotations[i] : rotateText(text, i);
     JSON.parse(rotated);
     const filename = path.join(dir, `inputs/${key}.${i}.json`);
     fs.writeFileSync(filename, rotated);
@@ -190,6 +201,37 @@ function prepare() {
       ]),
     ),
   };
+  const sourcePatch = invoke("git", [
+    "diff",
+    "--binary",
+    "HEAD",
+    "--",
+    "assembly",
+    "lib",
+    "transform",
+  ]);
+  fs.writeFileSync(path.join(dir, `generated/${key}.patch`), sourcePatch);
+  const additionalSources = [];
+  for (const source of invoke("git", [
+    "ls-files",
+    "--others",
+    "--exclude-standard",
+    "--",
+    "assembly",
+    "lib",
+    "transform",
+  ])
+    .split("\n")
+    .filter((file) => file.endsWith(".ts"))) {
+    const snapshot = path.join(dir, "generated/untracked", source);
+    fs.mkdirSync(path.dirname(snapshot), { recursive: true });
+    fs.copyFileSync(path.join(root, source), snapshot);
+    additionalSources.push({
+      source,
+      snapshot: relative(snapshot),
+      sha256: sha(read(path.join(root, source))),
+    });
+  }
   const metadata = {
     case: key,
     label,
@@ -197,8 +239,16 @@ function prepare() {
     ops,
     simdjson: manifest.simdjson,
     revision: invoke("git", ["rev-parse", "HEAD"]).trim(),
-    schemaSource: corpus.source,
-    schemaSha256: sha(read(path.join(root, corpus.source))),
+    sourcePatchSha256: sha(sourcePatch),
+    additionalSources,
+    schemaSource: corpus.source ?? null,
+    schemaSha256: sha(
+      corpus.source
+        ? read(path.join(root, corpus.source))
+        : JSON.stringify({ root: corpus.root }),
+    ),
+    diagnostic: !!corpus.numericShape,
+    payloadSha256: sha(text),
     root: corpus.root,
     inputs,
     phases: ["parse-owned", "serialize-owned", "validate"],
@@ -222,6 +272,27 @@ function build() {
   verifyUpstream();
   const file = path.join(dir, `generated/${key}.json`);
   const metadata = JSON.parse(read(file));
+  for (const source of metadata.additionalSources ?? []) {
+    if (sha(read(path.join(root, source.source))) !== source.sha256)
+      throw new Error(
+        `Additional source changed since preparation: ${source.source}`,
+      );
+  }
+  if (
+    metadata.sourcePatchSha256 &&
+    sha(
+      invoke("git", [
+        "diff",
+        "--binary",
+        "HEAD",
+        "--",
+        "assembly",
+        "lib",
+        "transform",
+      ]),
+    ) !== metadata.sourcePatchSha256
+  )
+    throw new Error("Parser/serializer sources changed since preparation");
   const xjbPath = path.join(root, "node_modules/xjb-as/assembly");
   for (const [source, expected] of Object.entries(metadata.xjb.sha256)) {
     if (sha(read(path.join(xjbPath, source))) !== expected)
