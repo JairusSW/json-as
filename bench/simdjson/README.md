@@ -9,7 +9,7 @@ This harness is under construction. The current executable comparison covers
 fresh owned typed parsing, fresh owned stringification, and full validation.
 Reused output, fully materialized dynamic values, selective/lazy reads with full
 validation, byte ingestion, scalar/numeric/string cases and layout variations
-remain required. The initial completed corpus is Canada minified.
+remain required. Current coverage and measured gaps are recorded in RESULTS.md.
 
 ## Local setup
 
@@ -64,10 +64,14 @@ is useful for isolated formatter experiments that change only xjb-as.
 - Raw fields are not silently mapped to unvalidated On-Demand slices. Their
   equivalent-work native adapter and validation evidence are still outstanding.
 
-The native Twitter reflection writer currently encounters a recursive-type
-compile failure in simdjson 5.0.4 under GCC 16 (constexpr bound recursion and
-forced-inline recursion). That row remains unmeasured; no reduced schema or
-selective-output result has been substituted. Failed build logs are retained.
+Nullable native class pointers get explicit JSON-null handling through the
+public tag_invoke deserialization hook. Self-recursive nullable fields use a
+public with<Adapter> annotation and an outlined writer to avoid simdjson 5.0.4's
+constexpr bound/forced-inline recursion under GCC 16. Twitter retains its
+complete owned model. This adapter baseline and the original failed build are
+documented in RESULTS.md; no private size-bound specialization or selective
+output replaces the recursive field. @optional permits missing input keys but
+still emits the field, matching the AS decorator's behavior.
 
 ## Artifacts
 

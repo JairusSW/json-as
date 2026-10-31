@@ -63,7 +63,11 @@ export function schemaFromSource(text, filename) {
           member.flags & CommonFlags.Static
         )
           throw new Error(`Unsupported model member: ${node.name.text}`);
-        if (member.decorators?.some((d) => d.name.text !== "alias"))
+        if (
+          member.decorators?.some(
+            (d) => !["alias", "optional"].includes(d.name.text),
+          )
+        )
           throw new Error(
             `Unsupported field decorator: ${node.name.text}.${member.name.text}`,
           );
@@ -79,6 +83,11 @@ export function schemaFromSource(text, filename) {
               member.decorators?.find((d) => d.name.text === "alias")?.args?.[0]
                 ?.value ?? member.name.text,
             type: text.slice(member.type.range.start, member.type.range.end),
+            // @optional affects missing-key parsing only. Native classes use
+            // default_value and still serialize every field, matching AS.
+            optional: !!member.decorators?.some(
+              (d) => d.name.text === "optional",
+            ),
             initializer: member.initializer
               ? text.slice(
                   member.initializer.range.start,
@@ -144,7 +153,31 @@ export function cppType(type, classes) {
 
 export function nativeSchema(schema, root) {
   const classes = new Set(schema.map((c) => c.name));
+  const nullable = new Set(
+    [root, ...schema.flatMap((c) => c.fields.map((f) => f.type))]
+      .flatMap((type) => [
+        ...type.replaceAll(/\s/g, "").matchAll(/(\w+)\|null/g),
+      ])
+      .map((match) => match[1])
+      .filter((name) => classes.has(name)),
+  );
+  const recursive = new Set(
+    schema
+      .filter((c) =>
+        c.fields.some((f) => f.type.replaceAll(/\s/g, "") === `${c.name}|null`),
+      )
+      .map((c) => c.name),
+  );
   const declarations = schema.map((c) => `struct ${c.name};`).join("\n");
+  // The public adapter hook breaks native reflection's recursive size-bound
+  // evaluation and forced-inlining cycle. The complete owned model is retained;
+  // ordinary reflection still handles deserialization and every other field.
+  const writers = [...recursive]
+    .map(
+      (name) =>
+        `struct ${name}NullableWriter { [[gnu::noinline]] static void serialize(simdjson::builder::string_builder &b, const std::unique_ptr<${name}> &value); };`,
+    )
+    .join("\n");
   const definitions = schema
     .map(
       (c) =>
@@ -174,12 +207,38 @@ export function nativeSchema(schema, root) {
               throw new Error(
                 `Explicit initializer needs an exact native mapping: ${c.name}.${f.name}`,
               );
-            return `  ${rename}${cppType(f.type, classes)} ${name}{};`;
+            const adapter =
+              f.type.replaceAll(/\s/g, "") === `${c.name}|null`
+                ? `[[=simdjson::with<${c.name}NullableWriter>]] `
+                : "";
+            return `  ${rename}${adapter}${cppType(f.type, classes)} ${name}{};`;
           })
           .join("\n")}\n};`,
     )
     .join("\n");
-  return `#include "simdjson.h"\n#include <string>\n#include <vector>\n#include <map>\n#include <optional>\n#include <memory>\nnamespace model {\n${declarations}\n${definitions}\nusing Root=${cppType(root, classes)};\n}\n`;
+  const writerDefinitions = [...recursive]
+    .map(
+      (name) =>
+        `void ${name}NullableWriter::serialize(simdjson::builder::string_builder &b, const std::unique_ptr<${name}> &value) { if(value) simdjson::builder::append(b,*value); else b.append_null(); }`,
+    )
+    .join("\n");
+  // Native smart-pointer readers expect a non-null value. AS T|null also
+  // accepts explicit JSON null, so provide that check through the public ADL
+  // customization point without changing the owned pointer representation.
+  const nullableReaders = [...nullable]
+    .map(
+      (name) =>
+        `template<class V> simdjson::error_code tag_invoke(simdjson::deserialize_tag, V &input, std::unique_ptr<${name}> &out) {
+  bool is_null; auto error=input.is_null().get(is_null); if(error) return error;
+  if(is_null) { out.reset(); return simdjson::SUCCESS; }
+  std::unique_ptr<${name}> value(new(std::nothrow) ${name}());
+  if(!value) return simdjson::MEMALLOC;
+  error=input.get(*value); if(error) return error;
+  out=std::move(value); return simdjson::SUCCESS;
+}`,
+    )
+    .join("\n");
+  return `#include "simdjson.h"\n#include <string>\n#include <vector>\n#include <map>\n#include <optional>\n#include <memory>\n#include <new>\nnamespace model {\n${declarations}\n${writers}\n${definitions}\n${nullableReaders}\n${writerDefinitions}\nusing Root=${cppType(root, classes)};\n}\n`;
 }
 
 export function readSchema(source) {

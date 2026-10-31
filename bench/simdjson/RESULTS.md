@@ -1,10 +1,10 @@
 # Local qualification status (2026-10-31)
 
-Whole-workload parity is **not achieved**. Typed owned evidence covers Canada
-minified and CITM minified/pretty; validation evidence covers all 16 classic
-layouts. The manifest retains every outstanding corpus/layout and required
-family. Native Twitter's recursive reflection writer still fails to compile
-without changing its model.
+Whole-workload parity is **not achieved**. Typed owned evidence now covers all
+12 layouts of the six fully typed classic corpora; validation evidence covers
+all 16 classic layouts. Lottie, OTFCC and FGO still require equivalent owned raw
+adapters. Additional required families remain incomplete. Twitter now compiles
+with public simdjson customization hooks while preserving its complete model.
 
 ## Formatter experiment
 
@@ -467,3 +467,80 @@ Final artifacts are under
 The candidate modules grow by roughly 100–156 bytes in their code sections.
 Native simdjson remains faster on owned parsing, and the remaining corpora and
 families still prevent a whole-workload parity claim.
+
+## Broader owned classic coverage and Poet profile
+
+Nine new layout comparisons add GitHub-events, Twitter, Poet and GSOC in both
+layouts plus Canada pretty. Together with the existing Canada-minified and
+CITM-minified/pretty evidence, all 12 fully typed classic layouts have paired
+owned-model evidence. The four layouts containing JSON.Raw remain outstanding;
+the generator still refuses to substitute borrowed/unvalidated native slices.
+
+The benchmark generator now maps @optional's actual deserialization-only
+semantics: absent fields keep defaults, while serialization still emits the
+field. Native unique_ptr readers require non-null input, so nullable AS class
+fields get an explicit null check through the public tag_invoke deserialization
+hook. Non-null values retain the full owned class. A public with<Adapter>
+annotation and outlined writer break Twitter's recursive size-bound/inlining
+cycle without specializing private simdjson internals or reducing the schema.
+This is an adapter-based native Twitter baseline, not an unmodified automatic
+reflection writer. The original compile failure is retained in
+`build/simdjson-parity/coverage-twitter-native-build.log`.
+
+The first GitHub-events run rejects an incorrectly modeled field:
+Issue.assignee is an object or null, not a string or null. Both generated models
+now use the complete GhUser type. GSOC's manifest classification is corrected
+from raw to fully typed, matching its actual Sponsor and Author fields. New
+tests check every provided field and value type in all six fully typed corpus
+fixtures and keep raw classifications consistent with source schemas.
+
+Five alternating fresh-process rounds per layout use V8 15.2.20 TurboFan,
+incremental GC, strict parsing, no string cache, four independently allocated
+inputs with changing string values and lengths, and eight retained owned
+results. Each phase has 100 operations per process. Native is GCC 16.2 ARM64,
+simdjson 5.0.4, using the same model and policies. No compilation, testing or
+profiling overlaps timing. AS UTF-8-to-UTF-16 decoding, native padding and setup
+are excluded; this is not a byte-ingestion result. Complete owned-output and
+retention oracles pass all nine layouts (40 comparisons per layout). Every layout's combined parity gate
+still fails; wins in individual cells do not satisfy the goal.
+
+Ratios below are native latency / json-as latency; greater than one favors
+json-as. These are current baseline comparisons, not speedups from the new
+benchmark adapters or incremental parser optimizations.
+
+| Layout | Parse SWAR | Parse SIMD | Stringify SWAR | Stringify SIMD | Validate SWAR | Validate SIMD |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| github_events-min | 0.885 | 0.972 | 0.162 | 0.190 | 0.345 | 0.432 |
+| github_events-pretty | 0.794 | 0.860 | 0.160 | 0.181 | 0.301 | 0.348 |
+| twitter-min | 1.191 | 1.305 | 0.227 | 0.297 | 0.397 | 0.465 |
+| twitter-pretty | 1.022 | 1.091 | 0.224 | 0.287 | 0.327 | 0.358 |
+| poet-min | 0.584 | 1.049 | 0.159 | 0.177 | 0.358 | 1.047 |
+| poet-pretty | 0.572 | 1.019 | 0.156 | 0.175 | 0.356 | 0.937 |
+| gsoc-2018-min | 0.491 | 0.575 | 0.137 | 0.189 | 0.396 | 0.523 |
+| gsoc-2018-pretty | 0.468 | 0.543 | 0.138 | 0.191 | 0.389 | 0.479 |
+| canada-pretty | 0.405 | 0.408 | 0.574 | 0.742 | 0.560 | 0.561 |
+
+A separate Poet serialization-only profile removes timed parsing/validation and
+unused retained-object output from its generated diagnostic source, preserves
+eight owned string results, and runs 3,000 operations. Original and modified
+source hashes are recorded in `runs/coverage-prof/profile-only.json`. Profile
+timings are not qualification results. Time-ordered V8 code ranges and direct
+tick PCs yield 1,858 total samples, 1,488 Wasm self samples, and 1,394 samples
+(93.7% of Wasm self samples) in the inlined string writer. This does not resolve
+time within that inlined function or attribute native memcpy/GC time to it.
+
+A separate UTF-16 mask census changes the next hypothesis: Poet's 26,713 BMP
+strings contain no ASCII escapes. Among their 140,843 full eight-unit blocks,
+68,803 trigger the conservative byte-level surrogate test, while none require
+escaping or contain surrogates. Ordinary fullwidth text causes these false
+positives. Another 89 strings with non-BMP/surrogate units are excluded from
+that census. Testing exact or adaptive UTF-16 event classification is the next
+experiment; the census itself is not a speedup measurement.
+
+Artifacts under `build/simdjson-parity/`: `runs/coverage-owned/`,
+`coverage-owned-summary.json`, `coverage-*-paired.log`,
+`poet-serialize-v8.log`, `poet-serialize-self-profile.json`,
+`poet-self-profile.py`, and `poet-mask-census.{py,json}`.
+All 13 benchmark generator/input checks, native and AS corpus builds, complete
+output oracles, typecheck and lint pass. No production parser or formatter
+algorithm changes in this coverage commit.

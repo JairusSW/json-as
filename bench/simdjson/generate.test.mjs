@@ -1,13 +1,103 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { URL } from "node:url";
 import {
   schemaFromSource,
   cppType,
   nativeSchema,
   coordinatePayloads,
   stringPayloads,
+  readSchema,
 } from "./generate.mjs";
 const schema = (source) => schemaFromSource(source, "fixture.ts");
+function checkFixtureType(value, type, classes, location = "$") {
+  type = type.replaceAll(/\s/g, "");
+  if (type.endsWith("|null")) {
+    if (value === null) return;
+    type = type.slice(0, -5);
+  }
+  assert.notEqual(value, null, `${location}: null for ${type}`);
+  const array = /^(?:Array|StaticArray)<(.*)>$/.exec(type);
+  if (array) type = `${array[1]}[]`;
+  if (type.endsWith("[]")) {
+    assert.ok(Array.isArray(value), `${location}: expected ${type}`);
+    value.forEach((v, i) =>
+      checkFixtureType(v, type.slice(0, -2), classes, `${location}[${i}]`),
+    );
+  } else if (type.startsWith("Map<string,")) {
+    assert.equal(typeof value, "object", `${location}: expected ${type}`);
+    assert.ok(!Array.isArray(value), `${location}: expected map`);
+    for (const [key, child] of Object.entries(value))
+      checkFixtureType(
+        child,
+        type.slice(11, -1),
+        classes,
+        `${location}.${key}`,
+      );
+  } else if (type.startsWith("JSON.Box<")) {
+    checkFixtureType(value, type.slice(9, -1), classes, location);
+  } else if (classes.has(type)) {
+    assert.equal(typeof value, "object", `${location}: expected ${type}`);
+    assert.ok(!Array.isArray(value), `${location}: expected record`);
+    const fields = new Map(classes.get(type).fields.map((f) => [f.key, f]));
+    for (const [key, child] of Object.entries(value)) {
+      assert.ok(fields.has(key), `${location}: unknown ${type}.${key}`);
+      checkFixtureType(
+        child,
+        fields.get(key).type,
+        classes,
+        `${location}.${key}`,
+      );
+    }
+  } else {
+    assert.match(type, /^(string|bool|boolean|[iuf](8|16|32|64))$/);
+    const expected =
+      type === "string"
+        ? "string"
+        : ["bool", "boolean"].includes(type)
+          ? "boolean"
+          : "number";
+    assert.equal(typeof value, expected, `${location}: expected ${type}`);
+    if (/^[iu]/.test(type))
+      assert.ok(Number.isInteger(value), `${location}: expected integer`);
+  }
+}
+test("fully typed classic models cover every provided field and value type", () => {
+  const root = new URL("../../", import.meta.url);
+  const manifest = JSON.parse(
+    fs.readFileSync(new URL("bench/simdjson/workloads.json", root), "utf8"),
+  );
+  for (const corpus of manifest.corpora.filter((c) => !c.raw)) {
+    const model = readSchema(new URL(corpus.source, root));
+    const input = JSON.parse(
+      fs.readFileSync(
+        new URL(`assembly/__benches__/payloads/${corpus.name}.min.json`, root),
+        "utf8",
+      ),
+    );
+    checkFixtureType(
+      input,
+      corpus.root,
+      new Map(model.map((c) => [c.name, c])),
+      corpus.name,
+    );
+  }
+});
+test("classic raw classifications match the actual root and field types", () => {
+  const root = new URL("../../", import.meta.url);
+  const manifest = JSON.parse(
+    fs.readFileSync(new URL("bench/simdjson/workloads.json", root), "utf8"),
+  );
+  for (const corpus of manifest.corpora) {
+    const model = readSchema(new URL(corpus.source, root));
+    const raw = [
+      corpus.root,
+      ...model.flatMap((c) => c.fields.map((f) => f.type)),
+    ].some((type) => /\bJSON\.Raw\b/.test(type));
+    assert.equal(corpus.raw, raw, corpus.name);
+  }
+});
 test("retains alias, integer width, nested array and nullable ownership", () => {
   const model = schema(
     '@json class Item { @alias("item-id") id:i64; child:Item|null; coords:f64[][]; }',
@@ -21,12 +111,29 @@ test("retains alias, integer width, nested array and nullable ownership", () => 
   assert.match(cpp, /deny_unknown_fields/);
   assert.match(cpp, /default_value/);
   assert.doesNotMatch(cpp, /bound_detail|is_bounded/);
+  assert.match(cpp, /simdjson::with<ItemNullableWriter>/);
+  assert.match(cpp, /\[\[gnu::noinline\]\] static void serialize/);
+  assert.match(cpp, /simdjson::builder::append\(b,\*value\)/);
+  assert.match(cpp, /tag_invoke\(simdjson::deserialize_tag/);
+  assert.match(cpp, /input.is_null\(\).get\(is_null\)/);
+  assert.match(cpp, /if\(is_null\) \{ out.reset\(\)/);
 });
 test("nested map and boxed values keep their concrete type", () => {
   assert.equal(
     cppType("Map<string,Array<JSON.Box<u64>>>", new Set()),
     "std::map<std::string,std::vector<uint64_t>>",
   );
+});
+test("optional fields retain missing-key defaults and remain serialized", () => {
+  const model = schema(
+    '@json class Item { @optional @alias("child-name") child:string|null; n:i32; }',
+  );
+  assert.equal(model[0].fields[0].optional, true);
+  assert.equal(model[0].fields[1].optional, false);
+  const cpp = nativeSchema(model, "Item");
+  assert.match(cpp, /default_value/);
+  assert.match(cpp, /rename<"child-name">.*std::optional<std::string> child/);
+  assert.doesNotMatch(cpp, /skip_serializing/);
 });
 test("raw and dynamic values cannot silently become selective native views", () => {
   for (const type of ["JSON.Raw", "JSON.Value", "Unknown"])

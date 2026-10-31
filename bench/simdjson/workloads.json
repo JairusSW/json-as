@@ -51,7 +51,7 @@
       "source": "assembly/__benches__/classic/gsoc-2018.bench.ts",
       "root": "Map<string, Org>",
       "layouts": ["min", "pretty"],
-      "raw": true
+      "raw": false
     },
     {
       "name": "lottie",
