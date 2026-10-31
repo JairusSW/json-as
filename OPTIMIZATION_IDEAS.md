@@ -618,3 +618,44 @@ through `parseDecimalF64(start, end)`. That helper eventually calls `scientific`
 with the same coefficient for inputs with at most 19 digits. Investigate passing
 the existing state directly, preserving signed zero and the exact long-number
 interval/midpoint fallback. This conversion reuse is not implemented yet.
+
+### Fresh-array allocation profile, 2026-10-31
+
+A parse-only Canada profile changes the numeric priority: its f64 arrays already
+use the specialized array reader, including paired conversion. Improving the
+generic scalar-number fallback will not remove Canada's main cost. Of 5,020
+Wasm self samples, 3,311 are in runtime allocation/GC routines. Self samples
+do not establish end-to-end cost fractions for every backend.
+
+Canada has 55,563 numeric arrays, all pairs. The standard Array constructor
+reserves eight elements; a normal two-element array literal reserves two.
+For f64 this removes 2,667,024 bytes of backing capacity per parsed graph.
+Keep standard arrays and runtime growth, and test empty/single/long arrays,
+signed zero, retained results, and GC. This is a capacity change, not pooling
+or output reuse.
+
+A separate candidate removes the generic array reader's managed CursorSlot:
+publish a zero element before child allocation, then decode directly into its
+backing-buffer slot with the Array as write-barrier owner. GC during child
+initializers and growth needs explicit coverage. Measure this independently
+from pair capacity before attributing either improvement.
+
+The first short-run w2c2 pair diagnostic appeared 2.25× slower. Isolated capacity
+and initializer variants reproduce it, but extended profiles do not. Sampling
+the actual frozen short-run program, then tracing growth against timer calls,
+finds a harness defect: raw pre-growth to 1 GiB leaves those pages outside TLSF.
+The allocator grows to 2 GiB during baseline warmup but inside the candidate's
+timed loop. `6b2a98d` reserves and frees unmanaged blocks through the allocator
+instead. Red-to-green tests cover incremental/minimal/stub, and corrected native
+traces show no timed growth. Requalify both variants under this fixed setup;
+changing the operation count to move growth outside timing is not a fix.
+
+An explicit `__newArray` initializer omitting the static zero-literal copy did
+not remove the apparent regression and is not retained. Keep the ordinary
+two-element literal in the capacity experiment.
+
+Another discard-traversal experiment worth trying is to hold the current
+container's grammar state in a local, saving/restoring only parent states at
+container push/pop. The current loop loads a stack byte after every value.
+This is a hypothesis; preserve all empty-container, separator and depth rules
+and measure the full validation matrix before retaining it.

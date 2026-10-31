@@ -957,3 +957,141 @@ experiment, `runs/utf16-packF001/` for final qualification,
 `comparisons/pack32-final-*/`, `pack32-final-gates.json`, and
 `pack32-final-*-paired.log`. GSOC's directories contain all three frozen
 revisions and their complete output evidence.
+
+## Fresh array capacity and direct element destinations
+
+The initial measurements below predate allocator-reservation fix `6b2a98d`.
+They are preserved as experimental evidence, not current native-budget gates.
+The corrected comparisons use the `pool-{base,slot}-0001` labels.
+
+A Canada parse-only profile preserves the four changing inputs, preloaded
+owned objects and eight retained parse outputs, while removing timed stringify
+and validation phases. V8's time-ordered direct-PC profile has 5,020 Wasm self
+samples, including 3,311 in allocation/GC runtime routines. This is diagnostic
+self-sample attribution, not a backend-independent timing breakdown. The
+specialized float-array reader already performs paired conversion, so generic
+scalar-number conversion reuse is not the main opportunity for this corpus.
+
+Two independent changes are measured. Fresh SWAR/SIMD float arrays start with
+a normal two-element literal, instead of the constructor's minimum capacity of
+eight. Empty/single/long arrays still use normal lengths and runtime growth.
+Canada has 55,563 numeric pairs: f64 backing capacity falls from 64 to 16 bytes
+per pair, saving 2,667,024 payload bytes per parsed graph. A compiled runtime
+probe confirms constructor/literal/parsed backing capacities of 64/16/16 bytes.
+
+The generic array reader also publishes a zero slot before decoding each child
+directly into its final buffer position. The Array remains the managed owner for
+write barriers, matching standard Array element stores. This removes the
+intermediate managed CursorSlot and the second meaningful reference store/link.
+It does not borrow input, pool output, or change grammar and output types.
+
+Six balanced rounds compare `num-base-0001`, capacity-only `num-pair-0001`, and
+combined `num-slot-0001`. Native binaries and rotating inputs match; all forty
+complete owned-output/retention comparisons per label/backend pass. SIMD Canada
+minified fresh-parse medians, milliseconds:
+
+| Backend | Baseline | Capacity only | Direct destinations too | Combined throughput gain |
+| --- | ---: | ---: | ---: | ---: |
+| V8 | 6.287 | 5.278 | 5.228 | 1.202× |
+| Checked w2c2 | 6.679 | 6.410 | 6.212 | 1.075× |
+| Default unchecked w2c2 | 5.597 | 4.910 | 4.712 | 1.188× |
+
+The independent direct-destination increment is 1.009×/1.032×/1.042×. Serialize
+and validation controls are recorded in the comparison, not attributed to a
+new serializer or validator algorithm. Native owned parsing is about 2.6 ms;
+Canada parsing remains outside the 1.2× native budget. These initial results
+alone are insufficient; corrected comparisons follow below.
+
+Targeted tests cover f32/f64 lengths zero through eighteen, growth, signed zero,
+round trips, separate output identities, nullable references, nested arrays and
+Raw values. Child initializers force GC while reference arrays grow and assert
+that the cursor path is actually selected. All 2,025 targeted checks, 77,646
+strict/RFC checks and 119,283 normal checks pass across all modes; typecheck and
+lint pass.
+
+Artifacts under `build/simdjson-parity/`: `num-parse-profile/`,
+`canada-float-array-census.json`, `comparisons/direct-destination-canada-min/`,
+`fresh-array-broad-build.log`, and the frozen `arr-{base,slot}-0001` runs.
+
+### Allocator reservation defect and regression isolation
+
+The initial broader screen covers Canada pretty, CITM/Twitter/Poet minified,
+and flat/nested numeric diagnostics, with six balanced rounds in V8 and default
+w2c2. All complete output oracles pass. Classic SIMD parse ratios include
+1.162×/1.319× Canada pretty, 1.117×/1.131× CITM, 1.048×/1.001× Twitter and
+1.036×/1.000× Poet (V8/default w2c2). However, default-w2c2 nested-pair parsing
+slows from 403 to 909 us while V8 improves. These runs do not justify retaining
+the change without diagnosis.
+
+Capacity-only builds reproduce the same short-run slowdown, excluding direct
+destinations as its cause. Omitting the static zero-data copy with `__newArray`
+does not fix it; that initializer is discarded. Parse-only and full-harness
+10,000-operation profiles fail to reproduce the slowdown, even with ordinary
+non-debug code generation. Those diagnostic measurements are not substituted
+for the original comparison.
+
+Sampling the exact frozen short-run binary finds most additional active samples
+in `__bzero`, called by allocator growth. A diagnostic host pauses immediately
+before the first clock call to let the sampler attach. Separately, a copied
+w2c2 header traces growth and host clock-call counts; tracked runtime sources
+remain unchanged. The decisive short-run trace is:
+
+| Variant | Growth | Timer state |
+| --- | --- | --- |
+| Original arrays | 1 GiB → 2 GiB | Before the first clock call |
+| Smaller arrays | 1 GiB → 2 GiB | After parse starts, before its end clock call |
+
+The harness's direct `memory.grow` pre-growth did not register the extra pages
+with TLSF. Its next allocation-driven growth could therefore zero another
+gigabyte inside only one variant's timed loop. Larger warmup counts moved this
+growth outside timing, explaining why extended profiles were misleading.
+
+Commit `6b2a98d` reserves memory through the heap allocator in bounded unmanaged
+blocks, then frees them in reverse order before measurement. All three runtimes
+can reuse that capacity. A regression fixture failed on incremental/minimal
+with an unexpected 16-to-32 MiB growth, then passed after the fix; disabled and
+idempotent reservation and stub allocation are covered too. All twenty combined
+generator/input/preallocation tests, typecheck, lint and formatting pass.
+Corrected w2c2 traces show no timed growth in either variant. Actual linear
+memory can exceed the reservation request; requested reservation must fit.
+
+Evidence under `build/simdjson-parity/`: `comparisons/fresh-array-*/`,
+`fresh-array-broad-summary.json`, `fresh-pair{,-full,-normal}-profile/`,
+`frozen-pair-profile/`, `frozen-growth-trace/`, `fixed-growth-trace/`,
+`preallocation-{red,green}.log`, and `fixed-pool-qualification.log`.
+
+### Corrected fresh-array comparison
+
+Both baseline and candidate now use allocator-backed reservation from
+`6b2a98d`. `pool-base-0001` retains the preceding parser; `pool-slot-0001`
+combines the ordinary two-element literal and direct generic array destinations.
+Frozen native binaries and all four changing input hashes match. Six balanced
+rounds run V8 and unchecked w2c2 separately, without concurrent builds/tests or
+oracle processing. Every label/backend passes all forty complete owned-output
+and retained-result comparisons. SIMD parse throughput, candidate/baseline:
+
+| Workload | V8 | Default unchecked w2c2 |
+| --- | ---: | ---: |
+| Canada minified | 1.212× | 1.345× |
+| CITM minified | 1.068× | 1.160× |
+| Nested numeric pairs (diagnostic) | 1.140× | 1.161× |
+
+Canada parse medians are 6.457 → 5.325 ms in V8 and 5.710 → 4.246 ms in
+unchecked w2c2. CITM is 1.590 → 1.489 ms and 1.359 → 1.172 ms respectively.
+This qualification retains the array changes, rather than using a longer
+warmup to hide the original timing discrepancy. Unchecked execution remains a
+separate runtime configuration; checked-w2c2 and the remaining layouts need
+fresh qualification before a complete current matrix can be claimed.
+
+The parser changes do not alter serialization or validation algorithms. Their
+control rows remain recorded in `comparisons/fixed-pool-*/results.tsv` and must
+not be presented as separate formatter/validator optimizations. The full
+48-row SIMD native target is still incomplete. Current Canada and CITM owned
+parsing exceed the 1.2× native latency budget, and CITM serialization remains
+a particularly large measured gap.
+
+The final parser source matches the version with 119,283 normal, 77,646
+strict/RFC and 2,025 targeted checks passing across all three modes. The heap
+reservation fix is additionally covered by the twenty passing harness tests.
+Artifacts: `comparisons/fixed-pool-{numeric_pairs-min,canada-min,citm_catalog-min}/`
+and `fixed-growth-trace/`, under `build/simdjson-parity/`.

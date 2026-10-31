@@ -1,6 +1,7 @@
 import { JSON, JSONMode } from "..";
 import { getParseSrc } from "./naive/object";
 import { deserializeFloatArrayBody } from "./swar/array/float";
+import { ensureArrayElementSlot } from "./swar/array/shared";
 import {
   MAX_CURSOR_DEPTH,
   readCursorString,
@@ -205,7 +206,10 @@ export function readCursorValue<T>(
     if (type instanceof Array) {
       if (depth >= MAX_CURSOR_DEPTH || load<u16>(start) != 91) return 0;
       if (JSON_MODE != JSONMode.NAIVE && isFloat<valueof<T>>()) {
-        const out = new Array<valueof<T>>();
+        // Array literals reserve their actual size; the constructor reserves
+        // eight elements. Expose two ordinary slots for the pair reader and
+        // let the existing runtime growth path handle longer arrays.
+        const out: Array<valueof<T>> = [<valueof<T>>0, <valueof<T>>0];
         const next = deserializeFloatArrayBody<nonnull<T>>(
           start,
           end,
@@ -228,17 +232,21 @@ export function readCursorValue<T>(
         return ptr + 2;
       }
       const out = new Array<valueof<T>>();
-      const slot = new CursorSlot<valueof<T>>();
+      const owner = changetype<usize>(out);
+      let index = 0;
       while (ptr < end) {
+        // Publish a zero slot before child allocations can collect. The array
+        // owns references stored in its backing buffer, as in Array.__set.
+        const element = ensureArrayElementSlot(out, index);
         ptr = readCursorValue<valueof<T>>(
           ptr,
           end,
-          changetype<usize>(slot),
-          offsetof<CursorSlot<valueof<T>>>("value"),
+          owner,
+          element - owner,
           depth + 1,
         );
         if (!ptr) return 0;
-        out.push(slot.value);
+        index++;
         ptr = skipCursorWhitespace(ptr, end);
         if (ptr >= end) return 0;
         const code = load<u16>(ptr);
