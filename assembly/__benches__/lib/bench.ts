@@ -224,16 +224,34 @@ const PREALLOC_BYTES: usize = isDefined(BENCH_PREALLOC_BYTES)
 let preallocated = false;
 
 // @ts-expect-error: @inline is a valid decorator
-@inline function preallocateMemory(): void {
+@inline export function preallocateMemory(): void {
   if (preallocated) return;
   preallocated = true;
   if (PREALLOC_BYTES == 0) return;
   const currentPages = usize(memory.size());
   const targetPages: usize =
     (PREALLOC_BYTES + (WASM_PAGE_SIZE - 1)) / WASM_PAGE_SIZE;
-  if (targetPages > currentPages) {
-    // Ignore failure (memory.grow returns -1 on failure)
-    memory.grow(i32(targetPages - currentPages));
+  if (targetPages <= currentPages) return;
+
+  // Growing memory directly does not register the new pages with TLSF. Its
+  // next growth can then double that memory inside the timed loop. Reserve
+  // through the allocator instead, and release the blocks before measurement.
+  // Keep each request below runtime allocation limits and use an unmanaged
+  // chain so setup does not construct or retain a managed graph.
+  let remaining = PREALLOC_BYTES;
+  let head: usize = 0;
+  while (remaining) {
+    const chunk = min<usize>(remaining, 8 * 1024 * 1024);
+    const block = heap.alloc(max<usize>(chunk, sizeof<usize>()));
+    store<usize>(block, head);
+    head = block;
+    remaining -= chunk;
+  }
+  // Reverse allocation order also permits the stub allocator to rewind.
+  while (head) {
+    const previous = load<usize>(head);
+    heap.free(head);
+    head = previous;
   }
 }
 

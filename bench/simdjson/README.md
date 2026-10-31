@@ -33,6 +33,17 @@ The parity verdict currently uses median latency. Five alternating process pairs
 are required for reported comparisons; the one-pair smoke check is diagnostic.
 Do not run tests or compilers while collecting timings.
 
+The benchmark reserves memory through the runtime heap allocator, then frees
+those temporary blocks before warmup and measurement. The default request is
+1 GiB; actual linear memory may be larger. `BENCH_PREALLOC_BYTES=0` disables
+reservation. A requested reservation must fit the runtime's available memory.
+Direct `memory.grow` was previously used, leaving its new pages outside TLSF's
+free pool. The allocator could grow again inside one variant's timed loop but
+during another variant's warmup, distorting comparisons. Historical measurements
+need requalification when this timing difference matters. The regression test
+is `node --test bench/simdjson/preallocation.test.mjs` and covers incremental,
+minimal and stub runtimes, disabled reservation, and repeated calls.
+
 Cross-variant `compare.py` runs reverse the complete process order in adjacent
 rounds, then rotate the base order between those pairs. Prefer six or twelve
 rounds when comparing two variants on all three backends: this balances which
