@@ -227,6 +227,9 @@ function prepare() {
     diagnostic: !!(corpus.numericShape || corpus.stringShape),
     payloadSha256: sha(text),
     root: corpus.root,
+    nativeRawValidation: corpus.raw
+      ? "Full DOM validation before owned raw-text capture (included in parse timing)"
+      : null,
     inputs,
     phases: ["parse-owned", "serialize-owned", "validate"],
     remainingRequiredFamilies: manifest.requiredFamilies.filter(

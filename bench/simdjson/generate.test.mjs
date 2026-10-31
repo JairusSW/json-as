@@ -135,8 +135,25 @@ test("optional fields retain missing-key defaults and remain serialized", () => 
   assert.match(cpp, /rename<"child-name">.*std::optional<std::string> child/);
   assert.doesNotMatch(cpp, /skip_serializing/);
 });
-test("raw and dynamic values cannot silently become selective native views", () => {
-  for (const type of ["JSON.Raw", "JSON.Value", "Unknown"])
+test("raw values use owned text and require full native validation", () => {
+  const cpp = nativeSchema(
+    schema("@json class Item { raw:JSON.Raw|null; other:JSON.Raw[]; }"),
+    "Item",
+  );
+  assert.match(cpp, /requires_raw_validation=true/);
+  assert.match(cpp, /std::string data/);
+  assert.match(cpp, /out.data.assign\(raw.data\(\),raw.size\(\)\)/);
+  assert.match(cpp, /std::optional<OwnedRaw> raw/);
+  assert.match(cpp, /std::vector<OwnedRaw> other/);
+  assert.match(cpp, /simdjson::serialize_tag/);
+  assert.match(
+    nativeSchema([], "Map<string, JSON.Raw>"),
+    /using Root=std::map<std::string,OwnedRaw>/,
+  );
+  assert.match(nativeSchema([], "string"), /requires_raw_validation=false/);
+});
+test("dynamic and unknown types cannot silently become selective native views", () => {
+  for (const type of ["JSON.Value", "Unknown"])
     assert.throws(() => cppType(type, new Set()), /Unsupported type/);
 });
 test("user initialization cannot silently become native zero initialization", () => {

@@ -61,8 +61,21 @@ is useful for isolated formatter experiments that change only xjb-as.
   The Python oracle preserves integers above 2^53 and compares decoded strings,
   arrays and object fields. It rejects non-JSON numeric constants. This oracle
   compares JSON values; dedicated numeric tests cover target bits/rounding.
-- Raw fields are not silently mapped to unvalidated On-Demand slices. Their
-  equivalent-work native adapter and validation evidence are still outstanding.
+- Raw fields use owned `std::string` lexemes. Their native parse includes a full
+  DOM validation pass before On-Demand boundary discovery and copying. The DOM
+  parser retains its storage across calls. This is a conservative adapter
+  baseline, not a claim about the fastest possible native raw parser.
+  Nullable raw fields and raw arrays/maps use public serialization adapters.
+  Lottie minified/pretty output and retention checks pass; the large OTFCC/FGO
+  owned comparisons remain outstanding.
+
+The raw benchmark adapter inherits DOM's number representability and Unicode
+restrictions: oversized integers, overflowing exponents and isolated escaped
+surrogates are rejected. AS `JSON.Raw` can retain a broader set of syntactically
+valid lexemes. These corpus comparisons establish equivalent owned output for
+the tested inputs; they do not establish identical acceptance on arbitrary JSON.
+Run `node --test bench/simdjson/native-raw.test.mjs` after bootstrap for native
+ownership, exact-text, malformed-subtree and adapter-limit checks.
 
 Nullable native class pointers get explicit JSON-null handling through the
 public tag_invoke deserialization hook. Self-recursive nullable fields use a

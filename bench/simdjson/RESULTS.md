@@ -1,9 +1,10 @@
 # Local qualification status (2026-10-31)
 
 Whole-workload parity is **not achieved**. Typed owned evidence now covers all
-12 layouts of the six fully typed classic corpora; validation evidence covers
-all 16 classic layouts. Lottie, OTFCC and FGO still require equivalent owned raw
-adapters. Additional required families remain incomplete. Twitter now compiles
+12 layouts of the six fully typed classic corpora plus both Lottie layouts;
+validation evidence covers all 16 classic layouts. Native owned raw adapters
+now work for Lottie; large OTFCC/FGO owned runs remain outstanding. Additional
+required families remain incomplete. Twitter now compiles
 with public simdjson customization hooks while preserving its complete model.
 
 ## Formatter experiment
@@ -727,6 +728,63 @@ include 1,114,112 exhaustive UTF-16 lane cases per mode, critical-value checks
 in all sixteen packed positions, and surrogate/tail boundaries through forty
 units. No production parser changes or API changes accompany the scanner.
 Native parity across all workloads remains unachieved.
+
+## Owned raw corpus coverage
+
+The native generator now maps `JSON.Raw` to owned `std::string` lexemes,
+including nullable fields, arrays and root maps. A full simdjson DOM validation
+pass runs before raw capture on every root parse, inside parse timing; its
+storage is reused. On-Demand `raw_json()` alone does not establish full validity.
+Generated models without raw fields omit the prepass at compile time.
+
+Serialization uses public `with<Adapter>` annotations and a public root
+serialization hook. The pinned native builder cannot serialize a custom raw
+type nested inside reflection/containers through its top-level hook alone;
+the saved first failed build documents that limitation. No private builder
+internals or borrowed output replace owned results. The transient root view
+only directs serialization; the result is an independently owned string.
+
+This conservative benchmark adapter is not an arbitrary-input acceptance
+equivalence claim. DOM rejects oversized integers, overflowing exponents and
+isolated escaped surrogates that AS raw syntax can retain. Those restrictions
+are tested explicitly. Exact lexemes (including internal whitespace, exponent
+spelling and escapes) survive overwritten/freed input and parser reuse. Tests
+also cover nullable values, root maps with escaped keys, scalar/container root
+ranges, and eleven malformed skipped subtrees rejected before output mutation.
+
+Five alternating fresh-process native/V8 rounds, label `raw-owned-001`, use the
+existing combined-phase driver: four independently allocated changing inputs,
+eight retained objects and eight retained strings, strict parsing, incremental
+GC, 100 operations per phase. No builds/tests/profiling/oracle processing overlap
+timing. Both layouts pass 40 complete owned-output comparisons each.
+V8 15.2.20 TurboFan vs GCC 16.2 native ARM64 simdjson 5.0.4, medians in us:
+
+| Layout / phase | Native | SWAR | SIMD |
+| --- | ---: | ---: | ---: |
+| Lottie min / parse | 478.60 | 526.22 | 566.27 |
+| Lottie min / stringify | 22.71 | 51.84 | 52.44 |
+| Lottie min / validate | 235.88 | 450.25 | 491.37 |
+| Lottie pretty / parse | 659.02 | 1407.19 | 1473.82 |
+| Lottie pretty / stringify | 68.74 | 182.11 | 170.11 |
+| Lottie pretty / validate | 322.85 | 1261.40 | 1285.59 |
+
+Every row remains a parity gap. No json-as production algorithm changed in this
+step, and no improvement is claimed against older runs. Artifacts are under
+`build/simdjson-parity/runs/raw-owned-001/`; native adapter test source, logs and
+binary are under `raw-adapter-tests/`. The benchmark metadata explicitly records
+the native raw prevalidation policy.
+
+Verification: all 15 harness checks, including compiled native raw and non-raw
+controls, pass; formatting, lint and diff checks pass. The non-raw control proves
+the DOM validator remains unallocated. This change only affects qualification
+infrastructure; production AS sources and kernels are unchanged.
+
+OTFCC (~63 MB) and FGO (~47 MB) need a memory feasibility check before applying
+this driver's simultaneous source/retained-object/retained-string graph. Eight
+owned results per API must remain retained; reducing that count would change
+the workload. Separate phase processes are a possible follow-up and would need
+consistent native/AS treatment and their own baseline. Neither huge layout is
+credited as owned coverage yet, and remaining required families remain open.
 
 Artifacts under `build/simdjson-parity/`: `runs/utf16-pack-001/` for the initial
 experiment, `runs/utf16-packF001/` for final qualification,

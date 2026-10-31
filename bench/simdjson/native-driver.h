@@ -14,7 +14,11 @@ inline void require_success(simdjson::error_code error) {
 }
 
 template<class T>
-void parse_owned(simdjson::ondemand::parser &parser, const simdjson::padded_string &input, T &out) {
+void parse_owned(simdjson::ondemand::parser &parser, simdjson::dom::parser &validator, const simdjson::padded_string &input, T &out) {
+  if constexpr (model::requires_raw_validation) {
+    simdjson::dom::element document;
+    require_success(validator.parse(input).get(document));
+  }
   simdjson::ondemand::document doc;
   require_success(parser.iterate(input).get(doc));
   require_success(doc.get(out));
@@ -41,11 +45,12 @@ int main(int argc,char **argv) {
     std::array<model::Root,8> retained{};
     std::array<std::string,8> retained_strings{};
     simdjson::ondemand::parser parser;
+    simdjson::dom::parser raw_validator;
     for(size_t i=0;i<4;i++) {
       require_success(simdjson::padded_string::load(prefix+"."+std::to_string(i)+".json").get(inputs[i]));
-      parse_owned(parser,inputs[i],objects[i]);
+      parse_owned(parser,raw_validator,inputs[i],objects[i]);
       std::string serialized;
-      require_success(simdjson::builder::to_json(objects[i],serialized));
+      require_success(model::to_owned_json(objects[i],serialized));
       std::ofstream out(output+"."+std::to_string(i)+".json",std::ios::binary);out<<serialized;
       if(!out)throw std::runtime_error("Cannot write owned-output oracle");
     }
@@ -53,12 +58,12 @@ int main(int argc,char **argv) {
     size_t index=0,slot=0;
     measure("parse-owned",iterations,[&]{
       model::Root value{};
-      parse_owned(parser,inputs[index],value);index=(index+1)&3;
+      parse_owned(parser,raw_validator,inputs[index],value);index=(index+1)&3;
       retained[slot]=std::move(value);blackbox(retained[slot]);slot=(slot+1)&7;
     });
     measure("serialize-owned",iterations,[&]{
       std::string value;
-      require_success(simdjson::builder::to_json(objects[index],value));index=(index+1)&3;
+      require_success(model::to_owned_json(objects[index],value));index=(index+1)&3;
       retained_strings[slot]=std::move(value);blackbox(retained_strings[slot]);slot=(slot+1)&7;
     });
     simdjson::dom::parser validator;
@@ -69,7 +74,7 @@ int main(int argc,char **argv) {
     });
     for(size_t i=0;i<8;i++) {
       std::string serialized;
-      require_success(simdjson::builder::to_json(retained[i],serialized));
+      require_success(model::to_owned_json(retained[i],serialized));
       std::ofstream(output+".retained-object."+std::to_string(i)+".json",std::ios::binary)<<serialized;
       std::ofstream(output+".retained-string."+std::to_string(i)+".json",std::ios::binary)<<retained_strings[i];
     }

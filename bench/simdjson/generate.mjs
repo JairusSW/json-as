@@ -142,6 +142,7 @@ export function cppType(type, classes) {
     throw new Error(`Unsupported generic ${type}`);
   }
   const primitive = {
+    "JSON.Raw": "OwnedRaw",
     string: "std::string",
     boolean: "bool",
     bool: "bool",
@@ -163,6 +164,40 @@ export function cppType(type, classes) {
 
 export function nativeSchema(schema, root) {
   const classes = new Set(schema.map((c) => c.name));
+  const requiresRawValidation = [
+    root,
+    ...schema.flatMap((c) => c.fields.map((f) => f.type)),
+  ].some((type) => /\bJSON\.Raw\b/.test(type));
+  // raw_json() only discovers boundaries. parse_owned must validate the full
+  // document first; the public adapter then copies each lexeme into owned text.
+  const rawAdapter = requiresRawValidation
+    ? `struct OwnedRaw { std::string data="null"; };
+template<class V> simdjson::error_code tag_invoke(simdjson::deserialize_tag, V &input, OwnedRaw &out) {
+  std::string_view raw; auto error=input.raw_json().get(raw); if(error) return error;
+  // Scalar tokens and root ranges can include following JSON whitespace.
+  while(!raw.empty() && (raw.back()==' ' || raw.back()=='\\t' || raw.back()=='\\r' || raw.back()=='\\n')) raw.remove_suffix(1);
+  out.data.assign(raw.data(),raw.size()); return simdjson::SUCCESS;
+}
+inline void tag_invoke(simdjson::serialize_tag, simdjson::builder::string_builder &b, const OwnedRaw &value) { b.append_raw(std::string_view(value.data)); }
+// The pinned builder does not route nested custom types through serialize_tag.
+// Use its public field adapter and recursively handle owned raw containers.
+struct RawWriter {
+  template<class T> static void serialize(simdjson::builder::string_builder &b, const T &value) { simdjson::builder::append(b,value); }
+  static void serialize(simdjson::builder::string_builder &b, const OwnedRaw &value) { b.append_raw(std::string_view(value.data)); }
+  template<class T> static void serialize(simdjson::builder::string_builder &b, const std::optional<T> &value) { if(value) serialize(b,*value); else b.append_null(); }
+  template<class T> static void serialize(simdjson::builder::string_builder &b, const std::vector<T> &values) {
+    b.append_raw("["); bool first=true;
+    for(const auto &value:values) { if(!first) b.append_raw(","); first=false; serialize(b,value); } b.append_raw("]");
+  }
+  template<class K,class V> static void serialize(simdjson::builder::string_builder &b, const std::map<K,V> &values) {
+    b.append_raw("{"); bool first=true;
+    for(const auto &[key,value]:values) { if(!first) b.append_raw(","); first=false; b.append(key); b.append_raw(":"); serialize(b,value); } b.append_raw("}");
+  }
+};
+template<class T> struct RawRootView { const T &value; };
+template<class T> void tag_invoke(simdjson::serialize_tag, simdjson::builder::string_builder &b, const RawRootView<T> &view) { RawWriter::serialize(b,view.value); }
+`
+    : "";
   const nullable = new Set(
     [root, ...schema.flatMap((c) => c.fields.map((f) => f.type))]
       .flatMap((type) => [
@@ -217,8 +252,9 @@ export function nativeSchema(schema, root) {
               throw new Error(
                 `Explicit initializer needs an exact native mapping: ${c.name}.${f.name}`,
               );
-            const adapter =
-              f.type.replaceAll(/\s/g, "") === `${c.name}|null`
+            const adapter = /\bJSON\.Raw\b/.test(f.type)
+              ? "[[=simdjson::with<RawWriter>]] "
+              : f.type.replaceAll(/\s/g, "") === `${c.name}|null`
                 ? `[[=simdjson::with<${c.name}NullableWriter>]] `
                 : "";
             return `  ${rename}${adapter}${cppType(f.type, classes)} ${name}{};`;
@@ -248,7 +284,10 @@ export function nativeSchema(schema, root) {
 }`,
     )
     .join("\n");
-  return `#include "simdjson.h"\n#include <string>\n#include <vector>\n#include <map>\n#include <optional>\n#include <memory>\n#include <new>\nnamespace model {\n${declarations}\n${writers}\n${definitions}\n${nullableReaders}\n${writerDefinitions}\nusing Root=${cppType(root, classes)};\n}\n`;
+  const writeRoot = requiresRawValidation
+    ? "simdjson::builder::to_json(RawRootView<Root>{value},out)"
+    : "simdjson::builder::to_json(value,out)";
+  return `#include "simdjson.h"\n#include <string>\n#include <vector>\n#include <map>\n#include <optional>\n#include <memory>\n#include <new>\nnamespace model {\ninline constexpr bool requires_raw_validation=${requiresRawValidation};\n${rawAdapter}${declarations}\n${writers}\n${definitions}\n${nullableReaders}\n${writerDefinitions}\nusing Root=${cppType(root, classes)};\ninline simdjson::error_code to_owned_json(const Root &value,std::string &out) { return ${writeRoot}; }\n}\n`;
 }
 
 export function readSchema(source) {
