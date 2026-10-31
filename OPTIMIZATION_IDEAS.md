@@ -708,3 +708,33 @@ Lottie pretty is 0.932× baseline. No additional validation layout enters the
 native budget on any backend. The small mixed result does not justify keeping
 this change or enabling it only for favorable layouts. Artifacts remain in
 `build/simdjson-parity/comparisons/local-state-full-validation/`.
+
+### Shared array serializer experiments, 2026-10-31
+
+Three shared dispatch variants are rejected after correctness and balanced
+owned-output comparisons. The first moves the empty-array return before type
+dispatch, reads length in the entry and passes it to seven private kernels.
+The second also inlines that entry while outlining its generic loop. The third
+keeps the generic loop inside the inlined entry. All apply to Array<T> generally;
+there are no corpus, field-signature or numeric-width selectors.
+
+The outlined version removes one primitive-array GC frame, proven with named
+Wasm whose code section matches frozen timing binaries. Nested generic arrays
+gain one four-byte root slot, however. V8 Canada stringification regresses to
+0.902× baseline throughput, with a six-round confirmation at 0.923×. Its
+default-w2c2 CITM gain varies from 1.209× to 1.086× in separate six-round runs.
+Keeping the generic loop in the entry still gives only 0.921× V8 Canada
+throughput, so outlining does not sufficiently explain the regression.
+Original length-load placement and helper argument order remain unisolated.
+
+Keep the original runtime. The next minimal experiment should change only
+inlining, preserving original helper signatures, empty handling and length
+loads. Also consider compiler inlining of generated serializers after inspecting
+virtual dispatch and GC frames; preserve polymorphism and callback behavior.
+Detailed tables, all negative results and artifact paths are in RESULTS.md.
+
+Comparison preparation must match the baseline's --vary-length setting. A
+preflight catches mismatched input hashes before control timing; those controls
+are rebuilt with changing values and lengths before accepted comparisons.
+Use a fresh exact-current baseline when an older frozen candidate has additional
+reference-dispatch differences. Do not relax the comparison checks.

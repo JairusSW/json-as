@@ -1239,3 +1239,91 @@ Artifacts under `build/simdjson-parity/`:
 `integer-word-{full-tests,rfc-tests,check}.log`,
 `local-state-{full-tests,rfc-tests,check,format}.log`, and
 `validator-controls-final-{normal,rfc}.log`.
+
+## Rejected shared array-dispatch variants
+
+All runtime changes in this experiment are removed. The retained test exercises
+empty/nonempty/empty transitions across sixteen primitive, string, nullable,
+nested-array and Date cases, keeping earlier results alive across collection.
+It passes against the original runtime before and after the experiments.
+
+The empty-check-only variant moves the common empty return ahead of type
+dispatch and passes the entry's length to seven private kernels. The outlined
+variant additionally inlines the entry and moves the generic loop into a private
+function. The fused variant keeps that loop inside the inlined entry instead.
+Every variant operates on shared Array<T> dispatch with ordinary output and GC
+semantics. None recognizes corpus names, schema signatures or decimal widths.
+
+A first six-round CITM comparison uses four changing strings of equal lengths:
+empty-check-only SIMD stringification throughput ratios are 1.058× on V8,
+0.959× on checked w2c2 and 1.032× on default w2c2. Those valid fixed-length
+results remain separate from subsequent length-varying results. Control
+preflight detects the missing --vary-length flag before any mismatched-input
+timing. The rebuilt controls use exactly the older baselines' input hashes.
+
+The accepted length-varying screen compares original `arrv-base-0001` on CITM
+and `disp-full-0001` on Canada/Twitter against empty-check-only `arrv-fast-0001`,
+outlined `arrv-call-0001`, and fused `arrv-flat-0001` in separate runs. Frozen
+Canada/Twitter baseline runtime patches match `f499704`. CITM uses a freshly
+built original runtime because its older frozen candidate also changes reference
+dispatch. Native binaries, schemas, four input hashes, operation counts and
+toolchains match per comparison. Six balanced rounds run on V8 and both w2c2
+check policies. Builds, tests and inspection finish before timing; complete
+oracles are checked afterwards.
+
+SIMD stringification throughput ratios, candidate / original:
+
+| Layout | Variant | V8 | Checked w2c2 | Default unchecked w2c2 |
+| --- | --- | ---: | ---: | ---: |
+| CITM minified | Empty check | 1.081× | 0.971× | 1.131× |
+| CITM minified | Outlined | 1.064× | 0.974× | 1.209× |
+| CITM minified | Fused | 1.035× | 0.997× | 1.057× |
+| Canada minified | Empty check | 0.943× | 1.001× | 1.030× |
+| Canada minified | Outlined | 0.902× | 1.063× | 1.044× |
+| Canada minified | Fused | 0.921× | 0.995× | 1.007× |
+| Twitter minified | Empty check | 1.010× | 1.015× | 0.973× |
+| Twitter minified | Outlined | 1.022× | 1.021× | 0.995× |
+| Twitter minified | Fused | 1.004× | 1.079× | 0.999× |
+
+A separate six-round V8 Canada confirmation gives 0.923× outlined
+stringification throughput. A separate six-round CITM confirmation gives
+1.021× V8, 1.021× checked-w2c2 and 1.086× default-w2c2 throughput. Both initial
+and confirmation results remain; the 1.209× result is not a stable gain estimate.
+Other phases remain in the raw tables. For example, fused CITM parse controls
+are 0.942× on V8 and 0.953× on default w2c2 despite unchanged parsing algorithms.
+These are measured controls, not new parser improvements.
+
+Named inspection binaries have code sections identical to the frozen Wasm.
+The representative integer-array namespace writer drops from three GC frame
+setups to two in the outlined variant. A nested generic-array element instead
+changes frame sizes from [4, 4, 12] to [4, 8, 12] bytes. Static TurboFan code
+summaries grow that nested function from 1,912 to 1,944 instruction bytes, while
+the primitive float-array function shrinks from 14,856 to 14,656 instruction
+bytes. These observations establish code-generation changes; they do not isolate
+the cause of the slowdown. Removing the outline does not fix V8 Canada.
+
+All candidates pass 123,345 normal and 77,676 strict/RFC checks across all three
+modes, including custom callbacks that mutate parent arrays and force GC.
+Every accepted label/backend passes forty complete owned-output and retention
+comparisons. Typecheck, lint and formatting pass. No additional native-budget
+row is gained: the nine screened rows pass one V8, two checked-w2c2 or three
+default-w2c2 rows before and after. This is partial evidence; the full 48-row
+classic target remains incomplete. SWAR measurements are diagnostic.
+
+Artifacts under `build/simdjson-parity/`:
+`comparisons/array-entry-citm_catalog-min/`,
+`comparisons/array-inline-{citm_catalog-min,canada-min,twitter-min}/`,
+`comparisons/array-inline-{canada-v8-confirm,citm-confirm}/`,
+`comparisons/array-fused-{citm_catalog-min,canada-min,twitter-min}/`,
+`array-{inline,inline-canada}-codegen/`,
+`array-entry-baseline-source-identity.json`,
+`array-dispatch-experiment-summary.json`, and
+`array-{entry,inline,fused}-{full-tests,rfc-tests,check}.log`.
+
+To recover space, completed immutable comparison oracle copies with identical
+bytes share hardlinks. All 2,501 paths and their original bytes are preserved
+and verified before/after replacement; 23 unique contents replace about 2.25 GB
+of duplicate logical bytes. Frozen run oracles and inputs are excluded. The
+per-file identity manifest is `array-oracle-storage-identity.json`. Copy these
+completed evidence files before modifying them. Final original-runtime controls
+are recorded in `array-dispatch-final-controls.log`.

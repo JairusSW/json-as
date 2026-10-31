@@ -1,6 +1,42 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+function checkArrayEmptyTransitions<T>(value: T): void {
+  const values = new Array<T>();
+  const empty = JSON.stringify(values);
+  expect(empty).toBe("[]");
+  values.push(value);
+  const expected = "[" + JSON.stringify(value) + "]";
+  const filled = JSON.stringify(values);
+  expect(filled).toBe(expected);
+  values.length = 0;
+  expect(JSON.stringify(values)).toBe("[]");
+  values.push(value);
+  expect(JSON.stringify(values)).toBe(expected);
+  __collect();
+  expect(empty).toBe("[]");
+  expect(filled).toBe(expected);
+}
+
+describe("Array serializers preserve owned output across empty transitions", () => {
+  checkArrayEmptyTransitions<bool>(false);
+  checkArrayEmptyTransitions<u8>(255);
+  checkArrayEmptyTransitions<i8>(-128);
+  checkArrayEmptyTransitions<u16>(65535);
+  checkArrayEmptyTransitions<i16>(-32768);
+  checkArrayEmptyTransitions<u32>(u32.MAX_VALUE);
+  checkArrayEmptyTransitions<i32>(i32.MIN_VALUE);
+  checkArrayEmptyTransitions<u64>(u64.MAX_VALUE);
+  checkArrayEmptyTransitions<i64>(i64.MIN_VALUE);
+  checkArrayEmptyTransitions<f32>(0.1);
+  checkArrayEmptyTransitions<f64>(-0.0);
+  checkArrayEmptyTransitions<string>('x"\\\n中');
+  checkArrayEmptyTransitions<string | null>(null);
+  checkArrayEmptyTransitions<i32[]>([]);
+  checkArrayEmptyTransitions<i32[]>([1, -2]);
+  checkArrayEmptyTransitions<Date>(new Date(0));
+});
+
 describe("Should serialize integer arrays", () => {
   expect(JSON.stringify<u32[]>([0, 100, 101])).toBe("[0,100,101]");
 
