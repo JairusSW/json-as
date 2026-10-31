@@ -97,7 +97,7 @@ function expectLazyEnvelope(data: string): void {
 
 /**
  * Runs one malformed RFC fixture through every concrete JSON.parse dispatch
- * target. Strict validation must reject before target-specific parsing begins.
+ * target. Neither a checked cursor nor a prevalidated fallback may accept it.
  */
 export function expectRejectEveryTarget(data: string): void {
   expect(validateCursor(normalizeJSONEncoding(data))).toBe(false);

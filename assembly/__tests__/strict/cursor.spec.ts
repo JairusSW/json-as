@@ -129,6 +129,24 @@ describe("Strict reuse still rejects syntax before mutation", () => {
   expect(reusedRecord.count).toBe(100);
 });
 
+describe("Cursor parsing rechecks overwritten source storage", () => {
+  const value = new CursorChild();
+  value.label = "first";
+  const source = JSON.stringify(value);
+  expect(JSON.parse<CursorChild>(source).label).toBe("first");
+  value.label = "later";
+  const rewritten = JSON.stringify(value, source);
+  expect(changetype<usize>(rewritten)).toBe(changetype<usize>(source));
+  expect(JSON.parse<CursorChild>(source).label).toBe("later");
+  // Keep both pointer and length unchanged while invalidating the document.
+  store<u16>(changetype<usize>(source), 91);
+  expect(JSON.validate(source)).toBe(false);
+  rejected = source;
+  expect((): void => {
+    JSON.parse<CursorChild>(rejected);
+  }).toThrow();
+});
+
 describe("Custom deserializers retain prevalidation and nested cursor source restoration", () => {
   callbacks = 0;
   rejected = '{"custom":{},"tail":[1,]}';
@@ -287,6 +305,19 @@ describe("Capability traversal handles recursive types without trusting an unsaf
   expect(root.left!.value).toBe(1);
   expect(root.left!.right!.value).toBe(2);
   expect(root.right!.value).toBe(4);
+});
+
+describe("Generated recursion and discard share the document nesting limit", () => {
+  const accepted = '{"left":'.repeat(255) + '{"value":9}' + "}".repeat(255);
+  expect(JSON.validate(accepted)).toBe(true);
+  let node = JSON.parse<CursorNode>(accepted);
+  for (let i = 0; i < 255; i++) node = node.left!;
+  expect(node.value).toBe(9);
+  rejected = '{"left":' + accepted + "}";
+  expect(JSON.validate(rejected)).toBe(false);
+  expect((): void => {
+    JSON.parse<CursorNode>(rejected);
+  }).toThrow();
 });
 
 function makeCursorDynamic(): JSON.Obj {

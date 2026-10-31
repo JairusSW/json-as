@@ -98,6 +98,63 @@ __DESERIALIZE<T>(srcStart: usize, srcEnd: usize, out: T): usize {
 }
 ```
 
+## Checked cursor parsing
+
+With `JSON_STRICT=true`, fresh supported values validate syntax while they are
+parsed. The transform emits `__DESERIALIZE_CURSOR` for eligible schemas and a
+`__CURSOR_SUPPORTED` descriptor for their reachable field types. Runtime type
+capabilities are cached by type ID; input validation is never cached by source
+pointer or length, since serialization can overwrite an existing source string.
+
+The checked parser is split across three modules:
+
+| Module | Responsibility |
+| --- | --- |
+| `assembly/deserialize/cursor.ts` | Checked strings, numbers, literals, strict whitespace, and bounded discard traversal |
+| `assembly/deserialize/cursor-value.ts` | Type capabilities, direct field stores, collections, and dynamic/lazy values |
+| `transform/src/cursor.ts` | Generated object grammar and ordered/keyed field dispatch |
+
+Readers accept a value start and the available input end. Success returns the
+first pointer after exactly one value; zero reports failure. A reader does not
+consume the parent's comma or closing delimiter. The parent checks each grammar
+transition, and the root checks trailing whitespace and end of input. Internal
+destinations may be partially populated on failure and must then be discarded.
+Only the public `JSON.parse` boundary throws a syntax/target rejection.
+
+String recognition checks quotes, escapes, and raw control code units together,
+using scalar, SWAR, or SIMD scans according to the selected mode. Owned strings
+still require allocation and copying. Numeric readers combine grammar checks
+with accumulation; difficult conversions retain the existing exact conversion
+fallbacks. The optimized SWAR/SIMD float-array reader also has a checked fallback.
+
+Generated objects keep an expected-field selector for ordered input. A mismatch
+switches to keyed dispatch at the current key, retaining the populated object and
+cursor. Escaped alternate key spellings are decoded on the cold path. Defaults,
+aliases, and last-wins duplicate assignments retain their existing behavior.
+
+Arrays, static arrays, typed arrays, string-keyed maps, sets, boxed primitives,
+dates, raw values, and dynamic values have checked materializers. Static and typed
+arrays currently use a temporary geometric array and then copy to an exactly
+sized result. Dynamic and generated lazy fields check their complete source
+ranges before deferring conversion. They retain the source owner for later
+access; successful validation does not imply that a later requested target type
+will accept that value.
+
+Discard traversal checks complete subtrees without allocating their contents or
+converting numbers. It uses a bounded 256-frame grammar stack and cannot call
+user code. Materializing parents keep their own cursor and depth in locals, so
+discard scratch is never held across a callback. `JSON.validate(data)` exposes
+this syntax-only traversal independently of the `JSON_STRICT` build setting.
+
+Strict `JSON.parse(data, out)` retains document prevalidation to reject malformed
+syntax before mutating reused output. Types that can reach custom deserializers
+also retain prevalidation, ensuring those callbacks run only after the document
+is syntactically valid. Unsupported generated schemas, including duplicate
+aliases and the legacy empty-class path, use the existing validated parser.
+These guards are separate from target-conversion failures and do not provide a
+general transaction guarantee for callbacks or type errors. Default compatibility
+builds retain their existing parser and grammar.
+
 ## Optimization Modes
 
 json-as provides three optimization levels, selected via the `JSON_MODE` environment variable:

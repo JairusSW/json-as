@@ -15,22 +15,23 @@ import { u16_to_hex4_swar } from "../../util/swar";
 @lazy const SPLAT_0020 = i16x8.splat(0x0020); // space and control check
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SPLAT_FFD8 = i16x8.splat(i16(0xd7fe));
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const SURROGATE_MASK = i16x8.splat(i16(0xf800));
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const SURROGATE_BASE = i16x8.splat(i16(0xd800));
 
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
  */
 export function serializeString_SIMD(src: string): void {
   let srcStart = changetype<usize>(src);
-  const srcInitial = srcStart;
-
   const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
   const srcEnd = srcStart + srcSize;
+  bs.proposeSize(srcSize + 4);
+  const dstStart = bs.offset;
+  let dst = dstStart + 2;
   do {
     const srcEnd16Fast = srcEnd - 16;
-    bs.proposeSize(srcSize + 4);
-
-    const dstStart = bs.offset;
-    let dst = dstStart + 2;
 
     while (srcStart <= srcEnd16Fast) {
       const block = load<v128>(srcStart);
@@ -42,7 +43,18 @@ export function serializeString_SIMD(src: string): void {
       const mask = i8x16.bitmask(
         v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))),
       );
-      if (mask != 0) break;
+      if (mask != 0) {
+        // The byte-level candidate test can also match ordinary BMP text.
+        // Verify only candidate blocks so ASCII keeps the cheaper hot loop.
+        const surrogate = i16x8.eq(
+          v128.and(block, SURROGATE_MASK),
+          SURROGATE_BASE,
+        );
+        if (
+          v128.any_true(v128.or(eq22, v128.or(eq5C, v128.or(lt20, surrogate))))
+        )
+          break;
+      }
 
       store<v128>(dst, block);
       srcStart += 16;
@@ -71,11 +83,11 @@ export function serializeString_SIMD(src: string): void {
     return;
   } while (false);
 
-  srcStart = srcInitial;
+  // The optimistic loop already copied the clean prefix. Keep it and resume
+  // at the first exceptional block, including conservative Unicode hits.
+  store<u16>(dstStart, 34);
+  bs.offset = dst;
   const srcEnd16 = srcEnd - 16;
-
-  store<u16>(bs.offset, 34); // "
-  bs.offset += 2;
 
   while (srcStart < srcEnd16) {
     const block = load<v128>(srcStart);
