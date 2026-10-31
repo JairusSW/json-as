@@ -2,6 +2,21 @@
 
 import { keyLength, KEY_HEADER_UNITS } from "./util/key-buffer";
 import { bs } from "../lib/as-bs";
+import {
+  CursorSlot,
+  supportsCursor,
+  readCursorValue,
+  decodeCursorKey,
+} from "./deserialize/cursor-value";
+import {
+  scanCursorString,
+  readCursorLiteral,
+  skipCursorWhitespace,
+  skipCursorString,
+  skipCheckedValue,
+  validateCursor,
+} from "./deserialize/cursor";
+
 import { OBJECT, OBJECT_MAXSIZE, TOTAL_OVERHEAD } from "rt/common";
 import {
   serializeArray,
@@ -408,9 +423,158 @@ export namespace JSON {
     return <T>0;
   }
 
+  // Primitive readers cannot call user code; this untraced scratch word avoids
+  // a managed result box for root numbers and booleans.
+  const CURSOR_SCALAR_ROOT: usize = memory.data(8);
+
+  // Generated code uses this stable namespace surface; the implementation and
+  // capability graph live with the checked readers in deserialize/cursor-value.
+  @inline export function __cursorSupports<T>(depth: i32 = 0): bool {
+    return supportsCursor<T>(depth);
+  }
+
+
+  @inline export function __cursorRead<T>(
+    start: usize,
+    end: usize,
+    dst: usize,
+    offset: usize = 0,
+    depth: i32 = 0,
+  ): usize {
+    return readCursorValue<T>(start, end, dst, offset, depth);
+  }
+
+
+  @inline export function __cursorWhitespace(ptr: usize, end: usize): usize {
+    return skipCursorWhitespace(ptr, end);
+  }
+
+
+  @inline export function __cursorSkipString(ptr: usize, end: usize): usize {
+    return skipCursorString(ptr, end);
+  }
+
+
+  @inline export function __cursorSkipValue(
+    ptr: usize,
+    end: usize,
+    depth: i32,
+  ): usize {
+    return skipCheckedValue(ptr, end, depth);
+  }
+
+
+  @inline export function __cursorScanKey(ptr: usize, end: usize): u64 {
+    return scanCursorString(ptr, end);
+  }
+
+
+  @inline export function __cursorDecodeKey(ptr: usize, end: usize): string {
+    return decodeCursorKey(ptr, end);
+  }
+
+  /** Checks complete strict JSON syntax without constructing application values.
+   * Uses the same lexical readers and bounded discard cursor as strict parsing,
+   * independently of the JSON_STRICT setting used for ordinary JSON.parse.
+   */
+  export function validate(data: string): bool {
+    return validateCursor(normalizeJSONEncoding(data));
+  }
+
   export function parse<T>(data: string, out: T = __zero<T>()): T {
     if (JSON_STRICT) {
       data = normalizeJSONEncoding(data);
+      let fresh = true;
+      if (isReference<T>() || isManaged<T>())
+        fresh = changetype<usize>(out) == 0;
+      if (fresh && __cursorSupports<T>()) {
+        if (isNullable<T>()) {
+          const start = skipCursorWhitespace(
+            changetype<usize>(data),
+            changetype<usize>(data) + ((<usize>data.length) << 1),
+          );
+          const end = changetype<usize>(data) + ((<usize>data.length) << 1);
+          const next = readCursorLiteral(start, end, 110);
+          if (next && skipCursorWhitespace(next, end) == end)
+            return changetype<T>(0);
+        }
+        if (isBoolean<T>() || isInteger<T>() || isFloat<T>()) {
+          const start = skipCursorWhitespace(
+            changetype<usize>(data),
+            changetype<usize>(data) + ((<usize>data.length) << 1),
+          );
+          const end = changetype<usize>(data) + ((<usize>data.length) << 1);
+          const next = __cursorRead<T>(start, end, CURSOR_SCALAR_ROOT);
+          if (!next || skipCursorWhitespace(next, end) != end)
+            throw new Error("Invalid JSON syntax or target value");
+          return load<T>(CURSOR_SCALAR_ROOT);
+        }
+        if (isReference<T>() || isManaged<T>()) {
+          const type = changetype<nonnull<T>>(0);
+          if (type instanceof JSON.Raw) {
+            const first = skipCursorWhitespace(
+              changetype<usize>(data),
+              changetype<usize>(data) + ((<usize>data.length) << 1),
+            );
+            const end = changetype<usize>(data) + ((<usize>data.length) << 1);
+            const next = skipCheckedValue(first, end);
+            if (!next || skipCursorWhitespace(next, end) != end)
+              throw new Error("Invalid JSON syntax");
+            // Raw roots intentionally preserve trailing whitespace.
+            return changetype<T>(JSON.Raw.from(JSON.Util.ptrToStr(first, end)));
+          }
+          // @ts-expect-error: transform-generated checked object reader
+          if (isDefined(type.__DESERIALIZE_CURSOR)) {
+            const obj = changetype<nonnull<T>>(
+              __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
+            );
+            const start = changetype<usize>(data);
+            const end = start + ((<usize>data.length) << 1);
+            let next: usize;
+            // @ts-expect-error: generated marker for fully owned scalar fields
+            if (isDefined(type.__DESERIALIZE_SOURCE_FREE)) {
+              obj.__INITIALIZE();
+              next = obj.__DESERIALIZE_CURSOR(
+                skipCursorWhitespace(start, end),
+                end,
+                obj,
+                0,
+              );
+            } else {
+              const previous = getParseSrc();
+              setParseSrc(data);
+              obj.__INITIALIZE();
+              next = obj.__DESERIALIZE_CURSOR(
+                skipCursorWhitespace(start, end),
+                end,
+                obj,
+                0,
+              );
+              setParseSrc(previous);
+            }
+            if (!next || skipCursorWhitespace(next, end) != end)
+              throw new Error("Invalid JSON syntax or target value");
+            return obj;
+          }
+        }
+        const slot = new CursorSlot<T>();
+        const start = changetype<usize>(data);
+        const end = start + ((<usize>data.length) << 1);
+        const previous = getParseSrc();
+        setParseSrc(data);
+        const next = __cursorRead<T>(
+          skipCursorWhitespace(start, end),
+          end,
+          changetype<usize>(slot),
+          offsetof<CursorSlot<T>>("value"),
+        );
+        setParseSrc(previous);
+        // Keep the throw at the public boundary for try-as recovery. All
+        // checked readers and generated object cursors report a zero cursor.
+        if (!next || skipCursorWhitespace(next, end) != end)
+          throw new Error("Invalid JSON syntax or target value");
+        return slot.value;
+      }
       if (!validateJSON(data)) throw new Error("Invalid JSON syntax");
     }
     let managePretty = false;

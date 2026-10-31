@@ -2,9 +2,9 @@ import { JSON } from "../../index";
 import { expect } from "../../__tests__/lib";
 import { bench, blackbox } from "../lib/bench";
 
-// Strict parsing retains the standalone RFC validator. This benchmark records
-// the cost of validation plus typed materialization for future bounded-parser
-// work.
+// Run with JSON_STRICT=true. Eligible fresh schemas use checked cursor parsing;
+// this compares validation plus typed materialization in canonical and keyed
+// order. Use cursor.bench.ts for changing inputs and validation-only controls.
 @json
 class StrictTelemetry {
   a: i32 = 0;

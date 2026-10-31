@@ -10,6 +10,7 @@ import {
 } from "../../../util/swar-int";
 import { loadPow10, MAX_EXACT_MANTISSA, MAX_EXACT_POW10 } from "../float";
 import { isSpace } from "../../../util";
+import { isCursorWhitespace, readCursorNumber } from "../../cursor";
 import {
   eiselLemire22,
   eiselLemireMinus14,
@@ -19,14 +20,19 @@ import { markProductionParseError } from "../../error";
 import { parseDecimalF64 } from "../../../util/parseDecimal";
 
 function skipFloatArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
-  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  while (
+    srcStart < srcEnd &&
+    (JSON_STRICT
+      ? isCursorWhitespace(load<u16>(srcStart))
+      : isSpace(load<u16>(srcStart)))
+  )
+    srcStart += 2;
   return srcStart;
 }
 
 function fallbackStore<E>(origStart: usize, end: usize, slot: usize): void {
-  const s = ptrToStr(origStart, end);
   if (sizeof<E>() == sizeof<f32>()) {
-    store<f32>(slot, f32.parse(s));
+    store<f32>(slot, f32.parse(ptrToStr(origStart, end)));
   } else {
     store<f64>(slot, parseDecimalF64(origStart, end));
   }
@@ -144,7 +150,7 @@ function parseFixed14Pair<E>(
   }
   if (p0 + 36 >= srcEnd) return 0;
   const first0 = <u32>load<u16>(p0) - 48;
-  if (first0 > 9) return 0;
+  if (first0 > 9 || (JSON_STRICT && first0 == 0)) return 0;
   let intDigits0 = 0;
   if (load<u16>(p0, 4) == 46) {
     intDigits0 = 2;
@@ -158,7 +164,11 @@ function parseFixed14Pair<E>(
   if (load<u16>(term0) != COMMA) return 0;
 
   let p1 = term0 + 2;
-  if (load<u16>(p1) == 32) p1 += 2;
+  if (p1 >= srcEnd) return 0;
+  if (load<u16>(p1) == 32) {
+    p1 += 2;
+    if (p1 >= srcEnd) return 0;
+  }
   let negative1 = false;
   if (load<u16>(p1) == 45) {
     negative1 = true;
@@ -166,7 +176,7 @@ function parseFixed14Pair<E>(
   }
   if (p1 + 36 >= srcEnd) return 0;
   const first1 = <u32>load<u16>(p1) - 48;
-  if (first1 > 9) return 0;
+  if (first1 > 9 || (JSON_STRICT && first1 == 0)) return 0;
   let intDigits1 = 0;
   if (load<u16>(p1, 4) == 46) {
     intDigits1 = 2;
@@ -594,6 +604,7 @@ export function deserializeFloatArrayBody<T extends number[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
+  checked: bool = false,
 ): usize {
   let index = 0;
   let reusableLength = load<i32>(
@@ -670,7 +681,9 @@ export function deserializeFloatArrayBody<T extends number[]>(
           : ensureArrayElementSlot<T>(out, index);
       let next = parseFloatElementSWAR<valueof<T>>(srcStart, srcEnd, slot);
       if (!next) {
-        next = deserializeFloatField_NAIVE<valueof<T>>(srcStart, srcEnd, slot);
+        next = checked
+          ? readCursorNumber<valueof<T>>(srcStart, srcEnd, slot)
+          : deserializeFloatField_NAIVE<valueof<T>>(srcStart, srcEnd, slot);
       }
       srcStart = next;
       if (!srcStart) break;
@@ -698,7 +711,7 @@ export function deserializeFloatArrayBody<T extends number[]>(
     }
   } while (false);
 
-  markProductionParseError();
+  if (!checked) markProductionParseError();
   return 0;
 }
 export function deserializeFloatArrayField<T extends number[]>(

@@ -114,7 +114,8 @@ try {
           if (strict)
             assert.throws(
               () => instance.exports.check(index),
-              /Unexpected key value pair/,
+              // Checked cursors report rejection at the public parse boundary.
+              /Unexpected key value pair|Invalid JSON syntax or target value/,
             );
           else
             assert.equal(

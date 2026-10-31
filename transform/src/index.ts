@@ -37,6 +37,7 @@ import { NodeKind } from "./types.js";
 import { Property, PropertyFlags, Schema, SourceSet, Src } from "./types.js";
 import { isStdlib, removeExtension, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
+import { generateCursorParser } from "./cursor.js";
 import { keyDispatch, KeyDispatch } from "./key-dispatch.js";
 
 let indent = "  ";
@@ -4601,6 +4602,33 @@ export class JSONTransform extends Visitor {
           node,
         )
       : null;
+
+    if (STRICT && !DESERIALIZE_CUSTOM) {
+      const keys = this.schema.members.map(
+        (member) => member.alias || member.name,
+      );
+      if (new Set(keys).size === keys.length) {
+        const supported =
+          this.schema.members
+            .map(
+              (member) =>
+                `JSON.__cursorSupports<${member.lazyInner || member.type}>(depth + 1)`,
+            )
+            .join(" && ") || "true";
+        node.members.push(
+          SimpleParser.parseClassMember(
+            `__CURSOR_SUPPORTED(depth: i32): bool { return depth < 256 && (${supported}); }`,
+            node,
+          ),
+        );
+        node.members.push(
+          SimpleParser.parseClassMember(
+            generateCursorParser(this.schema.members, getComparisions),
+            node,
+          ),
+        );
+      }
+    }
 
     if (!node.members.find((v) => v.name.text == "__SERIALIZE"))
       node.members.push(SERIALIZE_METHOD);

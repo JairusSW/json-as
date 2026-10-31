@@ -268,7 +268,9 @@ declare function deserializer(
 declare const JSON_MODE: JSONMode;
 
 /**
- * Whether strict RFC 8259 validation is enabled. Injected by the transform from
+ * Whether strict RFC 8259 checked parsing is enabled. Eligible fresh targets
+ * validate while consuming values; reused outputs and custom deserializers keep
+ * document prevalidation. Injected by the transform from
  * the `JSON_STRICT` build-time environment variable (default `false`).
  */
 declare const JSON_STRICT: bool;

@@ -1,3 +1,5 @@
+import { validateCursor } from "../../deserialize/cursor";
+import { normalizeJSONEncoding } from "../../util/validateJson";
 import { JSON } from "../..";
 import { expect } from "as-test";
 
@@ -48,8 +50,12 @@ class RFCAnyCustom {
   }
 }
 
+let acceptanceData = "";
 function expectAccept<T>(data: string): void {
-  JSON.parse<T>(data);
+  acceptanceData = data;
+  expect((): void => {
+    JSON.parse<T>(acceptanceData);
+  }).not.toThrow();
 }
 
 let rejectionData = "";
@@ -94,6 +100,7 @@ function expectLazyEnvelope(data: string): void {
  * target. Strict validation must reject before target-specific parsing begins.
  */
 export function expectRejectEveryTarget(data: string): void {
+  expect(validateCursor(normalizeJSONEncoding(data))).toBe(false);
   expectReject<bool>(data);
   expectReject<i8>(data);
   expectReject<u8>(data);
@@ -176,6 +183,7 @@ export function expectAcceptEveryCompatibleTarget(
   data: string,
   flags: u32,
 ): void {
+  expect(validateCursor(normalizeJSONEncoding(data))).toBe(true);
   // Universal exact-value targets.
   expectAccept<JSON.Raw>(data);
   expectAccept<JSON.Value>(data);

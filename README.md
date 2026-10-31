@@ -723,6 +723,20 @@ npm run charts:build
 
 ## Architecture
 
+Compile with `JSON_STRICT=true` to require complete JSON syntax. Fresh supported
+objects and containers validate while parsing through checked cursors. Reordered
+keys continue from the current field, preserving defaults, aliases, and duplicate
+handling. Lazy fields validate their complete source ranges before returning.
+
+Strict parsing into an existing `out` object and types with custom deserializers
+retain document prevalidation. This preserves rejection of malformed syntax before
+mutating reused output or invoking custom deserializers. The default compatibility
+grammar is unchanged.
+
+`JSON.validate(data)` checks complete strict syntax without materializing values,
+regardless of the `JSON_STRICT` setting. It uses the same checked lexical readers
+and bounded discard traversal as cursor parsing.
+
 For a deep dive into how json-as works internally, including the transform system, optimization modes (NAIVE, SWAR, SIMD), and buffer management, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 For a code-oriented repository walkthrough that maps the runtime, transform, tests, and benchmark files to their concrete responsibilities, see [PROJECT_WALKTHROUGH.md](./PROJECT_WALKTHROUGH.md).
