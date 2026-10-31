@@ -6,6 +6,7 @@ import {
   CursorSlot,
   supportsCursor,
   readCursorValue,
+  initializeCursorObject,
   decodeCursorKey,
 } from "./deserialize/cursor-value";
 import {
@@ -533,7 +534,7 @@ export namespace JSON {
             let next: usize;
             // @ts-expect-error: generated marker for fully owned scalar fields
             if (isDefined(type.__DESERIALIZE_SOURCE_FREE)) {
-              obj.__INITIALIZE();
+              initializeCursorObject(obj);
               next = obj.__DESERIALIZE_CURSOR(
                 skipCursorWhitespace(start, end),
                 end,
@@ -543,7 +544,7 @@ export namespace JSON {
             } else {
               const previous = getParseSrc();
               setParseSrc(data);
-              obj.__INITIALIZE();
+              initializeCursorObject(obj);
               next = obj.__DESERIALIZE_CURSOR(
                 skipCursorWhitespace(start, end),
                 end,

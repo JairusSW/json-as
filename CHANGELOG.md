@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- perf(strict): defer implicit collection defaults during fresh checked object parsing, constructing empty defaults only for missing fields.
+
 ## 2026-10-29 - v1.7.0
 
 - fix(dynamic): materialize native arrays from dynamic `JSON.Value` instances, preserve callback mutation semantics, enforce live-length bounds for typed reads and writes, retain `JSON.Raw` payloads through garbage collection, release retained scalar source strings after copies, delete every duplicate parsed object key, and decode escaped object keys before storage ([#227](https://github.com/JairusSW/json-as/pull/227), [#230](https://github.com/JairusSW/json-as/pull/230), [#233](https://github.com/JairusSW/json-as/pull/233), [#236](https://github.com/JairusSW/json-as/pull/236), [#239](https://github.com/JairusSW/json-as/pull/239), [#240](https://github.com/JairusSW/json-as/pull/240)).

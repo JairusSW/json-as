@@ -1814,8 +1814,26 @@ export class JSONTransform extends Visitor {
       );
     };
 
+    // Fresh checked parsing replaces present collections. Defer only implicit
+    // builtin defaults, and exclude observable/user-provided initialization.
+    const cursorMayDefer =
+      STRICT &&
+      this.schema.members.every(
+        (member) =>
+          !member.value &&
+          !member.generic &&
+          !member.flags.has(PropertyFlags.Lazy),
+      ) &&
+      !node.members.some((member) =>
+        ["__INITIALIZE", "__INITIALIZE_CURSOR", "__FINALIZE_CURSOR"].includes(
+          member.name.text,
+        ),
+      );
+    const cursorInitializers: string[] = [];
+    const cursorDeferred: Array<{ member: Property; initialize: string }> = [];
     for (let i = 0; i < this.schema.members.length; i++) {
       const member = this.schema.members[i];
+      const initializeStart = INITIALIZE.length;
       const aliasName = JSON.stringify(member.alias || member.name);
       const realName = member.name;
 
@@ -1855,6 +1873,17 @@ export class JSONTransform extends Visitor {
         // Nullable field with no explicit default: clear to null so the
         // uninitialized __new() slot isn't read as a live pointer.
         INITIALIZE += `  store<${member.type}>(changetype<usize>(this), null, offsetof<this>(${JSON.stringify(member.name)}));\n`;
+      }
+
+      const cursorInitialize = INITIALIZE.slice(initializeStart);
+      if (
+        cursorMayDefer &&
+        !member.node.type.isNullable &&
+        /^(Array|Map|Set)</.test(member.type)
+      ) {
+        cursorDeferred.push({ member, initialize: cursorInitialize });
+      } else {
+        cursorInitializers.push(cursorInitialize);
       }
 
       const SIMD_ENABLED = this.program.options.hasFeature(Feature.Simd);
@@ -4608,6 +4637,29 @@ export class JSONTransform extends Visitor {
         (member) => member.alias || member.name,
       );
       if (new Set(keys).size === keys.length) {
+        if (cursorDeferred.length) {
+          node.members.push(
+            SimpleParser.parseClassMember(
+              "__INITIALIZE_CURSOR(): this {\n" +
+                "  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n" +
+                cursorInitializers.join("") +
+                "  return this;\n}",
+              node,
+            ),
+          );
+          const complete = cursorDeferred
+            .map(
+              ({ member, initialize }) =>
+                `  if (load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})) == 0) {\n${initialize}    __link(changetype<usize>(this), load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})), false);\n  }\n`,
+            )
+            .join("");
+          node.members.push(
+            SimpleParser.parseClassMember(
+              "__FINALIZE_CURSOR(): void {\n" + complete + "}",
+              node,
+            ),
+          );
+        }
         const supported =
           this.schema.members
             .map(

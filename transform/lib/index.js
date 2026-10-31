@@ -1171,8 +1171,16 @@ export class JSONTransform extends Visitor {
                 `  }\n` +
                 `}\n`);
         };
+        const cursorMayDefer = STRICT &&
+            this.schema.members.every((member) => !member.value &&
+                !member.generic &&
+                !member.flags.has(PropertyFlags.Lazy)) &&
+            !node.members.some((member) => ["__INITIALIZE", "__INITIALIZE_CURSOR", "__FINALIZE_CURSOR"].includes(member.name.text));
+        const cursorInitializers = [];
+        const cursorDeferred = [];
         for (let i = 0; i < this.schema.members.length; i++) {
             const member = this.schema.members[i];
+            const initializeStart = INITIALIZE.length;
             const aliasName = JSON.stringify(member.alias || member.name);
             const realName = member.name;
             if (member.value) {
@@ -1208,6 +1216,15 @@ export class JSONTransform extends Visitor {
             }
             else {
                 INITIALIZE += `  store<${member.type}>(changetype<usize>(this), null, offsetof<this>(${JSON.stringify(member.name)}));\n`;
+            }
+            const cursorInitialize = INITIALIZE.slice(initializeStart);
+            if (cursorMayDefer &&
+                !member.node.type.isNullable &&
+                /^(Array|Map|Set)</.test(member.type)) {
+                cursorDeferred.push({ member, initialize: cursorInitialize });
+            }
+            else {
+                cursorInitializers.push(cursorInitialize);
             }
             const SIMD_ENABLED = this.program.options.hasFeature(16);
             if (!isRegular &&
@@ -3226,6 +3243,16 @@ export class JSONTransform extends Visitor {
         if (STRICT && !DESERIALIZE_CUSTOM) {
             const keys = this.schema.members.map((member) => member.alias || member.name);
             if (new Set(keys).size === keys.length) {
+                if (cursorDeferred.length) {
+                    node.members.push(SimpleParser.parseClassMember("__INITIALIZE_CURSOR(): this {\n" +
+                        "  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n" +
+                        cursorInitializers.join("") +
+                        "  return this;\n}", node));
+                    const complete = cursorDeferred
+                        .map(({ member, initialize }) => `  if (load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})) == 0) {\n${initialize}    __link(changetype<usize>(this), load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})), false);\n  }\n`)
+                        .join("");
+                    node.members.push(SimpleParser.parseClassMember("__FINALIZE_CURSOR(): void {\n" + complete + "}", node));
+                }
                 const supported = this.schema.members
                     .map((member) => `JSON.__cursorSupports<${member.lazyInner || member.type}>(depth + 1)`)
                     .join(" && ") || "true";

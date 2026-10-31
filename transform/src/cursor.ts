@@ -81,7 +81,10 @@ export function generateCursorParser(
     if (depth >= 256 || srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;
     ${anchor}
     srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);
-    if (srcStart < srcEnd && load<u16>(srcStart) == 125) return srcStart + 2;
+    if (srcStart < srcEnd && load<u16>(srcStart) == 125) {
+      if (isDefined(out.__FINALIZE_CURSOR)) out.__FINALIZE_CURSOR();
+      return srcStart + 2;
+    }
     let expected = 0;
     while (srcStart < srcEnd) {
       const keyStart = srcStart;
@@ -108,7 +111,10 @@ export function generateCursorParser(
       srcStart = JSON.__cursorWhitespace(srcStart, srcEnd);
       if (srcStart >= srcEnd) return 0;
       const separator = load<u16>(srcStart);
-      if (separator == 125) return srcStart + 2;
+      if (separator == 125) {
+        if (isDefined(out.__FINALIZE_CURSOR)) out.__FINALIZE_CURSOR();
+        return srcStart + 2;
+      }
       if (separator != 44) return 0;
       srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);
     }

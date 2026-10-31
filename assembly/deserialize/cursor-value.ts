@@ -114,6 +114,18 @@ export function decodeCursorKey(ptr: usize, end: usize): string {
   return slot.value;
 }
 
+// Root and nested fresh objects use the same construction policy.
+export function initializeCursorObject<T>(obj: T): void {
+  // @ts-expect-error: transform-generated fresh construction capability
+  if (isDefined(obj.__INITIALIZE_CURSOR)) {
+    // @ts-expect-error: transform-generated initializer
+    obj.__INITIALIZE_CURSOR();
+  } else {
+    // @ts-expect-error: transform-generated defaults
+    obj.__INITIALIZE();
+  }
+}
+
 /** Store one checked value and return its end, without discovering its extent
  * beforehand. The parent owns separators, whitespace, and the next value. */
 export function readCursorValue<T>(
@@ -347,8 +359,7 @@ export function readCursorValue<T>(
       const obj = changetype<nonnull<T>>(
         __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
       );
-      // @ts-expect-error: transform-generated defaults
-      obj.__INITIALIZE();
+      initializeCursorObject(obj);
       const next = obj.__DESERIALIZE_CURSOR(start, end, obj, depth);
       if (next) {
         store<T>(field, obj);

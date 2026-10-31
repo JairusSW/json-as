@@ -1,9 +1,10 @@
 # Local qualification status (2026-10-31)
 
-Whole-workload parity is **not achieved**. Current typed owned evidence covers
-Canada minified only. The manifest retains every outstanding corpus/layout and
-required family; native Twitter's recursive reflection writer still fails to
-compile without changing its model.
+Whole-workload parity is **not achieved**. Typed owned evidence covers Canada
+minified and CITM minified/pretty; validation evidence covers all 16 classic
+layouts. The manifest retains every outstanding corpus/layout and required
+family. Native Twitter's recursive reflection writer still fails to compile
+without changing its model.
 
 ## Formatter experiment
 
@@ -205,3 +206,65 @@ bytes in the checked full-validation build. Exact medians, hashes, oracle
 summaries and compiler provenance:
 `comparisons/validation-constant-load-qualified/`. Keep this as an unmerged
 backend candidate; investigate the checked Canada regressions before integration.
+
+## Backend follow-up: owned Canada
+
+`comparisons/owned-canada-constant-qualified/` holds five balanced rounds of
+owned Canada parsing, stringification and validation, using exact frozen
+`canada-fraction4` Wasm and only the w2c2 header change. Complete owned-output
+oracles pass. Checked SIMD stringification improves 9.4% (2.803 to 2.562 ms),
+while parsing is effectively unchanged (6.627 to 6.662 ms). Checked validation
+improves 7.1% here, unlike the loss in the aggregate validation matrix. Default
+unchecked SIMD stringification improves 8.1%. The sole 3% screen failure is a
+SWAR parsing control whose executable is byte-identical between labels.
+
+GCC assembly probes show static repeated-byte constants become immediate
+vector splats; replacing them with explicit splats yields identical code, so a
+literal-load explanation for the aggregate Canada regression is rejected. The
+full validation-module assembly changes only `_f31`, the string scanner, which
+shrinks from 493 to 440 normalized instruction/label lines. This is not a count
+of dynamically executed instructions and does not establish code-placement
+causality. Keep the aggregate regression as unresolved evidence.
+
+## Fresh implicit collection defaults
+
+Fresh checked object parsing now has a generated initialization capability that
+leaves implicit builtin array/map/set defaults unallocated until successful
+object completion. Parsed fields construct their actual collection once;
+missing fields receive independently owned empty defaults. Eligibility excludes
+explicit field initializers, fields marked generic, lazy fields and custom
+initializers.
+Root and nested objects share this construction policy. The payload is cleared
+before allocating children, and deferred reference stores use write barriers.
+Legacy/reused parsing retains its initialization behavior.
+
+An initial nested-only prototype improved CITM minified parsing 2.46–2.58×, but
+its unchanged validation controls exceeded the 3% screen. It is retained as
+`comparisons/fresh-collections-citm-qualified/`, not substituted for final data.
+The final root-and-nested implementation uses five balanced fresh-process
+rounds, strict syntax, four rotating values and eight retained owned outputs.
+All output oracles pass. Final V8 medians in ms:
+
+| Case/mode | Previous owned parse | Candidate owned parse | Throughput ratio | Native owned parse |
+| --- | ---: | ---: | ---: | ---: |
+| CITM min SWAR | 3.095 | 1.604 | 1.93× | 0.567 |
+| CITM min SIMD | 3.236 | 1.561 | 2.07× | 0.567 |
+| CITM pretty SWAR | 3.342 | 2.064 | 1.62× | 0.653 |
+| CITM pretty SIMD | 3.142 | 2.062 | 1.52× | 0.653 |
+| Canada min SWAR | 6.445 | 6.585 | 0.979× | 2.575 |
+| Canada min SIMD | 6.374 | 6.503 | 0.980× | 2.575 |
+
+Each campaign passes its 3% regression screen across both modes and all three
+measured phases. Canada's approximately 2% slower parse medians are reported,
+not rounded into a speedup. Native still wins every listed owned-parse row.
+Serialization medians improve on CITM, but its formatting algorithm is unchanged;
+no formatter speedup is attributed to this parsing patch. Validation controls
+are within roughly 1.3% in the final campaigns. Artifacts:
+`comparisons/fresh-root-{citm_catalog-min,citm_catalog-pretty,canada-min}-qualified/`.
+
+Normal suite: 117,129 checks across all modes. Strict/RFC suite: 75,528 checks,
+including the initializer-forced-GC test. Transform regression tests,
+typecheck and lint pass. Dedicated tests cover empty/partial objects, duplicates,
+independent defaults, explicit initializer execution, retained graphs and GC
+inside child initialization. Full-corpus typed parsing, other runtime backends,
+and all remaining workload families still require qualification.
