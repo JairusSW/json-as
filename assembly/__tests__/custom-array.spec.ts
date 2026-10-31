@@ -275,3 +275,39 @@ if (JSON_STRICT) {
     }).toThrow();
   });
 }
+
+let relocatingItems = new Array<RelocatingCodec>();
+let relocatedItems = false;
+
+
+@json
+class RelocatingCodec {
+  constructor(public value: i32 = 0) {}
+
+
+  @serializer("object")
+  serialize(self: RelocatingCodec): string {
+    if (!relocatedItems && self.value == 1) {
+      relocatedItems = true;
+      // Force a backing allocation change, then replace a not-yet-read item.
+      relocatingItems.length = 4096;
+      relocatingItems[1] = new RelocatingCodec(22);
+      __collect();
+    }
+    return '{"value":' + self.value.toString() + "}";
+  }
+}
+
+describe("Array serializers observe backing relocation between callbacks", () => {
+  relocatingItems = [
+    new RelocatingCodec(1),
+    new RelocatingCodec(2),
+    new RelocatingCodec(3),
+  ];
+  relocatedItems = false;
+  const initialBase = relocatingItems.dataStart;
+  const result = JSON.stringify(relocatingItems);
+  expect(relocatedItems).toBe(true);
+  expect(relocatingItems.dataStart != initialBase).toBe(true);
+  expect(result).toBe('[{"value":1},{"value":22},{"value":3}]');
+});

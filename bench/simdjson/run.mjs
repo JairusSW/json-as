@@ -29,6 +29,7 @@ const dir = path.join(baseDir, "runs", label);
 const key = option("--case", "canada-min");
 const ops = Number(option("--ops", "100"));
 const pairs = Number(option("--pairs", "5"));
+const varyLength = args.includes("--vary-length");
 const corpus = [...manifest.corpora, ...(manifest.diagnostics ?? [])].find(
   (c) => c.layouts.some((l) => `${c.name}-${l}` === key),
 );
@@ -124,7 +125,7 @@ function prepare() {
     : null;
   const inputs = [];
   for (let i = 0; i < 4; i++) {
-    const rotated = rotations ? rotations[i] : rotateText(text, i);
+    const rotated = rotations ? rotations[i] : rotateText(text, i, varyLength);
     JSON.parse(rotated);
     const filename = path.join(dir, `inputs/${key}.${i}.json`);
     fs.writeFileSync(filename, rotated);
@@ -197,6 +198,11 @@ function prepare() {
   const metadata = {
     case: key,
     label,
+    inputVariation: corpus.numericShape
+      ? "Changing numeric values"
+      : varyLength
+        ? "Changing string values and lengths"
+        : "Changing string values",
     xjb,
     ops,
     simdjson: manifest.simdjson,

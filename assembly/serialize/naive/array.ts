@@ -28,6 +28,7 @@ function reservePrimitiveArray<T>(len: i32): void {
   }
 }
 
+
 function serializeArrayElement<T>(value: T): void {
   // Nullable strings also satisfy isString<T>(); handle null before any
   // string or custom serializer can dereference the value.
@@ -406,14 +407,18 @@ export function serializeArray<T extends any[]>(src: T): void {
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
 
+  const stride = sizeof<valueof<T>>();
   while (i < end) {
-    const block = unchecked(src[i++]);
+    // Equivalent to Array.__uget, with the backing pointer read anew after
+    // each callback so growth or replacement cannot leave a stale base.
+    const block = load<valueof<T>>(src.dataStart + <usize>i * stride);
+    i++;
     serializeArrayElement<valueof<T>>(block);
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }
 
-  const lastBlock = unchecked(src[end]);
+  const lastBlock = load<valueof<T>>(src.dataStart + <usize>end * stride);
   serializeArrayElement<valueof<T>>(lastBlock);
   store<u16>(bs.offset, BRACKET_RIGHT);
   bs.offset += 2;

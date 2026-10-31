@@ -18,12 +18,15 @@ parser.add_argument('--pairs', type=int, default=5)
 parser.add_argument('--output', required=True)
 parser.add_argument('--backends', default='v8', help='v8,w2c2-checked,w2c2-default')
 parser.add_argument('--allow-w2c2-source-change', action='store_true', help='Backend experiment: permit different pinned w2c2 revisions, retaining compiler/translator/SIMDe checks')
+parser.add_argument('--require-equal-label-length', action='store_true', help='Keep embedded artifact path lengths equal across variants')
 parser.add_argument('--smoke', action='store_true', help='One diagnostic round; no performance gate')
 parser.add_argument('--gate-validation', choices=['v8','w2c2-checked','w2c2-default'])
 parser.add_argument('--gate-regression', type=float, help='Fail if candidate median regresses beyond this percent')
 args = parser.parse_args()
 labels = args.labels.split(',')
 backends = args.backends.split(',')
+if args.require_equal_label_length and len({len(label) for label in labels}) != 1:
+    parser.error('Labels must have equal lengths to control embedded path sizes')
 if set(backends) - {'v8', 'w2c2-checked', 'w2c2-default'} or len(set(backends)) != len(backends):
     parser.error('Invalid backend list')
 if len(set(labels)) < 2 or len(set(labels)) != len(labels) or (args.pairs < 5 and not (args.smoke and args.pairs == 1)):
@@ -93,6 +96,7 @@ for label in labels:
                         raise ValueError(f'w2c2 backend provenance differs: {field}')
             backend_metadata[f'{label}/{backend}/{mode}'] = meta
 output.mkdir(parents=True)
+(output / 'invocation.json').write_text(json.dumps(vars(args), indent=2) + '\n')
 for label in labels:
     for backend in backends:
         (output / f'oracles/{backend}/{label}').mkdir(parents=True)

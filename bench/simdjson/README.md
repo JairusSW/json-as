@@ -198,3 +198,17 @@ Compiler, translator binary, SIMDe, host, Wasm and input checks still apply;
 all backend provenance is saved in `backends.json`. Build requires clean,
 committed w2c2 sources. Keep experiment labels separate to preserve baseline
 executables. This flag does not relax coverage or performance gates.
+
+Owned-driver preparation accepts `--vary-length` to rotate both string values
+and their lengths while preserving numeric tokens and key names. The choice is
+recorded in `inputVariation`, and each input has its own length/hash. Use the
+same option for both sides of a comparison. Numeric-shape diagnostics keep
+their existing changing-value generator. Existing frozen same-length results
+remain separate artifacts.
+
+For small A/B effects, use equal-length ASCII labels and pass
+`compare.py --require-equal-label-length`. Generated Wasm embeds label-derived
+input/output paths; unequal label lengths can change data-section placement.
+The flag rejects unequal lengths, and each comparison saves `invocation.json`.
+Matching labels control this particular confound without proving that unrelated
+code-layout or timing variation is absent.

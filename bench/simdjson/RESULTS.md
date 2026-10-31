@@ -268,3 +268,72 @@ typecheck and lint pass. Dedicated tests cover empty/partial objects, duplicates
 independent defaults, explicit initializer execution, retained graphs and GC
 inside child initialization. Full-corpus typed parsing, other runtime backends,
 and all remaining workload families still require qualification.
+
+## Profile-guided array serialization
+
+A separate, named-Wasm CITM stringification profile runs 5,000 operations after
+setup. Generated diagnostic sources remove timed parsing/validation and the
+unused retained-object output. V8 15.2.20 runs with `--no-liftoff --prof`; these
+profile timings are not qualification results. Raw code-creation ranges and
+tick PCs yield 1,212 total ticks, 1,004 attributed Wasm self samples: 323 (32.2%)
+in typed array-element writers and 101 (10.1%) in a shared array accessor. A
+Wasm optimizer may share the accessor across element types, so its `Array<u32>`
+name does not mean the original corpus stores u32 arrays. This is a self
+profile, not an attribution of native memcpy time or total copied bytes.
+Artifacts: `citm-serialize-v8.log`, `citm-serialize-self-profile.json` and
+`runs/citm-serialize-profile/profile-only.json` under `build/simdjson-parity/`.
+
+The generic Array serializer now spells out the load performed by Array.__uget.
+It rereads `src.dataStart` after every callback; no backing pointer is cached
+across user code. A custom serializer regression grows the source to 4,096
+slots, forces GC, replaces the next element, and verifies that serialization
+uses the replacement while preserving the original iteration extent.
+
+The first five-round experiment separates direct loads and forced element-helper
+inlining. Direct loads improve CITM minified stringification by 6.4–7.1% and
+Canada by 3.1–4.7%. Inlining adds little and its Canada validation control fails
+the 3% regression screen; that annotation is removed. An independent pretty
+CITM run confirms 6.9–7.6% higher stringification throughput with direct loads.
+Raw comparisons: `array-compose-{citm_catalog-min,canada-min}-qualified/` and
+`array-load-citm-pretty-confirm/`. These measurements retain the older
+same-length input rotations; the final campaign below varies lengths too.
+
+The first changing-length sweep (`array-vary-*-qualified/`) still improves the
+serialization rows but fails controls in CITM minified and pretty. A nine-round
+identical-binary calibration finds 2.3% median-side variation in V8 parsing,
+1.6% in checked-C parsing, and under 1% in validation/serialization. Those
+values do not explain away the larger failed controls. Calibration raw samples,
+binary hashes and logs are in `comparisons/array-aa-calibration/`.
+
+The earlier A/B labels have lengths 17 and 20. Embedded artifact paths increase
+the candidate Wasm data section by 18 bytes, another possible layout confound.
+The controlled follow-up uses `array-equal-base`/`array-equal-test`, both length
+16. Their CITM SIMD data sections are both 27,384 bytes; code section sizes are
+164,377/164,409 bytes. This controls path-size variation, not every possible
+compiler/code-placement effect. `--require-equal-label-length` enforces the
+label constraint, and `invocation.json` records comparison flags.
+
+Final nine-round results use changing values/lengths, the equal-length labels,
+the same native binary, full owned-output oracles and isolated processes:
+
+| Case/backend | SWAR stringify throughput ratio | SIMD ratio |
+| --- | ---: | ---: |
+| CITM min / V8 | 1.080× | 1.036× |
+| CITM pretty / V8 | 1.063× | 1.056× |
+| Canada min / V8 | 1.033× | 1.064× |
+| CITM min / checked w2c2 | 1.061× | 1.103× |
+| CITM min / unchecked w2c2 | 1.143× | 1.130× |
+
+Every measured V8 and checked-w2c2 row is within the explicit 3% regression
+limit. The combined CITM-min screen still **fails**: unchecked SWAR validation
+slows 7.5% (candidate/baseline time), with no lexical algorithm change. That
+regression remains unresolved; the patch is a local candidate, not a universally
+regression-free integration recommendation. Artifact directories:
+`comparisons/array-equal-{citm_catalog-min,citm_catalog-pretty,canada-min}-qualified/`.
+
+Verification: 117,138 normal checks and 75,537 strict/RFC checks across all three
+modes, full output/retention oracles, input-rotation tests and lint pass. The
+forced-inlining annotation is absent from the retained patch. This is an array
+serialization improvement; standalone copied-byte measurements, direct owned
+output construction, remaining corpora/families and overall simdjson parity are
+still open work.

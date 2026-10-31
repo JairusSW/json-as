@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(serialize): load generic array elements directly while rereading the backing pointer after callbacks.
+
 - perf(strict): defer implicit collection defaults during fresh checked object parsing, constructing empty defaults only for missing fields.
 
 ## 2026-10-29 - v1.7.0
