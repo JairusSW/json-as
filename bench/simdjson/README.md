@@ -279,3 +279,12 @@ short case and 5,000 for larger cases. The Unicode input is well formed;
 isolated UTF-16 units remain correctness tests because native UTF-8 input has
 a different representation/policy. These diagnostics do not bypass the overall
 coverage gate.
+
+Oracle copies happen after timing. On APFS the comparison driver uses
+copy-on-write clones to preserve complete output bytes without duplicating
+their storage. Other filesystems use ordinary copies. Destinations are replaced
+atomically with independent inodes, so later producer writes or replacement of
+previously hardlinked evidence cannot modify another captured file. Storage
+errors propagate without truncating an existing destination. The copier's hash
+is recorded in `invocation.json`; its tests run with
+`python3 bench/simdjson/oracle-storage.test.py`.

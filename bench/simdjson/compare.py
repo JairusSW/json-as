@@ -5,11 +5,11 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import statistics
 import subprocess
 from round_order import round_schedule
 from goal_policy import target_status
+from oracle_storage import copy_oracle
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE = ROOT / 'build/simdjson-parity'
@@ -110,6 +110,7 @@ output.mkdir(parents=True)
     'comparisonDriverSha256': sha(Path(__file__)),
     'roundOrderSha256': sha(Path(__file__).with_name('round_order.py')),
     'goalPolicySha256': sha(Path(__file__).with_name('goal_policy.py')),
+    'oracleStorageSha256': sha(Path(__file__).with_name('oracle_storage.py')),
     'performanceTarget': target,
 }, indent=2) + '\n')
 for label in labels:
@@ -147,9 +148,9 @@ for label in labels:
         oracles = output / f'oracles/{backend}/{label}'
         if backend == 'v8':
             for file in (BASE / f'runs/{label}/oracles').glob(f'as-*-{args.case}*.json'):
-                shutil.copy2(file, oracles / file.name)
+                copy_oracle(file, oracles / file.name)
         for file in (BASE / f'runs/{labels[0]}/oracles').glob(f'native-{args.case}*.json'):
-            shutil.copy2(file, oracles / file.name)
+            copy_oracle(file, oracles / file.name)
         if baseline.get('validationOnly'):
             native = json.loads((oracles / f'native-{args.case}.json').read_text())
             if native != baseline['expectedOracle']:
