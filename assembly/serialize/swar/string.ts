@@ -11,15 +11,13 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 
 export function serializeString_SWAR(src: string): void {
   let srcStart = changetype<usize>(src);
-  const srcInitial = srcStart;
   const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
   const srcEnd = srcStart + srcSize;
+  bs.proposeSize(srcSize + 4);
+  const dstStart = bs.offset;
+  let dst = dstStart + 2;
   do {
     const srcEnd8Fast = srcEnd - 8;
-    bs.proposeSize(srcSize + 4);
-
-    const dstStart = bs.offset;
-    let dst = dstStart + 2;
 
     if (
       srcStart <= srcEnd8Fast &&
@@ -97,11 +95,11 @@ export function serializeString_SWAR(src: string): void {
     return;
   } while (false);
 
-  srcStart = srcInitial;
+  // The optimistic scan already copied the plain prefix. Resume at the
+  // first exceptional block instead of scanning and writing that prefix twice.
+  store<u16>(dstStart, QUOTE);
+  bs.offset = dst;
   const srcEnd8 = srcEnd - 8;
-
-  store<u16>(bs.offset, 34); // "
-  bs.offset += 2;
 
   while (srcStart < srcEnd8) {
     const block = load<u64>(srcStart);

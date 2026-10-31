@@ -149,3 +149,27 @@ describe("String slow paths keep optimistic stores inside reserved capacity", ()
     expect(optimisticStorePreservesGuard("aaa\u0001z", 1000)).toBe(true);
   }
 });
+
+describe("String fallback keeps long copied prefixes when output grows", () => {
+  const prefixes: string[] = [
+    "a".repeat(2048),
+    "中".repeat(2048),
+    "a".repeat(2047),
+  ];
+  const units: string[] = ["\u0001", '"', "\ud800", "\ud83d\ude00"];
+  const escaped: string[] = ["\\u0001", '\\"', "\\ud800", "\ud83d\ude00"];
+  for (let i = 0; i < prefixes.length; i++) {
+    for (let j = 0; j < units.length; j++) {
+      const source = prefixes[i] + units[j] + "tail";
+      const expected = '"' + prefixes[i] + escaped[j] + 'tail"';
+      expect(JSON.stringify(source) == expected).toBe(true);
+      const obj = new JSON.Obj();
+      obj.set("prefix", "already written");
+      obj.set("value", source);
+      expect(
+        JSON.stringify(obj) ==
+          '{"prefix":"already written","value":' + expected + "}",
+      ).toBe(true);
+    }
+  }
+});

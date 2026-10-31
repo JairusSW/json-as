@@ -1,5 +1,6 @@
 /// <reference path="./index.d.ts" />
 
+import { keyLength, KEY_HEADER_UNITS } from "./util/key-buffer";
 import { bs } from "../lib/as-bs";
 import { OBJECT, OBJECT_MAXSIZE, TOTAL_OVERHEAD } from "rt/common";
 import {
@@ -1544,18 +1545,20 @@ export namespace JSON {
     private pushKeyBytes(keyStart: usize, keyEnd: usize, slotIndex: i32): void {
       const len = <i32>((keyEnd - keyStart) >> 1);
       const pos = this._kused;
-      this.ensureKeyCap(pos + 1 + len);
+      const header = KEY_HEADER_UNITS;
+      this.ensureKeyCap(pos + header + len);
       this.ensureKeyPosCap(slotIndex + 1);
       const buf = changetype<usize>(this._kbuf);
-      store<u16>(buf + ((<usize>pos) << 1), <u16>len);
+      const ptr = buf + ((<usize>pos) << 1);
+      store<i32>(ptr, len);
       if (len)
         memory.copy(
-          buf + ((<usize>(pos + 1)) << 1),
+          buf + ((<usize>(pos + header)) << 1),
           keyStart,
           (<usize>len) << 1,
         );
       unchecked((this._kpos[slotIndex] = pos));
-      this._kused = pos + 1 + len;
+      this._kused = pos + header + len;
     }
 
     /** Materializes a key string from `len` code units starting at slot `at`. */
@@ -1622,29 +1625,37 @@ export namespace JSON {
     private keyEquals(i: i32, key: string): bool {
       const pos = unchecked(this._kpos[i]);
       const buf = changetype<usize>(this._kbuf) + ((<usize>pos) << 1);
-      const len = <i32>load<u16>(buf);
+      const len = keyLength(buf);
       if (len != <i32>key.length) return false;
-      return utf16Equals(changetype<usize>(key), buf + 2, len);
+      return utf16Equals(
+        changetype<usize>(key),
+        buf + ((<usize>KEY_HEADER_UNITS) << 1),
+        len,
+      );
     }
 
     /** Compares two stored key slots without materializing strings. */
     private slotEqualsSlot(a: i32, b: i32): bool {
       const posa = unchecked(this._kpos[a]);
       const bufA = changetype<usize>(this._kbuf) + ((<usize>posa) << 1);
-      const lenA = <i32>load<u16>(bufA);
+      const lenA = keyLength(bufA);
       const posb = unchecked(this._kpos[b]);
       const bufB = changetype<usize>(this._kbuf) + ((<usize>posb) << 1);
-      const lenB = <i32>load<u16>(bufB);
+      const lenB = keyLength(bufB);
       if (lenA != lenB) return false;
-      return utf16Equals(bufA + 2, bufB + 2, lenA);
+      return utf16Equals(
+        bufA + ((<usize>KEY_HEADER_UNITS) << 1),
+        bufB + ((<usize>KEY_HEADER_UNITS) << 1),
+        lenA,
+      );
     }
 
     /** Hashes the stored key for slot `i`. */
     private keyHashAt(i: i32): u32 {
       const pos = unchecked(this._kpos[i]);
       const buf = changetype<usize>(this._kbuf) + ((<usize>pos) << 1);
-      const len = <i32>load<u16>(buf);
-      return hashUtf16(buf + 2, len);
+      const len = keyLength(buf);
+      return hashUtf16(buf + ((<usize>KEY_HEADER_UNITS) << 1), len);
     }
 
     /** Resolves a key to its slot index, or -1 if absent. */
@@ -1664,8 +1675,8 @@ export namespace JSON {
         for (let i = n - 1; i >= 0; i--) {
           const buf = kbuf + ((<usize>unchecked(kpos[i])) << 1);
           if (
-            <i32>load<u16>(buf) == keyLen &&
-            utf16Equals(keyPtr, buf + 2, keyLen)
+            keyLength(buf) == keyLen &&
+            utf16Equals(keyPtr, buf + ((<usize>KEY_HEADER_UNITS) << 1), keyLen)
           )
             return i;
         }
@@ -1738,21 +1749,21 @@ export namespace JSON {
       const len = <i32>((keyEnd - keyStart) >> 1);
       const keyPos = this._kused;
       if (
-        keyPos + 1 + len <= this._kbuf.length &&
+        keyPos + KEY_HEADER_UNITS + len <= this._kbuf.length &&
         slotIndex < this._kpos.length &&
         slotIndex < this._vals.length
       ) {
         const keyBuf = changetype<usize>(this._kbuf);
-        store<u16>(keyBuf + ((<usize>keyPos) << 1), <u16>len);
+        store<i32>(keyBuf + ((<usize>keyPos) << 1), len);
         if (len)
           memory.copy(
-            keyBuf + ((<usize>(keyPos + 1)) << 1),
+            keyBuf + ((<usize>(keyPos + KEY_HEADER_UNITS)) << 1),
             keyStart,
             (<usize>len) << 1,
           );
         unchecked((this._kpos[slotIndex] = keyPos));
         unchecked((this._vals[slotIndex] = bits));
-        this._kused = keyPos + 1 + len;
+        this._kused = keyPos + KEY_HEADER_UNITS + len;
         this._vused = slotIndex + 1;
         return;
       }
@@ -1808,8 +1819,11 @@ export namespace JSON {
         for (let i = 0; i < used; i++) {
           const keyPos = unchecked(this._kpos[i]);
           const buf = changetype<usize>(this._kbuf) + ((<usize>keyPos) << 1);
-          const len = <i32>load<u16>(buf);
-          let slot = <i32>(hashUtf16(buf + 2, len) & (<u32>mask));
+          const len = keyLength(buf);
+          let slot = <i32>(
+            (hashUtf16(buf + ((<usize>KEY_HEADER_UNITS) << 1), len) &
+              (<u32>mask))
+          );
           while (unchecked(idx[slot]) != 0) {
             const entry = unchecked(idx[slot]) - 1;
             if (this.slotEqualsSlot(entry, i)) {
@@ -1900,26 +1914,31 @@ export namespace JSON {
       if (removed < 0) return false;
       this._rawStart = 0;
       this._rawEnd = 0;
-      const keys = this.keys();
-      const oldVals = this._vals;
       const n = this._vused;
-      this._kbuf = EMPTY_KEYS;
-      this._kused = 0;
-      this._kpos = EMPTY_I32S;
-      this._vals = EMPTY_VALS;
-      this._vused = 0;
+      const buf = changetype<usize>(this._kbuf);
+      let used = 0;
+      let count = 0;
+      // Compact in place: surviving values remain traced by this owner, and
+      // deleting a key needs no strings or replacement backing buffers.
       for (let j = 0; j < n; j++) {
-        const k = unchecked(keys[j]);
-        // Parsed objects retain duplicate slots. Removing only the last-wins
-        // lookup result would expose an earlier value for the deleted key.
-        if (k == key) continue;
-        this.pushKeyBytes(
-          changetype<usize>(k),
-          changetype<usize>(k) + ((<usize>k.length) << 1),
-          this._vused,
-        );
-        this.pushValSlot(unchecked(oldVals[j]));
+        if (this.keyEquals(j, key)) continue;
+        const pos = unchecked(this._kpos[j]);
+        const len = keyLength(buf + ((<usize>pos) << 1));
+        const units = KEY_HEADER_UNITS + len;
+        if (used != pos) {
+          memory.copy(
+            buf + ((<usize>used) << 1),
+            buf + ((<usize>pos) << 1),
+            (<usize>units) << 1,
+          );
+        }
+        unchecked((this._kpos[count] = used));
+        unchecked((this._vals[count] = unchecked(this._vals[j])));
+        used += units;
+        count++;
       }
+      this._kused = used;
+      this._vused = count;
       this._index = null;
       this._indexMask = 0;
       return true;
@@ -1953,9 +1972,10 @@ export namespace JSON {
       let pos = 0;
       let i = 0;
       while (pos < used) {
-        const len = <i32>load<u16>(buf + ((<usize>pos) << 1));
-        unchecked((out[i++] = this.makeKey(pos + 1, len)));
-        pos += 1 + len;
+        const len = keyLength(buf + ((<usize>pos) << 1));
+        const header = KEY_HEADER_UNITS;
+        unchecked((out[i++] = this.makeKey(pos + header, len)));
+        pos += header + len;
       }
       return out;
     }
@@ -1999,8 +2019,18 @@ export namespace JSON {
         const keys = value.keys();
         const values = value.values();
         const len = keys.length;
+        out.ensureKeyPosCap(len);
+        out.ensureValCap(len);
+        // Map keys are unique, so appending avoids a lookup and hash-index
+        // maintenance for every entry in a newly constructed object.
         for (let i = 0; i < len; i++) {
-          out.set(unchecked(keys[i]), unchecked(values[i]));
+          const key = unchecked(keys[i]);
+          const start = changetype<usize>(key);
+          out.appendRaw(
+            start,
+            start + ((<usize>key.length) << 1),
+            unchecked(values[i]),
+          );
         }
         return out;
       }
@@ -2308,8 +2338,12 @@ export namespace JSON {
       const n = this._vused;
       let s = start < 0 ? max(n + start, 0) : min(start, n);
       const e = end < 0 ? max(n + end, 0) : min(end, n);
+      if (s >= e) return this;
       const bits = JSON.Value.bitsFrom<T>(value);
-      for (; s < e; s++) this.storeSlot(s, bits);
+      // Link a managed value once for this owner. Repeated slots carry the
+      // same pointer and the remaining writes cannot allocate or run GC.
+      this.storeSlot(s++, bits);
+      for (; s < e; s++) unchecked((this._vals[s] = bits));
       return this;
     }
 
@@ -2362,12 +2396,21 @@ export namespace JSON {
     }
 
     /** Returns a new JSON.Arr = this followed by `other` (resolves deferred slots
-     *  since the two sources can't share one `_src`). */
+     *  when the two sources cannot share one `_src`). */
     concat(other: JSON.Arr): JSON.Arr {
       const out = new JSON.Arr();
       const a = this._vused;
       const b = other._vused;
       out.ensureValCap(a + b);
+      if (
+        changetype<usize>(this._src) == changetype<usize>(other._src) ||
+        this._src.length == 0 ||
+        other._src.length == 0
+      ) {
+        this.copyInto(out, 0, a);
+        other.copyInto(out, 0, b);
+        return out;
+      }
       for (let i = 0; i < a; i++) out.pushRawSlot(this.resolvedBits(i));
       for (let i = 0; i < b; i++) out.pushRawSlot(other.resolvedBits(i));
       return out;

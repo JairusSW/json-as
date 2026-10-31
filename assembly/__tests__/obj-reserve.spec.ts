@@ -220,7 +220,7 @@ describe("JSON.Obj reserve: reuse preserves grown buffers and drops stale entrie
   expect(changetype<usize>(obj._vals)).toBe(valPtr);
   expect(backingBytes(obj)).toBe(bytes);
   expect(obj.size).toBe(1);
-  expect(obj._kused).toBe(8);
+  expect(obj._kused).toBe(9);
   expect(obj.has("entry0")).toBe(false);
   expect(obj.has("entry511")).toBe(false);
   __collect();

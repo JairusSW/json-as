@@ -596,11 +596,11 @@ export function deserializeFloatArrayBody<T extends number[]>(
   out: T,
 ): usize {
   let index = 0;
-  const reusableLength = load<i32>(
+  let reusableLength = load<i32>(
     changetype<usize>(out),
     offsetof<T>("length_"),
   );
-  const reusableDataStart = out.dataStart;
+  let reusableDataStart = out.dataStart;
   const elementSize = sizeof<valueof<T>>();
 
   do {
@@ -613,11 +613,16 @@ export function deserializeFloatArrayBody<T extends number[]>(
       return srcStart + 2;
     }
 
-    // GeoJSON's innermost coordinate arrays are overwhelmingly reused
-    // `[longitude,latitude]` pairs. Unroll that stable-shape case so neither
-    // element pays the generic index/capacity selection or loop backedge. A
-    // mismatch restores the first-value cursor and falls through unchanged.
-    if (ASC_FEATURE_SIMD && reusableLength == 2) {
+    // Empty numeric arrays already reserve at least two backing slots. Expose
+    // that capacity once so fresh pairs can use the same unrolled path as
+    // reused pairs. Other lengths fall back to the general loop and are trimmed
+    // at the closing bracket.
+    if (reusableLength == 0) {
+      out.length = 2;
+      reusableLength = 2;
+      reusableDataStart = out.dataStart;
+    }
+    if (reusableLength == 2) {
       const firstStart = srcStart;
       const pairEnd = parseFixed14Pair<valueof<T>>(
         srcStart,

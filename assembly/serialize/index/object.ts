@@ -1,3 +1,4 @@
+import { keyLength, KEY_HEADER_UNITS } from "../../util/key-buffer";
 import { bs } from "../../../lib/as-bs";
 import { JSON } from "../..";
 import { BRACE_LEFT, BRACE_RIGHT, COLON, COMMA } from "../../custom/chars";
@@ -50,12 +51,16 @@ export function serializeObject(src: JSON.Obj): void {
   let pos = 0;
   let i = 0;
   while (pos < kused) {
-    const len = <i32>load<u16>(kbuf + ((<usize>pos) << 1));
+    const len = keyLength(kbuf + ((<usize>pos) << 1));
+    const header = KEY_HEADER_UNITS;
     if (i != 0) {
       store<u16>(bs.offset, COMMA);
       bs.offset += 2;
     }
-    serializeStringRange(kbuf + ((<usize>(pos + 1)) << 1), (<usize>len) << 1);
+    serializeStringRange(
+      kbuf + ((<usize>(pos + header)) << 1),
+      (<usize>len) << 1,
+    );
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
 
@@ -71,7 +76,7 @@ export function serializeObject(src: JSON.Obj): void {
       const v = JSON.Value.fromBits(slot);
       serializeArbitrary(v);
     }
-    pos += 1 + len;
+    pos += header + len;
     i++;
   }
 
