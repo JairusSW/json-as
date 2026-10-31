@@ -41,3 +41,18 @@ describe("Surrogate pairs crossing vector blocks preserve bounds and escapes", (
     }
   }
 });
+
+describe("Unicode scan continuation agrees with scalar output in every lane", () => {
+  const pattern = "，，，，，，，，a😀b😀c😀d😀e";
+  const probe = changetype<string>(__new(pattern.length << 1, idof<string>()));
+  const ptr = changetype<usize>(probe);
+  let mismatches = 0;
+  for (let lane: usize = 0; lane < 8; lane++) {
+    memory.copy(ptr, changetype<usize>(pattern), pattern.length << 1);
+    for (let code: u32 = 0; code <= 0xffff; code++) {
+      store<u16>(ptr + ((lane + 8) << 1), <u16>code);
+      if (JSON.stringify(probe) != scalar(probe)) mismatches++;
+    }
+  }
+  expect(mismatches).toBe(0);
+});

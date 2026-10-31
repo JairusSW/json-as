@@ -544,3 +544,96 @@ Artifacts under `build/simdjson-parity/`: `runs/coverage-owned/`,
 All 13 benchmark generator/input checks, native and AS corpus builds, complete
 output oracles, typecheck and lint pass. No production parser or formatter
 algorithm changes in this coverage commit.
+
+## Adaptive UTF-16 serialization scanning
+
+The initial exact-mask experiment replaces the optimistic loop's conservative
+byte-level surrogate test with an exact UTF-16 test. It passes the string
+correctness suite and improves Poet SIMD stringification 1.607×, but slows
+large clean/late-escape ASCII stringification about 12%. It is rejected. Its
+source is preserved in `utf16-unconditional.patch`, its binaries in
+`runs/utf16-mask-001/`, and its six nine-round screens in
+`comparisons/utf16-exact-*/` under `build/simdjson-parity/`.
+
+The retained candidate leaves the cheap ASCII loop intact. After a conservative
+candidate proves to be ordinary BMP text, it copies that block and continues
+with a bounded exact UTF-16 loop. Valid surrogate pairs remain copyable,
+including pairs crossing vector boundaries; escapes and unpaired units return
+to the existing encoder at the current cursor. Clean vectors after an escape
+use the same loop, keeping their output cursor local. Calls are skipped when
+no full vector remains. The helper allocates nothing and owns no shared state.
+
+A one-call-site variant gains 1.617× on Poet but slows dense escaping about
+14%; it is rejected and saved in `utf16-adaptive-single-call.patch` and
+`runs/utf16-adap-001/`. Sharing the scan with escaped-string continuation also
+keeps it as a separate function in the optimized module. This agrees with
+[Binaryen 130's single-use inlining heuristic](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Inlining.cpp#L142).
+The intermediate shared variant still fails late-escape ASCII by about 3.3%;
+its source and results are preserved in `utf16-shared-helper.patch` and
+`comparisons/utf16-shared-*/`. No compiler flags or benchmark caches change.
+
+Final qualification uses same-length labels `utf16-base-001` and
+`utf16-final001`, byte-identical native baseline executables, frozen input/source/
+binary hashes and nine balanced fresh-process rounds. All 12 fully typed
+classic layouts and ten ordinary owned-string diagnostics are measured. Four
+diagnostics exercise fullwidth text, and an additional transition case forces
+both helper entry paths before processing mixed surrogate pairs. Every layout
+and backend passes complete owned-output and retained-result checks. Builds,
+tests, profiling and output-oracle processing do not overlap timed processes.
+
+V8 SIMD owned-stringify throughput ratios, candidate / baseline:
+
+| Workload | Ratio | Workload | Ratio |
+| --- | ---: | --- | ---: |
+| Canada minified | 1.006× | Canada pretty | 0.981× |
+| Twitter minified | 0.999× | Twitter pretty | 0.993× |
+| CITM minified | 1.026× | CITM pretty | 0.985× |
+| GitHub-events minified | 0.995× | GitHub-events pretty | 0.992× |
+| Poet minified | 1.595× | Poet pretty | 1.598× |
+| GSOC minified | 0.954× | GSOC pretty | 1.007× |
+| Short ASCII | 1.004× | Large clean ASCII | 1.000× |
+| Late ASCII quote | 1.008× | Dense escapes | 0.986× |
+| Mixed Unicode | 1.031× | Short fullwidth | 0.994× |
+| Clean fullwidth | 1.388× | Escaped fullwidth | 1.010× |
+| Fullwidth with pairs | 1.022× | Forced transition | 4.033× |
+
+Checked/unchecked w2c2 comparisons use the same frozen Wasm, incremental runtime,
+SIMDe/header/translator pins and GCC 16.2 flags. Owned-stringify ratios:
+
+| Workload | V8 | Checked w2c2 | Unchecked w2c2 |
+| --- | ---: | ---: | ---: |
+| Poet minified | 1.595× | 1.394× | 1.490× |
+| Dense escapes | 0.986× | 0.997× | 1.014× |
+| Fullwidth with pairs | 1.022× | 1.025× | 0.992× |
+| Forced transition | 4.033× | 2.983× | 2.408× |
+
+The full regression qualification is **not clean**: 18 of 22 workload screens
+pass the explicit 3% limit. The six failing rows are:
+
+- GSOC-minified V8 SIMD stringify: 4.85% slower.
+- Twitter-pretty V8 SIMD parse: 3.40% slower.
+- Dense-escape V8 SIMD parse: 3.15% slower.
+- Dense-escape checked-w2c2 SWAR validation: 3.26% slower.
+- Fullwidth/pairs checked-w2c2 SWAR validation: 3.10% slower.
+- Fullwidth/pairs unchecked-w2c2 SWAR validation: 5.81% slower.
+
+All 21 initially measured SWAR Wasm code sections are byte-identical between
+variants. The SWAR native text sections are also byte-identical for all six
+initial checked/unchecked executable pairs. Hash reports are saved in
+`utf16-swar-{code,native-code}-identity.json`. That rules out changed SWAR
+instructions; it does not turn the failed controls into passes. The GSOC
+serialization regression remains unresolved. Its minified and pretty inputs
+have identical values and map order, while its pretty stringify row is roughly
+flat. Phase/state isolation and generated machine-code inspection remain
+necessary before a universal integration recommendation.
+
+Verification: 117,720 normal checks and 75,621 strict/RFC checks across all three
+modes, 13 harness checks, typecheck and lint pass. Two public/scalar differential
+sweeps cover 1,048,576 UTF-16 lane cases per mode, including entry after a
+fullwidth prefix; existing vector-tail and output-boundary guards also pass.
+The candidate is local and unpushed. Native simdjson still wins every measured
+owned-stringify row; these gains are not whole-workload parity.
+
+Final artifacts under `build/simdjson-parity/`: `runs/utf16-{base-001,final001}/`,
+`comparisons/utf16-final-*/`, `utf16-final-gates.json`, and
+`utf16-final-*-paired.log`. The earlier rejected variants remain available.

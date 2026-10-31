@@ -52,6 +52,19 @@ export function serializeString_SIMD(src: string): void {
         );
         if (v128.any_true(v128.or(eq22, v128.or(eq5C, lt20)))) break;
         const surrogateBits = i8x16.bitmask(surrogate) & 0x5555;
+        if (!surrogateBits) {
+          // Ordinary BMP text triggered the conservative byte test. Copy the
+          // proven block, then classify whole UTF-16 units for this string.
+          store<v128>(dst, block);
+          srcStart += 16;
+          dst += 16;
+          if (srcStart <= srcEnd16Fast) {
+            const next = copyCleanUnicode(srcStart, srcEnd, dst);
+            dst += next - srcStart;
+            srcStart = next;
+          }
+          break;
+        }
         if (surrogateBits) {
           const high =
             i8x16.bitmask(i16x8.lt_u(block, SURROGATE_LOW_BOUND)) &
@@ -132,6 +145,13 @@ export function serializeString_SIMD(src: string): void {
       store<v128>(bs.offset, block);
       bs.offset += 16;
       srcStart += 16;
+      // A clean suffix after an escape uses the same checked Unicode loop.
+      // Keep its cursor local instead of updating shared state per vector.
+      if (srcStart <= srcEnd16) {
+        const next = copyCleanUnicode(srcStart, srcEnd, bs.offset);
+        bs.offset += next - srcStart;
+        srcStart = next;
+      }
       continue;
     }
 
@@ -260,6 +280,43 @@ export function serializeString_SIMD(src: string): void {
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
 }
+
+/** Copy clean UTF-16 after a byte-level false positive, stopping at an escape. */
+function copyCleanUnicode(src: usize, end: usize, dst: usize): usize {
+  const end16 = end - 16;
+  while (src <= end16) {
+    const block = load<v128>(src);
+    const ascii = v128.or(
+      i16x8.eq(block, SPLAT_0022),
+      v128.or(i16x8.eq(block, SPLAT_005C), i16x8.lt_u(block, SPLAT_0020)),
+    );
+    const surrogate = i16x8.eq(v128.and(block, SURROGATE_MASK), SURROGATE_BASE);
+    if (v128.any_true(v128.or(ascii, surrogate))) {
+      if (v128.any_true(ascii)) return src;
+      const bits = i8x16.bitmask(surrogate) & 0x5555;
+      const high = i8x16.bitmask(i16x8.lt_u(block, SURROGATE_LOW_BOUND)) & bits;
+      const low = bits ^ high;
+      const unpaired = (high & ~(low >> 2)) | (low & ~(high << 2));
+      if (unpaired) {
+        // A final high unit may pair with the first unit beyond this vector.
+        if (unpaired != 0x4000 || (high & 0x4000) == 0 || end - src < 18)
+          return src;
+        const next = load<u16>(src, 16);
+        if (<u32>(next - 0xdc00) > 0x3ff) return src;
+        store<v128>(dst, block);
+        store<u16>(dst, next, 16);
+        src += 18;
+        dst += 18;
+        continue;
+      }
+    }
+    store<v128>(dst, block);
+    src += 16;
+    dst += 16;
+  }
+  return src;
+}
+
 function write_u_escape(code: u16): void {
   bs.growSize(10);
   store<u32>(bs.offset, U_MARKER); // "\u"

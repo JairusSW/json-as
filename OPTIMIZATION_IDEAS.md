@@ -535,3 +535,24 @@ The proposal above is preserved as supplied. Current implementation notes:
 - Direct owned output, deferred defaults, adaptive order/capacity prediction,
   larger writing regions, grouped escape expansion, independent numeric
   scheduling, and concrete-field escape metadata remain proposals.
+
+### Profile follow-up, 2026-10-31
+
+The owned-corpus qualification and adaptive UTF-16 experiment are recorded in
+[RESULTS.md](bench/simdjson/RESULTS.md#adaptive-utf-16-serialization-scanning).
+Poet improves about 1.60×, but GSOC minified stringify regresses about 4.85%;
+the candidate is not universally qualified.
+
+The next scanner experiment should classify two UTF-16 vectors together:
+unsigned-saturating narrowing packs their code units into sixteen bytes for
+shared ASCII quote/backslash/control detection. Values above 255 saturate to
+255, which cannot resemble an ASCII escape. Surrogate checks must still use
+the original full-width units. A first event can leave the established bounded
+reader at its current cursor. Measure both the scan/copy cost and escaped
+fallback overhead; this is an unmeasured hypothesis.
+
+Separately, compare i16x8.bitmask against the current byte-bitmask-plus-0x5555
+representation for surrogate pair bookkeeping. One bit per UTF-16 lane could
+remove scalar masking and simplify pair shifts. Check all lane/tail boundaries
+and inspect actual lowering before claiming a gain. Phase isolation remains
+necessary to diagnose the GSOC result and unchanged parsing/validation controls.

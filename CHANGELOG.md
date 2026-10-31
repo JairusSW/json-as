@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(strings): continue SIMD copying with exact UTF-16 event checks after ordinary BMP false candidates, and reuse the clean scan after escapes.
+
 - perf(strings): use a boolean SIMD event test and retain valid UTF-16 surrogate pairs on the bulk-copy serialization path.
 
 - perf(serialize): load generic array elements directly while rereading the backing pointer after callbacks.

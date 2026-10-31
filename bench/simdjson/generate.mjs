@@ -33,6 +33,16 @@ export function stringPayloads(shape) {
     late: clean + '"',
     dense: 'a"\\\n'.repeat(4096),
     unicode: "é漢字😀".repeat(3000),
+    fullwidth: "春眠不觉晓，处处闻啼鸟。".repeat(1200),
+    fullwidth_escaped: '春眠不觉晓，"处处闻啼鸟。"\n'.repeat(900),
+    fullwidth_pairs: "春，😀風。漢🦋字，".repeat(1200),
+    fullwidth_short: "，。！？：；（）",
+    fullwidth_transition:
+      "，，，，，，，，" +
+      "春眠不觉晓，处处闻啼鸟。".repeat(4) +
+      '"' +
+      "中".repeat(24) +
+      "春，😀風。漢🦋字，".repeat(1200),
   };
   if (!Object.hasOwn(values, shape)) throw new Error("Unknown string shape");
   return Array.from({ length: 4 }, (_, i) =>

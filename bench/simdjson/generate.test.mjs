@@ -171,7 +171,18 @@ test("numeric diagnostics preserve decimal tokens across shape and value rotatio
 });
 
 test("owned string inputs cover clean, escaped and Unicode text with changing lengths", () => {
-  for (const shape of ["short", "clean", "late", "dense", "unicode"]) {
+  for (const shape of [
+    "short",
+    "clean",
+    "late",
+    "dense",
+    "unicode",
+    "fullwidth",
+    "fullwidth_escaped",
+    "fullwidth_pairs",
+    "fullwidth_short",
+    "fullwidth_transition",
+  ]) {
     const inputs = stringPayloads(shape);
     const values = inputs.map((input) => JSON.parse(input));
     assert.equal(new Set(values).size, 4);
@@ -181,5 +192,18 @@ test("owned string inputs cover clean, escaped and Unicode text with changing le
   assert.ok(JSON.parse(stringPayloads("late")[0]).endsWith('"'));
   assert.ok(JSON.parse(stringPayloads("dense")[0]).includes('"\\\n'));
   assert.ok(JSON.parse(stringPayloads("unicode")[0]).includes("😀"));
+  assert.ok(JSON.parse(stringPayloads("fullwidth")[0]).includes("，"));
+  const escapedFullwidth = JSON.parse(stringPayloads("fullwidth_escaped")[0]);
+  assert.ok(escapedFullwidth.includes('"') && escapedFullwidth.includes("\n"));
+  const pairedFullwidth = JSON.parse(stringPayloads("fullwidth_pairs")[0]);
+  assert.ok(pairedFullwidth.includes("，") && pairedFullwidth.includes("🦋"));
+  const shortFullwidth = JSON.parse(stringPayloads("fullwidth_short")[0]);
+  assert.ok(shortFullwidth.length >= 8 && shortFullwidth.length < 16);
+  const transition = JSON.parse(stringPayloads("fullwidth_transition")[0]);
+  assert.ok(transition.slice(0, 8).includes("，"));
+  assert.ok(!/[\ud800-\udfff]/.test(transition.slice(0, 8)));
+  const quote = transition.indexOf('"');
+  assert.ok(quote >= 16);
+  assert.ok(transition.slice(quote + 1).startsWith("中".repeat(24)));
   assert.throws(() => stringPayloads("missing"), /Unknown/);
 });

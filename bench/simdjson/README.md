@@ -73,6 +73,12 @@ documented in RESULTS.md; no private size-bound specialization or selective
 output replaces the recursive field. @optional permits missing input keys but
 still emits the field, matching the AS decorator's behavior.
 
+String diagnostics include short/large ASCII, late quotes, dense escapes,
+mixed Unicode, fullwidth text, short fullwidth tails and a forced Unicode
+transition through an escaped prefix. They keep the ordinary owned-string API
+and changing values/lengths; they do not qualify the entire strings family or
+replace remaining corpus and family coverage.
+
 ## Artifacts
 
 Each `build/simdjson-parity/runs/<label>/` contains the generated models, source

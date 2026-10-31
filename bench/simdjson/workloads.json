@@ -134,6 +134,36 @@
       "root": "string",
       "stringShape": "unicode",
       "layouts": ["min"]
+    },
+    {
+      "name": "string_fullwidth",
+      "root": "string",
+      "stringShape": "fullwidth",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_fullwidth_escaped",
+      "root": "string",
+      "stringShape": "fullwidth_escaped",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_fullwidth_pairs",
+      "root": "string",
+      "stringShape": "fullwidth_pairs",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_fullwidth_short",
+      "root": "string",
+      "stringShape": "fullwidth_short",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_fullwidth_transition",
+      "root": "string",
+      "stringShape": "fullwidth_transition",
+      "layouts": ["min"]
     }
   ]
 }
