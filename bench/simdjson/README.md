@@ -14,6 +14,14 @@ across all supported modes. Report each backend separately; qualification needs
 one backend's own complete classic matrix, not the best row from each runtime.
 Current coverage and measured gaps are recorded in RESULTS.md.
 
+Runtime optimizations must be general. Put changes in shared allocation,
+construction, grammar, conversion and scanning machinery. Do not introduce
+corpus-name checks, fixture signatures, library recognition of benchmark schema
+key sets, or decimal widths chosen to match a fixture. Normal schema-generated
+code and checks required by type, grammar or SIMD bounds remain appropriate.
+Use varied array lengths, number formats, layouts and Unicode mixes as controls;
+the corpus that exposed a cost does not define the optimization's scope.
+
 ## Local setup
 
 GCC 16 with `-freflection`, V8/d8, wasm-opt and the project dependencies are
