@@ -566,3 +566,26 @@ deserves its own profile and experiment. Keep reads and writes inside their
 logical bounds and preserve isolated-surrogate escaping. These tail changes
 are not implemented here. The length census is saved as
 `build/simdjson-parity/pack32-poet-length-census.json`.
+
+### Checked whitespace follow-up, 2026-10-31
+
+An isolated Lottie-pretty validation profile and input census identify long
+indentation as removable work. A guarded block scanner improves pretty
+validation roughly 1.4–2.2× and owned Lottie parsing 1.7–1.9× across V8 and
+w2c2, but fails the full regression screen on compact inputs. The production
+scanner is restored. The measured patch, complete results and remaining
+failures are described in [RESULTS.md](bench/simdjson/RESULTS.md#rejected-long-indentation-scanner).
+
+The next experiment should preserve the compact grammar loop and select an
+indentation specialization once at a value boundary. For example, initial
+container whitespace containing a newline or a proven space run could predict
+indentation; misses must still parse correctly through the compact reader.
+Keep lexical rules shared through static specialization rather than introducing
+a per-character runtime flag. Measure small values, compact corpora and mixed
+layouts as controls, not only the pretty cases that motivate the experiment.
+This adaptive specialization is a proposal, not an implemented improvement.
+
+The qualification loop also had a real ordering bug: label rotation followed by
+round reversal always put the two-label baseline first. `29e59b9` fixes it with
+opposing adjacent rounds and rotation between pairs. The original results are
+preserved; balanced reruns still reject the whitespace candidate.

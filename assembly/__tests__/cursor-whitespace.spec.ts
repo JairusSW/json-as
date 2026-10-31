@@ -38,3 +38,70 @@ describe("Whitespace scan preserves strict grammar and bounded tails", () => {
   }
   expect(skipCursorWhitespace(BLOCK, BLOCK + 16)).toBe(BLOCK + 14);
 });
+
+function reference(ptr: usize, end: usize): usize {
+  while (ptr < end) {
+    const code = load<u16>(ptr);
+    if (code != 32 && code != 9 && code != 10 && code != 13) break;
+    ptr += 2;
+  }
+  return ptr;
+}
+
+describe("Checked whitespace scanning distinguishes every UTF-16 unit", () => {
+  const value = " ".repeat(64) + "!";
+  const probe = changetype<string>(__new(value.length << 1, idof<string>()));
+  const ptr = changetype<usize>(probe);
+  memory.copy(ptr, changetype<usize>(value), value.length << 1);
+  const end = ptr + (value.length << 1);
+  let mismatches = 0;
+  for (let lane: usize = 0; lane < 32; lane++) {
+    const at = ptr + (lane << 1);
+    for (let code: u32 = 0; code <= 0xffff; code++) {
+      store<u16>(at, <u16>code);
+      const white = code == 32 || code == 9 || code == 10 || code == 13;
+      if (skipCursorWhitespace(ptr, end) != (white ? end - 2 : at))
+        mismatches++;
+    }
+    store<u16>(at, 32);
+  }
+  expect(mismatches).toBe(0);
+});
+
+describe("Checked whitespace respects every bounded prefix and mixed run", () => {
+  const values = [
+    " ".repeat(96) + "!",
+    "\n" + " ".repeat(96) + "!",
+    ("\t\n\r" + " ".repeat(19)).repeat(5) + "!",
+    " ".repeat(64) + "\u0120" + " ".repeat(32),
+    " ".repeat(64) + "\v" + " ".repeat(32),
+    " ".repeat(64) + "\f" + " ".repeat(32),
+  ];
+  let mismatches = 0;
+  for (let i = 0; i < values.length; i++) {
+    const value = values[i];
+    const ptr = changetype<usize>(value);
+    for (let start = 0; start <= 32; start++) {
+      for (let stop = start; stop <= value.length; stop++) {
+        const at = ptr + (start << 1);
+        const end = ptr + (stop << 1);
+        if (skipCursorWhitespace(at, end) != reference(at, end)) mismatches++;
+      }
+    }
+  }
+  expect(mismatches).toBe(0);
+});
+
+describe("Public validation checks grammar around long indentation", () => {
+  for (let length = 0; length < 65; length++) {
+    const pad = "\n" + " ".repeat(length);
+    const value =
+      pad + '{"a":' + pad + "[1," + pad + "2]," + pad + '"b":true}' + pad;
+    expect(JSON.validate(value)).toBe(true);
+    expect(JSON.validate(pad + "[1," + pad + "]")).toBe(false);
+    expect(JSON.validate(pad + '{"x":' + pad + "}")).toBe(false);
+    expect(JSON.validate(pad + "\u0120[]")).toBe(false);
+    expect(JSON.validate(pad + "\v[]")).toBe(false);
+    expect(JSON.validate(pad + "\f[]")).toBe(false);
+  }
+});

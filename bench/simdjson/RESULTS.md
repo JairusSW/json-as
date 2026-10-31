@@ -7,6 +7,13 @@ now work for Lottie; large OTFCC/FGO owned runs remain outstanding. Additional
 required families remain incomplete. Twitter now compiles
 with public simdjson customization hooks while preserving its complete model.
 
+Historical two-label `compare.py` measurements before `29e59b9` have an ordering
+defect: rotation followed by reversal always runs the baseline first. Earlier
+descriptions of balanced variant rounds record the intended method, not a
+verified balanced order. Those observations and correctness results remain
+saved, but performance qualification needs corrected-order reruns. The latest
+whitespace results below use the fixed scheduler and still fail their gates.
+
 ## Formatter experiment
 
 xjb-as baseline: `3c33c7ba818e7feb71cf915cd95d23cb182d94e8` (unpublished 0.2.0).
@@ -785,6 +792,94 @@ owned results per API must remain retained; reducing that count would change
 the workload. Separate phase processes are a possible follow-up and would need
 consistent native/AS treatment and their own baseline. Neither huge layout is
 credited as owned coverage yet, and remaining required families remain open.
+
+## Rejected long-indentation scanner
+
+The production scalar whitespace implementation is retained. A new guarded
+block-scanning candidate has useful gains but fails the complete regression
+screen, including compact-input regressions. It is not committed as a runtime
+change or recommended for integration.
+
+The isolated Lottie-pretty validation profile collects 3,054 direct-PC samples:
+2,829 in the validation entry with inlined grammar and 165 in skipCursorString
+(2,994 Wasm self samples total). This does not attribute time to individual
+inlined instructions or native symbols. The input census finds 1,200,350
+whitespace units in 1,489,279 UTF-16 units; 1,174,027 of those whitespace units
+belong to runs of at least eight. Minified Lottie has no layout whitespace.
+Profile source, commands, hashes, log and reader are saved under
+`build/simdjson-parity/raw-validation-profile/`; the census is
+`lottie-whitespace-census.json`.
+
+The candidate enters block scanning only after proving four consecutive UTF-16
+spaces. Its initial SIMD lane-bitmask loop passes correctness but fails a V8
+owned stringification control. A boolean XOR/any-true variant plus bounded
+word/scalar tails improves SIMD scanning substantially. Both retain the exact
+four-character RFC whitespace predicate. No allocation, source caching or
+validation weakening is introduced. Binaryen can inline the helper; a separate
+source function does not establish a separate machine-code hot path.
+
+During checking, the comparison scheduler's per-round label rotation followed
+by reversal was shown to always put the baseline first for two labels. The
+regression test first fails with 12 baseline-first rounds; the corrected
+scheduler passes four tests, reverses adjacent rounds, and rotates between
+pairs. New comparison artifacts include comparison/scheduler source hashes.
+Historical runs and their failures remain saved. The results below rerun the
+same frozen binaries with corrected, balanced order.
+
+Six complete rounds over all 16 validation layouts compare fresh baseline
+`val-long-base001` and candidate `val-long-test001`. Twelve rounds per owned
+Lottie layout compare `raw-owned-001` and `ws-anyt-00001`. Native executables,
+inputs, compiler settings and label lengths match within each comparison.
+V8 15.2.20 TurboFan and checked/unchecked GCC 16.2 w2c2 use the existing pins and
+incremental-GC Wasm. No builds, tests, profiling or oracle processing overlap
+timing. All 64-input validation and complete owned/retention oracles pass.
+
+Candidate / baseline validation throughput ratios:
+
+| Backend / mode | CITM pretty | Lottie pretty |
+| --- | ---: | ---: |
+| V8 SWAR | 1.440× | 1.902× |
+| V8 SIMD | 1.421× | 1.904× |
+| Checked w2c2 SWAR | 1.396× | 1.831× |
+| Checked w2c2 SIMD | 1.409× | 1.762× |
+| Unchecked w2c2 SWAR | 1.665× | 2.186× |
+| Unchecked w2c2 SIMD | 1.402× | 1.924× |
+
+Owned Lottie-pretty parsing improves 1.833×/1.806× in V8 SWAR/SIMD,
+1.697×/1.658× in checked w2c2 and 1.907×/1.794× unchecked. Native remains faster
+on both V8 and checked-w2c2 parsing rows. The validation-family native-parity
+gate still reports **26 gaps across 32 checked-w2c2 rows**.
+
+The complete balanced regression screens **fail**:
+
+- Full validation: 12 of 96 rows exceed 3% time regression. These include V8
+  CITM/OTFCC minified, V8 SIMD FGO minified, checked-w2c2 SWAR Poet pretty,
+  GSOC minified and Lottie minified, and unchecked-w2c2 Canada/CITM/Poet rows.
+  Checked-w2c2 SWAR GSOC minified is about 8% slower.
+- Owned Lottie pretty: V8 SWAR stringification is about 3.5% slower.
+- Owned Lottie minified: six of 18 rows fail, covering V8 SWAR parse/stringify/
+  validate, V8 SIMD parse, and checked-w2c2 SWAR parse/validate. The slowdowns
+  are roughly 3–6%.
+
+The pretty SWAR serializer's complete 35-function direct-call closure has
+byte-identical Wasm bodies and no indirect calls; this does not turn its failed
+measurement into a pass. Module/code-generation/context effects remain an
+unresolved control issue. A prefix heuristic plus statically separate compact
+and indentation traversals is a possible next experiment, not a measured fix.
+
+Artifacts: `comparisons/ws-long-balanced-{validation,owned-pretty,owned-min}/`,
+`ws-long-balanced-gates.json`, `ws-long-code-body-diff.json`,
+`ws-long-serialize-body-closure.json`, and rejected `ws-any-candidate.patch` in
+the ignored parity build directory. The first lane-mask patch and unbalanced
+runs are also preserved.
+
+The rejected candidate passes 119,283 normal checks, 75,621 strict/RFC checks,
+15 harness checks, typecheck, lint and formatting. Boundary tests now retain
+the earlier alignment cases and add all 65,536 UTF-16 units in 32 long-run
+positions, mixed whitespace, bounded prefixes and public grammar checks.
+Production is restored to the existing scanner; all 1,245 targeted checks pass
+against that restored code across three modes. Whole-workload parity remains
+unachieved.
 
 Artifacts under `build/simdjson-parity/`: `runs/utf16-pack-001/` for the initial
 experiment, `runs/utf16-packF001/` for final qualification,
