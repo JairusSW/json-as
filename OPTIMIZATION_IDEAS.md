@@ -738,3 +738,31 @@ preflight catches mismatched input hashes before control timing; those controls
 are rebuilt with changing values and lengths before accepted comparisons.
 Use a fresh exact-current baseline when an older frozen candidate has additional
 reference-dispatch differences. Do not relax the comparison checks.
+
+### Retained array-entry inlining, 2026-10-31
+
+Inlining alone succeeds without the earlier length-load/empty-check changes.
+Keep original helper signatures and control flow; add only @inline to the shared
+serializeArray entry. Its representative integer-array namespace writer uses
+two GC frame setups instead of three. Named and frozen Wasm code sections match.
+Six balanced rounds on eight classic layouts give default-w2c2 SIMD stringify
+throughput ratios from 1.006× to 1.091× baseline. V8 is mixed; an initial GSOC
+ratio of 0.959× repeats at 0.996×. All original and confirmation rows remain in
+RESULTS.md. This is a shared compiler hint, with no corpus or schema selector.
+
+The full 48-row goal remains open. Prioritize owned FGO/OTFCC qualification with
+the same fields, four input variants and eight retained outputs. Oracle copies
+now use independent APFS copy-on-write clones where available, with ordinary
+copy fallback and atomic replacement; large full-output evidence need not be
+discarded to fit the disk. A failed copy never becomes a passing comparison.
+
+A further SIMD experiment can target the common checked string scanner: keep
+its first-block bitmask path cheap, then test any_true on subsequent clean
+blocks and compute a lane mask only at an event. Preserve full UTF-16 event
+classification, exact cursor positions and bounded tails. Measure the complete
+validation matrix and owned parsing after profiling the larger cases first.
+
+Generated serializer inlining is another unimplemented hypothesis. Apply any
+method annotation after reservation injection: that generation currently uses
+SERIALIZE.slice(0, 32), so prepending a decorator to its initial header would
+break the splice. Preserve virtual dispatch, reentrancy and GC roots.

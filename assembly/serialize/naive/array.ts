@@ -345,6 +345,8 @@ function serializeStringArrayFast(src: string[]): void {
   store<u16>(bs.offset - 2, BRACKET_RIGHT);
 }
 
+
+@inline
 export function serializeArray<T extends any[]>(src: T): void {
   // Specialized fast paths fold the per-element comma into the element write,
   // saving one `store<u16>` + advance per iteration. AS folds the type checks

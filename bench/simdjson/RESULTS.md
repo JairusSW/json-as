@@ -1327,3 +1327,75 @@ of duplicate logical bytes. Frozen run oracles and inputs are excluded. The
 per-file identity manifest is `array-oracle-storage-identity.json`. Copy these
 completed evidence files before modifying them. Final original-runtime controls
 are recorded in `array-dispatch-final-controls.log`.
+
+## Retained isolated array-entry inlining
+
+The runtime change is only @inline on the shared serializeArray entry. Original
+helper signatures, length loads, empty handling, conversions, output allocation
+and callback behavior remain. The compiler can merge redundant GC frame setup
+into the caller. The representative integer-array namespace writer changes from
+three frame setups to two; named inspection and frozen measurement Wasm have
+identical code sections. No corpus, schema, decimal-width or fixture-value
+selector is added. This shared implementation also reaches NAIVE and SWAR;
+only SIMD gates native parity.
+
+Six balanced rounds compare `arrv-mini-0001` with an exact-original CITM baseline
+(`arrv-base-0001`) and verified equivalent frozen baselines (`disp-full-0001`)
+for the other layouts. Four inputs change string values and lengths. Input,
+schema, native-binary, dependency and toolchain checks match. Full owned results
+and eight retained objects/strings remain. Builds, tests and code inspection
+finish before timing; complete oracle processing follows timing.
+
+SIMD stringification throughput ratios, candidate / baseline:
+
+| Layout | V8 | Default unchecked w2c2 |
+| --- | ---: | ---: |
+| CITM minified | 1.056× | 1.040× |
+| Canada minified | 1.020× | 1.022× |
+| CITM pretty | 1.029× | 1.091× |
+| Twitter minified | 1.029× | 1.014× |
+| GitHub events minified | 0.999× | 1.009× |
+| GSOC minified | 0.959× | 1.007× |
+| Poet minified | 0.992× | 1.037× |
+| Lottie minified | 1.009× | 1.006× |
+
+A separate six-round GSOC confirmation gives 0.996× on V8 and 1.002× on
+default w2c2. Both runs are retained; the initial V8 slowdown is not reproduced.
+Small ratios around one should not be interpreted as established wins on every
+layout. Checked w2c2 is additionally measured on the two initial canaries:
+1.060× CITM and 1.017× Canada stringification. Broader checked-w2c2 performance
+is not qualified. Other phases and SWAR results remain in the raw tables.
+
+The source passes 123,345 normal and 77,676 strict/RFC checks across all three
+modes, including callback mutation, polymorphism, retained output and GC
+controls. Typecheck, lint, formatting and diff checks pass. Every accepted
+label/backend passes forty complete output/retention comparisons. All eight
+frozen runtime patches and xjb dependency hashes match the retained source and
+its original baselines. The two canary SIMD Wasm files shrink by 150 and 120
+bytes respectively.
+
+The preceding array-dispatch comparisons demonstrate why the hint
+is isolated from helper refactoring. Inlining alone avoids their repeated
+Canada V8 regressions. The current 24-row screen has four V8 or seven default-
+w2c2 rows within the native budget, unchanged in count; no qualifying row is
+lost. Other classic layouts still require exact-runtime qualification, and the
+full 48-row goal remains incomplete.
+
+Poet's first attempt completes timing but runs out of disk during oracle copying.
+It remains unqualified in `comparisons/array-minimal-poet-min/`; its samples are
+not substituted for the accepted six-round retry. Oracle storage is fixed
+separately: APFS clones have independent writable inodes, portable ordinary-copy
+fallback, atomic destination replacement and a pinned helper hash. Six storage
+tests pass, including an ENOSPC partial-write regression that fails with the
+old direct copy2 behavior. Scheduler and goal-policy tests also pass. The
+fresh Poet retry and Lottie comparison pass the complete oracles through the
+new copier. This changes post-timing storage, not timed parser work.
+
+Artifacts under `build/simdjson-parity/`:
+`comparisons/array-minimal-{citm_catalog-min,canada-min,citm_catalog-pretty,twitter-min,github_events-min,gsoc-2018-min,poet-retry,lottie-min,gsoc-confirm}/`,
+`array-minimal-codegen/identity.json`, `array-minimal-source-identity.json`,
+`array-minimal-summary.json`, `array-minimal-{full-tests,rfc-tests,check}.log`,
+`oracle-storage-{atomic-red,green}.log`, and
+`array-oracle-cow-storage-identity.json`. The latter records byte-preserving
+storage consolidation, with independent copy-on-write clones for mutable
+producer files and hardlinks restricted to completed immutable evidence.
