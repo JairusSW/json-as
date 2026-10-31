@@ -888,6 +888,70 @@ Production is restored to the existing scanner; all 1,245 targeted checks pass
 against that restored code across three modes. Whole-workload parity remains
 unachieved.
 
+## Static discard state storage
+
+The retained runtime change replaces the checked discard traversal's lazy
+`StaticArray<u8>` with 256 bytes of static module storage and direct byte loads
+and stores. Existing depth bounds and grammar transitions are unchanged. The
+discard reader cannot invoke user code; its shared synchronous scratch lifetime
+is unchanged. No per-value allocation, cache, new grammar policy or runtime flag
+is introduced. The scalar whitespace loop remains in production.
+
+Before this change, two layout-selection experiments improve pretty validation
+but slow checked-w2c2 Canada. The root-only selector folds both grammar paths
+into a large validation function. Compact-subtree delegation retains a separate
+compact function with two real callers and independent parent scratch, but does
+not remove the checked-backend slowdown. Named inspection binaries have
+byte-identical code sections to their frozen measured counterparts. These
+experiments are saved, not included in this runtime patch. Their older relative
+regression screens are diagnostic under the user's revised absolute budget.
+
+The static-storage result compares `val-long-base001` with `val-static-00001`
+over all 16 layouts in six balanced rounds. Native binaries, inputs, label
+lengths and compiler settings match. V8 15.2.20 TurboFan and both pinned GCC 16.2
+w2c2 configurations run the same incremental-GC Wasm; all 64-input validation
+oracles pass. No build, test, profile or oracle processing overlaps timing.
+SIMD validation throughput ratios, candidate / baseline:
+
+| Workload | V8 | Checked w2c2 | Unchecked w2c2 |
+| --- | ---: | ---: | ---: |
+| Canada min | 1.049× | 1.081× | 1.008× |
+| CITM pretty | 1.001× | 1.142× | 1.181× |
+| Poet min | 1.101× | 1.005× | 0.997× |
+| Poet pretty | 1.110× | 1.007× | 1.008× |
+| Lottie pretty | 0.995× | 1.117× | 1.186× |
+
+No SIMD validation row across the full 16-layout, three-backend screen regresses
+more than 3%. That is a diagnostic observation, not an extra user-goal gate.
+The current native budget is met by 2/16 V8, 4/16 checked-w2c2 and 4/16 unchecked
+validation rows. Twelve checked-w2c2 validation rows still exceed 1.2× native
+latency; the validation target remains incomplete.
+
+Owned Lottie min/pretty comparisons use `raw-owned-001` and `st-byte-00001`,
+six balanced rounds per layout and all three backends. Forty complete
+output/retention comparisons pass per label/backend. Checked-w2c2 SIMD parsing
+improves 1.077× minified and 1.132× pretty. Minified parsing meets the native
+budget in all three backends; its stringify and validation phases still miss.
+All three checked-w2c2 pretty phases remain outside the native budget.
+
+The V8 pretty stringification control slows about 3.3% (0.968× throughput),
+although no serialization algorithm changed. Other SIMD owned stringification
+ratios in this screen range from 0.982× to 1.035×. The control is recorded, not
+reclassified as a pass or described as proof of a universal improvement.
+
+Verification: 119,283 normal checks, 75,621 strict/RFC checks, 1,656 targeted
+cursor/bounds checks, 15 native/generator/input harness checks, four scheduling
+and four goal-policy tests pass. Typecheck, lint, formatting and diff checks pass.
+Normal and strict correctness continue to cover all three library modes; SWAR
+performance does not gate the revised native target.
+
+Artifacts: `comparisons/static-stack-{full-validation,owned-min,owned-pretty}/`,
+`static-stack-full-summary.json`, `static-stack-owned-summary.json` and their
+raw logs under `build/simdjson-parity/`. The larger canary improvements (up to
+22% checked-w2c2 SIMD validation) are not substituted for full-matrix results.
+This is progress toward the classic SIMD goal, not completion; large OTFCC/FGO
+owned runs and native gaps remain outstanding.
+
 Artifacts under `build/simdjson-parity/`: `runs/utf16-pack-001/` for the initial
 experiment, `runs/utf16-packF001/` for final qualification,
 `comparisons/pack32-final-*/`, `pack32-final-gates.json`, and

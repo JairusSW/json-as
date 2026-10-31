@@ -339,9 +339,9 @@ export function readCursorLiteral(start: usize, end: usize, code: u16): usize {
 
 // Discard traversal cannot invoke user code. Its bounded scratch stack is used
 // only until this synchronous call returns, never across materialization or a
-// custom deserializer. Parent cursor parsers keep their own depth in locals.
-// @ts-expect-error: @lazy is valid on module scratch storage
-@lazy const DISCARD_STATES = new StaticArray<u8>(MAX_CURSOR_DEPTH);
+// custom deserializer. Byte states need no managed references or lazy heap
+// allocation. Parent cursor parsers keep their own depth in locals.
+const DISCARD_STATES: usize = memory.data(MAX_CURSOR_DEPTH);
 
 export function skipCheckedValue(
   start: usize,
@@ -359,7 +359,7 @@ export function skipCheckedValue(
       const code = load<u16>(ptr);
       if (code == 91 || code == 123) {
         if (outerDepth + depth >= MAX_CURSOR_DEPTH) return 0;
-        unchecked((DISCARD_STATES[depth++] = code == 91 ? 0 : 2));
+        store<u8>(DISCARD_STATES + usize(depth++), code == 91 ? 0 : 2);
         ptr += 2;
       } else {
         if (code == 34) ptr = skipCursorString(ptr, end);
@@ -373,7 +373,7 @@ export function skipCheckedValue(
     }
     ptr = skipCursorWhitespace(ptr, end);
     if (ptr >= end) return 0;
-    const state = unchecked(DISCARD_STATES[depth - 1]);
+    const state = load<u8>(DISCARD_STATES + usize(depth - 1));
     const code = load<u16>(ptr);
     if (
       (state == 0 && code == 93) ||
@@ -386,7 +386,7 @@ export function skipCheckedValue(
       continue;
     }
     if (state == 0) {
-      unchecked((DISCARD_STATES[depth - 1] = 1));
+      store<u8>(DISCARD_STATES + usize(depth - 1), 1);
       needValue = true;
     } else if (state == 1) {
       if (code != 44) return 0;
@@ -398,12 +398,12 @@ export function skipCheckedValue(
       ptr = skipCursorWhitespace(ptr, end);
       if (ptr >= end || load<u16>(ptr) != 58) return 0;
       ptr += 2;
-      unchecked((DISCARD_STATES[depth - 1] = 4));
+      store<u8>(DISCARD_STATES + usize(depth - 1), 4);
       needValue = true;
     } else {
       if (code != 44) return 0;
       ptr += 2;
-      unchecked((DISCARD_STATES[depth - 1] = 3));
+      store<u8>(DISCARD_STATES + usize(depth - 1), 3);
     }
   }
   return 0;

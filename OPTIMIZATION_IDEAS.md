@@ -589,3 +589,32 @@ The qualification loop also had a real ordering bug: label rotation followed by
 round reversal always put the two-label baseline first. `29e59b9` fixes it with
 opposing adjacent rounds and rotation between pairs. The original results are
 preserved; balanced reruns still reject the whitespace candidate.
+
+### Current target and scratch-state result, 2026-10-31
+
+The user's revised performance target is classic workloads, SIMD only, with up
+to 20% higher latency than native and no upper limit on being faster. SWAR
+backports are optional; additional families and the earlier 3% per-change screens
+are diagnostic. Historical gate failures do not replace this revised criterion.
+
+A smaller change replaces the discard traversal's managed byte-state array with
+256 bytes of static module storage. It preserves the scalar grammar loop and
+depth checks while removing managed scratch-reference access and first-use heap
+allocation. Balanced classic validation and owned Lottie measurements are in
+[RESULTS.md](bench/simdjson/RESULTS.md#static-discard-state-storage).
+
+Root-only layout specialization and compact-subtree delegation were also tested.
+The latter retains a separate compact Wasm function, verified against named
+binaries with identical code sections, but checked-w2c2 Canada remained slower.
+Their patches and code inspection are preserved in the ignored parity build
+directory as `ws-selector-root-only.patch`, `ws-selector-nested.patch`,
+`ws-selector-codegen/` and `ws-nested-codegen/`. Neither is part of production.
+Re-evaluate whitespace scanning together with static scratch and the revised
+absolute SIMD budget before pursuing more elaborate layout specialization.
+
+Another concrete source finding: checked f64 readers already accumulate a
+mantissa and decimal scale, but their non-small-power path reparses the token
+through `parseDecimalF64(start, end)`. That helper eventually calls `scientific`
+with the same coefficient for inputs with at most 19 digits. Investigate passing
+the existing state directly, preserving signed zero and the exact long-number
+interval/midpoint fallback. This conversion reuse is not implemented yet.
