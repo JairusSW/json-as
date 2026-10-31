@@ -683,3 +683,28 @@ grow the buffer or invoke user code, then reload afterwards. Existing primitive
 reservation rules provide a starting invariant; nullable/lazy/conditional and
 custom boundaries need explicit treatment. Do not mark allocating writers
 unsafe or drop their GC roots to remove frames.
+
+### Validation experiments after shared dispatch, 2026-10-31
+
+Reusing scanDigits for discarded integer runs is rejected. Six balanced rounds
+over all sixteen classic validation layouts compare frozen `ival-base-000001`
+and `ival-word-000001`, including V8 and both w2c2 check policies. All 64-input
+oracles pass. Canada minified throughput is 0.886× baseline on V8, 0.882× on
+checked w2c2 and 0.766× on default w2c2; Lottie minified is 0.830× on default
+w2c2. Some integer-heavy layouts improve, but the shared implementation is not
+a broad win. Keep scalar integer recognition, with the existing bulk fractional
+and exponent scans unchanged. Do not enable the rejected variant by corpus,
+schema or number-width signatures. Results remain in
+`build/simdjson-parity/comparisons/integer-word-full-validation/`.
+
+Keeping the active discard-container state local is also not retained. This
+variant saves only suspended parents to the bounded static stack, eliminating
+ordinary field/element transition loads and stores for every object and array.
+It passes the expanded independent-validator mutation controls, 123,057 normal
+checks and 77,676 strict/RFC checks across all three modes. Six balanced rounds
+over all sixteen layouts yield geometric mean SIMD throughput ratios of
+1.006× on V8, 0.990× on checked w2c2 and 1.013× on default w2c2. Checked-w2c2
+Lottie pretty is 0.932× baseline. No additional validation layout enters the
+native budget on any backend. The small mixed result does not justify keeping
+this change or enabling it only for favorable layouts. Artifacts remain in
+`build/simdjson-parity/comparisons/local-state-full-validation/`.

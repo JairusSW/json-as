@@ -1175,3 +1175,67 @@ Artifacts under `build/simdjson-parity/`: `maps-serialize-profile/`,
 `comparisons/direct-{writer,dispatch}-citm-min/`, `comparisons/dispatch-*/`,
 `dispatch-broad-summary.json`, `dispatch-final-source-identity.json`, and
 `dispatch-{full-suite,final-rfc,final-check}.log`.
+
+## Rejected shared-validator experiments
+
+Two general changes are measured against `ece500e`, then removed. Neither
+recognizes corpus names, schemas, numeric widths or fixture values. Both use
+six balanced rounds over the complete sixteen-layout validation matrix,
+four independently changing inputs per layout, identical native binaries and
+the existing runtime/compiler policies. Builds and correctness checks finish
+before timing; full oracle comparisons run after timing.
+
+First, `ival-word-000001` uses the existing checked word scanner for discarded
+integer runs, matching the existing fraction/exponent strategy. Initial-digit
+and leading-zero checks remain. Its Canada minified SIMD throughput ratios are
+0.886× baseline on V8, 0.882× on checked w2c2 and 0.766× on default w2c2.
+Lottie minified reaches only 0.830× on default w2c2. Selected integer-heavy
+layouts improve, but these regressions reject the shared implementation.
+The scalar integer loop is restored. It passes 120,453 normal and 77,676
+strict/RFC checks across all three modes before rejection.
+
+Second, `stat-regs-000001` keeps the current discard-container state local,
+saving/restoring only suspended parents in the same bounded static stack.
+It removes ordinary transition loads/stores for all arrays and objects.
+SIMD validation throughput ratios, candidate / `ival-base-000001`:
+
+| Layout | V8 | Checked w2c2 | Default unchecked w2c2 |
+| --- | ---: | ---: | ---: |
+| Canada minified | 1.061× | 0.955× | 1.060× |
+| Canada pretty | 1.042× | 0.999× | 1.020× |
+| CITM minified | 0.999× | 0.993× | 1.032× |
+| CITM pretty | 0.990× | 1.046× | 1.004× |
+| FGO minified | 0.989× | 1.011× | 1.010× |
+| GitHub events minified | 1.002× | 0.979× | 1.014× |
+| GitHub events pretty | 1.005× | 1.007× | 1.020× |
+| GSOC minified | 1.011× | 0.972× | 1.017× |
+| GSOC pretty | 0.987× | 0.977× | 0.991× |
+| Lottie minified | 1.008× | 1.049× | 0.986× |
+| Lottie pretty | 0.994× | 0.932× | 1.016× |
+| OTFCC minified | 0.986× | 1.002× | 1.031× |
+| Poet minified | 0.993× | 0.990× | 1.007× |
+| Poet pretty | 1.021× | 0.987× | 0.993× |
+| Twitter minified | 0.995× | 0.978× | 1.006× |
+| Twitter pretty | 1.015× | 0.963× | 1.007× |
+
+Geometric means across layouts are 1.006×, 0.990× and 1.013× respectively;
+they do not replace individual native-latency gates. The checked-w2c2
+regressions and small mixed aggregate result do not justify retaining this
+change. It passes 123,057 normal and 77,676 strict/RFC checks across all three
+modes, including expanded independent-validator mutations, before rejection.
+
+Both experiments pass all 64-input validation oracle comparisons on every
+backend. Neither adds a qualifying SIMD layout: baseline and both candidates
+qualify two V8 layouts, four checked-w2c2 layouts and four default-w2c2 layouts
+in their respective runs. Default w2c2 still misses twelve validation rows;
+owned parse/stringify and the full 48-row target remain incomplete. SWAR is
+measured diagnostically and does not gate native parity. No layout-specific
+selector is added to retain a favorable subset. Production runtime source
+returns exactly to `ece500e`; additional grammar controls and negative
+experiment records remain.
+
+Artifacts under `build/simdjson-parity/`:
+`comparisons/{integer-word,local-state}-full-validation/`,
+`integer-word-{full-tests,rfc-tests,check}.log`,
+`local-state-{full-tests,rfc-tests,check,format}.log`, and
+`validator-controls-final-{normal,rfc}.log`.

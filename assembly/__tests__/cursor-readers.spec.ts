@@ -227,6 +227,7 @@ describe("Checked discard agrees with the independent validator over determinist
     '{"a":[0,-1.5e2,true,null,"x\\n中"]}',
     '[{},[],"\\uD800",false]',
     '"a\\u0000b"',
+    '{"a":[[],{},[1,{"b":[]}],2],"c":{"d":{},"e":[true]},"f":null}',
   ];
   const replacements: string[] = [
     "",

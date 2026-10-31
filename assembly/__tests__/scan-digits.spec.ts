@@ -33,18 +33,56 @@ describe("Word digit scan respects bounded tails", () => {
 });
 
 describe("Checked number grammar preserves block boundaries and delimiters", () => {
-  const valid = ["0", "1234", "-123456789", "0.1234567890123456789",
-    "1234.5678e+9012", "1e-123456789012345678901234567890", "0.0000"];
-  const invalid = ["0000", "012345", "1234.", "1.1234e+", "1e1.2", "1234x",
-    "1.1234e4567x", "123\u0130", "12\u0030\u0000", "-", "1e"];
+  const valid = [
+    "0",
+    "1234",
+    "-123456789",
+    "0.1234567890123456789",
+    "1234.5678e+9012",
+    "1e-123456789012345678901234567890",
+    "0.0000",
+  ];
+  const invalid = [
+    "0000",
+    "012345",
+    "1234.",
+    "1.1234e+",
+    "1e1.2",
+    "1234x",
+    "1.1234e4567x",
+    "123\u0130",
+    "12\u0030\u0000",
+    "-",
+    "1e",
+  ];
   for (let i = 0; i < valid.length; i++) {
     const value = valid[i];
     expect(JSON.validate(value)).toBe(true);
     expect(JSON.validate("[" + value + "," + value + "]")).toBe(true);
-    expect(JSON.validate('{"key":' + value + '}')).toBe(true);
+    expect(JSON.validate('{"key":' + value + "}")).toBe(true);
   }
   for (let i = 0; i < invalid.length; i++) {
     expect(JSON.validate(invalid[i])).toBe(false);
     expect(JSON.validate("[" + invalid[i] + "]")).toBe(false);
+  }
+});
+
+describe("Checked integer runs preserve grammar at every word tail", () => {
+  let digits = "1";
+  const keys = ["a", "ab", "abc"];
+  for (let length = 1; length <= 32; length++) {
+    expect(JSON.validate(digits)).toBe(true);
+    expect(JSON.validate("-" + digits)).toBe(true);
+    expect(JSON.validate("[" + digits + ",0]")).toBe(true);
+    for (let i = 0; i < keys.length; i++) {
+      expect(JSON.validate('{"' + keys[i] + '":' + digits + "}")).toBe(true);
+    }
+    expect(JSON.validate("0" + digits)).toBe(false);
+    expect(JSON.validate("-0" + digits)).toBe(false);
+    expect(JSON.validate(digits + ".")).toBe(false);
+    expect(JSON.validate(digits + "e+")).toBe(false);
+    expect(JSON.validate(digits + "e-0")).toBe(true);
+    expect(JSON.validate(digits + "\u0130")).toBe(false);
+    digits += (length % 10).toString();
   }
 });
