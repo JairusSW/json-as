@@ -9,6 +9,7 @@ import shutil
 import statistics
 import subprocess
 from round_order import round_schedule
+from goal_policy import target_status
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE = ROOT / 'build/simdjson-parity'
@@ -22,6 +23,7 @@ parser.add_argument('--allow-w2c2-source-change', action='store_true', help='Bac
 parser.add_argument('--require-equal-label-length', action='store_true', help='Keep embedded artifact path lengths equal across variants')
 parser.add_argument('--smoke', action='store_true', help='One diagnostic round; no performance gate')
 parser.add_argument('--gate-validation', choices=['v8','w2c2-checked','w2c2-default'])
+parser.add_argument('--gate-classic', choices=['v8','w2c2-checked','w2c2-default'], help='Gate all phases of one classic case against the manifest SIMD target')
 parser.add_argument('--gate-regression', type=float, help='Fail if candidate median regresses beyond this percent')
 args = parser.parse_args()
 labels = args.labels.split(',')
@@ -52,6 +54,12 @@ def backend_binary(label, engine, backend):
     return BASE / f'runs/{label}/w2c2/{args.case}-{engine}/checks-{check}'
 
 baseline = metadata[labels[0]]
+manifest = json.loads((ROOT / 'bench/simdjson/workloads.json').read_text())
+target = manifest['performanceTarget']
+if args.gate_classic:
+    classic_cases = {f'{c["name"]}-{layout}' for c in manifest['corpora'] for layout in c['layouts']}
+    if args.smoke or args.case not in classic_cases or args.gate_classic not in backends or set(baseline['phases']) != set(target['requiredPhases']):
+        parser.error('Classic gate requires a full classic case and a measured backend')
 if args.gate_regression is not None and (args.smoke or not 0 <= args.gate_regression < 100):
     parser.error('Regression gate needs five pairs and a percentage from 0 to 100')
 if args.gate_validation:
@@ -101,6 +109,8 @@ output.mkdir(parents=True)
     **vars(args),
     'comparisonDriverSha256': sha(Path(__file__)),
     'roundOrderSha256': sha(Path(__file__).with_name('round_order.py')),
+    'goalPolicySha256': sha(Path(__file__).with_name('goal_policy.py')),
+    'performanceTarget': target,
 }, indent=2) + '\n')
 for label in labels:
     for backend in backends:
@@ -173,11 +183,19 @@ print('w2c2-default disables Wasm runtime bounds/table checks; report separately
 exit_status = 0
 if args.gate_validation:
     candidate = labels[-1]
-    gaps = [(mode, phase) for mode in ['swar','simd'] for phase in baseline['phases']
-            if median(candidate,mode,phase,args.gate_validation) > median('native','native',phase,'native')]
-    print(f'Validation family gate: {len(gaps)} gaps across {len(baseline["phases"])} layouts and two modes')
-    print('All other required workload families remain separate; this is not a whole-goal pass.')
+    gaps = [(target['mode'], phase) for phase in baseline['phases']
+            if target_status(target['mode'], median(candidate,target['mode'],phase,args.gate_validation), median('native','native',phase,'native'), target) is False]
+    print(f'SIMD validation target: {len(gaps)} gaps across {len(baseline["phases"])} layouts; latency <= {target["maxLatencyRatio"]}x native')
+    print('Owned parse/stringify coverage remains separate; SWAR and additional families are diagnostic.')
     exit_status = 1 if gaps else 0
+
+if args.gate_classic:
+    candidate = labels[-1]
+    gaps = [phase for phase in target['requiredPhases']
+            if target_status(target['mode'], median(candidate,target['mode'],phase,args.gate_classic), median('native','native',phase,'native'), target) is False]
+    print(f'SIMD classic target: {len(gaps)} gaps across {len(target["requiredPhases"])} phases; latency <= {target["maxLatencyRatio"]}x native')
+    print('Other classic layouts still require evidence; this is not whole-goal completion.')
+    exit_status = max(exit_status, 1 if gaps else 0)
 
 if args.gate_regression is not None:
     candidate = labels[-1]
@@ -187,5 +205,5 @@ if args.gate_regression is not None:
     for row in regressions: print('REGRESSION', '/'.join(row))
     print('This screen is not a native parity or coverage verdict.')
     exit_status = max(exit_status, 1 if regressions else 0)
-if args.gate_validation or args.gate_regression is not None:
+if args.gate_validation or args.gate_classic or args.gate_regression is not None:
     raise SystemExit(exit_status)

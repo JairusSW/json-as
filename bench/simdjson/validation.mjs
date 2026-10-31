@@ -148,6 +148,7 @@ function prepare() {
     label,
     validationOnly: true,
     validationDiagnostic: selected.length > 0,
+    performanceTarget: manifest.performanceTarget,
     inputVariation:
       "Changing values and lengths in four independent source strings",
     sourceRoot,

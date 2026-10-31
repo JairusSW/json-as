@@ -10,6 +10,13 @@
     "inputRotation": 4,
     "retainedOutputs": 8
   },
+  "performanceTarget": {
+    "mode": "simd",
+    "maxLatencyRatio": 1.2,
+    "requiredPhases": ["parse-owned", "serialize-owned", "validate"],
+    "scope": "All classic corpus layouts; faster than native has no upper limit",
+    "swar": "Diagnostic; backport useful changes while preserving correctness"
+  },
   "corpora": [
     {
       "name": "canada",
@@ -77,10 +84,12 @@
   ],
   "requiredFamilies": [
     "typed-owned-parse",
-    "typed-reused-parse",
     "typed-owned-serialize",
+    "validation"
+  ],
+  "additionalFamilies": [
+    "typed-reused-parse",
     "typed-reused-serialize",
-    "validation",
     "dynamic-owned-materialization",
     "lazy-selective-full-validation",
     "byte-ingestion",
@@ -89,7 +98,7 @@
     "small-records",
     "reordered-optional-nested-records"
   ],
-  "coverageRule": "All corpus layouts and required families must have equivalent-work correctness evidence and a paired result before parity can pass. Missing coverage is a failing gate.",
+  "coverageRule": "All classic corpus layouts and required phases need equivalent-work correctness evidence and SIMD latency <= 1.2 times native. Additional families and SWAR performance are diagnostic. Missing classic coverage is a failing gate.",
   "diagnostics": [
     {
       "name": "numeric_flat",

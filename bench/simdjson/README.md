@@ -1,15 +1,18 @@
 # simdjson parity qualification
 
-The target is json-as parity or better across the workload matrix, with equivalent
-validation and output ownership. `workloads.json` records all nine classic corpora
-(16 layouts) and the additional required families. Missing coverage fails the
-whole-goal gate; an improvement on one corpus is not completion.
+The target is SIMD json-as latency at most 1.2 times native simdjson, with no
+limit on being faster, for all nine classic corpora (16 layouts). Equivalent
+validation and owned outputs remain required. Fresh owned parsing,
+stringification and full validation give 48 required SIMD rows. Missing classic
+coverage fails the whole-goal audit; one fast corpus is not completion.
 
 This harness is under construction. The current executable comparison covers
 fresh owned typed parsing, fresh owned stringification, and full validation.
-Reused output, fully materialized dynamic values, selective/lazy reads with full
-validation, byte ingestion, scalar/numeric/string cases and layout variations
-remain required. Current coverage and measured gaps are recorded in RESULTS.md.
+SWAR performance and reused/dynamic/lazy/byte-input/diagnostic families are
+optional exploration under the user's revised goal. Correctness remains required
+across all supported modes. Report each backend separately; qualification needs
+one backend's own complete classic matrix, not the best row from each runtime.
+Current coverage and measured gaps are recorded in RESULTS.md.
 
 ## Local setup
 
@@ -24,7 +27,7 @@ node bench/simdjson/run.mjs build --case canada-min --label baseline
 node bench/simdjson/run.mjs run --case canada-min --label baseline --pairs 5 --gate-row
 ```
 
-`--gate-row` evaluates the measured row against native simdjson; a gap returns 1.
+`--gate-row` evaluates SIMD latency against the 1.2× native budget; a gap returns 1.
 `--gate` additionally refuses to pass while whole-matrix coverage is incomplete.
 The parity verdict currently uses median latency. Five alternating process pairs
 are required for reported comparisons; the one-pair smoke check is diagnostic.
@@ -212,17 +215,21 @@ least 32 MiB per phase, with at least ten iterations. Warmup, input loading and
 transcoding are excluded; collection within the loop is included. Native DOM
 scratch capacity and AS parser scratch are reusable implementation state.
 
-A validation-family gate checks every layout and both modes. It cannot pass on
-missing layouts or a one-round smoke run. It does not certify any other family,
-including byte ingestion, typed parsing or serialization. `--smoke --pairs 1`
+A validation gate checks SIMD against the 1.2× native latency budget on every
+layout. It cannot pass on missing layouts or a one-round smoke run. It does not
+certify owned parsing or serialization. `--smoke --pairs 1`
 is available for correctness/setup diagnostics and carries no performance gate.
 
 For a tighter development loop, `prepare --cases canada-min,citm_catalog-pretty,lottie-pretty`
 builds an explicitly partial diagnostic. `compare.py --gate-regression 3` fails
 if a candidate median is more than 3% slower than its baseline on any measured
 row. The threshold is explicit; this screen is not a native parity verdict. A
-partial matrix cannot pass `--gate-validation`. Run the full matrix after a
-candidate survives the smaller screen.
+partial matrix cannot pass `--gate-validation`. This optional per-change screen
+is diagnostic, not an additional user-goal requirement. `--gate-classic v8`
+checks all three phases of one classic case against the SIMD budget; other
+layouts still need their own evidence. The explicit target is recorded in the
+manifest and comparison artifacts. Run its policy tests with
+`python3 bench/simdjson/goal-policy.test.py`.
 
 For an explicitly isolated backend-source experiment,
 `compare.py --allow-w2c2-source-change` permits different pinned w2c2 commits.

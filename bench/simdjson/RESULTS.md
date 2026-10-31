@@ -1,10 +1,17 @@
 # Local qualification status (2026-10-31)
 
+The user revised the goal to **classic workloads, SIMD only, with latency at
+most 1.2× native simdjson and no limit on being faster**. SWAR performance and
+additional non-classic families are diagnostic. The required classic grid is
+16 layouts × owned parse/stringify/full validation = 48 SIMD rows, qualified on
+one consistent backend. Older strict-parity, two-mode and extra-family gates
+below are historical criteria. The current classic goal remains unachieved.
+
 Whole-workload parity is **not achieved**. Typed owned evidence now covers all
 12 layouts of the six fully typed classic corpora plus both Lottie layouts;
 validation evidence covers all 16 classic layouts. Native owned raw adapters
 now work for Lottie; large OTFCC/FGO owned runs remain outstanding. Additional
-required families remain incomplete. Twitter now compiles
+families remain available as diagnostics. Twitter now compiles
 with public simdjson customization hooks while preserving its complete model.
 
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering

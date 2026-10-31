@@ -232,6 +232,7 @@ function prepare() {
       : null,
     inputs,
     phases: ["parse-owned", "serialize-owned", "validate"],
+    performanceTarget: manifest.performanceTarget,
     remainingRequiredFamilies: manifest.requiredFamilies.filter(
       (x) =>
         !["typed-owned-parse", "typed-owned-serialize", "validation"].includes(
@@ -490,7 +491,16 @@ function run() {
       results.push(...phases.map((phase) => ({ ...phase, engine, pair })));
       fs.writeFileSync(
         path.join(dir, `results/${key}.json`),
-        JSON.stringify({ metadata, results }, null, 2) + "\n",
+        JSON.stringify(
+          {
+            metadata,
+            performanceTarget: manifest.performanceTarget,
+            runnerSha256: sha(read(path.join(root, "bench/simdjson/run.mjs"))),
+            results,
+          },
+          null,
+          2,
+        ) + "\n",
       );
     }
   }
@@ -515,14 +525,16 @@ function run() {
           .map((r) => r.ns),
       );
       const ratio = native / as;
+      const required = engine === manifest.performanceTarget.mode;
+      const passes = as <= native * manifest.performanceTarget.maxLatencyRatio;
       console.log(
-        `${ratio >= 1 ? "PASS" : "GAP"} ${key}/${phase}/${engine}: native=${native.toFixed(2)} ns, json-as=${as.toFixed(2)} ns, speedup=${ratio.toFixed(3)}x`,
+        `${required ? (passes ? "PASS" : "GAP") : "INFO"} ${key}/${phase}/${engine}: native=${native.toFixed(2)} ns, json-as=${as.toFixed(2)} ns, speedup=${ratio.toFixed(3)}x`,
       );
-      if (ratio < 1) failed = true;
+      if (required && !passes) failed = true;
     }
   }
   console.log(
-    `Coverage incomplete: ${metadata.remainingRequiredFamilies.join(", ")}; other corpus/layout rows also remain required.`,
+    `SIMD target: latency <= ${manifest.performanceTarget.maxLatencyRatio}x native. This case does not establish coverage of all classic corpus/layout rows; SWAR and additional families are diagnostic.`,
   );
   if (args.includes("--gate")) process.exitCode = failed ? 1 : 2;
   if (args.includes("--gate-row")) process.exitCode = failed ? 1 : 0;
