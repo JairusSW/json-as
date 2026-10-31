@@ -3,6 +3,7 @@ import { bs } from "../../lib/as-bs";
 import { parseDecimalF64 } from "../util/parseDecimal";
 import { ptrToStr } from "../util/ptrToStr";
 import { loadPow10, MAX_EXACT_MANTISSA } from "./swar/float";
+import { scanDigits } from "../util/scanDigits";
 
 // Checked readers consume one value and return the first cursor after it, or
 // zero on failure. They never consume a parent separator or trailing space.
@@ -225,12 +226,16 @@ function numberCursor<T extends number>(
     if (materialize && isInteger<T>()) return 0;
     ptr += 2;
     if (ptr >= end || !digit(load<u16>(ptr))) return 0;
-    do {
-      if (digits < 19) mantissa = mantissa * 10 + <u64>(load<u16>(ptr) - 48);
-      digits++;
-      fractionDigits++;
-      ptr += 2;
-    } while (ptr < end && digit(load<u16>(ptr)));
+    if (!materialize && JSON_MODE != JSONMode.NAIVE) {
+      ptr = scanDigits(ptr, end);
+    } else {
+      do {
+        if (digits < 19) mantissa = mantissa * 10 + <u64>(load<u16>(ptr) - 48);
+        digits++;
+        fractionDigits++;
+        ptr += 2;
+      } while (ptr < end && digit(load<u16>(ptr)));
+    }
   }
   let exponent = 0;
   let exponentNegative = false;
@@ -242,11 +247,15 @@ function numberCursor<T extends number>(
       ptr += 2;
     }
     if (ptr >= end || !digit(load<u16>(ptr))) return 0;
-    do {
-      if (materialize && exponent < 1_000_000)
-        exponent = exponent * 10 + load<u16>(ptr) - 48;
-      ptr += 2;
-    } while (ptr < end && digit(load<u16>(ptr)));
+    if (!materialize && JSON_MODE != JSONMode.NAIVE) {
+      ptr = scanDigits(ptr, end);
+    } else {
+      do {
+        if (materialize && exponent < 1_000_000)
+          exponent = exponent * 10 + load<u16>(ptr) - 48;
+        ptr += 2;
+      } while (ptr < end && digit(load<u16>(ptr)));
+    }
   }
   if (materialize) {
     if (isInteger<T>()) {
