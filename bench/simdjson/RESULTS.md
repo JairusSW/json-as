@@ -2537,3 +2537,45 @@ outside budget. Backend selection alone cannot complete the classic target.
 Artifacts under `build/simdjson-parity/`: translated binaries beneath
 `runs/signltxx000000001/w2c2/` and comparisons
 `signlt-current-w2c2-*`.
+
+## Retained generated integer-array output fusion
+
+A generated object containing exactly one non-nullable `i16[]`/`u16[]` or
+wider integer array now includes that array's established worst-case bound in
+the object's single capacity reservation. Its serializer keeps the destination
+cursor local and calls the unchanged integer formatter through a cursor-
+returning entry. This removes an array-boundary reservation, shared cursor
+publication/reload and wrapper work. Selection uses only compile-time field
+types and count; it has no corpus, schema name, field name or value-range rule.
+
+The transform deliberately excludes schemas with several qualifying arrays.
+Summing several worst-case bounds could retain much more capacity than the
+previous per-boundary growth policy. A three-way nine-pair comparison confirms
+that the safe single-array form retains nearly all of the measured speedup.
+
+Candidate / `signltxx000000001` SIMD stringify throughput:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| CITM minified | 1.103x | 1.048x |
+| GSOC minified | 1.017x | - |
+| Twitter minified | 1.000x | - |
+| Poet minified | 0.994x | - |
+
+The unrestricted exploratory form measured 1.119x V8 and 1.050x default-w2c2
+on CITM, only about 1.5% ahead of the retained bounded policy. It is rejected
+because that small difference does not justify compounded peak capacity.
+Every comparison passes twenty complete retained-output checks and no phase in
+the broad screen exceeds the 5% regression guard. CITM stringification remains
+outside native budget; the retained change moves it materially closer.
+
+Exact commit `7d0c388` passes 123,636 normal and 77,919 strict/RFC checks across
+NAIVE, SWAR and SIMD. It also passes 1,416 transform regressions, typecheck,
+lint and all eleven benchmark-tooling tests. The existing generated-array
+regression forces collection and output growth while a 2,048-element `i64[]`
+is reachable only through its owner. SIMD alone gates native parity; the shared
+implementation also reaches SWAR and NAIVE.
+
+Artifacts under `build/simdjson-parity/`: runs
+`{arrfusex000000001,arronexx000000001}/` and comparisons `arrfuse-*`,
+`arrone-*` and `arrone-w2c2-*`.
