@@ -3015,3 +3015,54 @@ across the call boundary is not a general improvement.
 Artifacts under `build/simdjson-parity/`: profile run `twitterguardprof/` and
 `twitter-keyguard-validate-profile2.log`; runs `keyguardbase0001/` and
 `keypayload000001/`; comparison `keypayload-validation-v8/`.
+
+## Retained delimiter load across whitespace scanning
+
+The checked discard grammar previously loaded the next delimiter once inside
+the whitespace scanner and again immediately after it returned. It now loads
+the code unit once, enters the established scanner only when that unit is JSON
+whitespace, and retains the first non-whitespace delimiter for the container
+transition. When whitespace is present, its first proven unit is consumed before
+entering the remaining scan. Grammar, depth and malformed-input behavior are
+unchanged. This shared optimization has no corpus, schema, token or value rule;
+SIMD alone continues to gate native parity.
+
+Five balanced fresh-process V8 pairs compare equal-length frozen
+`keyguardcommit001` and `delimload00000001` artifacts across all sixteen
+classic validation layouts. Every RFC preflight and all 64 changing-input
+oracles pass. Candidate / baseline SIMD validation throughput:
+
+| Layout | Throughput |
+| --- | ---: |
+| Canada minified | 1.103x |
+| Canada pretty | 1.042x |
+| Twitter minified | 1.046x |
+| Twitter pretty | 1.033x |
+| CITM minified | 1.036x |
+| CITM pretty | 1.019x |
+| GitHub Events minified | 1.017x |
+| GitHub Events pretty | 1.019x |
+| Poet minified | 1.041x |
+| Poet pretty | 1.019x |
+| GSOC minified | 0.995x |
+| GSOC pretty | 0.995x |
+| Lottie minified | 1.051x |
+| Lottie pretty | 1.012x |
+| OTFCC minified | 1.076x |
+| FGO minified | 1.028x |
+
+Four seven-pair complete-phase controls keep parse and stringify within 0.6%;
+validation improves 1.017x on Twitter, 1.085x on CITM, 1.012x on GSOC and
+1.041x on Poet. A separate five-pair SWAR matrix improves all sixteen layouts,
+from 1.002x to 1.076x, with exact validation oracles. The complete SIMD matrix
+has no regression beyond 0.5%, but twelve layouts remain outside the native
++20% latency budget. Canada-minified moves to 1.224x native latency, close to
+but not yet inside the 1.2x boundary.
+
+Exact runtime commit `ed4e0ed` passes 123,891 normal and 77,928 strict/RFC
+checks across NAIVE, SWAR and SIMD, 1,416 transform regressions, eleven
+benchmark-tooling tests, typecheck, lint and diff checks. Artifacts under
+`build/simdjson-parity/`: run `delimload00000001/`, comparison
+`delimload-validation-{v8,swar-v8}/`, and complete-phase runs
+`delim{base,cand}{tw,ci,gs,po}00001/` with comparisons
+`delimload-{twitter-min,citm-catalog-min,gsoc-2018-min,poet-min}/`.
