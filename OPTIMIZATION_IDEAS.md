@@ -806,3 +806,15 @@ from the large formatter was neutral on V8 and 0.933× on default w2c2. Complete
 generated serializer inlining reached only 1.017× V8 and 1.038× default-w2c2
 CITM stringification while moving unrelated phases by up to about 3.5%; all
 three broader hints are rejected.
+
+### Retained reservation-free generated floats, 2026-10-31
+
+Generated serializers reserve their complete estimated output capacity once,
+so route non-nullable `f32` and `f64` fields through the same unsafe primitive
+dispatcher already used by integers and booleans. This removes redundant
+per-field capacity and stack-size accounting without changing xjb-as conversion
+or special-value semantics. Lottie minified stringification improves 1.023× in
+V8 and 1.026× in default w2c2; Twitter is 1.001×/1.009× and three broad controls
+are neutral within 0.7%. All exact owned-output comparisons pass. Keep this as
+a general fixed-region improvement, but expect larger gains to require keeping
+the output cursor local across multiple adjacent generated writes.

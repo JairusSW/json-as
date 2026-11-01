@@ -31,7 +31,9 @@ import {
   serializeInteger,
   serializeIntegerUnsafe,
   serializeFloat32,
+  serializeFloat32Unsafe,
   serializeFloat64,
+  serializeFloat64Unsafe,
   serializeObject,
   serializeJsonArray,
   serializeRaw,
@@ -3015,7 +3017,7 @@ export namespace JSON {
   /**
    * Primitive serializer for generated structs that already reserved the
    * complete worst-case output size in `__SERIALIZE`. Avoids repeating buffer
-   * capacity and stack-size accounting for every integer/boolean field.
+   * capacity and stack-size accounting for every primitive field.
    * Internal: emitted only for non-nullable primitive fields by the transform.
    */
   @inline
@@ -3025,6 +3027,11 @@ export namespace JSON {
     } else if (isInteger<T>()) {
       // @ts-expect-error: transform emits this only for integer T
       serializeIntegerUnsafe<T>(data);
+    } else if (isFloat<T>()) {
+      // @ts-expect-error: transform emits this only for f32/f64 T
+      if (sizeof<T>() == 4) serializeFloat32Unsafe(<f32>data);
+      // @ts-expect-error: transform emits this only for f32/f64 T
+      else serializeFloat64Unsafe(<f64>data);
     } else {
       // Defensive fallback for hand-written transformed code.
       __serialize<T>(data);

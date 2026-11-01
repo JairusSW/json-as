@@ -1497,3 +1497,33 @@ Artifacts under `build/simdjson-parity/`:
 `comparisons/prim-inline-*/`. Rejected whole-generated-serializer and 64-bit
 formatter-inline prototypes were removed after paired V8 and default-w2c2
 measurements showed only small wins or regressions.
+
+## Retained reservation-free generated float fields
+
+Generated object serializers already reserve their complete estimated output
+capacity before emitting fields. Extend their existing reservation-free
+integer/boolean path to non-nullable `f32` and `f64` fields, avoiding a repeated
+128-byte capacity check and stack-size update per float. Float conversion,
+special-value handling and output bytes are unchanged; there is no corpus,
+schema or value-shape selector.
+
+Six balanced process pairs compare exact-current frozen baseline and candidate
+Wasm in V8 and default w2c2. Each completed backend/variant passes twenty full
+owned-output comparisons. Candidate/baseline SIMD stringify throughput:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| Lottie minified | 1.023× | 1.026× |
+| Twitter minified | 1.001× | 1.009× |
+| GSOC minified | 1.000× | 1.000× |
+| Canada minified | 1.000× | 0.993× |
+| CITM minified | 0.995× | 0.996× |
+
+No measured phase regresses by 5%; the largest unrelated phase movement is
+2.2%. This is a small float-heavy win rather than a new native-parity row.
+The retained source passes all 123,360 normal and 77,676 strict/RFC checks
+across NAIVE, SWAR and SIMD. Formatting, typecheck, lint and diff checks pass.
+
+Artifacts under `build/simdjson-parity/`:
+`runs/float{base00001,unsafe001}/` and
+`comparisons/floatunsafe-{lottie,canada,citm-catalog,twitter,gsoc-2018}-*-001/`.

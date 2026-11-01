@@ -236,7 +236,9 @@ function getSerializeCall(type: string, realName: string): string {
     type == "u16" ||
     type == "u32" ||
     type == "u64" ||
-    type == "usize"
+    type == "usize" ||
+    type == "f32" ||
+    type == "f64"
   ) {
     return `JSON.__serializePrimitiveUnsafe<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
   }
