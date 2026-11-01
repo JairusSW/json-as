@@ -11,6 +11,7 @@ import {
   serializeStringRange_SIMD,
   serializeStringRangeReservedAt_SIMD,
   serializeStringRangeReserved_SIMD,
+  serializeShortStringReservedAt_SIMD,
 } from "../simd/string";
 import {
   serializeString_SWAR,
@@ -63,6 +64,7 @@ export function serializeStringPointerReservedAt(
 ): usize {
   const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
   if (JSON_MODE == JSONMode.SIMD) {
+    if (size < 16) return serializeShortStringReservedAt_SIMD(src, size, dst);
     return serializeStringRangeReservedAt_SIMD(src, size, dst);
   }
   bs.offset = dst;

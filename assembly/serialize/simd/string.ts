@@ -58,50 +58,7 @@ export function serializeStringRangeReserved_SIMD(
 
 /** Emits a pre-reserved string and returns the next output cursor. Clean
  * strings never publish the cursor through shared builder state. */
-@inline
 export function serializeStringRangeReservedAt_SIMD(
-  srcStart: usize,
-  srcSize: u32,
-  dstStart: usize,
-): usize {
-  if (srcSize < 16)
-    return serializeShortStringReservedAt_SIMD(srcStart, srcSize, dstStart);
-  return serializeStringRangeReservedAt_SIMD_Core(srcStart, srcSize, dstStart);
-}
-
-/** Compact entry for at most seven UTF-16 units. The caller already reserved
- * the unescaped payload. Exceptional input falls back to the complete core. */
-function serializeShortStringReservedAt_SIMD(
-  srcStart: usize,
-  srcSize: u32,
-  dstStart: usize,
-): usize {
-  const srcEnd = srcStart + srcSize;
-  let src = srcStart;
-  let dst = dstStart + 2;
-  while (src < srcEnd) {
-    const code = load<u16>(src);
-    if (
-      (code >= 0xd800 && code <= 0xdfff) ||
-      code == BACK_SLASH ||
-      code == 34 ||
-      code < 32
-    )
-      return serializeStringRangeReservedAt_SIMD_Core(
-        srcStart,
-        srcSize,
-        dstStart,
-      );
-    store<u16>(dst, code);
-    src += 2;
-    dst += 2;
-  }
-  store<u16>(dstStart, 34);
-  store<u16>(dst, 34);
-  return dst + 2;
-}
-
-function serializeStringRangeReservedAt_SIMD_Core(
   srcStart: usize,
   srcSize: u32,
   dstStart: usize,
@@ -379,6 +336,35 @@ function serializeStringRangeReservedAt_SIMD_Core(
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
   return bs.offset;
+}
+
+/** Compact generated-field entry for at most seven UTF-16 units. The caller
+ * already reserved the unescaped payload. Exceptional input falls back to the
+ * complete shared writer. */
+export function serializeShortStringReservedAt_SIMD(
+  srcStart: usize,
+  srcSize: u32,
+  dstStart: usize,
+): usize {
+  const srcEnd = srcStart + srcSize;
+  let src = srcStart;
+  let dst = dstStart + 2;
+  while (src < srcEnd) {
+    const code = load<u16>(src);
+    if (
+      (code >= 0xd800 && code <= 0xdfff) ||
+      code == BACK_SLASH ||
+      code == 34 ||
+      code < 32
+    )
+      return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
+    store<u16>(dst, code);
+    src += 2;
+    dst += 2;
+  }
+  store<u16>(dstStart, 34);
+  store<u16>(dst, 34);
+  return dst + 2;
 }
 
 /** Copy clean UTF-16 after a byte-level false positive, stopping at an escape. */
