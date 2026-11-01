@@ -50,6 +50,12 @@ optimization priority:
   slightly worse at 1.9%, while stringify and validation controls stayed flat.
   Capacity prediction is therefore rejected; the remaining target is less
   array-construction machinery rather than a different initial capacity.
+- CITM stringify profiles identify generated object writers, `itoaU64` and the
+  shared integer-array writer as the largest named kernels. Forced `itoaU64`
+  inlining previously regressed about 20%; a later runtime-generic shortcut
+  from small positive `i64[]`/`u64[]` values directly to `itoaU32` regressed
+  stringify 2.4% across seven equal-head pairs. Additional formatter dispatch
+  is rejected; generated writer integration remains the relevant seam.
 
 All screens used changing rotated inputs, retained independent outputs and
 alternating fresh V8 processes. Rejected candidates were reverted. The
