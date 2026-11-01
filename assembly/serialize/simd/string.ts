@@ -27,8 +27,6 @@ import { u16_to_hex4_swar } from "../../util/swar";
 @lazy const BYTE_BACKSLASH = i8x16.splat(0x5c);
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const BYTE_SPACE = i8x16.splat(0x20);
-// @ts-expect-error: @lazy is a valid decorator
-@lazy const BYTE_SIGNED_SATURATION = i8x16.splat(i8(-128));
 
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
@@ -77,16 +75,15 @@ export function serializeStringRangeReservedAt_SIMD(
       // the JSON control range; the conservative byte-level surrogate test is
       // retained for the exceptional path below.
       const bytes = i8x16.narrow_i16x8_s(first, second);
-      const asciiSpecial = v128.or(
+      // Signed narrowing maps controls to 0..31, ordinary positive non-ASCII
+      // units to +127, and U+8000..FFFF (including surrogates) to -128. One
+      // signed comparison therefore covers both controls and the conservative
+      // Unicode candidate formerly tested with a separate equality.
+      const special = v128.or(
         i8x16.eq(bytes, BYTE_QUOTE),
-        v128.or(i8x16.eq(bytes, BYTE_BACKSLASH), i8x16.lt_u(bytes, BYTE_SPACE)),
+        v128.or(i8x16.eq(bytes, BYTE_BACKSLASH), i8x16.lt_s(bytes, BYTE_SPACE)),
       );
-      // Signed narrowing maps every negative i16 lane (U+8000 and above,
-      // including all surrogates) to -128. Reuse that classification instead
-      // of comparing both source vectors byte-wise. The exact Unicode loop
-      // verifies candidate blocks before treating a unit as a surrogate.
-      const surrogateCandidate = i8x16.eq(bytes, BYTE_SIGNED_SATURATION);
-      if (v128.any_true(v128.or(asciiSpecial, surrogateCandidate))) break;
+      if (v128.any_true(special)) break;
       store<v128>(dst, first);
       store<v128>(dst, second, 16);
       srcStart += 32;
