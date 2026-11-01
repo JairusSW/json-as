@@ -8,6 +8,26 @@ class MapValue {
   name: string = "";
 }
 
+let relocatingMap = new Map<string, RelocatingMapValue>();
+let relocatedMap = false;
+
+@json
+class RelocatingMapValue {
+  constructor(public value: i32 = 0) {}
+
+  @serializer("object")
+  serialize(self: RelocatingMapValue): string {
+    if (!relocatedMap && self.value == 1) {
+      relocatedMap = true;
+      for (let i = 0; i < 16; i++)
+        relocatingMap.set("extra-" + i.toString(), new RelocatingMapValue(i));
+      relocatingMap.set("b", new RelocatingMapValue(22));
+      __collect();
+    }
+    return '{"value":' + self.value.toString() + "}";
+  }
+}
+
 describe("Should deserialize complex objects", () => {
   const input =
     '{"a":{"b":{"c":[{"d":"random value 1"},{"e":["value 2","value 3"]}],"f":{"g":{"h":[1,2,3],"i":{"j":"nested value"}}}},"k":"simple value"},"l":[{"m":"another value","n":{"o":"deep nested","p":[{"q":"even deeper"},"final value"]}}],"r":null}';
@@ -35,6 +55,32 @@ describe("Should serialize and deserialize primitive maps", () => {
   expect(
     JSON.stringify(JSON.parse<Map<string, i32>>('{"one":1,"two":2}')),
   ).toBe('{"one":1,"two":2}');
+});
+
+describe("Should serialize live map entries in insertion order", () => {
+  const m = new Map<string, i32>();
+  m.set("removed-first", 1);
+  m.set("kept-a", 2);
+  m.set("removed-middle", 3);
+  m.set("kept-b", 4);
+  m.set("removed-last", 5);
+  m.delete("removed-first");
+  m.delete("removed-middle");
+  m.delete("removed-last");
+  m.set("kept-c", 6);
+  expect(JSON.stringify(m)).toBe('{"kept-a":2,"kept-b":4,"kept-c":6}');
+});
+
+describe("Map serializers reload entries after reentrant rehash", () => {
+  relocatingMap = new Map<string, RelocatingMapValue>();
+  relocatingMap.set("a", new RelocatingMapValue(1));
+  relocatingMap.set("b", new RelocatingMapValue(2));
+  relocatingMap.set("c", new RelocatingMapValue(3));
+  relocatedMap = false;
+  expect(JSON.stringify(relocatingMap)).toBe(
+    '{"a":{"value":1},"b":{"value":22},"c":{"value":3}}',
+  );
+  expect(relocatedMap).toBe(true);
 });
 
 describe("Should serialize and deserialize nested map values", () => {
