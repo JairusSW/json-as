@@ -123,10 +123,17 @@ function plainStringEnd(ptr: usize, end: usize): usize {
 }
 
 // Keys are overwhelmingly short across ordinary object schemas. Check the
-// first two code units directly before paying for a wider event mask, then use
+// first four code units directly before paying for a wider event mask, then use
 // the regular SIMD scanner for longer keys.
 @inline
 function plainKeyEnd(ptr: usize, end: usize): usize {
+  if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    let code = load<u16>(ptr);
+    if (code == 34 || code == 92 || code < 32) return ptr;
+    code = load<u16>(ptr, 2);
+    if (code == 34 || code == 92 || code < 32) return ptr + 2;
+    ptr += 4;
+  }
   if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
     let code = load<u16>(ptr);
     if (code == 34 || code == 92 || code < 32) return ptr;

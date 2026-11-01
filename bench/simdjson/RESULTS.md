@@ -1924,3 +1924,47 @@ diff checks also pass.
 Artifacts under `build/simdjson-parity/`:
 `runs/{keybase0000001,keyscalar00001,currentd2b1ed2}/` and
 `comparisons/keyscalar-validation-{v8,w2c2,w2c2-checked}/`.
+
+## Retained four-unit checked SIMD key entry
+
+Classic key-length census shows this is not an OTFCC-only opportunity: Lottie
+keys average 1.5 UTF-16 units, Poet 3.3, GitHub events 6.9, GSOC 7.0 and FGO
+7.5. The checked SIMD key scanner now performs four direct UTF-16 event checks
+before its wider mask. Longer, escaped, invalid and bounded-tail cases keep the
+existing scanner and grammar behavior.
+
+Five balanced process pairs compare frozen `keyscalar00001` and
+`keyscalar40001` labels across all 16 validation layouts. All RFC preflight
+checks and 64 changing-input oracles pass. Candidate / `7f382b3` SIMD
+validation throughput:
+
+| Layout | V8 | Checked w2c2 | Default w2c2 |
+| --- | ---: | ---: | ---: |
+| Canada minified | 1.024× | 0.987× | 1.009× |
+| Canada pretty | 1.026× | 0.998× | 1.009× |
+| Twitter minified | 0.982× | 0.978× | 1.034× |
+| Twitter pretty | 0.993× | 0.974× | 1.030× |
+| CITM minified | 1.070× | 1.038× | 1.110× |
+| CITM pretty | 1.063× | 0.992× | 1.088× |
+| GitHub events minified | 1.014× | 1.028× | 1.081× |
+| GitHub events pretty | 0.994× | 0.994× | 1.077× |
+| Poet minified | 0.992× | 1.050× | 1.062× |
+| Poet pretty | 0.988× | 1.004× | 1.061× |
+| GSOC minified | 1.003× | 1.014× | 1.035× |
+| GSOC pretty | 0.998× | 1.000× | 1.013× |
+| Lottie minified | 1.041× | 1.040× | 1.078× |
+| Lottie pretty | 1.015× | 1.007× | 1.041× |
+| OTFCC minified | 1.011× | 1.017× | 1.037× |
+| FGO minified | 1.016× | 1.040× | 1.082× |
+
+No row exceeds the 5% regression guard. On default w2c2, OTFCC falls from
+50.7788 ms to 48.9786 ms against native's 48.9453 ms, reaching 0.999× native
+latency. The improvement is additive to the preceding two-unit entry change.
+
+The exact retained source passes all 123,360 normal and 77,676 strict/RFC
+checks across NAIVE, SWAR and SIMD; transform regressions, typecheck, lint and
+diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`:
+`runs/{keyscalar00001,keyscalar40001}/` and
+`comparisons/keyscalar4-validation-{v8,w2c2,w2c2-checked}/`.

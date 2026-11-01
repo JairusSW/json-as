@@ -1010,3 +1010,22 @@ All 64 changing validation inputs and RFC preflight checks pass on every
 measured backend. The exact source passes 123,360 normal and 77,676 strict/RFC
 checks across all three modes, plus transform regressions, typecheck, lint and
 diff checks.
+
+### Retained four-unit checked SIMD key entry, 2026-11-01
+
+Extend the checked SIMD key entry from two direct UTF-16 event checks to four
+before entering the wider mask. This keeps the same quote, backslash, control,
+bounds and fallback rules while covering ordinary two- and three-unit keys
+without a reduction mask. It is still one shared scanner rule; there is no
+corpus, schema or field selector.
+
+Five balanced pairs across all 16 classic layouts show default-w2c2 SIMD
+validation gains on every row: 1.110×/1.088× CITM, 1.081×/1.077× GitHub
+events, 1.082× FGO, 1.078×/1.041× Lottie, about 1.06× Poet and 1.037× OTFCC.
+OTFCC reaches 0.999× native latency. V8 improves as much as 1.070× on CITM and
+1.041× on Lottie; its largest tradeoff is 1.8% on Twitter. Checked w2c2 ranges
+from 0.974× to 1.050×. No row on any backend crosses the 5% regression guard.
+
+All RFC preflight and 64 changing-input validation oracles pass. The exact
+source passes 123,360 normal and 77,676 strict/RFC checks across all three
+modes, plus transform regressions, typecheck, lint and diff checks.
