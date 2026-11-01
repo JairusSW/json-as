@@ -1030,6 +1030,51 @@ All RFC preflight and 64 changing-input validation oracles pass. The exact
 source passes 123,360 normal and 77,676 strict/RFC checks across all three
 modes, plus transform regressions, typecheck, lint and diff checks.
 
+### Pointer-only loops for generated object arrays, 2026-11-01
+
+Generated non-string reference arrays now remain raw pointers through their
+array loop, and generated object elements are dispatched from raw pointers.
+The owning generated object stays rooted for the complete call. Null elements,
+custom serializers and the generic fallback retain their established behavior;
+the loop reloads `dataStart` after callbacks. This removes redundant array and
+element shadow-stack spills without changing public APIs, output ownership or
+array mutation semantics. Selection depends only on the compile-time element
+category, with no corpus, schema, field-name, value or length recognition.
+
+Six balanced process pairs compare equal-length `intptr00000001` and
+`objptr00000001` artifacts across all 16 classic layouts. Every complete output
+and retention oracle passes. The initial FGO V8 result barely crossed the 5%
+guard in the wrong direction, while an independent 12-pair confirmation reports
+1.025x stringify throughput and no phase regression. The initial CITM-pretty
+w2c result was also an outlier; its 12-pair confirmation reports 1.056x.
+Confirmed candidate / baseline stringify throughput:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| Canada minified | 0.982x | 0.991x |
+| Canada pretty | 0.988x | 1.012x |
+| Twitter minified | 1.003x | 1.075x |
+| Twitter pretty | 1.022x | 1.018x |
+| CITM minified | 1.049x | 1.050x |
+| CITM pretty | 1.027x | 1.056x |
+| GitHub events minified | 1.017x | 1.000x |
+| GitHub events pretty | 1.002x | 0.992x |
+| Poet minified | 1.003x | 0.993x |
+| Poet pretty | 1.010x | 0.989x |
+| GSOC minified | 1.003x | 0.992x |
+| GSOC pretty | 1.007x | 1.020x |
+| Lottie minified | 1.001x | 1.016x |
+| Lottie pretty | 0.991x | 1.009x |
+| OTFCC minified | 0.991x | 1.020x |
+| FGO minified | 1.025x | 1.010x |
+
+The focused CITM profile falls from 184.54 to 174.66 us/op in V8. Checked-w2c2
+controls report 1.072x CITM-minified stringify and 1.003x Lottie-pretty
+stringify, with no phase beyond the 5% guard. Focused array and custom-codec
+coverage passes 990 checks across all modes. The exact committed source passes
+123,372 normal and 77,676 strict/RFC checks across NAIVE, SWAR and SIMD, plus
+transform regressions, typecheck, lint, benchmark-tooling and diff checks.
+
 ### Pointer-only kernels for generated wide-integer arrays, 2026-11-01
 
 The generated array-field pointer entry now keeps `i16[]`/`u16[]` and wider

@@ -2077,3 +2077,54 @@ lint, benchmark-tooling tests and diff checks also pass.
 Artifacts under `build/simdjson-parity/`: `runs/intptr00000001/`,
 `comparisons/intptr-*`, and the profile-only
 `runs/{arrprof0000001,intarrptr0000001,rawintarr0000001}/` artifacts.
+
+## Pointer-only generated object-array loops
+
+Generated non-string reference arrays now stay raw through the shared array
+loop, and generated object elements dispatch from their raw pointer. The
+containing generated object remains rooted for the complete call. Nulls, custom
+serializers and generic fallbacks keep their prior behavior, and `dataStart` is
+reloaded after callbacks. This removes redundant array/element shadow-stack
+spills based only on the compile-time element category; no corpus, schema,
+field-name, value or length recognition is present.
+
+Six balanced process pairs compare equal-length `intptr00000001` and
+`objptr00000001` artifacts on V8 and default w2c2. Every backend/variant passes
+twenty complete retained-output comparisons per layout. An initial inactive
+FGO V8 sample barely failed the 5% guard, but an independent 12-pair
+confirmation reverses it to 1.025x stringify throughput with all phases green.
+The initial CITM-pretty w2c sample was also noisy; its independent 12-pair
+confirmation reports 1.056x. Confirmed candidate / baseline SIMD stringify:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| Canada minified | 0.982x | 0.991x |
+| Canada pretty | 0.988x | 1.012x |
+| Twitter minified | 1.003x | 1.075x |
+| Twitter pretty | 1.022x | 1.018x |
+| CITM minified | 1.049x | 1.050x |
+| CITM pretty | 1.027x | 1.056x |
+| GitHub events minified | 1.017x | 1.000x |
+| GitHub events pretty | 1.002x | 0.992x |
+| Poet minified | 1.003x | 0.993x |
+| Poet pretty | 1.010x | 0.989x |
+| GSOC minified | 1.003x | 0.992x |
+| GSOC pretty | 1.007x | 1.020x |
+| Lottie minified | 1.001x | 1.016x |
+| Lottie pretty | 0.991x | 1.009x |
+| OTFCC minified | 0.991x | 1.020x |
+| FGO minified | 1.025x | 1.010x |
+
+The focused CITM profile falls from 184.54 to 174.66 us/op in V8. Checked-w2c2
+controls report 1.072x CITM-minified stringify and 1.003x Lottie-pretty
+stringify. No retained comparison has a confirmed phase beyond the 5%
+regression guard.
+
+The focused array/custom-codec suites pass 990 checks across all modes. The
+exact commit passes 123,372 normal and 77,676 strict/RFC checks across NAIVE,
+SWAR and SIMD; transform regressions, typecheck, lint, benchmark-tooling tests
+and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`: `runs/objptr00000001/`,
+`comparisons/objptr-*`, and profile-only
+`runs/{objarr00000001,objraw00000001}/` artifacts.
