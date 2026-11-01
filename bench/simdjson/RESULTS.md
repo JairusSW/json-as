@@ -2348,7 +2348,10 @@ ASCII-heavy layouts improve and all controls are neutral.
 The post-mask GSOC profile attributes 3,099 of 3,929 Wasm self samples (78.9%)
 to the shared string writer, confirming that this loop remains the main
 serialization target. A scalar sign-bit-mask variant was rejected: it measured
-0.981x GSOC, 0.980x Twitter and 0.969x GitHub stringify throughput.
+0.981x GSOC, 0.980x Twitter and 0.969x GitHub stringify throughput. Outlining
+the complete escape writer into a cold continuation was also rejected: it
+measured 0.979x GSOC, 1.003x Twitter, 1.015x GitHub and 0.998x Poet. The added
+continuation edge costs more than the smaller hot function saves.
 
 Focused string tests pass 40,585 checks across all modes. Exact commit
 `6c0eb8f` passes 123,636 normal and 77,919 strict/RFC checks across NAIVE, SWAR
@@ -2358,4 +2361,5 @@ Artifacts under `build/simdjson-parity/`: runs
 `{lanemask000000001,signsatx000000001,satbasex000000001,signmask000000001}/`,
 comparisons `signsatx-*` and `signmask-*`, and profile artifacts
 `lane-mask2-{serialize-v8.log,serialize-run.log,self-profile.py,self-profile.json}`
-plus `runs/laneprof000000001/`.
+plus `runs/laneprof000000001/`; rejected outline artifacts are
+`runs/coldoutx000000001/` and comparisons `coldoutx-*`.
