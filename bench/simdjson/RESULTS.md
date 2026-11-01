@@ -2442,7 +2442,16 @@ GitHub stringify row only 1.014x and left the rest of the tested range unchanged
 That narrow size-band tradeoff was reverted rather than retained as a
 corpus-subset optimization.
 
+A generated-field-only prototype also added a compact one-vector writer for
+8--15-unit strings, a band represented by GSOC, Twitter, CITM, GitHub and Poet.
+It passed 16,380 focused SIMD escape, tail and surrogate assertions plus every
+retained-output oracle. Seven V8 pairs improved GSOC 1.023x, Twitter 1.017x and
+GitHub 1.006x, but regressed Poet to 0.956x. A 12-pair CITM confirmation was
+0.992x. Duplicating classification/setup in generated writers is therefore
+rejected; the existing shared writer remains preferable beyond the retained
+seven-unit scalar entry.
+
 Artifacts under `build/simdjson-parity/`: runs
-`{signltxx000000001,signlt2x000000001,own64kbx00000001,own16kbx00000001}/`,
-comparisons `signlt-*`, `signlt2-*`, `own16kb-*`, and the preserved first
-100-operation Unicode candidate inside `signltxx000000001/`.
+`{signltxx000000001,signlt2x000000001,own64kbx00000001,own16kbx00000001,midstrxx000000001}/`,
+comparisons `signlt-*`, `signlt2-*`, `own16kb-*`, `midstr-*`, and the preserved
+first 100-operation Unicode candidate inside `signltxx000000001/`.
