@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import statistics
 import subprocess
 from round_order import round_schedule
@@ -13,12 +14,15 @@ from oracle_storage import copy_oracle
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE = ROOT / 'build/simdjson-parity'
+manifest = json.loads((ROOT / 'bench/simdjson/workloads.json').read_text())
+target = manifest['performanceTarget']
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--labels', required=True, help='Comma-separated built labels; first is baseline')
+parser.add_argument('--labels', required=True, help='Built labels; one qualifies against native, otherwise first is baseline')
 parser.add_argument('--case', default='canada-min')
 parser.add_argument('--pairs', type=int, default=5)
 parser.add_argument('--output', required=True)
 parser.add_argument('--backends', default='v8', help='v8,w2c2-checked,w2c2-default')
+parser.add_argument('--modes', default='swar,simd', help='Measured modes: swar,simd; defaults to both')
 parser.add_argument('--allow-w2c2-source-change', action='store_true', help='Backend experiment: permit different pinned w2c2 revisions, retaining compiler/translator/SIMDe checks')
 parser.add_argument('--require-equal-label-length', action='store_true', help='Keep embedded artifact path lengths equal across variants')
 parser.add_argument('--smoke', action='store_true', help='One diagnostic round; no performance gate')
@@ -28,12 +32,19 @@ parser.add_argument('--gate-regression', type=float, help='Fail if candidate med
 args = parser.parse_args()
 labels = args.labels.split(',')
 backends = args.backends.split(',')
+modes = args.modes.split(',')
 if args.require_equal_label_length and len({len(label) for label in labels}) != 1:
     parser.error('Labels must have equal lengths to control embedded path sizes')
 if set(backends) - {'v8', 'w2c2-checked', 'w2c2-default'} or len(set(backends)) != len(backends):
     parser.error('Invalid backend list')
-if len(set(labels)) < 2 or len(set(labels)) != len(labels) or (args.pairs < 5 and not (args.smoke and args.pairs == 1)):
-    parser.error('Use at least two distinct labels and five process pairs')
+if set(modes) - {'swar', 'simd'} or len(set(modes)) != len(modes):
+    parser.error('Modes must be distinct values from swar,simd')
+if len(set(labels)) != len(labels) or (args.pairs < 5 and not (args.smoke and args.pairs == 1)):
+    parser.error('Use distinct labels and at least five process pairs')
+if (args.gate_classic or args.gate_validation) and target['mode'] not in modes:
+    parser.error(f'Native gate must measure target mode {target["mode"]}')
+if args.gate_regression is not None and len(labels) < 2:
+    parser.error('Regression gate requires at least two labels')
 for name in [*labels, args.case, args.output]:
     if not re.fullmatch(r'[a-zA-Z0-9_-]+', name):
         parser.error('Invalid artifact name')
@@ -54,8 +65,6 @@ def backend_binary(label, engine, backend):
     return BASE / f'runs/{label}/w2c2/{args.case}-{engine}/checks-{check}'
 
 baseline = metadata[labels[0]]
-manifest = json.loads((ROOT / 'bench/simdjson/workloads.json').read_text())
-target = manifest['performanceTarget']
 if args.gate_classic:
     classic_cases = {f'{c["name"]}-{layout}' for c in manifest['corpora'] for layout in c['layouts']}
     if args.smoke or args.case not in classic_cases or args.gate_classic not in backends or set(baseline['phases']) != set(target['requiredPhases']):
@@ -78,7 +87,7 @@ for label, meta in metadata.items():
     for item in meta['inputs']:
         if sha(ROOT / item['path']) != item['sha256']:
             raise ValueError(f'{label}: input changed')
-    for engine in ['native', 'swar', 'simd']:
+    for engine in ['native', *modes]:
         if sha(binary(label, engine)) != meta['binaries'][engine]['sha256']:
             raise ValueError(f'{label}: {engine} binary changed')
     if meta['binaries']['native']['sha256'] != baseline['binaries']['native']['sha256']:
@@ -87,7 +96,7 @@ for label in labels:
     for backend in backends:
         if backend == 'v8':
             continue
-        for mode in ['swar', 'simd']:
+        for mode in modes:
             artifact = backend_binary(label, mode, backend)
             meta = json.loads(artifact.with_suffix('.json').read_text())
             if sha(artifact) != meta['binarySha256'] or sha(binary(label, mode)) != meta['wasmSha256']:
@@ -112,6 +121,7 @@ output.mkdir(parents=True)
     'goalPolicySha256': sha(Path(__file__).with_name('goal_policy.py')),
     'oracleStorageSha256': sha(Path(__file__).with_name('oracle_storage.py')),
     'performanceTarget': target,
+    'measuredModes': modes,
 }, indent=2) + '\n')
 for label in labels:
     for backend in backends:
@@ -120,7 +130,7 @@ for label in labels:
 (output / 'metadata.json').write_text(json.dumps(metadata, indent=2) + '\n')
 rows = []
 for pair in range(args.pairs):
-    schedule = round_schedule(labels, backends, pair)
+    schedule = round_schedule(labels, backends, pair, modes)
     for label, engine, backend in schedule:
         print(f'Run {pair + 1}/{args.pairs}: {label}/{backend}/{engine}', flush=True)
         if engine == 'native':
@@ -132,8 +142,18 @@ for pair in range(args.pairs):
             command = ['v8', '--no-liftoff', '--module', 'bench/runners/assemblyscript.js', '--', str(binary(label, engine).relative_to(ROOT / 'build'))]
         result = subprocess.run(command, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env={**os.environ, 'W2C2_ORACLE_DIR': str(output / f'oracles/{backend}/{label}')})
         (output / f'{pair}-{label}-{backend}-{engine}.log').write_text(result.stdout)
+        signal_name = None
+        if result.returncode < 0 and os.name == 'posix':
+            try:
+                signal_name = signal.Signals(-result.returncode).name
+            except ValueError:
+                signal_name = str(-result.returncode)
+        (output / f'{pair}-{label}-{backend}-{engine}.status.json').write_text(json.dumps({
+            'command': command, 'returncode': result.returncode,
+            'signal': signal_name, 'reportedAbort': 'abort:' in result.stdout,
+        }, indent=2) + '\n')
         if result.returncode or 'abort:' in result.stdout:
-            raise RuntimeError(result.stdout)
+            raise RuntimeError(f'{label}/{backend}/{engine}: exit {result.returncode}, signal {signal_name}\n{result.stdout}')
         if engine == 'native':
             phases = [json.loads(line[7:]) for line in result.stdout.splitlines() if line.startswith('PARITY ')]
         else:
@@ -147,21 +167,22 @@ for label in labels:
     for backend in backends:
         oracles = output / f'oracles/{backend}/{label}'
         if backend == 'v8':
-            for file in (BASE / f'runs/{label}/oracles').glob(f'as-*-{args.case}*.json'):
-                copy_oracle(file, oracles / file.name)
+            for mode in modes:
+                for file in (BASE / f'runs/{label}/oracles').glob(f'as-{mode}-{args.case}*.json'):
+                    copy_oracle(file, oracles / file.name)
         for file in (BASE / f'runs/{labels[0]}/oracles').glob(f'native-{args.case}*.json'):
             copy_oracle(file, oracles / file.name)
         if baseline.get('validationOnly'):
             native = json.loads((oracles / f'native-{args.case}.json').read_text())
             if native != baseline['expectedOracle']:
                 raise ValueError('Native preflight/input coverage differs')
-            for mode in ['swar', 'simd']:
+            for mode in modes:
                 actual = json.loads((oracles / f'as-{mode}-{args.case}.json').read_text())
                 if actual != native:
                     raise ValueError(f'Validation oracle differs: {label}/{backend}/{mode}')
             print(f'Validation oracle passed: {label}/{backend}, {native}', flush=True)
         else:
-            subprocess.run(['python3', 'bench/simdjson/check-oracles.py', str(oracles), args.case], cwd=ROOT, check=True)
+            subprocess.run(['python3', 'bench/simdjson/check-oracles.py', str(oracles), args.case, '--modes', ','.join(modes)], cwd=ROOT, check=True)
 
 
 def median(label, engine, phase, backend):
@@ -170,7 +191,7 @@ def median(label, engine, phase, backend):
 lines = ['label\tbackend\tmode\tphase\tnative ns\tjson-as ns\tnative/json-as\tbaseline/json-as']
 for label in labels:
     for backend in backends:
-        for mode in ['swar', 'simd']:
+        for mode in modes:
             for phase in baseline['phases']:
                 value = median(label, mode, phase, backend)
                 native = median('native', 'native', phase, 'native')
@@ -178,7 +199,10 @@ for label in labels:
                 lines.append(f'{label}\t{backend}\t{mode}\t{phase}\t{native:.2f}\t{value:.2f}\t{native/value:.3f}\t{control/value:.3f}')
 (output / 'results.tsv').write_text('\n'.join(lines) + '\n')
 print('\n'.join(lines))
-print('Diagnostic variant comparison; whole-matrix parity remains a separate gate.')
+if len(labels) == 1:
+    print('Single-revision qualification against native; baseline/json-as is self-comparison, not a variant speedup.')
+else:
+    print('Diagnostic variant comparison; whole-matrix parity remains a separate gate.')
 print('w2c2-default disables Wasm runtime bounds/table checks; report separately from checked execution.')
 
 exit_status = 0
@@ -200,7 +224,7 @@ if args.gate_classic:
 
 if args.gate_regression is not None:
     candidate = labels[-1]
-    regressions = [(backend,mode,phase) for backend in backends for mode in ['swar','simd'] for phase in baseline['phases']
+    regressions = [(backend,mode,phase) for backend in backends for mode in modes for phase in baseline['phases']
                    if median(candidate,mode,phase,backend) > median(labels[0],mode,phase,backend)*(1+args.gate_regression/100)]
     print(f'Regression screen: {len(regressions)} rows exceed {args.gate_regression}% tolerance')
     for row in regressions: print('REGRESSION', '/'.join(row))

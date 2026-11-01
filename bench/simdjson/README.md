@@ -288,3 +288,24 @@ previously hardlinked evidence cannot modify another captured file. Storage
 errors propagate without truncating an existing destination. The copier's hash
 is recorded in `invocation.json`; its tests run with
 `python3 bench/simdjson/oracle-storage.test.py`.
+
+To qualify a single frozen revision against native, supply one label. Use
+`--modes simd` to measure only the goal's required mode; the default still
+measures both SWAR and SIMD. Each selected mode retains every output check:
+four initial graphs, eight retained objects and eight retained strings. A
+single-label run reports self-comparison as one, not as an A/B speedup, and
+balances native-first/native-last order across adjacent rounds. Regression
+gates require multiple labels, and native gates require the target SIMD mode.
+
+```sh
+python3 bench/simdjson/compare.py --labels current --case fgo-min \
+  --modes simd --backends w2c2-default --pairs 6 \
+  --gate-classic w2c2-default --output current-fgo-qualified
+```
+
+The builders still freeze both modes; selecting measurements does not claim
+unmeasured SWAR evidence. Selection and complete-output tests run with
+`python3 bench/simdjson/measurement-selection.test.py`; ordering tests run with
+`python3 bench/simdjson/round-order.test.py`. These options change measurement
+selection, not fields, input variants, retained-output counts or the native
+latency target. A single classic-case gate is not the full 48-row gate.

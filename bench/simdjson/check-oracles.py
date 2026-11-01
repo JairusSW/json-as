@@ -1,11 +1,18 @@
 """Compare complete owned results, retaining exact integer values beyond 2**53."""
+import argparse
 import hashlib
 import json
 from pathlib import Path
-import sys
 
-folder = Path(sys.argv[1])
-case = sys.argv[2]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('folder', type=Path)
+parser.add_argument('case')
+parser.add_argument('--modes', default='swar,simd')
+args = parser.parse_args()
+folder, case = args.folder, args.case
+modes = args.modes.split(',')
+if set(modes) - {'swar', 'simd'} or len(set(modes)) != len(modes):
+    parser.error('Modes must be distinct values from swar,simd')
 evidence = {}
 
 
@@ -41,7 +48,7 @@ for suffix in [*(f".{i}.json" for i in range(4)),
     native_path = folder / ("native-" + case + suffix)
     native_data = native_path.read_bytes()
     expected = json.loads(native_data, parse_constant=reject_constant)
-    for mode in ["swar", "simd"]:
+    for mode in modes:
         actual_path = folder / ("as-" + mode + "-" + case + suffix)
         actual_data = actual_path.read_bytes()
         actual = json.loads(actual_data, parse_constant=reject_constant)
