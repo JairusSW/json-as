@@ -3095,3 +3095,60 @@ reverted rather than trading one corpus gap for another.
 
 Artifacts under `build/simdjson-parity/`: run `whitebit000000001/` and
 comparison `whitebit-validation-v8/`.
+
+## Retained SIMD value-entry token
+
+SIMD checked traversal now normalizes whitespace at value entry. Root values,
+object values after `:`, and array values after `,` retain the first loaded
+non-whitespace token for dispatch instead of allowing the whitespace scanner to
+load it and the grammar loop to load it again. Container-entry handling remains
+on its established path because the separate post-open experiment regressed.
+Syntax, depth and malformed-input behavior are unchanged.
+
+The first shared prototype improves all sixteen SIMD layouts but regresses SWAR
+GitHub validation 13–15% and GSOC 10–12%. The retained implementation is
+therefore compile-time SIMD-only, matching the stated native-parity scope. Its
+SWAR validation artifact is byte-identical to the prior runtime after
+normalizing the equal-length artifact label.
+
+Five balanced fresh-process V8 pairs compare equal-length frozen
+`delimload00000001` and `valmode0000000001` artifacts across all sixteen
+classic validation layouts. Every RFC preflight and all 64 changing-input
+oracles pass. Candidate / baseline SIMD validation throughput:
+
+| Layout | Throughput |
+| --- | ---: |
+| Canada minified | 1.055x |
+| Canada pretty | 1.053x |
+| Twitter minified | 1.043x |
+| Twitter pretty | 1.035x |
+| CITM minified | 1.082x |
+| CITM pretty | 1.022x |
+| GitHub Events minified | 1.086x |
+| GitHub Events pretty | 1.038x |
+| Poet minified | 1.023x |
+| Poet pretty | 1.091x |
+| GSOC minified | 1.013x |
+| GSOC pretty | 1.055x |
+| Lottie minified | 1.091x |
+| Lottie pretty | 1.022x |
+| OTFCC minified | 1.086x |
+| FGO minified | 1.029x |
+
+All sixteen layouts improve. Canada-pretty lands just inside the native +20%
+latency boundary in this matrix, reducing the current validation gap count to
+eleven; OTFCC remains just outside. Four seven-pair complete-phase controls
+improve validation 1.022x on Twitter, 1.053x on CITM, 1.006x on GSOC and 1.026x
+on Poet. Every parse/stringify control passes the 3% regression screen; the
+largest repeatable loss is CITM parse at 2.2%.
+
+Exact runtime commit `c07a7f1` passes 123,891 normal and 77,928 strict/RFC
+checks across NAIVE, SWAR and SIMD, 1,416 transform regressions, eleven
+benchmark-tooling tests, typecheck, lint and diff checks. The formatted source
+compiles byte-identically to the qualified specialized artifacts after label
+normalization. Artifacts under `build/simdjson-parity/`: runs
+`valentry000000001/`, `valmode0000000001/` and `valcommit00000001/`;
+comparisons `valentry-validation-{v8,swar-v8}/` and
+`valmode-validation-v8/`; complete-phase runs `valbase{tw,ci,gs,po}0000001/`
+and `modecand{tw,ci,gs,po}000001/` with comparisons
+`valmode-{twitter-min,citm-catalog-min,gsoc-2018-min,poet-min}/`.
