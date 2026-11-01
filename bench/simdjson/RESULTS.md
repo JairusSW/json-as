@@ -1686,3 +1686,35 @@ so this is a measured code-generation loss rather than a correctness failure.
 Artifacts under `build/simdjson-parity/`:
 `postarray-serialize-profile/`, `runs/{arraydirect001,stringdirect01,arrayptr000001}/`,
 and `comparisons/{stringdirect-*,integerptr-citm-001}/`.
+
+## Retained direct generated object dispatch
+
+Generated serializers now route non-nullable, transform-known concrete object
+fields through a small inline object entry instead of the complete generic
+reference dispatcher. The entry preserves runtime custom serializers for
+subclass instances, then calls the existing generated virtual serializer.
+Nullable, generic and transform-known custom fields keep the established path.
+The rule applies to every qualifying generated field and does not inspect
+corpus, key set, value shape or object identity.
+
+Six balanced process pairs compare the exact preceding commit in V8 and
+default w2c2. Every variant/backend passes twenty complete owned-output and
+retention comparisons. SIMD stringify throughput, candidate / `95c3cda`:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| CITM minified | 0.995× | 0.991× |
+| Canada minified | 0.999× | 1.001× |
+| Twitter minified | 1.015× | 1.000× |
+| GitHub events minified | 1.006× | 1.066× |
+| Poet minified | 1.011× | 1.015× |
+| GSOC minified | 1.003× | 0.977× |
+| Lottie minified | 0.994× | 0.987× |
+
+No measured parse, stringify or validation row crosses the 5% regression
+guard. Focused hierarchy, custom, nullable, production-safety, fast-path and
+struct coverage passes 4,845 checks across all three modes. Complete suite
+results are recorded with the retained commit.
+
+Artifacts under `build/simdjson-parity/`:
+`runs/objectdirect01/` and `comparisons/objectdirect-*/`.

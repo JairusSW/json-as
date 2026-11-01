@@ -1785,6 +1785,19 @@ export class JSONTransform extends Visitor {
             `}\n`
           );
         }
+        const resolvedType = stripNull(member.type);
+        const resolvedSchema = this.getSchema(resolvedType);
+        if (
+          resolvedSchema &&
+          !resolvedSchema.custom &&
+          !member.custom &&
+          !member.generic &&
+          !member.node.type.isNullable
+        ) {
+          return syncSerializeCursor(
+            `JSON.__serializeObject<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
+          );
+        }
         return getSerializeCall(member.type, realName);
       }
       const T = member.lazyInner!;

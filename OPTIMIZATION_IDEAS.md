@@ -885,3 +885,19 @@ loop. wasm-opt already emits a compact shifted index, and the candidate moves
 CITM stringification to 0.994× V8 and 0.981× default w2c2 despite removing a
 source-level multiply. Keep generated code inspection subordinate to paired
 public-API measurements.
+
+### Retained direct generated object dispatch, 2026-11-01
+
+Route non-nullable, transform-known concrete object fields through a small
+inline object entry instead of the complete generic reference dispatcher. The
+entry still checks for a runtime custom serializer on subclass instances, then
+uses the existing generated virtual serializer. Nullable, generic and
+transform-known custom fields remain on the established generic path.
+
+Seven minified classic layouts pass complete owned-output and retention
+oracles. Six balanced SIMD pairs put V8 stringify throughput between 0.994×
+and 1.015× baseline and default w2c2 between 0.977× and 1.066×. GitHub events
+is the clearest gain at 1.066× on default w2c2; the largest measured slowdown
+is GSOC at 0.977× on that backend. No measured phase crosses the 5% regression
+guard. This is a transform-wide static dispatch rule, not a schema or corpus
+selector.

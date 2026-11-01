@@ -3080,6 +3080,21 @@ export namespace JSON {
     serializeString(data as string);
   }
 
+  /** Internal direct entry for generated non-nullable concrete object fields. */
+  @inline
+  function __serializeObject<T>(data: T): void {
+    // Preserve custom serializers on subclass instances stored through a
+    // transform-known base type before using the generated virtual method.
+    // @ts-expect-error: supplied by the json-as transform when present
+    if (isDefined(data.__SERIALIZE_CUSTOM)) {
+      // @ts-expect-error: supplied by the json-as transform when present
+      data.__SERIALIZE_CUSTOM();
+      return;
+    }
+    // @ts-expect-error: emitted only for transform-known concrete schemas
+    data.__SERIALIZE(changetype<usize>(data));
+  }
+
   /** Materialize a deferred field while retaining its source for descendants. */
   function __deserializeLazy<T>(
     srcStart: usize,
