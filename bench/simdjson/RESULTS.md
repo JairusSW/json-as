@@ -2702,3 +2702,43 @@ temporary defaults are not measurable. Poet stringification also moved to
 
 Artifacts under `build/simdjson-parity/`: run `mapzerox000000001/` and
 comparisons `mapzero-*`.
+
+## Retained fused fresh-Map key hashing
+
+Fresh string-key Maps now compute the runtime's exact XXHash while checking the
+source key for JSON escapes, then copy the proven unescaped key and insert it
+with that hash. Previously the decoder scanned the source for escapes, copied
+it, and `Map.set` scanned the managed string again to hash it. Escaped keys,
+reused Maps, non-string keys and capacity-growth boundaries retain the standard
+decoder/Map paths. Direct insertion preserves bucket collision chains,
+duplicate replacement, insertion order and GC links.
+
+The rule is selected solely by fresh string-key Map semantics and contains no
+corpus, schema, key name, length or value signature. Inactive Twitter and Poet
+SIMD Wasm artifacts remain byte-identical to baseline; GSOC shrinks 447 bytes,
+while map-heavy CITM grows 1,307 bytes.
+
+Nine alternating V8 pairs on CITM and seven on the broad controls compare
+equal-length `onestrxx000000001` and `prehashx000000001` artifacts. Every
+variant passes twenty complete retained-output comparisons. Candidate /
+baseline throughput:
+
+| Layout | SIMD parse | SWAR parse |
+| --- | ---: | ---: |
+| CITM minified | 1.016x | 1.009x |
+| GSOC minified | 0.997x | 1.005x |
+| Twitter minified | 1.005x | - |
+| Poet minified | 1.001x | - |
+
+Default w2c2 is neutral-positive on CITM parse at 1.002x. No measured phase on
+either mode/backend crosses the 5% regression guard. V8 remains the classic
+parity backend; SWAR is diagnostic and receives the same general improvement.
+
+Exact commit `e3e5cfb` passes 123,891 normal and 77,928 strict/RFC checks across
+NAIVE, SWAR and SIMD. New coverage spans empty and 1/4/8/16-byte hash
+boundaries, BMP and surrogate text, escaped keys, duplicate replacement,
+bucket chains and several Map growth/rehash boundaries. Transform regressions,
+typecheck, lint, formatting and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`: run `prehashx000000001/` and
+comparisons `prehash-*`, `prehash-swar-*` and `prehash-w2c2-*`.
