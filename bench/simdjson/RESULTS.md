@@ -2945,3 +2945,54 @@ Artifacts under `build/simdjson-parity/`: runs `keyscalar16val002/`,
 comparisons `keyscalar32-validation-v8/` and
 `keyscalar32-{twitter,citm-catalog-min,gsoc-2018-min,poet-min}/`; profile files
 `twitter-key16-validate-profile*` and run `twitterkey16prof/`.
+
+## Retained outer bounds proof for checked SIMD keys
+
+The thirty-two-unit entry previously repeated a tail-bounds comparison before
+each two-unit scalar block. A single sixty-four-byte outer guard now proves the
+entire unrolled entry safe, allowing the optimized SIMD artifact to omit those
+dependent checks. Keys near the document boundary fall back to the established
+bounded scanner. The change remains SIMD-only and selects no corpus, schema,
+key name or value.
+
+Five balanced fresh-process V8 pairs compare equal-length frozen
+`keybase32val00001` and `keyguardval000001` artifacts across all sixteen
+classic validation layouts. Every RFC preflight and all 64 changing-input
+oracles pass. Candidate / baseline SIMD validation throughput:
+
+| Layout | Throughput |
+| --- | ---: |
+| Canada minified | 1.005x |
+| Canada pretty | 1.016x |
+| Twitter minified | 1.001x |
+| Twitter pretty | 1.023x |
+| CITM minified | 1.019x |
+| CITM pretty | 1.028x |
+| GitHub Events minified | 1.034x |
+| GitHub Events pretty | 1.035x |
+| Poet minified | 1.023x |
+| Poet pretty | 1.019x |
+| GSOC minified | 1.030x |
+| GSOC pretty | 1.028x |
+| Lottie minified | 1.028x |
+| Lottie pretty | 1.032x |
+| OTFCC minified | 1.020x |
+| FGO minified | 1.019x |
+
+All sixteen layouts improve and no row exceeds the 5% regression guard.
+Seven-pair complete-phase canaries keep all parse and stringify controls within
+1.0%; their validation ratios range from 0.987x to 1.012x, so the broader
+validation matrix is authoritative. A smaller one-line early-fallback form was
+also measured and rejected: it lost 0.2–2.2% on most layouts relative to the
+retained outer proof. Twelve V8 validation layouts remain outside the native
++20% latency budget, so the overall goal remains incomplete.
+
+Exact runtime commit `37ded05` passes 123,891 normal and 77,928 strict/RFC
+checks across NAIVE, SWAR and SIMD, 1,416 transform regressions, eleven
+benchmark-tooling tests, typecheck, lint and diff checks. The formatted source
+compiles to the exact qualified SIMD artifact after normalizing its equal-length
+artifact label. Artifacts under `build/simdjson-parity/`: runs
+`keybase32val00001/`, `keyguardval000001/`, `keyguardearly0001/` and
+`keyguardcommit001/`; comparisons `keyguard-validation-v8/`,
+`keyguard-early-vs-outer-v8/` and
+`keyguard-{twitter,citm-catalog-min,gsoc-2018-min,poet-min}/`.
