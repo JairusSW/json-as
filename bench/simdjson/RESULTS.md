@@ -2579,3 +2579,10 @@ implementation also reaches SWAR and NAIVE.
 Artifacts under `build/simdjson-parity/`: runs
 `{arrfusex000000001,arronexx000000001}/` and comparisons `arrfuse-*`,
 `arrone-*` and `arrone-w2c2-*`.
+
+A follow-up kept the safe outer fusion and routed additional wide-integer
+arrays through the cursor writer after reserving at each individual boundary.
+Nine V8 pairs improve CITM stringification only 1.006x over the retained form,
+while its unchanged parse control is 0.995x. The extra generated branch is
+reverted; artifact `arrmultx000000001/` and comparison `arrmult-*` retain the
+negative result.
