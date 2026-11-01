@@ -30,7 +30,11 @@ optimization priority:
   string writer and 8.7% in the generated `Status` writer. Its generated writer
   is 11,742 Wasm bytes. A four-vector/64-byte clean-string loop regressed
   stringify 1.77% in 15 alternating pairs; a packed surrogate-candidate check
-  was also neutral-negative. The existing paired 32-byte loop remains best.
+  was also neutral-negative. Adding a four-code-unit SWAR clean-copy tail first
+  appeared 8.5% faster against an older artifact, but an equal-head/equal-label
+  seven-pair control showed it 1.0% slower. The existing paired 32-byte loop and
+  scalar short tail remain best; untouched phase movement is treated as code
+  layout, not credited to a serializer change.
 - Twitter validation spends 20.7% of samples in `skipCursorKey`, 4.2% in
   literal recognition and 32.0% in the inlined grammar loop. Fusing key and
   colon recognition won 12/16 matrix rows but regressed Canada by 1.9%/7.1%.
