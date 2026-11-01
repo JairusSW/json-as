@@ -15,6 +15,11 @@ import { deserializeRaw } from "./raw";
 import { isPrettyParse } from "../parseMode";
 
 const ALIAS_SCAN_LIMIT: i32 = 16;
+const XXH32_P1: u32 = 2654435761;
+const XXH32_P2: u32 = 2246822519;
+const XXH32_P3: u32 = 3266489917;
+const XXH32_P4: u32 = 668265263;
+const XXH32_P5: u32 = 374761393;
 
 
 @unmanaged
@@ -30,6 +35,198 @@ function reusableMapEntrySize<K, V>(): usize {
   const maxKV = sizeof<K>() > sizeof<V>() ? sizeof<K>() : sizeof<V>();
   const align = (maxKV > sizeof<usize>() ? maxKV : sizeof<usize>()) - 1;
   return (offsetof<ReusableMapEntry<K, V>>() + align) & ~align;
+}
+
+
+@inline
+function mixMapKeyHash(hash: u32, word: u32): u32 {
+  return rotl(hash + word * XXH32_P2, 13) * XXH32_P1;
+}
+
+
+@inline
+function containsMapKeyEscape(word: u32): bool {
+  const slash = word ^ 0x005c_005c;
+  return ((slash - 0x0001_0001) & ~slash & 0x8000_8000) != 0;
+}
+
+/** Decodes an unescaped fresh string key while computing the runtime Map hash.
+ * Returns `(hash << 32) | keyPointer`, or zero when an escape requires the
+ * established decoder. */
+function deserializeFreshStringMapKey(start: usize, end: usize): u64 {
+  const byteLength = end - start;
+  let hash = <u32>byteLength;
+  let pos = start;
+
+  if (byteLength >= 16) {
+    let s1 = XXH32_P1 + XXH32_P2;
+    let s2 = XXH32_P2;
+    let s3: u32 = 0;
+    let s4 = 0 - XXH32_P1;
+    const blockEnd = end - 16;
+    while (pos <= blockEnd) {
+      const w0 = load<u32>(pos);
+      const w1 = load<u32>(pos, 4);
+      const w2 = load<u32>(pos, 8);
+      const w3 = load<u32>(pos, 12);
+      if (
+        containsMapKeyEscape(w0) ||
+        containsMapKeyEscape(w1) ||
+        containsMapKeyEscape(w2) ||
+        containsMapKeyEscape(w3)
+      )
+        return 0;
+      s1 = mixMapKeyHash(s1, w0);
+      s2 = mixMapKeyHash(s2, w1);
+      s3 = mixMapKeyHash(s3, w2);
+      s4 = mixMapKeyHash(s4, w3);
+      pos += 16;
+    }
+    hash += rotl(s1, 1) + rotl(s2, 7) + rotl(s3, 12) + rotl(s4, 18);
+  } else {
+    hash += XXH32_P5;
+  }
+
+  const wordEnd = end - 4;
+  while (pos <= wordEnd) {
+    const word = load<u32>(pos);
+    if (containsMapKeyEscape(word)) return 0;
+    hash += word * XXH32_P3;
+    hash = rotl(hash, 17) * XXH32_P4;
+    pos += 4;
+  }
+  if (pos < end) {
+    const code = load<u16>(pos);
+    if (code == BACK_SLASH) return 0;
+    hash += <u8>code * XXH32_P5;
+    hash = rotl(hash, 11) * XXH32_P1;
+    hash += <u8>(code >> 8) * XXH32_P5;
+    hash = rotl(hash, 11) * XXH32_P1;
+  }
+
+  hash ^= hash >> 15;
+  hash *= XXH32_P2;
+  hash ^= hash >> 13;
+  hash *= XXH32_P3;
+  hash ^= hash >> 16;
+
+  let keyPtr = changetype<usize>("");
+  if (byteLength != 0) {
+    keyPtr = __new(byteLength, idof<string>());
+    memory.copy(keyPtr, start, byteLength);
+  }
+  return ((<u64>hash) << 32) | keyPtr;
+}
+
+/** Inserts into a fresh runtime Map with an already computed key hash. Returns
+ * false only at a growth boundary, where ordinary `Map.set` performs rehash. */
+function setFreshMapValuePrehashed<T extends Map<any, any>>(
+  out: T,
+  key: indexof<T>,
+  value: valueof<T>,
+  hash: u32,
+): bool {
+  const mapPtr = changetype<usize>(out);
+  const buckets = load<ArrayBuffer>(
+    mapPtr,
+    offsetof<Map<indexof<T>, valueof<T>>>("buckets"),
+  );
+  const bucketMask = load<u32>(
+    mapPtr,
+    offsetof<Map<indexof<T>, valueof<T>>>("bucketsMask"),
+  );
+  const bucketPtr =
+    changetype<usize>(buckets) +
+    ((<usize>(hash & bucketMask)) << alignof<usize>());
+  let entry = load<usize>(bucketPtr);
+  while (entry != 0) {
+    const taggedNext = load<usize>(
+      entry,
+      offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("taggedNext"),
+    );
+    if (
+      (taggedNext & 1) == 0 &&
+      load<indexof<T>>(
+        entry,
+        offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("key"),
+      ) == key
+    ) {
+      store<valueof<T>>(
+        entry,
+        value,
+        offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value"),
+      );
+      if (isManaged<valueof<T>>())
+        __link(mapPtr, changetype<usize>(value), true);
+      return true;
+    }
+    entry = taggedNext & ~(<usize>1);
+  }
+
+  const offset = load<i32>(
+    mapPtr,
+    offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"),
+  );
+  if (
+    offset ==
+    load<i32>(mapPtr, offsetof<Map<indexof<T>, valueof<T>>>("entriesCapacity"))
+  )
+    return false;
+  const entries = load<ArrayBuffer>(
+    mapPtr,
+    offsetof<Map<indexof<T>, valueof<T>>>("entries"),
+  );
+  const entrySize = reusableMapEntrySize<indexof<T>, valueof<T>>();
+  entry = changetype<usize>(entries) + <usize>offset * entrySize;
+  store<indexof<T>>(
+    entry,
+    key,
+    offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("key"),
+  );
+  if (isManaged<indexof<T>>()) __link(mapPtr, changetype<usize>(key), true);
+  store<valueof<T>>(
+    entry,
+    value,
+    offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value"),
+  );
+  if (isManaged<valueof<T>>()) __link(mapPtr, changetype<usize>(value), true);
+  store<usize>(
+    entry,
+    load<usize>(bucketPtr),
+    offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("taggedNext"),
+  );
+  store<usize>(bucketPtr, entry);
+  store<i32>(
+    mapPtr,
+    offset + 1,
+    offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"),
+  );
+  const count = load<i32>(
+    mapPtr,
+    offsetof<Map<indexof<T>, valueof<T>>>("entriesCount"),
+  );
+  store<i32>(
+    mapPtr,
+    count + 1,
+    offsetof<Map<indexof<T>, valueof<T>>>("entriesCount"),
+  );
+  return true;
+}
+
+
+@inline
+function setParsedMapValue<T extends Map<any, any>>(
+  out: T,
+  key: indexof<T>,
+  value: valueof<T>,
+  packedKey: u64,
+): void {
+  if (
+    packedKey != 0 &&
+    setFreshMapValuePrehashed<T>(out, key, value, <u32>(packedKey >> 32))
+  )
+    return;
+  changetype<nonnull<T>>(out).set(key, value);
 }
 
 
@@ -300,12 +497,23 @@ export function deserializeMapBody<T extends Map<any, any>>(
         ),
       );
     }
-    const key = deserializeMapKey<indexof<T>>(
-      keyStart,
-      keyEnd,
-      reusableKey,
-      canReuseKey,
-    );
+    let packedKey: u64 = 0;
+    let key: indexof<T>;
+    if (isString<indexof<T>>() && !reuseExisting) {
+      packedKey = deserializeFreshStringMapKey(keyStart, keyEnd);
+      if (packedKey != 0) {
+        key = changetype<indexof<T>>(<usize>packedKey);
+      } else {
+        key = deserializeMapKey<indexof<T>>(keyStart, keyEnd);
+      }
+    } else {
+      key = deserializeMapKey<indexof<T>>(
+        keyStart,
+        keyEnd,
+        reusableKey,
+        canReuseKey,
+      );
+    }
     const matchedPreviousKey =
       reuseExisting &&
       previousEntry < previousEntryEnd &&
@@ -331,9 +539,11 @@ export function deserializeMapBody<T extends Map<any, any>>(
       const next = lastValueEnd();
       if (!next) break;
       // @ts-ignore: type - valueof<T> is JSON.Value in this branch
-      changetype<nonnull<T>>(out).set(
+      setParsedMapValue<T>(
+        out,
         key,
         changetype<valueof<T>>(changetype<usize>(val)),
+        packedKey,
       );
       srcStart = next;
     } else if (
@@ -341,13 +551,13 @@ export function deserializeMapBody<T extends Map<any, any>>(
       srcStart + 8 <= srcEnd &&
       load<u64>(srcStart) == NULL_WORD_U64
     ) {
-      changetype<nonnull<T>>(out).set(key, changetype<valueof<T>>(0));
+      setParsedMapValue<T>(out, key, changetype<valueof<T>>(0), packedKey);
       srcStart += 8;
     } else if (isReference<valueof<T>>() && rawValue) {
       const valueEnd = scanValueEnd(srcStart, srcEnd);
       if (!valueEnd || valueEnd <= srcStart) break;
       let raw: JSON.Raw | null = null;
-      if (changetype<nonnull<T>>(out).has(key)) {
+      if (reuseExisting && changetype<nonnull<T>>(out).has(key)) {
         raw = changetype<JSON.Raw>(
           changetype<usize>(changetype<nonnull<T>>(out).get(key)),
         );
@@ -389,9 +599,11 @@ export function deserializeMapBody<T extends Map<any, any>>(
       }
       const value = deserializeRaw(srcStart, valueEnd, changetype<usize>(raw));
       // @ts-ignore: valueof<T> is JSON.Raw in this branch
-      changetype<nonnull<T>>(out).set(
+      setParsedMapValue<T>(
+        out,
         key,
         changetype<valueof<T>>(changetype<usize>(value)),
+        packedKey,
       );
       srcStart = valueEnd;
     } else if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
@@ -413,7 +625,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
             previousEntry,
             offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value"),
           );
-        } else if (changetype<nonnull<T>>(out).has(key)) {
+        } else if (reuseExisting && changetype<nonnull<T>>(out).has(key)) {
           value = changetype<nonnull<T>>(out).get(key);
         }
         // A destination graph may share one instance across different keys.
@@ -507,15 +719,18 @@ export function deserializeMapBody<T extends Map<any, any>>(
         // Stable-order re-parses mutate the same mapped object in place. Avoid
         // hashing the key and re-linking the identical reference on every
         // entry; shape/order changes still take the ordinary Map path.
-        if (!reusedMappedValue) changetype<nonnull<T>>(out).set(key, value);
+        if (!reusedMappedValue)
+          setParsedMapValue<T>(out, key, value, packedKey);
         srcStart = next;
       } else {
         const valueEnd = scanValueEnd(srcStart, srcEnd);
         if (!valueEnd || valueEnd <= srcStart) break;
         // @ts-ignore: type
-        changetype<nonnull<T>>(out).set(
+        setParsedMapValue<T>(
+          out,
           key,
           JSON.__deserialize<valueof<T>>(srcStart, valueEnd),
+          packedKey,
         );
         srcStart = valueEnd;
       }
@@ -523,9 +738,11 @@ export function deserializeMapBody<T extends Map<any, any>>(
       const valueEnd = scanValueEnd(srcStart, srcEnd);
       if (!valueEnd || valueEnd <= srcStart) break;
       // @ts-ignore: type
-      changetype<nonnull<T>>(out).set(
+      setParsedMapValue<T>(
+        out,
         key,
         JSON.__deserialize<valueof<T>>(srcStart, valueEnd),
+        packedKey,
       );
       srcStart = valueEnd;
     }

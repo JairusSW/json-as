@@ -11,9 +11,11 @@ class MapValue {
 let relocatingMap = new Map<string, RelocatingMapValue>();
 let relocatedMap = false;
 
+
 @json
 class RelocatingMapValue {
   constructor(public value: i32 = 0) {}
+
 
   @serializer("object")
   serialize(self: RelocatingMapValue): string {
@@ -55,6 +57,46 @@ describe("Should serialize and deserialize primitive maps", () => {
   expect(
     JSON.stringify(JSON.parse<Map<string, i32>>('{"one":1,"two":2}')),
   ).toBe('{"one":1,"two":2}');
+});
+
+describe("Fresh string-key maps preserve runtime hashes across boundaries", () => {
+  const keys = [
+    "",
+    "a",
+    "abc",
+    "1234567",
+    "12345678",
+    "123456789",
+    "123456789012345",
+    "1234567890123456",
+    "12345678901234567",
+    "π-value",
+    "漢字-key",
+    "emoji-😀",
+    'quote-"',
+    "slash-\\",
+    "line-\n-break",
+  ];
+  let input = "{";
+  for (let i = 0; i < keys.length; i++) {
+    if (i) input += ",";
+    input += JSON.stringify(keys[i]) + ":" + i.toString();
+  }
+  // Cross several runtime Map growth boundaries and exercise bucket chains.
+  for (let i = 0; i < 64; i++) {
+    input += ',"generated-' + i.toString() + '":' + (100 + i).toString();
+  }
+  input += "}";
+
+  const parsed = JSON.parse<Map<string, i32>>(input);
+  expect(parsed.size).toBe(keys.length + 64);
+  for (let i = 0; i < keys.length; i++) expect(parsed.get(keys[i])).toBe(i);
+  for (let i = 0; i < 64; i++)
+    expect(parsed.get("generated-" + i.toString())).toBe(100 + i);
+
+  const duplicate = JSON.parse<Map<string, i32>>('{"same":1,"same":2}');
+  expect(duplicate.size).toBe(1);
+  expect(duplicate.get("same")).toBe(2);
 });
 
 describe("Should serialize live map entries in insertion order", () => {
