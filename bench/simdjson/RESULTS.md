@@ -2512,3 +2512,28 @@ strict Map/object tests pass before measurement.
 
 Artifacts under `build/simdjson-parity/`: run `maphintx000000001/` and
 comparisons `maphint-*`.
+
+## Current latest-main w2c2 SIMD screen
+
+The frozen `signltxx000000001` artifact contains the current production code;
+later commits only record rejected experiments. Latest-main w2c2 translates
+that exact Wasm, and its default configuration disables Wasm bounds/table
+checks while retaining JSON syntax checks. Seven fresh-process pairs use the
+same native executables, rotating inputs and twenty complete retained-output
+comparisons as V8. Native / json-as SIMD throughput:
+
+| Layout | Parse | Stringify | Validate |
+| --- | ---: | ---: | ---: |
+| CITM minified | 0.499x | 0.327x | 0.662x |
+| GSOC minified | 0.785x | 0.414x | 0.969x |
+| Twitter minified | 1.768x | 0.593x | 0.614x |
+| Poet minified | 1.423x | 0.460x | 1.566x |
+
+w2c2 materially improves these parse rows over V8 and puts GSOC parsing close
+to the 1.2x native-latency boundary, but it does not change the primary
+direction: all four stringification rows and CITM parsing/validation remain
+outside budget. Backend selection alone cannot complete the classic target.
+
+Artifacts under `build/simdjson-parity/`: translated binaries beneath
+`runs/signltxx000000001/w2c2/` and comparisons
+`signlt-current-w2c2-*`.
