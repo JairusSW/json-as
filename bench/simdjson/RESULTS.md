@@ -3669,3 +3669,25 @@ the strict public/target/empty-array suite passed 246 checks in both modes.
 
 Artifacts under `build/simdjson-parity/`: runs `arrcountbase0001/` and
 `arrcountcand0001/`, and comparison `fresh-integer-count-citm-v8/`.
+
+## Rejected inline four-unit space scanner
+
+The SIMD checked-whitespace reader was prototyped as one inlined loop that
+classified JSON whitespace and, after proving a space, used a 64-bit XOR plus
+`ctz` to advance to the first non-space among four UTF-16 units. SWAR and
+NAIVE retained their existing implementation. This was the current-code
+counterpart of an older validation experiment that had improved all classic
+layouts, without selecting by corpus or whitespace run length.
+
+Seven balanced V8 pairs cover Canada minified and pretty, CITM and Lottie
+pretty, and GSOC minified. Both labels pass all sixteen RFC preflights and
+twenty changing-input validation oracles. Candidate / baseline SIMD validation
+throughput is 1.058x Canada minified, 1.037x Canada pretty and 1.003x GSOC, but
+only 0.908x CITM pretty and 0.771x Lottie pretty. The current outlined long-run
+scanner is materially better on those indentation-heavy layouts, so the inline
+variant is reverted. The focused strict whitespace, cursor, target, public API
+and RFC screen passed 2,365 checks before measurement.
+
+Artifacts under `build/simdjson-parity/`: validation runs
+`space4base000001/` and `space4cand000001/`, and comparison
+`space4-current-v8/`.
