@@ -3066,3 +3066,18 @@ benchmark-tooling tests, typecheck, lint and diff checks. Artifacts under
 `delimload-validation-{v8,swar-v8}/`, and complete-phase runs
 `delim{base,cand}{tw,ci,gs,po}00001/` with comparisons
 `delimload-{twitter-min,citm-catalog-min,gsoc-2018-min,poet-min}/`.
+
+## Rejected container-entry load retention
+
+Applying the same load-retention shape immediately after an opening `{` or `[`
+is not equivalent in performance. The prototype retains the first post-open
+code unit for the empty-container check and otherwise preserves grammar and
+oracles. Five balanced V8 pairs show losses on fifteen of sixteen classic
+validation layouts, including 0.902x on Canada-pretty, 0.955x on Poet-pretty
+and 0.966x on Lottie-pretty; only CITM-minified improves, at 1.008x. It is
+reverted. The retained optimization therefore stays narrowly at the post-value
+delimiter transition where the loaded code is consumed immediately, without a
+subsequent key/value dispatch boundary.
+
+Artifacts under `build/simdjson-parity/`: run `openload000000001/` and
+comparison `openload-validation-v8/`.
