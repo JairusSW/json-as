@@ -2171,3 +2171,45 @@ and diff checks also pass.
 Artifacts under `build/simdjson-parity/`: `runs/objptr00000001/`,
 `comparisons/objptr-*`, and profile-only
 `runs/{objarr00000001,objraw00000001}/` artifacts.
+
+## Direct insertion-order Map serialization
+
+The shared Map serializer now walks AssemblyScript's insertion-order entry
+buffer directly instead of allocating complete `keys()` and `values()` arrays
+before every serialization. Deleted entries are skipped using the runtime's
+entry tag. The loop reloads the Map's backing buffer after every key or value
+callback, roots the current pair first, and bounds traversal by the initial
+entry extent, so a reentrant serializer can force collection and rehashing
+without leaving a stale unmanaged pointer live. This is generic Map machinery;
+there is no corpus, schema, key, value or entry-count recognition.
+
+Six balanced process pairs compare equal-length frozen `mapbase0000000001` and
+`mapfinal000000001` artifacts on V8. The committed candidate and its exact
+parent use 100 operations per phase and one byte-identical native executable.
+Every variant passes twenty complete retained-output comparisons per layout.
+Candidate / baseline SIMD stringify throughput:
+
+| Layout | V8 |
+| --- | ---: |
+| CITM minified | 1.096x |
+| CITM pretty | 1.094x |
+| GSOC minified | 1.137x |
+| GSOC pretty | 1.131x |
+| Twitter minified | 0.996x |
+| GitHub events minified | 1.005x |
+
+No parse, stringify or validation row exceeds the 5% regression guard. The two
+inactive controls remain within 0.5% of their parent. A separate seven-pair
+shorter-run CITM comparison, retained to expose allocation sensitivity, reports
+1.218x SIMD and 1.226x SWAR stringify throughput. The sustained 100-operation
+measurements above are the conservative production result.
+
+Map deletion-order coverage and a custom-serializer regression force a rehash,
+replace a future value and collect while serialization is active. The focused
+Map/Raw suites pass 390 checks across all modes. The exact commit passes 123,636
+normal and 77,919 strict/RFC checks across NAIVE, SWAR and SIMD; transform
+regressions, typecheck, lint and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`: runs
+`map{base0000000001,final000000001}/`, comparisons `mapfinal-*`, and the
+shorter-run `comparisons/mapsafe-citm-isolated/`.
