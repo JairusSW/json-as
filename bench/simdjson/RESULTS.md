@@ -3259,3 +3259,19 @@ guard-free scalar checks on V8 and is reverted in full.
 
 Artifacts under `build/simdjson-parity/`: run `keyword6400000001/` and
 comparison `keyword64-validation-v8/`.
+
+## Rejected forced space-first whitespace predicate
+
+Although the source lists ASCII space first, optimized Wasm orders the exact
+four-code-unit JSON whitespace OR chain differently. A prototype forces an
+early return for space before testing tab, line feed and carriage return. It
+keeps the same grammar and has no layout selector.
+
+Five balanced V8 pairs pass every RFC preflight and all 64 changing-input
+oracles, but eleven rows exceed the 3% regression guard. Canada-pretty SIMD
+falls to 0.880x baseline throughput, CITM-minified to 0.918x,
+Lottie-minified to 0.918x and OTFCC to 0.931x. The few pretty-layout gains do
+not justify broad compact-layout losses, so the original predicate is restored.
+
+Artifacts under `build/simdjson-parity/`: run `spacefirst0000001/` and
+comparison `spacefirst-validation-v8/`.
