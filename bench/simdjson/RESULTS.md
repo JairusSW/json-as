@@ -3612,3 +3612,22 @@ reverted rather than introducing a compiler/runtime compatibility dependency.
 
 Artifacts under `build/simdjson-parity/`: runs `metabase0000001/` and
 `metags000000001/`, and comparison `metadata-gsoc-2018-min/`.
+
+## Rejected length-gated packed string entry
+
+The retained checked-string scanner keeps its first 32 physical bytes on the
+exact UTF-16 classifier, then packs later pairs. An earlier all-packed entry
+improved long-string workloads but regressed Poet. A general follow-up used the
+packed classifier from entry only when at least 64 bytes remained, preserving
+the exact path for shorter strings without inspecting corpus, schema or text.
+
+Seven balanced V8 pairs cover GSOC, Poet and GitHub Events minified. Both labels
+pass all sixteen RFC preflights and twelve changing-input validation oracles.
+Candidate / baseline SIMD validation throughput is 0.980x GSOC, 0.944x Poet and
+0.981x GitHub Events. Poet contains enough longer strings that a simple length
+gate does not isolate the favorable shape, and the variant exceeds the 3%
+regression guard. It is reverted; the retained first exact pair remains.
+
+Artifacts under `build/simdjson-parity/`: validation runs
+`pack64base000001/` and `pack64cand000001/`, and comparison
+`pack64-validation-canary-v8/`.
