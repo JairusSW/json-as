@@ -2222,3 +2222,49 @@ regressions, typecheck, lint and diff checks also pass.
 Artifacts under `build/simdjson-parity/`: runs
 `map{base0000000001,final000000001}/`, comparisons `mapfinal-*`, and the
 shorter-run `comparisons/mapsafe-citm-isolated/`.
+
+## Compact generated SIMD string fields
+
+Generated string fields now route values shorter than eight UTF-16 code units
+through a compact scalar clean-string writer. Quotes, backslashes, controls and
+surrogates fall back to the complete shared SIMD writer, preserving identical
+escaping and Unicode behavior. The shared entry point remains unchanged for
+root strings, Map keys and generic string serialization. Selection depends only
+on the generated field type and runtime string length; it contains no corpus,
+schema, field-name or string-content signature.
+
+Balanced fresh-process pairs compare equal-length frozen baselines and the
+exact committed candidate on V8. Every layout passes twenty complete retained-
+output comparisons. Candidate / baseline SIMD stringify throughput:
+
+| Layout | V8 |
+| --- | ---: |
+| Poet minified | 1.072x |
+| CITM minified | 1.005x |
+| CITM pretty | 1.023x |
+| GSOC minified | 0.991x |
+| GSOC pretty | 1.001x |
+| Twitter minified | 1.009x |
+| GitHub events minified | 1.025x |
+
+All parse, stringify and validation rows remain inside the 5% regression
+guard. A root-short-string control, which deliberately cannot use the generated
+field helper, is neutral at 0.996x. The broader prototype that also routed root
+and generic strings improved Poet but regressed that tiny root control by 3.3%,
+so the committed form isolates the win to generated fields.
+
+Two larger-copy experiments were rejected on the same changing-input GSOC
+workload. Pre-scanning a string and then using `memory.copy` produced 0.937x
+stringify throughput, while a separate four-vector loop for strings of at least
+256 physical bytes produced 0.974x. These results rule out simple extra-pass and
+wider-unrolled variants; future string work should instead reduce exceptional-
+character and call/cursor dependencies.
+
+Focused string tests pass 40,585 checks across all modes. The exact commit
+passes 123,636 normal and 77,919 strict/RFC checks across NAIVE, SWAR and SIMD;
+transform regressions, typecheck, lint and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`: runs
+`{shortbase00000001,fieldstr000000001}/`, comparisons `fieldstr-*`, rejected
+long-string runs `longscan000000001/` and `comparisons/longscan-gsoc-min/`, and
+the exploratory `shortstr*` and `shortinl*` artifacts.
