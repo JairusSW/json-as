@@ -3446,3 +3446,21 @@ reverted.
 
 Artifacts under `build/simdjson-parity/`: run `fixedobjci000001/` and
 comparison `fixedobj-citm-min-v8/`.
+
+## Rejected generated integer-table guard hoist
+
+Every generated integer field enters `serializeIntegerAt`, which verifies that
+the shared digit-pair table is initialized. A general prototype emits one guard
+at the start of generated objects containing several integer fields and routes
+those fields to an otherwise identical ready-table cursor writer. Objects with
+zero or one integer retain the established path.
+
+Focused integer, struct and array suites pass 4,962 checks across all three
+modes. Nine balanced V8 pairs pass every complete CITM output and retention
+oracle, but SIMD stringify falls from 172.25 to 174.01 microseconds, or 0.990x
+baseline throughput. Parse is 0.995x and validation 1.003x. The initialized
+guard is already cheap enough that the additional generated entry point and
+code layout lose more than the hoist saves, so the prototype is reverted.
+
+Artifacts under `build/simdjson-parity/`: run `pairhoistci00001/` and
+comparison `pairhoist-citm-min-v8/`.
