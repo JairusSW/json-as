@@ -2397,3 +2397,52 @@ barriers to the parse path.
 Artifacts under `build/simdjson-parity/`: successful run
 `rawprv3x000000001/`, comparisons `rawprov-*`, and the preserved failed build
 attempts `rawprovx000000001/` and `rawprv2x000000001/`.
+
+## Folded signed SIMD string classification
+
+The paired 32-byte SIMD string loop narrows UTF-16 lanes with signed saturation.
+Controls become `0..31`, ordinary positive non-ASCII units saturate to `+127`,
+and `U+8000..FFFF` (including every surrogate) saturate to `-128`. One signed
+`bytes < 0x20` comparison therefore covers both the JSON control range and the
+conservative high-Unicode candidate that previously needed a separate equality
+plus OR. Quotes and backslashes keep their exact comparisons, and candidate
+blocks still enter the established whole-code-unit verifier. The reduction is
+shared by every sufficiently long SIMD string and contains no corpus, schema,
+field or value signature.
+
+Seven alternating V8 pairs compare equal-length frozen `signsatx000000001` and
+`signltxx000000001` artifacts. Every variant passes twenty complete retained-
+output comparisons. Candidate / baseline SIMD stringify throughput:
+
+| Layout | V8 |
+| --- | ---: |
+| GSOC minified | 1.014x |
+| GitHub events minified | 0.995x |
+| Poet minified | 1.055x |
+| Twitter minified | 1.000x |
+| CITM minified | 1.002x |
+
+Three nine-pair Unicode controls use 5,000 operations per phase. Full-width
+text and surrogate pairs are exactly neutral at 1.000x; the forced
+`U+7FFF/U+8000` transition improves 1.021x. No control phase moves beyond 2.1%.
+
+Latest-main w2c2 also passes every retained-output oracle. Checked execution
+reports 1.011x GSOC and 1.006x Poet stringify. Default execution reports 1.022x
+Poet; an initial seven-pair GSOC sample was 0.930x, but the isolated balanced
+12-pair confirmation is 1.001x with every phase inside 1.2%. The confirmation
+supersedes the noisy first screen.
+
+Exact commit `82c875c` passes 123,636 normal and 77,919 strict/RFC checks across
+NAIVE, SWAR and SIMD. Transform regressions, typecheck, lint and all eleven
+benchmark-tooling tests pass.
+
+A separate output-ownership experiment lowered the general direct-managed-
+string threshold from 64 KiB to 16 KiB. Nine V8 pairs improved the 53 KiB
+GitHub stringify row only 1.014x and left the rest of the tested range unchanged.
+That narrow size-band tradeoff was reverted rather than retained as a
+corpus-subset optimization.
+
+Artifacts under `build/simdjson-parity/`: runs
+`{signltxx000000001,signlt2x000000001,own64kbx00000001,own16kbx00000001}/`,
+comparisons `signlt-*`, `signlt2-*`, `own16kb-*`, and the preserved first
+100-operation Unicode candidate inside `signltxx000000001/`.
