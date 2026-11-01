@@ -37,9 +37,19 @@ export function serializeString_SIMD(src: string): void {
   serializeStringRange_SIMD(srcStart, srcSize);
 }
 
+
+@inline
 export function serializeStringRange_SIMD(srcStart: usize, srcSize: u32): void {
-  const srcEnd = srcStart + srcSize;
   bs.proposeSize(srcSize + 4);
+  serializeStringRangeReserved_SIMD(srcStart, srcSize);
+}
+
+/** Emits a string whose unescaped payload and quotes are already reserved. */
+export function serializeStringRangeReserved_SIMD(
+  srcStart: usize,
+  srcSize: u32,
+): void {
+  const srcEnd = srcStart + srcSize;
   const dstStart = bs.offset;
   let dst = dstStart + 2;
   do {
@@ -54,10 +64,7 @@ export function serializeStringRange_SIMD(srcStart: usize, srcSize: u32): void {
       const bytes = i8x16.narrow_i16x8_s(first, second);
       const asciiSpecial = v128.or(
         i8x16.eq(bytes, BYTE_QUOTE),
-        v128.or(
-          i8x16.eq(bytes, BYTE_BACKSLASH),
-          i8x16.lt_u(bytes, BYTE_SPACE),
-        ),
+        v128.or(i8x16.eq(bytes, BYTE_BACKSLASH), i8x16.lt_u(bytes, BYTE_SPACE)),
       );
       const surrogateCandidate = v128.or(
         i8x16.gt_u(first, SPLAT_FFD8),

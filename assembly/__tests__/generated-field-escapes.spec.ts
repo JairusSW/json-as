@@ -10,6 +10,14 @@ class TextValue {
 
 
 @json
+class ReservedStringFields {
+  first: string = "";
+  second: string = "";
+  tail: i32 = 0;
+}
+
+
+@json
 class ArrayFields {
   values: string[] = [];
   tail: i32 = 0;
@@ -108,6 +116,24 @@ describe("Shared quoted-value scanner retains escape parity at chunk boundaries"
         suffixStart + ((<usize>withSuffix.length) << 1),
       ),
     ).toBe(suffixStart + ((<usize>quoted.length) << 1));
+  }
+});
+
+describe("Generated objects share direct string capacity reservations", () => {
+  const value = new ReservedStringFields();
+  for (let i = 0; i < TEXTS.length; i++) {
+    value.first = TEXTS[i];
+    value.second = TEXTS[TEXTS.length - 1 - i];
+    value.tail = i;
+    expect(JSON.stringify(value)).toBe(
+      '{"first":' +
+        JSON.stringify(value.first) +
+        ',"second":' +
+        JSON.stringify(value.second) +
+        ',"tail":' +
+        i.toString() +
+        "}",
+    );
   }
 });
 

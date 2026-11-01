@@ -15,9 +15,19 @@ export function serializeString_SWAR(src: string): void {
   serializeStringRange_SWAR(srcStart, srcSize);
 }
 
+
+@inline
 export function serializeStringRange_SWAR(srcStart: usize, srcSize: u32): void {
-  const srcEnd = srcStart + srcSize;
   bs.proposeSize(srcSize + 4);
+  serializeStringRangeReserved_SWAR(srcStart, srcSize);
+}
+
+/** Emits a string whose unescaped payload and quotes are already reserved. */
+export function serializeStringRangeReserved_SWAR(
+  srcStart: usize,
+  srcSize: u32,
+): void {
+  const srcEnd = srcStart + srcSize;
   const dstStart = bs.offset;
   let dst = dstStart + 2;
   do {

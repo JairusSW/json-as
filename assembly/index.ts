@@ -44,6 +44,7 @@ import {
   serializeRaw,
   serializeString,
   serializeStringPointer,
+  serializeStringPointerReserved,
   serializeArrayBufferUnsafe,
   serializeDynamic,
   serializeTypedArray,
@@ -3098,6 +3099,18 @@ export namespace JSON {
       return;
     }
     serializeStringPointer(data);
+  }
+
+  /** Generated non-null string field reserved by its enclosing object. */
+  @inline
+  function __serializeStringPointerReserved(data: usize): void {
+    serializeStringPointerReserved(data);
+  }
+
+  /** Byte size used by generated object-level string capacity planning. */
+  @inline
+  function __stringByteSizePointer(data: usize): u32 {
+    return changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize;
   }
 
   /** Internal direct entry for generated non-nullable concrete object fields. */

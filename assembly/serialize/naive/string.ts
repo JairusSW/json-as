@@ -24,8 +24,17 @@ export function serializeString_NAIVE(src: string): void {
  * (e.g. JSON.Obj key serialization) emit a string straight from a buffer slice
  * without first materializing a heap `string`.
  */
+@inline
 export function serializeStringRange(srcPtr: usize, srcSize: usize): void {
   bs.proposeSize(u32(srcSize + 4));
+  serializeStringRangeReserved(srcPtr, srcSize);
+}
+
+/** Emits a string whose unescaped payload and quotes are already reserved. */
+export function serializeStringRangeReserved(
+  srcPtr: usize,
+  srcSize: usize,
+): void {
   const srcEnd = srcPtr + srcSize;
 
   store<u16>(bs.offset, QUOTE);

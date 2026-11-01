@@ -1756,6 +1756,18 @@ export class JSONTransform extends Visitor {
     const isPure = this.schema.static;
     let isRegular = isPure;
     let isFirst = true;
+    const directStringMembers = this.schema.static
+      ? this.schema.members.filter(
+          (member) =>
+            !member.node.type.isNullable &&
+            !member.flags.has(PropertyFlags.Lazy) &&
+            isString(member.type) &&
+            !defaultStringLiterals.has(member.name),
+        )
+      : [];
+    // One field merely moves its existing reservation into the object header.
+    // Two or more fields amortize the single capacity check.
+    const reserveDirectStringPayloads = directStringMembers.length >= 2;
 
     // Value serialization for a member. A `JSON.Lazy<T>` slot (u64) emits: the
     // raw source bytes verbatim if still a range (zero-copy passthrough), the
@@ -1783,6 +1795,15 @@ export class JSONTransform extends Visitor {
             `    __dst = bs.offset;\n` +
             `  }\n` +
             `}\n`
+          );
+        }
+        if (
+          reserveDirectStringPayloads &&
+          !member.node.type.isNullable &&
+          isString(member.type)
+        ) {
+          return syncSerializeCursor(
+            `JSON.__serializeStringPointerReserved(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
           );
         }
         const resolvedType = stripNull(member.type);
@@ -4501,11 +4522,21 @@ export class JSONTransform extends Visitor {
     SERIALIZE += indent + "bs.offset = __dst;\n";
     SERIALIZE += "}";
 
+    const directStringPayloadReserve = reserveDirectStringPayloads
+      ? directStringMembers
+          .map(
+            (member) =>
+              ` + JSON.__stringByteSizePointer(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`,
+          )
+          .join("")
+      : "";
+
     SERIALIZE =
       SERIALIZE.slice(0, 32) +
       indent +
       "bs.proposeSize(" +
       this.schema.byteSize +
+      directStringPayloadReserve +
       ");\n" +
       SERIALIZE.slice(32);
 
