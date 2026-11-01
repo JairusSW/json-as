@@ -2613,3 +2613,34 @@ the extra stores on exceptional blocks are not justified. The prototype was
 reverted after 49,468 focused checks across NAIVE, SWAR and SIMD, including
 fast tails, escapes and surrogate block boundaries. Artifacts under
 `build/simdjson-parity/`: run `specstrx000000001/` and comparisons `specstr-*`.
+
+## Retained single-field generated string reservation
+
+Static generated objects now fold even one direct string field's payload into
+the object's existing capacity reservation. The earlier threshold required two
+strings. Lowering it removes the field's separate capacity check and keeps the
+output cursor local across that boundary; it neither changes the total byte
+bound nor selects a corpus, schema, field name, length or string content.
+
+Seven alternating fresh-process pairs compare equal-length
+`arronexx000000001` and `onestrxx000000001` artifacts. Every variant passes
+twenty complete retained-output comparisons. Candidate / baseline SIMD
+stringify throughput:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| GitHub Events minified | 1.018x | 1.011x |
+| GSOC minified | 1.005x | - |
+| Twitter minified | 1.003x | - |
+| Poet minified | 0.997x | 1.007x |
+| CITM minified | 0.998x | - |
+
+No measured row crosses the 5% regression guard. Exact commit `ff7cc58`
+passes 123,645 normal and 77,928 strict/RFC checks across NAIVE, SWAR and SIMD,
+including explicit one-string and nullable one-string escape-growth coverage.
+It also passes 1,416 transform regressions, typecheck, lint and diff checks.
+The shared generated-code improvement reaches all modes; SIMD alone gates
+native parity.
+
+Artifacts under `build/simdjson-parity/`: run `onestrxx000000001/` and
+comparisons `onestr-*` and `onestr-w2c2-*`.
