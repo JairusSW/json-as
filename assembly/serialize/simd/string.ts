@@ -47,27 +47,23 @@ export function serializeStringRange_SIMD(srcStart: usize, srcSize: u32): void {
     while (srcStart <= srcEnd32Fast) {
       const first = load<v128>(srcStart);
       const second = load<v128>(srcStart, 16);
-      const firstSpecial = v128.or(
-        i16x8.eq(first, SPLAT_0022),
+      // Classify sixteen UTF-16 units with one packed byte vector. Signed
+      // narrowing preserves ASCII and saturates every non-ASCII unit outside
+      // the JSON control range; the conservative byte-level surrogate test is
+      // retained for the exceptional path below.
+      const bytes = i8x16.narrow_i16x8_s(first, second);
+      const asciiSpecial = v128.or(
+        i8x16.eq(bytes, BYTE_QUOTE),
         v128.or(
-          i16x8.eq(first, SPLAT_005C),
-          v128.or(
-            i16x8.lt_u(first, SPLAT_0020),
-            i8x16.gt_u(first, SPLAT_FFD8),
-          ),
+          i8x16.eq(bytes, BYTE_BACKSLASH),
+          i8x16.lt_u(bytes, BYTE_SPACE),
         ),
       );
-      const secondSpecial = v128.or(
-        i16x8.eq(second, SPLAT_0022),
-        v128.or(
-          i16x8.eq(second, SPLAT_005C),
-          v128.or(
-            i16x8.lt_u(second, SPLAT_0020),
-            i8x16.gt_u(second, SPLAT_FFD8),
-          ),
-        ),
+      const surrogateCandidate = v128.or(
+        i8x16.gt_u(first, SPLAT_FFD8),
+        i8x16.gt_u(second, SPLAT_FFD8),
       );
-      if (v128.any_true(v128.or(firstSpecial, secondSpecial))) break;
+      if (v128.any_true(v128.or(asciiSpecial, surrogateCandidate))) break;
       store<v128>(dst, first);
       store<v128>(dst, second, 16);
       srcStart += 32;
