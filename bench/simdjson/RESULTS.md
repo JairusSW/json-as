@@ -3464,3 +3464,30 @@ code layout lose more than the hoist saves, so the prototype is reverted.
 
 Artifacts under `build/simdjson-parity/`: run `pairhoistci00001/` and
 comparison `pairhoist-citm-min-v8/`.
+
+## Rejected scalar prefix for SIMD value strings
+
+Object keys already use a qualified scalar prefix before entering the shared
+SIMD string scanner. A general value-string prototype applies a smaller
+four-code-unit prefix to materialized and discarded string values, avoiding
+vector classification when a short string closes or escapes immediately.
+Longer strings continue through the established scanner without changing
+grammar or output behavior.
+
+Nine balanced V8 pairs cover six varied minified classic layouts and pass all
+sixteen RFC preflights plus twenty-four changing-input oracles per label. The
+candidate is effectively flat on Twitter (1.006x), CITM (1.001x), GitHub Events
+(0.985x), GSOC (1.009x) and Lottie (0.988x), but Poet validation falls from
+423.82 to 439.64 microseconds, or 0.964x baseline throughput. Advancing by four
+code units also changes the alignment of every subsequent vector scan; that
+general long-string cost outweighs the short-string entry saving. The
+prototype is reverted rather than selected by string or corpus shape.
+
+The focused cursor and ordinary string suites pass. The strict cursor suite's
+expected-rejection case aborts under the current Wasmtime/try-as runner in all
+three modes; the exact committed baseline reproduces the same abort, so it is
+not attributed to this SIMD-only prototype.
+
+Artifacts under `build/simdjson-parity/`: runs `valstrbase000001/` and
+`valstrcand000001/`, and comparisons `valstr-six-min-v8/` and
+`valstr-six-min-v8-9/`.
