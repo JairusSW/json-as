@@ -193,9 +193,12 @@ export function serializeStringRangeReservedAt_SIMD(
     // console.log("lt20   : " + mask_to_string_v128(lt20) + " -> " + mask_to_string_v128(SPLAT_0020));
     // console.log("gteD8  : " + mask_to_string_v128(gteD8) + " -> " + mask_to_string_v128(SPLAT_FFD8));
 
-    let mask = i8x16.bitmask(
-      v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))),
-    );
+    // i16 comparison lanes set both constituent byte bits. Keep only the low
+    // byte bit for ASCII escapes and only the high byte bit for conservative
+    // surrogate candidates so every UTF-16 unit is visited at most once.
+    let mask =
+      (i8x16.bitmask(v128.or(eq22, v128.or(eq5C, lt20))) & 0x5555) |
+      (i8x16.bitmask(gteD8) & 0xaaaa);
 
     if (mask == 0) {
       store<v128>(bs.offset, block);
