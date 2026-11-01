@@ -252,10 +252,11 @@ manifest and comparison artifacts. Run its policy tests with
 
 For an explicitly isolated backend-source experiment,
 `compare.py --allow-w2c2-source-change` permits different pinned w2c2 commits.
-Compiler, translator binary, SIMDe, host, Wasm and input checks still apply;
-all backend provenance is saved in `backends.json`. Build requires clean,
-committed w2c2 sources. Keep experiment labels separate to preserve baseline
-executables. This flag does not relax coverage or performance gates.
+The matching translator binaries may differ with those revisions. Compiler,
+SIMDe, host, Wasm and input checks still apply; all backend provenance is saved
+in `backends.json`. Build requires clean, committed w2c2 sources. Keep
+experiment labels separate to preserve baseline executables. This flag does not
+relax coverage or performance gates.
 
 Owned-driver preparation accepts `--vary-length` to rotate both string values
 and their lengths while preserving numeric tokens and key names. The choice is

@@ -23,7 +23,7 @@ parser.add_argument('--pairs', type=int, default=5)
 parser.add_argument('--output', required=True)
 parser.add_argument('--backends', default='v8', help='v8,w2c2-checked,w2c2-default')
 parser.add_argument('--modes', default='swar,simd', help='Measured modes: swar,simd; defaults to both')
-parser.add_argument('--allow-w2c2-source-change', action='store_true', help='Backend experiment: permit different pinned w2c2 revisions, retaining compiler/translator/SIMDe checks')
+parser.add_argument('--allow-w2c2-source-change', action='store_true', help='Backend experiment: permit different pinned w2c2 revisions and translators, retaining compiler/SIMDe/host checks')
 parser.add_argument('--require-equal-label-length', action='store_true', help='Keep embedded artifact path lengths equal across variants')
 parser.add_argument('--smoke', action='store_true', help='One diagnostic round; no performance gate')
 parser.add_argument('--gate-validation', choices=['v8','w2c2-checked','w2c2-default'])
@@ -108,7 +108,7 @@ for label in labels:
             if backend_metadata:
                 reference = next(iter(backend_metadata.values()))
                 for field in ['w2c2', 'translatorSha256', 'simde', 'compiler', 'hostSha256']:
-                    if field == 'w2c2' and args.allow_w2c2_source_change:
+                    if field in ['w2c2', 'translatorSha256'] and args.allow_w2c2_source_change:
                         continue
                     if meta[field] != reference[field]:
                         raise ValueError(f'w2c2 backend provenance differs: {field}')
