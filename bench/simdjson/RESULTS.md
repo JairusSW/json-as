@@ -3631,3 +3631,20 @@ regression guard. It is reverted; the retained first exact pair remains.
 Artifacts under `build/simdjson-parity/`: validation runs
 `pack64base000001/` and `pack64cand000001/`, and comparison
 `pack64-validation-canary-v8/`.
+
+## Rejected outlined SIMD string escape suffix
+
+The shared SIMD string writer was split after its optimistic clean scanner so
+the large escape and surrogate suffix lived in a separate cold function. Clean
+strings retained identical classification and stores in a smaller Wasm body;
+only exceptional strings paid the new call, and already-copied prefixes were
+not replayed. The rule applied to every SIMD string.
+
+Seven balanced V8 pairs on GSOC minified pass twenty complete owned-output and
+retention comparisons per label. SIMD stringify changes from 518.48 to 519.30
+microseconds, or 0.998x baseline throughput. Parse is 0.996x and validation is
+1.007x as unchanged controls. V8 gains no measurable benefit from the source-
+level outline, so the extra cold call and function are reverted.
+
+Artifacts under `build/simdjson-parity/`: runs `strcoldbase0001/` and
+`strcoldcand0001/`, and comparison `string-cold-outline-gsoc-v8/`.
