@@ -123,8 +123,8 @@ function plainStringEnd(ptr: usize, end: usize): usize {
 }
 
 // Keys are overwhelmingly short across ordinary object schemas. Check the
-// first four code units directly before paying for a wider event mask, then use
-// the regular SIMD scanner for longer keys.
+// first eight code units directly before paying for a wider event mask, then
+// use the regular SIMD scanner for longer keys.
 @inline
 function plainKeyEnd(ptr: usize, end: usize): usize {
   if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
@@ -141,18 +141,19 @@ function plainKeyEnd(ptr: usize, end: usize): usize {
     if (code == 34 || code == 92 || code < 32) return ptr + 2;
     ptr += 4;
   }
-  if (JSON_MODE == JSONMode.SIMD && ptr + 8 <= end) {
-    const block = load<u64>(ptr);
-    const quote = block ^ 0x0022_0022_0022_0022;
-    const slash = block ^ 0x005c_005c_005c_005c;
-    const control = block & 0xffe0_ffe0_ffe0_ffe0;
-    const mask =
-      (((quote - 0x0001_0001_0001_0001) & ~quote) |
-        ((slash - 0x0001_0001_0001_0001) & ~slash) |
-        ((control - 0x0001_0001_0001_0001) & ~control)) &
-      0x0080_0080_0080_0080;
-    if (mask) return ptr + (usize(ctz(mask)) >> 3);
-    ptr += 8;
+  if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    let code = load<u16>(ptr);
+    if (code == 34 || code == 92 || code < 32) return ptr;
+    code = load<u16>(ptr, 2);
+    if (code == 34 || code == 92 || code < 32) return ptr + 2;
+    ptr += 4;
+  }
+  if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    let code = load<u16>(ptr);
+    if (code == 34 || code == 92 || code < 32) return ptr;
+    code = load<u16>(ptr, 2);
+    if (code == 34 || code == 92 || code < 32) return ptr + 2;
+    ptr += 4;
   }
   return plainStringEnd(ptr, end);
 }
