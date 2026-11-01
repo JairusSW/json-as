@@ -2996,3 +2996,22 @@ artifact label. Artifacts under `build/simdjson-parity/`: runs
 `keyguardcommit001/`; comparisons `keyguard-validation-v8/`,
 `keyguard-early-vs-outer-v8/` and
 `keyguard-{twitter,citm-catalog-min,gsoc-2018-min,poet-min}/`.
+
+## Rejected proven-opening-quote key entry
+
+A retained-head profile attributes 38.6% of Twitter validation samples to
+`skipCursorKey` and 45.4% to the inlined grammar loop. The next prototype moved
+the opening-quote check to the object grammar and entered key scanning after
+that proven quote, reusing the first member's already-loaded code unit. The
+change remained general and preserved malformed-key rejection.
+
+Five balanced fresh-process V8 pairs across all sixteen validation layouts pass
+every RFC preflight and all 64 changing-input oracles. The candidate improves
+CITM-pretty 1.010x, both GitHub layouts 1.012x and OTFCC 1.013x, but loses eleven
+layouts. Twitter-minified falls to 0.992x, Poet-pretty to 0.988x and
+Lottie-pretty to 0.992x. The source is therefore reverted; moving the check
+across the call boundary is not a general improvement.
+
+Artifacts under `build/simdjson-parity/`: profile run `twitterguardprof/` and
+`twitter-keyguard-validate-profile2.log`; runs `keyguardbase0001/` and
+`keypayload000001/`; comparison `keypayload-validation-v8/`.
