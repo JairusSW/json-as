@@ -3081,3 +3081,17 @@ subsequent key/value dispatch boundary.
 
 Artifacts under `build/simdjson-parity/`: run `openload000000001/` and
 comparison `openload-validation-v8/`.
+
+## Rejected bitset whitespace predicate
+
+Replacing the four explicit JSON-whitespace comparisons with a guarded
+`0x2600` bitset passes the cursor whitespace and RFC oracle suites but moves
+cost between classic layouts. Five balanced V8 pairs improve Canada-minified
+1.078x, Canada-pretty 1.040x, CITM-minified 1.051x and Poet-pretty 1.086x;
+Canada-minified reaches the native +20% target in this isolated candidate.
+However, Poet-minified falls to 0.942x, Lottie-minified to 0.955x, and
+GitHub/GSOC-minified to 0.967x. The regression gate fails and the predicate is
+reverted rather than trading one corpus gap for another.
+
+Artifacts under `build/simdjson-parity/`: run `whitebit000000001/` and
+comparison `whitebit-validation-v8/`.
