@@ -33,7 +33,7 @@ export declare class JSONTransform extends Visitor {
     visitImportStatement(node: ImportStatement): void;
     visitSource(node: Source): void;
     addImports(node: Source): void;
-    getStores(data: string, simd?: boolean): string[];
+    getStores(data: string, simd?: boolean, target?: string): string[];
     isValidType(type: string, node: ClassDeclaration): boolean;
 }
 export default class Transformer extends Transform {

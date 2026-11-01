@@ -114,11 +114,8 @@ function needsReferenceLoad(type) {
         type == "Float32Array" ||
         type == "Float64Array");
 }
-function getSerializeCall(type, realName) {
-    if (type == "ArrayBuffer") {
-        return `JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
-    }
-    if (type == "bool" ||
+function isReservedPrimitive(type) {
+    return (type == "bool" ||
         type == "boolean" ||
         type == "i8" ||
         type == "i16" ||
@@ -131,12 +128,21 @@ function getSerializeCall(type, realName) {
         type == "u64" ||
         type == "usize" ||
         type == "f32" ||
-        type == "f64") {
-        return `JSON.__serializePrimitiveUnsafe<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+        type == "f64");
+}
+function syncSerializeCursor(code) {
+    return `bs.offset = __dst;\n${code}__dst = bs.offset;\n`;
+}
+function getSerializeCall(type, realName) {
+    if (isReservedPrimitive(type)) {
+        return `__dst = JSON.__serializePrimitiveAt<${type}>(__dst, load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
     }
-    return needsReferenceLoad(type)
+    if (type == "ArrayBuffer") {
+        return syncSerializeCursor(`JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
+    }
+    return syncSerializeCursor(needsReferenceLoad(type)
         ? `JSON.__serialize<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n`
-        : `JSON.__serialize<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+        : `JSON.__serialize<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
 }
 const CUSTOM_JSON_KINDS = new Set([
     "any",
@@ -862,7 +868,7 @@ export class JSONTransform extends Visitor {
         this.schema = schema;
         this.visitedClasses.add(fullClassPath);
         const requestedFastPath = USE_FAST_PATH;
-        let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
+        let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n  let __dst = bs.offset;\n";
         let INITIALIZE = "@inline __INITIALIZE(): this {\n";
         let DESERIALIZE = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
         let DESERIALIZE_FAST = "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
@@ -1097,8 +1103,8 @@ export class JSONTransform extends Visitor {
                 SERIALIZE += indent + "let wrote = false;\n";
             }
             this.schema.byteSize += 2;
-            SERIALIZE += indent + "store<u16>(bs.offset, 123, 0); // {\n";
-            SERIALIZE += indent + "bs.offset += 2;\n";
+            SERIALIZE += indent + "store<u16>(__dst, 123, 0); // {\n";
+            SERIALIZE += indent + "__dst += 2;\n";
         }
         const isPure = this.schema.static;
         let isRegular = isPure;
@@ -1107,7 +1113,7 @@ export class JSONTransform extends Visitor {
             if (!member.flags.has(PropertyFlags.Lazy)) {
                 const defaultString = defaultStringLiterals.get(member.name);
                 if (defaultString) {
-                    const stores = this.getStores(defaultString.encoded, this.program.options.hasFeature(16)).join("\n");
+                    const stores = this.getStores(defaultString.encoded, this.program.options.hasFeature(16), "__dst").join("\n");
                     return (`{\n` +
                         `  const __str = load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)}));\n` +
                         `  if (changetype<usize>(__str) == changetype<usize>(${defaultString.expression})) {\n` +
@@ -1116,7 +1122,9 @@ export class JSONTransform extends Visitor {
                             .map((line) => `    ${line}\n`)
                             .join("") +
                         `  } else {\n` +
+                        `    bs.offset = __dst;\n` +
                         `    JSON.__serialize<${member.type}>(__str);\n` +
+                        `    __dst = bs.offset;\n` +
                         `  }\n` +
                         `}\n`);
                 }
@@ -1139,7 +1147,7 @@ export class JSONTransform extends Visitor {
                     ? `reinterpret<f32>(<u32>(__s))`
                     : `(<${T}>(<u32>(__s)))`;
                 const def = baseT === "bool" || baseT === "boolean" ? "false" : "0";
-                return (`{\n` +
+                return syncSerializeCursor(`{\n` +
                     `  const __s = this.${realName};\n` +
                     `  if ((__s >>> 32) == 0xffffffff) {\n` +
                     `    JSON.__serialize<${T}>(${dec});\n` +
@@ -1154,7 +1162,7 @@ export class JSONTransform extends Visitor {
                     `  }\n` +
                     `}\n`);
             }
-            return (`{\n` +
+            return syncSerializeCursor(`{\n` +
                 `  const __s = this.${realName};\n` +
                 `  if (__s == u64.MAX_VALUE) {\n` +
                 `    JSON.__serialize<${T}>(this.${baseName}_val as ${T});\n` +
@@ -1237,8 +1245,10 @@ export class JSONTransform extends Visitor {
                 const keyPart = (isFirst ? "{" : ",") + aliasName + ":";
                 this.schema.byteSize += keyPart.length << 1;
                 if (hasLazyMembers)
-                    SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
-                SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+                    SERIALIZE +=
+                        indent +
+                            `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
+                SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                     .map((v) => indent + v + "\n")
                     .join("");
                 SERIALIZE += indent + serValue(member, realName);
@@ -1251,10 +1261,12 @@ export class JSONTransform extends Visitor {
                     this.schema.byteSize += 2 + (keyPart.length << 1);
                     SERIALIZE +=
                         indent +
-                            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
+                            "if (wrote) { store<u16>(__dst, 44, 0); __dst += 2; } // ,\n";
                     if (hasLazyMembers)
-                        SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
-                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+                        SERIALIZE +=
+                            indent +
+                                `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
+                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
                     SERIALIZE += indent + serValue(member, realName);
@@ -1263,8 +1275,10 @@ export class JSONTransform extends Visitor {
                     const keyPart = (isFirst ? "" : ",") + aliasName + ":";
                     this.schema.byteSize += keyPart.length << 1;
                     if (hasLazyMembers)
-                        SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
-                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+                        SERIALIZE +=
+                            indent +
+                                `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
+                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
                     SERIALIZE += indent + serValue(member, realName);
@@ -1291,10 +1305,12 @@ export class JSONTransform extends Visitor {
                     this.schema.byteSize += 2 + (keyPart.length << 1);
                     SERIALIZE +=
                         indent +
-                            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
+                            "if (wrote) { store<u16>(__dst, 44, 0); __dst += 2; } // ,\n";
                     if (hasLazyMembers)
-                        SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
-                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+                        SERIALIZE +=
+                            indent +
+                                `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
+                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
                     SERIALIZE += indent + serValue(member, realName);
@@ -1327,8 +1343,8 @@ export class JSONTransform extends Visitor {
                     this.schema.byteSize += 2;
                     SERIALIZE +=
                         indent +
-                            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
-                    SERIALIZE += this.getStores(aliasName + ":", SIMD_ENABLED)
+                            "if (wrote) { store<u16>(__dst, 44, 0); __dst += 2; } // ,\n";
+                    SERIALIZE += this.getStores(aliasName + ":", SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
                     SERIALIZE += indent + serValue(member, realName);
@@ -3131,8 +3147,9 @@ export class JSONTransform extends Visitor {
         DESERIALIZE += `  return srcStart;\n}\n`;
         indent = "  ";
         this.schema.byteSize += 2;
-        SERIALIZE += indent + "store<u16>(bs.offset, 125, 0); // }\n";
-        SERIALIZE += indent + "bs.offset += 2;\n";
+        SERIALIZE += indent + "store<u16>(__dst, 125, 0); // }\n";
+        SERIALIZE += indent + "__dst += 2;\n";
+        SERIALIZE += indent + "bs.offset = __dst;\n";
         SERIALIZE += "}";
         SERIALIZE =
             SERIALIZE.slice(0, 32) +
@@ -3466,7 +3483,7 @@ export class JSONTransform extends Visitor {
                     "\n");
         }
     }
-    getStores(data, simd = false) {
+    getStores(data, simd = false, target = "bs.offset") {
         const out = [];
         const sizes = strToNum(data, simd);
         let offset = 0;
@@ -3476,7 +3493,9 @@ export class JSONTransform extends Visitor {
                 const name = "SIMD_" + (index == -1 ? this.simdStatements.length : index);
                 if (index == -1)
                     this.simdStatements.push(`const ${name} = ${num};`);
-                out.push("store<v128>(bs.offset, " +
+                out.push("store<v128>(" +
+                    target +
+                    ", " +
                     name +
                     ", " +
                     offset +
@@ -3485,7 +3504,9 @@ export class JSONTransform extends Visitor {
                 offset += 16;
             }
             if (size == "u64") {
-                out.push("store<u64>(bs.offset, " +
+                out.push("store<u64>(" +
+                    target +
+                    ", " +
                     num +
                     ", " +
                     offset +
@@ -3494,7 +3515,9 @@ export class JSONTransform extends Visitor {
                 offset += 8;
             }
             else if (size == "u32") {
-                out.push("store<u32>(bs.offset, " +
+                out.push("store<u32>(" +
+                    target +
+                    ", " +
                     num +
                     ", " +
                     offset +
@@ -3503,7 +3526,9 @@ export class JSONTransform extends Visitor {
                 offset += 4;
             }
             else if (size == "u16") {
-                out.push("store<u16>(bs.offset, " +
+                out.push("store<u16>(" +
+                    target +
+                    ", " +
                     num +
                     ", " +
                     offset +
@@ -3512,7 +3537,7 @@ export class JSONTransform extends Visitor {
                 offset += 2;
             }
         }
-        out.push("bs.offset += " + offset + ";");
+        out.push(target + " += " + offset + ";");
         return out;
     }
     isValidType(type, node) {

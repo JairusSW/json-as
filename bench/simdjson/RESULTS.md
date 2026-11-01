@@ -1527,3 +1527,40 @@ across NAIVE, SWAR and SIMD. Formatting, typecheck, lint and diff checks pass.
 Artifacts under `build/simdjson-parity/`:
 `runs/float{base00001,unsafe001}/` and
 `comparisons/floatunsafe-{lottie,canada,citm-catalog,twitter,gsoc-2018}-*-001/`.
+
+## Retained generated local output cursor
+
+Generated object serializers now keep their output cursor in a local across
+fixed key stores and primitive values, then commit it at allocation-capable or
+reentrant boundaries. Cursor-returning boolean, integer and float writers make
+that region explicit. Strings, arrays, nested objects, lazy values and custom
+serializers still receive `bs.offset` before the call and reload the local after
+it, preserving relocation, GC and callback behavior. This applies to every
+generated object; it has no corpus, schema-signature or value selector.
+
+Six balanced process pairs compare equal-length, exact-current frozen labels
+with four changing inputs. All twenty complete owned-output comparisons pass
+for each variant/backend. SIMD stringify throughput, candidate / `5b1cf18`:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| CITM minified | 1.027× | 1.014× |
+| Lottie minified | 1.004× | 1.202× |
+| Canada minified | 1.003× | 1.011× |
+| Twitter minified | 0.995× | 1.159× |
+
+No phase crosses the 5% regression guard. Canada's otherwise unchanged V8
+validation moves to 0.967× in the final direct screen; default w2c2 validation
+is 1.005× and a prior eight-pair confirmation placed the first cursor variant
+at 0.954×/1.011×. Treat this as V8 code-layout sensitivity, not a validation
+gain or loss, and keep it visible in later whole-matrix qualification.
+
+The final source passes 123,360 normal and 77,676 strict/RFC checks across
+NAIVE, SWAR and SIMD. Typecheck, lint, formatting and diff checks pass. The
+first non-inlined cursor adapters are rejected in favor of the final tiny
+inlined adapters; direct candidate-to-candidate screens show an additional
+1.032× default-w2c2 CITM and 1.040× Lottie stringify improvement.
+
+Artifacts under `build/simdjson-parity/`:
+`runs/{floatunsafe001,localcursor001,localcursor002}/` and
+`comparisons/localcursor-{final,inline}-*/`.

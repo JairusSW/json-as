@@ -27,12 +27,16 @@ import {
   serializeSet,
   serializeStaticArray,
   serializeBool,
+  serializeBoolAt,
   serializeBoolUnsafe,
   serializeInteger,
+  serializeIntegerAt,
   serializeIntegerUnsafe,
   serializeFloat32,
+  serializeFloat32At,
   serializeFloat32Unsafe,
   serializeFloat64,
+  serializeFloat64At,
   serializeFloat64Unsafe,
   serializeObject,
   serializeJsonArray,
@@ -3036,6 +3040,26 @@ export namespace JSON {
       // Defensive fallback for hand-written transformed code.
       __serialize<T>(data);
     }
+  }
+
+  /** Internal cursor writer for transform-generated, pre-reserved regions. */
+  @inline
+  function __serializePrimitiveAt<T>(dst: usize, data: T): usize {
+    if (isBoolean<T>()) {
+      return serializeBoolAt(dst, data as bool);
+    } else if (isInteger<T>()) {
+      // @ts-expect-error: transform emits this only for integer T
+      return serializeIntegerAt<T>(dst, data);
+    } else if (isFloat<T>()) {
+      // @ts-expect-error: transform emits this only for f32/f64 T
+      if (sizeof<T>() == 4) return serializeFloat32At(dst, <f32>data);
+      // @ts-expect-error: transform emits this only for f32/f64 T
+      return serializeFloat64At(dst, <f64>data);
+    }
+    // Defensive fallback for hand-written transformed code.
+    bs.offset = dst;
+    __serialize<T>(data);
+    return bs.offset;
   }
 
   /** Materialize a deferred field while retaining its source for descendants. */

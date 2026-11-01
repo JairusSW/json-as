@@ -818,3 +818,19 @@ V8 and 1.026× in default w2c2; Twitter is 1.001×/1.009× and three broad contr
 are neutral within 0.7%. All exact owned-output comparisons pass. Keep this as
 a general fixed-region improvement, but expect larger gains to require keeping
 the output cursor local across multiple adjacent generated writes.
+
+### Retained generated local output cursor, 2026-11-01
+
+Keep the generated serializer cursor local across fixed keys and primitive
+values. Cursor-returning boolean, integer and float writers avoid repeated
+loads/stores of `bs.offset`; generated code flushes before every string, array,
+nested object, lazy value or custom serializer and reloads afterward. The rule
+is shared by every generated object and preserves relocation and reentrancy.
+
+Against the preceding committed source, six balanced SIMD rounds give default-
+w2c2 stringify gains of 1.014× CITM, 1.202× Lottie, 1.011× Canada and 1.159×
+Twitter. V8 is 1.027×, 1.004×, 1.003× and 0.995× respectively. Exact retained-
+output oracles and both complete three-mode suites pass. Continue this direction
+by finding other allocation-free regions, but keep every flush boundary
+explicit; do not make strings, collections or callbacks rely on a stale local
+after buffer relocation.
