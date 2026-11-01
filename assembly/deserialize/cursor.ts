@@ -504,10 +504,9 @@ export function skipCheckedValue(
   outerDepth: i32 = 0,
 ): usize {
   if (<u32>outerDepth > <u32>MAX_CURSOR_DEPTH) return 0;
-  let ptr = start;
+  let ptr = skipCursorWhitespace(start, end);
   let depth = 0;
   while (true) {
-    ptr = skipCursorWhitespace(ptr, end);
     if (ptr >= end) return 0;
     let code = load<u16>(ptr);
     if (code == 91 || code == 123) {
@@ -524,6 +523,7 @@ export function skipCheckedValue(
         if (!ptr) return 0;
         ptr = skipCursorColon(ptr, end);
         if (!ptr) return 0;
+        ptr = skipCursorWhitespace(ptr, end);
         continue;
       } else {
         continue;
@@ -558,6 +558,7 @@ export function skipCheckedValue(
         if (!ptr) return 0;
         ptr = skipCursorColon(ptr, end);
         if (!ptr) return 0;
+        ptr = skipCursorWhitespace(ptr, end);
       }
       break;
     }
