@@ -2586,3 +2586,30 @@ Nine V8 pairs improve CITM stringification only 1.006x over the retained form,
 while its unchanged parse control is 0.995x. The extra generated branch is
 reverted; artifact `arrmultx000000001/` and comparison `arrmult-*` retain the
 negative result.
+
+## Rejected speculative clean-string stores
+
+The paired SIMD clean-string loop was tested with both 16-byte stores issued
+before the special-character classification branch. A block containing an
+escape left the destination cursor unchanged, so the established exceptional
+path safely overwrote the provisional bytes. The change applied to every
+string reaching the 32-byte loop and contained no corpus, schema or value
+signature.
+
+Seven alternating V8 pairs compare equal-length `arronexx000000001` and
+`specstrx000000001` artifacts. Every candidate passes twenty complete retained-
+output comparisons. Candidate / baseline SIMD stringify throughput:
+
+| Layout | Stringify |
+| --- | ---: |
+| GitHub Events minified | 1.010x |
+| GSOC minified | 1.015x |
+| Poet minified | 0.996x |
+| CITM minified | 1.004x |
+| Twitter minified | 0.993x |
+
+The result is mixed and too small to distinguish from ordinary run variation;
+the extra stores on exceptional blocks are not justified. The prototype was
+reverted after 49,468 focused checks across NAIVE, SWAR and SIMD, including
+fast tails, escapes and surrogate block boundaries. Artifacts under
+`build/simdjson-parity/`: run `specstrx000000001/` and comparisons `specstr-*`.
