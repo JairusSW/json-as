@@ -49,8 +49,21 @@ export function serializeStringRangeReserved_SIMD(
   srcStart: usize,
   srcSize: u32,
 ): void {
+  bs.offset = serializeStringRangeReservedAt_SIMD(
+    srcStart,
+    srcSize,
+    bs.offset,
+  );
+}
+
+/** Emits a pre-reserved string and returns the next output cursor. Clean
+ * strings never publish the cursor through shared builder state. */
+export function serializeStringRangeReservedAt_SIMD(
+  srcStart: usize,
+  srcSize: u32,
+  dstStart: usize,
+): usize {
   const srcEnd = srcStart + srcSize;
-  const dstStart = bs.offset;
   let dst = dstStart + 2;
   do {
     const srcEnd32Fast = srcEnd - 32;
@@ -158,8 +171,7 @@ export function serializeStringRangeReserved_SIMD(
 
     store<u16>(dstStart, 34); // "
     store<u16>(dst, 34); // "
-    bs.offset = dst + 2;
-    return;
+    return dst + 2;
   } while (false);
 
   // The optimistic loop already copied the clean prefix. Keep it and resume
@@ -323,6 +335,7 @@ export function serializeStringRangeReserved_SIMD(
 
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
+  return bs.offset;
 }
 
 /** Copy clean UTF-16 after a byte-level false positive, stopping at an escape. */

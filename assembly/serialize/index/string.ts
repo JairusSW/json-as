@@ -1,4 +1,5 @@
 import { JSONMode } from "../..";
+import { bs } from "../../../lib/as-bs";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import {
   serializeString_NAIVE,
@@ -8,6 +9,7 @@ import {
 import {
   serializeString_SIMD,
   serializeStringRange_SIMD,
+  serializeStringRangeReservedAt_SIMD,
   serializeStringRangeReserved_SIMD,
 } from "../simd/string";
 import {
@@ -50,4 +52,24 @@ export function serializeStringPointerReserved(src: usize): void {
   } else {
     serializeStringRangeReserved_SWAR(src, size);
   }
+}
+
+/** Cursor-returning generated-field entry. SIMD keeps clean output entirely
+ * local; other backends preserve their established shared-builder path. */
+@inline
+export function serializeStringPointerReservedAt(
+  dst: usize,
+  src: usize,
+): usize {
+  const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
+  if (JSON_MODE == JSONMode.SIMD) {
+    return serializeStringRangeReservedAt_SIMD(src, size, dst);
+  }
+  bs.offset = dst;
+  if (JSON_MODE == JSONMode.NAIVE) {
+    serializeStringRangeReserved(src, size);
+  } else {
+    serializeStringRangeReserved_SWAR(src, size);
+  }
+  return bs.offset;
 }

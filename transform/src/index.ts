@@ -1802,9 +1802,7 @@ export class JSONTransform extends Visitor {
           !member.node.type.isNullable &&
           isString(member.type)
         ) {
-          return syncSerializeCursor(
-            `JSON.__serializeStringPointerReserved(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
-          );
+          return `__dst = JSON.__serializeStringPointerReservedAt(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
         }
         const resolvedType = stripNull(member.type);
         const resolvedSchema = this.getSchema(resolvedType);

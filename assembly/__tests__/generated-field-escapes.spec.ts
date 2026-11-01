@@ -137,6 +137,18 @@ describe("Generated objects share direct string capacity reservations", () => {
   }
 });
 
+describe("Generated reserved strings retain their cursor across escape growth", () => {
+  const value = new ReservedStringFields();
+  value.first = "\u0001".repeat(2048);
+  value.second = "\\".repeat(2048);
+  value.tail = 37;
+  const encoded = JSON.stringify(value);
+  const decoded = JSON.parse<ReservedStringFields>(encoded);
+  expect(decoded.first).toBe(value.first);
+  expect(decoded.second).toBe(value.second);
+  expect(decoded.tail).toBe(37);
+});
+
 describe("Generated array fields preserve closing quotes after backslashes", () => {
   const out = new ArrayFields();
   for (let i = 0; i < TEXTS.length; i++) {

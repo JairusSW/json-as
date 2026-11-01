@@ -45,6 +45,7 @@ import {
   serializeString,
   serializeStringPointer,
   serializeStringPointerReserved,
+  serializeStringPointerReservedAt,
   serializeArrayBufferUnsafe,
   serializeDynamic,
   serializeTypedArray,
@@ -3105,6 +3106,15 @@ export namespace JSON {
   @inline
   function __serializeStringPointerReserved(data: usize): void {
     serializeStringPointerReserved(data);
+  }
+
+  /** Generated pre-reserved string field that keeps the output cursor local. */
+  @inline
+  function __serializeStringPointerReservedAt(
+    dst: usize,
+    data: usize,
+  ): usize {
+    return serializeStringPointerReservedAt(dst, data);
   }
 
   /** Byte size used by generated object-level string capacity planning. */
