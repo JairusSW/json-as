@@ -3491,3 +3491,28 @@ not attributed to this SIMD-only prototype.
 Artifacts under `build/simdjson-parity/`: runs `valstrbase000001/` and
 `valstrcand000001/`, and comparisons `valstr-six-min-v8/` and
 `valstr-six-min-v8-9/`.
+
+## Rejected wider integer digit tables
+
+The established integer writer assembles UTF-16 output from a 100-entry digit-
+pair table and constant divisions that V8 lowers to multiply/shift sequences.
+Two general alternatives reduce the number of divisions and stores: an 80 KiB
+table of zero-padded four-digit groups, and an 8 KiB table of zero-padded
+three-digit groups. Both cover every 32-bit integer width and the padded groups
+of 64-bit output; no corpus or observed-value selector is used.
+
+Both variants pass 2,145 focused integer, array, set, static-array and broad
+round-trip checks across NAIVE, SWAR and SIMD. Nine balanced V8 pairs with full
+owned-output retention oracles put the four-digit candidate at 1.007x CITM
+stringify throughput; seven-pair controls report 1.003x on Twitter and 1.011x
+on Poet. The improvement is too small for 80 KiB of per-module table data.
+
+A three-way seven-pair CITM comparison then measures the four-digit candidate
+at 0.999x and the smaller three-digit candidate at 0.992x committed-baseline
+throughput, with parse and validation controls inside 1%. The wider lookup
+traffic does not beat the current pair table and optimized constant divisions.
+Both prototypes are reverted in full.
+
+Artifacts under `build/simdjson-parity/`: runs `quadbase00000001/`,
+`quadcand00000001/` and `tripcand00000001/`; comparisons
+`quad-{citm,poet,twitter}-min-v8/` and `digit-table-citm-v8-3way/`.
