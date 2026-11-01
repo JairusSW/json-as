@@ -787,3 +787,22 @@ the existing first-block-bitmask/subsequent-block-any_true hypothesis across the
 complete validation matrix. Preserve exact UTF-16 quote, backslash, control,
 separator, depth, and bounded-tail behavior. Requalify FGO on this retained
 output path before attributing its older serialization number to current source.
+
+### Retained generated primitive-dispatch inlining, 2026-10-31
+
+Keep `@inline` only on `JSON.__serializePrimitiveUnsafe`. Generated serializers
+already reserve worst-case capacity for their integer and boolean fields; the
+hint folds the compile-time type branch and removes the remaining tiny wrapper
+without changing formatting or reservation algorithms. Seven minified V8
+families range from 0.995× to 1.060× baseline stringification throughput. Five
+default-w2c2 families range from 0.991× to 1.083×, with a repeated Twitter run
+at 1.043× after an initial 1.069×. Exact owned-output and retention oracles pass.
+Detailed controls and artifact paths are in RESULTS.md.
+
+Do not generalize this to forced inlining of `itoaU64` or complete generated
+serializers. Whole `itoaU64` inlining regressed CITM stringification to 0.961×
+on V8 and 0.967× on default w2c2. Splitting a forced-inline small-value entry
+from the large formatter was neutral on V8 and 0.933× on default w2c2. Complete
+generated serializer inlining reached only 1.017× V8 and 1.038× default-w2c2
+CITM stringification while moving unrelated phases by up to about 3.5%; all
+three broader hints are rejected.

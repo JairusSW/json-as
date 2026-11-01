@@ -1452,3 +1452,48 @@ Artifacts under `build/simdjson-parity/`:
 `owned-otfcc-direct-final001.log`, the frozen
 `runs/direct-owned-final001/` build, and the rejected/intermediate
 `direct-owned-{canada,citm}-v8*.log` comparisons.
+
+## Retained generated-primitive dispatch inlining
+
+Generated serializers reserve their complete fixed primitive capacity before
+writing fields. Their integer and boolean fields nevertheless passed through a
+small generic `JSON.__serializePrimitiveUnsafe` call before reaching the
+reservation-free writer. Marking only this shared dispatcher `@inline` lets the
+compiler fold its compile-time type branch and call the existing writer
+directly. The formatting algorithms, capacity rules, field generation, GC
+roots and public dispatch remain unchanged. There are no corpus, schema,
+numeric-width or runtime selectors.
+
+Fresh post-relocation controls and candidates use equal-length labels, four
+changing input strings and six balanced process pairs. Every completed
+comparison passes twenty full owned-output and retention checks. SIMD
+stringification throughput ratios, candidate / baseline:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| Canada minified | 1.004× | 0.991× |
+| CITM minified | 1.009× | 1.024× |
+| Twitter minified | 1.013× | 1.069× |
+| GitHub events minified | 0.995× | 0.995× |
+| Poet minified | 1.002× | — |
+| GSOC minified | 0.998× | — |
+| Lottie minified | 1.060× | 1.083× |
+
+The initial default-w2c2 Twitter control moved parsing to 0.963× despite an
+unchanged parser. A separate six-round confirmation gives 0.992× parsing,
+1.043× stringification and 0.995× validation, so the larger control movement is
+not treated as a parser regression. Other phase controls remain in the result
+tables. This hint is a small broad improvement rather than a new parity row;
+the larger serializer gaps still require an algorithmic change.
+
+The retained source passes 123,360 normal and 77,676 strict/RFC checks across
+NAIVE, SWAR and SIMD. A focused four-file run additionally passes 1,464 integer,
+array, generated-dispatch and round-trip checks. Typecheck, lint and diff checks
+pass before commit. SIMD remains the native-performance gate; the shared hint
+also reaches NAIVE and SWAR.
+
+Artifacts under `build/simdjson-parity/`:
+`runs/prim-{base000001,inline0001}/` and
+`comparisons/prim-inline-*/`. Rejected whole-generated-serializer and 64-bit
+formatter-inline prototypes were removed after paired V8 and default-w2c2
+measurements showed only small wins or regressions.

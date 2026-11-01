@@ -3018,6 +3018,7 @@ export namespace JSON {
    * capacity and stack-size accounting for every integer/boolean field.
    * Internal: emitted only for non-nullable primitive fields by the transform.
    */
+  @inline
   function __serializePrimitiveUnsafe<T>(data: T): void {
     if (isBoolean<T>()) {
       serializeBoolUnsafe(data as bool);
