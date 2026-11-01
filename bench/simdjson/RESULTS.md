@@ -2797,3 +2797,50 @@ production-safety suites passed across all modes before measurement.
 
 Artifacts under `build/simdjson-parity/`: run `mapstage000000001/` and
 comparisons `mapstage-*`.
+
+## Retained eight-unit scalar entry for checked SIMD keys
+
+The checked SIMD key scanner now checks its first eight UTF-16 code units
+directly before entering the wider SWAR/SIMD event-mask path. The preceding
+four-unit entry still handles short keys without extra work; keys ending in
+units five through eight avoid mask construction and reduction. Longer,
+escaped, invalid and bounded-tail keys retain the established checked scanner.
+The rule is shared by all checked discard traversal and selects no corpus,
+schema, key name or value.
+
+Five balanced fresh-process V8 pairs compare equal-length frozen
+`keyscalar4base001` and `keyscalar80000001` artifacts across all sixteen
+classic validation layouts. Every RFC preflight and all 64 changing-input
+oracles pass. Candidate / baseline SIMD validation throughput:
+
+| Layout | Throughput |
+| --- | ---: |
+| Canada minified | 0.998x |
+| Canada pretty | 1.010x |
+| Twitter minified | 1.016x |
+| Twitter pretty | 1.049x |
+| CITM minified | 1.024x |
+| CITM pretty | 1.019x |
+| GitHub Events minified | 1.024x |
+| GitHub Events pretty | 1.011x |
+| Poet minified | 1.106x |
+| Poet pretty | 1.058x |
+| GSOC minified | 1.072x |
+| GSOC pretty | 1.032x |
+| Lottie minified | 1.010x |
+| Lottie pretty | 1.007x |
+| OTFCC minified | 0.995x |
+| FGO minified | 1.015x |
+
+No row exceeds the 5% regression guard. Seven-pair complete-phase controls on
+Twitter, CITM, GSOC and Poet keep parse and stringify within 1.0% while
+validation improves 1.029x, 1.027x, 1.063x and 1.092x respectively. The full
+matrix still has twelve V8 validation rows outside the native +20% latency
+budget, so this is retained progress rather than a parity claim.
+
+Exact runtime commit `41fc1b1` passes 123,891 normal and 77,928 strict/RFC
+checks across NAIVE, SWAR and SIMD, 1,416 transform regressions, eleven
+benchmark-tooling tests, typecheck, lint and diff checks. Artifacts under
+`build/simdjson-parity/`: runs `keyscalar4base001/` and
+`keyscalar80000001/`, comparisons `keyscalar8-validation-v8/` and
+`keyscalar8-{twitter,citm-catalog-min,gsoc-2018-min,poet-min}/`.
