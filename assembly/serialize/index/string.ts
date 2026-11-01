@@ -20,6 +20,7 @@ export function serializeString(src: string): void {
   }
 }
 
+@inline
 export function serializeStringPointer(src: usize): void {
   const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
   if (JSON_MODE == JSONMode.SIMD) {
