@@ -34,6 +34,10 @@ import { u16_to_hex4_swar } from "../../util/swar";
 export function serializeString_SIMD(src: string): void {
   let srcStart = changetype<usize>(src);
   const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
+  serializeStringRange_SIMD(srcStart, srcSize);
+}
+
+export function serializeStringRange_SIMD(srcStart: usize, srcSize: u32): void {
   const srcEnd = srcStart + srcSize;
   bs.proposeSize(srcSize + 4);
   const dstStart = bs.offset;

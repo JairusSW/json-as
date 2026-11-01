@@ -42,6 +42,7 @@ import {
   serializeJsonArray,
   serializeRaw,
   serializeString,
+  serializeStringPointer,
   serializeArrayBufferUnsafe,
   serializeDynamic,
   serializeTypedArray,
@@ -3078,6 +3079,18 @@ export namespace JSON {
       return;
     }
     serializeString(data as string);
+  }
+
+  /** Pointer-only entry for transform-generated fields whose owner is rooted. */
+  @inline
+  function __serializeStringPointer(data: usize): void {
+    if (data == 0) {
+      bs.proposeSize(8);
+      store<u64>(bs.offset, NULL_WORD_U64);
+      bs.offset += 8;
+      return;
+    }
+    serializeStringPointer(data);
   }
 
   /** Internal direct entry for generated non-nullable concrete object fields. */

@@ -12,6 +12,10 @@ import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 export function serializeString_SWAR(src: string): void {
   let srcStart = changetype<usize>(src);
   const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
+  serializeStringRange_SWAR(srcStart, srcSize);
+}
+
+export function serializeStringRange_SWAR(srcStart: usize, srcSize: u32): void {
   const srcEnd = srcStart + srcSize;
   bs.proposeSize(srcSize + 4);
   const dstStart = bs.offset;

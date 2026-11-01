@@ -3,6 +3,13 @@ import { describe, expect } from "as-test";
 import { bs } from "../../lib/as-bs";
 import { serializeString } from "../serialize/index/string";
 
+@json
+class GeneratedStringFields {
+  first: string = "";
+  maybe: string | null = null;
+  last: string = "";
+}
+
 function checkString(src: string, expected: string): void {
   expect(JSON.stringify<string>(src)).toBe(expected);
   expect(JSON.stringify(JSON.Value.from(src))).toBe(expected);
@@ -172,4 +179,32 @@ describe("String fallback keeps long copied prefixes when output grows", () => {
       ).toBe(true);
     }
   }
+});
+
+describe("Generated string fields stay live across output growth", () => {
+  const value = new GeneratedStringFields();
+  value.first = "a".repeat(8192) + "\nfirst";
+  value.maybe = "中".repeat(4096) + '"maybe';
+  value.last = "z".repeat(8192) + "\\last";
+  __collect();
+
+  const expected =
+    '{"first":' +
+    JSON.stringify<string>(value.first) +
+    ',"maybe":' +
+    JSON.stringify<string>(value.maybe!) +
+    ',"last":' +
+    JSON.stringify<string>(value.last) +
+    "}";
+  expect(JSON.stringify(value)).toBe(expected);
+
+  value.maybe = null;
+  __collect();
+  expect(JSON.stringify(value)).toBe(
+    '{"first":' +
+      JSON.stringify<string>(value.first) +
+      ',"maybe":null,"last":' +
+      JSON.stringify<string>(value.last) +
+      "}",
+  );
 });

@@ -1029,3 +1029,27 @@ from 0.974× to 1.050×. No row on any backend crosses the 5% regression guard.
 All RFC preflight and 64 changing-input validation oracles pass. The exact
 source passes 123,360 normal and 77,676 strict/RFC checks across all three
 modes, plus transform regressions, typecheck, lint and diff checks.
+
+### Retained pointer entry for generated string fields, 2026-11-01
+
+Transform-generated object serializers now pass a string field's data pointer
+to the shared writer while the containing object remains rooted. This removes
+the managed-string shadow-stack frame from each generated field call without
+changing the public string API, escape rules, buffer growth or output ownership.
+The same range entry is available in NAIVE, SWAR and SIMD; there is no schema,
+field-name, length or corpus selector.
+
+Five balanced pairs across all 16 classic layouts show no SIMD row beyond the
+5% regression guard in V8 or default w2c2. GitHub-events stringification
+improves 1.039x/1.067x for minified input and 1.060x/1.081x for pretty input.
+Poet improves 1.011x/1.063x minified and 1.009x/1.036x pretty. FGO's zero-schema
+control improves 1.005x/1.021x, and OTFCC measures 0.995x/1.009x. The largest
+stringify tradeoff is pretty CITM at 0.967x in V8 and 0.982x in default w2c2.
+Checked-w2c2 controls improve GitHub by 1.066x minified and 1.034x pretty;
+CITM improves 1.039x minified and 1.002x pretty.
+
+Every complete owned-output and retention oracle passes. A dedicated regression
+forces collection and output growth around long escaped, nullable generated
+string fields in every mode. The exact source passes 123,366 normal and 77,676
+strict/RFC checks across all three modes, plus transform regressions, typecheck,
+lint and diff checks.

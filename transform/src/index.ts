@@ -260,7 +260,7 @@ function getSerializeCall(type: string, realName: string): string {
     type == "String | null"
   ) {
     return syncSerializeCursor(
-      `JSON.__serializeString<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
+      `JSON.__serializeStringPointer(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
     );
   }
 
