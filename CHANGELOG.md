@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(strict): classify long checked UTF-16 string runs through one packed SIMD byte vector after an exact first pair.
+
 - perf(strings): overlap reserved SIMD clean-string stores with escape classification.
 
 - perf(strings): classify two UTF-16 vectors together in clean runs using signed saturation and full-width surrogate checks.

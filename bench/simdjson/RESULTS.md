@@ -3533,3 +3533,60 @@ reverted.
 
 Artifacts under `build/simdjson-parity/`: runs `unrlbase00000001/` and
 `unrlcand00000001/`, and comparison `intarray-unroll-citm-v8/`.
+
+## Retained packed suffix classifier for checked strings
+
+The shared checked SIMD string scanner keeps its first thirty-two physical
+bytes on the established exact UTF-16 classifier. Once that pair is proven
+clean, later pairs use signed saturation to pack sixteen code units into one
+byte vector for shared quote, backslash and control checks. Ordinary positive
+Unicode saturates above the control range; U+8000..FFFF is a conservative hit
+and resumes in the exact one-vector loop. Short strings therefore preserve the
+old entry behavior, while long clean strings amortize fewer comparisons and
+mask operations. The rule is shared by validation, typed parsing, dynamic
+parsing and checked raw/lazy traversal, with no corpus, schema or value signal.
+
+The initial packed-from-entry form improves GSOC validation 10--12% and GitHub
+3--4% but confirms a 4.2% Poet-pretty loss over eleven balanced pairs. It is
+rejected. Moving the packed classifier behind one exact pair preserves those
+long-run gains while restoring the short-string workload.
+
+Seven balanced V8 pairs across all sixteen classic validation layouts pass
+every RFC preflight and all 64 changing-input oracles. Candidate / baseline
+SIMD throughput:
+
+| Layout | Ratio |
+| --- | ---: |
+| Canada minified / pretty | 1.045x / 1.029x |
+| Twitter minified / pretty | 1.028x / 1.017x |
+| CITM minified / pretty | 1.005x / 0.999x |
+| GitHub Events minified / pretty | 1.032x / 1.054x |
+| Poet minified / pretty | 0.990x / 0.977x |
+| GSOC minified / pretty | 1.124x / 1.103x |
+| Lottie minified / pretty | 0.999x / 1.008x |
+| OTFCC / FGO minified | 1.022x / 1.019x |
+
+No layout exceeds the 3% regression guard. The V8 validation target still has
+ten gaps, so this is broad progress rather than parity completion. Seven-pair
+complete-phase controls on Twitter, CITM, GSOC and Poet keep parse and
+stringify within 1.3%; every label passes twenty complete owned-output and
+retention comparisons.
+
+Five balanced full-matrix w2c2 pairs pass the same RFC and 64-input oracles.
+No checked or default row regresses beyond 2.4%. Checked execution improves
+Poet 1.080--1.082x and GSOC 1.085--1.096x; default execution improves Poet
+1.135--1.151x, GSOC 1.113--1.124x, GitHub 1.051--1.059x and Twitter
+1.034--1.041x. SIMD alone gates native parity; NAIVE and SWAR code are
+unchanged by the compile-time mode branch.
+
+The exact retained source passes 123,891 normal and 77,928 strict/RFC checks
+across NAIVE, SWAR and SIMD, 1,416 transform regressions and eleven benchmark-
+tooling tests. Typecheck, lint, formatting and diff checks pass. Recompiling the
+formatted source produces a byte-identical qualified SIMD validation artifact.
+
+Artifacts under `build/simdjson-parity/`: rejected entry candidate
+`narrowcand0000001/` and comparisons `input-narrow-full-v8{,-11}/`; retained
+candidate `narrowsufx0000001/`, comparisons
+`input-narrow-suffix-full-{v8,w2c2}/`; complete-phase runs
+`nsfx{base,cand}00000001/` and comparisons
+`input-narrow-suffix-{twitter,citm,gsoc,poet}-v8/`.

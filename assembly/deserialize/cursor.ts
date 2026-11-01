@@ -66,7 +66,9 @@ function hex(code: u16): i32 {
 @inline
 function plainStringEnd(ptr: usize, end: usize): usize {
   if (JSON_MODE == JSONMode.SIMD) {
-    while (ptr + 32 <= end) {
+    // Keep the first pair exact so short strings pay no narrowing setup. Long
+    // clean runs amortize the packed classifier below after this first block.
+    if (ptr + 32 <= end) {
       const first = v128.load(ptr);
       const firstSpecial = v128.or(
         v128.or(
@@ -83,7 +85,30 @@ function plainStringEnd(ptr: usize, end: usize): usize {
         ),
         i16x8.lt_u(second, i16x8.splat(32)),
       );
-      if (v128.any_true(v128.or(firstSpecial, secondSpecial))) break;
+      if (v128.any_true(v128.or(firstSpecial, secondSpecial))) {
+        const firstMask = i16x8.bitmask(firstSpecial);
+        if (firstMask) return ptr + ((<usize>ctz(firstMask)) << 1);
+        const secondMask = i16x8.bitmask(secondSpecial);
+        return ptr + 16 + ((<usize>ctz(secondMask)) << 1);
+      }
+      ptr += 32;
+    }
+    while (ptr + 32 <= end) {
+      const first = v128.load(ptr);
+      const second = v128.load(ptr + 16);
+      // Pack sixteen UTF-16 units into one byte vector. ASCII is exact,
+      // ordinary positive Unicode saturates above the control range and
+      // U+8000..FFFF saturates negative. The latter is a conservative event:
+      // the exact one-vector loop below verifies it before acting.
+      const bytes = i8x16.narrow_i16x8_s(first, second);
+      const special = v128.or(
+        v128.or(
+          i8x16.eq(bytes, i8x16.splat(34)),
+          i8x16.eq(bytes, i8x16.splat(92)),
+        ),
+        i8x16.lt_s(bytes, i8x16.splat(32)),
+      );
+      if (v128.any_true(special)) break;
       ptr += 32;
     }
     while (ptr + 16 <= end) {
@@ -377,6 +402,7 @@ function skipCursorStringEscape(ptr: usize, end: usize): usize {
   return ptr + 2;
 }
 
+
 @inline
 export function skipCursorString(start: usize, end: usize): usize {
   if (start >= end || load<u16>(start) != 34) return 0;
@@ -417,6 +443,7 @@ function skipCursorKey(start: usize, end: usize): usize {
   }
   return 0;
 }
+
 
 @inline
 function skipCursorColon(ptr: usize, end: usize): usize {
