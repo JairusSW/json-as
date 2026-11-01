@@ -3293,3 +3293,21 @@ or less frequently crossed boundary.
 
 Artifacts under `build/simdjson-parity/`: profile `wsoutline-profile.wasm`, run
 `wsoutline00000001/` and comparison `wsoutline-validation-v8/`.
+
+## Rejected outlined multi-whitespace continuation
+
+A narrower code-size prototype keeps zero and one whitespace unit inline, then
+calls a shared continuation only after a second consecutive whitespace unit is
+proven. Compact JSON and the ordinary single space after a colon avoid the call;
+the existing long-space SIMD helper remains unchanged. The optimized profiled
+CITM validation body shrinks from 1,672 to 1,331 WAT lines.
+
+Five balanced V8 pairs pass every RFC preflight and all 64 changing-input
+oracles. Compact Canada improves 1.144x, compact Lottie 1.056x and compact CITM
+1.020x. However, ordinary pretty indentation crosses the outlined boundary too
+often: Canada-pretty falls to 0.913x, Poet-pretty to 0.906x,
+Lottie-pretty to 0.941x, and twelve SIMD/SWAR rows exceed the 3% guard. The
+prototype is reverted rather than selecting by layout.
+
+Artifacts under `build/simdjson-parity/`: profile `wstail-profile.wasm`, run
+`wstail00000000001/` and comparison `wstail-validation-v8/`.
