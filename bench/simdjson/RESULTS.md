@@ -2268,3 +2268,49 @@ Artifacts under `build/simdjson-parity/`: runs
 `{shortbase00000001,fieldstr000000001}/`, comparisons `fieldstr-*`, rejected
 long-string runs `longscan000000001/` and `comparisons/longscan-gsoc-min/`, and
 the exploratory `shortstr*` and `shortinl*` artifacts.
+
+## Canonical SIMD string event masks
+
+The exceptional SIMD string loop now retains one event bit per UTF-16 unit.
+Previously, each `i16x8` ASCII comparison set both constituent byte bits, so a
+quote, backslash or control character was visited twice and counted twice in
+the worst-case growth reservation. The canonical mask keeps the low-byte bit
+for ASCII escapes and the high-byte bit for conservative surrogate candidates.
+This is a representation-level optimization shared by every SIMD string; it
+does not recognize a corpus, schema, field, string value or length.
+
+Seven alternating fresh-process V8 pairs compare equal-length frozen
+`fieldstr000000001` and `lanemask000000001` artifacts. Every layout passes
+twenty complete retained-output comparisons. Candidate / baseline SIMD
+stringify throughput:
+
+| Layout | V8 |
+| --- | ---: |
+| CITM minified | 1.002x |
+| CITM pretty | 1.003x |
+| GSOC minified | 1.043x |
+| GSOC pretty | 1.034x |
+| Twitter minified | 1.017x |
+| GitHub events minified | 1.028x |
+| Poet minified | 1.040x |
+| Root short-string control | 1.009x |
+
+No parse, stringify or validation row exceeds the 5% regression guard. Five
+latest-main w2c2 pairs independently report 1.018x GSOC stringify with runtime
+checks and 1.037x without them; their other phases remain within 1%.
+
+Two related hypotheses were rejected and reverted. Compacting blocks with
+multiple ASCII escapes through one scalar cursor measured 1.005x on GSOC and
+0.997x on GitHub, so grouped expansion needs a genuinely vectorized algorithm
+to justify its complexity. Routing Map keys through the pointer-only string
+entry measured 1.009x on GSOC and 0.998x on CITM, below the acceptance
+threshold. The accepted result instead removes provably redundant event work.
+
+Focused string tests pass 40,585 checks across all modes. Exact commit
+`da6cfd6` passes 123,636 normal and 77,919 strict/RFC checks across NAIVE, SWAR
+and SIMD; transform regressions, typecheck, lint and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`: runs
+`{fieldstr000000001,lanemask000000001}/`, comparisons `lanemask-*`, rejected
+grouped-escape run `groupesc000000001/` and comparisons `groupesc-*`, and
+rejected Map-key run `mapkeypt000000001/` and comparisons `mapkeypt-*`.
