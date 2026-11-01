@@ -2949,11 +2949,11 @@ comparisons `keyscalar32-validation-v8/` and
 ## Retained outer bounds proof for checked SIMD keys
 
 The thirty-two-unit entry previously repeated a tail-bounds comparison before
-each two-unit scalar block. A single sixty-four-byte outer guard now proves the
-entire unrolled entry safe, allowing the optimized SIMD artifact to omit those
-dependent checks. Keys near the document boundary fall back to the established
-bounded scanner. The change remains SIMD-only and selects no corpus, schema,
-key name or value.
+each two-unit scalar block. A single sixty-four-byte outer guard established a
+proof for the entire unrolled entry while retaining the source-level inner
+guards. Keys near the document boundary fall back to the established bounded
+scanner. The change remains SIMD-only and selects no corpus, schema, key name or
+value.
 
 Five balanced fresh-process V8 pairs compare equal-length frozen
 `keybase32val00001` and `keyguardval000001` artifacts across all sixteen
@@ -3186,3 +3186,59 @@ restored.
 
 Artifacts under `build/simdjson-parity/`: run `keyrange000000001/` and
 comparison `keyrange-validation-v8/`.
+
+## Retained explicit SIMD key bounds elimination
+
+Profiles of the retained head confirm that checked key traversal is a broad
+cost rather than a Twitter-specific one: `skipCursorKey` accounts for 35.2% of
+Twitter validation samples and 32.2% of CITM samples. The sixty-four-byte outer
+proof described above was present, but the profiled optimized Wasm still
+contained the repeated source-level four-byte bounds branches. The unrolled
+SIMD entry now relies explicitly on its outer proof. Keys within sixty-four
+bytes of the document end still use the established bounded scanner.
+
+This removes all sixteen redundant source guards and reduces unsigned `le_u`
+operations in the optimized profiled key function from nineteen to four. The
+normalized SWAR validation Wasm remains byte-identical to the retained baseline;
+the change is compile-time SIMD-only and has no corpus, schema, key-name or
+value selector.
+
+Five balanced fresh-process V8 pairs compare frozen `valcommit00000001` and
+`keynoguard0000001` artifacts across all sixteen classic validation layouts.
+Every RFC preflight and all 64 changing-input oracles pass. Candidate / baseline
+SIMD validation throughput:
+
+| Layout | Throughput |
+| --- | ---: |
+| Canada minified | 0.996x |
+| Canada pretty | 0.998x |
+| Twitter minified | 1.092x |
+| Twitter pretty | 1.090x |
+| CITM minified | 1.055x |
+| CITM pretty | 1.020x |
+| GitHub Events minified | 1.067x |
+| GitHub Events pretty | 1.041x |
+| Poet minified | 0.994x |
+| Poet pretty | 1.012x |
+| GSOC minified | 1.019x |
+| GSOC pretty | 1.031x |
+| Lottie minified | 1.004x |
+| Lottie pretty | 1.001x |
+| OTFCC minified | 1.021x |
+| FGO minified | 1.063x |
+
+No SIMD row regresses by 1%. OTFCC moves inside the native +20% latency
+boundary, reducing the current validation gap count from eleven to ten. Seven-
+pair complete-phase controls on Twitter, CITM, GSOC and Poet keep every parse
+and stringify row within 1.1% except for improvements: GSOC parse improves
+1.023x and stringify 1.026x. Their validation ratios are 1.105x, 1.066x,
+1.050x and 1.014x respectively. All complete owned-output and retention oracles
+pass.
+
+Exact runtime commit `c5df7e5` passes 123,891 normal and 77,928 strict/RFC
+checks across NAIVE, SWAR and SIMD, 1,416 transform regressions, eleven
+benchmark-tooling tests, typecheck, lint and diff checks. Artifacts under
+`build/simdjson-parity/`: profiles `citm-value-validate-profile*` and
+`otfcc-value-validate-profile100*`; run `keynoguard0000001/`; comparison
+`keynoguard-validation-v8/`; complete-phase runs `noguard{tw,ci,gs,po}0000001/`
+and comparisons `keynoguard-{twitter-min,citm-catalog-min,gsoc-2018-min,poet-min}/`.
