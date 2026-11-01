@@ -3516,3 +3516,20 @@ Both prototypes are reverted in full.
 Artifacts under `build/simdjson-parity/`: runs `quadbase00000001/`,
 `quadcand00000001/` and `tripcand00000001/`; comparisons
 `quad-{citm,poet,twitter}-min-v8/` and `digit-table-citm-v8-3way/`.
+
+## Rejected two-value integer-array unroll
+
+The shared wide-integer array writer was also unrolled by two, loading both
+values before formatting them. This removes half the loop branches and address
+calculations while retaining the established formatter, capacity bound and
+cursor semantics. It applies to every `i16[]`/`u16[]` and wider integer array.
+
+The same 2,145 focused checks pass across all three modes. Nine balanced V8
+pairs pass all twenty complete CITM output and retention comparisons. SIMD
+stringify changes from 183.95 to 183.29 microseconds, or 1.004x throughput;
+parse and validation controls move by 0.5%. V8 already eliminates enough of
+the loop machinery that duplicating the body is not material, so the unroll is
+reverted.
+
+Artifacts under `build/simdjson-parity/`: runs `unrlbase00000001/` and
+`unrlcand00000001/`, and comparison `intarray-unroll-citm-v8/`.
