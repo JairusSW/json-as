@@ -901,3 +901,22 @@ is the clearest gain at 1.066× on default w2c2; the largest measured slowdown
 is GSOC at 0.977× on that backend. No measured phase crosses the 5% regression
 guard. This is a transform-wide static dispatch rule, not a schema or corpus
 selector.
+
+### Retained two-vector clean SIMD string loop, 2026-11-01
+
+Process two adjacent 16-byte blocks per branch in the optimistic SIMD string
+serializer. Both blocks receive the same quote, backslash, control and Unicode
+candidate checks as before; the first candidate pair falls through to the
+existing one-vector and exceptional paths. This is a general clean-string loop
+change with no corpus, schema, field, length or content signature selector.
+
+An isolated GitHub-events serialization profile attributes 158 of 239 Wasm
+self samples to the shared string serializer. The payload has 752 strings
+averaging 50 UTF-16 units, with only five requiring JSON escapes. Six balanced
+SIMD pairs put V8 stringification at 1.030x GitHub and 1.081x GSOC, with the
+other five classic controls between 0.977x and 1.002x. Default w2c2 measures
+1.024x GitHub, 1.025x GSOC, 1.016x Lottie and 0.997x multilingual Poet. Every
+variant passes complete owned-output and retention oracles, and no measured
+phase crosses the 5% regression guard. The retained source passes all 123,360
+normal and 77,676 strict/RFC checks across NAIVE, SWAR and SIMD, plus transform
+regressions, typecheck and lint.

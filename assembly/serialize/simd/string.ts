@@ -39,6 +39,37 @@ export function serializeString_SIMD(src: string): void {
   const dstStart = bs.offset;
   let dst = dstStart + 2;
   do {
+    const srcEnd32Fast = srcEnd - 32;
+    while (srcStart <= srcEnd32Fast) {
+      const first = load<v128>(srcStart);
+      const second = load<v128>(srcStart, 16);
+      const firstSpecial = v128.or(
+        i16x8.eq(first, SPLAT_0022),
+        v128.or(
+          i16x8.eq(first, SPLAT_005C),
+          v128.or(
+            i16x8.lt_u(first, SPLAT_0020),
+            i8x16.gt_u(first, SPLAT_FFD8),
+          ),
+        ),
+      );
+      const secondSpecial = v128.or(
+        i16x8.eq(second, SPLAT_0022),
+        v128.or(
+          i16x8.eq(second, SPLAT_005C),
+          v128.or(
+            i16x8.lt_u(second, SPLAT_0020),
+            i8x16.gt_u(second, SPLAT_FFD8),
+          ),
+        ),
+      );
+      if (v128.any_true(v128.or(firstSpecial, secondSpecial))) break;
+      store<v128>(dst, first);
+      store<v128>(dst, second, 16);
+      srcStart += 32;
+      dst += 32;
+    }
+
     const srcEnd16Fast = srcEnd - 16;
 
     while (srcStart <= srcEnd16Fast) {

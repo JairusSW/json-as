@@ -1718,3 +1718,45 @@ results are recorded with the retained commit.
 
 Artifacts under `build/simdjson-parity/`:
 `runs/objectdirect01/` and `comparisons/objectdirect-*/`.
+
+## Retained two-vector clean SIMD string loop
+
+The post-object-dispatch GitHub-events red loop reproduces the remaining
+parity gap in 0.57 seconds: SIMD owned stringification takes 21.30 us versus
+3.79 us for native simdjson, while all forty complete output and retention
+comparisons pass. An isolated serialization-only V8 profile attributes 158 of
+239 Wasm self samples to the shared string serializer. The input contains 752
+strings averaging 50 UTF-16 units; only five require JSON escaping.
+
+The optimistic SIMD serializer now checks and copies two adjacent 16-byte
+blocks per loop branch. Both blocks use the established quote, backslash,
+control and Unicode candidate predicates. A candidate in either block exits to
+the unchanged one-vector and exceptional paths. The rule applies to every
+SIMD string and does not inspect corpus, schema, field, length or content
+signatures.
+
+Six balanced pairs compare equal-length frozen labels. Every variant/backend
+passes twenty complete owned-output and retention comparisons. SIMD stringify
+throughput, candidate / `7be2cb5`:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| GitHub events minified | 1.030x | 1.024x |
+| GSOC minified | 1.081x | 1.025x |
+| Lottie minified | 0.977x | 1.016x |
+| Poet minified | 0.991x | 0.997x |
+| Twitter minified | 1.002x | - |
+| CITM minified | 0.997x | - |
+| Canada minified | 0.992x | - |
+
+No measured parse, stringify or validation row crosses the 5% regression
+guard. Focused string, escape, fuzz, tail and exhaustive surrogate-boundary
+coverage passes 53,737 checks across NAIVE, SWAR and SIMD. The GitHub row is
+still far outside the native +20% latency target; this is a retained local
+improvement, not a parity claim. The complete source passes all 123,360 normal
+and 77,676 strict/RFC checks across all three modes; transform regressions,
+typecheck, lint and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`:
+`github-profile-{v8.log,self.json}`, `runs/{githubprof001,stringunroll01}/`, and
+`comparisons/stringunroll-*/`.
