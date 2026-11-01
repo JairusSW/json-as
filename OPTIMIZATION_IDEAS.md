@@ -987,3 +987,26 @@ in default w2c2. GSOC is 1.009×/1.072×, Lottie 1.009×/1.000× and Canada
 crosses the 5% regression guard. The exact source passes 123,360 normal and
 77,676 strict/RFC checks across all three modes, plus transform regressions,
 typecheck, lint and diff checks.
+
+### Retained scalar entry for checked SIMD keys, 2026-11-01
+
+Check the first two UTF-16 code units of an object key directly before entering
+the wider clean-key event mask. Longer keys continue through the existing
+full-lane quote, backslash and control checks, and escaped or invalid keys keep
+the established checked path. This is a shared key-scanner rule with no corpus,
+schema or field selector; NAIVE and SWAR are unchanged.
+
+The motivating OTFCC input contains 5.86 million keys, while a complete
+16-layout validation screen supplies the generality control. Five balanced
+pairs show no SIMD row beyond the 5% regression guard in V8, checked w2c2 or
+default w2c2. Default w2c2 validation throughput improves 1.117× on OTFCC,
+1.023× on FGO, 1.042–1.047× on GSOC, 1.083–1.097× on Poet and 1.020× on
+GitHub events. OTFCC moves from 1.167× native latency to 1.045×, inside the
+1.2× target. V8 OTFCC improves 1.021× and checked w2c2 improves 1.040×; those
+two executions remain outside the native target. Canada and CITM trade back by
+at most 3.9% on default w2c2, without crossing the regression guard.
+
+All 64 changing validation inputs and RFC preflight checks pass on every
+measured backend. The exact source passes 123,360 normal and 77,676 strict/RFC
+checks across all three modes, plus transform regressions, typecheck, lint and
+diff checks.

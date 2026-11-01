@@ -122,11 +122,18 @@ function plainStringEnd(ptr: usize, end: usize): usize {
   return ptr;
 }
 
-// Keys are overwhelmingly short across ordinary object schemas. One scalar
-// word avoids vector lane reduction when their closing quote is in the first
-// four code units, then the regular SIMD scanner resumes for longer keys.
+// Keys are overwhelmingly short across ordinary object schemas. Check the
+// first two code units directly before paying for a wider event mask, then use
+// the regular SIMD scanner for longer keys.
 @inline
 function plainKeyEnd(ptr: usize, end: usize): usize {
+  if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    let code = load<u16>(ptr);
+    if (code == 34 || code == 92 || code < 32) return ptr;
+    code = load<u16>(ptr, 2);
+    if (code == 34 || code == 92 || code < 32) return ptr + 2;
+    ptr += 4;
+  }
   if (JSON_MODE == JSONMode.SIMD && ptr + 8 <= end) {
     const block = load<u64>(ptr);
     const quote = block ^ 0x0022_0022_0022_0022;
