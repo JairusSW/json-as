@@ -2674,3 +2674,31 @@ struct, nullable and production-safety checks across all modes.
 
 Artifacts under `build/simdjson-parity/`: run `nestzerx000000001/` and
 comparisons `nestzero-*`.
+
+## Rejected fresh Map-value zero initialization
+
+A follow-up applied the full-write zeroed-payload contract specifically to
+fresh generated objects stored as Map values. This covers CITM's
+`Map<string, CitmEvent>`: it avoids constructing default arrays that the
+generated complete parser immediately replaces, while optional types and every
+slow fallback keep normal initialization. Generic specialization resolves the
+capability per value type; there is no corpus or schema selector.
+
+Nine V8 pairs on CITM and seven on the controls compare equal-length
+`onestrxx000000001` and `mapzerox000000001` artifacts. All retained-output
+oracles pass. Candidate / baseline SIMD parse throughput:
+
+| Layout | Parse |
+| --- | ---: |
+| CITM minified | 1.000x |
+| GSOC minified | 0.996x |
+| Twitter minified | 1.001x |
+| Poet minified | 1.001x |
+
+The required Map, key, string and final-container allocations dominate; the
+temporary defaults are not measurable. Poet stringification also moved to
+0.981x despite being semantically untouched. The prototype was reverted after
+1,176 focused Map, GC and production-safety checks passed across all modes.
+
+Artifacts under `build/simdjson-parity/`: run `mapzerox000000001/` and
+comparisons `mapzero-*`.
