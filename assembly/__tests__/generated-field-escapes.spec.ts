@@ -18,6 +18,14 @@ class ReservedStringFields {
 
 
 @json
+class NullableReservedStringFields {
+  first: string | null = null;
+  second: string | null = null;
+  tail: i32 = 0;
+}
+
+
+@json
 class ArrayFields {
   values: string[] = [];
   tail: i32 = 0;
@@ -147,6 +155,26 @@ describe("Generated reserved strings retain their cursor across escape growth", 
   expect(decoded.first).toBe(value.first);
   expect(decoded.second).toBe(value.second);
   expect(decoded.tail).toBe(37);
+});
+
+describe("Generated nullable strings share reservations without reading null", () => {
+  const value = new NullableReservedStringFields();
+  value.first = null;
+  value.second = "\u0001".repeat(2048);
+  value.tail = 41;
+  let encoded = JSON.stringify(value);
+  let decoded = JSON.parse<NullableReservedStringFields>(encoded);
+  expect(decoded.first === null).toBe(true);
+  expect(decoded.second).toBe(value.second);
+  expect(decoded.tail).toBe(41);
+
+  value.first = "\\".repeat(2048);
+  value.second = null;
+  encoded = JSON.stringify(value);
+  decoded = JSON.parse<NullableReservedStringFields>(encoded);
+  expect(decoded.first).toBe(value.first);
+  expect(decoded.second === null).toBe(true);
+  expect(decoded.tail).toBe(41);
 });
 
 describe("Generated array fields preserve closing quotes after backslashes", () => {

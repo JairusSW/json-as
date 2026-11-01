@@ -3117,10 +3117,29 @@ export namespace JSON {
     return serializeStringPointerReservedAt(dst, data);
   }
 
+  /** Nullable counterpart for generated pre-reserved string fields. */
+  @inline
+  function __serializeNullableStringPointerReservedAt(
+    dst: usize,
+    data: usize,
+  ): usize {
+    if (data == 0) {
+      store<u64>(dst, NULL_WORD_U64);
+      return dst + 8;
+    }
+    return serializeStringPointerReservedAt(dst, data);
+  }
+
   /** Byte size used by generated object-level string capacity planning. */
   @inline
   function __stringByteSizePointer(data: usize): u32 {
     return changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize;
+  }
+
+  /** Non-null payload bytes; the fixed object bound already covers `null`. */
+  @inline
+  function __nullableStringByteSizePointer(data: usize): u32 {
+    return data == 0 ? 0 : changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize;
   }
 
   /** Internal direct entry for generated non-nullable concrete object fields. */

@@ -1759,7 +1759,6 @@ export class JSONTransform extends Visitor {
     const directStringMembers = this.schema.static
       ? this.schema.members.filter(
           (member) =>
-            !member.node.type.isNullable &&
             !member.flags.has(PropertyFlags.Lazy) &&
             isString(member.type) &&
             !defaultStringLiterals.has(member.name),
@@ -1799,10 +1798,12 @@ export class JSONTransform extends Visitor {
         }
         if (
           reserveDirectStringPayloads &&
-          !member.node.type.isNullable &&
           isString(member.type)
         ) {
-          return `__dst = JSON.__serializeStringPointerReservedAt(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+          const writer = member.node.type.isNullable
+            ? "__serializeNullableStringPointerReservedAt"
+            : "__serializeStringPointerReservedAt";
+          return `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
         }
         const resolvedType = stripNull(member.type);
         const resolvedSchema = this.getSchema(resolvedType);
@@ -4523,8 +4524,12 @@ export class JSONTransform extends Visitor {
     const directStringPayloadReserve = reserveDirectStringPayloads
       ? directStringMembers
           .map(
-            (member) =>
-              ` + JSON.__stringByteSizePointer(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`,
+            (member) => {
+              const size = member.node.type.isNullable
+                ? "__nullableStringByteSizePointer"
+                : "__stringByteSizePointer";
+              return ` + JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
+            },
           )
           .join("")
       : "";
