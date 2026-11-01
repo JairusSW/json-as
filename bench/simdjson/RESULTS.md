@@ -3330,3 +3330,30 @@ tail is restored.
 Artifacts under `build/simdjson-parity/`: runs
 `tailnarrow{tw,ci,gs,po}0001/` and comparisons
 `tailnarrow-{twitter-min,citm-catalog-min,gsoc-2018-min,poet-min}/`.
+
+## Rejected upstream-main w2c2 replacement
+
+The current local w2c2 backend includes the retained constant-load lowering at
+`a1c6f7e`. To test whether newer general upstream work supersedes it, clean
+upstream main `c6f15cb` was configured separately and passed all 22 CTest
+targets. Both translators then compiled the exact same frozen
+`keynoguard0000001` SIMD validation Wasm with GCC 16.2, the same SIMDe revision,
+host adapter, optimization flags, and checked/unchecked policies.
+
+Five balanced process pairs pass every RFC preflight and all 64 changing-input
+oracles on both backends. Upstream main is broadly slower. Under default
+unchecked execution its candidate / retained-backend throughput is only
+0.652x/0.690x on Twitter, 0.937x/0.940x on CITM, 0.514x/0.538x on GitHub
+Events, 0.510x/0.513x on Poet, 0.384x/0.400x on GSOC, 0.831x/0.885x on
+Lottie, 0.951x on OTFCC and 0.819x on FGO. Canada is neutral at
+1.012x/0.990x. Checked execution is also slower on every layout, with the
+largest losses on GitHub Events, Poet and GSOC.
+
+Latest upstream main therefore does not replace the retained w2c2 backend or
+close the json-as/native gaps. The experiment changes runtime code generation
+only; no json-as runtime source is retained from it.
+
+Artifacts under `build/simdjson-parity/`: upstream checkout
+`w2c2-upstream-main/`, translator build `w2c2-host-upstream-main/`, frozen
+backend run `keyupmain00000001/`, and comparison
+`w2c2-upstream-main-validation/`.
