@@ -2363,3 +2363,37 @@ comparisons `signsatx-*` and `signmask-*`, and profile artifacts
 `lane-mask2-{serialize-v8.log,serialize-run.log,self-profile.py,self-profile.json}`
 plus `runs/laneprof000000001/`; rejected outline artifacts are
 `runs/coldoutx000000001/` and comparisons `coldoutx-*`.
+
+## Rejected parsed-string provenance
+
+A generated-object prototype retained the exact managed string reference for
+each unescaped strict input token. When that reference still matched the field
+at serialization time, a reduced SIMD writer checked only surrogate pairing
+instead of rescanning for quotes, backslashes and controls. Escaped input,
+nullable values, legacy/reuse parsing and reassigned fields used the complete
+writer. The marker was a traced reference rather than a raw pointer so allocator
+address reuse could not forge identity. Selection depended only on parser
+provenance and object identity; it contained no corpus or schema signature.
+
+Seven alternating V8 pairs compare equal-length frozen `signsatx000000001` and
+`rawprv3x000000001` artifacts. Every variant passes twenty complete retained-
+output comparisons. Candidate / baseline SIMD throughput:
+
+| Layout | Parse | Stringify |
+| --- | ---: | ---: |
+| GSOC minified | 0.966x | 1.003x |
+| GitHub events minified | 0.965x | 1.039x |
+| Twitter minified | 0.973x | 1.012x |
+| Poet minified | 0.976x | 0.962x |
+| CITM minified | 1.005x | 0.997x |
+
+The extra object slots, marker stores and GC links consistently cost parsing
+throughput, while the reduced scan produced only one material win and regressed
+Poet stringification. The runtime prototype and its focused correctness tests
+were therefore reverted. This rejects per-field managed provenance; future
+round-trip work must avoid expanding every parsed object or adding write
+barriers to the parse path.
+
+Artifacts under `build/simdjson-parity/`: successful run
+`rawprv3x000000001/`, comparisons `rawprov-*`, and the preserved failed build
+attempts `rawprovx000000001/` and `rawprv2x000000001/`.
