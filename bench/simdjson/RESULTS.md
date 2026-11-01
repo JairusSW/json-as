@@ -3242,3 +3242,20 @@ benchmark-tooling tests, typecheck, lint and diff checks. Artifacts under
 `otfcc-value-validate-profile100*`; run `keynoguard0000001/`; comparison
 `keynoguard-validation-v8/`; complete-phase runs `noguard{tw,ci,gs,po}0000001/`
 and comparisons `keynoguard-{twitter-min,citm-catalog-min,gsoc-2018-min,poet-min}/`.
+
+## Rejected four-unit word mask for checked keys
+
+A follow-up prototype replaces the guard-free scalar key entry with the
+existing checked SWAR event mask over four UTF-16 units at a time. It preserves
+the same sixty-four-byte outer proof and scalar verification of candidates, but
+trades the scalar comparison branches for packed arithmetic and one mask branch
+per word.
+
+Five balanced V8 pairs pass every RFC preflight and all 64 changing-input
+oracles. Canada-minified improves 1.087x, but fifteen SIMD layouts regress more
+than 3%. Twitter falls to 0.799x/0.815x, CITM to 0.810x/0.890x, Poet to
+0.799x/0.850x, and OTFCC to 0.829x. The packed arithmetic costs more than the
+guard-free scalar checks on V8 and is reverted in full.
+
+Artifacts under `build/simdjson-parity/`: run `keyword6400000001/` and
+comparison `keyword64-validation-v8/`.
