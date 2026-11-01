@@ -5,7 +5,8 @@ import { __heap_base, heap } from "memory";
 const SHRINK_EVERY_N_MASK: usize = 255; // check every 256 outputs
 const MIN_BUFFER_SIZE: usize = 1024;
 const MAX_RETAINED_STAGING_SIZE: usize = 8 * 1024 * 1024;
-const MIN_OWNED_OUTPUT_SIZE: usize = 8 * 1024 * 1024;
+const LARGE_OWNED_OUTPUT_SIZE: usize = 8 * 1024 * 1024;
+const MIN_OWNED_OUTPUT_SIZE: usize = 64 * 1024;
 
 // Exponential moving average smoothing factor (0.0 to 1.0)
 // Higher values = more responsive to recent sizes, lower = more stable
@@ -125,9 +126,12 @@ export namespace bs {
       ownedHint = 0;
       return;
     }
-    // A little bounded slack covers ordinary changing values and lengths
-    // without making large retained results carry a large percentage of waste.
-    ownedHint = len + min<usize>(max<usize>(len >> 4, 64), 1 << 20);
+    // Medium outputs need only enough slack to absorb ordinary length changes;
+    // retain the established larger allowance for very large outputs.
+    ownedHint =
+      len < LARGE_OWNED_OUTPUT_SIZE
+        ? len + min<usize>(max<usize>(len >> 6, 64), 64 * 1024)
+        : len + min<usize>(max<usize>(len >> 4, 64), 1 << 20);
   }
 
   function finishOwned<T>(): T {

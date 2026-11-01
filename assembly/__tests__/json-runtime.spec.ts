@@ -185,6 +185,12 @@ describe("Should keep direct owned outputs independent across size changes", () 
   value.text = "first";
   const first = JSON.stringify(value);
 
+  value.text = "m".repeat(40_000);
+  const medium = JSON.stringify(value);
+
+  value.text = "n".repeat(42_000);
+  const grownMedium = JSON.stringify(value);
+
   value.text = "x".repeat(4_500_000);
   const large = JSON.stringify(value);
 
@@ -192,6 +198,10 @@ describe("Should keep direct owned outputs independent across size changes", () 
   const third = JSON.stringify(value);
 
   expect(first).toBe('{"text":"first"}');
+  expect(medium.length.toString()).toBe("40011");
+  expect(medium.charCodeAt(9).toString()).toBe("109");
+  expect(grownMedium.length.toString()).toBe("42011");
+  expect(grownMedium.charCodeAt(9).toString()).toBe("110");
   expect(large.length.toString()).toBe("4500011");
   expect(third).toBe('{"text":"third"}');
   expect(
