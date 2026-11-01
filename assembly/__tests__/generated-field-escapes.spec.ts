@@ -10,6 +10,12 @@ class TextValue {
 
 
 @json
+class NullableTextValue {
+  text: string | null = null;
+}
+
+
+@json
 class ReservedStringFields {
   first: string = "";
   second: string = "";
@@ -143,6 +149,23 @@ describe("Generated objects share direct string capacity reservations", () => {
         "}",
     );
   }
+});
+
+describe("Generated objects reserve a single string field with escape growth", () => {
+  const value = new TextValue();
+  value.text = "\u0001".repeat(2048);
+  const encoded = JSON.stringify(value);
+  const decoded = JSON.parse<TextValue>(encoded);
+  expect(decoded.text).toBe(value.text);
+});
+
+describe("Generated objects reserve a single nullable string field", () => {
+  const value = new NullableTextValue();
+  expect(JSON.stringify(value)).toBe('{"text":null}');
+  value.text = "\\".repeat(2048);
+  const encoded = JSON.stringify(value);
+  const decoded = JSON.parse<NullableTextValue>(encoded);
+  expect(decoded.text).toBe(value.text);
 });
 
 describe("Generated reserved strings retain their cursor across escape growth", () => {

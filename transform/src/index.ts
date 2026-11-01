@@ -1764,9 +1764,10 @@ export class JSONTransform extends Visitor {
             !defaultStringLiterals.has(member.name),
         )
       : [];
-    // One field merely moves its existing reservation into the object header.
-    // Two or more fields amortize the single capacity check.
-    const reserveDirectStringPayloads = directStringMembers.length >= 2;
+    // Fold every direct string payload into the object's existing reservation.
+    // Even one field removes its separate capacity check and keeps the output
+    // cursor local across the field boundary without changing the total bound.
+    const reserveDirectStringPayloads = directStringMembers.length >= 1;
     const wideIntegerArrayCandidates = this.schema.static
       ? this.schema.members.filter((member) => {
           if (

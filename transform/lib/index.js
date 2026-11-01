@@ -1123,7 +1123,7 @@ export class JSONTransform extends Visitor {
                 isString(member.type) &&
                 !defaultStringLiterals.has(member.name))
             : [];
-        const reserveDirectStringPayloads = directStringMembers.length >= 2;
+        const reserveDirectStringPayloads = directStringMembers.length >= 1;
         const wideIntegerArrayCandidates = this.schema.static
             ? this.schema.members.filter((member) => {
                 if (member.flags.has(PropertyFlags.Lazy) ||
