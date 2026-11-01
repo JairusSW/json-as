@@ -21,6 +21,34 @@ verified balanced order. Those observations and correctness results remain
 saved, but performance qualification needs corrected-order reruns. The latest
 whitespace results below use the fixed scheduler and still fail their gates.
 
+## 2026-11-01 profile refresh and negative screens
+
+Isolated named-Wasm profiles on accepted head `96871ca` change the next
+optimization priority:
+
+- Twitter stringify spends 19.2% of whole-process samples in the shared SIMD
+  string writer and 8.7% in the generated `Status` writer. Its generated writer
+  is 11,742 Wasm bytes. A four-vector/64-byte clean-string loop regressed
+  stringify 1.77% in 15 alternating pairs; a packed surrogate-candidate check
+  was also neutral-negative. The existing paired 32-byte loop remains best.
+- Twitter validation spends 20.7% of samples in `skipCursorKey`, 4.2% in
+  literal recognition and 32.0% in the inlined grammar loop. Fusing key and
+  colon recognition won 12/16 matrix rows but regressed Canada by 1.9%/7.1%.
+  Caching the top container lost all 16 rows, and literal inlining won only six.
+- CITM fresh parsing is allocator-bound: TLSF insert/remove plus `__new` account
+  for 25.7% of samples before GC/linking costs. A fixed 16-element fresh-array
+  capacity and both global and cursor-only slot-helper inlining produced mixed
+  corpus results, including confirmed Twitter-pretty regressions. Field-level
+  capacity knowledge or a lower-allocation construction strategy is required;
+  a global fixed hint is not justified.
+
+All screens used changing rotated inputs, retained independent outputs and
+alternating fresh V8 processes. Rejected candidates were reverted. The
+checkout already uses `xjb-as` 0.2.0 buffered dtoa/ftoa, including the algorithm
+under AssemblyScript PR 3025; there is no older formatter integration to
+replace. Profile artifacts are
+`build/simdjson-parity/{twitter-serialize,twitter-validate,canada-validate,citm-parse}-profile*`.
+
 ## Formatter experiment
 
 xjb-as baseline: `3c33c7ba818e7feb71cf915cd95d23cb182d94e8` (unpublished 0.2.0).
