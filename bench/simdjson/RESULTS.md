@@ -3275,3 +3275,21 @@ not justify broad compact-layout losses, so the original predicate is restored.
 
 Artifacts under `build/simdjson-parity/`: run `spacefirst0000001/` and
 comparison `spacefirst-validation-v8/`.
+
+## Rejected outlined checked-whitespace scanner
+
+Removing the forced-inline annotation from the shared checked-whitespace
+scanner reduces the optimized profiled CITM validation body from 1,672 to 936
+WAT lines and leaves seven calls to one shared scanner. This tests whether
+instruction-cache savings outweigh transition-call overhead without changing
+grammar or workload selection.
+
+Five balanced V8 pairs pass every RFC preflight and all 64 changing-input
+oracles. Canada-minified SIMD improves 1.093x, but the call boundary regresses
+most other layouts: Twitter-pretty falls to 0.843x, GitHub-pretty to 0.890x,
+Lottie-pretty to 0.907x and OTFCC to 0.946x. Twenty-six SIMD/SWAR rows exceed
+the 3% guard. The scanner remains inlined; future code-size work needs a colder
+or less frequently crossed boundary.
+
+Artifacts under `build/simdjson-parity/`: profile `wsoutline-profile.wasm`, run
+`wsoutline00000001/` and comparison `wsoutline-validation-v8/`.
