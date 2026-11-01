@@ -2769,3 +2769,31 @@ across all modes.
 
 Artifacts under `build/simdjson-parity/`: run `mapcurxx000000001/` and
 comparisons `mapcursor-*`.
+
+## Rejected staged fresh-Map bucket construction
+
+A fresh string-key Map prototype appended entries plus their already-computed
+hashes without building bucket chains or invoking runtime rehash at each growth
+boundary. At the closing brace it allocated the final bucket array once,
+resolved duplicates in insertion order and restored the ordinary runtime Map
+layout. Staged entries remained traced through every allocation, and escaped
+keys safely finalized early into the established Map path. The algorithm was
+generic over every fresh string-key Map.
+
+Nine alternating V8 pairs compare equal-length `prehashx000000001` and
+`mapstage000000001` artifacts. All retained-output oracles pass. Candidate /
+baseline SIMD throughput:
+
+| Layout | Parse | Stringify | Validate |
+| --- | ---: | ---: | ---: |
+| CITM minified | 1.007x | 1.015x | 0.998x |
+| GSOC minified | 0.996x | 0.995x | 0.995x |
+
+After fused key hashing, repeated runtime rehash is not a dominant remaining
+cost. The 0.7% CITM parse change does not justify a second temporary buffer,
+deferred duplicate resolution and duplicated Map-layout machinery, so the
+prototype was reverted. Hash-boundary, duplicate, multi-growth, Map, GC and
+production-safety suites passed across all modes before measurement.
+
+Artifacts under `build/simdjson-parity/`: run `mapstage000000001/` and
+comparisons `mapstage-*`.
