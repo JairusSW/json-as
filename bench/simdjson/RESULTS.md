@@ -3648,3 +3648,24 @@ level outline, so the extra cold call and function are reverted.
 
 Artifacts under `build/simdjson-parity/`: runs `strcoldbase0001/` and
 `strcoldcand0001/`, and comparison `string-cold-outline-gsoc-v8/`.
+
+## Rejected exact-sized fresh integer arrays
+
+Fresh checked integer arrays were prototyped with a flat delimiter-count pass,
+one exact-capacity allocation and direct element stores. JSON integer tokens
+cannot contain commas or closing brackets, while the ordinary checked number
+reader still proved every token and separator during the fill pass. Empty
+arrays retained their zero-capacity literal representation. This removed
+placeholder pushes, capacity checks, geometric reallocations and buffer copies
+for every SWAR/SIMD integer array without a corpus or value-width selector.
+
+Seven balanced V8 pairs on allocator-heavy CITM minified pass forty complete
+owned-output and retention comparisons per label. Candidate / baseline parse
+throughput is 0.993x SIMD and 0.992x SWAR; stringify controls are 0.989x and
+0.995x, and validation is effectively flat. The extra input traversal costs
+more than the eliminated growth for the corpus's actual array distribution, so
+the prototype is reverted. Focused array/integer coverage passed 894 checks and
+the strict public/target/empty-array suite passed 246 checks in both modes.
+
+Artifacts under `build/simdjson-parity/`: runs `arrcountbase0001/` and
+`arrcountcand0001/`, and comparison `fresh-integer-count-citm-v8/`.
