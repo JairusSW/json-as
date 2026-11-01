@@ -865,3 +865,23 @@ All exact owned-output comparisons pass and no phase crosses the 5% regression
 guard. The next generated-dispatch experiment should use the same rule: bypass
 only a statically redundant generic layer, while leaving allocation, custom
 hooks, nullable semantics and shared formatting kernels intact.
+
+### Retained direct generated string dispatch, 2026-11-01
+
+Apply that same static-dispatch rule to generated string fields. A small inline
+entry handles the established nullable `null` word and sends non-null values to
+the existing string kernel, bypassing only the generic type cascade. The rule
+is shared by all concrete `string`, `String` and nullable string fields and has
+no corpus, schema or value selector.
+
+Independent eight-pair confirmations show Twitter SIMD stringification at
+1.053× V8 and 1.415× default w2c2, and GitHub events at 1.086×/1.443×.
+CITM is 1.011×/1.048×. Four other classic families are neutral to mildly
+positive overall, with individual ratios from 0.990× to 1.027×. Exact owned
+outputs pass and no measured phase crosses the 5% regression guard.
+
+Do not replace the integer-array indexed load with an explicit pointer/end
+loop. wasm-opt already emits a compact shifted index, and the candidate moves
+CITM stringification to 0.994× V8 and 0.981× default w2c2 despite removing a
+source-level multiply. Keep generated code inspection subordinate to paired
+public-API measurements.

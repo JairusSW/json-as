@@ -140,6 +140,12 @@ function getSerializeCall(type, realName) {
     if (type.startsWith("Array<") && !type.includes("| null")) {
         return syncSerializeCursor(`JSON.__serializeArray<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
     }
+    if (type == "string" ||
+        type == "String" ||
+        type == "string | null" ||
+        type == "String | null") {
+        return syncSerializeCursor(`JSON.__serializeString<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
+    }
     if (type == "ArrayBuffer") {
         return syncSerializeCursor(`JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
     }

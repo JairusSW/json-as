@@ -1646,3 +1646,43 @@ typecheck, lint, formatting and diff checks pass.
 Artifacts under `build/simdjson-parity/`:
 `postelem-serialize-profile/`, `runs/{eleminline0001,arraydirect001}/`, and
 `comparisons/arraydirect-*-002/` (plus the independent CITM comparison).
+
+## Retained direct generated string dispatch
+
+Generated serializers now route concrete `string`, `String` and their nullable
+forms through a small inline string entry. The entry preserves the established
+`null` word and delegates non-null values to the same string kernel; it only
+removes the generic primitive/custom/reference/container type cascade. This
+rule applies to every generated string field and does not inspect its schema,
+value, length or source corpus.
+
+Six balanced process pairs compare equal-length frozen labels in V8 and default
+w2c2. Twitter and GitHub events additionally use independent eight-pair
+confirmations because their default-w2c2 gains are unusually large. Every
+variant/backend passes twenty complete owned-output comparisons. SIMD stringify
+throughput, candidate / `823eef1`:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| CITM minified | 1.011× | 1.048× |
+| Canada minified | 1.005× | 1.012× |
+| Twitter minified, confirmation | 1.053× | 1.415× |
+| GitHub events minified, confirmation | 1.086× | 1.443× |
+| Poet minified | 0.990× | 1.027× |
+| GSOC minified | 0.991× | 1.004× |
+| Lottie minified | 1.000× | 0.993× |
+
+No measured phase crosses the 5% regression guard. The focused string,
+nullable, custom and struct suite passes 5,490 checks across all three modes.
+The retained source passes 123,360 normal and 77,676 strict/RFC checks across
+NAIVE, SWAR and SIMD. Transform tests, typecheck, lint, formatting and diff
+checks pass.
+
+A separate integer-array pointer/end loop is rejected. Replacing the optimized
+indexed address with an explicit advancing source pointer moves CITM SIMD
+stringify throughput to 0.994× V8 and 0.981× default w2c2. Exact outputs pass,
+so this is a measured code-generation loss rather than a correctness failure.
+
+Artifacts under `build/simdjson-parity/`:
+`postarray-serialize-profile/`, `runs/{arraydirect001,stringdirect01,arrayptr000001}/`,
+and `comparisons/{stringdirect-*,integerptr-citm-001}/`.

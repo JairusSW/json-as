@@ -3068,6 +3068,18 @@ export namespace JSON {
     serializeArray<T>(data);
   }
 
+  /** Internal direct entry for transform-generated string fields. */
+  @inline
+  function __serializeString<T>(data: T): void {
+    if (isNullable<T>() && changetype<usize>(data) == <usize>0) {
+      bs.proposeSize(8);
+      store<u64>(bs.offset, NULL_WORD_U64);
+      bs.offset += 8;
+      return;
+    }
+    serializeString(data as string);
+  }
+
   /** Materialize a deferred field while retaining its source for descendants. */
   function __deserializeLazy<T>(
     srcStart: usize,
