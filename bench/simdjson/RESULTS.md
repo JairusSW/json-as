@@ -3590,3 +3590,25 @@ candidate `narrowsufx0000001/`, comparisons
 `input-narrow-suffix-full-{v8,w2c2}/`; complete-phase runs
 `nsfx{base,cand}00000001/` and comparisons
 `input-narrow-suffix-{twitter,citm,gsoc,poet}-v8/`.
+
+## Rejected managed-string escape metadata
+
+A general prototype cached a complete managed string's JSON escape class in
+two collector-header bits. Repeated clean strings could then emit with one
+`memory.copy` instead of rescanning. The accompanying incremental and minimal
+runtime prototype preserved the metadata through list operations and handled
+the valid static object at header address 12, whose encoded next pointer is
+otherwise indistinguishable from zero. The full string-tail as-test module then
+completed under forced incremental collection.
+
+Six balanced V8 pairs on string-heavy GSOC minified pass twenty complete owned-
+output and retention comparisons per label. With the same experimental runtime
+on both labels, SIMD stringify changes from 520.86 to 535.31 microseconds, or
+0.973x baseline throughput. Parse and validation controls are 1.001x. V8's
+existing paired SIMD scan/copy is cheaper here than a metadata branch followed
+by bulk memory copy, even after the first emission has classified every long
+string. The json-as and AssemblyScript runtime prototypes are therefore fully
+reverted rather than introducing a compiler/runtime compatibility dependency.
+
+Artifacts under `build/simdjson-parity/`: runs `metabase0000001/` and
+`metags000000001/`, and comparison `metadata-gsoc-2018-min/`.
