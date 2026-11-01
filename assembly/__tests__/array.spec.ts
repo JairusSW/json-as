@@ -515,6 +515,11 @@ class GeneratedArrayFields {
   leaves: GeneratedArrayLeaf[] = [];
 }
 
+@json
+class GeneratedIntegerArrayField {
+  numbers: i64[] = [];
+}
+
 describe("Generated array fields stay live across output growth", () => {
   const owner = new GeneratedArrayFields();
   const first = "a".repeat(8192) + "\nfirst";
@@ -534,6 +539,19 @@ describe("Generated array fields stay live across output growth", () => {
     "z".repeat(8192) +
     '\\\\leaf"}]}';
   expect(JSON.stringify(owner)).toBe(expected);
+
+  const integerOwner = new GeneratedIntegerArrayField();
+  const count = 2048;
+  integerOwner.numbers = new Array<i64>(count);
+  integerOwner.numbers.fill(1234567890123);
+  __collect();
+
+  const actualIntegers = JSON.stringify(integerOwner);
+  const expectedIntegers =
+    '{"numbers":[' +
+    "1234567890123,".repeat(count - 1) +
+    "1234567890123]}";
+  expect(actualIntegers).toBe(expectedIntegers);
 });
 
 // ─── Naive array success paths ───────────────────────────────────────────────

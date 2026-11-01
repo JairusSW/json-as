@@ -297,8 +297,8 @@ function serializeI8ArrayFast(src: i8[]): void {
 // layout as the specialized float paths. Keeping the output cursor local
 // avoids two global `bs.offset` accesses per value, while reading dataStart
 // directly removes the Array.__uget call left in the generic array loop.
-function serializeIntegerArrayFast<T extends number[]>(src: T): void {
-  const len = src.length;
+function serializeIntegerArrayFast<T extends number[]>(src: usize): void {
+  const len = load<i32>(src, offsetof<T>("length_"));
   bs.proposeSize(4 + <u32>len * (maxIntegerBytes<valueof<T>>() + 2));
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
@@ -309,7 +309,7 @@ function serializeIntegerArrayFast<T extends number[]>(src: T): void {
   }
 
   ensureItoaPairs();
-  const dataStart = src.dataStart;
+  const dataStart = load<usize>(src, offsetof<T>("dataStart"));
   const stride = sizeof<valueof<T>>();
   let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
@@ -377,7 +377,7 @@ export function serializeArray<T extends any[]>(src: T): void {
   }
   if (isInteger<valueof<T>>()) {
     // u8[] and i8[] returned through their lookup-table paths above.
-    serializeIntegerArrayFast<T>(src);
+    serializeIntegerArrayFast<T>(changetype<usize>(src));
     return;
   }
   if (isString<valueof<T>>() && !isNullable<valueof<T>>()) {
@@ -434,4 +434,17 @@ export function serializeArray<T extends any[]>(src: T): void {
   serializeArrayElement<valueof<T>>(lastBlock);
   store<u16>(bs.offset, BRACKET_RIGHT);
   bs.offset += 2;
+}
+
+/**
+ * Pointer-only entry for transform-generated array fields whose containing
+ * object remains rooted for the entire serialization call.
+ */
+@inline
+export function serializeArrayPointer<T extends any[]>(src: usize): void {
+  if (isInteger<valueof<T>>() && sizeof<valueof<T>>() > 1) {
+    serializeIntegerArrayFast<T>(src);
+    return;
+  }
+  serializeArray<T>(changetype<T>(src));
 }

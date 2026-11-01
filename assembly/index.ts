@@ -21,6 +21,7 @@ import {
 import { OBJECT, OBJECT_MAXSIZE, TOTAL_OVERHEAD } from "rt/common";
 import {
   serializeArray,
+  serializeArrayPointer,
   serializeMap,
   serializeDate,
   serializeArbitrary,
@@ -3072,7 +3073,7 @@ export namespace JSON {
   /** Pointer-only entry for generated array fields whose owner is rooted. */
   @inline
   function __serializeArrayPointer<T extends any[]>(data: usize): void {
-    serializeArray<T>(changetype<T>(data));
+    serializeArrayPointer<T>(data);
   }
 
   /** Internal direct entry for transform-generated string fields. */
