@@ -2455,3 +2455,32 @@ Artifacts under `build/simdjson-parity/`: runs
 `{signltxx000000001,signlt2x000000001,own64kbx00000001,own16kbx00000001,midstrxx000000001}/`,
 comparisons `signlt-*`, `signlt2-*`, `own16kb-*`, `midstr-*`, and the preserved
 first 100-operation Unicode candidate inside `signltxx000000001/`.
+
+## Rejected checked integer-array cursor specialization
+
+A checked-cursor prototype recognized integer arrays once at the array boundary
+and called the established signed or unsigned SWAR cursor reader directly for
+each element. This removed the generic `readCursorValue<valueof<T>>` call from
+the source while preserving the same strict leading-zero checks, destination
+stores and returned cursors. It applied to every checked SWAR/SIMD integer array
+and contained no corpus, schema or value signature.
+
+Seven alternating V8 pairs compare equal-length frozen `signltxx000000001` and
+`intcurxx000000001` artifacts. Every variant passes twenty complete retained-
+output comparisons. Candidate / baseline SIMD parse throughput:
+
+| Layout | Parse |
+| --- | ---: |
+| CITM minified | 0.997x |
+| GSOC minified | 1.007x |
+| Twitter minified | 1.024x |
+| Poet minified | 0.990x |
+
+The primary integer-array workload did not improve, and the cross-corpus result
+was mixed. The generated Wasm/compiler already appears to eliminate enough of
+the generic specialization overhead that duplicating the array loop is not
+worth its code size. The prototype was reverted.
+
+Focused strict cursor-array, nested-array and empty-array tests pass. The normal
+integer suite passes 525 checks across NAIVE, SWAR and SIMD. Artifacts under
+`build/simdjson-parity/`: run `intcurxx000000001/` and comparisons `intcur-*`.
