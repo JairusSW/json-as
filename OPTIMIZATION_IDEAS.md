@@ -920,3 +920,21 @@ variant passes complete owned-output and retention oracles, and no measured
 phase crosses the 5% regression guard. The retained source passes all 123,360
 normal and 77,676 strict/RFC checks across NAIVE, SWAR and SIMD, plus transform
 regressions, typecheck and lint.
+
+### Retained two-vector checked SIMD input scan, 2026-11-01
+
+Process two adjacent 16-byte blocks per branch in the shared checked UTF-16
+string scanner. Each block uses the same full-lane quote, backslash and control
+checks as the existing loop, and the first event still enters the established
+scalar escape/tail path. The scanner is shared by standalone validation,
+generated typed parsing, dynamic parsing, object keys and checked raw/lazy
+traversal; it has no corpus, schema or value-shape selector.
+
+Balanced five-pair SIMD screens show the largest gains on GSOC: owned parse is
+1.073× baseline in V8 and 1.050× in default w2c2, while validation is 1.097×
+and 1.110×. GitHub validation is 1.050×/1.020× and Lottie is 1.015×/0.974×.
+The numeric-heavy Canada control validates at 1.044×/0.974× and parses at
+0.992×/0.999×. No measured phase crosses the 5% regression guard, and every
+variant passes complete owned-output and retention comparisons. The retained
+source passes all 123,360 normal and 77,676 strict/RFC checks across NAIVE,
+SWAR and SIMD, plus transform regressions, typecheck, lint and diff checks.

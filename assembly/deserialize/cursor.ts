@@ -66,6 +66,29 @@ function hex(code: u16): i32 {
 @inline
 function plainStringEnd(ptr: usize, end: usize): usize {
   if (JSON_MODE == JSONMode.SIMD) {
+    while (ptr + 32 <= end) {
+      const first = v128.load(ptr);
+      const firstSpecial = v128.or(
+        v128.or(
+          i16x8.eq(first, i16x8.splat(34)),
+          i16x8.eq(first, i16x8.splat(92)),
+        ),
+        i16x8.lt_u(first, i16x8.splat(32)),
+      );
+      const firstMask = i16x8.bitmask(firstSpecial);
+      if (firstMask) return ptr + ((<usize>ctz(firstMask)) << 1);
+      const second = v128.load(ptr + 16);
+      const secondSpecial = v128.or(
+        v128.or(
+          i16x8.eq(second, i16x8.splat(34)),
+          i16x8.eq(second, i16x8.splat(92)),
+        ),
+        i16x8.lt_u(second, i16x8.splat(32)),
+      );
+      const secondMask = i16x8.bitmask(secondSpecial);
+      if (secondMask) return ptr + 16 + ((<usize>ctz(secondMask)) << 1);
+      ptr += 32;
+    }
     while (ptr + 16 <= end) {
       const block = v128.load(ptr);
       const special = v128.or(

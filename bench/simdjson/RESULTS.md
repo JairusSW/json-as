@@ -1760,3 +1760,36 @@ typecheck, lint and diff checks also pass.
 Artifacts under `build/simdjson-parity/`:
 `github-profile-{v8.log,self.json}`, `runs/{githubprof001,stringunroll01}/`, and
 `comparisons/stringunroll-*/`.
+
+## Retained two-vector checked SIMD input scan
+
+The shared checked UTF-16 scanner now checks two adjacent 16-byte blocks per
+loop branch. Both blocks use the existing full-lane quote, backslash and
+control predicates. The first event exits to the unchanged one-vector and
+escape/tail handling. This applies uniformly to validation, generated typed
+parsing, dynamic parsing, keys and checked raw/lazy traversal; it does not
+select a corpus, schema, field, string length or content signature.
+
+Five balanced process pairs compare equal-length frozen labels in V8 and
+default w2c2. Every variant/backend passes twenty complete owned-output and
+retention comparisons. Candidate / `baa109c` SIMD throughput:
+
+| Layout and phase | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| GSOC parse-owned | 1.073× | 1.050× |
+| GSOC validate | 1.097× | 1.110× |
+| GitHub events parse-owned | 0.965× | 1.055× |
+| GitHub events validate | 1.050× | 1.020× |
+| Lottie parse-owned | 0.995× | 0.993× |
+| Lottie validate | 1.015× | 0.974× |
+| Canada parse-owned | 0.992× | 0.999× |
+| Canada validate | 1.044× | 0.974× |
+
+No measured parse, stringify or validation row crosses the 5% regression
+guard. The complete retained source passes all 123,360 normal and 77,676
+strict/RFC checks across NAIVE, SWAR and SIMD; transform regressions,
+typecheck, lint and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`:
+`runs/{stringunroll01,inputunroll001}/` and
+`comparisons/inputunroll{gh,gw,lt,lw,gs,gsw,ca}*/`.
