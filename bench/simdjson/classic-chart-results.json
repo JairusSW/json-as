@@ -1,0 +1,64 @@
+{
+  "simdjson": {
+    "version": "5.0.4",
+    "commit": "3b0b2b53aaffb46208817821dce2cd47a5e6bb2a"
+  },
+  "jsonAsRevision": "c7f06e0ae68a5ee6693eb819ebee679575b9b570",
+  "measurement": {
+    "label": "cursor-space001",
+    "backend": "native",
+    "pairs": 6,
+    "operationsPerSample": 100,
+    "inputRotation": 4,
+    "outputs": "owned",
+    "selection": "median latency across six balanced process pairs",
+    "throughput": "mean rotating-input bytes divided by median latency"
+  },
+  "results": {
+    "twitter": {
+      "inputBytes": 466907.5,
+      "deserialize": { "medianNs": 884500, "mbps": 527.8773318258903 },
+      "serialize": { "medianNs": 47960, "mbps": 9735.352376980818 }
+    },
+    "canada": {
+      "inputBytes": 2090235.5,
+      "deserialize": { "medianNs": 2649355, "mbps": 788.9601431291767 },
+      "serialize": { "medianNs": 1770895, "mbps": 1180.3271791947009 }
+    },
+    "citm_catalog": {
+      "inputBytes": 500300.5,
+      "deserialize": { "medianNs": 624320, "mbps": 801.352671706817 },
+      "serialize": { "medianNs": 50400, "mbps": 9926.597222222223 }
+    },
+    "poet": {
+      "inputBytes": 3298456.5,
+      "deserialize": { "medianNs": 2209100, "mbps": 1493.122312253859 },
+      "serialize": { "medianNs": 161760, "mbps": 20391.051557863502 }
+    },
+    "github_events": {
+      "inputBytes": 53330.5,
+      "deserialize": { "medianNs": 66025, "mbps": 807.731919727376 },
+      "serialize": { "medianNs": 3800, "mbps": 14034.342105263158 }
+    },
+    "gsoc-2018": {
+      "inputBytes": 3069959.5,
+      "deserialize": { "medianNs": 1695600, "mbps": 1810.5446449634348 },
+      "serialize": { "medianNs": 210060, "mbps": 14614.679139293536 }
+    },
+    "lottie": {
+      "inputBytes": 288930.5,
+      "deserialize": { "medianNs": 487805, "mbps": 592.3073769231557 },
+      "serialize": { "medianNs": 24195, "mbps": 11941.744162016945 }
+    },
+    "otfcc": {
+      "inputBytes": 66408809.5,
+      "deserialize": { "medianNs": 89044940, "mbps": 745.7898169171657 },
+      "serialize": { "medianNs": 2977660, "mbps": 22302.347984659096 }
+    },
+    "fgo": {
+      "inputBytes": 48765044.5,
+      "deserialize": { "medianNs": 43733195, "mbps": 1115.057898239541 },
+      "serialize": { "medianNs": 2443990, "mbps": 19953.045838976428 }
+    }
+  }
+}
