@@ -2892,3 +2892,56 @@ Artifacts under `build/simdjson-parity/`: runs `keyscalar{08,16}val001/`,
 `keyscalar16-validation-v8/`, `keyscalar16-twitter-fresh/` and
 `keyscalar16-{citm-catalog-min,gsoc-2018-min,poet-min}/`; profile files
 `twitter-key8-validate-profile*` and run `twitterkey8prof1/`.
+
+## Retained thirty-two-unit scalar entry for checked SIMD keys
+
+A complete decoded-key census confirms that the next interval is broadly
+relevant: Twitter has 3,818 keys longer than sixteen units, CITM 909, GSOC
+1,264 and FGO 46,171. Poet and nearly all Lottie keys terminate in the already
+established short entry. A post-sixteen-unit Twitter profile still attributes
+34.3% of samples to `skipCursorKey`.
+
+The checked SIMD key scanner now extends its exact scalar event checks through
+the first thirty-two UTF-16 units before entering the wider scanner. Earlier
+keys return at the same comparison as before. Longer, escaped, invalid and
+bounded-tail keys keep the shared checked path. This changes only SIMD code and
+contains no corpus, schema, key-name or value selector.
+
+Five balanced fresh-process V8 pairs compare equal-length frozen
+`keyscalar16val002` and `keyscalar32val001` artifacts across all sixteen
+classic validation layouts. Every RFC preflight and all 64 changing-input
+oracles pass. Candidate / baseline SIMD validation throughput:
+
+| Layout | Throughput |
+| --- | ---: |
+| Canada minified | 1.028x |
+| Canada pretty | 1.020x |
+| Twitter minified | 1.027x |
+| Twitter pretty | 1.037x |
+| CITM minified | 1.018x |
+| CITM pretty | 1.018x |
+| GitHub Events minified | 1.017x |
+| GitHub Events pretty | 1.011x |
+| Poet minified | 1.014x |
+| Poet pretty | 1.020x |
+| GSOC minified | 1.028x |
+| GSOC pretty | 1.016x |
+| Lottie minified | 1.018x |
+| Lottie pretty | 1.010x |
+| OTFCC minified | 1.000x |
+| FGO minified | 1.002x |
+
+No layout regresses and fourteen improve 1.0–3.7% by median. Seven-pair
+complete-phase controls keep every parse/stringify row within 0.6%; Twitter,
+CITM, GSOC and Poet validation ratios are 1.035x, 0.994x, 1.008x and 0.998x.
+The complete matrix is authoritative over those narrower canaries. Twelve V8
+validation layouts remain outside the native +20% budget, so the overall goal
+is still incomplete.
+
+Exact runtime commit `2fbcdb5` passes 123,891 normal and 77,928 strict/RFC
+checks across NAIVE, SWAR and SIMD, plus typecheck, lint and diff checks.
+Artifacts under `build/simdjson-parity/`: runs `keyscalar16val002/`,
+`keyscalar32val001/`, `keyscalar16000001/` and `keyscalar32000001/`;
+comparisons `keyscalar32-validation-v8/` and
+`keyscalar32-{twitter,citm-catalog-min,gsoc-2018-min,poet-min}/`; profile files
+`twitter-key16-validate-profile*` and run `twitterkey16prof/`.
