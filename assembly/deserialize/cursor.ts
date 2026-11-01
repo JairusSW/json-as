@@ -18,7 +18,32 @@ export function isCursorWhitespace(code: u16): bool {
 
 @inline
 export function skipCursorWhitespace(ptr: usize, end: usize): usize {
-  while (ptr < end && isCursorWhitespace(load<u16>(ptr))) ptr += 2;
+  while (ptr < end && isCursorWhitespace(load<u16>(ptr))) {
+    ptr += 2;
+    if (
+      JSON_MODE != JSONMode.NAIVE &&
+      ptr + 8 <= end &&
+      load<u64>(ptr) == 0x0020_0020_0020_0020
+    ) {
+      ptr = skipCursorSpaces(ptr + 8, end);
+    }
+  }
+  return ptr;
+}
+
+// Only entered after four consecutive spaces have been proven. Keep long
+// indentation out of the inlined zero/short-whitespace grammar transitions.
+function skipCursorSpaces(ptr: usize, end: usize): usize {
+  if (JSON_MODE == JSONMode.SIMD) {
+    while (
+      ptr + 16 <= end &&
+      !v128.any_true(v128.xor(v128.load(ptr), i16x8.splat(32)))
+    ) {
+      ptr += 16;
+    }
+  }
+  while (ptr + 8 <= end && load<u64>(ptr) == 0x0020_0020_0020_0020) ptr += 8;
+  while (ptr < end && load<u16>(ptr) == 32) ptr += 2;
   return ptr;
 }
 
@@ -50,8 +75,8 @@ function plainStringEnd(ptr: usize, end: usize): usize {
         ),
         i16x8.lt_u(block, i16x8.splat(32)),
       );
-      const mask = i8x16.bitmask(special);
-      if (mask) return ptr + <usize>ctz(mask);
+      const mask = i16x8.bitmask(special);
+      if (mask) return ptr + ((<usize>ctz(mask)) << 1);
       ptr += 16;
     }
   } else if (JSON_MODE == JSONMode.SWAR) {
@@ -75,6 +100,27 @@ function plainStringEnd(ptr: usize, end: usize): usize {
     ptr += 2;
   }
   return ptr;
+}
+
+// Keys are overwhelmingly short across ordinary object schemas. One scalar
+// word avoids vector lane reduction when their closing quote is in the first
+// four code units, then the regular SIMD scanner resumes for longer keys.
+@inline
+function plainKeyEnd(ptr: usize, end: usize): usize {
+  if (JSON_MODE == JSONMode.SIMD && ptr + 8 <= end) {
+    const block = load<u64>(ptr);
+    const quote = block ^ 0x0022_0022_0022_0022;
+    const slash = block ^ 0x005c_005c_005c_005c;
+    const control = block & 0xffe0_ffe0_ffe0_ffe0;
+    const mask =
+      (((quote - 0x0001_0001_0001_0001) & ~quote) |
+        ((slash - 0x0001_0001_0001_0001) & ~slash) |
+        ((control - 0x0001_0001_0001_0001) & ~control)) &
+      0x0080_0080_0080_0080;
+    if (mask) return ptr + (usize(ctz(mask)) >> 3);
+    ptr += 8;
+  }
+  return plainStringEnd(ptr, end);
 }
 
 
@@ -181,8 +227,74 @@ export function readCursorString(
   return next;
 }
 
+function skipCursorStringEscape(ptr: usize, end: usize): usize {
+  if (ptr >= end) return 0;
+  const escape = load<u16>(ptr);
+  if (escape == 117) {
+    if (
+      ptr + 10 > end ||
+      (hex(load<u16>(ptr, 2)) |
+        hex(load<u16>(ptr, 4)) |
+        hex(load<u16>(ptr, 6)) |
+        hex(load<u16>(ptr, 8))) <
+        0
+    )
+      return 0;
+    return ptr + 10;
+  }
+  if (
+    escape != 34 &&
+    escape != 92 &&
+    escape != 47 &&
+    escape != 98 &&
+    escape != 102 &&
+    escape != 110 &&
+    escape != 114 &&
+    escape != 116
+  )
+    return 0;
+  return ptr + 2;
+}
+
+@inline
 export function skipCursorString(start: usize, end: usize): usize {
-  return <usize>(stringCursor(start, end, 0, false) >> 1);
+  if (start >= end || load<u16>(start) != 34) return 0;
+  let ptr = start + 2;
+  while (ptr < end) {
+    ptr = plainStringEnd(ptr, end);
+    if (ptr >= end) return 0;
+    const code = load<u16>(ptr);
+    if (code == 34) return ptr + 2;
+    if (code < 32) return 0;
+    if (code != 92) {
+      // A SWAR candidate may be an ordinary non-ASCII code unit.
+      ptr += 2;
+      continue;
+    }
+    ptr += 2;
+    ptr = skipCursorStringEscape(ptr, end);
+    if (!ptr) return 0;
+  }
+  return 0;
+}
+
+function skipCursorKey(start: usize, end: usize): usize {
+  if (start >= end || load<u16>(start) != 34) return 0;
+  let ptr = start + 2;
+  while (ptr < end) {
+    ptr = plainKeyEnd(ptr, end);
+    if (ptr >= end) return 0;
+    const code = load<u16>(ptr);
+    if (code == 34) return ptr + 2;
+    if (code < 32) return 0;
+    if (code != 92) {
+      ptr += 2;
+      continue;
+    }
+    ptr = skipCursorStringEscape(ptr + 2, end);
+    if (!ptr) return 0;
+  }
+  return 0;
 }
 
 /** Packed checked key: end cursor in bits 1..32, escape-presence flag in bit 0. */
@@ -393,7 +505,7 @@ export function skipCheckedValue(
       ptr += 2;
       needValue = true;
     } else if (state == 2 || state == 3) {
-      ptr = skipCursorString(ptr, end);
+      ptr = skipCursorKey(ptr, end);
       if (!ptr) return 0;
       ptr = skipCursorWhitespace(ptr, end);
       if (ptr >= end || load<u16>(ptr) != 58) return 0;
