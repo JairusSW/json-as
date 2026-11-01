@@ -3408,3 +3408,20 @@ Artifacts under `build/simdjson-parity/`: classic runs
 `prestore{tw,ci,gs,po}000001/`, comparisons `prestore-*-min-v8/` and
 `prestore-gsoc-min-w2c2*/`; diagnostic runs `prebase000000001/` and
 `precand000000001/`, and comparisons `prestore-string_*-v8/`.
+
+## Rejected speculative sixteen-byte tail store
+
+The same scheduling was tested in the shared sixteen-byte tail. That loop has
+additional ordinary-Unicode and surrogate-pair branches, so the prototype
+stores once before classification and removes their duplicate stores while
+retaining the complete exceptional rewrite path.
+
+All 13,529 focused SIMD string, tail and surrogate-block checks pass. Nine
+balanced V8 diagnostic pairs pass every complete output oracle. Clean-string
+stringification improves 1.007x and late-escape output is unchanged, but dense-
+escape stringification falls to 0.944x and its validation control to 0.963x.
+The regression guard fails, so speculative scheduling remains limited to the
+thirty-two-byte clean loop and the established sixteen-byte path is restored.
+
+Artifacts under `build/simdjson-parity/`: run `tailcand00000001/` and
+comparisons `tailstore-string_{clean,late,dense}-v8/`.
