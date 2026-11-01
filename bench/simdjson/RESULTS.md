@@ -2025,3 +2025,55 @@ transform regressions, typecheck, lint and diff checks also pass.
 Artifacts under `build/simdjson-parity/`: `runs/arrptr00000001/`,
 `comparisons/arrptr-*`, and the independent
 `arrptr-{lottie,twitter}-pretty-confirm` comparisons.
+
+## Pointer-only generated wide-integer array kernels
+
+The generated array-field pointer entry now sends `i16[]`/`u16[]` and wider
+integer arrays directly to the specialized integer writer. That writer reads
+Array layout through `offsetof<T>("length_")` and
+`offsetof<T>("dataStart")`, avoiding a managed conversion and its shadow-stack
+frame. The generated containing object is already rooted for the entire call.
+One-byte LUT arrays and other element types retain their existing paths. This
+is selected only by the compile-time element type; there is no corpus, schema,
+field-name, value or length recognition.
+
+Six balanced process pairs compare equal-length frozen `arrptr00000001` and
+`intptr00000001` artifacts on V8 and default w2c2. Every backend/variant passes
+twenty complete retained-output comparisons per layout, including OTFCC and
+FGO. Candidate / baseline SIMD stringify throughput:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| Canada minified | 0.993x | 1.002x |
+| Canada pretty | 1.012x | 1.009x |
+| Twitter minified | 1.000x | 1.028x |
+| Twitter pretty | 1.008x | 1.005x |
+| CITM minified | 1.082x | 1.237x |
+| CITM pretty | 1.079x | 1.213x |
+| GitHub events minified | 1.006x | 0.999x |
+| GitHub events pretty | 1.015x | 0.988x |
+| Poet minified | 0.995x | 1.019x |
+| Poet pretty | 1.003x | 0.998x |
+| GSOC minified | 1.007x | 1.034x |
+| GSOC pretty | 1.017x | 1.006x |
+| Lottie minified | 1.039x | 1.025x |
+| Lottie pretty | 1.000x | 1.005x |
+| OTFCC minified | 1.011x | 0.961x |
+| FGO minified | 1.054x | 1.000x |
+
+No parse, stringify or validation row exceeds the 5% regression guard. The
+largest intended win is CITM: 1.082x/1.237x minified and 1.079x/1.213x pretty.
+The profiling driver falls from 224.80 to 182.87 us/op in V8. Checked-w2c2
+controls report 1.162x CITM-minified stringify and 0.999x Lottie-pretty
+stringify. OTFCC and zero-schema FGO do not use the new generated kernel; their
+movement is retained as inactive-control noise rather than credited to it.
+
+A forced-collection regression grows the output while a 2,048-element `i64[]`
+is reachable only through its generated owner. The focused suite passes 816
+checks across all modes. The exact commit passes 123,372 normal and 77,676
+strict/RFC checks across NAIVE, SWAR and SIMD; transform regressions, typecheck,
+lint, benchmark-tooling tests and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`: `runs/intptr00000001/`,
+`comparisons/intptr-*`, and the profile-only
+`runs/{arrprof0000001,intarrptr0000001,rawintarr0000001}/` artifacts.

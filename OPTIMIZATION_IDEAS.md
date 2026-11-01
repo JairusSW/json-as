@@ -1030,6 +1030,54 @@ All RFC preflight and 64 changing-input validation oracles pass. The exact
 source passes 123,360 normal and 77,676 strict/RFC checks across all three
 modes, plus transform regressions, typecheck, lint and diff checks.
 
+### Pointer-only kernels for generated wide-integer arrays, 2026-11-01
+
+The generated array-field pointer entry now keeps `i16[]`/`u16[]` and wider
+integer arrays as raw pointers through the specialized integer-array writer.
+The kernel reads the standard Array `length_` and `dataStart` fields with
+`offsetof` instead of converting the pointer back to a managed local. The
+containing generated object remains rooted for the complete call, so this
+removes two redundant shadow-stack frames without changing formatting, array
+ownership, output growth or the public array API. One-byte lookup-table arrays
+and non-integer arrays retain their established paths. There is no corpus,
+schema, field-name, value or length selector.
+
+Six balanced process pairs compare equal-length frozen `arrptr00000001` and
+`intptr00000001` artifacts across all 16 classic layouts. No SIMD row regresses
+beyond the 5% guard in V8 or default w2c2, and every complete owned-output and
+retention oracle passes. Candidate / baseline stringify throughput:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| Canada minified | 0.993x | 1.002x |
+| Canada pretty | 1.012x | 1.009x |
+| Twitter minified | 1.000x | 1.028x |
+| Twitter pretty | 1.008x | 1.005x |
+| CITM minified | 1.082x | 1.237x |
+| CITM pretty | 1.079x | 1.213x |
+| GitHub events minified | 1.006x | 0.999x |
+| GitHub events pretty | 1.015x | 0.988x |
+| Poet minified | 0.995x | 1.019x |
+| Poet pretty | 1.003x | 0.998x |
+| GSOC minified | 1.007x | 1.034x |
+| GSOC pretty | 1.017x | 1.006x |
+| Lottie minified | 1.039x | 1.025x |
+| Lottie pretty | 1.000x | 1.005x |
+| OTFCC minified | 1.011x | 0.961x |
+| FGO minified | 1.054x | 1.000x |
+
+The source profile that motivated the change drops CITM stringify from 224.80
+to 182.87 us/op in V8. Checked-w2c2 controls report 1.162x CITM-minified
+stringify and 0.999x Lottie-pretty stringify, with no phase beyond the 5%
+guard. OTFCC and zero-schema FGO are inactive controls; their V8 movement is
+treated as layout/noise rather than attributed to this kernel.
+
+A dedicated regression forces collection and output growth while a 2,048-value
+`i64[]` remains reachable only through its generated owner. The focused array
+suite passes 816 checks across NAIVE, SWAR and SIMD. The exact committed source
+passes 123,372 normal and 77,676 strict/RFC checks across all three modes, plus
+transform regressions, typecheck, lint, benchmark-tooling and diff checks.
+
 ### Retained pointer entry for generated string fields, 2026-11-01
 
 Transform-generated object serializers now pass a string field's data pointer
