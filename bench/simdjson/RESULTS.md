@@ -3425,3 +3425,24 @@ thirty-two-byte clean loop and the established sixteen-byte path is restored.
 
 Artifacts under `build/simdjson-parity/`: run `tailcand00000001/` and
 comparisons `tailstore-string_{clean,late,dense}-v8/`.
+
+## Rejected fixed-object array reservation fusion
+
+CITM serializes many `Price` instances containing only fixed-width primitive
+fields. A transform prototype emits a reservation-free writer for every static,
+primitive-only generated class. The generic reference-array writer recognizes
+that capability, reserves the complete element bounds and punctuation once,
+then invokes the reservation-free body for each element. Variable strings,
+collections, nullable/optional fields and custom serializers retain their
+existing boundaries.
+
+Focused generated, custom and primitive-array suites pass 9,882 checks across
+all three modes, and nine balanced V8 pairs pass every complete CITM output and
+retention oracle. SIMD stringify changes only from 172.03 to 171.45 microseconds,
+or 1.003x throughput; parse and validation remain within 0.1%. Removing the
+repeated element capacity proposals is not a material part of the remaining
+CITM gap, so the additional generated-method and runtime-dispatch surface is
+reverted.
+
+Artifacts under `build/simdjson-parity/`: run `fixedobjci000001/` and
+comparison `fixedobj-citm-min-v8/`.
