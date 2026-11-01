@@ -2,6 +2,12 @@ import { JSON } from "..";
 import { describe, expect } from "as-test";
 import { bs } from "../../lib/as-bs";
 import { serializeString_NAIVE } from "../serialize/naive/string";
+import { OBJECT, STRING_SIZE_MASK, TOTAL_OVERHEAD } from "rt/common";
+
+function invalidateUnsafeStringMutation(value: string): void {
+  const object = changetype<OBJECT>(changetype<usize>(value) - TOTAL_OVERHEAD);
+  object.rtSize &= STRING_SIZE_MASK;
+}
 
 function scalar(src: string): string {
   serializeString_NAIVE(src);
@@ -17,6 +23,7 @@ describe("Vector string blocks agree with scalar output for every UTF-16 lane", 
     memory.copy(ptr, changetype<usize>(pattern), pattern.length << 1);
     for (let code: u32 = 0; code <= 0xffff; code++) {
       store<u16>(ptr + (lane << 1), <u16>code);
+      invalidateUnsafeStringMutation(probe);
       if (JSON.stringify(probe) != scalar(probe)) mismatches++;
     }
   }
@@ -50,6 +57,7 @@ describe("Packed Unicode scan checks the second vector for every UTF-16 unit", (
   memory.copy(ptr, changetype<usize>(pattern), pattern.length << 1);
   for (let code: u32 = 0; code <= 0xffff; code++) {
     store<u16>(ptr + ((8 + 15) << 1), <u16>code);
+    invalidateUnsafeStringMutation(probe);
     if (JSON.stringify(probe) != scalar(probe)) mismatches++;
   }
   const boundaries: u32[] = [
@@ -60,6 +68,7 @@ describe("Packed Unicode scan checks the second vector for every UTF-16 unit", (
     memory.copy(ptr, changetype<usize>(pattern), pattern.length << 1);
     for (let i = 0; i < boundaries.length; i++) {
       store<u16>(ptr + ((8 + lane) << 1), <u16>boundaries[i]);
+      invalidateUnsafeStringMutation(probe);
       if (JSON.stringify(probe) != scalar(probe)) mismatches++;
     }
   }
@@ -75,6 +84,7 @@ describe("Unicode scan continuation agrees with scalar output in every lane", ()
     memory.copy(ptr, changetype<usize>(pattern), pattern.length << 1);
     for (let code: u32 = 0; code <= 0xffff; code++) {
       store<u16>(ptr + ((lane + 8) << 1), <u16>code);
+      invalidateUnsafeStringMutation(probe);
       if (JSON.stringify(probe) != scalar(probe)) mismatches++;
     }
   }
