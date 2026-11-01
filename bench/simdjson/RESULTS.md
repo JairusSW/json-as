@@ -2844,3 +2844,51 @@ benchmark-tooling tests, typecheck, lint and diff checks. Artifacts under
 `build/simdjson-parity/`: runs `keyscalar4base001/` and
 `keyscalar80000001/`, comparisons `keyscalar8-validation-v8/` and
 `keyscalar8-{twitter,citm-catalog-min,gsoc-2018-min,poet-min}/`.
+
+## Retained sixteen-unit scalar entry for checked SIMD keys
+
+Post-eight-unit profiling still attributes 34.6% of Twitter validation samples
+to `skipCursorKey`. Extending the same exact UTF-16 scalar event checks through
+the first sixteen code units avoids mask setup and scalar-tail replay for more
+medium keys. Keys terminating earlier return at the same check as before;
+longer, escaped, invalid and bounded-tail keys keep the shared checked scanner.
+The path remains SIMD-only and has no corpus, schema, key-name or value rule.
+
+Five balanced fresh-process V8 pairs compare equal-length frozen
+`keyscalar08val001` and `keyscalar16val001` artifacts across all sixteen
+classic validation layouts. Every RFC preflight and all 64 changing-input
+oracles pass. Candidate / baseline SIMD validation throughput:
+
+| Layout | Throughput |
+| --- | ---: |
+| Canada minified | 0.995x |
+| Canada pretty | 1.001x |
+| Twitter minified | 1.012x |
+| Twitter pretty | 1.019x |
+| CITM minified | 1.105x |
+| CITM pretty | 1.091x |
+| GitHub Events minified | 1.024x |
+| GitHub Events pretty | 1.009x |
+| Poet minified | 0.992x |
+| Poet pretty | 0.990x |
+| GSOC minified | 1.000x |
+| GSOC pretty | 1.000x |
+| Lottie minified | 0.993x |
+| Lottie pretty | 0.997x |
+| OTFCC minified | 1.021x |
+| FGO minified | 1.072x |
+
+No layout exceeds the 5% regression guard; the largest loss is 1.0% and the
+largest gains are the two CITM layouts and FGO. Seven-pair complete-phase
+controls on Twitter, CITM, GSOC and Poet keep every parse/stringify phase within
+1.0%; their validation ratios are 1.012x, 1.090x, 1.015x and 0.997x. Twelve V8
+validation layouts remain outside the native +20% budget, so this is another
+general improvement rather than a parity claim.
+
+Exact runtime commit `9317ed7` passes 123,891 normal and 77,928 strict/RFC
+checks across NAIVE, SWAR and SIMD, plus typecheck, lint and diff checks.
+Artifacts under `build/simdjson-parity/`: runs `keyscalar{08,16}val001/`,
+`keyscalar8base001/` and `keyscalar16000001/`; comparisons
+`keyscalar16-validation-v8/`, `keyscalar16-twitter-fresh/` and
+`keyscalar16-{citm-catalog-min,gsoc-2018-min,poet-min}/`; profile files
+`twitter-key8-validate-profile*` and run `twitterkey8prof1/`.
