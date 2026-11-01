@@ -3691,3 +3691,23 @@ and RFC screen passed 2,365 checks before measurement.
 Artifacts under `build/simdjson-parity/`: validation runs
 `space4base000001/` and `space4cand000001/`, and comparison
 `space4-current-v8/`.
+
+## Rejected inlined generated clean-string scanner
+
+A generated-field prototype inlined the complete escape-free SIMD scan and
+copy into its containing object writer. Clean strings therefore avoided the
+shared string call and cursor boundary; a quote, backslash, control or
+surrogate replayed through the established complete writer. The same rule
+applied to every generated string field, independent of schema, field name,
+length distribution or corpus.
+
+Seven balanced V8 pairs on string-dominated GSOC minified pass twenty complete
+owned-output and retention comparisons per label. SIMD stringify changes from
+555.75 to 557.31 microseconds, or 0.997x baseline throughput. Parse is 1.002x
+and validation is 0.989x as inactive controls. The SIMD module grows from 89
+to 94 KiB because the clean loop is duplicated into generated writers, without
+removing measurable runtime overhead. The prototype is reverted. Focused
+string, dynamic-string and generated-struct coverage passed 1,587 checks.
+
+Artifacts under `build/simdjson-parity/`: runs `geninlinebase001/` and
+`geninlinecand001/`, and comparison `generated-clean-gsoc-v8/`.
