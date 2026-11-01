@@ -22,6 +22,8 @@ import { OBJECT, OBJECT_MAXSIZE, TOTAL_OVERHEAD } from "rt/common";
 import {
   serializeArray,
   serializeArrayPointer,
+  integerArrayReservedBytes,
+  serializeIntegerArrayPointerReservedAt,
   serializeMap,
   serializeDate,
   serializeArbitrary,
@@ -3076,6 +3078,23 @@ export namespace JSON {
   @inline
   function __serializeArrayPointer<T extends any[]>(data: usize): void {
     serializeArrayPointer<T>(data);
+  }
+
+  /** Dynamic part of a generated object's pre-reservation for a wide integer
+   * array. */
+  @inline
+  function __integerArrayReservedBytes<T extends number[]>(data: usize): u32 {
+    return integerArrayReservedBytes<T>(data);
+  }
+
+  /** Generated wide-integer array writer with capacity already reserved by
+   * its containing object. */
+  @inline
+  function __serializeIntegerArrayPointerReservedAt<T extends number[]>(
+    dst: usize,
+    data: usize,
+  ): usize {
+    return serializeIntegerArrayPointerReservedAt<T>(dst, data);
   }
 
   /** Internal direct entry for transform-generated string fields. */

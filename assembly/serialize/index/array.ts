@@ -1,1 +1,6 @@
-export { serializeArray, serializeArrayPointer } from "../naive/array";
+export {
+  serializeArray,
+  serializeArrayPointer,
+  integerArrayReservedBytes,
+  serializeIntegerArrayPointerReservedAt,
+} from "../naive/array";

@@ -1767,6 +1767,24 @@ export class JSONTransform extends Visitor {
     // One field merely moves its existing reservation into the object header.
     // Two or more fields amortize the single capacity check.
     const reserveDirectStringPayloads = directStringMembers.length >= 2;
+    const wideIntegerArrayCandidates = this.schema.static
+      ? this.schema.members.filter((member) => {
+          if (
+            member.flags.has(PropertyFlags.Lazy) ||
+            member.node.type.isNullable ||
+            !member.type.startsWith("Array<")
+          )
+            return false;
+          const element = member.type.slice(6, -1).trim();
+          return ["i16", "u16", "i32", "u32", "i64", "u64"].includes(element);
+        })
+      : [];
+    // Folding several worst-case array bounds into one reservation can retain
+    // much more capacity than serializing them at their individual boundaries.
+    // A single array has the same bound as the established writer without that
+    // compounding risk.
+    const directWideIntegerArrays =
+      wideIntegerArrayCandidates.length == 1 ? wideIntegerArrayCandidates : [];
 
     // Value serialization for a member. A `JSON.Lazy<T>` slot (u64) emits: the
     // raw source bytes verbatim if still a range (zero-copy passthrough), the
@@ -1804,6 +1822,9 @@ export class JSONTransform extends Visitor {
             ? "__serializeNullableStringPointerReservedAt"
             : "__serializeStringPointerReservedAt";
           return `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+        }
+        if (directWideIntegerArrays.includes(member)) {
+          return `__dst = JSON.__serializeIntegerArrayPointerReservedAt<${member.type}>(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
         }
         const resolvedType = stripNull(member.type);
         const resolvedSchema = this.getSchema(resolvedType);
@@ -4533,6 +4554,12 @@ export class JSONTransform extends Visitor {
           )
           .join("")
       : "";
+    const directWideIntegerArrayReserve = directWideIntegerArrays
+      .map(
+        (member) =>
+          ` + JSON.__integerArrayReservedBytes<${member.type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`,
+      )
+      .join("");
 
     SERIALIZE =
       SERIALIZE.slice(0, 32) +
@@ -4540,6 +4567,7 @@ export class JSONTransform extends Visitor {
       "bs.proposeSize(" +
       this.schema.byteSize +
       directStringPayloadReserve +
+      directWideIntegerArrayReserve +
       ");\n" +
       SERIALIZE.slice(32);
 

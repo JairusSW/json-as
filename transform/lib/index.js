@@ -1124,6 +1124,17 @@ export class JSONTransform extends Visitor {
                 !defaultStringLiterals.has(member.name))
             : [];
         const reserveDirectStringPayloads = directStringMembers.length >= 2;
+        const wideIntegerArrayCandidates = this.schema.static
+            ? this.schema.members.filter((member) => {
+                if (member.flags.has(PropertyFlags.Lazy) ||
+                    member.node.type.isNullable ||
+                    !member.type.startsWith("Array<"))
+                    return false;
+                const element = member.type.slice(6, -1).trim();
+                return ["i16", "u16", "i32", "u32", "i64", "u64"].includes(element);
+            })
+            : [];
+        const directWideIntegerArrays = wideIntegerArrayCandidates.length == 1 ? wideIntegerArrayCandidates : [];
         const serValue = (member, realName) => {
             if (!member.flags.has(PropertyFlags.Lazy)) {
                 const defaultString = defaultStringLiterals.get(member.name);
@@ -1149,6 +1160,9 @@ export class JSONTransform extends Visitor {
                         ? "__serializeNullableStringPointerReservedAt"
                         : "__serializeStringPointerReservedAt";
                     return `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+                }
+                if (directWideIntegerArrays.includes(member)) {
+                    return `__dst = JSON.__serializeIntegerArrayPointerReservedAt<${member.type}>(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
                 }
                 const resolvedType = stripNull(member.type);
                 const resolvedSchema = this.getSchema(resolvedType);
@@ -3192,12 +3206,16 @@ export class JSONTransform extends Visitor {
             })
                 .join("")
             : "";
+        const directWideIntegerArrayReserve = directWideIntegerArrays
+            .map((member) => ` + JSON.__integerArrayReservedBytes<${member.type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`)
+            .join("");
         SERIALIZE =
             SERIALIZE.slice(0, 32) +
                 indent +
                 "bs.proposeSize(" +
                 this.schema.byteSize +
                 directStringPayloadReserve +
+                directWideIntegerArrayReserve +
                 ");\n" +
                 SERIALIZE.slice(32);
         INITIALIZE += "  return this;\n";

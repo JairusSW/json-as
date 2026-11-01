@@ -15,6 +15,15 @@ function maxIntegerBytes<T extends number>(): u32 {
   return isSigned<T>() ? 42 : 40;
 }
 
+/** Additional capacity required when a generated object folds a wide integer
+ * array into its single outer reservation. The object's static estimate already
+ * includes the four bytes for `[]`, so return only the per-element bound. */
+@inline
+export function integerArrayReservedBytes<T extends number[]>(src: usize): u32 {
+  const len = load<i32>(src, offsetof<T>("length_"));
+  return <u32>len * (maxIntegerBytes<valueof<T>>() + 2);
+}
+
 function reservePrimitiveArray<T>(len: i32): void {
   if (len <= 0) return;
   if (isBoolean<T>()) {
@@ -316,21 +325,21 @@ function serializeI8ArrayFast(src: i8[]): void {
 // layout as the specialized float paths. Keeping the output cursor local
 // avoids two global `bs.offset` accesses per value, while reading dataStart
 // directly removes the Array.__uget call left in the generic array loop.
-function serializeIntegerArrayFast<T extends number[]>(src: usize): void {
+function serializeIntegerArrayReservedAt<T extends number[]>(
+  src: usize,
+  offset: usize,
+): usize {
   const len = load<i32>(src, offsetof<T>("length_"));
-  bs.proposeSize(4 + <u32>len * (maxIntegerBytes<valueof<T>>() + 2));
-  store<u16>(bs.offset, BRACKET_LEFT);
-  bs.offset += 2;
+  store<u16>(offset, BRACKET_LEFT);
+  offset += 2;
   if (len == 0) {
-    store<u16>(bs.offset, BRACKET_RIGHT);
-    bs.offset += 2;
-    return;
+    store<u16>(offset, BRACKET_RIGHT);
+    return offset + 2;
   }
 
   ensureItoaPairs();
   const dataStart = load<usize>(src, offsetof<T>("dataStart"));
   const stride = sizeof<valueof<T>>();
-  let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
     const value = load<valueof<T>>(dataStart + <usize>i * stride);
     offset += (<usize>itoaFast<valueof<T>>(offset, value)) << 1;
@@ -338,7 +347,23 @@ function serializeIntegerArrayFast<T extends number[]>(src: usize): void {
     offset += 2;
   }
   store<u16>(offset - 2, BRACKET_RIGHT);
-  bs.offset = offset;
+  return offset;
+}
+
+function serializeIntegerArrayFast<T extends number[]>(src: usize): void {
+  const len = load<i32>(src, offsetof<T>("length_"));
+  bs.proposeSize(4 + <u32>len * (maxIntegerBytes<valueof<T>>() + 2));
+  bs.offset = serializeIntegerArrayReservedAt<T>(src, bs.offset);
+}
+
+/** Cursor-returning entry for a generated object that already reserved the
+ * complete wide-integer array bound. */
+@inline
+export function serializeIntegerArrayPointerReservedAt<T extends number[]>(
+  dst: usize,
+  src: usize,
+): usize {
+  return serializeIntegerArrayReservedAt<T>(src, dst);
 }
 
 function serializeStringArrayFast(src: string[]): void {
