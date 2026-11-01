@@ -35,6 +35,13 @@ optimization priority:
   seven-pair control showed it 1.0% slower. The existing paired 32-byte loop and
   scalar short tail remain best; untouched phase movement is treated as code
   layout, not credited to a serializer change.
+- A fresh GSOC-minified serialization-only profile after direct Map traversal
+  attributes 2,386 of 2,935 Wasm self samples (81.3%) to the shared SIMD string
+  writer; Map/root serialization is next at 267 samples. A general prototype
+  classifies long clean ASCII prefixes first and hands their copy to Wasm bulk
+  memory. Seven equal-label process pairs show that the extra source traversal
+  outweighs the bulk copy: GSOC SIMD stringify throughput falls to 0.937x while
+  parse and validation controls remain flat. The fused scan/store loop stays.
 - Twitter validation spends 20.7% of samples in `skipCursorKey`, 4.2% in
   literal recognition and 32.0% in the inlined grammar loop. Fusing key and
   colon recognition won 12/16 matrix rows but regressed Canada by 1.9%/7.1%.
@@ -62,7 +69,9 @@ alternating fresh V8 processes. Rejected candidates were reverted. The
 checkout already uses `xjb-as` 0.2.0 buffered dtoa/ftoa, including the algorithm
 under AssemblyScript PR 3025; there is no older formatter integration to
 replace. Profile artifacts are
-`build/simdjson-parity/{twitter-serialize,twitter-validate,canada-validate,citm-parse}-profile*`.
+`build/simdjson-parity/{twitter-serialize,twitter-validate,canada-validate,citm-parse}-profile*`,
+`gsoc-map-{serialize,self-profile}*`, and
+`comparisons/bulkcopy-gsoc-min/`.
 
 ## Formatter experiment
 
