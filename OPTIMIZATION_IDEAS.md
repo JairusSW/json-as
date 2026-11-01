@@ -849,3 +849,19 @@ the other five layouts range from 0.991× to 1.014×. SIMD binary size is flat t
 0.07% smaller. Keep the general inline hint and its existing mutation/
 reentrancy tests. Do not add a corpus or schema heuristic based on the initial
 Canada outlier; its eight-pair confirmation is 1.011×/1.014×.
+
+### Retained direct generated array dispatch, 2026-11-01
+
+Generated serializers know the exact type of every field. Route non-nullable
+`Array<T>` fields directly to the shared array writer through a tiny inline
+entry instead of re-entering the generic reference dispatcher. Keep nullable
+arrays on the generic path: the focused nullable-collection suite caught an
+initial over-broad rule before performance qualification. This optimization is
+transform-wide; it does not select a corpus, schema signature or value shape.
+
+Across CITM and six classic minified families, six-pair SIMD stringify ratios
+range from 0.978× to 1.039× on V8 and 0.988× to 1.048× on default w2c2.
+All exact owned-output comparisons pass and no phase crosses the 5% regression
+guard. The next generated-dispatch experiment should use the same rule: bypass
+only a statically redundant generic layer, while leaving allocation, custom
+hooks, nullable semantics and shared formatting kernels intact.

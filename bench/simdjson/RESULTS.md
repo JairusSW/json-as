@@ -1610,3 +1610,39 @@ checks across all modes. Formatting, typecheck, lint and diff checks pass.
 Artifacts under `build/simdjson-parity/`:
 `postcursor-serialize-profile/`, `runs/{elembase000001,eleminline0001}/`, and
 `comparisons/eleminline-*/`.
+
+## Retained direct generated array dispatch
+
+A fresh post-element-inlining CITM profile attributes 265 of 1,972 Wasm self
+samples to the generic `JSON.__serialize<Array<i64>>` entry. Generated code
+already knows the exact field type, so non-nullable `Array<T>` fields now call a
+small inline array entry directly. This bypasses only the generic reference
+dispatcher; the established array and element writers still implement null,
+custom, polymorphic and fallback behavior. Nullable arrays remain on the
+generic entry so their null semantics are unchanged. The transform rule applies
+to every non-nullable array field and has no corpus, schema or value selector.
+
+Six balanced process pairs compare equal-length frozen labels in V8 and default
+w2c2. Every variant/backend passes twenty complete owned-output comparisons.
+SIMD stringify throughput, candidate / `382c81c`:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| CITM minified | 1.012× | 1.032× |
+| Canada minified | 1.012× | 0.996× |
+| Twitter minified | 0.978× | 1.024× |
+| GitHub events minified | 1.039× | 0.988× |
+| Poet minified | 1.019× | 0.994× |
+| GSOC minified | 0.999× | 1.048× |
+| Lottie minified | 1.019× | 1.004× |
+
+No measured parse, stringify or validation row crosses the 5% regression
+guard. A focused array/custom/nullable suite passes 4,749 checks across all
+three modes; the nullable coverage caught and rejected an initial rule that was
+too broad before qualification. The retained source passes all 123,369 normal
+and 77,676 strict/RFC checks across NAIVE, SWAR and SIMD. Transform tests,
+typecheck, lint, formatting and diff checks pass.
+
+Artifacts under `build/simdjson-parity/`:
+`postelem-serialize-profile/`, `runs/{eleminline0001,arraydirect001}/`, and
+`comparisons/arraydirect-*-002/` (plus the independent CITM comparison).

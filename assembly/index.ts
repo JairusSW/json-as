@@ -3062,6 +3062,12 @@ export namespace JSON {
     return bs.offset;
   }
 
+  /** Internal direct entry for transform-generated non-nullable array fields. */
+  @inline
+  function __serializeArray<T extends any[]>(data: T): void {
+    serializeArray<T>(data);
+  }
+
   /** Materialize a deferred field while retaining its source for descendants. */
   function __deserializeLazy<T>(
     srcStart: usize,

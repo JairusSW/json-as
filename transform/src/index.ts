@@ -247,6 +247,12 @@ function getSerializeCall(type: string, realName: string): string {
     return `__dst = JSON.__serializePrimitiveAt<${type}>(__dst, load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
   }
 
+  if (type.startsWith("Array<") && !type.includes("| null")) {
+    return syncSerializeCursor(
+      `JSON.__serializeArray<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
+    );
+  }
+
   if (type == "ArrayBuffer") {
     return syncSerializeCursor(
       `JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
