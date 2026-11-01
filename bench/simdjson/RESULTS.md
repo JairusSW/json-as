@@ -1854,3 +1854,33 @@ typecheck, lint and diff checks also pass.
 Artifacts under `build/simdjson-parity/`:
 `runs/{inputanytrue01,resinline00001}/` and
 `comparisons/resinline{gh,gs,lt,ca}*/`.
+
+## Retained inline output-size proposal path
+
+The post-reservation GitHub serialization-only profile runs 100,000 changing
+owned outputs on the exact retained source. Of 911 Wasm self samples, 571 are
+in shared string serialization and 23 remain in the outlined
+`bs.proposeSize` helper. The proposal path now inlines its stack-size update and
+the already-inlined capacity check; actual growth and relocation stay outlined.
+This applies to every serializer, mode, output representation and value type.
+
+Five balanced process pairs compare equal-length frozen labels in V8 and
+default w2c2. Every variant/backend passes twenty complete owned-output and
+retention comparisons. Candidate / `7321b76` SIMD stringify throughput:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| GitHub events minified | 1.015× | 1.045× |
+| GSOC minified | 1.009× | 1.072× |
+| Lottie minified | 1.009× | 1.000× |
+| Canada minified | 1.009× | 1.016× |
+
+No measured parse, stringify or validation row crosses the 5% regression
+guard. The exact retained source passes all 123,360 normal and 77,676
+strict/RFC checks across NAIVE, SWAR and SIMD; transform regressions,
+typecheck, lint and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`:
+`github-serialize-{v8-003.log,self-003.json}`,
+`runs/{githubprof003,resinline00001,propinline0001}/`, and
+`comparisons/propinline{gh,gs,lt,ca}*/`.

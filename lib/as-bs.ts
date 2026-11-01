@@ -232,6 +232,7 @@ export namespace bs {
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to propose.w
    */
+  @inline
   export function proposeSize(size: u32): void {
     stackSize += size;
     reserve(ownedOutput ? offset - buffer + size : stackSize, 0);

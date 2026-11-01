@@ -971,3 +971,19 @@ comparisons pass; no parse, stringify or validation row crosses the 5%
 regression guard. The exact source passes 123,360 normal and 77,676 strict/RFC
 checks across all three modes, plus transform regressions, typecheck, lint and
 diff checks.
+
+### Retained inline output-size proposal path, 2026-11-01
+
+Inline `bs.proposeSize` so ordinary writers update the proposed stack size and
+perform the already-inlined capacity check without another managed Wasm call.
+Actual growth and relocation remain outlined. The change applies to every
+serialization mode and value type; it has no corpus, schema or value selector.
+
+An exact-code GitHub serialization-only profile attributes 23 of 911 Wasm self
+samples to the outlined proposal helper before this change. Five-pair SIMD
+screens put GitHub-events stringification at 1.015× baseline in V8 and 1.045×
+in default w2c2. GSOC is 1.009×/1.072×, Lottie 1.009×/1.000× and Canada
+1.009×/1.016×. All complete output/retention oracles pass and no measured phase
+crosses the 5% regression guard. The exact source passes 123,360 normal and
+77,676 strict/RFC checks across all three modes, plus transform regressions,
+typecheck, lint and diff checks.
