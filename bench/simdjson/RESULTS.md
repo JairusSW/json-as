@@ -2484,3 +2484,31 @@ worth its code size. The prototype was reverted.
 Focused strict cursor-array, nested-array and empty-array tests pass. The normal
 integer suite passes 525 checks across NAIVE, SWAR and SIMD. Artifacts under
 `build/simdjson-parity/`: run `intcurxx000000001/` and comparisons `intcur-*`.
+
+## Rejected adaptive fresh-Map capacity
+
+A checked-parser prototype remembered the last successful entry count for each
+generated type/field pair and used it only to size the next fresh Map's standard
+bucket and entry buffers. First parses used the ordinary constructor, collisions
+only discarded or replaced a performance hint, and all grammar, hashing and
+Map insertion still used the standard implementation. The bounded predictor
+contained no corpus, key, schema signature or value recognition.
+
+Seven alternating V8 pairs compare equal-length frozen `signltxx000000001` and
+`maphintx000000001` artifacts. Every variant passes twenty complete retained-
+output comparisons. Candidate / baseline SIMD throughput:
+
+| Layout | Parse | Stringify | Validate |
+| --- | ---: | ---: | ---: |
+| CITM minified | 1.000x | 1.000x | 1.006x |
+| GSOC minified | 0.998x | 0.993x | 1.000x |
+| Twitter minified | 1.018x | 1.010x | 0.985x |
+| Poet minified | 0.994x | 1.000x | 0.996x |
+
+CITM is the Map-heavy target and remains exactly neutral after warmup. Rehash
+growth is therefore not a material contributor to its present owned-parse gap;
+the adaptive state and direct Map-layout construction were reverted. Focused
+strict Map/object tests pass before measurement.
+
+Artifacts under `build/simdjson-parity/`: run `maphintx000000001/` and
+comparisons `maphint-*`.
