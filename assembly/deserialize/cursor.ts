@@ -591,11 +591,17 @@ export function skipCheckedValue(
   outerDepth: i32 = 0,
 ): usize {
   if (<u32>outerDepth > <u32>MAX_CURSOR_DEPTH) return 0;
-  let ptr = skipCursorWhitespace(start, end);
+  let ptr =
+    JSON_MODE == JSONMode.SIMD ? start : skipCursorWhitespace(start, end);
   let depth = 0;
   while (true) {
     if (ptr >= end) return 0;
     let code = load<u16>(ptr);
+    if (JSON_MODE == JSONMode.SIMD && isCursorWhitespace(code)) {
+      ptr = skipCursorWhitespace(ptr + 2, end);
+      if (ptr >= end) return 0;
+      code = load<u16>(ptr);
+    }
     if (code == 91 || code == 123) {
       if (outerDepth + depth >= MAX_CURSOR_DEPTH) return 0;
       store<u8>(DISCARD_CONTAINERS + usize(depth++), <u8>code);
@@ -610,7 +616,7 @@ export function skipCheckedValue(
         if (!ptr) return 0;
         ptr = skipCursorColon(ptr, end);
         if (!ptr) return 0;
-        ptr = skipCursorWhitespace(ptr, end);
+        if (JSON_MODE != JSONMode.SIMD) ptr = skipCursorWhitespace(ptr, end);
         continue;
       } else {
         continue;
@@ -642,14 +648,17 @@ export function skipCheckedValue(
         continue;
       }
       if (code != 44) return 0;
-      ptr = skipCursorWhitespace(ptr + 2, end);
-      if (ptr >= end) return 0;
+      ptr += 2;
+      if (JSON_MODE != JSONMode.SIMD || container == 123) {
+        ptr = skipCursorWhitespace(ptr, end);
+        if (ptr >= end) return 0;
+      }
       if (container == 123) {
         ptr = skipCursorKey(ptr, end);
         if (!ptr) return 0;
         ptr = skipCursorColon(ptr, end);
         if (!ptr) return 0;
-        ptr = skipCursorWhitespace(ptr, end);
+        if (JSON_MODE != JSONMode.SIMD) ptr = skipCursorWhitespace(ptr, end);
       }
       break;
     }
