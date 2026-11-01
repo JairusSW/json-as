@@ -174,6 +174,35 @@ describe("Should preserve bs state for JSON.internal helpers", () => {
   bs.stackSize = 0;
 });
 
+
+@json
+class OwnedOutputProbe {
+  text: string = "";
+}
+
+describe("Should keep direct owned outputs independent across size changes", () => {
+  const value = new OwnedOutputProbe();
+  value.text = "first";
+  const first = JSON.stringify(value);
+
+  value.text = "x".repeat(4_500_000);
+  const large = JSON.stringify(value);
+
+  value.text = "third";
+  const third = JSON.stringify(value);
+
+  expect(first).toBe('{"text":"first"}');
+  expect(large.length.toString()).toBe("4500011");
+  expect(third).toBe('{"text":"third"}');
+  expect(
+    (changetype<usize>(first) != changetype<usize>(third)).toString(),
+  ).toBe("true");
+
+  JSON.Memory.shrink();
+  value.text = "after-shrink";
+  expect(JSON.stringify(value)).toBe('{"text":"after-shrink"}');
+});
+
 describe("Should cover additional JSON runtime helpers", () => {
   JSON.Memory.shrink();
 

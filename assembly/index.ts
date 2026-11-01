@@ -371,15 +371,18 @@ export namespace JSON {
       }
       return NULL_WORD;
     } else if (isString<nonnull<T>>()) {
+      if (!out) bs.beginOwned();
       serializeString(data as string);
       return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
       // @ts-expect-error: Defined by transform
     } else if (isDefined(data.__SERIALIZE_CUSTOM)) {
+      if (!out) bs.beginOwned();
       // @ts-expect-error: Defined by transform
       data.__SERIALIZE_CUSTOM();
       return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
       // @ts-expect-error: Defined by transform
     } else if (isDefined(data.__SERIALIZE)) {
+      if (!out) bs.beginOwned();
       // @ts-expect-error: Defined by transform
       data.__SERIALIZE(changetype<usize>(data));
       return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
@@ -395,6 +398,7 @@ export namespace JSON {
       store<u16>(changetype<usize>(out) + bytes + 2, QUOTE);
       return changetype<string>(out);
     } else {
+      if (!out) bs.beginOwned();
       __serialize<T>(data);
       return out ? bs.outTo<string>(changetype<usize>(out)) : bs.out<string>();
     }

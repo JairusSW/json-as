@@ -4,6 +4,8 @@ import { __heap_base, heap } from "memory";
 // Buffer management constants
 const SHRINK_EVERY_N_MASK: usize = 255; // check every 256 outputs
 const MIN_BUFFER_SIZE: usize = 1024;
+const MAX_RETAINED_STAGING_SIZE: usize = 8 * 1024 * 1024;
+const MIN_OWNED_OUTPUT_SIZE: usize = 8 * 1024 * 1024;
 
 // Exponential moving average smoothing factor (0.0 to 1.0)
 // Higher values = more responsive to recent sizes, lower = more stable
@@ -25,6 +27,17 @@ export namespace bs {
 
   /** Proposed size of output */
   export let stackSize: usize = 0;
+
+  // Top-level stringify learns one output with the established unmanaged
+  // builder, then writes subsequent results directly into a rooted managed
+  // string. Keeping the ordinary staging block alongside it preserves the
+  // scratch-buffer contract used by nested serialization and parsing.
+  let ownedOutput: string | null = null;
+  let ownedCapacity: usize = 0;
+  let ownedHint: usize = 0;
+  let learnOwnedHint: bool = false;
+  let stagingBuffer: usize = 0;
+  let stagingBufferSize: usize = 0;
 
   let pauseOffsets = new Array<usize>();
   let pauseStackSizes = new Array<usize>();
@@ -53,7 +66,15 @@ export namespace bs {
   function renewBuffer(newSize: usize): void {
     const oldPtr = buffer;
     const relOffset = offset - oldPtr;
-    const newPtr = heap.realloc(oldPtr, newSize);
+    let newPtr: usize;
+    if (ownedOutput) {
+      // @ts-expect-error: __renew is a runtime builtin
+      newPtr = __renew(oldPtr, newSize);
+      ownedOutput = changetype<string>(newPtr);
+      ownedCapacity = newSize;
+    } else {
+      newPtr = heap.realloc(oldPtr, newSize);
+    }
     offset = newPtr + relOffset;
     buffer = newPtr;
     bufferSize = newSize;
@@ -61,11 +82,79 @@ export namespace bs {
 
   function reserve(requiredSize: usize, extra: usize): void {
     if (requiredSize <= bufferSize) return;
-    // Grow aggressively (2x) to minimize realloc frequency in hot serialization paths.
-    let next = bufferSize << 1;
+    // Managed output normally starts from the preceding result's size, so a
+    // smaller growth factor avoids making every retained result keep 2x its
+    // useful bytes. The unmanaged staging buffer keeps its established 2x
+    // policy because it is reused rather than returned.
+    let next = ownedOutput
+      ? bufferSize + max<usize>(bufferSize >> 2, 1 << 20)
+      : bufferSize << 1;
     const minNext = requiredSize + extra;
     if (next < minNext) next = minNext;
     renewBuffer(next);
+  }
+
+  /**
+   * Starts a top-level owned output. The first call only records a capacity
+   * sample through the established staging path. Later calls write directly
+   * into a GC-rooted string while the ordinary staging block is parked.
+   */
+  export function beginOwned(): void {
+    if (ownedOutput || pauseOffsets.length != 0) return;
+    if (ownedHint == 0) {
+      learnOwnedHint = true;
+      return;
+    }
+
+    stagingBuffer = buffer;
+    stagingBufferSize = bufferSize;
+    const capacity = max<usize>(ownedHint, MIN_BUFFER_SIZE);
+    // @ts-expect-error: __new is a runtime builtin
+    const ptr = __new(capacity, idof<string>());
+    ownedOutput = changetype<string>(ptr);
+    ownedCapacity = capacity;
+    buffer = ptr;
+    offset = ptr;
+    bufferSize = capacity;
+    stackSize = 0;
+  }
+
+  function updateOwnedHint(len: usize): void {
+    if (len < MIN_OWNED_OUTPUT_SIZE) {
+      ownedHint = 0;
+      return;
+    }
+    // A little bounded slack covers ordinary changing values and lengths
+    // without making large retained results carry a large percentage of waste.
+    ownedHint = len + min<usize>(max<usize>(len >> 4, 64), 1 << 20);
+  }
+
+  function finishOwned<T>(): T {
+    const len = offset - buffer;
+    let result = buffer;
+    const excessLimit = max<usize>(len >> 2, 1 << 20);
+    if (ownedCapacity > len && ownedCapacity - len > excessLimit) {
+      // A large downward size swing should not make the small returned string
+      // retain the previous result's large physical allocation.
+      // @ts-expect-error: __new is a runtime builtin
+      result = __new(len, idof<T>());
+      memory.copy(result, buffer, len);
+    } else {
+      // Logical shrink is in-place when the physical block already fits.
+      // @ts-expect-error: __renew is a runtime builtin
+      result = __renew(buffer, len);
+    }
+    updateOwnedHint(len);
+
+    ownedOutput = null;
+    ownedCapacity = 0;
+    buffer = stagingBuffer;
+    offset = stagingBuffer;
+    bufferSize = stagingBufferSize;
+    stagingBuffer = 0;
+    stagingBufferSize = 0;
+    stackSize = 0;
+    return changetype<T>(result);
   }
 
   function finalizeDynamicOutput(len: usize): void {
@@ -111,8 +200,17 @@ export namespace bs {
    * advanced and the pause stacks non-empty, which would corrupt the next op.
    */
   export function reset(): void {
+    if (ownedOutput) {
+      ownedOutput = null;
+      ownedCapacity = 0;
+      buffer = stagingBuffer;
+      bufferSize = stagingBufferSize;
+      stagingBuffer = 0;
+      stagingBufferSize = 0;
+    }
     offset = buffer;
     stackSize = 0;
+    learnOwnedHint = false;
     cacheOutput = 0;
     cacheOutputLen = 0;
     pauseOffsets.length = 0;
@@ -135,7 +233,7 @@ export namespace bs {
    */
   export function proposeSize(size: u32): void {
     stackSize += size;
-    reserve(stackSize, 0);
+    reserve(ownedOutput ? offset - buffer + size : stackSize, 0);
   }
 
   /**
@@ -145,7 +243,7 @@ export namespace bs {
    */
   export function growSize(size: u32): void {
     stackSize += size;
-    reserve(stackSize, MIN_BUFFER_SIZE);
+    reserve(ownedOutput ? offset - buffer + size : stackSize, MIN_BUFFER_SIZE);
   }
 
   /** Reserve one vector block's worst-case expansion, then account for the
@@ -153,7 +251,9 @@ export namespace bs {
   @inline
   export function prepareGrowth(maxGrowth: u32, writeExtent: u32): void {
     reserve(
-      max(stackSize + maxGrowth, offset - buffer + writeExtent),
+      ownedOutput
+        ? offset - buffer + max(maxGrowth, writeExtent)
+        : max(stackSize + maxGrowth, offset - buffer + writeExtent),
       MIN_BUFFER_SIZE,
     );
   }
@@ -289,6 +389,16 @@ export namespace bs {
    * @returns The new object containing the buffer's content.
    */
   export function out<T>(): T {
+    if (ownedOutput) {
+      if (cacheOutput !== 0) {
+        reserve(cacheOutputLen, 0);
+        memory.copy(buffer, cacheOutput, cacheOutputLen);
+        offset = buffer + cacheOutputLen;
+        cacheOutput = 0;
+        cacheOutputLen = 0;
+      }
+      return finishOwned<T>();
+    }
     let out: usize;
     if (cacheOutput === 0) {
       const len = offset - buffer;
@@ -304,6 +414,20 @@ export namespace bs {
       // reset arena flag
       cacheOutput = 0;
       cacheOutputLen = 0;
+      offset = buffer;
+      stackSize = 0;
+    }
+    if (learnOwnedHint) {
+      learnOwnedHint = false;
+      updateOwnedHint(changetype<OBJECT>(out - TOTAL_OVERHEAD).rtSize);
+      // Keep ordinary staging allocations so switching output ownership does
+      // not perturb the allocator layout of subsequent parse work. Very large
+      // staging blocks would duplicate a returned string and can exhaust the
+      // Wasm32 address space, so bound only that persistent reserve.
+      if (bufferSize > MAX_RETAINED_STAGING_SIZE) {
+        buffer = heap.realloc(buffer, MIN_BUFFER_SIZE);
+        bufferSize = MIN_BUFFER_SIZE;
+      }
       offset = buffer;
       stackSize = 0;
     }

@@ -766,3 +766,24 @@ Generated serializer inlining is another unimplemented hypothesis. Apply any
 method annotation after reservation injection: that generation currently uses
 SERIALIZE.slice(0, 32), so prepending a decorator to its initial header would
 break the splice. Preserve virtual dispatch, reentrancy and GC roots.
+
+### Retained large-output ownership, 2026-10-31
+
+Keep size-adaptive direct owned output. After one established-builder sample,
+top-level results at least 8 MiB use a rooted managed string as the writer and
+avoid the final whole-result copy. The threshold is a general output-size rule,
+not a classic-corpus or schema selector. Smaller outputs retain the established
+path because unconditional ownership caused deterministic parse/layout
+regressions even when serialization improved slightly.
+
+OTFCC now completes all owned-output oracles instead of corrupting low static
+memory near the Wasm32 limit. Default-w2c2 SIMD parse is 1.024× native latency
+and serialization is 0.902×; validation remains 1.665× and is the next measured
+gap. Full results, rejected variants, and artifact paths are in RESULTS.md.
+
+The next optimization should be the common checked validator scanner, not a Raw
+or OTFCC branch. Profile the final frozen OTFCC validation function, then test
+the existing first-block-bitmask/subsequent-block-any_true hypothesis across the
+complete validation matrix. Preserve exact UTF-16 quote, backslash, control,
+separator, depth, and bounded-tail behavior. Requalify FGO on this retained
+output path before attributing its older serialization number to current source.

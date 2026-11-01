@@ -1399,3 +1399,56 @@ Artifacts under `build/simdjson-parity/`:
 `array-oracle-cow-storage-identity.json`. The latter records byte-preserving
 storage consolidation, with independent copy-on-write clones for mutable
 producer files and hardlinks restricted to completed immutable evidence.
+
+## Retained size-adaptive direct owned output
+
+Top-level non-primitive stringification now learns one result through the
+established unmanaged builder. Outputs of at least 8 MiB then serialize into a
+rooted managed string and return that allocation, removing the final
+whole-document copy. Activation depends only on the preceding output byte size;
+there are no corpus, schema, field, or value signatures. Ordinary outputs keep
+the established builder. Large downward size changes copy into an exact result
+so a small string cannot retain a large physical allocation. Nested and custom
+serialization continue to use the existing save/restore stack.
+
+This change also fixes a large-output correctness failure. Frozen OTFCC baseline
+Wasm completes parse, reaches serialization at 50,512 pages, grows by 2,091
+pages per owned output after its first two reusable holes, and corrupts static
+data on the tenth transient result near the Wasm32 limit. Checked w2c2 reports
+an out-of-bounds table access; exact frozen Wasm reports the same table failure
+in V8. The callback table words change from 1/2/3 to UTF-16 output bytes. The
+failure is therefore in shared Wasm memory behavior, not w2c2 translation.
+
+The final candidate stabilizes instead of wrapping. Six balanced default-w2c2
+rounds use four independently allocated, changing input strings, 100 operations
+per phase, eight retained object graphs, eight retained strings, and all full
+fields. All twenty complete owned-output comparisons pass.
+
+| OTFCC minified phase | Native ns/op | SIMD ns/op | SIMD/native latency |
+| --- | ---: | ---: | ---: |
+| Parse owned | 90,105,320 | 92,309,830 | 1.024× |
+| Serialize owned | 2,948,160 | 2,658,700 | 0.902× |
+| Validate | 53,689,790 | 89,410,215 | 1.665× |
+
+Parse and serialization meet the 1.2× native-latency target; validation remains
+the only OTFCC gap. A six-round V8 CITM control remains on the ordinary builder
+and is approximately neutral: candidate/baseline throughput is 0.994× parse,
+0.988× serialize, and 0.993× validate. An earlier unconditional prototype is
+rejected: cumulative worst-case reservations made Canada serialization 0.541×
+baseline throughput, and direct ownership perturbed CITM parse to 0.943×. Cursor-
+local reservations remove the Canada serialization regression; size-adaptive
+activation removes the smaller-workload parse tradeoff.
+
+The retained source passes 123,360 normal and 77,676 strict/RFC checks across
+NAIVE, SWAR, and SIMD, including a >8 MiB ownership/size-swing regression,
+dynamic raw-slice passthrough, custom/nested serialization, GC stress, retained
+prior outputs, and `JSON.Memory.shrink`. Typecheck, lint, formatting and diff
+checks pass. SIMD alone gates native parity; the implementation is shared with
+the other modes.
+
+Artifacts under `build/simdjson-parity/`:
+`comparisons/owned-otfcc-direct-final001/`,
+`comparisons/direct-owned-citm-v8-0005/`,
+`owned-otfcc-direct-final001.log`, the frozen
+`runs/direct-owned-final001/` build, and the rejected/intermediate
+`direct-owned-{canada,citm}-v8*.log` comparisons.
