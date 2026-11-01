@@ -331,6 +331,14 @@ function skipCursorKey(start: usize, end: usize): usize {
   return 0;
 }
 
+@inline
+function skipCursorColon(ptr: usize, end: usize): usize {
+  if (ptr >= end) return 0;
+  if (load<u16>(ptr) == 58) return ptr + 2;
+  ptr = skipCursorWhitespace(ptr, end);
+  return ptr < end && load<u16>(ptr) == 58 ? ptr + 2 : 0;
+}
+
 /** Packed checked key: end cursor in bits 1..32, escape-presence flag in bit 0. */
 export function scanCursorString(start: usize, end: usize): u64 {
   return stringCursor(start, end, 0, false);
@@ -514,9 +522,8 @@ export function skipCheckedValue(
       } else if (code == 123) {
         ptr = skipCursorKey(ptr, end);
         if (!ptr) return 0;
-        ptr = skipCursorWhitespace(ptr, end);
-        if (ptr >= end || load<u16>(ptr) != 58) return 0;
-        ptr += 2;
+        ptr = skipCursorColon(ptr, end);
+        if (!ptr) return 0;
         continue;
       } else {
         continue;
@@ -549,9 +556,8 @@ export function skipCheckedValue(
       if (container == 123) {
         ptr = skipCursorKey(ptr, end);
         if (!ptr) return 0;
-        ptr = skipCursorWhitespace(ptr, end);
-        if (ptr >= end || load<u16>(ptr) != 58) return 0;
-        ptr += 2;
+        ptr = skipCursorColon(ptr, end);
+        if (!ptr) return 0;
       }
       break;
     }
