@@ -27,6 +27,8 @@ import { u16_to_hex4_swar } from "../../util/swar";
 @lazy const BYTE_BACKSLASH = i8x16.splat(0x5c);
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const BYTE_SPACE = i8x16.splat(0x20);
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const BYTE_SIGNED_SATURATION = i8x16.splat(i8(-128));
 
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
@@ -79,10 +81,11 @@ export function serializeStringRangeReservedAt_SIMD(
         i8x16.eq(bytes, BYTE_QUOTE),
         v128.or(i8x16.eq(bytes, BYTE_BACKSLASH), i8x16.lt_u(bytes, BYTE_SPACE)),
       );
-      const surrogateCandidate = v128.or(
-        i8x16.gt_u(first, SPLAT_FFD8),
-        i8x16.gt_u(second, SPLAT_FFD8),
-      );
+      // Signed narrowing maps every negative i16 lane (U+8000 and above,
+      // including all surrogates) to -128. Reuse that classification instead
+      // of comparing both source vectors byte-wise. The exact Unicode loop
+      // verifies candidate blocks before treating a unit as a surrogate.
+      const surrogateCandidate = i8x16.eq(bytes, BYTE_SIGNED_SATURATION);
       if (v128.any_true(v128.or(asciiSpecial, surrogateCandidate))) break;
       store<v128>(dst, first);
       store<v128>(dst, second, 16);
