@@ -83,9 +83,12 @@ export function serializeStringRangeReservedAt_SIMD(
         i8x16.eq(bytes, BYTE_QUOTE),
         v128.or(i8x16.eq(bytes, BYTE_BACKSLASH), i8x16.lt_s(bytes, BYTE_SPACE)),
       );
-      if (v128.any_true(special)) break;
+      // The payload is already reserved. Publish the candidate block before
+      // resolving its mask so clean-copy stores can overlap classification;
+      // the exceptional path rewrites this same output range on a hit.
       store<v128>(dst, first);
       store<v128>(dst, second, 16);
+      if (v128.any_true(special)) break;
       srcStart += 32;
       dst += 32;
     }

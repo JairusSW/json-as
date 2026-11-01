@@ -3375,3 +3375,36 @@ reverted; the compact byte scratch stack remains the faster representation.
 
 Artifacts under `build/simdjson-parity/`: run `bitstack000000001/` and
 comparison `bitstack-validation-v8/`.
+
+## Retained speculative clean-string stores
+
+The shared SIMD string writer's thirty-two-byte loop has already reserved the
+complete unescaped payload. It now stores each candidate block before resolving
+the escape mask. Clean-copy stores can overlap classification; on a special
+character the established exceptional path rewrites the same output range.
+No additional source traversal, allocation policy, corpus selector or schema
+specialization is introduced.
+
+Seven balanced V8 pairs pass twenty complete owned-output and retention
+comparisons per classic layout. Candidate / baseline SIMD stringify throughput
+is 0.997x on Twitter, 1.006x on CITM, 1.026x on GSOC and 1.019x on Poet. No
+parse, stringify or validation control exceeds the 3% regression guard. Four
+current-head string diagnostics use nine balanced pairs and report 1.007x for
+clean text, 1.007x for a late escape, 1.013x for dense escapes and 1.009x for
+Unicode. Thus the speculative stores do not trade exceptional strings for the
+clean-string gain.
+
+On GSOC, checked w2c2 stringify improves 1.009x. The initial default-w2c2
+seven-pair screen reported a 0.964x outlier while its untouched parse phase also
+moved. An isolated twelve-pair confirmation reports 1.028x stringify,
+0.988x parse and 1.005x validation, with all output oracles passing; it replaces
+the initial unchecked-runtime outlier.
+
+The exact retained source passes 123,891 normal and 77,928 strict/RFC checks
+across NAIVE, SWAR and SIMD, 1,416 transform regressions, eleven benchmark
+tooling tests, typecheck, lint and diff checks.
+
+Artifacts under `build/simdjson-parity/`: classic runs
+`prestore{tw,ci,gs,po}000001/`, comparisons `prestore-*-min-v8/` and
+`prestore-gsoc-min-w2c2*/`; diagnostic runs `prebase000000001/` and
+`precand000000001/`, and comparisons `prestore-string_*-v8/`.

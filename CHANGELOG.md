@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(strings): overlap reserved SIMD clean-string stores with escape classification.
+
 - perf(strings): classify two UTF-16 vectors together in clean runs using signed saturation and full-width surrogate checks.
 
 - perf(strings): continue SIMD copying with exact UTF-16 event checks after ordinary BMP false candidates, and reuse the clean scan after escapes.
