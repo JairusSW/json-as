@@ -3357,3 +3357,21 @@ Artifacts under `build/simdjson-parity/`: upstream checkout
 `w2c2-upstream-main/`, translator build `w2c2-host-upstream-main/`, frozen
 backend run `keyupmain00000001/`, and comparison
 `w2c2-upstream-main-validation/`.
+
+## Rejected local container-type bit stack
+
+The checked discard grammar records each open container as one byte in bounded
+linear-memory scratch and reloads its type at separators and closes. A general
+prototype keeps the first sixty-four container types in one local `u64`, using
+the existing scratch representation only for deeper documents. The full
+256-level depth contract and malformed-input behavior remain unchanged.
+
+Five balanced V8 pairs pass every RFC preflight and all 64 changing-input
+oracles, but the extra depth-dependent control flow costs more than the removed
+memory traffic. Candidate / baseline SIMD throughput is 0.874x on Canada
+pretty, 0.948x on CITM minified, 0.916x/0.952x on Lottie, 0.919x on OTFCC and
+0.959x on FGO. Six layouts exceed the 3% regression guard. The prototype is
+reverted; the compact byte scratch stack remains the faster representation.
+
+Artifacts under `build/simdjson-parity/`: run `bitstack000000001/` and
+comparison `bitstack-validation-v8/`.
