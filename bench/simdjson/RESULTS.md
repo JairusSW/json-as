@@ -3152,3 +3152,22 @@ comparisons `valentry-validation-{v8,swar-v8}/` and
 `valmode-validation-v8/`; complete-phase runs `valbase{tw,ci,gs,po}0000001/`
 and `modecand{tw,ci,gs,po}000001/` with comparisons
 `valmode-{twitter-min,citm-catalog-min,gsoc-2018-min,poet-min}/`.
+
+## Rejected tagged key-quote cursor
+
+A refreshed retained-head Twitter profile still attributes 35.2% of samples to
+`skipCursorKey`, versus 46.0% in the inlined grammar and 1.4% in string-escape
+handling. The next prototype uses the otherwise-unused low bit of the aligned
+UTF-16 cursor to tag a quote found by the thirty-two-unit scalar key entry. Its
+caller can then return past the quote without reloading the terminal code unit.
+
+The extra quote comparison and tag formation occur at every scalar character,
+not only at the terminal event. Five balanced V8 pairs show the cost dominates:
+Twitter falls to 0.809x/0.843x, CITM to 0.831x/0.889x, and fourteen of sixteen
+layouts exceed the 5% regression guard. Only Canada-pretty improves. The
+prototype is reverted; future key work must reduce inner-character work rather
+than attach event metadata there.
+
+Artifacts under `build/simdjson-parity/`: profile run `twittervalueprof/` and
+`twitter-value-validate-profile.log`; run `keyquote000000001/`; comparison
+`keyquote-validation-v8/`.
