@@ -627,10 +627,14 @@ export function skipCheckedValue(
     // records only the container kind; grammar phase is represented by this
     // control-flow position, avoiding a state write for every member/value.
     while (depth) {
-      ptr = skipCursorWhitespace(ptr, end);
       if (ptr >= end) return 0;
-      const container = load<u8>(DISCARD_CONTAINERS + usize(depth - 1));
       code = load<u16>(ptr);
+      if (isCursorWhitespace(code)) {
+        ptr = skipCursorWhitespace(ptr + 2, end);
+        if (ptr >= end) return 0;
+        code = load<u16>(ptr);
+      }
+      const container = load<u8>(DISCARD_CONTAINERS + usize(depth - 1));
       const close = container == 91 ? 93 : 125;
       if (code == close) {
         ptr += 2;
