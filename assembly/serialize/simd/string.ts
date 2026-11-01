@@ -1,4 +1,9 @@
-import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import {
+  OBJECT,
+  STRING_METADATA_MASK,
+  STRING_SIZE_MASK,
+  TOTAL_OVERHEAD,
+} from "rt/common";
 import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
@@ -28,13 +33,33 @@ import { u16_to_hex4_swar } from "../../util/swar";
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const BYTE_SPACE = i8x16.splat(0x20);
 
+// String payload sizes are always even. A compatible runtime reserves bit 0
+// of String.rtSize as a completed escape-free classification; all byte-size
+// consumers mask it while String.length's existing shift is unchanged.
+const STRING_CLEAN_FLAG: u32 = STRING_METADATA_MASK;
+
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
  */
 export function serializeString_SIMD(src: string): void {
   let srcStart = changetype<usize>(src);
-  const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
-  serializeStringRange_SIMD(srcStart, srcSize);
+  const object = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD);
+  const taggedSize = object.rtSize;
+  if (taggedSize < 32) {
+    serializeStringRange_SIMD(srcStart, taggedSize);
+    return;
+  }
+  const srcSize = taggedSize & STRING_SIZE_MASK;
+  bs.proposeSize(srcSize + 4);
+  const dst = bs.offset;
+  if (taggedSize & STRING_CLEAN_FLAG) {
+    bs.offset = copyKnownCleanString(srcStart, srcSize, dst);
+    return;
+  }
+  const next = serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dst);
+  bs.offset = next;
+  if (next - dst == <usize>srcSize + 4)
+    object.rtSize = taggedSize | STRING_CLEAN_FLAG;
 }
 
 
@@ -49,11 +74,7 @@ export function serializeStringRangeReserved_SIMD(
   srcStart: usize,
   srcSize: u32,
 ): void {
-  bs.offset = serializeStringRangeReservedAt_SIMD(
-    srcStart,
-    srcSize,
-    bs.offset,
-  );
+  bs.offset = serializeStringRangeReservedAt_SIMD(srcStart, srcSize, bs.offset);
 }
 
 /** Emits a pre-reserved string and returns the next output cursor. Clean
@@ -342,6 +363,66 @@ export function serializeStringRangeReservedAt_SIMD(
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
   return bs.offset;
+}
+
+/** Emits a complete managed string and records an escape-free scan in its
+ * structurally spare size bit. Ranges never use this entry because their
+ * source need not begin at a managed String payload. */
+export function serializeStringPointerReservedAt_SIMD(
+  srcStart: usize,
+  dstStart: usize,
+): usize {
+  const object = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD);
+  const taggedSize = object.rtSize;
+  if (taggedSize & STRING_CLEAN_FLAG) {
+    const srcSize = taggedSize & STRING_SIZE_MASK;
+    return copyKnownCleanString(srcStart, srcSize, dstStart);
+  }
+  const next = serializeStringRangeReservedAt_SIMD(
+    srcStart,
+    taggedSize,
+    dstStart,
+  );
+  if (taggedSize >= 32 && next - dstStart == <usize>taggedSize + 4)
+    object.rtSize = taggedSize | STRING_CLEAN_FLAG;
+  return next;
+}
+
+function copyKnownCleanString(
+  src: usize,
+  srcSize: u32,
+  dstStart: usize,
+): usize {
+  const end = src + srcSize;
+  let dst = dstStart + 2;
+  while (src + 32 <= end) {
+    store<v128>(dst, load<v128>(src));
+    store<v128>(dst, load<v128>(src, 16), 16);
+    src += 32;
+    dst += 32;
+  }
+  if (src + 16 <= end) {
+    store<v128>(dst, load<v128>(src));
+    src += 16;
+    dst += 16;
+  }
+  if (src + 8 <= end) {
+    store<u64>(dst, load<u64>(src));
+    src += 8;
+    dst += 8;
+  }
+  if (src + 4 <= end) {
+    store<u32>(dst, load<u32>(src));
+    src += 4;
+    dst += 4;
+  }
+  if (src < end) {
+    store<u16>(dst, load<u16>(src));
+    dst += 2;
+  }
+  store<u16>(dstStart, 34);
+  store<u16>(dst, 34);
+  return dst + 2;
 }
 
 /** Compact generated-field entry for at most seven UTF-16 units. The caller

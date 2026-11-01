@@ -1,4 +1,4 @@
-import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { OBJECT, STRING_SIZE_MASK, TOTAL_OVERHEAD } from "rt/common";
 import { __heap_base, heap } from "memory";
 
 // Buffer management constants
@@ -80,6 +80,7 @@ export namespace bs {
     buffer = newPtr;
     bufferSize = newSize;
   }
+
 
   @inline
   function reserve(requiredSize: usize, extra: usize): void {
@@ -371,7 +372,9 @@ export namespace bs {
     const current = load<usize>(dstFieldPtr);
     let stringPtr: usize;
     if (current >= __heap_base) {
-      if (changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+      const object = changetype<OBJECT>(current - TOTAL_OVERHEAD);
+      if ((object.rtSize & STRING_SIZE_MASK) == byteLength) {
+        object.rtSize = byteLength;
         stringPtr = current;
       } else {
         // @ts-expect-error: __renew is a runtime builtin

@@ -18,7 +18,12 @@ import {
   validateCursor,
 } from "./deserialize/cursor";
 
-import { OBJECT, OBJECT_MAXSIZE, TOTAL_OVERHEAD } from "rt/common";
+import {
+  OBJECT,
+  OBJECT_MAXSIZE,
+  STRING_SIZE_MASK,
+  TOTAL_OVERHEAD,
+} from "rt/common";
 import {
   serializeArray,
   serializeArrayPointer,
@@ -3129,10 +3134,7 @@ export namespace JSON {
 
   /** Generated pre-reserved string field that keeps the output cursor local. */
   @inline
-  function __serializeStringPointerReservedAt(
-    dst: usize,
-    data: usize,
-  ): usize {
+  function __serializeStringPointerReservedAt(dst: usize, data: usize): usize {
     return serializeStringPointerReservedAt(dst, data);
   }
 
@@ -3152,13 +3154,15 @@ export namespace JSON {
   /** Byte size used by generated object-level string capacity planning. */
   @inline
   function __stringByteSizePointer(data: usize): u32 {
-    return changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize;
+    return changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize & STRING_SIZE_MASK;
   }
 
   /** Non-null payload bytes; the fixed object bound already covers `null`. */
   @inline
   function __nullableStringByteSizePointer(data: usize): u32 {
-    return data == 0 ? 0 : changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize;
+    return data == 0
+      ? 0
+      : changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize & STRING_SIZE_MASK;
   }
 
   /** Internal direct entry for generated non-nullable concrete object fields. */

@@ -8,8 +8,7 @@ import {
 } from "../naive/string";
 import {
   serializeString_SIMD,
-  serializeStringRange_SIMD,
-  serializeStringRangeReservedAt_SIMD,
+  serializeStringPointerReservedAt_SIMD,
   serializeStringRangeReserved_SIMD,
   serializeShortStringReservedAt_SIMD,
 } from "../simd/string";
@@ -32,12 +31,13 @@ export function serializeString(src: string): void {
 
 @inline
 export function serializeStringPointer(src: usize): void {
-  const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
   if (JSON_MODE == JSONMode.SIMD) {
-    serializeStringRange_SIMD(src, size);
+    serializeString_SIMD(changetype<string>(src));
   } else if (JSON_MODE == JSONMode.NAIVE) {
+    const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
     serializeStringRange(src, size);
   } else {
+    const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
     serializeStringRange_SWAR(src, size);
   }
 }
@@ -45,12 +45,13 @@ export function serializeStringPointer(src: usize): void {
 /** Pointer-only generated-field entry with capacity reserved by its object. */
 @inline
 export function serializeStringPointerReserved(src: usize): void {
-  const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
   if (JSON_MODE == JSONMode.SIMD) {
-    serializeStringRangeReserved_SIMD(src, size);
+    bs.offset = serializeStringPointerReservedAt_SIMD(src, bs.offset);
   } else if (JSON_MODE == JSONMode.NAIVE) {
+    const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
     serializeStringRangeReserved(src, size);
   } else {
+    const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
     serializeStringRangeReserved_SWAR(src, size);
   }
 }
@@ -62,11 +63,12 @@ export function serializeStringPointerReservedAt(
   dst: usize,
   src: usize,
 ): usize {
-  const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
   if (JSON_MODE == JSONMode.SIMD) {
+    const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
     if (size < 16) return serializeShortStringReservedAt_SIMD(src, size, dst);
-    return serializeStringRangeReservedAt_SIMD(src, size, dst);
+    return serializeStringPointerReservedAt_SIMD(src, dst);
   }
+  const size = changetype<OBJECT>(src - TOTAL_OVERHEAD).rtSize;
   bs.offset = dst;
   if (JSON_MODE == JSONMode.NAIVE) {
     serializeStringRangeReserved(src, size);
