@@ -3311,3 +3311,22 @@ prototype is reverted rather than selecting by layout.
 
 Artifacts under `build/simdjson-parity/`: profile `wstail-profile.wasm`, run
 `wstail00000000001/` and comparison `wstail-validation-v8/`.
+
+## Rejected signed-narrow sixteen-byte string tail
+
+The shared SIMD string writer's thirty-two-byte clean loop uses the retained
+signed-narrow classifier, while its sixteen-byte tail uses full UTF-16 lane
+comparisons. A prototype applies the same signed-narrow classification to the
+tail and performs exact whole-code-unit checks only on candidate blocks. It
+preserves escapes, controls, Unicode and surrogate handling for every string.
+
+Four seven-pair V8 classic screens pass forty complete owned-output and
+retention comparisons per label. SIMD stringify moves by 0.991x on Twitter,
+1.014x on CITM, 0.998x on GSOC and 1.013x on Poet. Controls move by similar
+small amounts and no row exceeds the 3% guard. The mixed result is too close to
+noise to justify a more complex exceptional path, so the established UTF-16
+tail is restored.
+
+Artifacts under `build/simdjson-parity/`: runs
+`tailnarrow{tw,ci,gs,po}0001/` and comparisons
+`tailnarrow-{twitter-min,citm-catalog-min,gsoc-2018-min,poet-min}/`.
