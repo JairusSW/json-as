@@ -3069,6 +3069,12 @@ export namespace JSON {
     serializeArray<T>(data);
   }
 
+  /** Pointer-only entry for generated array fields whose owner is rooted. */
+  @inline
+  function __serializeArrayPointer<T extends any[]>(data: usize): void {
+    serializeArray<T>(changetype<T>(data));
+  }
+
   /** Internal direct entry for transform-generated string fields. */
   @inline
   function __serializeString<T>(data: T): void {

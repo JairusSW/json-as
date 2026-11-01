@@ -1053,3 +1053,28 @@ forces collection and output growth around long escaped, nullable generated
 string fields in every mode. The exact source passes 123,366 normal and 77,676
 strict/RFC checks across all three modes, plus transform regressions, typecheck,
 lint and diff checks.
+
+### Retained pointer entry for generated array fields, 2026-11-01
+
+Transform-generated object serializers now pass non-nullable `Array<T>` fields
+to the shared array writer by pointer while the containing object remains
+rooted. This removes the redundant managed-array shadow-stack frame without
+changing public array serialization, element dispatch, buffer growth or output
+ownership. The rule applies to primitive, string, nested and object arrays in
+NAIVE, SWAR and SIMD; it has no schema, field-name, length or corpus selector.
+
+Six balanced process pairs across all 16 classic layouts show no SIMD row beyond
+the 5% regression guard in V8 or default w2c2. Stringify throughput improves
+1.023x/1.009x on CITM minified, 1.001x/1.029x on CITM pretty, 1.012x/1.005x on
+Lottie minified and 1.003x/1.024x on independently confirmed Lottie pretty.
+OTFCC trades 3.0% on V8 and improves 3.6% on default w2c2. The FGO zero-schema
+control is 0.988x/0.997x. Independent 12-pair confirmations replace initial
+default-w2c2 outliers for Lottie and Twitter pretty. Checked-w2c2 controls are
+1.007x on CITM minified and 0.980x on Lottie pretty; neither has a phase beyond
+the 5% guard.
+
+Every complete owned-output and retention oracle passes, including the two huge
+corpora. A dedicated regression forces collection and output growth while
+generated string and object arrays are reachable only through their owner. The
+exact source passes 123,369 normal and 77,676 strict/RFC checks across all three
+modes, plus transform regressions, typecheck, lint and diff checks.

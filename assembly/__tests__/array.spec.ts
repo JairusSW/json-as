@@ -504,6 +504,38 @@ class Matrix {
   rows: i32[][] = [];
 }
 
+@json
+class GeneratedArrayLeaf {
+  value: string = "";
+}
+
+@json
+class GeneratedArrayFields {
+  strings: string[] = [];
+  leaves: GeneratedArrayLeaf[] = [];
+}
+
+describe("Generated array fields stay live across output growth", () => {
+  const owner = new GeneratedArrayFields();
+  const first = "a".repeat(8192) + "\nfirst";
+  const second = "中".repeat(4096) + '"second';
+  owner.strings = [first, second];
+  const leaf = new GeneratedArrayLeaf();
+  leaf.value = "z".repeat(8192) + "\\leaf";
+  owner.leaves = [leaf];
+  __collect();
+
+  const expected =
+    '{"strings":["' +
+    "a".repeat(8192) +
+    '\\nfirst","' +
+    "中".repeat(4096) +
+    '\\"second"],"leaves":[{"value":"' +
+    "z".repeat(8192) +
+    '\\\\leaf"}]}';
+  expect(JSON.stringify(owner)).toBe(expected);
+});
+
 // ─── Naive array success paths ───────────────────────────────────────────────
 
 describe("NAIVE: bool[] round-trips", () => {

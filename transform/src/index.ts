@@ -249,7 +249,7 @@ function getSerializeCall(type: string, realName: string): string {
 
   if (type.startsWith("Array<") && !type.includes("| null")) {
     return syncSerializeCursor(
-      `JSON.__serializeArray<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
+      `JSON.__serializeArrayPointer<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
     );
   }
 

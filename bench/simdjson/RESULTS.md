@@ -1968,3 +1968,60 @@ diff checks also pass.
 Artifacts under `build/simdjson-parity/`:
 `runs/{keyscalar00001,keyscalar40001}/` and
 `comparisons/keyscalar4-validation-{v8,w2c2,w2c2-checked}/`.
+
+## Retained pointer entry for generated array fields
+
+Generated serializers already keep their containing object rooted. Passing a
+non-nullable `Array<T>` field as another managed argument therefore creates a
+redundant shadow-stack frame. The transform now loads the field pointer and
+calls a small pointer entry that reuses the established array serializer. This
+applies to every generated primitive, string, nested and object array field;
+nullable arrays retain the generic null-aware path. There is no corpus, schema,
+field-name, value or length selector.
+
+Six balanced process pairs compare equal-length frozen `strptr00000001` /
+`ptrtest0000001` baselines with `arrptr00000001`. Every variant/backend passes
+twenty complete owned-output and retention comparisons. Candidate / baseline
+SIMD stringify throughput:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| Canada minified | 0.996x | 1.002x |
+| Canada pretty | 1.008x | 1.015x |
+| Twitter minified | 1.006x | 1.015x |
+| Twitter pretty | 1.009x | 1.004x |
+| CITM minified | 1.023x | 1.009x |
+| CITM pretty | 1.001x | 1.029x |
+| GitHub events minified | 0.993x | 0.999x |
+| GitHub events pretty | 1.007x | 1.000x |
+| Poet minified | 0.995x | 1.020x |
+| Poet pretty | 1.000x | 1.003x |
+| GSOC minified | 0.980x | 1.018x |
+| GSOC pretty | 1.015x | 1.007x |
+| Lottie minified | 1.012x | 1.005x |
+| Lottie pretty | 1.003x | 1.024x |
+| OTFCC minified | 0.970x | 1.036x |
+| FGO minified | 0.988x | 0.997x |
+
+The initial six-pair Lottie-pretty default-w2c2 result regressed stringify by
+9.8%, while V8 was flat and minified Lottie improved. An independent twelve-pair
+confirmation reports 1.024x default-w2c2 and 1.003x V8 stringify throughput;
+all other rows are within 1.0%. Twitter pretty also received a twelve-pair
+confirmation and reports 1.004x/1.009x. These confirmations replace the initial
+outliers rather than introducing input-specific handling.
+
+The two huge corpora were run one backend at a time with full retained-output
+oracles. OTFCC improves 1.036x on default w2c2 and trades 3.0% on V8. FGO has no
+generated class and serves as an inactive control. Checked-w2c2 six-pair controls
+report 1.007x CITM-minified stringify and 0.980x Lottie-pretty stringify; no
+checked parse, stringify or validation row crosses the 5% regression guard.
+
+A dedicated regression forces collection and output growth while generated
+string and object arrays are reachable only through their owner. The focused
+array suite passes 813 checks across all three modes. The exact retained source
+passes 123,369 normal and 77,676 strict/RFC checks across NAIVE, SWAR and SIMD;
+transform regressions, typecheck, lint and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`: `runs/arrptr00000001/`,
+`comparisons/arrptr-*`, and the independent
+`arrptr-{lottie,twitter}-pretty-confirm` comparisons.
