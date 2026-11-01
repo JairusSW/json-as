@@ -3171,3 +3171,18 @@ than attach event metadata there.
 Artifacts under `build/simdjson-parity/`: profile run `twittervalueprof/` and
 `twitter-value-validate-profile.log`; run `keyquote000000001/`; comparison
 `keyquote-validation-v8/`.
+
+## Rejected range-compressed key predicate
+
+The next scalar-key prototype replaces the quote/backslash/control chain with
+an exact range predicate that appears to require two comparisons for ordinary
+characters, while moving extra comparisons to the terminal quote and rare
+space/`!` units. Cursor and RFC oracles pass. Five balanced V8 pairs show that
+the source-level comparison reduction does not improve generated execution:
+Twitter falls to 0.963x/0.960x, CITM to 0.947x/0.967x and most other object
+layouts lose 1–3%. CITM-minified exceeds the 5% regression guard. Only Canada
+improves and Poet-minified is neutral. The original quote-first chain is
+restored.
+
+Artifacts under `build/simdjson-parity/`: run `keyrange000000001/` and
+comparison `keyrange-validation-v8/`.
