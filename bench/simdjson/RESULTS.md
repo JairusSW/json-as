@@ -2742,3 +2742,30 @@ typecheck, lint, formatting and diff checks also pass.
 
 Artifacts under `build/simdjson-parity/`: run `prehashx000000001/` and
 comparisons `prehash-*`, `prehash-swar-*` and `prehash-w2c2-*`.
+
+## Rejected cursor-local Map key writer
+
+A serialization prototype reserved each string key's payload at the Map loop,
+called the existing cursor-returning string writer, emitted the colon through
+that local cursor and published builder state once. Non-string keys and all
+escaping/growth semantics were unchanged. The rule applied to every string-key
+Map without corpus or schema selection.
+
+Nine alternating V8 pairs on the two Map-heavy layouts and seven on controls
+compare equal-length `prehashx000000001` and `mapcurxx000000001` artifacts.
+Every retained-output oracle passes. Candidate / baseline SIMD stringify:
+
+| Layout | Stringify |
+| --- | ---: |
+| GSOC minified | 0.982x |
+| CITM minified | 1.012x |
+| Twitter minified | 1.001x |
+| Poet minified | 0.990x |
+
+The shared call already compiles efficiently for GSOC; moving its reservation
+and cursor boundary trades performance between layouts instead of removing
+work. The prototype was reverted after 1,146 focused Map and GC checks passed
+across all modes.
+
+Artifacts under `build/simdjson-parity/`: run `mapcurxx000000001/` and
+comparisons `mapcursor-*`.
