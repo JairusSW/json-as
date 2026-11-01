@@ -36,6 +36,19 @@ describe("SIMD clean-string classification preserves String and reuse semantics"
   __collect();
   expect(JSON.stringify(clean)).toBe(expected);
 
+  // A classified String remains a valid owned-output destination. Matching
+  // physical sizes reuse it and clear the source classification before write.
+  let output = "x".repeat(40);
+  JSON.stringify(output);
+  expect(stringRuntimeSize(output) & STRING_METADATA_MASK).toBe(
+    STRING_METADATA_MASK,
+  );
+  const outputPointer = changetype<usize>(output);
+  output = JSON.stringify<string>("y".repeat(38), output);
+  expect(changetype<usize>(output)).toBe(outputPointer);
+  expect(output).toBe('"' + "y".repeat(38) + '"');
+  expect(stringRuntimeSize(output)).toBe(80);
+
   const holder = new ClassifiedStringField();
   holder.value = "a".repeat(32);
   expect(JSON.stringify(holder)).toBe('{"value":"' + holder.value + '"}');

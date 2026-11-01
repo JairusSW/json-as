@@ -463,9 +463,12 @@ export namespace bs {
       src = cacheOutput;
     }
     let dst = target;
-    if (changetype<OBJECT>(target - TOTAL_OVERHEAD).rtSize != <u32>len) {
+    const targetObject = changetype<OBJECT>(target - TOTAL_OVERHEAD);
+    if ((targetObject.rtSize & STRING_SIZE_MASK) != <u32>len) {
       // @ts-expect-error: __renew is a runtime builtin
       dst = __renew(target, len);
+    } else {
+      targetObject.rtSize = <u32>len;
     }
     memory.copy(dst, src, len);
     if (cacheOutput === 0) {
