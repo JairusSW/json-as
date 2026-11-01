@@ -76,6 +76,25 @@ function reservePrimitiveArray<T>(len: i32): void {
   JSON.__serialize<T>(value);
 }
 
+// @ts-expect-error: @inline is an AssemblyScript decorator
+@inline function serializeArrayElementPointer<T>(value: usize): void {
+  if (isNullable<T>() && value == 0) {
+    JSON.__serialize<T>(changetype<T>(value));
+    return;
+  }
+  if (isDefined(changetype<nonnull<T>>(value).__SERIALIZE_CUSTOM)) {
+    // @ts-ignore: transform-defined at runtime when present
+    changetype<nonnull<T>>(value).__SERIALIZE_CUSTOM();
+    return;
+  }
+  if (isDefined(changetype<nonnull<T>>(value).__SERIALIZE)) {
+    // @ts-ignore: transform-defined serializer
+    changetype<nonnull<T>>(value).__SERIALIZE(value);
+    return;
+  }
+  JSON.__serialize<T>(changetype<T>(value));
+}
+
 // ---------------------------------------------------------------------------
 // Specialized fast paths
 // ---------------------------------------------------------------------------
@@ -444,6 +463,41 @@ export function serializeArray<T extends any[]>(src: T): void {
 export function serializeArrayPointer<T extends any[]>(src: usize): void {
   if (isInteger<valueof<T>>() && sizeof<valueof<T>>() > 1) {
     serializeIntegerArrayFast<T>(src);
+    return;
+  }
+  if (
+    (isManaged<valueof<T>>() || isReference<valueof<T>>()) &&
+    !isString<valueof<T>>()
+  ) {
+    const len = load<i32>(src, offsetof<T>("length_"));
+    const end = len - 1;
+    if (end == -1) {
+      bs.proposeSize(4);
+      store<u32>(bs.offset, 6094939);
+      bs.offset += 4;
+      return;
+    }
+
+    bs.proposeSize(4 + <u32>end * 2);
+    store<u16>(bs.offset, BRACKET_LEFT);
+    bs.offset += 2;
+
+    const stride = sizeof<valueof<T>>();
+    let i = 0;
+    while (i < end) {
+      const dataStart = load<usize>(src, offsetof<T>("dataStart"));
+      const block = load<usize>(dataStart + <usize>i * stride);
+      i++;
+      serializeArrayElementPointer<valueof<T>>(block);
+      store<u16>(bs.offset, COMMA);
+      bs.offset += 2;
+    }
+
+    const dataStart = load<usize>(src, offsetof<T>("dataStart"));
+    const lastBlock = load<usize>(dataStart + <usize>end * stride);
+    serializeArrayElementPointer<valueof<T>>(lastBlock);
+    store<u16>(bs.offset, BRACKET_RIGHT);
+    bs.offset += 2;
     return;
   }
   serializeArray<T>(changetype<T>(src));
