@@ -2644,3 +2644,33 @@ native parity.
 
 Artifacts under `build/simdjson-parity/`: run `onestrxx000000001/` and
 comparisons `onestr-*` and `onestr-w2c2-*`.
+
+## Rejected nested full-write zero initialization
+
+A generated-parser prototype extended the fresh-root full-write contract to
+new nested objects and new struct-array elements. Types whose fast parser writes
+every field started from zeroed reference-safe storage instead of constructing
+their declared defaults; optional types retained normal initialization, and
+every fast miss initialized fully before the slow retry. The rule depended only
+on the generated type capability and contained no corpus or schema signature.
+
+Seven alternating V8 pairs compare equal-length `onestrxx000000001` and
+`nestzerx000000001` artifacts. Every variant passes twenty complete retained-
+output comparisons. Candidate / baseline SIMD parse throughput:
+
+| Layout | Parse |
+| --- | ---: |
+| CITM minified | 0.993x |
+| GSOC minified | 1.010x |
+| Twitter minified | 1.006x |
+| GitHub Events minified | 1.008x |
+| Poet minified | 0.994x |
+
+The allocator-bound CITM target did not improve, and Poet stringification also
+moved to 0.976x despite being semantically untouched. The added capability
+branch/code layout is not justified by the small mixed parse changes, so the
+prototype was reverted. Before measurement it passed 12,633 focused nested,
+struct, nullable and production-safety checks across all modes.
+
+Artifacts under `build/simdjson-parity/`: run `nestzerx000000001/` and
+comparisons `nestzero-*`.
