@@ -39,8 +39,13 @@ optimization priority:
   for 25.7% of samples before GC/linking costs. A fixed 16-element fresh-array
   capacity and both global and cursor-only slot-helper inlining produced mixed
   corpus results, including confirmed Twitter-pretty regressions. Field-level
-  capacity knowledge or a lower-allocation construction strategy is required;
-  a global fixed hint is not justified.
+  capacity knowledge or a lower-allocation construction strategy was required;
+  a global fixed hint was not justified. A subsequent bounded per-field learned
+  capacity experiment also regressed CITM-minified parse by 1.7%. Isolating the
+  hinted reader from the ordinary generic calling convention made the result
+  slightly worse at 1.9%, while stringify and validation controls stayed flat.
+  Capacity prediction is therefore rejected; the remaining target is less
+  array-construction machinery rather than a different initial capacity.
 
 All screens used changing rotated inputs, retained independent outputs and
 alternating fresh V8 processes. Rejected candidates were reverted. The
