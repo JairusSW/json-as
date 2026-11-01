@@ -80,6 +80,7 @@ export namespace bs {
     bufferSize = newSize;
   }
 
+  @inline
   function reserve(requiredSize: usize, extra: usize): void {
     if (requiredSize <= bufferSize) return;
     // Managed output normally starts from the preceding result's size, so a

@@ -1826,3 +1826,31 @@ typecheck, lint and diff checks also pass.
 Artifacts under `build/simdjson-parity/`:
 `runs/{inputunroll001,inputanytrue01}/` and
 `comparisons/inputany{gh,ghw,gs,lt,ca}*/`.
+
+## Retained inline buffer-reservation fast check
+
+The shared buffer now inlines its ordinary `requiredSize <= bufferSize` check
+and keeps growth plus relocation outlined. This removes a managed Wasm call
+when capacity already suffices and applies to every serializer, mode, output
+representation and value type. It introduces no corpus, schema, field, length
+or content selector.
+
+Five balanced process pairs compare equal-length frozen labels in V8 and
+default w2c2. Every variant/backend passes twenty complete owned-output and
+retention comparisons. Candidate / `26b20ff` SIMD stringify throughput:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| GitHub events minified | 1.059× | 1.010× |
+| GSOC minified | 1.017× | 1.011× |
+| Lottie minified | 1.000× | 1.006× |
+| Canada minified | 1.004× | 0.996× |
+
+No measured parse, stringify or validation row crosses the 5% regression
+guard. The exact retained source passes all 123,360 normal and 77,676
+strict/RFC checks across NAIVE, SWAR and SIMD; transform regressions,
+typecheck, lint and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`:
+`runs/{inputanytrue01,resinline00001}/` and
+`comparisons/resinline{gh,gs,lt,ca}*/`.

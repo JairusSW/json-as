@@ -955,3 +955,19 @@ and no phase crosses the 5% regression guard. Exact owned-output and retention
 comparisons pass. The complete retained source passes all 123,360 normal and
 77,676 strict/RFC checks across all three modes, plus transform regressions,
 typecheck, lint and diff checks.
+
+### Retained inline buffer-reservation fast check, 2026-11-01
+
+Inline the shared output buffer's `requiredSize <= bufferSize` check into its
+callers while keeping actual growth and relocation outlined. The change applies
+to every serialization mode, output representation and value type; it does not
+inspect the corpus, schema or value. This removes a managed Wasm call from the
+ordinary no-growth path without duplicating the cold allocator.
+
+Five-pair SIMD screens put GitHub-events stringification at 1.059× baseline in
+V8 and 1.010× in default w2c2. GSOC is 1.017×/1.011×, Lottie 1.000×/1.006×,
+and numeric-heavy Canada 1.004×/0.996×. All complete owned-output and retention
+comparisons pass; no parse, stringify or validation row crosses the 5%
+regression guard. The exact source passes 123,360 normal and 77,676 strict/RFC
+checks across all three modes, plus transform regressions, typecheck, lint and
+diff checks.
