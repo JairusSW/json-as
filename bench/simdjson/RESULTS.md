@@ -2314,3 +2314,48 @@ Artifacts under `build/simdjson-parity/`: runs
 `{fieldstr000000001,lanemask000000001}/`, comparisons `lanemask-*`, rejected
 grouped-escape run `groupesc000000001/` and comparisons `groupesc-*`, and
 rejected Map-key run `mapkeypt000000001/` and comparisons `mapkeypt-*`.
+
+## Reused signed-narrow string classification
+
+The 32-byte clean-string loop already narrows sixteen UTF-16 units to signed
+bytes for ASCII classification. Negative `i16` lanes, including every
+surrogate, saturate to `-128`; the loop now reuses that result for its
+conservative Unicode event check instead of comparing both original vectors
+byte-wise and ORing the results. Candidate blocks still enter the established
+whole-code-unit verifier, so escaping semantics are unchanged. This applies to
+every sufficiently long SIMD string and contains no corpus or schema signal.
+
+Seven alternating V8 pairs compare equal-length frozen `lanemask000000001` and
+`signsatx000000001` artifacts. Every layout passes twenty complete retained-
+output comparisons. Candidate / baseline SIMD stringify throughput:
+
+| Layout | V8 |
+| --- | ---: |
+| GSOC minified | 1.013x |
+| Twitter minified | 0.999x |
+| GitHub events minified | 1.027x |
+| Poet minified | 1.016x |
+| CITM minified control | 0.998x |
+| Root short-string control | 0.997x |
+
+Three nine-pair Unicode stress controls cover full-width text, mixed surrogate
+pairs and the U+7FFF/U+8000 transition. Their stringify ratios are 0.994x,
+0.998x and 0.995x respectively. Five latest-main w2c2 pairs report 0.983x
+GSOC stringify with checks and 0.991x without; both remain inside the 5%
+cross-runtime guard. V8 remains the classic parity backend, where the active
+ASCII-heavy layouts improve and all controls are neutral.
+
+The post-mask GSOC profile attributes 3,099 of 3,929 Wasm self samples (78.9%)
+to the shared string writer, confirming that this loop remains the main
+serialization target. A scalar sign-bit-mask variant was rejected: it measured
+0.981x GSOC, 0.980x Twitter and 0.969x GitHub stringify throughput.
+
+Focused string tests pass 40,585 checks across all modes. Exact commit
+`6c0eb8f` passes 123,636 normal and 77,919 strict/RFC checks across NAIVE, SWAR
+and SIMD; transform regressions, typecheck, lint and diff checks also pass.
+
+Artifacts under `build/simdjson-parity/`: runs
+`{lanemask000000001,signsatx000000001,satbasex000000001,signmask000000001}/`,
+comparisons `signsatx-*` and `signmask-*`, and profile artifacts
+`lane-mask2-{serialize-v8.log,serialize-run.log,self-profile.py,self-profile.json}`
+plus `runs/laneprof000000001/`.
