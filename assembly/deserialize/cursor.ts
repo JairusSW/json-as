@@ -75,8 +75,6 @@ function plainStringEnd(ptr: usize, end: usize): usize {
         ),
         i16x8.lt_u(first, i16x8.splat(32)),
       );
-      const firstMask = i16x8.bitmask(firstSpecial);
-      if (firstMask) return ptr + ((<usize>ctz(firstMask)) << 1);
       const second = v128.load(ptr + 16);
       const secondSpecial = v128.or(
         v128.or(
@@ -85,8 +83,7 @@ function plainStringEnd(ptr: usize, end: usize): usize {
         ),
         i16x8.lt_u(second, i16x8.splat(32)),
       );
-      const secondMask = i16x8.bitmask(secondSpecial);
-      if (secondMask) return ptr + 16 + ((<usize>ctz(secondMask)) << 1);
+      if (v128.any_true(v128.or(firstSpecial, secondSpecial))) break;
       ptr += 32;
     }
     while (ptr + 16 <= end) {

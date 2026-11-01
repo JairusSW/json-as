@@ -938,3 +938,20 @@ The numeric-heavy Canada control validates at 1.044×/0.974× and parses at
 variant passes complete owned-output and retention comparisons. The retained
 source passes all 123,360 normal and 77,676 strict/RFC checks across NAIVE,
 SWAR and SIMD, plus transform regressions, typecheck, lint and diff checks.
+
+### Retained combined clean-input SIMD event branch, 2026-11-01
+
+Combine the two checked input blocks' event vectors before testing the clean
+32-byte iteration. Eventful pairs fall through to the established one-vector
+mask path, which identifies the exact first code unit. Clean pairs avoid two
+bitmask reductions and a branch between blocks. This is a control-flow change
+inside the same shared scanner, with no new schema or input selector.
+
+Relative to the preceding two-vector scan, V8 validation improves 1.148× on
+GitHub events and 1.426× on GSOC; owned parse improves 1.065× and 1.140×.
+Default w2c2 ranges from 0.989× to 1.016× on those parse/validation rows. The
+Lottie and Canada controls remain within 1.8% on V8 and 3.2% on default w2c2,
+and no phase crosses the 5% regression guard. Exact owned-output and retention
+comparisons pass. The complete retained source passes all 123,360 normal and
+77,676 strict/RFC checks across all three modes, plus transform regressions,
+typecheck, lint and diff checks.
