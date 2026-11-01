@@ -486,8 +486,9 @@ export function readCursorLiteral(start: usize, end: usize, code: u16): usize {
 // Discard traversal cannot invoke user code. Its bounded scratch stack is used
 // only until this synchronous call returns, never across materialization or a
 // custom deserializer. Byte states need no managed references or lazy heap
-// allocation. Parent cursor parsers keep their own depth in locals.
-const DISCARD_STATES: usize = memory.data(MAX_CURSOR_DEPTH);
+// allocation. Each byte records only the opening delimiter of its container;
+// parent cursor parsers keep their own depth in locals.
+const DISCARD_CONTAINERS: usize = memory.data(MAX_CURSOR_DEPTH);
 
 export function skipCheckedValue(
   start: usize,
@@ -497,60 +498,64 @@ export function skipCheckedValue(
   if (<u32>outerDepth > <u32>MAX_CURSOR_DEPTH) return 0;
   let ptr = start;
   let depth = 0;
-  let needValue = true;
   while (true) {
-    if (needValue) {
-      ptr = skipCursorWhitespace(ptr, end);
-      if (ptr >= end) return 0;
-      const code = load<u16>(ptr);
-      if (code == 91 || code == 123) {
-        if (outerDepth + depth >= MAX_CURSOR_DEPTH) return 0;
-        store<u8>(DISCARD_STATES + usize(depth++), code == 91 ? 0 : 2);
-        ptr += 2;
-      } else {
-        if (code == 34) ptr = skipCursorString(ptr, end);
-        else if (code == 116 || code == 102 || code == 110)
-          ptr = readCursorLiteral(ptr, end, code);
-        else ptr = skipCursorNumber(ptr, end);
-        if (!ptr) return 0;
-        if (!depth) return ptr;
-      }
-      needValue = false;
-    }
     ptr = skipCursorWhitespace(ptr, end);
     if (ptr >= end) return 0;
-    const state = load<u8>(DISCARD_STATES + usize(depth - 1));
-    const code = load<u16>(ptr);
-    if (
-      (state == 0 && code == 93) ||
-      (state == 2 && code == 125) ||
-      (state == 1 && code == 93) ||
-      (state == 4 && code == 125)
-    ) {
-      ptr += 2;
-      if (!--depth) return ptr;
-      continue;
-    }
-    if (state == 0) {
-      store<u8>(DISCARD_STATES + usize(depth - 1), 1);
-      needValue = true;
-    } else if (state == 1) {
-      if (code != 44) return 0;
-      ptr += 2;
-      needValue = true;
-    } else if (state == 2 || state == 3) {
-      ptr = skipCursorKey(ptr, end);
-      if (!ptr) return 0;
-      ptr = skipCursorWhitespace(ptr, end);
-      if (ptr >= end || load<u16>(ptr) != 58) return 0;
-      ptr += 2;
-      store<u8>(DISCARD_STATES + usize(depth - 1), 4);
-      needValue = true;
+    let code = load<u16>(ptr);
+    if (code == 91 || code == 123) {
+      if (outerDepth + depth >= MAX_CURSOR_DEPTH) return 0;
+      store<u8>(DISCARD_CONTAINERS + usize(depth++), <u8>code);
+      ptr = skipCursorWhitespace(ptr + 2, end);
+      if (ptr >= end) return 0;
+      const close = code == 91 ? 93 : 125;
+      if (load<u16>(ptr) == close) {
+        ptr += 2;
+        depth--;
+      } else if (code == 123) {
+        ptr = skipCursorKey(ptr, end);
+        if (!ptr) return 0;
+        ptr = skipCursorWhitespace(ptr, end);
+        if (ptr >= end || load<u16>(ptr) != 58) return 0;
+        ptr += 2;
+        continue;
+      } else {
+        continue;
+      }
     } else {
-      if (code != 44) return 0;
-      ptr += 2;
-      store<u8>(DISCARD_STATES + usize(depth - 1), 3);
+      if (code == 34) ptr = skipCursorString(ptr, end);
+      else if (code == 116 || code == 102 || code == 110)
+        ptr = readCursorLiteral(ptr, end, code);
+      else ptr = skipCursorNumber(ptr, end);
+      if (!ptr) return 0;
     }
+
+    // A complete value can close any number of parent containers. The stack
+    // records only the container kind; grammar phase is represented by this
+    // control-flow position, avoiding a state write for every member/value.
+    while (depth) {
+      ptr = skipCursorWhitespace(ptr, end);
+      if (ptr >= end) return 0;
+      const container = load<u8>(DISCARD_CONTAINERS + usize(depth - 1));
+      code = load<u16>(ptr);
+      const close = container == 91 ? 93 : 125;
+      if (code == close) {
+        ptr += 2;
+        depth--;
+        continue;
+      }
+      if (code != 44) return 0;
+      ptr = skipCursorWhitespace(ptr + 2, end);
+      if (ptr >= end) return 0;
+      if (container == 123) {
+        ptr = skipCursorKey(ptr, end);
+        if (!ptr) return 0;
+        ptr = skipCursorWhitespace(ptr, end);
+        if (ptr >= end || load<u16>(ptr) != 58) return 0;
+        ptr += 2;
+      }
+      break;
+    }
+    if (!depth) return ptr;
   }
   return 0;
 }
