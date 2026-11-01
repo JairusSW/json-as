@@ -28,7 +28,8 @@ function reservePrimitiveArray<T>(len: i32): void {
   }
 }
 
-function serializeArrayElement<T>(value: T): void {
+// @ts-expect-error: @inline is an AssemblyScript decorator
+@inline function serializeArrayElement<T>(value: T): void {
   // Nullable strings also satisfy isString<T>(); handle null before any
   // string or custom serializer can dereference the value.
   if (isNullable<T>() && changetype<usize>(value) == 0) {

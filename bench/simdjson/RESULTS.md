@@ -1564,3 +1564,49 @@ inlined adapters; direct candidate-to-candidate screens show an additional
 Artifacts under `build/simdjson-parity/`:
 `runs/{floatunsafe001,localcursor001,localcursor002}/` and
 `comparisons/localcursor-{final,inline}-*/`.
+
+## Retained specialized object-element inlining
+
+A fresh post-local-cursor V8 profile extends only CITM stringification to
+10,000 operations. Of 2,131 Wasm self samples, generated object-element writers
+account for 742 (Area 370, SeatCategory 264, Price 55, Performance 53), ahead of
+integer-array dispatch at 292 and integer formatting at 358 combined. Named
+Wasm shows the generated serializer already folded into the element writer,
+but the specialized array loop still calls that writer through a separate
+managed frame.
+
+Marking the shared element writer inline fuses it into each statically typed
+array loop while preserving its nullable, string, primitive, custom,
+polymorphic and fallback branches. The type tests fold at compile time. There
+is no corpus, schema, field or value selector. Final SIMD binaries are unchanged
+to 0.07% smaller across the seven measured families, rather than gaining speed
+through code growth.
+
+Six balanced process pairs compare exact-current frozen labels in V8 and
+default w2c2; Canada additionally has an eight-pair confirmation. Every
+variant/backend passes twenty complete owned-output comparisons. SIMD
+stringify throughput, candidate / `d966699`:
+
+| Layout | V8 | Default w2c2 |
+| --- | ---: | ---: |
+| CITM minified | 1.039× | 1.089× |
+| Canada minified, confirmation | 1.011× | 1.014× |
+| Twitter minified | 0.999× | 1.001× |
+| GitHub events minified | 1.013× | 1.042× |
+| Poet minified | 1.008× | 0.991× |
+| GSOC minified | 1.003× | 1.003× |
+| Lottie minified | 0.996× | 0.994× |
+
+An initial six-pair Canada run reports 0.902× default-w2c2 stringification;
+the independent eight-pair confirmation reports 1.014× with all other rows
+inside 1.2%, so the first movement is retained as a timing outlier rather than
+used to introduce a Canada-specific exception. No accepted broad-screen row
+regresses by 1%.
+
+The retained source passes 123,360 normal and 77,676 strict/RFC checks across
+NAIVE, SWAR and SIMD. The focused array/custom/reentrancy suite passes 4,605
+checks across all modes. Formatting, typecheck, lint and diff checks pass.
+
+Artifacts under `build/simdjson-parity/`:
+`postcursor-serialize-profile/`, `runs/{elembase000001,eleminline0001}/`, and
+`comparisons/eleminline-*/`.

@@ -834,3 +834,18 @@ output oracles and both complete three-mode suites pass. Continue this direction
 by finding other allocation-free regions, but keep every flush boundary
 explicit; do not make strings, collections or callbacks rely on a stale local
 after buffer relocation.
+
+### Retained specialized object-element inlining, 2026-11-01
+
+Inline the shared array-element writer into each concrete array loop. The
+generated serializer had already folded into that writer, but the loop still
+paid a separate managed frame. All null, custom, polymorphic and fallback checks
+remain and fold by concrete element type. A fresh CITM profile identifies 742
+of 2,131 Wasm self samples in four object-element writers.
+
+Seven-family balanced screens are broadly neutral or positive: CITM improves
+1.039× in V8 and 1.089× in default w2c2; GitHub events improves 1.013×/1.042×;
+the other five layouts range from 0.991× to 1.014×. SIMD binary size is flat to
+0.07% smaller. Keep the general inline hint and its existing mutation/
+reentrancy tests. Do not add a corpus or schema heuristic based on the initial
+Canada outlier; its eight-pair confirmation is 1.011×/1.014×.
