@@ -128,112 +128,112 @@ function plainStringEnd(ptr: usize, end: usize): usize {
 @inline
 function plainKeyEnd(ptr: usize, end: usize): usize {
   if (JSON_MODE == JSONMode.SIMD && ptr + 64 <= end) {
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
       if (code == 34 || code == 92 || code < 32) return ptr + 2;
       ptr += 4;
     }
-    if (JSON_MODE == JSONMode.SIMD && ptr + 4 <= end) {
+    {
       let code = load<u16>(ptr);
       if (code == 34 || code == 92 || code < 32) return ptr;
       code = load<u16>(ptr, 2);
