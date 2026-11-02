@@ -4191,6 +4191,26 @@ and diff checks pass. Artifacts: `citmsweeppar0001-*`, run
 `sweepcand0000001/`, and comparisons `sweeprun-*-v8-01/` under
 `build/simdjson-parity/`.
 
+## Exceptional ASCII event dispatch controls
+
+A SIMD prototype splits blocks without Unicode candidates into a dedicated
+ASCII escape loop while retaining the existing vector suffix writes. It
+passes 13,529 focused string/tail/surrogate checks and twenty complete owned
+output comparisons per label. Seven alternating GSOC minified V8 pairs report
+1.000x baseline serialization, so the duplicate loop is reverted.
+
+A second control removes only the scalar ASCII recheck for even event bits,
+which originate in exact UTF-16 comparisons. Seven GSOC pairs pass the complete
+output oracle and report 1.010x serialization with parse/validation controls
+at 0.995x/0.997x. This small screen does not establish a general throughput
+improvement, so it is also reverted pending a broader reason to change this
+kernel. Neither control closes the remaining serialization gap.
+
+Artifacts: `escapeascii0001/`, `escapeexact0001/` against
+`nestdefsafe0001/`; comparisons `escape-ascii-gsoc-v8/` and
+`escape-exact-gsoc-v8/`. All batches exceed one millisecond, keeping the
+baseline timer floor inactive.
+
 ## Rejected exceptional ASCII span emission
 
 A shared SIMD string-writer prototype emits each clean span between ASCII
