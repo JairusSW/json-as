@@ -4190,3 +4190,22 @@ retained graph coverage. AssemblyScript build, typecheck, import checks, lint
 and diff checks pass. Artifacts: `citmsweeppar0001-*`, run
 `sweepcand0000001/`, and comparisons `sweeprun-*-v8-01/` under
 `build/simdjson-parity/`.
+
+## Rejected cached `Map<string, string>` traversal
+
+A type-specialized Map writer cached the rooted, non-moving entry buffer for
+`Map<string, string>` and emitted values directly through the string writer.
+Because neither key nor value serialization can invoke user code, this safely
+removed the per-entry mutation guard, storage reload and generic value
+dispatch. Every other Map type retained the reentrant mutation-safe loop; no
+corpus, key or value signature selected the path.
+
+Seven alternating V8 pairs pass twenty complete owned-output and retention
+comparisons per label. Candidate / baseline SIMD stringify throughput is
+0.994x CITM, 1.000x GSOC, 1.000x GitHub Events and 1.001x Twitter. No phase
+crosses the 3% regression guard, but the primary Map-heavy targets do not
+improve. Binaryen already removes enough of the generic specialization overhead
+that duplicating the traversal is unjustified, so the prototype is reverted.
+
+Artifacts: runs `mapstr{base,cand}000001/` and comparisons
+`mapstr-*-v8-01/` under `build/simdjson-parity/`.
