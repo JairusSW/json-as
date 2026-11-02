@@ -191,6 +191,12 @@ describe("Should keep direct owned outputs independent across size changes", () 
   value.text = "n".repeat(42_000);
   const grownMedium = JSON.stringify(value);
 
+  value.text = "q".repeat(70_000);
+  const learnedOwned = JSON.stringify(value);
+
+  value.text = "r".repeat(71_000);
+  const directOwned = JSON.stringify(value);
+
   value.text = "x".repeat(4_500_000);
   const large = JSON.stringify(value);
 
@@ -202,11 +208,19 @@ describe("Should keep direct owned outputs independent across size changes", () 
   expect(medium.charCodeAt(9).toString()).toBe("109");
   expect(grownMedium.length.toString()).toBe("42011");
   expect(grownMedium.charCodeAt(9).toString()).toBe("110");
+  expect(learnedOwned.length.toString()).toBe("70011");
+  expect(learnedOwned.charCodeAt(9).toString()).toBe("113");
+  expect(directOwned.length.toString()).toBe("71011");
+  expect(directOwned.charCodeAt(9).toString()).toBe("114");
   expect(large.length.toString()).toBe("4500011");
   expect(third).toBe('{"text":"third"}');
   expect(
     (changetype<usize>(first) != changetype<usize>(third)).toString(),
   ).toBe("true");
+
+  __collect();
+  expect(learnedOwned.charCodeAt(70_008).toString()).toBe("113");
+  expect(directOwned.charCodeAt(71_008).toString()).toBe("114");
 
   JSON.Memory.shrink();
   value.text = "after-shrink";

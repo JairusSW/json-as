@@ -112,8 +112,7 @@ export namespace bs {
     stagingBuffer = buffer;
     stagingBufferSize = bufferSize;
     const capacity = max<usize>(ownedHint, MIN_BUFFER_SIZE);
-    // @ts-expect-error: __new is a runtime builtin
-    const ptr = __new(capacity, idof<string>());
+    const ptr = __newUninitialized(capacity, idof<string>());
     ownedOutput = changetype<string>(ptr);
     ownedCapacity = capacity;
     buffer = ptr;
@@ -135,15 +134,14 @@ export namespace bs {
         : len + min<usize>(max<usize>(len >> 4, 64), 1 << 20);
   }
 
-  function finishOwned<T>(): T {
+  function finishOwned(): string {
     const len = offset - buffer;
     let result = buffer;
     const excessLimit = max<usize>(len >> 2, 1 << 20);
     if (ownedCapacity > len && ownedCapacity - len > excessLimit) {
       // A large downward size swing should not make the small returned string
       // retain the previous result's large physical allocation.
-      // @ts-expect-error: __new is a runtime builtin
-      result = __new(len, idof<T>());
+      result = __newUninitialized(len, idof<string>());
       memory.copy(result, buffer, len);
     } else {
       // Logical shrink is in-place when the physical block already fits.
@@ -160,7 +158,7 @@ export namespace bs {
     stagingBuffer = 0;
     stagingBufferSize = 0;
     stackSize = 0;
-    return changetype<T>(result);
+    return changetype<string>(result);
   }
 
   function finalizeDynamicOutput(len: usize): void {
@@ -406,7 +404,7 @@ export namespace bs {
         cacheOutput = 0;
         cacheOutputLen = 0;
       }
-      return finishOwned<T>();
+      return changetype<T>(finishOwned());
     }
     let out: usize;
     if (cacheOutput === 0) {

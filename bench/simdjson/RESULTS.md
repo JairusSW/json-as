@@ -96,6 +96,47 @@ Evidence is under `build/simdjson-parity/comparisons/` in
 `phase-order-poet-v8`, `gc-budget-poet-v8`, `gc-shift6-poet-v8`, and
 `gc-budget-sweep-poet-v8`. These are diagnostic screens, not whole-grid parity.
 
+## 2026-11-01 accepted uninitialized owned-string allocation
+
+Direct owned serialization previously allocated a pointer-free managed string
+through ordinary incremental-GC `__new`, which cleared the complete payload
+before the serializer overwrote every logical output byte. AssemblyScript
+`6d0e56dd` adds an unsafe uninitialized allocation primitive: incremental GC
+retains all allocation, linking and header initialization and debug-asserts
+that the runtime type is pointer-free, but skips the redundant payload fill.
+Minimal and stub preserve their already-uninitialized allocation behavior.
+json-as uses the primitive only for owned strings and keeps the output rooted;
+growth, logical shrinking, retained-result independence and all ordinary
+allocation semantics are unchanged.
+
+The candidate is neutral or faster for SIMD stringify on all seven typed
+classic minified corpora. Poet and GSOC use fifteen alternating V8 process
+pairs; the other corpora use seven. Every label passes twenty changing-output
+and retention oracle comparisons.
+
+| Corpus | Cleared | Uninitialized | Baseline/candidate |
+| --- | ---: | ---: | ---: |
+| Canada | 2,076.06 us | 2,068.61 us | 1.004x |
+| GitHub Events | 11.75 us | 11.30 us | 1.040x |
+| Twitter | 94.49 us | 94.20 us | 1.003x |
+| CITM Catalog | 174.19 us | 173.23 us | 1.006x |
+| Poet | 330.05 us | 308.88 us | 1.069x |
+| GSOC 2018 | 605.05 us | 595.49 us | 1.016x |
+| Lottie | 34.18 us | 31.31 us | 1.092x |
+
+Parse and validation controls remain within 2.6%, and the fifteen-pair Poet
+and GSOC controls remain within 1%. The optimization is based only on the
+runtime type's pointer-free invariant and complete output ownership; it does
+not inspect the corpus, schema, content or output size distribution. The
+retained runtime test covers the direct and exact-copy paths across NAIVE,
+SWAR and SIMD with forced collection. Direct debug compile/run checks also
+pass under incremental, minimal and stub runtimes.
+
+Evidence is under `build/simdjson-parity/comparisons/` in
+`uninitialized-owned-{canada,citm,twitter,github,lottie}-v8/` and the
+fifteen-pair `uninitialized-owned-{poet,gsoc}-v8-15/` comparisons. This is an
+accepted serialization gain; all seven rows still miss the 1.2x-native target.
+
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
 descriptions of balanced variant rounds record the intended method, not a
