@@ -224,6 +224,28 @@ Evidence is under `build/simdjson-parity/comparisons/` in
 fifteen-pair Lottie and Twitter confirmations carry the `-15` suffix (CITM's
 base comparison already uses fifteen pairs).
 
+## 2026-11-01 accepted single-shape map emission
+
+Non-empty map serialization previously branched on every live entry to omit
+the first comma. The new loop emits the same `key:value,` shape for every
+entry, then replaces the final comma with `}`. It retains the initial size
+snapshot, reloads storage after reentrant callbacks, roots each current pair,
+and preserves tombstone and callback-mutation behavior. The rule applies to
+all map key/value types and has no corpus, schema, key, value or size selector.
+
+Seven alternating fresh V8 process pairs cover all seven classic minified
+corpora. Fifteen-pair confirmations reduce the apparent map-heavy gains to
+1.009x on CITM and 1.000x on GSOC; Poet, a no-map control, confirms at 0.995x.
+The other seven-pair stringify ratios are Canada 1.002x, GitHub Events 1.009x,
+Lottie 0.991x and Twitter 0.998x. No row crosses the 3% regression guard, all
+changing-output and retained-output oracles pass, and the CITM optimized SIMD
+binary shrinks by 52 bytes. This is retained as a simpler general loop with a
+small measured map benefit, not as a whole-grid parity result.
+
+Evidence is under `build/simdjson-parity/comparisons/` in
+`map-single-loop-{canada,citm,github,gsoc,lottie,poet,twitter}-v8/`; the CITM,
+GSOC and Poet confirmations carry the `-15` suffix.
+
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
 descriptions of balanced variant rounds record the intended method, not a

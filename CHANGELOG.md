@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(serialize): emit map entries through one separator shape and replace the final comma with the closing brace, removing the per-entry first-element branch while preserving reentrant mutation safety.
+
 - perf(serialize): inline the compile-time integer formatter dispatch while keeping the shared digit-formatting kernels outlined, removing generic width/sign routing from generated writers without duplicating the formatter loops.
 
 - perf(serialize): emit composite arrays through one element call site and replace the final comma with the closing bracket, allowing optimized generated object writers to fuse into the array loop.

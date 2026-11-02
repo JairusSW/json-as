@@ -48,7 +48,6 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
   const srcPtr = changetype<usize>(src);
   const initialEntriesOffset = load<i32>(srcPtr, offsetof<T>("entriesOffset"));
   const stride = mapEntrySize<indexof<T>, valueof<T>>();
-  let emitted = 0;
   for (let i = 0; i < initialEntriesOffset; i++) {
     // A custom key/value serializer can re-enter user code and mutate this
     // map. Reload its storage on every iteration so a rehash cannot leave a
@@ -67,10 +66,6 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
       changetype<usize>(entry),
       offsetof<SerializableMapEntry<indexof<T>, valueof<T>>>("value"),
     );
-    if (emitted != 0) {
-      store<u16>(bs.offset, COMMA);
-      bs.offset += 2;
-    }
     if (keyIsString) {
       serializeString(changetype<string>(key));
     } else {
@@ -81,8 +76,8 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
     serializeMapValue<valueof<T>>(value, rawValue);
-    emitted++;
+    store<u16>(bs.offset, COMMA);
+    bs.offset += 2;
   }
-  store<u16>(bs.offset, BRACE_RIGHT);
-  bs.offset += 2;
+  store<u16>(bs.offset - 2, BRACE_RIGHT);
 }
