@@ -211,6 +211,7 @@ export function itoaU64(buf: usize, v: u64): u32 {
  *
  * Returns the number of UTF-16 chars written.
  */
+@inline
 export function itoaFast<T extends number>(buf: usize, value: T): u32 {
   if (sizeof<T>() <= 4) {
     if (isSigned<T>()) {

@@ -188,6 +188,42 @@ Evidence is under `build/simdjson-parity/comparisons/` in
 `single-loop-composite-{poet,canada,citm,twitter,github,gsoc,lottie}-v8/`;
 the fifteen-pair confirmations carry the `-15` suffix for Canada and CITM.
 
+## 2026-11-01 accepted inlined integer formatter dispatch
+
+`itoaFast<T>` is a compile-time width/sign dispatcher around the existing
+integer formatting kernels. Marking only this dispatcher inline removes its
+generic call and branches from generated serializers while deliberately
+leaving `itoaU64` and the other loop-bearing formatters outlined. The rule is
+type-driven and applies to every integer formatting call site; it has no
+corpus, schema, field, value or length selector.
+
+Fifteen alternating fresh V8 process pairs confirm the three affected classic
+rows with the clearest signal; the remaining rows use seven pairs. Every label
+passes twenty changing-output and retained-output oracle comparisons.
+Candidate / single-call-site baseline SIMD stringify throughput:
+
+| Corpus | Ratio |
+| --- | ---: |
+| Canada | 1.013x |
+| GitHub Events | 1.031x |
+| Twitter | 1.021x |
+| CITM Catalog | 1.099x |
+| Poet | 0.995x |
+| GSOC 2018 | 1.003x |
+| Lottie | 1.058x |
+
+No row crosses the 3% regression guard. Parse and validation controls remain
+neutral within ordinary process noise, and the optimized SIMD binaries grow
+by 311--629 bytes only for models that instantiate the integer dispatcher;
+Canada, Poet and GSOC are size-unchanged controls. The result specifically
+rejects the earlier forced inlining of `itoaU64`, which duplicated its
+loop-bearing body and regressed the representative workload by roughly 20%.
+
+Evidence is under `build/simdjson-parity/comparisons/` in
+`inline-itofast-{canada,citm,twitter,github,gsoc,lottie,poet}-v8/`; the
+fifteen-pair Lottie and Twitter confirmations carry the `-15` suffix (CITM's
+base comparison already uses fifteen pairs).
+
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
 descriptions of balanced variant rounds record the intended method, not a

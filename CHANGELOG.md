@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(serialize): inline the compile-time integer formatter dispatch while keeping the shared digit-formatting kernels outlined, removing generic width/sign routing from generated writers without duplicating the formatter loops.
+
 - perf(serialize): emit composite arrays through one element call site and replace the final comma with the closing bracket, allowing optimized generated object writers to fuse into the array loop.
 
 - perf(serialize): allocate direct owned string outputs without first clearing their pointer-free payload, then fully overwrite the logical result as before.
