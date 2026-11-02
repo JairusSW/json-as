@@ -4349,3 +4349,26 @@ diagnostic.
 
 Artifacts: runs `pairfmt{base,cand}0001/` and comparisons
 `ownedstack-{numeric,canada,citm}-v8/` under `build/simdjson-parity/`.
+
+## Rejected validation-only integer run scanning
+
+A validation-only prototype replaced the scalar integer-digit loop with the
+existing checked four-code-unit `scanDigits` kernel in SWAR and SIMD modes.
+Materialized parsing and NAIVE remained unchanged. This was a grammar-level
+optimization applied to every integer token, without corpus, schema or width
+selection.
+
+Seven alternating V8 process pairs cover seven representative layouts and pass
+all preflight and changing-input validation oracles. Candidate / baseline SIMD
+validation throughput is 0.868x FGO, 0.860x Lottie, 0.872x CITM Catalog,
+0.847x Canada, 0.985x OTFCC, 0.989x Twitter and 0.996x GitHub Events. The wider
+loads and scanner call cost more than the removed scalar dependency chain for
+the classic token distributions, so the parser change is fully reverted.
+
+This experiment also exposed missing AssemblyScript provenance in the
+validation-matrix generator. The harness now records and verifies the compiler
+revision, compiler binaries and standard-library tree just like the typed
+classic runner, preventing mixed-runtime A/B comparisons.
+
+Artifacts: runs `digscan{base,cand}0002/` and comparison
+`digscan-selected-v8/` under `build/simdjson-parity/`.

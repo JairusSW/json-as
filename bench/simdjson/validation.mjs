@@ -47,6 +47,53 @@ const preflight = [
   ["[1 2]", false],
   ["123\u0130", false],
 ];
+function treeSha(directory) {
+  const hash = crypto.createHash("sha256");
+  const visit = (current) => {
+    for (const entry of fs
+      .readdirSync(current, { withFileTypes: true })
+      .toSorted((a, b) => a.name.localeCompare(b.name))) {
+      const absolute = path.join(current, entry.name);
+      if (entry.isDirectory()) visit(absolute);
+      else if (entry.isFile()) {
+        hash.update(
+          path.relative(directory, absolute).split(path.sep).join("/"),
+        );
+        hash.update("\0");
+        hash.update(fs.readFileSync(absolute));
+        hash.update("\0");
+      }
+    }
+  };
+  visit(directory);
+  return hash.digest("hex");
+}
+function assemblyscriptProvenance(sourceRoot) {
+  const packageRoot = fs.realpathSync(
+    path.join(sourceRoot, "node_modules/assemblyscript"),
+  );
+  const files = [
+    "package.json",
+    "bin/asc.js",
+    "dist/asc.js",
+    "dist/assemblyscript.js",
+  ];
+  const revision = spawnSync("git", ["-C", packageRoot, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  });
+  return {
+    version: JSON.parse(read(path.join(packageRoot, "package.json"))).version,
+    sourcePath: packageRoot,
+    revision: revision.status === 0 ? revision.stdout.trim() : null,
+    standardLibrarySha256: treeSha(path.join(packageRoot, "std/assembly")),
+    sha256: Object.fromEntries(
+      files.map((file) => [
+        file,
+        sha(fs.readFileSync(path.join(packageRoot, file))),
+      ]),
+    ),
+  };
+}
 function invoke(bin, argv, { cwd = root, env = {}, log } = {}) {
   const result = spawnSync(bin, argv, {
     cwd,
@@ -168,9 +215,7 @@ function prepare() {
     ),
     platform: invoke("uname", ["-a"]),
     manifestSha256: sha(JSON.stringify(manifest)),
-    compiler: JSON.parse(
-      read(path.join(sourceRoot, "node_modules/assemblyscript/package.json")),
-    ).version,
+    assemblyscript: assemblyscriptProvenance(sourceRoot),
     xjbSha256: sha(
       read(path.join(sourceRoot, "node_modules/xjb-as/assembly/xjb.ts")),
     ),
@@ -250,6 +295,13 @@ ${preflight.map(([text, expected]) => `{simdjson::padded_string input{std::strin
 
 function build() {
   const meta = JSON.parse(read(metadataPath()));
+  if (
+    JSON.stringify(assemblyscriptProvenance(meta.sourceRoot)) !==
+    JSON.stringify(meta.assemblyscript)
+  )
+    throw new Error(
+      "AssemblyScript compiler/runtime changed since preparation",
+    );
   if (
     invoke("git", ["rev-parse", "HEAD"], { cwd: meta.sourceRoot }) !==
     meta.revision
@@ -370,7 +422,7 @@ function build() {
     native: invoke(compiler, ["--version"]),
     nativeFlags: flags,
     v8: invoke("v8", ["--version"]),
-    assemblyscript: meta.compiler,
+    assemblyscript: meta.assemblyscript,
     wasmOpt: invoke("wasm-opt", ["--version"]),
   };
   meta.binaries = Object.fromEntries(
