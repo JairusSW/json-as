@@ -61,3 +61,27 @@ Artifacts under `build/simdjson-parity/`: frozen runs `cursorpack00001/` and
 `citm-serialize-e75da33-opt-profile.txt`. Regenerable oracle JSON files are
 removed only after complete comparisons pass; metadata, binaries, inputs,
 individual timing logs and summary results remain.
+
+## Rejected broader generated empty-field branch
+
+A second prototype extended local empty-token emission to other nonnullable
+Array fields of static generated schemas, excluding lazy-field schemas. The
+normal nonempty path retained the established writer. It passed 4,437 focused
+checks across all modes, the transform suite (including 1,416 parser checks
+over twelve configurations), typecheck and lint.
+
+Five alternating fresh V8 pairs on all six priority layouts passed twenty
+complete output/retention comparisons per revision. Serialization throughput
+ratios against `90ac4e7` were Canada 0.997x/0.989x, CITM 0.965x/1.009x and
+GitHub Events 0.977x/1.015x (minified/pretty). The CITM-minified screen crossed
+the 3% regression guard; the other results supply no consistent gain. The
+prototype is fully reverted rather than retained or tuned to individual
+corpora. These are five-pair screening results, not a confirmed estimate of
+the regression's size. Artifacts: frozen `emptyfield00001/`, comparisons
+`empty-field-<layout>-v8/`.
+
+The user's priority is now Canada, CITM and GitHub Events. Current priority
+gaps against native remain largest in CITM/GitHub serialization (roughly
+2.7x/2.2x native latency); Canada needs work in parsing (about 1.4x),
+serialization (about 1.3x) and validation (about 1.2x). The narrower accepted
+branch is an incremental improvement and does not close these gaps.
