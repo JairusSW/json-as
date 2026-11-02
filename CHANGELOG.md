@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(simd): serialize clean strings of eight to fifteen UTF-16 units through a compact one-vector kernel, falling back to the complete escape writer for quotes, slashes, controls, and surrogates.
+
 - perf(serialize): emit map entries through one separator shape and replace the final comma with the closing brace, removing the per-entry first-element branch while preserving reentrant mutation safety.
 
 - perf(serialize): inline the compile-time integer formatter dispatch while keeping the shared digit-formatting kernels outlined, removing generic width/sign routing from generated writers without duplicating the formatter loops.

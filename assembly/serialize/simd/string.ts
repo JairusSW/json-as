@@ -46,7 +46,10 @@ export function serializeString_SIMD(src: string): void {
   const object = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD);
   const taggedSize = object.rtSize;
   if (taggedSize < 32) {
-    serializeStringRange_SIMD(srcStart, taggedSize);
+    bs.proposeSize(taggedSize + 4);
+    bs.offset = taggedSize < 16
+      ? serializeShortStringReservedAt_SIMD(srcStart, taggedSize, bs.offset)
+      : serializeMediumStringReservedAt_SIMD(srcStart, taggedSize, bs.offset);
     return;
   }
   const srcSize = taggedSize & STRING_SIZE_MASK;
@@ -378,6 +381,10 @@ export function serializeStringPointerReservedAt_SIMD(
     const srcSize = taggedSize & STRING_SIZE_MASK;
     return copyKnownCleanString(srcStart, srcSize, dstStart);
   }
+  if (taggedSize < 32)
+    return taggedSize < 16
+      ? serializeShortStringReservedAt_SIMD(srcStart, taggedSize, dstStart)
+      : serializeMediumStringReservedAt_SIMD(srcStart, taggedSize, dstStart);
   const next = serializeStringRangeReservedAt_SIMD(
     srcStart,
     taggedSize,
@@ -386,6 +393,49 @@ export function serializeStringPointerReservedAt_SIMD(
   if (taggedSize >= 32 && next - dstStart == <usize>taggedSize + 4)
     object.rtSize = taggedSize | STRING_CLEAN_FLAG;
   return next;
+}
+
+/** Compact clean path for eight to fifteen UTF-16 units. Exceptional input
+ * falls back to the complete shared writer. */
+function serializeMediumStringReservedAt_SIMD(
+  srcStart: usize,
+  srcSize: u32,
+  dstStart: usize,
+): usize {
+  const block = load<v128>(srcStart);
+  const special = v128.or(
+    i16x8.eq(block, SPLAT_0022),
+    v128.or(
+      i16x8.eq(block, SPLAT_005C),
+      v128.or(
+        i16x8.lt_u(block, SPLAT_0020),
+        i16x8.eq(v128.and(block, SURROGATE_MASK), SURROGATE_BASE),
+      ),
+    ),
+  );
+  if (v128.any_true(special))
+    return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
+
+  store<u16>(dstStart, 34);
+  store<v128>(dstStart, block, 2);
+  let src = srcStart + 16;
+  let dst = dstStart + 18;
+  const srcEnd = srcStart + srcSize;
+  while (src < srcEnd) {
+    const code = load<u16>(src);
+    if (
+      (code >= 0xd800 && code <= 0xdfff) ||
+      code == BACK_SLASH ||
+      code == 34 ||
+      code < 32
+    )
+      return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
+    store<u16>(dst, code);
+    src += 2;
+    dst += 2;
+  }
+  store<u16>(dst, 34);
+  return dst + 2;
 }
 
 function copyKnownCleanString(

@@ -246,6 +246,38 @@ Evidence is under `build/simdjson-parity/comparisons/` in
 `map-single-loop-{canada,citm,github,gsoc,lottie,poet,twitter}-v8/`; the CITM,
 GSOC and Poet confirmations carry the `-15` suffix.
 
+## 2026-11-02 accepted compact medium-string serialization
+
+SIMD serialization now handles clean strings of eight to fifteen UTF-16 code
+units with one exact vector event test, one vector copy and a scalar tail. A
+quote, backslash, control character or surrogate enters the complete shared
+escape writer. The specialization depends only on physical string length and
+content; it has no corpus, schema, field-name or value-signature selector.
+
+Seven alternating fresh V8 process pairs cover all seven classic minified
+corpora. Median SIMD stringify throughput improves 1.001x on Canada, 1.084x on
+GitHub Events, 1.033x on Twitter, 1.007x on CITM, 1.004x on Poet, 1.012x on
+GSOC and 1.010x on Lottie. Fifteen-pair confirmations retain 1.082x on GitHub
+Events and 1.025x on Twitter. Parse and validation controls stay within the 3%
+guard, and every comparison passes 20 changing-output and retained-output
+oracles. The optimized classic modules grow by 327--329 bytes.
+
+The full suite passes 123,935 checks across NAIVE, SWAR and SIMD. That includes
+the exhaustive differential test which replaces every lane of a fourteen-unit
+string with all 65,536 UTF-16 code units and compares SIMD output with the
+scalar writer, plus explicit vector-boundary surrogate coverage.
+
+Two nearby general experiments were rejected. Extending immutable clean-string
+metadata from 32 bytes down to all lengths improved some string-heavy rows but
+regressed Poet by 3.8%; a 16-byte cutoff produced the same regression. Routing
+sub-eight-unit top-level/map strings through the existing generated short
+writer was exactly neutral on GSOC. Neither rejected prototype remains.
+
+Evidence is under `build/simdjson-parity/comparisons/` in
+`medium-{canada-min,github_events-min,twitter-min,citm_catalog-min,poet-min,gsoc-2018-min,lottie-min}-v8/`;
+the GitHub Events and Twitter confirmations carry the `-15` suffix. Rejected
+screens are retained under `shortall-*`, `short16-*` and `shortmap-*`.
+
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
 descriptions of balanced variant rounds record the intended method, not a
