@@ -1,7 +1,6 @@
 import { JSON, JSONMode } from "..";
 import { getParseSrc } from "./naive/object";
 import { deserializeFloatArrayBody } from "./swar/array/float";
-import { ensureArrayElementSlot } from "./swar/array/shared";
 import { cursorLink } from "./parseMode";
 import {
   MAX_CURSOR_DEPTH,
@@ -238,7 +237,14 @@ export function readCursorValue<T>(
       while (ptr < end) {
         // Publish a zero slot before child allocations can collect. The array
         // owns references stored in its backing buffer, as in Array.__set.
-        const element = ensureArrayElementSlot(out, index);
+        // Fresh arrays append exactly once per iteration. Publish the zero
+        // slot through normal geometric growth without testing for reuse.
+        if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
+          out.push(changetype<valueof<T>>(0));
+        } else {
+          out.push(<valueof<T>>0);
+        }
+        const element = out.dataStart + <usize>index * sizeof<valueof<T>>();
         ptr = readCursorValue<valueof<T>>(
           ptr,
           end,
