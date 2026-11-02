@@ -539,7 +539,7 @@ export class JSONTransform extends Visitor {
       schema.custom ||
       !schema.static ||
       schema.node.isGeneric ||
-      schema.hasCustomCursorLifecycle ||
+      this.hasCustomCursorLifecycle(schema) ||
       schema.members.some(
         (member) =>
           !!member.value ||
@@ -563,6 +563,23 @@ export class JSONTransform extends Visitor {
     }
     visiting.delete(schema);
     return true;
+  }
+
+  private hasCustomCursorInitializer(schema: Schema): boolean {
+    for (let current: Schema | null = schema; current; current = current.parent) {
+      if (
+        current.hasCustomCursorLifecycle &&
+        current.node.members.some((member) => member.name.text == "__INITIALIZE_CURSOR")
+      ) return true;
+    }
+    return false;
+  }
+
+  private hasCustomCursorLifecycle(schema: Schema): boolean {
+    for (let current: Schema | null = schema; current; current = current.parent) {
+      if (current.hasCustomCursorLifecycle) return true;
+    }
+    return false;
   }
 
   /** Extract the element type from the normalized collection spellings we emit. */
@@ -1112,7 +1129,7 @@ export class JSONTransform extends Visitor {
     schema.node = node;
     schema.name = source.getQualifiedName(node);
     schema.hasCustomCursorLifecycle = node.members.some((member) =>
-      ["__INITIALIZE", "__INITIALIZE_CURSOR", "__INITIALIZE_CURSOR_FRESH", "__FINALIZE_CURSOR"].includes(
+      ["__INITIALIZE", "__INITIALIZE_CURSOR", "__INITIALIZE_CURSOR_FRESH", "__INITIALIZE_DEFAULT_FRESH", "__FINALIZE_CURSOR"].includes(
         member.name.text,
       ),
     );
@@ -1953,13 +1970,15 @@ export class JSONTransform extends Visitor {
     // builtin defaults, and exclude observable/user-provided initialization.
     const cursorMayDefer =
       STRICT &&
+      !DESERIALIZE_CUSTOM &&
+      new Set(this.schema.members.map((member) => member.alias || member.name)).size == this.schema.members.length &&
       this.schema.members.every(
         (member) =>
           !member.value &&
           !member.generic &&
           !member.flags.has(PropertyFlags.Lazy),
       ) &&
-      !this.schema.hasCustomCursorLifecycle;
+      !this.hasCustomCursorLifecycle(this.schema);
     const cursorInitializers: string[] = [];
     const cursorFreshInitializers: string[] = [];
     const cursorDeferred: Array<{ member: Property; initialize: string }> = [];
@@ -4811,21 +4830,38 @@ export class JSONTransform extends Visitor {
         )
       : null;
 
+    // Emit both constructor entries on every strict class, including classes
+    // that cannot use checked parsing. Derived classes must shadow a base's
+    // optimized entry when their own declared defaults require ordinary init.
+    if (STRICT) {
+      if (!node.members.some((member) => member.name.text == "__INITIALIZE_CURSOR_FRESH")) {
+        const initialize = cursorMayDefer
+          ? cursorFreshInitializers.join("")
+          : this.hasCustomCursorInitializer(this.schema)
+            ? "  this.__INITIALIZE_CURSOR();\n"
+            : "  this.__INITIALIZE();\n";
+        node.members.push(SimpleParser.parseClassMember(
+          "__INITIALIZE_CURSOR_FRESH(): this {\n" + initialize + "  return this;\n}",
+          node,
+        ));
+      }
+      if (!node.members.some((member) => member.name.text == "__INITIALIZE_DEFAULT_FRESH")) {
+        const initialize = cursorMayDefer
+          ? "  this.__INITIALIZE_CURSOR_FRESH();\n" +
+            (cursorDeferred.length ? "  this.__FINALIZE_CURSOR();\n" : "")
+          : "  this.__INITIALIZE();\n";
+        node.members.push(SimpleParser.parseClassMember(
+          "__INITIALIZE_DEFAULT_FRESH(): this {\n" + initialize + "  return this;\n}",
+          node,
+        ));
+      }
+    }
+
     if (STRICT && !DESERIALIZE_CUSTOM) {
       const keys = this.schema.members.map(
         (member) => member.alias || member.name,
       );
       if (new Set(keys).size === keys.length) {
-        if (cursorMayDefer) {
-          node.members.push(
-            SimpleParser.parseClassMember(
-              "__INITIALIZE_CURSOR_FRESH(): this {\n" +
-                cursorFreshInitializers.join("") +
-                "  return this;\n}",
-              node,
-            ),
-          );
-        }
         if (cursorDeferred.length) {
           node.members.push(
             SimpleParser.parseClassMember(

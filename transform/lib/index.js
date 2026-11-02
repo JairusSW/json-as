@@ -343,7 +343,7 @@ export class JSONTransform extends Visitor {
             schema.custom ||
             !schema.static ||
             schema.node.isGeneric ||
-            schema.hasCustomCursorLifecycle ||
+            this.hasCustomCursorLifecycle(schema) ||
             schema.members.some((member) => !!member.value ||
                 member.generic ||
                 member.flags.has(PropertyFlags.Lazy)))
@@ -361,6 +361,21 @@ export class JSONTransform extends Visitor {
         }
         visiting.delete(schema);
         return true;
+    }
+    hasCustomCursorInitializer(schema) {
+        for (let current = schema; current; current = current.parent) {
+            if (current.hasCustomCursorLifecycle &&
+                current.node.members.some((member) => member.name.text == "__INITIALIZE_CURSOR"))
+                return true;
+        }
+        return false;
+    }
+    hasCustomCursorLifecycle(schema) {
+        for (let current = schema; current; current = current.parent) {
+            if (current.hasCustomCursorLifecycle)
+                return true;
+        }
+        return false;
     }
     getDefaultElementType(type) {
         const value = stripNull(type).trim();
@@ -678,7 +693,7 @@ export class JSONTransform extends Visitor {
         const schema = new Schema();
         schema.node = node;
         schema.name = source.getQualifiedName(node);
-        schema.hasCustomCursorLifecycle = node.members.some((member) => ["__INITIALIZE", "__INITIALIZE_CURSOR", "__INITIALIZE_CURSOR_FRESH", "__FINALIZE_CURSOR"].includes(member.name.text));
+        schema.hasCustomCursorLifecycle = node.members.some((member) => ["__INITIALIZE", "__INITIALIZE_CURSOR", "__INITIALIZE_CURSOR_FRESH", "__INITIALIZE_DEFAULT_FRESH", "__FINALIZE_CURSOR"].includes(member.name.text));
         if (node.extendsType) {
             this.collectInheritedFieldMembers(node, source, members);
             const extendsName = source.resolveExtendsName(node);
@@ -1254,10 +1269,12 @@ export class JSONTransform extends Visitor {
                 `}\n`);
         };
         const cursorMayDefer = STRICT &&
+            !DESERIALIZE_CUSTOM &&
+            new Set(this.schema.members.map((member) => member.alias || member.name)).size == this.schema.members.length &&
             this.schema.members.every((member) => !member.value &&
                 !member.generic &&
                 !member.flags.has(PropertyFlags.Lazy)) &&
-            !this.schema.hasCustomCursorLifecycle;
+            !this.hasCustomCursorLifecycle(this.schema);
         const cursorInitializers = [];
         const cursorFreshInitializers = [];
         const cursorDeferred = [];
@@ -3357,14 +3374,26 @@ export class JSONTransform extends Visitor {
                 "  return changetype<this>(__new(offsetof<this>(), idof<this>())).__INITIALIZE();\n" +
                 "}", node)
             : null;
+        if (STRICT) {
+            if (!node.members.some((member) => member.name.text == "__INITIALIZE_CURSOR_FRESH")) {
+                const initialize = cursorMayDefer
+                    ? cursorFreshInitializers.join("")
+                    : this.hasCustomCursorInitializer(this.schema)
+                        ? "  this.__INITIALIZE_CURSOR();\n"
+                        : "  this.__INITIALIZE();\n";
+                node.members.push(SimpleParser.parseClassMember("__INITIALIZE_CURSOR_FRESH(): this {\n" + initialize + "  return this;\n}", node));
+            }
+            if (!node.members.some((member) => member.name.text == "__INITIALIZE_DEFAULT_FRESH")) {
+                const initialize = cursorMayDefer
+                    ? "  this.__INITIALIZE_CURSOR_FRESH();\n" +
+                        (cursorDeferred.length ? "  this.__FINALIZE_CURSOR();\n" : "")
+                    : "  this.__INITIALIZE();\n";
+                node.members.push(SimpleParser.parseClassMember("__INITIALIZE_DEFAULT_FRESH(): this {\n" + initialize + "  return this;\n}", node));
+            }
+        }
         if (STRICT && !DESERIALIZE_CUSTOM) {
             const keys = this.schema.members.map((member) => member.alias || member.name);
             if (new Set(keys).size === keys.length) {
-                if (cursorMayDefer) {
-                    node.members.push(SimpleParser.parseClassMember("__INITIALIZE_CURSOR_FRESH(): this {\n" +
-                        cursorFreshInitializers.join("") +
-                        "  return this;\n}", node));
-                }
                 if (cursorDeferred.length) {
                     node.members.push(SimpleParser.parseClassMember("__INITIALIZE_CURSOR(): this {\n" +
                         "  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n" +

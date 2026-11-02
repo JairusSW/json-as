@@ -148,14 +148,12 @@ export function createCursorDefault<T>(): T {
   if (ASC_RUNTIME != Runtime.Incremental) {
     memory.fill(changetype<usize>(obj), 0, offsetof<T>());
   }
-  // Use only the generated pure-default capability. Custom cursor lifecycle
-  // hooks must not replace ordinary declared default initialization.
-  // @ts-expect-error: transform-generated fresh construction capability
-  if (isDefined(obj.__INITIALIZE_CURSOR_FRESH)) {
+  // This entry is distinct from parsing: custom cursor hooks must not replace
+  // ordinary defaults, and derived classes must override inherited policy.
+  // @ts-expect-error: transform-generated default construction entry
+  if (isDefined(obj.__INITIALIZE_DEFAULT_FRESH)) {
     // @ts-expect-error: transform-generated initializer
-    obj.__INITIALIZE_CURSOR_FRESH();
-    // @ts-expect-error: transform-generated completion hook
-    if (isDefined(obj.__FINALIZE_CURSOR)) obj.__FINALIZE_CURSOR();
+    obj.__INITIALIZE_DEFAULT_FRESH();
   } else {
     // @ts-expect-error: transform-generated ordinary defaults
     obj.__INITIALIZE();

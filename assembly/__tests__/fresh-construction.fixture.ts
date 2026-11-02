@@ -49,6 +49,43 @@ class CustomCompletion {
   }
 }
 
+@json
+class ImplicitBase {
+  base!: string;
+}
+
+@json
+class DeclaredDerived extends ImplicitBase {
+  count: i32 = observableDefault();
+}
+
+@json
+class DerivedParent {
+  child!: DeclaredDerived;
+  hook!: CustomCompletion;
+}
+
+let cursorInitializerCalls = 0;
+@json
+class ManualCursorBase {
+  label!: string;
+  __INITIALIZE_CURSOR(): this {
+    cursorInitializerCalls++;
+    this.label = "manual";
+    return this;
+  }
+}
+
+@json
+class ManualCursorDerived extends ManualCursorBase {
+  count!: i32;
+}
+
+@json
+class ManualCursorParent {
+  child!: ManualCursorDerived;
+}
+
 let checks = 0;
 function check(value: bool): void {
   assert(value);
@@ -70,8 +107,9 @@ export function run(): i32 {
   // @ts-expect-error: generated fresh-construction capability
   check(isDefined(type.__INITIALIZE_CURSOR_FRESH));
   const explicit = changetype<Observable>(0);
-  // @ts-expect-error: observable defaults must keep the established initializer
-  check(!isDefined(explicit.__INITIALIZE_CURSOR_FRESH));
+  // All types have their own entry; observable defaults delegate to normal init.
+  // @ts-expect-error: generated fresh construction entry
+  check(isDefined(explicit.__INITIALIZE_CURSOR_FRESH));
 
   // Minimal/stub raw allocation may return dirty payloads. Poison a fresh
   // allocation without allocating/collecting in between, then exercise the
@@ -98,6 +136,21 @@ export function run(): i32 {
   completionCalls = 0;
   check(JSON.parse<CustomCompletion>('{"label":"hook"}').label == "hook");
   check(completionCalls == 1);
+  calls = 0;
+  const derived = JSON.parse<DeclaredDerived>('{"base":"derived"}');
+  check(calls == 1);
+  check(derived.count == 7 && derived.base == "derived");
+  calls = 0;
+  completionCalls = 0;
+  const defaulted = JSON.parse<DerivedParent>("{}");
+  check(calls == 1 && defaulted.child.count == 7 && defaulted.child.base == "");
+  check(completionCalls == 0 && defaulted.hook.label == "");
+  cursorInitializerCalls = 0;
+  const manual = JSON.parse<ManualCursorDerived>('{"count":9}');
+  check(cursorInitializerCalls == 1 && manual.count == 9 && manual.label == "manual");
+  cursorInitializerCalls = 0;
+  const ordinary = JSON.parse<ManualCursorParent>("{}");
+  check(cursorInitializerCalls == 0 && ordinary.child.count == 0 && ordinary.child.label == "");
 
   const retained = new Array<Graph>();
   for (let i = 0; i < 48; i++) {

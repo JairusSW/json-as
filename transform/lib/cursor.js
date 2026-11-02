@@ -86,7 +86,7 @@ export function generateCursorParser(members, compare, completeDefaults = false)
         }`;
         }).join("\n") + "\n} while (false);"
         : "";
-    return `__DESERIALIZE_CURSOR(srcStart: usize, srcEnd: usize, out: this, depth: i32): usize {
+    return `__DESERIALIZE_CURSOR<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, depth: i32): usize {
     if (depth >= 256 || srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;
     ${anchor}
     srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);

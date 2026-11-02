@@ -23,6 +23,8 @@ export declare class JSONTransform extends Visitor {
     resolveType(type: string, source: Src, visited?: Set<string>): string;
     private getDefaultSchema;
     private canDeferCursorObjectDefault;
+    private hasCustomCursorInitializer;
+    private hasCustomCursorLifecycle;
     private getDefaultElementType;
     private getDefaultExpressionJSON;
     private getImplicitDefaultJSON;

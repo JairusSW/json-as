@@ -31,7 +31,7 @@ without corpus, key-name, token-width, input-identity or value signatures.
   with every test binary rebuilt.
 - The transform suite passes, including 1,416 parser checks over twelve
   configurations.
-- The new runtime matrix passes 16,128 checks across incremental/minimal/stub
+- The new runtime matrix passes 16,236 checks across incremental/minimal/stub
   and NAIVE/SWAR/SIMD. It covers missing fields, duplicate/reordered/full-order
   keys, retained graph independence, ordinary reuse, custom completion hooks,
   observable initializer counts, dirty minimal/stub payloads and collection.
@@ -40,12 +40,29 @@ without corpus, key-name, token-width, input-identity or value signatures.
   fixture runs again against recycled allocations.
 - Typecheck and lint pass.
 
+## Inheritance follow-up
+
+An additional derived-class regression exposed two gaps before any performance
+measurement. The checked cursor method's `out: this` parameter was not a valid
+override signature for a derived class; it now uses the same generic-destination
+pattern as the established slow parser. After that compile fix, the fixture
+failed on the derived explicit-initializer count: it inherited the base's fresh
+initializer and skipped its own declared default.
+
+Every strict class now emits its own parsing/default-construction entries,
+including classes that delegate to ordinary initialization. Inherited manual
+cursor hooks are preserved during parsing, while ordinary default construction
+does not run those hooks or custom completion hooks. Defer eligibility respects
+custom lifecycle hooks throughout the base chain. The expanded fixture covers
+each of these cases across all nine runtime/mode configurations. Both full
+suites, the transform suite, typecheck and lint pass after the correction.
+
 ## Performance qualification pending
 
 The frozen baseline is `freshpush000001` (production `c9e4c85`). Candidate
-`freshinit000001` contains the entire construction bundle, with production
-patch SHA-256
-`42daed26c6e391402b01f37a3e53fb7ef2e8fd1d3bbd54b6ff7df180731681ab`.
+`freshctor000001` contains the corrected construction bundle. The earlier
+`freshinit000001` checkpoint was never timed: its queued batch was stopped
+before acquiring the host so inheritance could be corrected first.
 Both use AssemblyScript `670f0653`, simdjson 5.0.4 and 500 operations per phase.
 The next qualification is one nine-pair fresh-process V8 SIMD screen across
 Canada, CITM and GitHub Events, minified and pretty, with full owned-output and
