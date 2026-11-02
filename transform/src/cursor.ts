@@ -77,6 +77,37 @@ export function generateCursorParser(
   const anchor = members.some((member) => member.flags.has(PropertyFlags.Lazy))
     ? "out.__SET_SRC(JSON.Util.getParseSource());"
     : "";
+  // Bound straight-line code growth; every layout miss resumes at its current
+  // key with the same destination, without replaying the completed prefix.
+  const hot = entries.length <= 16
+    ? "do {\n" + entries.map((entry) => {
+        const { member, id } = entry;
+        const field = `offsetof<this>(${JSON.stringify(member.name)})`;
+        const read = member.flags.has(PropertyFlags.Lazy)
+          ? `const valueStart = srcStart;
+             srcStart = JSON.__cursorSkipValue(srcStart, srcEnd, depth + 1);
+             if (!srcStart) return 0;
+             store<u64>(changetype<usize>(out), (<u64>valueStart << 32) | <u64><u32>srcStart, ${field});`
+          : `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
+        return `{
+          const keyStart = srcStart;
+          if (!(keyStart + ${(entry.encoded.length + 1) << 1} <= srcEnd && ${compare(entry.encoded + ":", "keyStart", "==").join(" && ")})) break;
+          srcStart = JSON.__cursorWhitespace(keyStart + ${(entry.encoded.length + 1) << 1}, srcEnd);
+          ${read}
+          if (!srcStart) return 0;
+          expected = ${id + 1};
+          srcStart = JSON.__cursorWhitespace(srcStart, srcEnd);
+          if (srcStart >= srcEnd) return 0;
+          const separator = load<u16>(srcStart);
+          if (separator == 125) {
+            if (isDefined(out.__FINALIZE_CURSOR)) out.__FINALIZE_CURSOR();
+            return srcStart + 2;
+          }
+          if (separator != 44) return 0;
+          srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);
+        }`;
+      }).join("\n") + "\n} while (false);"
+    : "";
   return `__DESERIALIZE_CURSOR(srcStart: usize, srcEnd: usize, out: this, depth: i32): usize {
     if (depth >= 256 || srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;
     ${anchor}
@@ -86,6 +117,7 @@ export function generateCursorParser(
       return srcStart + 2;
     }
     let expected = 0;
+    ${hot}
     while (srcStart < srcEnd) {
       const keyStart = srcStart;
       let keyEnd: usize = 0;
