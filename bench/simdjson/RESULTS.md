@@ -4209,3 +4209,22 @@ that duplicating the traversal is unjustified, so the prototype is reverted.
 
 Artifacts: runs `mapstr{base,cand}000001/` and comparisons
 `mapstr-*-v8-01/` under `build/simdjson-parity/`.
+
+## Rejected direct-owned stack accounting removal
+
+Direct-owned string output grows from the actual output cursor, while the
+staging builder grows from `stackSize`. A prototype stopped updating
+`stackSize` in `proposeSize`, `growSize`, `prepareGrowth` and `addSize` while a
+managed output was active. This removes a global write at every nested reserve
+without changing capacity or output ownership semantics.
+
+Seven alternating V8 pairs compare equal-length, exact-current frozen labels.
+All 120 complete owned-output and retention comparisons pass, with no phase
+beyond the 3% regression guard. Candidate / baseline SIMD stringify throughput
+is 1.030x on `numeric_pairs-min`, 0.990x on Canada minified and 0.974x on CITM
+minified. The largest generated writer loses 2.6%, so the implementation is
+reverted rather than retaining an optimization that helps only the numeric
+diagnostic.
+
+Artifacts: runs `pairfmt{base,cand}0001/` and comparisons
+`ownedstack-{numeric,canada,citm}-v8/` under `build/simdjson-parity/`.
