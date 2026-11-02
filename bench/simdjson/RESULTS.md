@@ -4191,6 +4191,26 @@ and diff checks pass. Artifacts: `citmsweeppar0001-*`, run
 `sweepcand0000001/`, and comparisons `sweeprun-*-v8-01/` under
 `build/simdjson-parity/`.
 
+## Rejected checked numeric-array run
+
+A general SIMD discard experiment consumes an array's initial consecutive
+number run through the existing checked number reader and returns to the
+ordinary traversal at any heterogeneous value. It still checks separators,
+whitespace and trailing commas, and preserves the depth limit. The focused
+strict cursor/RFC suite passes 17,381 checks; both outlined and forced-inline
+variants pass validation preflight and all 32 changing inputs for eight
+classic layouts.
+
+Seven alternating V8 pairs show the outlined version between 0.921x and
+0.987x baseline across all eight rows. Inlining restores Canada minified to
+1.000x but leaves Canada pretty at 0.951x and the other rows between 0.981x
+and 0.990x. Both versions are reverted: the existing completion loop costs
+less than this separate numeric-run path on these inputs.
+
+Artifacts: `containerlocal1/`, `numericrun00001/`, `numericinline01/`,
+comparisons `numeric-run-eight-v8/` and `numeric-inline-eight-v8/` under
+`build/simdjson-parity/`.
+
 ## Rejected number-first value dispatch
 
 A SIMD traversal experiment dispatches a leading minus sign or ASCII digit
