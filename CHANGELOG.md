@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(simd): cache completed escape-free scans on immutable managed strings of at least 32 bytes, allowing repeated serialization to copy clean payloads directly while preserving reuse, encoding, GC, and all runtime semantics through AssemblyScript's reserved string-size metadata bit.
+
 - perf(strict): classify long checked UTF-16 string runs through one packed SIMD byte vector after an exact first pair.
 
 - perf(strings): overlap reserved SIMD clean-string stores with escape classification.

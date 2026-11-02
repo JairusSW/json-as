@@ -14,6 +14,52 @@ now work for Lottie; large OTFCC/FGO owned runs remain outstanding. Additional
 families remain available as diagnostics. Twitter now compiles
 with public simdjson customization hooks while preserving its complete model.
 
+## 2026-11-01 accepted repeated-string classification
+
+SIMD serialization now records a completed escape-free scan in the reserved
+metadata bit of an immutable managed String. Subsequent serializations copy the
+payload directly while escaped strings keep the established scanner. The bit is
+only recorded for strings of at least 32 physical bytes, so short-string
+workloads do not pay the metadata path. Parsing into reused string fields and
+owned-output reuse clear the classification before overwriting the payload.
+
+This depends on AssemblyScript `0774f923`, which reserves the structurally spare
+low bit of `String.rtSize`, masks it in byte-size and renewal paths, and includes
+incremental, minimal, stub, UTF-8/UTF-16 and compiler-fixture coverage. json-as
+head `757c606` passes 123,917 checks across NAIVE, SWAR and SIMD. The exhaustive
+raw-memory string mutation test explicitly invalidates metadata after its unsafe
+writes, matching AssemblyScript's immutable-string contract.
+
+Seven alternating V8 process pairs compare json-as baseline `d8aaf30` with the
+current candidate. Each label uses four changing inputs, retained independent
+outputs, and 20 complete output/retention oracle comparisons. Median minified
+SIMD stringify latency:
+
+| Corpus | Baseline | Candidate | Baseline/candidate | Native/candidate |
+| --- | ---: | ---: | ---: | ---: |
+| Canada | 2,122.94 us | 2,153.24 us | 0.986x | 0.786x |
+| GitHub Events | 12.40 us | 12.22 us | 1.015x | 0.306x |
+| Twitter | 99.97 us | 98.79 us | 1.012x | 0.469x |
+| CITM Catalog | 182.21 us | 182.96 us | 0.996x | 0.252x |
+| Poet | 353.99 us | 312.83 us | 1.132x | 0.478x |
+| GSOC 2018 | 596.17 us | 591.20 us | 1.008x | 0.345x |
+| Lottie | 35.03 us | 35.95 us | 0.974x | 0.661x |
+
+No parse, validation or stringify row exceeds the 3% regression tolerance.
+Poet improves 13.2%; GitHub Events, Twitter and GSOC improve 0.8-1.5%; Canada,
+CITM and the all-short-string Lottie control remain within 2.6%. These are
+general length-and-content conditions, not corpus identities. Stringify still
+misses the 1.2x-native target on all seven rows, so this is an accepted partial
+gain rather than parity. Evidence is under
+`build/simdjson-parity/comparisons/string-size-tag5-*-v8/`.
+
+The benchmark harness now freezes the linked AssemblyScript checkout's real
+path, git revision, and actual compiler/runtime file hashes at prepare time,
+then refuses a build if any differ. Older artifacts record the json-as revision,
+binary hashes and AssemblyScript version but not that dependency commit; the
+baseline AssemblyScript checkout was `0c115329` and the candidate checkout is
+`0774f923`.
+
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
 descriptions of balanced variant rounds record the intended method, not a

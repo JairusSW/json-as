@@ -64,6 +64,40 @@ function verifyUpstream() {
   if (revision !== manifest.simdjson.commit)
     throw new Error(`simdjson revision mismatch ${revision}`);
 }
+function assemblyscriptProvenance() {
+  const packageRoot = fs.realpathSync(
+    path.join(root, "node_modules/assemblyscript"),
+  );
+  const files = [
+    "package.json",
+    "bin/asc.js",
+    "dist/asc.js",
+    "dist/assemblyscript.js",
+  ];
+  const gitRevision = spawnSync(
+    "git",
+    ["-C", packageRoot, "rev-parse", "HEAD"],
+    { encoding: "utf8" },
+  );
+  return {
+    version: JSON.parse(read(path.join(packageRoot, "package.json"))).version,
+    sourcePath: packageRoot,
+    revision: gitRevision.status === 0 ? gitRevision.stdout.trim() : null,
+    sha256: Object.fromEntries(
+      files.map((file) => [
+        file,
+        sha(fs.readFileSync(path.join(packageRoot, file))),
+      ]),
+    ),
+  };
+}
+function verifyAssemblyscript(expected) {
+  const actual = assemblyscriptProvenance();
+  if (JSON.stringify(actual) !== JSON.stringify(expected))
+    throw new Error(
+      "AssemblyScript compiler/runtime changed since preparation",
+    );
+}
 function bootstrap() {
   fs.mkdirSync(baseDir, { recursive: true });
   const upstream = path.join(baseDir, "upstream");
@@ -213,6 +247,7 @@ function prepare() {
           ? "Changing string values and lengths"
           : "Changing string values",
     xjb,
+    assemblyscript: assemblyscriptProvenance(),
     ops,
     simdjson: manifest.simdjson,
     revision: invoke("git", ["rev-parse", "HEAD"]).trim(),
@@ -253,6 +288,9 @@ function build() {
   verifyUpstream();
   const file = path.join(dir, `generated/${key}.json`);
   const metadata = JSON.parse(read(file));
+  if (!metadata.assemblyscript)
+    throw new Error("AssemblyScript compiler/runtime provenance is missing");
+  verifyAssemblyscript(metadata.assemblyscript);
   for (const source of metadata.additionalSources ?? []) {
     if (sha(read(path.join(root, source.source))) !== source.sha256)
       throw new Error(
@@ -399,9 +437,7 @@ function build() {
     native: invoke(compiler, ["--version"]).trim(),
     nativeFlags: flags,
     v8: invoke("v8", ["--version"]).trim(),
-    assemblyscript: JSON.parse(
-      read(path.join(root, "node_modules/assemblyscript/package.json")),
-    ).version,
+    assemblyscript: metadata.assemblyscript,
     wasmOpt: invoke("wasm-opt", ["--version"]).trim(),
   };
   metadata.driverSha256 = {
