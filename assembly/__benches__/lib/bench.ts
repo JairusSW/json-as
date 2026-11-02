@@ -316,7 +316,10 @@ export function bench(
     elapsed += performance.now() - frameStart;
     remaining -= batch;
   }
-  elapsed = Math.max(1, elapsed);
+  // Preserve sub-millisecond measurements from high-resolution hosts. A 1 ms
+  // floor would report every 100-operation run below 10 us/op as 10 us/op.
+  // Coarse clocks need a longer run rather than a fabricated duration.
+  if (elapsed <= 0) throw new Error("Benchmark duration is zero; increase operations");
 
   let retainedLiveBytes: u64 = 0;
   let inflightLiveBytes: u64 = 0;

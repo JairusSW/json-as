@@ -4673,3 +4673,31 @@ long-string classifier and its Unicode fallback to reduce comparison work.
 
 Artifacts: run `mediumtail00001/` against `nestdefsafe0001/`, comparisons
 `medium-tail-gsoc-2018-min-v8/` and `medium-tail-github_events-pretty-v8/`.
+
+## Packed medium classifier and sub-millisecond timing
+
+Packing the overlapping medium-string vectors before classification passes
+13,529 focused SIMD string checks. Seven paired processes report serialization
+throughput of 1.015x on GSOC minified, 1.000x on GitHub Events pretty and 1.006x
+on Poet minified, with complete owned-output checks passing. The prototype is
+reverted because the aggregate improvement remains small. Runs are preserved
+as `mediumpack00001/`; its Twitter build overlapped the timing-harness change
+below and must not be used for a controlled comparison.
+
+Inspection explains the repeated exact 10,000 ns GitHub serialization values:
+the shared benchmark harness clamps elapsed time to at least one millisecond.
+At 100 operations that imposes an artificial 10 microsecond lower bound. The
+harness now preserves positive fractional milliseconds and rejects zero-time
+runs with an instruction to increase operations. This changes measurement,
+not parser or serializer throughput; comparisons across the harness change
+cannot establish optimization speedups.
+
+A fresh unmodified-parser build with corrected timing passes twenty complete
+owned-output and retention checks and seven native/V8 process pairs. GitHub
+Events pretty reports 52.90 us parse, 9.88 us serialization and 18.66 us
+validation, versus native 62.42, 3.60 and 12.16 us respectively. Therefore the
+serialization/validation gaps remain. Typecheck and lint pass. Artifacts:
+`clockfixed00001/` and `clock-fixed-github-v8/` under
+`build/simdjson-parity/`. Previous floor-clipped short-run percentages must be
+requalified with both revisions rebuilt before attributing their differences
+to code layout or graph allocation.
