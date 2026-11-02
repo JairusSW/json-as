@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(simd): inline managed-string field dispatch into generated writers so repeated clean strings and compact string kernels avoid a shared routing call.
+
 - perf(simd): serialize clean strings of eight to fifteen UTF-16 units through a compact one-vector kernel, falling back to the complete escape writer for quotes, slashes, controls, and surrogates.
 
 - perf(serialize): emit map entries through one separator shape and replace the final comma with the closing brace, removing the per-entry first-element branch while preserving reentrant mutation safety.

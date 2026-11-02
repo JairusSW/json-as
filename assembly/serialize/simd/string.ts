@@ -47,9 +47,10 @@ export function serializeString_SIMD(src: string): void {
   const taggedSize = object.rtSize;
   if (taggedSize < 32) {
     bs.proposeSize(taggedSize + 4);
-    bs.offset = taggedSize < 16
-      ? serializeShortStringReservedAt_SIMD(srcStart, taggedSize, bs.offset)
-      : serializeMediumStringReservedAt_SIMD(srcStart, taggedSize, bs.offset);
+    bs.offset =
+      taggedSize < 16
+        ? serializeShortStringReservedAt_SIMD(srcStart, taggedSize, bs.offset)
+        : serializeMediumStringReservedAt_SIMD(srcStart, taggedSize, bs.offset);
     return;
   }
   const srcSize = taggedSize & STRING_SIZE_MASK;
@@ -371,6 +372,7 @@ export function serializeStringRangeReservedAt_SIMD(
 /** Emits a complete managed string and records an escape-free scan in its
  * structurally spare size bit. Ranges never use this entry because their
  * source need not begin at a managed String payload. */
+@inline
 export function serializeStringPointerReservedAt_SIMD(
   srcStart: usize,
   dstStart: usize,

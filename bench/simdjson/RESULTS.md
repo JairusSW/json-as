@@ -310,6 +310,55 @@ Evidence is in `comparisons/gc8k-canada-v8/` and
 `comparisons/inline-array4-canada-v8/`; the profile is
 `canada-medium-parse-self-profile.json`.
 
+## 2026-11-02 accepted inlined managed-string dispatch
+
+The managed-string field entry now inlines its small metadata and length
+dispatcher into generated SIMD writers. The established short, medium, clean-
+copy and complete escape kernels remain shared; generated fields avoid one hot
+routing call and expose the selected kernel directly to the surrounding object
+writer. Selection depends only on the immutable string header and physical
+length, with no corpus, schema, field-name or value signature.
+
+Balanced fresh-process V8 screens cover all sixteen classic layouts. Seven
+pairs cover the minified typed corpora and five cover pretty layouts plus the
+large OTFCC/FGO controls. Candidate / baseline SIMD stringify throughput:
+
+| Workload | Minified | Pretty |
+| --- | ---: | ---: |
+| Canada | 0.998x | 0.993x |
+| Twitter | 1.005x | 1.009x |
+| CITM | 1.013x | 1.019x |
+| GitHub Events | 1.029x | 1.022x |
+| Poet | 1.037x | 1.093x |
+| GSOC | 1.051x | 1.029x |
+| Lottie | 1.000x | 1.000x |
+| OTFCC | 1.008x | - |
+| FGO | 0.983x | - |
+
+No parse, stringify or validation row crosses the 3% regression guard, and
+every label passes twenty complete changing-output and retained-output
+comparisons. Optimized module growth ranges from 232 bytes for Poet to 11,677
+bytes for GitHub Events; the latter has the widest generated string-bearing
+schema. The complete suite passes 123,935 checks across NAIVE, SWAR and SIMD.
+Recompiling the formatted retained source produces a byte-identical qualified
+GitHub Events SIMD artifact.
+
+Matched w2c2 checks use the retained translator and identical Wasm inputs.
+GitHub Events stringify improves 1.022x with runtime checks and is neutral at
+1.000x without them. GSOC improves 1.018x unchecked; a nine-pair checked-only
+confirmation supersedes an initial 0.974x screen and reports 1.005x. All w2c2
+output oracles and the 3% guard pass.
+
+A smaller outline kept only the completed-clean test inline and routed every
+unclassified string through a shared dispatcher. It reduced code growth but
+retained just 1.004x GitHub, 1.012x GSOC and 1.006x Poet throughput, so it was
+reverted in favor of the broadly faster complete dispatcher.
+
+Evidence is under `build/simdjson-parity/comparisons/` in
+`ptrinline-{canada,twitter,citm,github,poet,gsoc,lottie}-*-v8/`,
+`ptrinline-{otfcc,fgo}-min-v8/`, and the GitHub/GSOC w2c2 comparisons. The
+rejected outline is recorded under `ptrsplit-*`.
+
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
 descriptions of balanced variant rounds record the intended method, not a
