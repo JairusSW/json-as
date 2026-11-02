@@ -4656,3 +4656,20 @@ of the existing helpers.
 Artifacts: frozen run `smallinline0001/` against `nestdefsafe0001/`, and
 comparisons `leaf-inline-github-v8/`, `leaf-inline-twitter-min-v8/` and
 `leaf-inline-gsoc-2018-min-v8/` under `build/simdjson-parity/`.
+
+## Medium string overlapping-vector screen
+
+A shared SIMD writer prototype replaces the scalar tail of 8--15-unit strings
+with two overlapping, fully bounded vector loads and stores. Both vectors
+receive exact quote, backslash, control and surrogate checks; exceptional
+strings keep the established complete writer. The focused string, tail and
+surrogate suites pass 13,529 checks. Seven alternating V8 pairs pass twenty
+complete output/retention comparisons per label on GSOC minified and GitHub
+Events pretty. GSOC serialization improves 1.021x; GitHub is 1.000x. All control
+phases remain within 3%. The extra vector classifications yield only a small
+benefit over the scalar tail, so this version is reverted. A potential next
+variant could pack the two vectors before classification, using the existing
+long-string classifier and its Unicode fallback to reduce comparison work.
+
+Artifacts: run `mediumtail00001/` against `nestdefsafe0001/`, comparisons
+`medium-tail-gsoc-2018-min-v8/` and `medium-tail-github_events-pretty-v8/`.
