@@ -137,6 +137,15 @@ Evidence is under `build/simdjson-parity/comparisons/` in
 fifteen-pair `uninitialized-owned-{poet,gsoc}-v8-15/` comparisons. This is an
 accepted serialization gain; all seven rows still miss the 1.2x-native target.
 
+A follow-up replaced the final in-place `__renew` with a direct logical-size
+header store. The owned capacity invariant makes this correct, but the smaller
+optimized body does not improve the broad result. Fifteen alternating V8 pairs
+move Poet stringify to 1.006x baseline throughput, Lottie to 0.993x and GitHub
+Events to 0.989x; parse and validation controls remain within 1.3%, and all
+twenty output/retention comparisons pass for every label. The prototype is
+reverted rather than selecting by corpus or retaining a neutral-negative
+global change. Evidence is in `direct-owned-header-{poet,lottie,github}-v8/`.
+
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
 descriptions of balanced variant rounds record the intended method, not a
