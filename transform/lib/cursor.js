@@ -1,6 +1,6 @@
 import { keyDispatch } from "./key-dispatch.js";
 import { PropertyFlags } from "./types.js";
-export function generateCursorParser(members, compare) {
+export function generateCursorParser(members, compare, completeDefaults = false) {
     const entries = members.map((member, id) => ({
         member,
         id,
@@ -78,7 +78,7 @@ export function generateCursorParser(members, compare) {
           if (srcStart >= srcEnd) return 0;
           const separator = load<u16>(srcStart);
           if (separator == 125) {
-            if (isDefined(out.__FINALIZE_CURSOR)) out.__FINALIZE_CURSOR();
+            ${completeDefaults && id + 1 == entries.length ? "" : "if (isDefined(out.__FINALIZE_CURSOR)) out.__FINALIZE_CURSOR();"}
             return srcStart + 2;
           }
           if (separator != 44) return 0;
@@ -95,6 +95,7 @@ export function generateCursorParser(members, compare) {
       return srcStart + 2;
     }
     let expected = 0;
+    ${completeDefaults ? "let ordered = true;" : ""}
     ${hot}
     while (srcStart < srcEnd) {
       const keyStart = srcStart;
@@ -110,6 +111,7 @@ export function generateCursorParser(members, compare) {
           const decoded = JSON.__cursorDecodeKey(keyStart, keyEnd);
           ${decoded}
         }
+        ${completeDefaults ? "if (field != expected) ordered = false;" : ""}
       }
       if (field < 0) return 0;
       srcStart = JSON.__cursorWhitespace(keyEnd, srcEnd);
@@ -122,7 +124,9 @@ export function generateCursorParser(members, compare) {
       if (srcStart >= srcEnd) return 0;
       const separator = load<u16>(srcStart);
       if (separator == 125) {
-        if (isDefined(out.__FINALIZE_CURSOR)) out.__FINALIZE_CURSOR();
+        if (isDefined(out.__FINALIZE_CURSOR)) {
+          ${completeDefaults ? `if (!ordered || expected != ${entries.length})` : ""} out.__FINALIZE_CURSOR();
+        }
         return srcStart + 2;
       }
       if (separator != 44) return 0;

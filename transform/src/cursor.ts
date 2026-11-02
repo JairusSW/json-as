@@ -8,6 +8,7 @@ type Entry = { member: Property; id: number; encoded: string };
 export function generateCursorParser(
   members: Property[],
   compare: (key: string, ptr: string, operator: string) => string[],
+  completeDefaults = false,
 ): string {
   const entries = members.map((member, id) => ({
     member,
@@ -100,7 +101,7 @@ export function generateCursorParser(
           if (srcStart >= srcEnd) return 0;
           const separator = load<u16>(srcStart);
           if (separator == 125) {
-            if (isDefined(out.__FINALIZE_CURSOR)) out.__FINALIZE_CURSOR();
+            ${completeDefaults && id + 1 == entries.length ? "" : "if (isDefined(out.__FINALIZE_CURSOR)) out.__FINALIZE_CURSOR();"}
             return srcStart + 2;
           }
           if (separator != 44) return 0;
@@ -117,6 +118,7 @@ export function generateCursorParser(
       return srcStart + 2;
     }
     let expected = 0;
+    ${completeDefaults ? "let ordered = true;" : ""}
     ${hot}
     while (srcStart < srcEnd) {
       const keyStart = srcStart;
@@ -132,6 +134,7 @@ export function generateCursorParser(
           const decoded = JSON.__cursorDecodeKey(keyStart, keyEnd);
           ${decoded}
         }
+        ${completeDefaults ? "if (field != expected) ordered = false;" : ""}
       }
       if (field < 0) return 0;
       srcStart = JSON.__cursorWhitespace(keyEnd, srcEnd);
@@ -144,7 +147,9 @@ export function generateCursorParser(
       if (srcStart >= srcEnd) return 0;
       const separator = load<u16>(srcStart);
       if (separator == 125) {
-        if (isDefined(out.__FINALIZE_CURSOR)) out.__FINALIZE_CURSOR();
+        if (isDefined(out.__FINALIZE_CURSOR)) {
+          ${completeDefaults ? `if (!ordered || expected != ${entries.length})` : ""} out.__FINALIZE_CURSOR();
+        }
         return srcStart + 2;
       }
       if (separator != 44) return 0;

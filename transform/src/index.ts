@@ -1112,7 +1112,7 @@ export class JSONTransform extends Visitor {
     schema.node = node;
     schema.name = source.getQualifiedName(node);
     schema.hasCustomCursorLifecycle = node.members.some((member) =>
-      ["__INITIALIZE", "__INITIALIZE_CURSOR", "__FINALIZE_CURSOR"].includes(
+      ["__INITIALIZE", "__INITIALIZE_CURSOR", "__INITIALIZE_CURSOR_FRESH", "__FINALIZE_CURSOR"].includes(
         member.name.text,
       ),
     );
@@ -1961,6 +1961,7 @@ export class JSONTransform extends Visitor {
       ) &&
       !this.schema.hasCustomCursorLifecycle;
     const cursorInitializers: string[] = [];
+    const cursorFreshInitializers: string[] = [];
     const cursorDeferred: Array<{ member: Property; initialize: string }> = [];
     for (let i = 0; i < this.schema.members.length; i++) {
       const member = this.schema.members[i];
@@ -1987,7 +1988,7 @@ export class JSONTransform extends Visitor {
         INITIALIZE += `  }\n`;
       } else if (!member.node.type.isNullable) {
         if (this.getSchema(member.type)) {
-          INITIALIZE += `  store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+          INITIALIZE += `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<nonnull<${member.type}>>(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
         } else if (member.type.startsWith("Array<")) {
           INITIALIZE += `  store<${member.type}>(changetype<usize>(this), [], offsetof<this>(${JSON.stringify(member.name)}));\n`;
         } else if (member.type.startsWith("Map<")) {
@@ -2016,6 +2017,22 @@ export class JSONTransform extends Visitor {
         cursorDeferred.push({ member, initialize: cursorInitialize });
       } else {
         cursorInitializers.push(cursorInitialize);
+        if (
+          cursorMayDefer &&
+          !member.node.type.isNullable &&
+          isString(member.type)
+        ) {
+          // Fresh string readers never inspect the old field. Only an absent
+          // field needs the implicit empty-string default at completion.
+          cursorDeferred.push({ member, initialize: cursorInitialize });
+        } else if (
+          !member.node.type.isNullable &&
+          !isPrimitive(member.type)
+        ) {
+          // Preserve eager initialization of observable nested defaults. Null
+          // and scalar zero defaults are already established by fresh clearing.
+          cursorFreshInitializers.push(cursorInitialize);
+        }
       }
 
       const SIMD_ENABLED = this.program.options.hasFeature(Feature.Simd);
@@ -4799,6 +4816,16 @@ export class JSONTransform extends Visitor {
         (member) => member.alias || member.name,
       );
       if (new Set(keys).size === keys.length) {
+        if (cursorMayDefer) {
+          node.members.push(
+            SimpleParser.parseClassMember(
+              "__INITIALIZE_CURSOR_FRESH(): this {\n" +
+                cursorFreshInitializers.join("") +
+                "  return this;\n}",
+              node,
+            ),
+          );
+        }
         if (cursorDeferred.length) {
           node.members.push(
             SimpleParser.parseClassMember(
@@ -4811,8 +4838,13 @@ export class JSONTransform extends Visitor {
           );
           const complete = cursorDeferred
             .map(
-              ({ member, initialize }) =>
-                `  if (load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})) == 0) {\n${initialize}    __link(changetype<usize>(this), load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})), false);\n  }\n`,
+              ({ member, initialize }) => {
+                const field = `offsetof<this>(${JSON.stringify(member.name)})`;
+                const value = this.canDeferCursorObjectDefault(this.schema, member.type)
+                  ? `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<${member.type}>(), ${field});\n`
+                  : initialize;
+                return `  if (load<usize>(changetype<usize>(this), ${field}) == 0) {\n${value}    __link(changetype<usize>(this), load<usize>(changetype<usize>(this), ${field}), false);\n  }\n`;
+              },
             )
             .join("");
           node.members.push(
@@ -4837,7 +4869,11 @@ export class JSONTransform extends Visitor {
         );
         node.members.push(
           SimpleParser.parseClassMember(
-            generateCursorParser(this.schema.members, getComparisions),
+            generateCursorParser(
+              this.schema.members,
+              getComparisions,
+              cursorMayDefer && cursorDeferred.length > 0,
+            ),
             node,
           ),
         );

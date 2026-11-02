@@ -1,2 +1,2 @@
 import { type Property } from "./types.js";
-export declare function generateCursorParser(members: Property[], compare: (key: string, ptr: string, operator: string) => string[]): string;
+export declare function generateCursorParser(members: Property[], compare: (key: string, ptr: string, operator: string) => string[], completeDefaults?: boolean): string;

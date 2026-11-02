@@ -1,4 +1,5 @@
 import { JSON, JSONMode } from "..";
+import { Runtime } from "shared/runtime";
 import { getParseSrc } from "./naive/object";
 import { deserializeFloatArrayBody } from "./swar/array/float";
 import { cursorLink } from "./parseMode";
@@ -116,15 +117,50 @@ export function decodeCursorKey(ptr: usize, end: usize): string {
 }
 
 // Root and nested fresh objects use the same construction policy.
+@inline
 export function initializeCursorObject<T>(obj: T): void {
+  // This entry is called only immediately after __new, before publishing the
+  // object. Incremental already zeroed every slot; minimal/stub require it here.
+  // The generated fresh initializer omits zero stores and defers pure reference
+  // defaults until the closing brace proves which fields are missing.
+  if (ASC_RUNTIME != Runtime.Incremental) {
+    memory.fill(changetype<usize>(obj), 0, offsetof<T>());
+  }
   // @ts-expect-error: transform-generated fresh construction capability
-  if (isDefined(obj.__INITIALIZE_CURSOR)) {
+  if (isDefined(obj.__INITIALIZE_CURSOR_FRESH)) {
+    // @ts-expect-error: transform-generated initializer
+    obj.__INITIALIZE_CURSOR_FRESH();
+  // @ts-expect-error: transform-generated legacy cursor capability
+  } else if (isDefined(obj.__INITIALIZE_CURSOR)) {
     // @ts-expect-error: transform-generated initializer
     obj.__INITIALIZE_CURSOR();
   } else {
     // @ts-expect-error: transform-generated defaults
     obj.__INITIALIZE();
   }
+}
+
+/** Construct an ordinary generated default. Pure defaults share the fresh
+ * cursor construction policy; declared initializers keep their evaluation. */
+@inline
+export function createCursorDefault<T>(): T {
+  const obj = changetype<T>(__new(offsetof<T>(), idof<T>()));
+  if (ASC_RUNTIME != Runtime.Incremental) {
+    memory.fill(changetype<usize>(obj), 0, offsetof<T>());
+  }
+  // Use only the generated pure-default capability. Custom cursor lifecycle
+  // hooks must not replace ordinary declared default initialization.
+  // @ts-expect-error: transform-generated fresh construction capability
+  if (isDefined(obj.__INITIALIZE_CURSOR_FRESH)) {
+    // @ts-expect-error: transform-generated initializer
+    obj.__INITIALIZE_CURSOR_FRESH();
+    // @ts-expect-error: transform-generated completion hook
+    if (isDefined(obj.__FINALIZE_CURSOR)) obj.__FINALIZE_CURSOR();
+  } else {
+    // @ts-expect-error: transform-generated ordinary defaults
+    obj.__INITIALIZE();
+  }
+  return obj;
 }
 
 /** Store one checked value and return its end, without discovering its extent

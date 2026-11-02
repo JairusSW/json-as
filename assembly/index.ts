@@ -7,6 +7,7 @@ import {
   supportsCursor,
   readCursorValue,
   initializeCursorObject,
+  createCursorDefault,
   decodeCursorKey,
 } from "./deserialize/cursor-value";
 import {
@@ -454,6 +455,10 @@ export namespace JSON {
   // capability graph live with the checked readers in deserialize/cursor-value.
   @inline export function __cursorSupports<T>(depth: i32 = 0): bool {
     return supportsCursor<T>(depth);
+  }
+
+  @inline export function __cursorDefault<T>(): T {
+    return createCursorDefault<T>();
   }
 
 

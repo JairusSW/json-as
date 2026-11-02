@@ -678,7 +678,7 @@ export class JSONTransform extends Visitor {
         const schema = new Schema();
         schema.node = node;
         schema.name = source.getQualifiedName(node);
-        schema.hasCustomCursorLifecycle = node.members.some((member) => ["__INITIALIZE", "__INITIALIZE_CURSOR", "__FINALIZE_CURSOR"].includes(member.name.text));
+        schema.hasCustomCursorLifecycle = node.members.some((member) => ["__INITIALIZE", "__INITIALIZE_CURSOR", "__INITIALIZE_CURSOR_FRESH", "__FINALIZE_CURSOR"].includes(member.name.text));
         if (node.extendsType) {
             this.collectInheritedFieldMembers(node, source, members);
             const extendsName = source.resolveExtendsName(node);
@@ -1259,6 +1259,7 @@ export class JSONTransform extends Visitor {
                 !member.flags.has(PropertyFlags.Lazy)) &&
             !this.schema.hasCustomCursorLifecycle;
         const cursorInitializers = [];
+        const cursorFreshInitializers = [];
         const cursorDeferred = [];
         for (let i = 0; i < this.schema.members.length; i++) {
             const member = this.schema.members[i];
@@ -1279,7 +1280,7 @@ export class JSONTransform extends Visitor {
             }
             else if (!member.node.type.isNullable) {
                 if (this.getSchema(member.type)) {
-                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<nonnull<${member.type}>>(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
                 }
                 else if (member.type.startsWith("Array<")) {
                     INITIALIZE += `  store<${member.type}>(changetype<usize>(this), [], offsetof<this>(${JSON.stringify(member.name)}));\n`;
@@ -1308,6 +1309,15 @@ export class JSONTransform extends Visitor {
             }
             else {
                 cursorInitializers.push(cursorInitialize);
+                if (cursorMayDefer &&
+                    !member.node.type.isNullable &&
+                    isString(member.type)) {
+                    cursorDeferred.push({ member, initialize: cursorInitialize });
+                }
+                else if (!member.node.type.isNullable &&
+                    !isPrimitive(member.type)) {
+                    cursorFreshInitializers.push(cursorInitialize);
+                }
             }
             const SIMD_ENABLED = this.program.options.hasFeature(16);
             if (!isRegular &&
@@ -3350,13 +3360,24 @@ export class JSONTransform extends Visitor {
         if (STRICT && !DESERIALIZE_CUSTOM) {
             const keys = this.schema.members.map((member) => member.alias || member.name);
             if (new Set(keys).size === keys.length) {
+                if (cursorMayDefer) {
+                    node.members.push(SimpleParser.parseClassMember("__INITIALIZE_CURSOR_FRESH(): this {\n" +
+                        cursorFreshInitializers.join("") +
+                        "  return this;\n}", node));
+                }
                 if (cursorDeferred.length) {
                     node.members.push(SimpleParser.parseClassMember("__INITIALIZE_CURSOR(): this {\n" +
                         "  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n" +
                         cursorInitializers.join("") +
                         "  return this;\n}", node));
                     const complete = cursorDeferred
-                        .map(({ member, initialize }) => `  if (load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})) == 0) {\n${initialize}    __link(changetype<usize>(this), load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})), false);\n  }\n`)
+                        .map(({ member, initialize }) => {
+                        const field = `offsetof<this>(${JSON.stringify(member.name)})`;
+                        const value = this.canDeferCursorObjectDefault(this.schema, member.type)
+                            ? `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<${member.type}>(), ${field});\n`
+                            : initialize;
+                        return `  if (load<usize>(changetype<usize>(this), ${field}) == 0) {\n${value}    __link(changetype<usize>(this), load<usize>(changetype<usize>(this), ${field}), false);\n  }\n`;
+                    })
                         .join("");
                     node.members.push(SimpleParser.parseClassMember("__FINALIZE_CURSOR(): void {\n" + complete + "}", node));
                 }
@@ -3364,7 +3385,7 @@ export class JSONTransform extends Visitor {
                     .map((member) => `JSON.__cursorSupports<${member.lazyInner || member.type}>(depth + 1)`)
                     .join(" && ") || "true";
                 node.members.push(SimpleParser.parseClassMember(`__CURSOR_SUPPORTED(depth: i32): bool { return depth < 256 && (${supported}); }`, node));
-                node.members.push(SimpleParser.parseClassMember(generateCursorParser(this.schema.members, getComparisions), node));
+                node.members.push(SimpleParser.parseClassMember(generateCursorParser(this.schema.members, getComparisions, cursorMayDefer && cursorDeferred.length > 0), node));
             }
         }
         if (!node.members.find((v) => v.name.text == "__SERIALIZE"))
