@@ -4701,3 +4701,25 @@ serialization/validation gaps remain. Typecheck and lint pass. Artifacts:
 `build/simdjson-parity/`. Previous floor-clipped short-run percentages must be
 requalified with both revisions rebuilt before attributing their differences
 to code layout or graph allocation.
+
+## Isolated validation profile and outlined string control
+
+A strict validation-only GitHub Events pretty diagnostic runs 200,000 changing
+inputs at 18.60 us/op. Of 3,538 samples, 73.1% land in `skipCheckedValue` and
+20.9% in `skipCursorKey`; GC and allocator work are negligible. Most lexical
+helpers are incorporated into the traversal's generated machine code, so
+those percentages do not isolate delimiter handling from inlined scanning.
+
+Forcing `skipCursorString` to remain outlined passes 137 focused strict cursor
+checks. Fifteen alternating fresh V8 pairs, with both binaries built using
+the corrected timer, pass twenty complete output/retention comparisons per
+label. Validation is 1.001x baseline, parsing 0.993x and serialization 0.976x.
+This function-boundary control is neutral and reverted. The result does not
+support outlining string scanning as a throughput optimization; further work
+must investigate the traversal/lexical loop itself.
+
+Artifacts: `github-validation-profile.wasm` and
+`github-validation-profile.txt`; runs `clockfixed00001/` and
+`stroutline00001/`, comparison `outlined-string-github-v8/`, under
+`build/simdjson-parity/`. The profiling driver is diagnostic, not a frozen
+qualification input.
