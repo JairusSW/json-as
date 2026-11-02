@@ -1,9 +1,5 @@
-import {
-  OBJECT,
-  STRING_METADATA_MASK,
-  STRING_SIZE_MASK,
-  TOTAL_OVERHEAD,
-} from "rt/common";
+import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { STRING_METADATA_MASK, STRING_SIZE_MASK } from "../../util/runtime";
 import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";

@@ -1,3 +1,4 @@
+import { allocateUninitialized } from "../util/runtime";
 import { JSONMode } from "..";
 import { bs } from "../../lib/as-bs";
 import { parseDecimalF64 } from "../util/parseDecimal";
@@ -308,7 +309,7 @@ function stringCursor(
         } else {
           const size = ptr - payload;
           value = size
-            ? changetype<string>(__newUninitialized(size, idof<string>()))
+            ? changetype<string>(allocateUninitialized(size, idof<string>()))
             : "";
           if (size) memory.copy(changetype<usize>(value), payload, size);
         }

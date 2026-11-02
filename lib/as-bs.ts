@@ -1,4 +1,6 @@
-import { OBJECT, STRING_SIZE_MASK, TOTAL_OVERHEAD } from "rt/common";
+import { allocateUninitialized } from "../assembly/util/runtime";
+import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { STRING_SIZE_MASK } from "../assembly/util/runtime";
 import { __heap_base, heap } from "memory";
 
 // Buffer management constants
@@ -18,7 +20,7 @@ const EMA_ALPHA_SHIFT: usize = 3; // 1/8 = 0.125
  * skipped while other generic output types retain ordinary initialization. */
 @inline
 function allocateCopiedOutput<T>(size: usize): usize {
-  if (isString<T>()) return __newUninitialized(size, idof<T>());
+  if (isString<T>()) return allocateUninitialized(size, idof<T>());
   return __new(size, idof<T>());
 }
 
@@ -121,7 +123,7 @@ export namespace bs {
     stagingBuffer = buffer;
     stagingBufferSize = bufferSize;
     const capacity = max<usize>(ownedHint, MIN_BUFFER_SIZE);
-    const ptr = __newUninitialized(capacity, idof<string>());
+    const ptr = allocateUninitialized(capacity, idof<string>());
     ownedOutput = changetype<string>(ptr);
     ownedCapacity = capacity;
     buffer = ptr;
@@ -150,7 +152,7 @@ export namespace bs {
     if (ownedCapacity > len && ownedCapacity - len > excessLimit) {
       // A large downward size swing should not make the small returned string
       // retain the previous result's large physical allocation.
-      result = __newUninitialized(len, idof<string>());
+      result = allocateUninitialized(len, idof<string>());
       memory.copy(result, buffer, len);
     } else {
       // Logical shrink is in-place when the physical block already fits.
@@ -385,7 +387,7 @@ export namespace bs {
         store<usize>(dstFieldPtr, stringPtr);
       }
     } else {
-      stringPtr = __newUninitialized(byteLength, idof<string>());
+      stringPtr = allocateUninitialized(byteLength, idof<string>());
       store<usize>(dstFieldPtr, stringPtr);
     }
 

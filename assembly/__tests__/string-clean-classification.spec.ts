@@ -1,6 +1,7 @@
 import { JSON, JSONMode } from "..";
 import { describe, expect } from "as-test";
-import { OBJECT, STRING_METADATA_MASK, TOTAL_OVERHEAD } from "rt/common";
+import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { STRING_METADATA_MASK } from "../util/runtime";
 
 
 @json

@@ -25,6 +25,14 @@ completion. Custom completion hooks are never elided by that proof.
 The selection is based on construction semantics and schema capabilities,
 without corpus, key-name, token-width, input-identity or value signatures.
 
+## Runtime compatibility
+
+Published AssemblyScript runtimes use ordinary managed allocation. Uninitialized
+allocation, allocation batching, and cached string classification are enabled
+only when the installed runtime exposes their corresponding APIs and metadata
+masks. The development-runtime measurements below do not establish equivalent
+performance on the published runtime.
+
 ## Correctness checkpoint
 
 - 123,956 normal and 78,024 strict/RFC checks pass across all three modes,

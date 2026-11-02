@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- compat: keep string metadata, uninitialized allocation, and allocation batching optional so published AssemblyScript runtimes retain ordinary allocation and string semantics.
 - perf(strict): construct fresh checked object graphs inside a scoped AssemblyScript allocation batch, preserving individually managed results while avoiding repeated TLSF searches and free-list updates.
 
 - perf(simd): finish classified clean-string copies with overlapping exact-end vector stores, eliminating the scalar tail cascade and enabling optimizer fusion into generated writers.

@@ -2,7 +2,8 @@ import { JSON } from "..";
 import { describe, expect } from "as-test";
 import { bs } from "../../lib/as-bs";
 import { serializeString_NAIVE } from "../serialize/naive/string";
-import { OBJECT, STRING_SIZE_MASK, TOTAL_OVERHEAD } from "rt/common";
+import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { STRING_SIZE_MASK } from "../util/runtime";
 
 function invalidateUnsafeStringMutation(value: string): void {
   const object = changetype<OBJECT>(changetype<usize>(value) - TOTAL_OVERHEAD);

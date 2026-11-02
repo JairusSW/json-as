@@ -19,12 +19,8 @@ import {
   validateCursor,
 } from "./deserialize/cursor";
 
-import {
-  OBJECT,
-  OBJECT_MAXSIZE,
-  STRING_SIZE_MASK,
-  TOTAL_OVERHEAD,
-} from "rt/common";
+import { OBJECT, OBJECT_MAXSIZE, TOTAL_OVERHEAD } from "rt/common";
+import { STRING_SIZE_MASK } from "./util/runtime";
 import {
   serializeArray,
   serializeArrayPointer,
@@ -457,6 +453,7 @@ export namespace JSON {
     return supportsCursor<T>(depth);
   }
 
+
   @inline export function __cursorDefault<T>(): T {
     return createCursorDefault<T>();
   }
@@ -558,8 +555,12 @@ export namespace JSON {
               4_096,
               sourceBytes > 4_194_304 ? 16_777_216 : sourceBytes << 2,
             );
-            const previousGCBatch = __beginGCAllocationBatch();
-            const previousBatch = __beginAllocBatch(batchBytes);
+            const previousGCBatch = isDefined(__beginGCAllocationBatch)
+              ? __beginGCAllocationBatch()
+              : 0;
+            const previousBatch = isDefined(__beginAllocBatch)
+              ? __beginAllocBatch(batchBytes)
+              : 0;
             beginCursorFreshGraph();
             const obj = changetype<nonnull<T>>(
               __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
@@ -588,8 +589,9 @@ export namespace JSON {
               );
               setParseSrc(previous);
             }
-            __endAllocBatch(previousBatch);
-            __endGCAllocationBatch(previousGCBatch);
+            if (isDefined(__endAllocBatch)) __endAllocBatch(previousBatch);
+            if (isDefined(__endGCAllocationBatch))
+              __endGCAllocationBatch(previousGCBatch);
             endCursorFreshGraph();
             if (!next || skipCursorWhitespace(next, end) != end)
               throw new Error("Invalid JSON syntax or target value");

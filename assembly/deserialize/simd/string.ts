@@ -1,5 +1,6 @@
 import { bs } from "../../../lib/as-bs";
-import { OBJECT, STRING_SIZE_MASK, TOTAL_OVERHEAD } from "rt/common";
+import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { STRING_SIZE_MASK } from "../../util/runtime";
 import { __heap_base } from "memory";
 import { QUOTE } from "../../custom/chars";
 import { BACK_SLASH } from "../../custom/chars";
