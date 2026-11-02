@@ -4751,3 +4751,23 @@ across all three modes, typecheck and lint. No cached test binaries are used.
 Artifacts: runs `containerbase01/`, `containerlocal1/`, `contremaining01/`,
 `contremaining02/`; comparisons `container-local-eight-v8/` and
 `container-local-remaining-v8/` under `build/simdjson-parity/`.
+
+## Rejected closing-delimiter container representation
+
+An incremental experiment stores the expected closing delimiter rather than
+the opening delimiter in the cached checked-discard container state. This
+removes a selection at each completed value while retaining all depth, empty
+container and key/value checks. It passes 52,143 strict cursor/RFC matrix
+checks across NAIVE, SWAR and SIMD, plus the validation harness preflight and
+all 32 changing inputs for eight classic layouts.
+
+Fifteen alternating V8 pairs confirm mixed results: SIMD Canada minified is
+1.055x baseline, but pretty Canada falls to 0.962x; SWAR Canada minified/pretty
+falls to 0.958x/0.949x despite improving GitHub minified/pretty to
+1.125x/1.077x. The representation is reverted because regressions persist
+across layouts. Removing an apparent operation in source does not establish
+an improvement in the compiled traversal.
+
+Artifacts: `containerlocal1/` and `containerclose1/`, comparisons
+`container-close-eight-v8/` and `container-close-eight-v8-15/` under
+`build/simdjson-parity/`.
