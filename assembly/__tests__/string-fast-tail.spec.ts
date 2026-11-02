@@ -3,6 +3,7 @@ import { describe, expect } from "as-test";
 import { bs } from "../../lib/as-bs";
 import { serializeString } from "../serialize/index/string";
 
+
 @json
 class GeneratedStringFields {
   first: string = "";

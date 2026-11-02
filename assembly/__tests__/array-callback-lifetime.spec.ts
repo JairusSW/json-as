@@ -3,12 +3,14 @@ import { describe, expect } from "as-test";
 let root: ArrayOwner | null = null;
 let churn = new Array<i32[]>();
 
+
 @json
 class CollectingElement {
   value: i32 = 0;
   constructor(value: i32 = 0) {
     this.value = value;
   }
+
 
   @serializer("any")
   serialize(self: CollectingElement): string {
@@ -25,6 +27,7 @@ class CollectingElement {
     return self.value.toString();
   }
 }
+
 
 @json
 class ArrayOwner {

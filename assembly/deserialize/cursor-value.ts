@@ -130,7 +130,7 @@ export function initializeCursorObject<T>(obj: T): void {
   if (isDefined(obj.__INITIALIZE_CURSOR_FRESH)) {
     // @ts-expect-error: transform-generated initializer
     obj.__INITIALIZE_CURSOR_FRESH();
-  // @ts-expect-error: transform-generated legacy cursor capability
+    // @ts-expect-error: transform-generated legacy cursor capability
   } else if (isDefined(obj.__INITIALIZE_CURSOR)) {
     // @ts-expect-error: transform-generated initializer
     obj.__INITIALIZE_CURSOR();

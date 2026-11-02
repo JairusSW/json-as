@@ -9,8 +9,8 @@ export function scanDigits(ptr: usize, end: usize): usize {
   let remaining = end - ptr;
   while (remaining >= 8) {
     const digits = load<u64>(ptr) - 0x0030_0030_0030_0030;
-    const stop = (digits | (digits + 0x0006_0006_0006_0006)) &
-      0xfff0_fff0_fff0_fff0;
+    const stop =
+      (digits | (digits + 0x0006_0006_0006_0006)) & 0xfff0_fff0_fff0_fff0;
     if (stop) return ptr + ((usize(ctz(stop)) >> 4) << 1);
     ptr += 8;
     remaining -= 8;

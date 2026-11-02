@@ -80,17 +80,20 @@ export function generateCursorParser(
     : "";
   // Bound straight-line code growth; every layout miss resumes at its current
   // key with the same destination, without replaying the completed prefix.
-  const hot = entries.length <= 16
-    ? "do {\n" + entries.map((entry) => {
-        const { member, id } = entry;
-        const field = `offsetof<this>(${JSON.stringify(member.name)})`;
-        const read = member.flags.has(PropertyFlags.Lazy)
-          ? `const valueStart = srcStart;
+  const hot =
+    entries.length <= 16
+      ? "do {\n" +
+        entries
+          .map((entry) => {
+            const { member, id } = entry;
+            const field = `offsetof<this>(${JSON.stringify(member.name)})`;
+            const read = member.flags.has(PropertyFlags.Lazy)
+              ? `const valueStart = srcStart;
              srcStart = JSON.__cursorSkipValue(srcStart, srcEnd, depth + 1);
              if (!srcStart) return 0;
              store<u64>(changetype<usize>(out), (<u64>valueStart << 32) | <u64><u32>srcStart, ${field});`
-          : `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
-        return `{
+              : `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
+            return `{
           const keyStart = srcStart;
           if (!(keyStart + ${(entry.encoded.length + 1) << 1} <= srcEnd && ${compare(entry.encoded + ":", "keyStart", "==").join(" && ")})) break;
           srcStart = JSON.__cursorWhitespace(keyStart + ${(entry.encoded.length + 1) << 1}, srcEnd);
@@ -107,8 +110,10 @@ export function generateCursorParser(
           if (separator != 44) return 0;
           srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);
         }`;
-      }).join("\n") + "\n} while (false);"
-    : "";
+          })
+          .join("\n") +
+        "\n} while (false);"
+      : "";
   return `__DESERIALIZE_CURSOR<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, depth: i32): usize {
     if (depth >= 256 || srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;
     ${anchor}

@@ -504,16 +504,19 @@ class Matrix {
   rows: i32[][] = [];
 }
 
+
 @json
 class GeneratedArrayLeaf {
   value: string = "";
 }
+
 
 @json
 class GeneratedArrayFields {
   strings: string[] = [];
   leaves: GeneratedArrayLeaf[] = [];
 }
+
 
 @json
 class GeneratedIntegerArrayField {
@@ -548,9 +551,7 @@ describe("Generated array fields stay live across output growth", () => {
 
   const actualIntegers = JSON.stringify(integerOwner);
   const expectedIntegers =
-    '{"numbers":[' +
-    "1234567890123,".repeat(count - 1) +
-    "1234567890123]}";
+    '{"numbers":[' + "1234567890123,".repeat(count - 1) + "1234567890123]}";
   expect(actualIntegers).toBe(expectedIntegers);
 });
 

@@ -566,17 +566,28 @@ export class JSONTransform extends Visitor {
   }
 
   private hasCustomCursorInitializer(schema: Schema): boolean {
-    for (let current: Schema | null = schema; current; current = current.parent) {
+    for (
+      let current: Schema | null = schema;
+      current;
+      current = current.parent
+    ) {
       if (
         current.hasCustomCursorLifecycle &&
-        current.node.members.some((member) => member.name.text == "__INITIALIZE_CURSOR")
-      ) return true;
+        current.node.members.some(
+          (member) => member.name.text == "__INITIALIZE_CURSOR",
+        )
+      )
+        return true;
     }
     return false;
   }
 
   private hasCustomCursorLifecycle(schema: Schema): boolean {
-    for (let current: Schema | null = schema; current; current = current.parent) {
+    for (
+      let current: Schema | null = schema;
+      current;
+      current = current.parent
+    ) {
       if (current.hasCustomCursorLifecycle) return true;
     }
     return false;
@@ -1129,9 +1140,13 @@ export class JSONTransform extends Visitor {
     schema.node = node;
     schema.name = source.getQualifiedName(node);
     schema.hasCustomCursorLifecycle = node.members.some((member) =>
-      ["__INITIALIZE", "__INITIALIZE_CURSOR", "__INITIALIZE_CURSOR_FRESH", "__INITIALIZE_DEFAULT_FRESH", "__FINALIZE_CURSOR"].includes(
-        member.name.text,
-      ),
+      [
+        "__INITIALIZE",
+        "__INITIALIZE_CURSOR",
+        "__INITIALIZE_CURSOR_FRESH",
+        "__INITIALIZE_DEFAULT_FRESH",
+        "__FINALIZE_CURSOR",
+      ].includes(member.name.text),
     );
 
     if (node.extendsType) {
@@ -1819,34 +1834,38 @@ export class JSONTransform extends Visitor {
     let isRegular = isPure;
     let isFirst = true;
     // Reservations cannot span callbacks that can change later field sizes.
-    const canReserveDynamicPayloads = this.schema.members.every((member) =>
-      isReservedPrimitive(member.type) || isString(member.type) ||
-      /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type),
+    const canReserveDynamicPayloads = this.schema.members.every(
+      (member) =>
+        isReservedPrimitive(member.type) ||
+        isString(member.type) ||
+        /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type),
     );
-    const directStringMembers = this.schema.static && canReserveDynamicPayloads
-      ? this.schema.members.filter(
-          (member) =>
-            !member.flags.has(PropertyFlags.Lazy) &&
-            isString(member.type) &&
-            !defaultStringLiterals.has(member.name),
-        )
-      : [];
+    const directStringMembers =
+      this.schema.static && canReserveDynamicPayloads
+        ? this.schema.members.filter(
+            (member) =>
+              !member.flags.has(PropertyFlags.Lazy) &&
+              isString(member.type) &&
+              !defaultStringLiterals.has(member.name),
+          )
+        : [];
     // Fold every direct string payload into the object's existing reservation.
     // Even one field removes its separate capacity check and keeps the output
     // cursor local across the field boundary without changing the total bound.
     const reserveDirectStringPayloads = directStringMembers.length >= 1;
-    const wideIntegerArrayCandidates = this.schema.static && canReserveDynamicPayloads
-      ? this.schema.members.filter((member) => {
-          if (
-            member.flags.has(PropertyFlags.Lazy) ||
-            member.node.type.isNullable ||
-            !member.type.startsWith("Array<")
-          )
-            return false;
-          const element = member.type.slice(6, -1).trim();
-          return ["i16", "u16", "i32", "u32", "i64", "u64"].includes(element);
-        })
-      : [];
+    const wideIntegerArrayCandidates =
+      this.schema.static && canReserveDynamicPayloads
+        ? this.schema.members.filter((member) => {
+            if (
+              member.flags.has(PropertyFlags.Lazy) ||
+              member.node.type.isNullable ||
+              !member.type.startsWith("Array<")
+            )
+              return false;
+            const element = member.type.slice(6, -1).trim();
+            return ["i16", "u16", "i32", "u32", "i64", "u64"].includes(element);
+          })
+        : [];
     // Folding several worst-case array bounds into one reservation can retain
     // much more capacity than serializing them at their individual boundaries.
     // A single array has the same bound as the established writer without that
@@ -1882,10 +1901,7 @@ export class JSONTransform extends Visitor {
             `}\n`
           );
         }
-        if (
-          reserveDirectStringPayloads &&
-          isString(member.type)
-        ) {
+        if (reserveDirectStringPayloads && isString(member.type)) {
           const writer = member.node.type.isNullable
             ? "__serializeNullableStringPointerReservedAt"
             : "__serializeStringPointerReservedAt";
@@ -1976,7 +1992,8 @@ export class JSONTransform extends Visitor {
     const cursorMayDefer =
       STRICT &&
       !DESERIALIZE_CUSTOM &&
-      new Set(this.schema.members.map((member) => member.alias || member.name)).size == this.schema.members.length &&
+      new Set(this.schema.members.map((member) => member.alias || member.name))
+        .size == this.schema.members.length &&
       this.schema.members.every(
         (member) =>
           !member.value &&
@@ -2049,10 +2066,7 @@ export class JSONTransform extends Visitor {
           // Fresh string readers never inspect the old field. Only an absent
           // field needs the implicit empty-string default at completion.
           cursorDeferred.push({ member, initialize: cursorInitialize });
-        } else if (
-          !member.node.type.isNullable &&
-          !isPrimitive(member.type)
-        ) {
+        } else if (!member.node.type.isNullable && !isPrimitive(member.type)) {
           // Preserve eager initialization of observable nested defaults. Null
           // and scalar zero defaults are already established by fresh clearing.
           cursorFreshInitializers.push(cursorInitialize);
@@ -4628,14 +4642,12 @@ export class JSONTransform extends Visitor {
 
     const directStringPayloadReserve = reserveDirectStringPayloads
       ? directStringMembers
-          .map(
-            (member) => {
-              const size = member.node.type.isNullable
-                ? "__nullableStringByteSizePointer"
-                : "__stringByteSizePointer";
-              return ` + JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
-            },
-          )
+          .map((member) => {
+            const size = member.node.type.isNullable
+              ? "__nullableStringByteSizePointer"
+              : "__stringByteSizePointer";
+            return ` + JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
+          })
           .join("")
       : "";
     const directWideIntegerArrayReserve = directWideIntegerArrays
@@ -4839,26 +4851,42 @@ export class JSONTransform extends Visitor {
     // that cannot use checked parsing. Derived classes must shadow a base's
     // optimized entry when their own declared defaults require ordinary init.
     if (STRICT) {
-      if (!node.members.some((member) => member.name.text == "__INITIALIZE_CURSOR_FRESH")) {
+      if (
+        !node.members.some(
+          (member) => member.name.text == "__INITIALIZE_CURSOR_FRESH",
+        )
+      ) {
         const initialize = cursorMayDefer
           ? cursorFreshInitializers.join("")
           : this.hasCustomCursorInitializer(this.schema)
             ? "  this.__INITIALIZE_CURSOR();\n"
             : "  this.__INITIALIZE();\n";
-        node.members.push(SimpleParser.parseClassMember(
-          "__INITIALIZE_CURSOR_FRESH(): this {\n" + initialize + "  return this;\n}",
-          node,
-        ));
+        node.members.push(
+          SimpleParser.parseClassMember(
+            "__INITIALIZE_CURSOR_FRESH(): this {\n" +
+              initialize +
+              "  return this;\n}",
+            node,
+          ),
+        );
       }
-      if (!node.members.some((member) => member.name.text == "__INITIALIZE_DEFAULT_FRESH")) {
+      if (
+        !node.members.some(
+          (member) => member.name.text == "__INITIALIZE_DEFAULT_FRESH",
+        )
+      ) {
         const initialize = cursorMayDefer
           ? "  this.__INITIALIZE_CURSOR_FRESH();\n" +
             (cursorDeferred.length ? "  this.__FINALIZE_CURSOR();\n" : "")
           : "  this.__INITIALIZE();\n";
-        node.members.push(SimpleParser.parseClassMember(
-          "__INITIALIZE_DEFAULT_FRESH(): this {\n" + initialize + "  return this;\n}",
-          node,
-        ));
+        node.members.push(
+          SimpleParser.parseClassMember(
+            "__INITIALIZE_DEFAULT_FRESH(): this {\n" +
+              initialize +
+              "  return this;\n}",
+            node,
+          ),
+        );
       }
     }
 
@@ -4878,15 +4906,16 @@ export class JSONTransform extends Visitor {
             ),
           );
           const complete = cursorDeferred
-            .map(
-              ({ member, initialize }) => {
-                const field = `offsetof<this>(${JSON.stringify(member.name)})`;
-                const value = this.canDeferCursorObjectDefault(this.schema, member.type)
-                  ? `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<${member.type}>(), ${field});\n`
-                  : initialize;
-                return `  if (load<usize>(changetype<usize>(this), ${field}) == 0) {\n${value}    __link(changetype<usize>(this), load<usize>(changetype<usize>(this), ${field}), false);\n  }\n`;
-              },
-            )
+            .map(({ member, initialize }) => {
+              const field = `offsetof<this>(${JSON.stringify(member.name)})`;
+              const value = this.canDeferCursorObjectDefault(
+                this.schema,
+                member.type,
+              )
+                ? `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<${member.type}>(), ${field});\n`
+                : initialize;
+              return `  if (load<usize>(changetype<usize>(this), ${field}) == 0) {\n${value}    __link(changetype<usize>(this), load<usize>(changetype<usize>(this), ${field}), false);\n  }\n`;
+            })
             .join("");
           node.members.push(
             SimpleParser.parseClassMember(

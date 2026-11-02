@@ -2,6 +2,7 @@ import { JSON } from "..";
 import { Runtime } from "shared/runtime";
 import { initializeCursorObject } from "../deserialize/cursor-value";
 
+
 @json
 class Leaf {
   count!: i32;
@@ -10,6 +11,7 @@ class Leaf {
   label!: string;
   note!: string | null;
 }
+
 
 @json
 class Graph {
@@ -27,11 +29,13 @@ function observableDefault(): i32 {
   return 7;
 }
 
+
 @json
 class Observable {
   count: i32 = observableDefault();
   label: string = "declared";
 }
+
 
 @json
 class Parent {
@@ -41,6 +45,8 @@ class Parent {
 }
 
 let completionCalls = 0;
+
+
 @json
 class CustomCompletion {
   label!: string;
@@ -49,15 +55,18 @@ class CustomCompletion {
   }
 }
 
+
 @json
 class ImplicitBase {
   base!: string;
 }
 
+
 @json
 class DeclaredDerived extends ImplicitBase {
   count: i32 = observableDefault();
 }
+
 
 @json
 class DerivedParent {
@@ -66,6 +75,8 @@ class DerivedParent {
 }
 
 let cursorInitializerCalls = 0;
+
+
 @json
 class ManualCursorBase {
   label!: string;
@@ -76,10 +87,12 @@ class ManualCursorBase {
   }
 }
 
+
 @json
 class ManualCursorDerived extends ManualCursorBase {
   count!: i32;
 }
+
 
 @json
 class ManualCursorParent {
@@ -126,7 +139,9 @@ export function run(): i32 {
   const canonical = JSON.parse<Leaf>(
     '{"count":1,"score":2,"active":true,"label":"hot","note":"x"}',
   );
-  check(canonical.count == 1 && canonical.label == "hot" && canonical.note == "x");
+  check(
+    canonical.count == 1 && canonical.label == "hot" && canonical.note == "x",
+  );
   const spaced = JSON.parse<Leaf>(
     '{"count" :1,"score" :2,"active" :true,"label" :"cursor","note" :"x"}',
   );
@@ -147,10 +162,18 @@ export function run(): i32 {
   check(completionCalls == 0 && defaulted.hook.label == "");
   cursorInitializerCalls = 0;
   const manual = JSON.parse<ManualCursorDerived>('{"count":9}');
-  check(cursorInitializerCalls == 1 && manual.count == 9 && manual.label == "manual");
+  check(
+    cursorInitializerCalls == 1 &&
+      manual.count == 9 &&
+      manual.label == "manual",
+  );
   cursorInitializerCalls = 0;
   const ordinary = JSON.parse<ManualCursorParent>("{}");
-  check(cursorInitializerCalls == 0 && ordinary.child.count == 0 && ordinary.child.label == "");
+  check(
+    cursorInitializerCalls == 0 &&
+      ordinary.child.count == 0 &&
+      ordinary.child.label == "",
+  );
 
   const retained = new Array<Graph>();
   for (let i = 0; i < 48; i++) {

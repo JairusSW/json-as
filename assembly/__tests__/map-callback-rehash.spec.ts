@@ -3,12 +3,14 @@ import { describe, expect } from "as-test";
 
 let entries = new Map<string, RehashValue>();
 
+
 @json
 class RehashValue {
   value: i32 = 0;
   constructor(value: i32 = 0) {
     this.value = value;
   }
+
 
   @serializer("any")
   serialize(self: RehashValue): string {

@@ -1,10 +1,12 @@
 import { JSON } from "../..";
 import { describe, expect } from "as-test";
 
+
 @json
 class ImplicitChild {
   value!: string;
 }
+
 
 @json
 class ImplicitParent {
@@ -18,10 +20,12 @@ function nestedDefaultValue(): string {
   return "default";
 }
 
+
 @json
 class ObservableChild {
   value: string = nestedDefaultValue();
 }
+
 
 @json
 class ObservableParent {
