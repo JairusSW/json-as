@@ -4408,3 +4408,48 @@ adding data with no measurable benefit.
 
 Artifacts: runs `pairlut{base,cand}001/` and comparison `pairlut-citm-v8/`
 under `build/simdjson-parity/`.
+
+## Fresh cursor graph write-barrier elision
+
+The strict generated cursor parser constructs a new, unpublished object graph
+inside the runtime allocation batch. Runtime write barriers therefore return
+without doing GC work, but every managed field assignment still paid the
+`__link` call. The retained change tracks the public fresh-cursor scope and
+elides those calls while it is active. Cursor readers used outside that scope,
+reuse parsing and non-cursor paths retain the ordinary barrier. The rule is
+based only on graph ownership and allocation lifetime; it has no corpus,
+schema, field or value selector and applies to both SIMD and SWAR.
+
+Five alternating V8 process pairs cover all sixteen classic layouts. Fifteen-
+pair confirmations replace noisy initial GitHub Events min/pretty and Canada-
+pretty screens. Every parse row remains within the 3% regression guard. Final
+or representative confirmations reproduce 1.038x SIMD parse throughput on
+CITM minified and 1.035x on Canada pretty. Candidate / baseline SIMD parse
+throughput across the complete screen:
+
+| Workload | Minified | Pretty |
+| --- | ---: | ---: |
+| Canada | 1.034x | 1.035x |
+| Twitter | 1.001x | 1.009x |
+| CITM Catalog | 1.038x | 1.035x |
+| GitHub Events | 0.995x | 1.014x |
+| Poet | 1.012x | 0.984x |
+| GSOC 2018 | 1.038x | 1.002x |
+| Lottie | 0.985x | 1.004x |
+| OTFCC | 0.986x | - |
+| FGO | 1.009x | - |
+
+All owned-output and retention oracles pass for every label and mode. The final
+source passes typecheck, lint, 123,956 normal checks, 77,928 strict/RFC checks
+and a focused 2,925-check cursor/GC suite across NAIVE, SWAR and SIMD.
+
+Latest upstream w2c2 main `c6f15cb7` provides an independent seven-pair CITM
+diagnostic over the same frozen Wasm. Checked SIMD/SWAR parse throughput is
+0.988x/0.999x baseline; default unchecked SIMD/SWAR is 1.007x/1.054x. No phase
+crosses the 3% regression guard and all 160 complete w2c2 oracle comparisons
+pass. V8 remains the qualification backend; checked and unchecked w2c2 results
+remain separately labeled.
+
+Artifacts: runs `linkskip{base,cand}001/` and `linkskipfinl001/`; V8
+comparisons `linkskip-*-v8*`, including final CITM/Canada confirmations; w2c2
+comparison `linkskip-final-citm-w2c2/` under `build/simdjson-parity/`.

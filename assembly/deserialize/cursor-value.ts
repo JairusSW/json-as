@@ -2,6 +2,7 @@ import { JSON, JSONMode } from "..";
 import { getParseSrc } from "./naive/object";
 import { deserializeFloatArrayBody } from "./swar/array/float";
 import { ensureArrayElementSlot } from "./swar/array/shared";
+import { cursorLink } from "./parseMode";
 import {
   MAX_CURSOR_DEPTH,
   readCursorString,
@@ -170,7 +171,7 @@ export function readCursorValue<T>(
       if (!next) return 0;
       const value = slot.value.buffer;
       store<usize>(field, changetype<usize>(value));
-      __link(dst, changetype<usize>(value), false);
+      cursorLink(dst, changetype<usize>(value), false);
       return next;
     }
     if (
@@ -200,7 +201,7 @@ export function readCursorValue<T>(
       if (!next) return 0;
       const value = StaticArray.fromArray<valueof<T>>(slot.value);
       store<usize>(field, changetype<usize>(value));
-      __link(dst, changetype<usize>(value), false);
+      cursorLink(dst, changetype<usize>(value), false);
       return next;
     }
     if (type instanceof Array) {
@@ -218,7 +219,7 @@ export function readCursorValue<T>(
         );
         if (!next) return 0;
         store<usize>(field, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+        cursorLink(dst, changetype<usize>(out), false);
         return next;
       }
       let ptr = skipCursorWhitespace(start + 2, end);
@@ -228,7 +229,7 @@ export function readCursorValue<T>(
         // ordinary independently owned array and grows through the runtime.
         const empty: Array<valueof<T>> = [];
         store<usize>(field, changetype<usize>(empty));
-        __link(dst, changetype<usize>(empty), false);
+        cursorLink(dst, changetype<usize>(empty), false);
         return ptr + 2;
       }
       const out = new Array<valueof<T>>();
@@ -252,7 +253,7 @@ export function readCursorValue<T>(
         const code = load<u16>(ptr);
         if (code == 93) {
           store<usize>(field, changetype<usize>(out));
-          __link(dst, changetype<usize>(out), false);
+          cursorLink(dst, changetype<usize>(out), false);
           return ptr + 2;
         }
         if (code != 44) return 0;
@@ -272,7 +273,7 @@ export function readCursorValue<T>(
       if (!next) return 0;
       const value = JSON.Raw.from(JSON.Util.ptrToStr(start, next));
       store<usize>(field, changetype<usize>(value));
-      __link(dst, changetype<usize>(value), false);
+      cursorLink(dst, changetype<usize>(value), false);
       return next;
     }
     if (type instanceof Date) {
@@ -286,7 +287,7 @@ export function readCursorValue<T>(
       if (!next) return 0;
       const value = new Date(Date.fromString(slot.value).getTime());
       store<usize>(field, changetype<usize>(value));
-      __link(dst, changetype<usize>(value), false);
+      cursorLink(dst, changetype<usize>(value), false);
       return next;
     }
     if (type instanceof Set) {
@@ -295,7 +296,7 @@ export function readCursorValue<T>(
       let ptr = skipCursorWhitespace(start + 2, end);
       if (ptr < end && load<u16>(ptr) == 93) {
         store<usize>(field, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+        cursorLink(dst, changetype<usize>(out), false);
         return ptr + 2;
       }
       const slot = new CursorSlot<indexof<T>>();
@@ -314,7 +315,7 @@ export function readCursorValue<T>(
         const code = load<u16>(ptr);
         if (code == 93) {
           store<usize>(field, changetype<usize>(out));
-          __link(dst, changetype<usize>(out), false);
+          cursorLink(dst, changetype<usize>(out), false);
           return ptr + 2;
         }
         if (code != 44) return 0;
@@ -329,7 +330,7 @@ export function readCursorValue<T>(
       let ptr = skipCursorWhitespace(start + 2, end);
       if (ptr < end && load<u16>(ptr) == 125) {
         store<usize>(field, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+        cursorLink(dst, changetype<usize>(out), false);
         return ptr + 2;
       }
       const key = new CursorSlot<string>();
@@ -358,7 +359,7 @@ export function readCursorValue<T>(
         const code = load<u16>(ptr);
         if (code == 125) {
           store<usize>(field, changetype<usize>(out));
-          __link(dst, changetype<usize>(out), false);
+          cursorLink(dst, changetype<usize>(out), false);
           return ptr + 2;
         }
         if (code != 44) return 0;
@@ -376,7 +377,7 @@ export function readCursorValue<T>(
       const next = obj.__DESERIALIZE_CURSOR(start, end, obj, depth);
       if (next) {
         store<T>(field, obj);
-        __link(dst, changetype<usize>(obj), false);
+        cursorLink(dst, changetype<usize>(obj), false);
       }
       return next;
     }
@@ -405,7 +406,7 @@ function readCursorBox<T, V>(
   );
   if (!next) return 0;
   store<usize>(dst + offset, changetype<usize>(out));
-  __link(dst, changetype<usize>(out), false);
+  cursorLink(dst, changetype<usize>(out), false);
   return next;
 }
 
@@ -473,7 +474,7 @@ function readCursorTypedArray<T>(
       <usize>values.length * sizeof<valueof<T>>(),
     );
   store<usize>(dst + offset, changetype<usize>(out));
-  __link(dst, changetype<usize>(out), false);
+  cursorLink(dst, changetype<usize>(out), false);
   return next;
 }
 
@@ -527,7 +528,7 @@ function readDynamic<T>(
       out._rawStart = start;
       out._rawEnd = ptr + 2;
       store<usize>(dst + offset, changetype<usize>(out));
-      __link(dst, changetype<usize>(out), false);
+      cursorLink(dst, changetype<usize>(out), false);
       return ptr + 2;
     }
     if (!depth) out.reserveForParse((end - start) >> 1);
@@ -565,7 +566,7 @@ function readDynamic<T>(
         out._rawStart = start;
         out._rawEnd = ptr + 2;
         store<usize>(dst + offset, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+        cursorLink(dst, changetype<usize>(out), false);
         return ptr + 2;
       }
       if (code != 44) return 0;
@@ -580,7 +581,7 @@ function readDynamic<T>(
     let ptr = skipCursorWhitespace(start + 2, end);
     if (ptr < end && load<u16>(ptr) == 93) {
       store<usize>(dst + offset, changetype<usize>(out));
-      __link(dst, changetype<usize>(out), false);
+      cursorLink(dst, changetype<usize>(out), false);
       return ptr + 2;
     }
     const bits = new CursorSlot<u64>();
@@ -599,7 +600,7 @@ function readDynamic<T>(
       const code = load<u16>(ptr);
       if (code == 93) {
         store<usize>(dst + offset, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+        cursorLink(dst, changetype<usize>(out), false);
         return ptr + 2;
       }
       if (code != 44) return 0;
@@ -632,6 +633,6 @@ function readDynamic<T>(
     value = JSON.Value.fromBits(bits.value);
   }
   store<usize>(dst + offset, changetype<usize>(value));
-  __link(dst, changetype<usize>(value), false);
+  cursorLink(dst, changetype<usize>(value), false);
   return next;
 }

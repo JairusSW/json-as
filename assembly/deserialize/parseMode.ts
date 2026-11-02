@@ -1,5 +1,32 @@
 let SIMD_PRETTY_PARSE = false;
 const ENABLE_EXACT_SOURCE_TRACES = true;
+// The generated cursor path builds a new, unpublished object graph entirely
+// inside the runtime's allocation batch. No old object can point at one of
+// these children yet, so incremental-GC write barriers are redundant until
+// the root is published. A depth counter keeps nested public parses safe.
+let CURSOR_FRESH_GRAPH_DEPTH = 0;
+
+
+@inline
+export function beginCursorFreshGraph(): void {
+  CURSOR_FRESH_GRAPH_DEPTH++;
+}
+
+
+@inline
+export function endCursorFreshGraph(): void {
+  CURSOR_FRESH_GRAPH_DEPTH--;
+}
+
+
+@inline
+export function cursorLink(
+  parent: usize,
+  child: usize,
+  expectMultiple: bool = false,
+): void {
+  if (CURSOR_FRESH_GRAPH_DEPTH == 0) __link(parent, child, expectMultiple);
+}
 
 // Steady-state SIMD string-field trace. JSON source strings and parsed field
 // strings are immutable at the language level, so the tuple

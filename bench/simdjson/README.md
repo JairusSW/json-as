@@ -181,7 +181,7 @@ be run independently of the current working tree.
 
 ## w2c2 backend
 
-The local checkout uses upstream main `56672df54468f7f57990addae64d873a66d6de42`,
+The local checkout uses upstream main `c6f15cb77afaf00799160455a4e7165e749f10dd`,
 also fast-forwarded to the user's fork with authorization. The original local
 w2c2 checkout and its uncommitted work were preserved. The translator passes its
 22 CMake tests. SIMD uses external SIMDe, pinned here to

@@ -4,6 +4,7 @@ import { parseDecimalF64 } from "../util/parseDecimal";
 import { ptrToStr } from "../util/ptrToStr";
 import { loadPow10, MAX_EXACT_MANTISSA } from "./swar/float";
 import { scanDigits } from "../util/scanDigits";
+import { cursorLink } from "./parseMode";
 
 // Checked readers consume one value and return the first cursor after it, or
 // zero on failure. They never consume a parent separator or trailing space.
@@ -369,7 +370,7 @@ export function readCursorString(
   const field = dstObj + dstOffset;
   const token = stringCursor(start, end, field, true);
   const next = <usize>(token >> 1);
-  if (next) __link(dstObj, load<usize>(field), false);
+  if (next) cursorLink(dstObj, load<usize>(field), false);
   return next;
 }
 

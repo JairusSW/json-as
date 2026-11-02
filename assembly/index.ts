@@ -81,9 +81,11 @@ import {
   failProductionParse as failProductionParseInternal,
 } from "./deserialize";
 import {
+  beginCursorFreshGraph,
   beginStringFieldTrace,
   beginObjectFieldTrace,
   endStringFieldTrace,
+  endCursorFreshGraph,
   isPrettyParse,
   objectFieldTraceMask,
   objectFieldTraceSeparator,
@@ -553,6 +555,7 @@ export namespace JSON {
             );
             const previousGCBatch = __beginGCAllocationBatch();
             const previousBatch = __beginAllocBatch(batchBytes);
+            beginCursorFreshGraph();
             const obj = changetype<nonnull<T>>(
               __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
             );
@@ -582,6 +585,7 @@ export namespace JSON {
             }
             __endAllocBatch(previousBatch);
             __endGCAllocationBatch(previousGCBatch);
+            endCursorFreshGraph();
             if (!next || skipCursorWhitespace(next, end) != end)
               throw new Error("Invalid JSON syntax or target value");
             return obj;
