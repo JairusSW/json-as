@@ -4249,6 +4249,54 @@ Artifacts: profile `gcbatchprof0001`, runs `gcbatch{ctrl,cand}0001` and
 `gclinkcand00001`, V8 comparisons `gcbatch-*-v8` and `gclink-*-v8`, and w2c2
 comparison `gcbatch-current-citm-w2c2` under `build/simdjson-parity/`.
 
+## Independent nine- and ten-digit integer quotients
+
+The nine- and ten-digit `u32` formatter branches previously derived each
+two-digit group from the preceding remainder. They used four constant divisions
+but formed one long dependency chain. The retained writer derives the same four
+quotients directly from the original value, then reconstructs each pair with a
+multiply and subtraction. The division count, pair table, output stores and
+width dispatch are unchanged; only the dependency graph differs. The rule is
+selected solely by integer width and is shared by generated fields, arrays,
+maps, sets and top-level values in every mode.
+
+The CITM input contains 14,392 integers, of which 13,242 are nine digits. Fifteen
+alternating V8 process pairs confirm 1.027x minified stringify throughput, with
+parse and validation controls at 1.001x and 1.007x. Seven-pair screens cover
+the other typed layouts, with a fifteen-pair confirmation superseding an
+initial noisy Lottie-pretty result. Five pairs cover the 66 MB OTFCC and 49 MB
+FGO raw models. Every label passes twenty complete changing-output and retained-
+output comparisons, and no parse, stringify or validation row crosses the 3%
+regression guard. Candidate / baseline SIMD stringify throughput:
+
+| Workload | Minified | Pretty |
+| --- | ---: | ---: |
+| Canada | 1.004x | 1.000x |
+| Twitter | 1.002x | 1.004x |
+| CITM Catalog | 1.027x | 1.024x |
+| GitHub Events | 1.000x | 1.000x |
+| Poet | 0.993x | 0.997x |
+| GSOC 2018 | 1.000x | 0.995x |
+| Lottie | 0.999x | 1.001x |
+| OTFCC | 1.043x | - |
+| FGO | 1.003x | - |
+
+The OTFCC result independently exercises the same width algorithm through a
+very different 66 MB model; its json-as stringify remains 1.436x faster than
+native simdjson in this screen. On latest upstream w2c2, fifteen CITM pairs
+confirm 1.026x checked and 1.027x default stringify throughput. Parse and
+validation controls stay within 1.4%, and all backend oracles pass.
+
+Explicit tests cover the eight-to-nine- and nine-to-ten-digit transitions plus
+interior values. The retained source passes 123,956 normal and 77,928 strict/RFC
+checks across NAIVE, SWAR and SIMD, 1,416 transform regressions and eleven
+benchmark-tooling tests. Typecheck, lint, formatting and diff checks pass.
+
+Artifacts: runs `itoa9base000001` and `itoa9cand000001`; V8 comparisons
+`itoa9-*-v8`, including `itoa9-citm-v8-15` and
+`itoa9-lottie-pretty-v8-15`; w2c2 comparison `itoa9-citm-w2c2-15` under
+`build/simdjson-parity/`.
+
 ## Rejected cached `Map<string, string>` traversal
 
 A type-specialized Map writer cached the rooted, non-moving entry buffer for

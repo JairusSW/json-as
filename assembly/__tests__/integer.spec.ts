@@ -39,6 +39,13 @@ describe("Additional regression coverage - primitives and arrays", () => {
 });
 
 describe("Should serialize integer boundaries", () => {
+  expect(JSON.stringify<u32>(99_999_999)).toBe("99999999");
+  expect(JSON.stringify<u32>(100_000_000)).toBe("100000000");
+  expect(JSON.stringify<u32>(100_000_001)).toBe("100000001");
+  expect(JSON.stringify<u32>(123_456_789)).toBe("123456789");
+  expect(JSON.stringify<u32>(999_999_999)).toBe("999999999");
+  expect(JSON.stringify<u32>(1_000_000_000)).toBe("1000000000");
+  expect(JSON.stringify<u32>(1_000_000_001)).toBe("1000000001");
   expect(JSON.stringify<i32>(2147483647)).toBe("2147483647");
   expect(JSON.stringify<i32>(-2147483648)).toBe("-2147483648");
   expect(JSON.stringify<u32>(4294967295)).toBe("4294967295");

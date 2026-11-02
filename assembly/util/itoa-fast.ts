@@ -128,13 +128,16 @@ export function itoaU32(buf: usize, v: u32): u32 {
   }
   if (v < 1_000_000_000) {
     const top = v / 100_000_000;
-    let rest = v - top * 100_000_000;
-    const a = rest / 1_000_000;
-    rest = rest - a * 1_000_000;
-    const b = rest / 10_000;
-    rest = rest - b * 10_000;
-    const c = rest / 100;
-    const d = rest - c * 100;
+    // Derive every remaining pair from an independent quotient. This keeps
+    // the four constant divisions schedulable in parallel instead of making
+    // each pair wait for the preceding remainder chain.
+    const q1 = v / 100;
+    const q2 = v / 10_000;
+    const q3 = v / 1_000_000;
+    const a = q3 - top * 100;
+    const b = q2 - q3 * 100;
+    const c = q1 - q2 * 100;
+    const d = v - q1 * 100;
     store<u16>(buf, <u16>(top + 0x30));
     store<u32>(buf, pair(a), 2);
     store<u32>(buf, pair(b), 6);
@@ -143,13 +146,13 @@ export function itoaU32(buf: usize, v: u32): u32 {
     return 9;
   }
   const top = v / 100_000_000;
-  let rest = v - top * 100_000_000;
-  const a = rest / 1_000_000;
-  rest = rest - a * 1_000_000;
-  const b = rest / 10_000;
-  rest = rest - b * 10_000;
-  const c = rest / 100;
-  const d = rest - c * 100;
+  const q1 = v / 100;
+  const q2 = v / 10_000;
+  const q3 = v / 1_000_000;
+  const a = q3 - top * 100;
+  const b = q2 - q3 * 100;
+  const c = q1 - q2 * 100;
+  const d = v - q1 * 100;
   store<u32>(buf, pair(top));
   store<u32>(buf, pair(a), 4);
   store<u32>(buf, pair(b), 8);
