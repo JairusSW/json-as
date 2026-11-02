@@ -13,6 +13,15 @@ const MIN_OWNED_OUTPUT_SIZE: usize = 64 * 1024;
 // Using 0.125 (1/8) for efficient bit-shift calculation
 const EMA_ALPHA_SHIFT: usize = 3; // 1/8 = 0.125
 
+/** Allocates an object that will be completely overwritten before publication.
+ * Strings contain no managed references, so their redundant zero-fill can be
+ * skipped while other generic output types retain ordinary initialization. */
+@inline
+function allocateCopiedOutput<T>(size: usize): usize {
+  if (isString<T>()) return __newUninitialized(size, idof<T>());
+  return __new(size, idof<T>());
+}
+
 /**
  * Central buffer namespace for managing memory operations.
  */
@@ -308,8 +317,7 @@ export namespace bs {
       // with a cached source slice when its saved offset is zero. Copy that
       // slice and restore the caller's staging state just like the regular
       // paused-buffer branch below.
-      // @ts-expect-error: __new is a runtime builtin
-      const _out = __new(cacheOutputLen, idof<T>());
+      const _out = allocateCopiedOutput<T>(cacheOutputLen);
       memory.copy(_out, cacheOutput, cacheOutputLen);
       cacheOutput = 0;
       cacheOutputLen = 0;
@@ -318,16 +326,14 @@ export namespace bs {
     }
     if (pauseOffsets.length == 0) {
       const len = offset - buffer;
-      // @ts-expect-error: __new is a runtime builtin
-      const _out = __new(len, idof<T>());
+      const _out = allocateCopiedOutput<T>(len);
       memory.copy(_out, buffer, len);
       return changetype<T>(_out);
     } else {
       const pauseOffset =
         buffer + unchecked(pauseOffsets[pauseOffsets.length - 1]);
       const len = offset - pauseOffset;
-      // @ts-expect-error: __new is a runtime builtin
-      const _out = __new(len, idof<T>());
+      const _out = allocateCopiedOutput<T>(len);
       memory.copy(_out, pauseOffset, len);
       bs.loadState();
       return changetype<T>(_out);
@@ -347,8 +353,7 @@ export namespace bs {
   export function sliceOut<T>(start: usize): T {
     const sliceStart = buffer + start;
     const len = offset - sliceStart;
-    // @ts-expect-error: __new is a runtime builtin
-    const _out = __new(len, idof<T>());
+    const _out = allocateCopiedOutput<T>(len);
     memory.copy(_out, sliceStart, len);
     offset = sliceStart;
     return changetype<T>(_out);
@@ -380,8 +385,7 @@ export namespace bs {
         store<usize>(dstFieldPtr, stringPtr);
       }
     } else {
-      // @ts-expect-error: __new is a runtime builtin
-      stringPtr = __new(byteLength, idof<string>());
+      stringPtr = __newUninitialized(byteLength, idof<string>());
       store<usize>(dstFieldPtr, stringPtr);
     }
 
@@ -409,14 +413,12 @@ export namespace bs {
     let out: usize;
     if (cacheOutput === 0) {
       const len = offset - buffer;
-      // @ts-expect-error: __new is a runtime builtin
-      out = __new(len, idof<T>());
+      out = allocateCopiedOutput<T>(len);
       memory.copy(out, buffer, len);
       finalizeDynamicOutput(len);
     } else {
       // zero-copy path
-      // @ts-expect-error: __new is a runtime builtin
-      out = __new(cacheOutputLen, idof<T>());
+      out = allocateCopiedOutput<T>(cacheOutputLen);
       memory.copy(out, cacheOutput, cacheOutputLen);
       // reset arena flag
       cacheOutput = 0;

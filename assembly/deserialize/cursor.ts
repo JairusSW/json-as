@@ -307,7 +307,9 @@ function stringCursor(
           value = bs.sliceOut<string>(mark);
         } else {
           const size = ptr - payload;
-          value = size ? changetype<string>(__new(size, idof<string>())) : "";
+          value = size
+            ? changetype<string>(__newUninitialized(size, idof<string>()))
+            : "";
           if (size) memory.copy(changetype<usize>(value), payload, size);
         }
         store<string>(dst, value);

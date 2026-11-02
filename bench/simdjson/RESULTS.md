@@ -4522,3 +4522,51 @@ prototypes are reverted.
 Artifacts: runs `esclocal00001/`, `esci16mask{001,00001}/`; comparisons
 `escape-local-gsoc-v8/`, `escape-i16mask-gsoc-v8{,-15}/` and the five
 `escape-i16mask-*-v8/` broad screens under `build/simdjson-parity/`.
+
+## Fully overwritten string allocation
+
+A parse-only GSOC profile removes serialization, validation and post-benchmark
+oracle lifting, then runs 5,000 changing-input parses. Incremental GC stepping
+accounts for 18.1% of samples, TLSF insertion 15.1% and `readCursorString`
+16.7%. Raising the collector's contiguous sweep cap from 32 to 128 objects is
+neutral and is reverted. The direct string allocation path instead exposed
+redundant memory traffic: `__new` cleared every fresh UTF-16 payload immediately
+before a complete `memory.copy` overwrote it.
+
+Fresh cursor strings and scratch/output copies now use the runtime's
+pointer-free `__newUninitialized` primitive only when every payload byte is
+written before publication. Generic non-string outputs retain `__new`; reused
+strings retain their existing renewal path. The rule depends solely on type and
+complete-write ownership, with no corpus, schema, field, length or value
+selector. It reaches both SIMD and SWAR parsing and also removes redundant
+clearing from ordinary staging-buffer string results.
+
+Five alternating V8 process pairs cover all sixteen classic layouts; a
+fifteen-pair GSOC-minified confirmation replaces one noisy SWAR validation
+screen. Every label passes forty complete owned-output and retention
+comparisons, and no confirmed row exceeds the 3% regression guard. SIMD parse
+throughput and current native/json-as throughput:
+
+| Workload | Minified change / native ratio | Pretty change / native ratio |
+| --- | ---: | ---: |
+| Canada | 0.988x / 0.696x | 0.999x / 0.719x |
+| Twitter | 1.041x / 2.116x | 1.051x / 1.972x |
+| CITM Catalog | 1.007x / 0.676x | 1.000x / 0.667x |
+| GitHub Events | 1.028x / 1.075x | 1.040x / 1.062x |
+| Poet | 1.040x / 1.224x | 1.035x / 1.124x |
+| GSOC 2018 | 1.038x / 0.737x | 1.042x / 0.709x |
+| Lottie | 1.005x / 1.458x | 0.996x / 1.071x |
+| OTFCC | 0.993x / 1.389x | - |
+| FGO | 1.000x / 1.247x | - |
+
+The retained source passes typecheck/lint, 123,956 normal checks and 77,928
+strict/RFC checks across NAIVE, SWAR and SIMD. SIMD remains the native parity
+gate; Canada, CITM and GSOC parsing still remain outside the 1.2x latency
+budget, so this is a material construction improvement rather than completion
+of the whole parity goal.
+
+Artifacts: clean profile `gsoc-parse-clean-1f50520-profile.txt`, run
+`gsocparseprof1/`, frozen runs `linkskipcand001/` and `struninit000001/`,
+comparisons `struninit-*-v8/` including `struninit-gsoc-2018-min-v8-15/`, and
+the rejected runtime run/comparison `sweep128x0001/` / `sweep128-gsoc-v8/`
+under `build/simdjson-parity/`.
