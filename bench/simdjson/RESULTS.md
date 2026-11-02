@@ -4498,3 +4498,27 @@ prototype is reverted.
 
 Artifacts: runs `escgrpbase001/` and `escgrpsimd001/`, and comparison
 `escape-group-simd-gsoc-v8/` under `build/simdjson-parity/`.
+
+## Rejected exceptional-string state reductions
+
+Two follow-ups test broader reductions in the same profiled exceptional-string
+loop. The first keeps the destination cursor and growth count local for each
+vector, publishing each once instead of updating shared builder globals per
+escape. Seven alternating GSOC V8 pairs pass forty complete comparisons per
+label, but SIMD stringify is 0.994x baseline. V8 already keeps enough of the
+shared state local that the source-level rewrite adds no value.
+
+The second uses `i16x8.bitmask` to produce one exact bit per exceptional UTF-16
+unit. It removes the old byte-mask representation, conservative Unicode events
+and even/odd-lane decoding. Focused string tests pass 49,503 checks across all
+three modes. At 500 operations, a fifteen-pair GSOC confirmation reports
+1.017x SIMD stringify throughput with all controls effectively neutral.
+However, the classic qualification configuration uses 100 operations with
+retained outputs and reports 0.984x. Seven-pair CITM, GitHub Events, Twitter and
+Poet controls report 1.001x, 1.000x, 1.009x and 0.991x stringification. The
+mixed result does not justify changing the established mask path, so both
+prototypes are reverted.
+
+Artifacts: runs `esclocal00001/`, `esci16mask{001,00001}/`; comparisons
+`escape-local-gsoc-v8/`, `escape-i16mask-gsoc-v8{,-15}/` and the five
+`escape-i16mask-*-v8/` broad screens under `build/simdjson-parity/`.
