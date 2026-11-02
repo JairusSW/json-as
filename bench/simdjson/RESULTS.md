@@ -4155,3 +4155,38 @@ Artifacts under `build/simdjson-parity/`: profiles
 `citmcurrent{par,ser}01-*` and `citmbatchpar0001-*`, runs
 `batch{base,cand}0000001/`, comparisons `batchalloc-*-v8-01/`, and
 `tiny-batch-*`.
+
+### Contiguous incremental-GC sweep runs
+
+AssemblyScript commit `4ed4b860` complements allocation batching by returning
+up to 32 physically adjacent dead objects to TLSF as one range. Each object is
+still individually traced, finalized and removed from managed-byte accounting;
+only the repeated free-list merge/remove/reinsert sequence is coalesced. Static
+objects and RTrace retain the original one-object path. The incremental budget
+is charged for every object in the range, so pause accounting is unchanged.
+
+The 5,000-operation CITM parse profile falls again from 1104.96 to 967.29
+microseconds per operation, or another 1.142x throughput gain and 1.527x over
+the pre-batch head. Named TLSF insertion samples fall from 682 to 393.
+
+Seven alternating V8 process pairs compare the exact committed allocation-batch
+runtime (`batchcand0000001`) with the sweep candidate (`sweepcand0000001`). All
+140 complete owned-output and retention comparisons pass, with no phase beyond
+the 3% regression gate. SIMD candidate / batch-runtime throughput:
+
+| Layout | Parse | Stringify | Validate |
+| --- | ---: | ---: | ---: |
+| Canada minified | 1.076x | 0.999x | 1.022x |
+| Twitter minified | 1.101x | 1.012x | 1.001x |
+| CITM minified | 1.082x | 1.008x | 0.991x |
+| GitHub Events minified | 1.069x | 1.008x | 1.012x |
+| Poet minified | 1.049x | 1.007x | 1.007x |
+| GSOC minified | 1.008x | 0.989x | 1.001x |
+| Lottie minified | 0.996x | 0.982x | 0.994x |
+
+The exact runtime passes 123,935 normal and 77,928 strict/RFC checks across all
+three modes with caches disabled, including GC stress, production safety and
+retained graph coverage. AssemblyScript build, typecheck, import checks, lint
+and diff checks pass. Artifacts: `citmsweeppar0001-*`, run
+`sweepcand0000001/`, and comparisons `sweeprun-*-v8-01/` under
+`build/simdjson-parity/`.
