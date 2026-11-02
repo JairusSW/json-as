@@ -4638,3 +4638,21 @@ Diagnostic artifacts: `github-serialize-profile.wasm`,
 `nestinlin000001/` and comparison `inline-github-pretty-v8-15/`, under
 `build/simdjson-parity/`. The profile driver is deliberately modified and must
 not be treated as a frozen qualification run.
+
+## Rejected bounded leaf writer inlining
+
+A general SIMD transform experiment forces generated primitive/string-only
+object writers of at most 4,096 source characters inline. Recursive, custom,
+generic and lazy writers remain outlined. The transform suite passes,
+including 1,416 parser checks across twelve configurations. Seven alternating
+V8 process pairs per workload pass twenty complete owned-output comparisons
+per label. Serialization throughput is 1.023x baseline on GitHub Events pretty,
+1.000x on Twitter minified and 1.007x on GSOC minified; parsing and validation
+controls stay within the 3% guard. These small gains do not justify forced
+code expansion, so the experiment is reverted. Next work should integrate
+reservation and emission across field boundaries rather than force inlining
+of the existing helpers.
+
+Artifacts: frozen run `smallinline0001/` against `nestdefsafe0001/`, and
+comparisons `leaf-inline-github-v8/`, `leaf-inline-twitter-min-v8/` and
+`leaf-inline-gsoc-2018-min-v8/` under `build/simdjson-parity/`.
