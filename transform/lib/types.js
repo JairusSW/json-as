@@ -67,6 +67,7 @@ export class Schema {
     byteSize = 0;
     deps = [];
     customJsonKind = "any";
+    hasCustomCursorLifecycle = false;
     _custom = false;
     set custom(value) {
         this._custom = value;

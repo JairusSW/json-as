@@ -1,1 +1,8 @@
-export { serializeFloat32, serializeFloat64 } from "../naive/float";
+export {
+  serializeFloat32,
+  serializeFloat32At,
+  serializeFloat32Unsafe,
+  serializeFloat64,
+  serializeFloat64At,
+  serializeFloat64Unsafe,
+} from "../naive/float";

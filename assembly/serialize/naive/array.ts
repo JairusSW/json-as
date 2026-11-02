@@ -15,6 +15,15 @@ function maxIntegerBytes<T extends number>(): u32 {
   return isSigned<T>() ? 42 : 40;
 }
 
+/** Additional capacity required when a generated object folds a wide integer
+ * array into its single outer reservation. The object's static estimate already
+ * includes the four bytes for `[]`, so return only the per-element bound. */
+@inline
+export function integerArrayReservedBytes<T extends number[]>(src: usize): u32 {
+  const len = load<i32>(src, offsetof<T>("length_"));
+  return <u32>len * (maxIntegerBytes<valueof<T>>() + 2);
+}
+
 function reservePrimitiveArray<T>(len: i32): void {
   if (len <= 0) return;
   if (isBoolean<T>()) {
@@ -28,7 +37,8 @@ function reservePrimitiveArray<T>(len: i32): void {
   }
 }
 
-function serializeArrayElement<T>(value: T): void {
+// @ts-expect-error: @inline is an AssemblyScript decorator
+@inline function serializeArrayElement<T>(value: T): void {
   // Nullable strings also satisfy isString<T>(); handle null before any
   // string or custom serializer can dereference the value.
   if (isNullable<T>() && changetype<usize>(value) == 0) {
@@ -61,8 +71,37 @@ function serializeArrayElement<T>(value: T): void {
       value.__SERIALIZE_CUSTOM();
       return;
     }
+    // Call the generated method directly after the same null/custom checks.
+    // Routing through JSON.__serialize and serializeStruct adds duplicate
+    // managed-reference frames to every object element. Method dispatch and
+    // the element's own GC root remain intact.
+    // @ts-ignore: transform-defined serializer
+    if (isDefined(value.__SERIALIZE)) {
+      // @ts-ignore: transform-defined serializer
+      changetype<nonnull<T>>(value).__SERIALIZE(changetype<usize>(value));
+      return;
+    }
   }
   JSON.__serialize<T>(value);
+}
+
+// @ts-expect-error: @inline is an AssemblyScript decorator
+@inline function serializeArrayElementPointer<T>(value: usize): void {
+  if (isNullable<T>() && value == 0) {
+    JSON.__serialize<T>(changetype<T>(value));
+    return;
+  }
+  if (isDefined(changetype<nonnull<T>>(value).__SERIALIZE_CUSTOM)) {
+    // @ts-ignore: transform-defined at runtime when present
+    changetype<nonnull<T>>(value).__SERIALIZE_CUSTOM();
+    return;
+  }
+  if (isDefined(changetype<nonnull<T>>(value).__SERIALIZE)) {
+    // @ts-ignore: transform-defined serializer
+    changetype<nonnull<T>>(value).__SERIALIZE(value);
+    return;
+  }
+  JSON.__serialize<T>(changetype<T>(value));
 }
 
 // ---------------------------------------------------------------------------
@@ -286,21 +325,21 @@ function serializeI8ArrayFast(src: i8[]): void {
 // layout as the specialized float paths. Keeping the output cursor local
 // avoids two global `bs.offset` accesses per value, while reading dataStart
 // directly removes the Array.__uget call left in the generic array loop.
-function serializeIntegerArrayFast<T extends number[]>(src: T): void {
-  const len = src.length;
-  bs.proposeSize(4 + <u32>len * (maxIntegerBytes<valueof<T>>() + 2));
-  store<u16>(bs.offset, BRACKET_LEFT);
-  bs.offset += 2;
+function serializeIntegerArrayReservedAt<T extends number[]>(
+  src: usize,
+  offset: usize,
+): usize {
+  const len = load<i32>(src, offsetof<T>("length_"));
+  store<u16>(offset, BRACKET_LEFT);
+  offset += 2;
   if (len == 0) {
-    store<u16>(bs.offset, BRACKET_RIGHT);
-    bs.offset += 2;
-    return;
+    store<u16>(offset, BRACKET_RIGHT);
+    return offset + 2;
   }
 
   ensureItoaPairs();
-  const dataStart = src.dataStart;
+  const dataStart = load<usize>(src, offsetof<T>("dataStart"));
   const stride = sizeof<valueof<T>>();
-  let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
     const value = load<valueof<T>>(dataStart + <usize>i * stride);
     offset += (<usize>itoaFast<valueof<T>>(offset, value)) << 1;
@@ -308,7 +347,27 @@ function serializeIntegerArrayFast<T extends number[]>(src: T): void {
     offset += 2;
   }
   store<u16>(offset - 2, BRACKET_RIGHT);
-  bs.offset = offset;
+  return offset;
+}
+
+function serializeIntegerArrayFast<T extends number[]>(src: usize): void {
+  const len = load<i32>(src, offsetof<T>("length_"));
+  bs.proposeSize(4 + <u32>len * (maxIntegerBytes<valueof<T>>() + 2));
+  bs.offset = serializeIntegerArrayReservedAt<T>(src, bs.offset);
+}
+
+/** Cursor-returning entry for a generated object that already reserved the
+ * complete wide-integer array bound. */
+@inline
+export function serializeIntegerArrayPointerReservedAt<T extends number[]>(
+  dst: usize,
+  src: usize,
+): usize {
+  if (load<i32>(src, offsetof<T>("length_")) == 0) {
+    store<u32>(dst, 0x005d005b);
+    return dst + 4;
+  }
+  return serializeIntegerArrayReservedAt<T>(src, dst);
 }
 
 function serializeStringArrayFast(src: string[]): void {
@@ -335,6 +394,8 @@ function serializeStringArrayFast(src: string[]): void {
   store<u16>(bs.offset - 2, BRACKET_RIGHT);
 }
 
+
+@inline
 export function serializeArray<T extends any[]>(src: T): void {
   // Specialized fast paths fold the per-element comma into the element write,
   // saving one `store<u16>` + advance per iteration. AS folds the type checks
@@ -364,7 +425,7 @@ export function serializeArray<T extends any[]>(src: T): void {
   }
   if (isInteger<valueof<T>>()) {
     // u8[] and i8[] returned through their lookup-table paths above.
-    serializeIntegerArrayFast<T>(src);
+    serializeIntegerArrayFast<T>(changetype<usize>(src));
     return;
   }
   if (isString<valueof<T>>() && !isNullable<valueof<T>>()) {
@@ -384,9 +445,7 @@ export function serializeArray<T extends any[]>(src: T): void {
   }
 
   const len = src.length;
-  const end = len - 1;
-  let i = 0;
-  if (end == -1) {
+  if (len == 0) {
     bs.proposeSize(4);
     store<u32>(bs.offset, 6094939);
     bs.offset += 4;
@@ -406,15 +465,57 @@ export function serializeArray<T extends any[]>(src: T): void {
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
 
-  while (i < end) {
-    const block = unchecked(src[i++]);
+  const stride = sizeof<valueof<T>>();
+  for (let i = 0; i < len; i++) {
+    // Equivalent to Array.__uget, with the backing pointer read anew after
+    // each callback so growth or replacement cannot leave a stale base.
+    const block = load<valueof<T>>(src.dataStart + <usize>i * stride);
     serializeArrayElement<valueof<T>>(block);
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }
+  // One element call site lets optimized generated object writers fuse into
+  // this loop. Replace its final comma instead of outlining the last element.
+  store<u16>(bs.offset - 2, BRACKET_RIGHT);
+}
 
-  const lastBlock = unchecked(src[end]);
-  serializeArrayElement<valueof<T>>(lastBlock);
-  store<u16>(bs.offset, BRACKET_RIGHT);
-  bs.offset += 2;
+/**
+ * Pointer-only entry for transform-generated array fields whose containing
+ * object remains rooted for the entire serialization call.
+ */
+@inline
+export function serializeArrayPointer<T extends any[]>(src: usize): void {
+  if (isInteger<valueof<T>>() && sizeof<valueof<T>>() > 1) {
+    serializeIntegerArrayFast<T>(src);
+    return;
+  }
+  if (
+    (isManaged<valueof<T>>() || isReference<valueof<T>>()) &&
+    !isString<valueof<T>>()
+  ) {
+    const len = load<i32>(src, offsetof<T>("length_"));
+    if (len == 0) {
+      bs.proposeSize(4);
+      store<u32>(bs.offset, 6094939);
+      bs.offset += 4;
+      return;
+    }
+
+    bs.proposeSize(4 + <u32>(len - 1) * 2);
+    store<u16>(bs.offset, BRACKET_LEFT);
+    bs.offset += 2;
+
+    const stride = sizeof<valueof<T>>();
+    for (let i = 0; i < len; i++) {
+      const dataStart = load<usize>(src, offsetof<T>("dataStart"));
+      const block = load<usize>(dataStart + <usize>i * stride);
+      serializeArrayElementPointer<valueof<T>>(block);
+      store<u16>(bs.offset, COMMA);
+      bs.offset += 2;
+    }
+    // Keep the same single-call-site shape for transform-generated fields.
+    store<u16>(bs.offset - 2, BRACKET_RIGHT);
+    return;
+  }
+  serializeArray<T>(changetype<T>(src));
 }

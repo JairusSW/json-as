@@ -1,14 +1,29 @@
+import { invalidateStringFieldTrace } from "../assembly/deserialize/parseMode";
+import { allocateUninitialized } from "../assembly/util/runtime";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { STRING_SIZE_MASK } from "../assembly/util/runtime";
 import { __heap_base, heap } from "memory";
 
 // Buffer management constants
 const SHRINK_EVERY_N_MASK: usize = 255; // check every 256 outputs
 const MIN_BUFFER_SIZE: usize = 1024;
+const MAX_RETAINED_STAGING_SIZE: usize = 8 * 1024 * 1024;
+const LARGE_OWNED_OUTPUT_SIZE: usize = 8 * 1024 * 1024;
+const MIN_OWNED_OUTPUT_SIZE: usize = 64 * 1024;
 
 // Exponential moving average smoothing factor (0.0 to 1.0)
 // Higher values = more responsive to recent sizes, lower = more stable
 // Using 0.125 (1/8) for efficient bit-shift calculation
 const EMA_ALPHA_SHIFT: usize = 3; // 1/8 = 0.125
+
+/** Allocates an object that will be completely overwritten before publication.
+ * Strings contain no managed references, so their redundant zero-fill can be
+ * skipped while other generic output types retain ordinary initialization. */
+@inline
+function allocateCopiedOutput<T>(size: usize): usize {
+  if (isString<T>()) return allocateUninitialized(size, idof<T>());
+  return __new(size, idof<T>());
+}
 
 /**
  * Central buffer namespace for managing memory operations.
@@ -25,6 +40,17 @@ export namespace bs {
 
   /** Proposed size of output */
   export let stackSize: usize = 0;
+
+  // Top-level stringify learns one output with the established unmanaged
+  // builder, then writes subsequent results directly into a rooted managed
+  // string. Keeping the ordinary staging block alongside it preserves the
+  // scratch-buffer contract used by nested serialization and parsing.
+  let ownedOutput: string | null = null;
+  let ownedCapacity: usize = 0;
+  let ownedHint: usize = 0;
+  let learnOwnedHint: bool = false;
+  let stagingBuffer: usize = 0;
+  let stagingBufferSize: usize = 0;
 
   let pauseOffsets = new Array<usize>();
   let pauseStackSizes = new Array<usize>();
@@ -53,19 +79,98 @@ export namespace bs {
   function renewBuffer(newSize: usize): void {
     const oldPtr = buffer;
     const relOffset = offset - oldPtr;
-    const newPtr = heap.realloc(oldPtr, newSize);
+    let newPtr: usize;
+    if (ownedOutput) {
+      // @ts-expect-error: __renew is a runtime builtin
+      newPtr = __renew(oldPtr, newSize);
+      ownedOutput = changetype<string>(newPtr);
+      ownedCapacity = newSize;
+    } else {
+      newPtr = heap.realloc(oldPtr, newSize);
+    }
     offset = newPtr + relOffset;
     buffer = newPtr;
     bufferSize = newSize;
   }
 
+
+  @inline
   function reserve(requiredSize: usize, extra: usize): void {
     if (requiredSize <= bufferSize) return;
-    // Grow aggressively (2x) to minimize realloc frequency in hot serialization paths.
-    let next = bufferSize << 1;
+    // Managed output normally starts from the preceding result's size, so a
+    // smaller growth factor avoids making every retained result keep 2x its
+    // useful bytes. The unmanaged staging buffer keeps its established 2x
+    // policy because it is reused rather than returned.
+    let next = ownedOutput
+      ? bufferSize + max<usize>(bufferSize >> 2, 1 << 20)
+      : bufferSize << 1;
     const minNext = requiredSize + extra;
     if (next < minNext) next = minNext;
     renewBuffer(next);
+  }
+
+  /**
+   * Starts a top-level owned output. The first call only records a capacity
+   * sample through the established staging path. Later calls write directly
+   * into a GC-rooted string while the ordinary staging block is parked.
+   */
+  export function beginOwned(): void {
+    if (ownedOutput || pauseOffsets.length != 0) return;
+    if (ownedHint == 0) {
+      learnOwnedHint = true;
+      return;
+    }
+
+    stagingBuffer = buffer;
+    stagingBufferSize = bufferSize;
+    const capacity = max<usize>(ownedHint, MIN_BUFFER_SIZE);
+    const ptr = allocateUninitialized(capacity, idof<string>());
+    ownedOutput = changetype<string>(ptr);
+    ownedCapacity = capacity;
+    buffer = ptr;
+    offset = ptr;
+    bufferSize = capacity;
+    stackSize = 0;
+  }
+
+  function updateOwnedHint(len: usize): void {
+    if (len < MIN_OWNED_OUTPUT_SIZE) {
+      ownedHint = 0;
+      return;
+    }
+    // Medium outputs need only enough slack to absorb ordinary length changes;
+    // retain the established larger allowance for very large outputs.
+    ownedHint =
+      len < LARGE_OWNED_OUTPUT_SIZE
+        ? len + min<usize>(max<usize>(len >> 6, 64), 64 * 1024)
+        : len + min<usize>(max<usize>(len >> 4, 64), 1 << 20);
+  }
+
+  function finishOwned(): string {
+    const len = offset - buffer;
+    let result = buffer;
+    const excessLimit = max<usize>(len >> 2, 1 << 20);
+    if (ownedCapacity > len && ownedCapacity - len > excessLimit) {
+      // A large downward size swing should not make the small returned string
+      // retain the previous result's large physical allocation.
+      result = allocateUninitialized(len, idof<string>());
+      memory.copy(result, buffer, len);
+    } else {
+      // Logical shrink is in-place when the physical block already fits.
+      // @ts-expect-error: __renew is a runtime builtin
+      result = __renew(buffer, len);
+    }
+    updateOwnedHint(len);
+
+    ownedOutput = null;
+    ownedCapacity = 0;
+    buffer = stagingBuffer;
+    offset = stagingBuffer;
+    bufferSize = stagingBufferSize;
+    stagingBuffer = 0;
+    stagingBufferSize = 0;
+    stackSize = 0;
+    return changetype<string>(result);
   }
 
   function finalizeDynamicOutput(len: usize): void {
@@ -111,8 +216,17 @@ export namespace bs {
    * advanced and the pause stacks non-empty, which would corrupt the next op.
    */
   export function reset(): void {
+    if (ownedOutput) {
+      ownedOutput = null;
+      ownedCapacity = 0;
+      buffer = stagingBuffer;
+      bufferSize = stagingBufferSize;
+      stagingBuffer = 0;
+      stagingBufferSize = 0;
+    }
     offset = buffer;
     stackSize = 0;
+    learnOwnedHint = false;
     cacheOutput = 0;
     cacheOutputLen = 0;
     pauseOffsets.length = 0;
@@ -133,9 +247,10 @@ export namespace bs {
    * If necessary, reallocates the buffer to the exact new size.
    * @param size - The size to propose.w
    */
+  @inline
   export function proposeSize(size: u32): void {
     stackSize += size;
-    reserve(stackSize, 0);
+    reserve(ownedOutput ? offset - buffer + size : stackSize, 0);
   }
 
   /**
@@ -145,7 +260,7 @@ export namespace bs {
    */
   export function growSize(size: u32): void {
     stackSize += size;
-    reserve(stackSize, MIN_BUFFER_SIZE);
+    reserve(ownedOutput ? offset - buffer + size : stackSize, MIN_BUFFER_SIZE);
   }
 
   /** Reserve one vector block's worst-case expansion, then account for the
@@ -153,7 +268,9 @@ export namespace bs {
   @inline
   export function prepareGrowth(maxGrowth: u32, writeExtent: u32): void {
     reserve(
-      max(stackSize + maxGrowth, offset - buffer + writeExtent),
+      ownedOutput
+        ? offset - buffer + max(maxGrowth, writeExtent)
+        : max(stackSize + maxGrowth, offset - buffer + writeExtent),
       MIN_BUFFER_SIZE,
     );
   }
@@ -203,8 +320,7 @@ export namespace bs {
       // with a cached source slice when its saved offset is zero. Copy that
       // slice and restore the caller's staging state just like the regular
       // paused-buffer branch below.
-      // @ts-expect-error: __new is a runtime builtin
-      const _out = __new(cacheOutputLen, idof<T>());
+      const _out = allocateCopiedOutput<T>(cacheOutputLen);
       memory.copy(_out, cacheOutput, cacheOutputLen);
       cacheOutput = 0;
       cacheOutputLen = 0;
@@ -213,16 +329,14 @@ export namespace bs {
     }
     if (pauseOffsets.length == 0) {
       const len = offset - buffer;
-      // @ts-expect-error: __new is a runtime builtin
-      const _out = __new(len, idof<T>());
+      const _out = allocateCopiedOutput<T>(len);
       memory.copy(_out, buffer, len);
       return changetype<T>(_out);
     } else {
       const pauseOffset =
         buffer + unchecked(pauseOffsets[pauseOffsets.length - 1]);
       const len = offset - pauseOffset;
-      // @ts-expect-error: __new is a runtime builtin
-      const _out = __new(len, idof<T>());
+      const _out = allocateCopiedOutput<T>(len);
       memory.copy(_out, pauseOffset, len);
       bs.loadState();
       return changetype<T>(_out);
@@ -242,8 +356,7 @@ export namespace bs {
   export function sliceOut<T>(start: usize): T {
     const sliceStart = buffer + start;
     const len = offset - sliceStart;
-    // @ts-expect-error: __new is a runtime builtin
-    const _out = __new(len, idof<T>());
+    const _out = allocateCopiedOutput<T>(len);
     memory.copy(_out, sliceStart, len);
     offset = sliceStart;
     return changetype<T>(_out);
@@ -265,7 +378,10 @@ export namespace bs {
     const current = load<usize>(dstFieldPtr);
     let stringPtr: usize;
     if (current >= __heap_base) {
-      if (changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+      invalidateStringFieldTrace(current);
+      const object = changetype<OBJECT>(current - TOTAL_OVERHEAD);
+      if ((object.rtSize & STRING_SIZE_MASK) == byteLength) {
+        object.rtSize = byteLength;
         stringPtr = current;
       } else {
         // @ts-expect-error: __renew is a runtime builtin
@@ -273,8 +389,7 @@ export namespace bs {
         store<usize>(dstFieldPtr, stringPtr);
       }
     } else {
-      // @ts-expect-error: __new is a runtime builtin
-      stringPtr = __new(byteLength, idof<string>());
+      stringPtr = allocateUninitialized(byteLength, idof<string>());
       store<usize>(dstFieldPtr, stringPtr);
     }
 
@@ -289,21 +404,43 @@ export namespace bs {
    * @returns The new object containing the buffer's content.
    */
   export function out<T>(): T {
+    if (ownedOutput) {
+      if (cacheOutput !== 0) {
+        reserve(cacheOutputLen, 0);
+        memory.copy(buffer, cacheOutput, cacheOutputLen);
+        offset = buffer + cacheOutputLen;
+        cacheOutput = 0;
+        cacheOutputLen = 0;
+      }
+      return changetype<T>(finishOwned());
+    }
     let out: usize;
     if (cacheOutput === 0) {
       const len = offset - buffer;
-      // @ts-expect-error: __new is a runtime builtin
-      out = __new(len, idof<T>());
+      out = allocateCopiedOutput<T>(len);
       memory.copy(out, buffer, len);
       finalizeDynamicOutput(len);
     } else {
       // zero-copy path
-      // @ts-expect-error: __new is a runtime builtin
-      out = __new(cacheOutputLen, idof<T>());
+      out = allocateCopiedOutput<T>(cacheOutputLen);
       memory.copy(out, cacheOutput, cacheOutputLen);
       // reset arena flag
       cacheOutput = 0;
       cacheOutputLen = 0;
+      offset = buffer;
+      stackSize = 0;
+    }
+    if (learnOwnedHint) {
+      learnOwnedHint = false;
+      updateOwnedHint(changetype<OBJECT>(out - TOTAL_OVERHEAD).rtSize);
+      // Keep ordinary staging allocations so switching output ownership does
+      // not perturb the allocator layout of subsequent parse work. Very large
+      // staging blocks would duplicate a returned string and can exhaust the
+      // Wasm32 address space, so bound only that persistent reserve.
+      if (bufferSize > MAX_RETAINED_STAGING_SIZE) {
+        buffer = heap.realloc(buffer, MIN_BUFFER_SIZE);
+        bufferSize = MIN_BUFFER_SIZE;
+      }
       offset = buffer;
       stackSize = 0;
     }
@@ -329,10 +466,14 @@ export namespace bs {
       len = cacheOutputLen;
       src = cacheOutput;
     }
+    invalidateStringFieldTrace(target, true);
     let dst = target;
-    if (changetype<OBJECT>(target - TOTAL_OVERHEAD).rtSize != <u32>len) {
+    const targetObject = changetype<OBJECT>(target - TOTAL_OVERHEAD);
+    if ((targetObject.rtSize & STRING_SIZE_MASK) != <u32>len) {
       // @ts-expect-error: __renew is a runtime builtin
       dst = __renew(target, len);
+    } else {
+      targetObject.rtSize = <u32>len;
     }
     memory.copy(dst, src, len);
     if (cacheOutput === 0) {

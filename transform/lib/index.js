@@ -114,11 +114,8 @@ function needsReferenceLoad(type) {
         type == "Float32Array" ||
         type == "Float64Array");
 }
-function getSerializeCall(type, realName) {
-    if (type == "ArrayBuffer") {
-        return `JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
-    }
-    if (type == "bool" ||
+function isReservedPrimitive(type) {
+    return (type == "bool" ||
         type == "boolean" ||
         type == "i8" ||
         type == "i16" ||
@@ -129,12 +126,32 @@ function getSerializeCall(type, realName) {
         type == "u16" ||
         type == "u32" ||
         type == "u64" ||
-        type == "usize") {
-        return `JSON.__serializePrimitiveUnsafe<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+        type == "usize" ||
+        type == "f32" ||
+        type == "f64");
+}
+function syncSerializeCursor(code) {
+    return `bs.offset = __dst;\n${code}__dst = bs.offset;\n`;
+}
+function getSerializeCall(type, realName) {
+    if (isReservedPrimitive(type)) {
+        return `__dst = JSON.__serializePrimitiveAt<${type}>(__dst, load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
     }
-    return needsReferenceLoad(type)
+    if (type.startsWith("Array<") && !type.includes("| null")) {
+        return syncSerializeCursor(`JSON.__serializeArrayPointer<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
+    }
+    if (type == "string" ||
+        type == "String" ||
+        type == "string | null" ||
+        type == "String | null") {
+        return syncSerializeCursor(`JSON.__serializeStringPointer(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
+    }
+    if (type == "ArrayBuffer") {
+        return syncSerializeCursor(`JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
+    }
+    return syncSerializeCursor(needsReferenceLoad(type)
         ? `JSON.__serialize<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n`
-        : `JSON.__serialize<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+        : `JSON.__serialize<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
 }
 const CUSTOM_JSON_KINDS = new Set([
     "any",
@@ -318,6 +335,47 @@ export class JSONTransform extends Visitor {
         if (owner.parent && matches(owner.parent))
             return owner.parent;
         return null;
+    }
+    canDeferCursorObjectDefault(owner, type, visiting = new Set()) {
+        const schema = this.getDefaultSchema(owner, type);
+        if (!schema ||
+            visiting.has(schema) ||
+            schema.custom ||
+            !schema.static ||
+            schema.node.isGeneric ||
+            this.hasCustomCursorLifecycle(schema) ||
+            schema.members.some((member) => !!member.value ||
+                member.generic ||
+                member.flags.has(PropertyFlags.Lazy)))
+            return false;
+        visiting.add(schema);
+        for (const member of schema.members) {
+            if (member.node.type.isNullable)
+                continue;
+            const nested = this.getDefaultSchema(schema, member.type);
+            if (nested &&
+                !this.canDeferCursorObjectDefault(schema, member.type, visiting)) {
+                visiting.delete(schema);
+                return false;
+            }
+        }
+        visiting.delete(schema);
+        return true;
+    }
+    hasCustomCursorInitializer(schema) {
+        for (let current = schema; current; current = current.parent) {
+            if (current.hasCustomCursorLifecycle &&
+                current.node.members.some((member) => member.name.text == "__INITIALIZE_CURSOR"))
+                return true;
+        }
+        return false;
+    }
+    hasCustomCursorLifecycle(schema) {
+        for (let current = schema; current; current = current.parent) {
+            if (current.hasCustomCursorLifecycle)
+                return true;
+        }
+        return false;
     }
     getDefaultElementType(type) {
         const value = stripNull(type).trim();
@@ -635,6 +693,7 @@ export class JSONTransform extends Visitor {
         const schema = new Schema();
         schema.node = node;
         schema.name = source.getQualifiedName(node);
+        schema.hasCustomCursorLifecycle = node.members.some((member) => ["__INITIALIZE", "__INITIALIZE_CURSOR", "__INITIALIZE_CURSOR_FRESH", "__INITIALIZE_DEFAULT_FRESH", "__FINALIZE_CURSOR"].includes(member.name.text));
         if (node.extendsType) {
             this.collectInheritedFieldMembers(node, source, members);
             const extendsName = source.resolveExtendsName(node);
@@ -860,7 +919,7 @@ export class JSONTransform extends Visitor {
         this.schema = schema;
         this.visitedClasses.add(fullClassPath);
         const requestedFastPath = USE_FAST_PATH;
-        let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n";
+        let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n  let __dst = bs.offset;\n";
         let INITIALIZE = "@inline __INITIALIZE(): this {\n";
         let DESERIALIZE = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
         let DESERIALIZE_FAST = "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
@@ -1095,17 +1154,34 @@ export class JSONTransform extends Visitor {
                 SERIALIZE += indent + "let wrote = false;\n";
             }
             this.schema.byteSize += 2;
-            SERIALIZE += indent + "store<u16>(bs.offset, 123, 0); // {\n";
-            SERIALIZE += indent + "bs.offset += 2;\n";
+            SERIALIZE += indent + "store<u16>(__dst, 123, 0); // {\n";
+            SERIALIZE += indent + "__dst += 2;\n";
         }
         const isPure = this.schema.static;
         let isRegular = isPure;
         let isFirst = true;
+        const directStringMembers = this.schema.static
+            ? this.schema.members.filter((member) => !member.flags.has(PropertyFlags.Lazy) &&
+                isString(member.type) &&
+                !defaultStringLiterals.has(member.name))
+            : [];
+        const reserveDirectStringPayloads = directStringMembers.length >= 1;
+        const wideIntegerArrayCandidates = this.schema.static
+            ? this.schema.members.filter((member) => {
+                if (member.flags.has(PropertyFlags.Lazy) ||
+                    member.node.type.isNullable ||
+                    !member.type.startsWith("Array<"))
+                    return false;
+                const element = member.type.slice(6, -1).trim();
+                return ["i16", "u16", "i32", "u32", "i64", "u64"].includes(element);
+            })
+            : [];
+        const directWideIntegerArrays = wideIntegerArrayCandidates.length == 1 ? wideIntegerArrayCandidates : [];
         const serValue = (member, realName) => {
             if (!member.flags.has(PropertyFlags.Lazy)) {
                 const defaultString = defaultStringLiterals.get(member.name);
                 if (defaultString) {
-                    const stores = this.getStores(defaultString.encoded, this.program.options.hasFeature(16)).join("\n");
+                    const stores = this.getStores(defaultString.encoded, this.program.options.hasFeature(16), "__dst").join("\n");
                     return (`{\n` +
                         `  const __str = load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)}));\n` +
                         `  if (changetype<usize>(__str) == changetype<usize>(${defaultString.expression})) {\n` +
@@ -1114,9 +1190,30 @@ export class JSONTransform extends Visitor {
                             .map((line) => `    ${line}\n`)
                             .join("") +
                         `  } else {\n` +
+                        `    bs.offset = __dst;\n` +
                         `    JSON.__serialize<${member.type}>(__str);\n` +
+                        `    __dst = bs.offset;\n` +
                         `  }\n` +
                         `}\n`);
+                }
+                if (reserveDirectStringPayloads &&
+                    isString(member.type)) {
+                    const writer = member.node.type.isNullable
+                        ? "__serializeNullableStringPointerReservedAt"
+                        : "__serializeStringPointerReservedAt";
+                    return `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+                }
+                if (directWideIntegerArrays.includes(member)) {
+                    return `__dst = JSON.__serializeIntegerArrayPointerReservedAt<${member.type}>(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+                }
+                const resolvedType = stripNull(member.type);
+                const resolvedSchema = this.getSchema(resolvedType);
+                if (resolvedSchema &&
+                    !resolvedSchema.custom &&
+                    !member.custom &&
+                    !member.generic &&
+                    !member.node.type.isNullable) {
+                    return syncSerializeCursor(`JSON.__serializeObject<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
                 }
                 return getSerializeCall(member.type, realName);
             }
@@ -1137,7 +1234,7 @@ export class JSONTransform extends Visitor {
                     ? `reinterpret<f32>(<u32>(__s))`
                     : `(<${T}>(<u32>(__s)))`;
                 const def = baseT === "bool" || baseT === "boolean" ? "false" : "0";
-                return (`{\n` +
+                return syncSerializeCursor(`{\n` +
                     `  const __s = this.${realName};\n` +
                     `  if ((__s >>> 32) == 0xffffffff) {\n` +
                     `    JSON.__serialize<${T}>(${dec});\n` +
@@ -1152,7 +1249,7 @@ export class JSONTransform extends Visitor {
                     `  }\n` +
                     `}\n`);
             }
-            return (`{\n` +
+            return syncSerializeCursor(`{\n` +
                 `  const __s = this.${realName};\n` +
                 `  if (__s == u64.MAX_VALUE) {\n` +
                 `    JSON.__serialize<${T}>(this.${baseName}_val as ${T});\n` +
@@ -1171,8 +1268,19 @@ export class JSONTransform extends Visitor {
                 `  }\n` +
                 `}\n`);
         };
+        const cursorMayDefer = STRICT &&
+            !DESERIALIZE_CUSTOM &&
+            new Set(this.schema.members.map((member) => member.alias || member.name)).size == this.schema.members.length &&
+            this.schema.members.every((member) => !member.value &&
+                !member.generic &&
+                !member.flags.has(PropertyFlags.Lazy)) &&
+            !this.hasCustomCursorLifecycle(this.schema);
+        const cursorInitializers = [];
+        const cursorFreshInitializers = [];
+        const cursorDeferred = [];
         for (let i = 0; i < this.schema.members.length; i++) {
             const member = this.schema.members[i];
+            const initializeStart = INITIALIZE.length;
             const aliasName = JSON.stringify(member.alias || member.name);
             const realName = member.name;
             if (member.value) {
@@ -1189,7 +1297,7 @@ export class JSONTransform extends Visitor {
             }
             else if (!member.node.type.isNullable) {
                 if (this.getSchema(member.type)) {
-                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                    INITIALIZE += `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<nonnull<${member.type}>>(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
                 }
                 else if (member.type.startsWith("Array<")) {
                     INITIALIZE += `  store<${member.type}>(changetype<usize>(this), [], offsetof<this>(${JSON.stringify(member.name)}));\n`;
@@ -1209,6 +1317,25 @@ export class JSONTransform extends Visitor {
             else {
                 INITIALIZE += `  store<${member.type}>(changetype<usize>(this), null, offsetof<this>(${JSON.stringify(member.name)}));\n`;
             }
+            const cursorInitialize = INITIALIZE.slice(initializeStart);
+            if (cursorMayDefer &&
+                !member.node.type.isNullable &&
+                (/^(Array|Map|Set)</.test(member.type) ||
+                    this.canDeferCursorObjectDefault(this.schema, member.type))) {
+                cursorDeferred.push({ member, initialize: cursorInitialize });
+            }
+            else {
+                cursorInitializers.push(cursorInitialize);
+                if (cursorMayDefer &&
+                    !member.node.type.isNullable &&
+                    isString(member.type)) {
+                    cursorDeferred.push({ member, initialize: cursorInitialize });
+                }
+                else if (!member.node.type.isNullable &&
+                    !isPrimitive(member.type)) {
+                    cursorFreshInitializers.push(cursorInitialize);
+                }
+            }
             const SIMD_ENABLED = this.program.options.hasFeature(16);
             if (!isRegular &&
                 !member.flags.has(PropertyFlags.OmitIf) &&
@@ -1218,8 +1345,10 @@ export class JSONTransform extends Visitor {
                 const keyPart = (isFirst ? "{" : ",") + aliasName + ":";
                 this.schema.byteSize += keyPart.length << 1;
                 if (hasLazyMembers)
-                    SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
-                SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+                    SERIALIZE +=
+                        indent +
+                            `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
+                SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                     .map((v) => indent + v + "\n")
                     .join("");
                 SERIALIZE += indent + serValue(member, realName);
@@ -1232,10 +1361,12 @@ export class JSONTransform extends Visitor {
                     this.schema.byteSize += 2 + (keyPart.length << 1);
                     SERIALIZE +=
                         indent +
-                            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
+                            "if (wrote) { store<u16>(__dst, 44, 0); __dst += 2; } // ,\n";
                     if (hasLazyMembers)
-                        SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
-                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+                        SERIALIZE +=
+                            indent +
+                                `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
+                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
                     SERIALIZE += indent + serValue(member, realName);
@@ -1244,8 +1375,10 @@ export class JSONTransform extends Visitor {
                     const keyPart = (isFirst ? "" : ",") + aliasName + ":";
                     this.schema.byteSize += keyPart.length << 1;
                     if (hasLazyMembers)
-                        SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
-                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+                        SERIALIZE +=
+                            indent +
+                                `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
+                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
                     SERIALIZE += indent + serValue(member, realName);
@@ -1272,10 +1405,12 @@ export class JSONTransform extends Visitor {
                     this.schema.byteSize += 2 + (keyPart.length << 1);
                     SERIALIZE +=
                         indent +
-                            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
+                            "if (wrote) { store<u16>(__dst, 44, 0); __dst += 2; } // ,\n";
                     if (hasLazyMembers)
-                        SERIALIZE += indent + `bs.ensureSize(${keyPart.length << 1});\n`;
-                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED)
+                        SERIALIZE +=
+                            indent +
+                                `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
+                    SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
                     SERIALIZE += indent + serValue(member, realName);
@@ -1308,8 +1443,8 @@ export class JSONTransform extends Visitor {
                     this.schema.byteSize += 2;
                     SERIALIZE +=
                         indent +
-                            "if (wrote) { store<u16>(bs.offset, 44, 0); bs.offset += 2; } // ,\n";
-                    SERIALIZE += this.getStores(aliasName + ":", SIMD_ENABLED)
+                            "if (wrote) { store<u16>(__dst, 44, 0); __dst += 2; } // ,\n";
+                    SERIALIZE += this.getStores(aliasName + ":", SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
                     SERIALIZE += indent + serValue(member, realName);
@@ -3112,14 +3247,30 @@ export class JSONTransform extends Visitor {
         DESERIALIZE += `  return srcStart;\n}\n`;
         indent = "  ";
         this.schema.byteSize += 2;
-        SERIALIZE += indent + "store<u16>(bs.offset, 125, 0); // }\n";
-        SERIALIZE += indent + "bs.offset += 2;\n";
+        SERIALIZE += indent + "store<u16>(__dst, 125, 0); // }\n";
+        SERIALIZE += indent + "__dst += 2;\n";
+        SERIALIZE += indent + "bs.offset = __dst;\n";
         SERIALIZE += "}";
+        const directStringPayloadReserve = reserveDirectStringPayloads
+            ? directStringMembers
+                .map((member) => {
+                const size = member.node.type.isNullable
+                    ? "__nullableStringByteSizePointer"
+                    : "__stringByteSizePointer";
+                return ` + JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
+            })
+                .join("")
+            : "";
+        const directWideIntegerArrayReserve = directWideIntegerArrays
+            .map((member) => ` + JSON.__integerArrayReservedBytes<${member.type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`)
+            .join("");
         SERIALIZE =
             SERIALIZE.slice(0, 32) +
                 indent +
                 "bs.proposeSize(" +
                 this.schema.byteSize +
+                directStringPayloadReserve +
+                directWideIntegerArrayReserve +
                 ");\n" +
                 SERIALIZE.slice(32);
         INITIALIZE += "  return this;\n";
@@ -3223,14 +3374,47 @@ export class JSONTransform extends Visitor {
                 "  return changetype<this>(__new(offsetof<this>(), idof<this>())).__INITIALIZE();\n" +
                 "}", node)
             : null;
+        if (STRICT) {
+            if (!node.members.some((member) => member.name.text == "__INITIALIZE_CURSOR_FRESH")) {
+                const initialize = cursorMayDefer
+                    ? cursorFreshInitializers.join("")
+                    : this.hasCustomCursorInitializer(this.schema)
+                        ? "  this.__INITIALIZE_CURSOR();\n"
+                        : "  this.__INITIALIZE();\n";
+                node.members.push(SimpleParser.parseClassMember("__INITIALIZE_CURSOR_FRESH(): this {\n" + initialize + "  return this;\n}", node));
+            }
+            if (!node.members.some((member) => member.name.text == "__INITIALIZE_DEFAULT_FRESH")) {
+                const initialize = cursorMayDefer
+                    ? "  this.__INITIALIZE_CURSOR_FRESH();\n" +
+                        (cursorDeferred.length ? "  this.__FINALIZE_CURSOR();\n" : "")
+                    : "  this.__INITIALIZE();\n";
+                node.members.push(SimpleParser.parseClassMember("__INITIALIZE_DEFAULT_FRESH(): this {\n" + initialize + "  return this;\n}", node));
+            }
+        }
         if (STRICT && !DESERIALIZE_CUSTOM) {
             const keys = this.schema.members.map((member) => member.alias || member.name);
             if (new Set(keys).size === keys.length) {
+                if (cursorDeferred.length) {
+                    node.members.push(SimpleParser.parseClassMember("__INITIALIZE_CURSOR(): this {\n" +
+                        "  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n" +
+                        cursorInitializers.join("") +
+                        "  return this;\n}", node));
+                    const complete = cursorDeferred
+                        .map(({ member, initialize }) => {
+                        const field = `offsetof<this>(${JSON.stringify(member.name)})`;
+                        const value = this.canDeferCursorObjectDefault(this.schema, member.type)
+                            ? `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<${member.type}>(), ${field});\n`
+                            : initialize;
+                        return `  if (load<usize>(changetype<usize>(this), ${field}) == 0) {\n${value}    __link(changetype<usize>(this), load<usize>(changetype<usize>(this), ${field}), false);\n  }\n`;
+                    })
+                        .join("");
+                    node.members.push(SimpleParser.parseClassMember("__FINALIZE_CURSOR(): void {\n" + complete + "}", node));
+                }
                 const supported = this.schema.members
                     .map((member) => `JSON.__cursorSupports<${member.lazyInner || member.type}>(depth + 1)`)
                     .join(" && ") || "true";
                 node.members.push(SimpleParser.parseClassMember(`__CURSOR_SUPPORTED(depth: i32): bool { return depth < 256 && (${supported}); }`, node));
-                node.members.push(SimpleParser.parseClassMember(generateCursorParser(this.schema.members, getComparisions), node));
+                node.members.push(SimpleParser.parseClassMember(generateCursorParser(this.schema.members, getComparisions, cursorMayDefer && cursorDeferred.length > 0), node));
             }
         }
         if (!node.members.find((v) => v.name.text == "__SERIALIZE"))
@@ -3437,7 +3621,7 @@ export class JSONTransform extends Visitor {
                     "\n");
         }
     }
-    getStores(data, simd = false) {
+    getStores(data, simd = false, target = "bs.offset") {
         const out = [];
         const sizes = strToNum(data, simd);
         let offset = 0;
@@ -3447,7 +3631,9 @@ export class JSONTransform extends Visitor {
                 const name = "SIMD_" + (index == -1 ? this.simdStatements.length : index);
                 if (index == -1)
                     this.simdStatements.push(`const ${name} = ${num};`);
-                out.push("store<v128>(bs.offset, " +
+                out.push("store<v128>(" +
+                    target +
+                    ", " +
                     name +
                     ", " +
                     offset +
@@ -3456,7 +3642,9 @@ export class JSONTransform extends Visitor {
                 offset += 16;
             }
             if (size == "u64") {
-                out.push("store<u64>(bs.offset, " +
+                out.push("store<u64>(" +
+                    target +
+                    ", " +
                     num +
                     ", " +
                     offset +
@@ -3465,7 +3653,9 @@ export class JSONTransform extends Visitor {
                 offset += 8;
             }
             else if (size == "u32") {
-                out.push("store<u32>(bs.offset, " +
+                out.push("store<u32>(" +
+                    target +
+                    ", " +
                     num +
                     ", " +
                     offset +
@@ -3474,7 +3664,9 @@ export class JSONTransform extends Visitor {
                 offset += 4;
             }
             else if (size == "u16") {
-                out.push("store<u16>(bs.offset, " +
+                out.push("store<u16>(" +
+                    target +
+                    ", " +
                     num +
                     ", " +
                     offset +
@@ -3483,7 +3675,7 @@ export class JSONTransform extends Visitor {
                 offset += 2;
             }
         }
-        out.push("bs.offset += " + offset + ";");
+        out.push(target + " += " + offset + ";");
         return out;
     }
     isValidType(type, node) {

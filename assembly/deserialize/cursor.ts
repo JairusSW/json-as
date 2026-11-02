@@ -1,8 +1,11 @@
+import { allocateUninitialized } from "../util/runtime";
 import { JSONMode } from "..";
 import { bs } from "../../lib/as-bs";
 import { parseDecimalF64 } from "../util/parseDecimal";
 import { ptrToStr } from "../util/ptrToStr";
 import { loadPow10, MAX_EXACT_MANTISSA } from "./swar/float";
+import { scanDigits } from "../util/scanDigits";
+import { cursorLink } from "./parseMode";
 
 // Checked readers consume one value and return the first cursor after it, or
 // zero on failure. They never consume a parent separator or trailing space.
@@ -17,7 +20,32 @@ export function isCursorWhitespace(code: u16): bool {
 
 @inline
 export function skipCursorWhitespace(ptr: usize, end: usize): usize {
-  while (ptr < end && isCursorWhitespace(load<u16>(ptr))) ptr += 2;
+  while (ptr < end && isCursorWhitespace(load<u16>(ptr))) {
+    ptr += 2;
+    if (
+      JSON_MODE != JSONMode.NAIVE &&
+      ptr + 8 <= end &&
+      load<u64>(ptr) == 0x0020_0020_0020_0020
+    ) {
+      ptr = skipCursorSpaces(ptr + 8, end);
+    }
+  }
+  return ptr;
+}
+
+// Only entered after four consecutive spaces have been proven. Keep long
+// indentation out of the inlined zero/short-whitespace grammar transitions.
+function skipCursorSpaces(ptr: usize, end: usize): usize {
+  if (JSON_MODE == JSONMode.SIMD) {
+    while (
+      ptr + 16 <= end &&
+      !v128.any_true(v128.xor(v128.load(ptr), i16x8.splat(32)))
+    ) {
+      ptr += 16;
+    }
+  }
+  while (ptr + 8 <= end && load<u64>(ptr) == 0x0020_0020_0020_0020) ptr += 8;
+  while (ptr < end && load<u16>(ptr) == 32) ptr += 2;
   return ptr;
 }
 
@@ -40,6 +68,51 @@ function hex(code: u16): i32 {
 @inline
 function plainStringEnd(ptr: usize, end: usize): usize {
   if (JSON_MODE == JSONMode.SIMD) {
+    // Keep the first pair exact so short strings pay no narrowing setup. Long
+    // clean runs amortize the packed classifier below after this first block.
+    if (ptr + 32 <= end) {
+      const first = v128.load(ptr);
+      const firstSpecial = v128.or(
+        v128.or(
+          i16x8.eq(first, i16x8.splat(34)),
+          i16x8.eq(first, i16x8.splat(92)),
+        ),
+        i16x8.lt_u(first, i16x8.splat(32)),
+      );
+      const second = v128.load(ptr + 16);
+      const secondSpecial = v128.or(
+        v128.or(
+          i16x8.eq(second, i16x8.splat(34)),
+          i16x8.eq(second, i16x8.splat(92)),
+        ),
+        i16x8.lt_u(second, i16x8.splat(32)),
+      );
+      if (v128.any_true(v128.or(firstSpecial, secondSpecial))) {
+        const firstMask = i16x8.bitmask(firstSpecial);
+        if (firstMask) return ptr + ((<usize>ctz(firstMask)) << 1);
+        const secondMask = i16x8.bitmask(secondSpecial);
+        return ptr + 16 + ((<usize>ctz(secondMask)) << 1);
+      }
+      ptr += 32;
+    }
+    while (ptr + 32 <= end) {
+      const first = v128.load(ptr);
+      const second = v128.load(ptr + 16);
+      // Pack sixteen UTF-16 units into one byte vector. ASCII is exact,
+      // ordinary positive Unicode saturates above the control range and
+      // U+8000..FFFF saturates negative. The latter is a conservative event:
+      // the exact one-vector loop below verifies it before acting.
+      const bytes = i8x16.narrow_i16x8_s(first, second);
+      const special = v128.or(
+        v128.or(
+          i8x16.eq(bytes, i8x16.splat(34)),
+          i8x16.eq(bytes, i8x16.splat(92)),
+        ),
+        i8x16.lt_s(bytes, i8x16.splat(32)),
+      );
+      if (v128.any_true(special)) break;
+      ptr += 32;
+    }
     while (ptr + 16 <= end) {
       const block = v128.load(ptr);
       const special = v128.or(
@@ -49,8 +122,8 @@ function plainStringEnd(ptr: usize, end: usize): usize {
         ),
         i16x8.lt_u(block, i16x8.splat(32)),
       );
-      const mask = i8x16.bitmask(special);
-      if (mask) return ptr + <usize>ctz(mask);
+      const mask = i16x8.bitmask(special);
+      if (mask) return ptr + ((<usize>ctz(mask)) << 1);
       ptr += 16;
     }
   } else if (JSON_MODE == JSONMode.SWAR) {
@@ -74,6 +147,128 @@ function plainStringEnd(ptr: usize, end: usize): usize {
     ptr += 2;
   }
   return ptr;
+}
+
+// Keys are overwhelmingly short across ordinary object schemas. Check the
+// first thirty-two code units directly before paying for a wider event mask,
+// then use the regular SIMD scanner for longer keys.
+@inline
+function plainKeyEnd(ptr: usize, end: usize): usize {
+  if (JSON_MODE == JSONMode.SIMD && ptr + 64 <= end) {
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+    {
+      let code = load<u16>(ptr);
+      if (code == 34 || code == 92 || code < 32) return ptr;
+      code = load<u16>(ptr, 2);
+      if (code == 34 || code == 92 || code < 32) return ptr + 2;
+      ptr += 4;
+    }
+  }
+  return plainStringEnd(ptr, end);
 }
 
 
@@ -113,7 +308,9 @@ function stringCursor(
           value = bs.sliceOut<string>(mark);
         } else {
           const size = ptr - payload;
-          value = size ? changetype<string>(__new(size, idof<string>())) : "";
+          value = size
+            ? changetype<string>(allocateUninitialized(size, idof<string>()))
+            : "";
           if (size) memory.copy(changetype<usize>(value), payload, size);
         }
         store<string>(dst, value);
@@ -176,12 +373,88 @@ export function readCursorString(
   const field = dstObj + dstOffset;
   const token = stringCursor(start, end, field, true);
   const next = <usize>(token >> 1);
-  if (next) __link(dstObj, load<usize>(field), false);
+  if (next) cursorLink(dstObj, load<usize>(field), false);
   return next;
 }
 
+function skipCursorStringEscape(ptr: usize, end: usize): usize {
+  if (ptr >= end) return 0;
+  const escape = load<u16>(ptr);
+  if (escape == 117) {
+    if (
+      ptr + 10 > end ||
+      (hex(load<u16>(ptr, 2)) |
+        hex(load<u16>(ptr, 4)) |
+        hex(load<u16>(ptr, 6)) |
+        hex(load<u16>(ptr, 8))) <
+        0
+    )
+      return 0;
+    return ptr + 10;
+  }
+  if (
+    escape != 34 &&
+    escape != 92 &&
+    escape != 47 &&
+    escape != 98 &&
+    escape != 102 &&
+    escape != 110 &&
+    escape != 114 &&
+    escape != 116
+  )
+    return 0;
+  return ptr + 2;
+}
+
+
+@inline
 export function skipCursorString(start: usize, end: usize): usize {
-  return <usize>(stringCursor(start, end, 0, false) >> 1);
+  if (start >= end || load<u16>(start) != 34) return 0;
+  let ptr = start + 2;
+  while (ptr < end) {
+    ptr = plainStringEnd(ptr, end);
+    if (ptr >= end) return 0;
+    const code = load<u16>(ptr);
+    if (code == 34) return ptr + 2;
+    if (code < 32) return 0;
+    if (code != 92) {
+      // A SWAR candidate may be an ordinary non-ASCII code unit.
+      ptr += 2;
+      continue;
+    }
+    ptr += 2;
+    ptr = skipCursorStringEscape(ptr, end);
+    if (!ptr) return 0;
+  }
+  return 0;
+}
+
+function skipCursorKey(start: usize, end: usize): usize {
+  if (start >= end || load<u16>(start) != 34) return 0;
+  let ptr = start + 2;
+  while (ptr < end) {
+    ptr = plainKeyEnd(ptr, end);
+    if (ptr >= end) return 0;
+    const code = load<u16>(ptr);
+    if (code == 34) return ptr + 2;
+    if (code < 32) return 0;
+    if (code != 92) {
+      ptr += 2;
+      continue;
+    }
+    ptr = skipCursorStringEscape(ptr + 2, end);
+    if (!ptr) return 0;
+  }
+  return 0;
+}
+
+
+@inline
+function skipCursorColon(ptr: usize, end: usize): usize {
+  if (ptr >= end) return 0;
+  if (load<u16>(ptr) == 58) return ptr + 2;
+  ptr = skipCursorWhitespace(ptr, end);
+  return ptr < end && load<u16>(ptr) == 58 ? ptr + 2 : 0;
 }
 
 /** Packed checked key: end cursor in bits 1..32, escape-presence flag in bit 0. */
@@ -225,12 +498,16 @@ function numberCursor<T extends number>(
     if (materialize && isInteger<T>()) return 0;
     ptr += 2;
     if (ptr >= end || !digit(load<u16>(ptr))) return 0;
-    do {
-      if (digits < 19) mantissa = mantissa * 10 + <u64>(load<u16>(ptr) - 48);
-      digits++;
-      fractionDigits++;
-      ptr += 2;
-    } while (ptr < end && digit(load<u16>(ptr)));
+    if (!materialize && JSON_MODE != JSONMode.NAIVE) {
+      ptr = scanDigits(ptr, end);
+    } else {
+      do {
+        if (digits < 19) mantissa = mantissa * 10 + <u64>(load<u16>(ptr) - 48);
+        digits++;
+        fractionDigits++;
+        ptr += 2;
+      } while (ptr < end && digit(load<u16>(ptr)));
+    }
   }
   let exponent = 0;
   let exponentNegative = false;
@@ -242,11 +519,15 @@ function numberCursor<T extends number>(
       ptr += 2;
     }
     if (ptr >= end || !digit(load<u16>(ptr))) return 0;
-    do {
-      if (materialize && exponent < 1_000_000)
-        exponent = exponent * 10 + load<u16>(ptr) - 48;
-      ptr += 2;
-    } while (ptr < end && digit(load<u16>(ptr)));
+    if (!materialize && JSON_MODE != JSONMode.NAIVE) {
+      ptr = scanDigits(ptr, end);
+    } else {
+      do {
+        if (materialize && exponent < 1_000_000)
+          exponent = exponent * 10 + load<u16>(ptr) - 48;
+        ptr += 2;
+      } while (ptr < end && digit(load<u16>(ptr)));
+    }
   }
   if (materialize) {
     if (isInteger<T>()) {
@@ -330,9 +611,10 @@ export function readCursorLiteral(start: usize, end: usize, code: u16): usize {
 
 // Discard traversal cannot invoke user code. Its bounded scratch stack is used
 // only until this synchronous call returns, never across materialization or a
-// custom deserializer. Parent cursor parsers keep their own depth in locals.
-// @ts-expect-error: @lazy is valid on module scratch storage
-@lazy const DISCARD_STATES = new StaticArray<u8>(MAX_CURSOR_DEPTH);
+// custom deserializer. Byte states need no managed references or lazy heap
+// allocation. Each byte saves the parent container's opening delimiter;
+// the current container stays local across sibling values.
+const DISCARD_CONTAINERS: usize = memory.data(MAX_CURSOR_DEPTH);
 
 export function skipCheckedValue(
   start: usize,
@@ -340,62 +622,81 @@ export function skipCheckedValue(
   outerDepth: i32 = 0,
 ): usize {
   if (<u32>outerDepth > <u32>MAX_CURSOR_DEPTH) return 0;
-  let ptr = start;
+  let ptr =
+    JSON_MODE == JSONMode.SIMD ? start : skipCursorWhitespace(start, end);
   let depth = 0;
-  let needValue = true;
+  let container: u16 = 0;
   while (true) {
-    if (needValue) {
-      ptr = skipCursorWhitespace(ptr, end);
-      if (ptr >= end) return 0;
-      const code = load<u16>(ptr);
-      if (code == 91 || code == 123) {
-        if (outerDepth + depth >= MAX_CURSOR_DEPTH) return 0;
-        unchecked((DISCARD_STATES[depth++] = code == 91 ? 0 : 2));
-        ptr += 2;
-      } else {
-        if (code == 34) ptr = skipCursorString(ptr, end);
-        else if (code == 116 || code == 102 || code == 110)
-          ptr = readCursorLiteral(ptr, end, code);
-        else ptr = skipCursorNumber(ptr, end);
-        if (!ptr) return 0;
-        if (!depth) return ptr;
-      }
-      needValue = false;
-    }
-    ptr = skipCursorWhitespace(ptr, end);
     if (ptr >= end) return 0;
-    const state = unchecked(DISCARD_STATES[depth - 1]);
-    const code = load<u16>(ptr);
-    if (
-      (state == 0 && code == 93) ||
-      (state == 2 && code == 125) ||
-      (state == 1 && code == 93) ||
-      (state == 4 && code == 125)
-    ) {
-      ptr += 2;
-      if (!--depth) return ptr;
-      continue;
+    let code = load<u16>(ptr);
+    if (JSON_MODE == JSONMode.SIMD && isCursorWhitespace(code)) {
+      ptr = skipCursorWhitespace(ptr + 2, end);
+      if (ptr >= end) return 0;
+      code = load<u16>(ptr);
     }
-    if (state == 0) {
-      unchecked((DISCARD_STATES[depth - 1] = 1));
-      needValue = true;
-    } else if (state == 1) {
-      if (code != 44) return 0;
-      ptr += 2;
-      needValue = true;
-    } else if (state == 2 || state == 3) {
-      ptr = skipCursorString(ptr, end);
-      if (!ptr) return 0;
-      ptr = skipCursorWhitespace(ptr, end);
-      if (ptr >= end || load<u16>(ptr) != 58) return 0;
-      ptr += 2;
-      unchecked((DISCARD_STATES[depth - 1] = 4));
-      needValue = true;
+    if (code == 91 || code == 123) {
+      if (outerDepth + depth >= MAX_CURSOR_DEPTH) return 0;
+      store<u8>(DISCARD_CONTAINERS + usize(depth++), <u8>container);
+      container = code;
+      ptr = skipCursorWhitespace(ptr + 2, end);
+      if (ptr >= end) return 0;
+      const close = code == 91 ? 93 : 125;
+      if (load<u16>(ptr) == close) {
+        ptr += 2;
+        depth--;
+        container = load<u8>(DISCARD_CONTAINERS + usize(depth));
+      } else if (code == 123) {
+        ptr = skipCursorKey(ptr, end);
+        if (!ptr) return 0;
+        ptr = skipCursorColon(ptr, end);
+        if (!ptr) return 0;
+        if (JSON_MODE != JSONMode.SIMD) ptr = skipCursorWhitespace(ptr, end);
+        continue;
+      } else {
+        continue;
+      }
     } else {
+      if (code == 34) ptr = skipCursorString(ptr, end);
+      else if (code == 116 || code == 102 || code == 110)
+        ptr = readCursorLiteral(ptr, end, code);
+      else ptr = skipCursorNumber(ptr, end);
+      if (!ptr) return 0;
+    }
+
+    // A complete value can close any number of parent containers. The stack
+    // restores a parent kind only when a container closes; grammar phase is
+    // represented by this control-flow position.
+    while (depth) {
+      if (ptr >= end) return 0;
+      code = load<u16>(ptr);
+      if (isCursorWhitespace(code)) {
+        ptr = skipCursorWhitespace(ptr + 2, end);
+        if (ptr >= end) return 0;
+        code = load<u16>(ptr);
+      }
+      const close = container == 91 ? 93 : 125;
+      if (code == close) {
+        ptr += 2;
+        depth--;
+        container = load<u8>(DISCARD_CONTAINERS + usize(depth));
+        continue;
+      }
       if (code != 44) return 0;
       ptr += 2;
-      unchecked((DISCARD_STATES[depth - 1] = 3));
+      if (JSON_MODE != JSONMode.SIMD || container == 123) {
+        ptr = skipCursorWhitespace(ptr, end);
+        if (ptr >= end) return 0;
+      }
+      if (container == 123) {
+        ptr = skipCursorKey(ptr, end);
+        if (!ptr) return 0;
+        ptr = skipCursorColon(ptr, end);
+        if (!ptr) return 0;
+        if (JSON_MODE != JSONMode.SIMD) ptr = skipCursorWhitespace(ptr, end);
+      }
+      break;
     }
+    if (!depth) return ptr;
   }
   return 0;
 }

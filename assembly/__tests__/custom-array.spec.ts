@@ -275,3 +275,102 @@ if (JSON_STRICT) {
     }).toThrow();
   });
 }
+
+let relocatingItems = new Array<RelocatingCodec>();
+let relocatedItems = false;
+
+
+@json
+class RelocatingCodec {
+  constructor(public value: i32 = 0) {}
+
+
+  @serializer("object")
+  serialize(self: RelocatingCodec): string {
+    if (!relocatedItems && self.value == 1) {
+      relocatedItems = true;
+      // Force a backing allocation change, then replace a not-yet-read item.
+      relocatingItems.length = 4096;
+      relocatingItems[1] = new RelocatingCodec(22);
+      __collect();
+    }
+    return '{"value":' + self.value.toString() + "}";
+  }
+}
+
+describe("Array serializers observe backing relocation between callbacks", () => {
+  relocatingItems = [
+    new RelocatingCodec(1),
+    new RelocatingCodec(2),
+    new RelocatingCodec(3),
+  ];
+  relocatedItems = false;
+  const initialBase = relocatingItems.dataStart;
+  const result = JSON.stringify(relocatingItems);
+  expect(relocatedItems).toBe(true);
+  expect(relocatingItems.dataStart != initialBase).toBe(true);
+  expect(result).toBe('[{"value":1},{"value":22},{"value":3}]');
+});
+
+let generatedItems = new Array<GeneratedEnvelope | null>();
+let generatedItemsMoved = false;
+
+
+@json
+class CollectingChildCodec {
+  constructor(public value: i32 = 0) {}
+
+
+  @serializer("string")
+  serialize(self: CollectingChildCodec): string {
+    if (!generatedItemsMoved && self.value == 1) {
+      generatedItemsMoved = true;
+      generatedItems.length = 4096;
+      // Remove the caller's reference to the object currently being written.
+      generatedItems[0] = null;
+      generatedItems[1] = new GeneratedEnvelope(22);
+      __collect();
+      const pressure = new Array<string>();
+      for (let i = 0; i < 128; i++) pressure.push("pressure-" + i.toString());
+      __collect();
+    }
+    return JSON.stringify("child-" + self.value.toString());
+  }
+}
+
+
+@json
+class GeneratedEnvelope {
+  lead: string;
+  child: CollectingChildCodec;
+  tail: string;
+
+  constructor(value: i32 = 0) {
+    this.lead = "lead-" + value.toString();
+    this.child = new CollectingChildCodec(value);
+    this.tail = "tail-" + value.toString();
+  }
+}
+
+describe("Generated element writers stay rooted across nested custom serializers", () => {
+  generatedItems = [
+    new GeneratedEnvelope(1),
+    new GeneratedEnvelope(2),
+    null,
+    new GeneratedEnvelope(3),
+  ];
+  generatedItemsMoved = false;
+  const initialBase = generatedItems.dataStart;
+  const result = JSON.stringify(generatedItems);
+  const expected =
+    '[{"lead":"lead-1","child":"child-1","tail":"tail-1"},' +
+    '{"lead":"lead-22","child":"child-22","tail":"tail-22"},null,' +
+    '{"lead":"lead-3","child":"child-3","tail":"tail-3"}]';
+  expect(generatedItemsMoved).toBe(true);
+  expect(generatedItems.dataStart != initialBase).toBe(true);
+  expect(generatedItems[0] === null).toBe(true);
+  expect(result).toBe(expected);
+  expect(JSON.stringify<i32[]>([9, 8])).toBe("[9,8]");
+  __collect();
+  expect(result).toBe(expected);
+});

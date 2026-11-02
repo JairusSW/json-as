@@ -1,6 +1,42 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+function checkArrayEmptyTransitions<T>(value: T): void {
+  const values = new Array<T>();
+  const empty = JSON.stringify(values);
+  expect(empty).toBe("[]");
+  values.push(value);
+  const expected = "[" + JSON.stringify(value) + "]";
+  const filled = JSON.stringify(values);
+  expect(filled).toBe(expected);
+  values.length = 0;
+  expect(JSON.stringify(values)).toBe("[]");
+  values.push(value);
+  expect(JSON.stringify(values)).toBe(expected);
+  __collect();
+  expect(empty).toBe("[]");
+  expect(filled).toBe(expected);
+}
+
+describe("Array serializers preserve owned output across empty transitions", () => {
+  checkArrayEmptyTransitions<bool>(false);
+  checkArrayEmptyTransitions<u8>(255);
+  checkArrayEmptyTransitions<i8>(-128);
+  checkArrayEmptyTransitions<u16>(65535);
+  checkArrayEmptyTransitions<i16>(-32768);
+  checkArrayEmptyTransitions<u32>(u32.MAX_VALUE);
+  checkArrayEmptyTransitions<i32>(i32.MIN_VALUE);
+  checkArrayEmptyTransitions<u64>(u64.MAX_VALUE);
+  checkArrayEmptyTransitions<i64>(i64.MIN_VALUE);
+  checkArrayEmptyTransitions<f32>(0.1);
+  checkArrayEmptyTransitions<f64>(-0.0);
+  checkArrayEmptyTransitions<string>('x"\\\n中');
+  checkArrayEmptyTransitions<string | null>(null);
+  checkArrayEmptyTransitions<i32[]>([]);
+  checkArrayEmptyTransitions<i32[]>([1, -2]);
+  checkArrayEmptyTransitions<Date>(new Date(0));
+});
+
 describe("Should serialize integer arrays", () => {
   expect(JSON.stringify<u32[]>([0, 100, 101])).toBe("[0,100,101]");
 
@@ -467,6 +503,56 @@ class BoolArr {
 class Matrix {
   rows: i32[][] = [];
 }
+
+@json
+class GeneratedArrayLeaf {
+  value: string = "";
+}
+
+@json
+class GeneratedArrayFields {
+  strings: string[] = [];
+  leaves: GeneratedArrayLeaf[] = [];
+}
+
+@json
+class GeneratedIntegerArrayField {
+  numbers: i64[] = [];
+}
+
+describe("Generated array fields stay live across output growth", () => {
+  const owner = new GeneratedArrayFields();
+  const first = "a".repeat(8192) + "\nfirst";
+  const second = "中".repeat(4096) + '"second';
+  owner.strings = [first, second];
+  const leaf = new GeneratedArrayLeaf();
+  leaf.value = "z".repeat(8192) + "\\leaf";
+  owner.leaves = [leaf];
+  __collect();
+
+  const expected =
+    '{"strings":["' +
+    "a".repeat(8192) +
+    '\\nfirst","' +
+    "中".repeat(4096) +
+    '\\"second"],"leaves":[{"value":"' +
+    "z".repeat(8192) +
+    '\\\\leaf"}]}';
+  expect(JSON.stringify(owner)).toBe(expected);
+
+  const integerOwner = new GeneratedIntegerArrayField();
+  const count = 2048;
+  integerOwner.numbers = new Array<i64>(count);
+  integerOwner.numbers.fill(1234567890123);
+  __collect();
+
+  const actualIntegers = JSON.stringify(integerOwner);
+  const expectedIntegers =
+    '{"numbers":[' +
+    "1234567890123,".repeat(count - 1) +
+    "1234567890123]}";
+  expect(actualIntegers).toBe(expectedIntegers);
+});
 
 // ─── Naive array success paths ───────────────────────────────────────────────
 

@@ -8,21 +8,29 @@ import { NULL_WORD_U64 } from "../../custom/chars";
 // written, so advancing the offset is `count << 1` bytes.
 
 export function serializeFloat32Unsafe(data: f32): void {
+  bs.offset = serializeFloat32At(bs.offset, data);
+}
+
+
+@inline export function serializeFloat32At(dst: usize, data: f32): usize {
   if ((reinterpret<u32>(data) & 0x7f800000) == 0x7f800000) {
-    store<u64>(bs.offset, NULL_WORD_U64);
-    bs.offset += 8;
-    return;
+    store<u64>(dst, NULL_WORD_U64);
+    return dst + 8;
   }
-  bs.offset += ftoa_buffered(bs.offset, data) << 1;
+  return dst + (ftoa_buffered(dst, data) << 1);
 }
 
 export function serializeFloat64Unsafe(data: f64): void {
+  bs.offset = serializeFloat64At(bs.offset, data);
+}
+
+
+@inline export function serializeFloat64At(dst: usize, data: f64): usize {
   if ((reinterpret<u64>(data) & 0x7ff0000000000000) == 0x7ff0000000000000) {
-    store<u64>(bs.offset, NULL_WORD_U64);
-    bs.offset += 8;
-    return;
+    store<u64>(dst, NULL_WORD_U64);
+    return dst + 8;
   }
-  bs.offset += dtoa_buffered(bs.offset, data) << 1;
+  return dst + (dtoa_buffered(dst, data) << 1);
 }
 
 export function serializeFloat32(data: f32): void {

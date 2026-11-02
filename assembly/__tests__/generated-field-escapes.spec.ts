@@ -10,6 +10,28 @@ class TextValue {
 
 
 @json
+class NullableTextValue {
+  text: string | null = null;
+}
+
+
+@json
+class ReservedStringFields {
+  first: string = "";
+  second: string = "";
+  tail: i32 = 0;
+}
+
+
+@json
+class NullableReservedStringFields {
+  first: string | null = null;
+  second: string | null = null;
+  tail: i32 = 0;
+}
+
+
+@json
 class ArrayFields {
   values: string[] = [];
   tail: i32 = 0;
@@ -109,6 +131,73 @@ describe("Shared quoted-value scanner retains escape parity at chunk boundaries"
       ),
     ).toBe(suffixStart + ((<usize>quoted.length) << 1));
   }
+});
+
+describe("Generated objects share direct string capacity reservations", () => {
+  const value = new ReservedStringFields();
+  for (let i = 0; i < TEXTS.length; i++) {
+    value.first = TEXTS[i];
+    value.second = TEXTS[TEXTS.length - 1 - i];
+    value.tail = i;
+    expect(JSON.stringify(value)).toBe(
+      '{"first":' +
+        JSON.stringify(value.first) +
+        ',"second":' +
+        JSON.stringify(value.second) +
+        ',"tail":' +
+        i.toString() +
+        "}",
+    );
+  }
+});
+
+describe("Generated objects reserve a single string field with escape growth", () => {
+  const value = new TextValue();
+  value.text = "\u0001".repeat(2048);
+  const encoded = JSON.stringify(value);
+  const decoded = JSON.parse<TextValue>(encoded);
+  expect(decoded.text).toBe(value.text);
+});
+
+describe("Generated objects reserve a single nullable string field", () => {
+  const value = new NullableTextValue();
+  expect(JSON.stringify(value)).toBe('{"text":null}');
+  value.text = "\\".repeat(2048);
+  const encoded = JSON.stringify(value);
+  const decoded = JSON.parse<NullableTextValue>(encoded);
+  expect(decoded.text).toBe(value.text);
+});
+
+describe("Generated reserved strings retain their cursor across escape growth", () => {
+  const value = new ReservedStringFields();
+  value.first = "\u0001".repeat(2048);
+  value.second = "\\".repeat(2048);
+  value.tail = 37;
+  const encoded = JSON.stringify(value);
+  const decoded = JSON.parse<ReservedStringFields>(encoded);
+  expect(decoded.first).toBe(value.first);
+  expect(decoded.second).toBe(value.second);
+  expect(decoded.tail).toBe(37);
+});
+
+describe("Generated nullable strings share reservations without reading null", () => {
+  const value = new NullableReservedStringFields();
+  value.first = null;
+  value.second = "\u0001".repeat(2048);
+  value.tail = 41;
+  let encoded = JSON.stringify(value);
+  let decoded = JSON.parse<NullableReservedStringFields>(encoded);
+  expect(decoded.first === null).toBe(true);
+  expect(decoded.second).toBe(value.second);
+  expect(decoded.tail).toBe(41);
+
+  value.first = "\\".repeat(2048);
+  value.second = null;
+  encoded = JSON.stringify(value);
+  decoded = JSON.parse<NullableReservedStringFields>(encoded);
+  expect(decoded.first).toBe(value.first);
+  expect(decoded.second === null).toBe(true);
+  expect(decoded.tail).toBe(41);
 });
 
 describe("Generated array fields preserve closing quotes after backslashes", () => {

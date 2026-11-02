@@ -1,6 +1,8 @@
 import { JSON, JSONMode } from "..";
+import { Runtime } from "shared/runtime";
 import { getParseSrc } from "./naive/object";
 import { deserializeFloatArrayBody } from "./swar/array/float";
+import { cursorLink } from "./parseMode";
 import {
   MAX_CURSOR_DEPTH,
   readCursorString,
@@ -114,6 +116,51 @@ export function decodeCursorKey(ptr: usize, end: usize): string {
   return slot.value;
 }
 
+// Root and nested fresh objects use the same construction policy.
+@inline
+export function initializeCursorObject<T>(obj: T): void {
+  // This entry is called only immediately after __new, before publishing the
+  // object. Incremental already zeroed every slot; minimal/stub require it here.
+  // The generated fresh initializer omits zero stores and defers pure reference
+  // defaults until the closing brace proves which fields are missing.
+  if (ASC_RUNTIME != Runtime.Incremental) {
+    memory.fill(changetype<usize>(obj), 0, offsetof<T>());
+  }
+  // @ts-expect-error: transform-generated fresh construction capability
+  if (isDefined(obj.__INITIALIZE_CURSOR_FRESH)) {
+    // @ts-expect-error: transform-generated initializer
+    obj.__INITIALIZE_CURSOR_FRESH();
+  // @ts-expect-error: transform-generated legacy cursor capability
+  } else if (isDefined(obj.__INITIALIZE_CURSOR)) {
+    // @ts-expect-error: transform-generated initializer
+    obj.__INITIALIZE_CURSOR();
+  } else {
+    // @ts-expect-error: transform-generated defaults
+    obj.__INITIALIZE();
+  }
+}
+
+/** Construct an ordinary generated default. Pure defaults share the fresh
+ * cursor construction policy; declared initializers keep their evaluation. */
+@inline
+export function createCursorDefault<T>(): T {
+  const obj = changetype<T>(__new(offsetof<T>(), idof<T>()));
+  if (ASC_RUNTIME != Runtime.Incremental) {
+    memory.fill(changetype<usize>(obj), 0, offsetof<T>());
+  }
+  // This entry is distinct from parsing: custom cursor hooks must not replace
+  // ordinary defaults, and derived classes must override inherited policy.
+  // @ts-expect-error: transform-generated default construction entry
+  if (isDefined(obj.__INITIALIZE_DEFAULT_FRESH)) {
+    // @ts-expect-error: transform-generated initializer
+    obj.__INITIALIZE_DEFAULT_FRESH();
+  } else {
+    // @ts-expect-error: transform-generated ordinary defaults
+    obj.__INITIALIZE();
+  }
+  return obj;
+}
+
 /** Store one checked value and return its end, without discovering its extent
  * beforehand. The parent owns separators, whitespace, and the next value. */
 export function readCursorValue<T>(
@@ -157,7 +204,7 @@ export function readCursorValue<T>(
       if (!next) return 0;
       const value = slot.value.buffer;
       store<usize>(field, changetype<usize>(value));
-      __link(dst, changetype<usize>(value), false);
+      cursorLink(dst, changetype<usize>(value), false);
       return next;
     }
     if (
@@ -187,13 +234,16 @@ export function readCursorValue<T>(
       if (!next) return 0;
       const value = StaticArray.fromArray<valueof<T>>(slot.value);
       store<usize>(field, changetype<usize>(value));
-      __link(dst, changetype<usize>(value), false);
+      cursorLink(dst, changetype<usize>(value), false);
       return next;
     }
     if (type instanceof Array) {
       if (depth >= MAX_CURSOR_DEPTH || load<u16>(start) != 91) return 0;
-      const out = new Array<valueof<T>>();
       if (JSON_MODE != JSONMode.NAIVE && isFloat<valueof<T>>()) {
+        // Array literals reserve their actual size; the constructor reserves
+        // eight elements. Expose two ordinary slots for the pair reader and
+        // let the existing runtime growth path handle longer arrays.
+        const out: Array<valueof<T>> = [<valueof<T>>0, <valueof<T>>0];
         const next = deserializeFloatArrayBody<nonnull<T>>(
           start,
           end,
@@ -202,32 +252,48 @@ export function readCursorValue<T>(
         );
         if (!next) return 0;
         store<usize>(field, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+        cursorLink(dst, changetype<usize>(out), false);
         return next;
       }
       let ptr = skipCursorWhitespace(start + 2, end);
-      if (ptr < end && load<u16>(ptr) == 93) {
-        store<usize>(field, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+      if (ptr >= end) return 0;
+      if (load<u16>(ptr) == 93) {
+        // An empty literal has no speculative element capacity. It remains an
+        // ordinary independently owned array and grows through the runtime.
+        const empty: Array<valueof<T>> = [];
+        store<usize>(field, changetype<usize>(empty));
+        cursorLink(dst, changetype<usize>(empty), false);
         return ptr + 2;
       }
-      const slot = new CursorSlot<valueof<T>>();
+      const out = new Array<valueof<T>>();
+      const owner = changetype<usize>(out);
+      let index = 0;
       while (ptr < end) {
+        // Publish a zero slot before child allocations can collect. The array
+        // owns references stored in its backing buffer, as in Array.__set.
+        // Fresh arrays append exactly once per iteration. Publish the zero
+        // slot through normal geometric growth without testing for reuse.
+        if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
+          out.push(changetype<valueof<T>>(0));
+        } else {
+          out.push(<valueof<T>>0);
+        }
+        const element = out.dataStart + <usize>index * sizeof<valueof<T>>();
         ptr = readCursorValue<valueof<T>>(
           ptr,
           end,
-          changetype<usize>(slot),
-          offsetof<CursorSlot<valueof<T>>>("value"),
+          owner,
+          element - owner,
           depth + 1,
         );
         if (!ptr) return 0;
-        out.push(slot.value);
+        index++;
         ptr = skipCursorWhitespace(ptr, end);
         if (ptr >= end) return 0;
         const code = load<u16>(ptr);
         if (code == 93) {
           store<usize>(field, changetype<usize>(out));
-          __link(dst, changetype<usize>(out), false);
+          cursorLink(dst, changetype<usize>(out), false);
           return ptr + 2;
         }
         if (code != 44) return 0;
@@ -247,7 +313,7 @@ export function readCursorValue<T>(
       if (!next) return 0;
       const value = JSON.Raw.from(JSON.Util.ptrToStr(start, next));
       store<usize>(field, changetype<usize>(value));
-      __link(dst, changetype<usize>(value), false);
+      cursorLink(dst, changetype<usize>(value), false);
       return next;
     }
     if (type instanceof Date) {
@@ -261,7 +327,7 @@ export function readCursorValue<T>(
       if (!next) return 0;
       const value = new Date(Date.fromString(slot.value).getTime());
       store<usize>(field, changetype<usize>(value));
-      __link(dst, changetype<usize>(value), false);
+      cursorLink(dst, changetype<usize>(value), false);
       return next;
     }
     if (type instanceof Set) {
@@ -270,7 +336,7 @@ export function readCursorValue<T>(
       let ptr = skipCursorWhitespace(start + 2, end);
       if (ptr < end && load<u16>(ptr) == 93) {
         store<usize>(field, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+        cursorLink(dst, changetype<usize>(out), false);
         return ptr + 2;
       }
       const slot = new CursorSlot<indexof<T>>();
@@ -289,7 +355,7 @@ export function readCursorValue<T>(
         const code = load<u16>(ptr);
         if (code == 93) {
           store<usize>(field, changetype<usize>(out));
-          __link(dst, changetype<usize>(out), false);
+          cursorLink(dst, changetype<usize>(out), false);
           return ptr + 2;
         }
         if (code != 44) return 0;
@@ -304,7 +370,7 @@ export function readCursorValue<T>(
       let ptr = skipCursorWhitespace(start + 2, end);
       if (ptr < end && load<u16>(ptr) == 125) {
         store<usize>(field, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+        cursorLink(dst, changetype<usize>(out), false);
         return ptr + 2;
       }
       const key = new CursorSlot<string>();
@@ -333,7 +399,7 @@ export function readCursorValue<T>(
         const code = load<u16>(ptr);
         if (code == 125) {
           store<usize>(field, changetype<usize>(out));
-          __link(dst, changetype<usize>(out), false);
+          cursorLink(dst, changetype<usize>(out), false);
           return ptr + 2;
         }
         if (code != 44) return 0;
@@ -347,12 +413,11 @@ export function readCursorValue<T>(
       const obj = changetype<nonnull<T>>(
         __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
       );
-      // @ts-expect-error: transform-generated defaults
-      obj.__INITIALIZE();
+      initializeCursorObject(obj);
       const next = obj.__DESERIALIZE_CURSOR(start, end, obj, depth);
       if (next) {
         store<T>(field, obj);
-        __link(dst, changetype<usize>(obj), false);
+        cursorLink(dst, changetype<usize>(obj), false);
       }
       return next;
     }
@@ -381,7 +446,7 @@ function readCursorBox<T, V>(
   );
   if (!next) return 0;
   store<usize>(dst + offset, changetype<usize>(out));
-  __link(dst, changetype<usize>(out), false);
+  cursorLink(dst, changetype<usize>(out), false);
   return next;
 }
 
@@ -449,7 +514,7 @@ function readCursorTypedArray<T>(
       <usize>values.length * sizeof<valueof<T>>(),
     );
   store<usize>(dst + offset, changetype<usize>(out));
-  __link(dst, changetype<usize>(out), false);
+  cursorLink(dst, changetype<usize>(out), false);
   return next;
 }
 
@@ -503,7 +568,7 @@ function readDynamic<T>(
       out._rawStart = start;
       out._rawEnd = ptr + 2;
       store<usize>(dst + offset, changetype<usize>(out));
-      __link(dst, changetype<usize>(out), false);
+      cursorLink(dst, changetype<usize>(out), false);
       return ptr + 2;
     }
     if (!depth) out.reserveForParse((end - start) >> 1);
@@ -541,7 +606,7 @@ function readDynamic<T>(
         out._rawStart = start;
         out._rawEnd = ptr + 2;
         store<usize>(dst + offset, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+        cursorLink(dst, changetype<usize>(out), false);
         return ptr + 2;
       }
       if (code != 44) return 0;
@@ -556,7 +621,7 @@ function readDynamic<T>(
     let ptr = skipCursorWhitespace(start + 2, end);
     if (ptr < end && load<u16>(ptr) == 93) {
       store<usize>(dst + offset, changetype<usize>(out));
-      __link(dst, changetype<usize>(out), false);
+      cursorLink(dst, changetype<usize>(out), false);
       return ptr + 2;
     }
     const bits = new CursorSlot<u64>();
@@ -575,7 +640,7 @@ function readDynamic<T>(
       const code = load<u16>(ptr);
       if (code == 93) {
         store<usize>(dst + offset, changetype<usize>(out));
-        __link(dst, changetype<usize>(out), false);
+        cursorLink(dst, changetype<usize>(out), false);
         return ptr + 2;
       }
       if (code != 44) return 0;
@@ -608,6 +673,6 @@ function readDynamic<T>(
     value = JSON.Value.fromBits(bits.value);
   }
   store<usize>(dst + offset, changetype<usize>(value));
-  __link(dst, changetype<usize>(value), false);
+  cursorLink(dst, changetype<usize>(value), false);
   return next;
 }

@@ -22,6 +22,9 @@ export declare class JSONTransform extends Visitor {
     visitClassDeclarationRef(node: ClassDeclaration): void;
     resolveType(type: string, source: Src, visited?: Set<string>): string;
     private getDefaultSchema;
+    private canDeferCursorObjectDefault;
+    private hasCustomCursorInitializer;
+    private hasCustomCursorLifecycle;
     private getDefaultElementType;
     private getDefaultExpressionJSON;
     private getImplicitDefaultJSON;
@@ -33,7 +36,7 @@ export declare class JSONTransform extends Visitor {
     visitImportStatement(node: ImportStatement): void;
     visitSource(node: Source): void;
     addImports(node: Source): void;
-    getStores(data: string, simd?: boolean): string[];
+    getStores(data: string, simd?: boolean, target?: string): string[];
     isValidType(type: string, node: ClassDeclaration): boolean;
 }
 export default class Transformer extends Transform {

@@ -4,39 +4,32 @@ import { BRACE_LEFT, BRACE_RIGHT, COLON, COMMA } from "../../custom/chars";
 import { serializeString } from "../index/string";
 import { serializeRaw } from "./raw";
 
-function serializeRawMapFast<T extends Map<any, any>>(
-  keys: Array<indexof<T>>,
-  values: Array<valueof<T>>,
-): void {
-  const len = keys.length;
-  bs.proposeSize(4 + <u32>len * 4);
-  store<u16>(bs.offset, BRACE_LEFT);
-  bs.offset += 2;
+@unmanaged class SerializableMapEntry<K, V> {
+  key: K;
+  value: V;
+  taggedNext: usize;
+}
 
-  const keyData = keys.dataStart;
-  const valueData = values.dataStart;
-  for (let i = 0; i < len; i++) {
-    const key = changetype<string>(load<usize>(keyData + ((<usize>i) << 2)));
-    const value = changetype<JSON.Raw>(
-      load<usize>(valueData + ((<usize>i) << 2)),
-    );
-    serializeString(key);
-    store<u16>(bs.offset, COLON);
-    bs.offset += 2;
-    if (isNullable<valueof<T>>()) {
-      JSON.__serialize<valueof<T>>(changetype<valueof<T>>(value));
-    } else {
-      serializeRaw(value);
+@inline function mapEntrySize<K, V>(): usize {
+  const maxKV = sizeof<K>() > sizeof<V>() ? sizeof<K>() : sizeof<V>();
+  const align = (maxKV > sizeof<usize>() ? maxKV : sizeof<usize>()) - 1;
+  return (offsetof<SerializableMapEntry<K, V>>() + align) & ~align;
+}
+
+@inline function serializeMapValue<V>(value: V, rawValue: usize): void {
+  if (isReference<V>() && !isNullable<V>()) {
+    const valueType = changetype<nonnull<V>>(0);
+    // @ts-ignore: instanceof on the reference value type
+    if (valueType instanceof JSON.Raw) {
+      serializeRaw(changetype<JSON.Raw>(rawValue));
+      return;
     }
-    store<u16>(bs.offset, COMMA);
-    bs.offset += 2;
   }
-  store<u16>(bs.offset - 2, BRACE_RIGHT);
+  JSON.__serialize<V>(value);
 }
 
 export function serializeMap<T extends Map<any, any>>(src: T): void {
   const srcSize = src.size;
-  const srcEnd = srcSize - 1;
 
   if (srcSize == 0) {
     bs.proposeSize(4);
@@ -45,50 +38,46 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
     return;
   }
 
-  let keys = src.keys();
-  let values = src.values();
   const keyIsString = isString<indexof<T>>();
-
-  if (keyIsString && isReference<valueof<T>>()) {
-    const valueType = changetype<nonnull<valueof<T>>>(0);
-    // @ts-ignore: instanceof on the reference value type
-    if (valueType instanceof JSON.Raw) {
-      serializeRawMapFast<T>(keys, values);
-      return;
-    }
-  }
 
   bs.proposeSize(4 + <u32>(srcSize - 1) * 2 + <u32>srcSize * 2);
 
   store<u16>(bs.offset, BRACE_LEFT);
   bs.offset += 2;
 
-  for (let i = 0; i < srcEnd; i++) {
+  const srcPtr = changetype<usize>(src);
+  const initialEntriesOffset = load<i32>(srcPtr, offsetof<T>("entriesOffset"));
+  const stride = mapEntrySize<indexof<T>, valueof<T>>();
+  for (let i = 0; i < initialEntriesOffset; i++) {
+    // A custom key/value serializer can re-enter user code and mutate this
+    // map. Reload its storage on every iteration so a rehash cannot leave a
+    // stale backing pointer live across callbacks.
+    if (i >= load<i32>(srcPtr, offsetof<T>("entriesOffset"))) break;
+    const entries = load<usize>(srcPtr, offsetof<T>("entries"));
+    const entry = changetype<SerializableMapEntry<indexof<T>, valueof<T>>>(
+      entries + <usize>i * stride,
+    );
+    if ((entry.taggedNext & 1) != 0) continue;
+    // Root/copy the complete current pair before either serializer can mutate
+    // the map. rawValue is used only by the compile-time JSON.Raw branch.
+    const key = entry.key;
+    const value = entry.value;
+    const rawValue = load<usize>(
+      changetype<usize>(entry),
+      offsetof<SerializableMapEntry<indexof<T>, valueof<T>>>("value"),
+    );
     if (keyIsString) {
-      JSON.__serialize(unchecked(keys[i]));
+      serializeString(changetype<string>(key));
     } else {
       JSON.__serialize<string>(
-        JSON.internal.stringify<indexof<T>>(unchecked(keys[i])),
+        JSON.internal.stringify<indexof<T>>(key),
       );
     }
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
-    JSON.__serialize(unchecked(values[i]));
+    serializeMapValue<valueof<T>>(value, rawValue);
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }
-
-  if (keyIsString) {
-    JSON.__serialize(unchecked(keys[srcEnd]));
-  } else {
-    JSON.__serialize<string>(
-      JSON.internal.stringify<indexof<T>>(unchecked(keys[srcEnd])),
-    );
-  }
-  store<u16>(bs.offset, COLON);
-  bs.offset += 2;
-
-  JSON.__serialize(unchecked(values[srcEnd]));
-  store<u16>(bs.offset, BRACE_RIGHT);
-  bs.offset += 2;
+  store<u16>(bs.offset - 2, BRACE_RIGHT);
 }

@@ -1,0 +1,178 @@
+{
+  "simdjson": {
+    "version": "5.0.4",
+    "commit": "3b0b2b53aaffb46208817821dce2cd47a5e6bb2a"
+  },
+  "policies": {
+    "strict": true,
+    "unknownFields": "reject",
+    "outputs": "owned",
+    "inputRotation": 4,
+    "retainedOutputs": 8
+  },
+  "performanceTarget": {
+    "mode": "simd",
+    "maxLatencyRatio": 1.2,
+    "requiredPhases": ["parse-owned", "serialize-owned", "validate"],
+    "scope": "All classic corpus layouts; faster than native has no upper limit",
+    "swar": "Diagnostic; backport useful changes while preserving correctness"
+  },
+  "corpora": [
+    {
+      "name": "canada",
+      "source": "assembly/__benches__/classic/canada.bench.ts",
+      "root": "Canada",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "twitter",
+      "source": "assembly/__benches__/classic/twitter.bench.ts",
+      "root": "Twitter",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "citm_catalog",
+      "source": "assembly/__benches__/classic/citm_catalog.bench.ts",
+      "root": "Citm",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "github_events",
+      "source": "assembly/__benches__/classic/github_events.bench.ts",
+      "root": "GhEvent[]",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "poet",
+      "source": "assembly/__benches__/classic/poet.bench.ts",
+      "root": "Poem[]",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "gsoc-2018",
+      "source": "assembly/__benches__/classic/gsoc-2018.bench.ts",
+      "root": "Map<string, Org>",
+      "layouts": ["min", "pretty"],
+      "raw": false
+    },
+    {
+      "name": "lottie",
+      "source": "assembly/__benches__/classic/lottie.bench.ts",
+      "root": "Lottie",
+      "layouts": ["min", "pretty"],
+      "raw": true
+    },
+    {
+      "name": "otfcc",
+      "source": "assembly/__benches__/classic/otfcc.bench.ts",
+      "root": "Otfcc",
+      "layouts": ["min"],
+      "raw": true
+    },
+    {
+      "name": "fgo",
+      "source": "assembly/__benches__/classic/fgo.bench.ts",
+      "root": "Map<string, JSON.Raw>",
+      "layouts": ["min"],
+      "raw": true
+    }
+  ],
+  "requiredFamilies": [
+    "typed-owned-parse",
+    "typed-owned-serialize",
+    "validation"
+  ],
+  "additionalFamilies": [
+    "typed-reused-parse",
+    "typed-reused-serialize",
+    "dynamic-owned-materialization",
+    "lazy-selective-full-validation",
+    "byte-ingestion",
+    "numeric-arrays",
+    "strings",
+    "small-records",
+    "reordered-optional-nested-records"
+  ],
+  "coverageRule": "All classic corpus layouts and required phases need equivalent-work correctness evidence and SIMD latency <= 1.2 times native. Additional families and SWAR performance are diagnostic. Missing classic coverage is a failing gate.",
+  "diagnostics": [
+    {
+      "name": "numeric_flat",
+      "root": "f64[]",
+      "numericShape": "flat",
+      "payload": "assembly/__benches__/payloads/canada.min.json",
+      "layouts": ["min"]
+    },
+    {
+      "name": "numeric_pairs",
+      "root": "f64[][]",
+      "numericShape": "pairs",
+      "payload": "assembly/__benches__/payloads/canada.min.json",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_short",
+      "root": "string",
+      "stringShape": "short",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_clean",
+      "root": "string",
+      "stringShape": "clean",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_late",
+      "root": "string",
+      "stringShape": "late",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_dense",
+      "root": "string",
+      "stringShape": "dense",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_unicode",
+      "root": "string",
+      "stringShape": "unicode",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_fullwidth",
+      "root": "string",
+      "stringShape": "fullwidth",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_fullwidth_escaped",
+      "root": "string",
+      "stringShape": "fullwidth_escaped",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_fullwidth_pairs",
+      "root": "string",
+      "stringShape": "fullwidth_pairs",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_fullwidth_short",
+      "root": "string",
+      "stringShape": "fullwidth_short",
+      "layouts": ["min"]
+    },
+    {
+      "name": "string_fullwidth_transition",
+      "root": "string",
+      "stringShape": "fullwidth_transition",
+      "layouts": ["min"]
+    }
+  ]
+}

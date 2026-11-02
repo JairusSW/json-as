@@ -1,5 +1,41 @@
 # Changelog
 
+## Unreleased
+
+- fix(parse): invalidate cached string and object traces when owned string buffers are overwritten, preventing stale values after source or decoded-field buffer reuse.
+- compat: keep string metadata, uninitialized allocation, and allocation batching optional so published AssemblyScript runtimes retain ordinary allocation and string semantics.
+- perf(strict): construct fresh checked object graphs inside a scoped AssemblyScript allocation batch, preserving individually managed results while avoiding repeated TLSF searches and free-list updates.
+
+- perf(simd): finish classified clean-string copies with overlapping exact-end vector stores, eliminating the scalar tail cascade and enabling optimizer fusion into generated writers.
+
+- perf(simd): inline managed-string field dispatch into generated writers so repeated clean strings and compact string kernels avoid a shared routing call.
+
+- perf(simd): serialize clean strings of eight to fifteen UTF-16 units through a compact one-vector kernel, falling back to the complete escape writer for quotes, slashes, controls, and surrogates.
+
+- perf(serialize): emit map entries through one separator shape and replace the final comma with the closing brace, removing the per-entry first-element branch while preserving reentrant mutation safety.
+
+- perf(serialize): inline the compile-time integer formatter dispatch while keeping the shared digit-formatting kernels outlined, removing generic width/sign routing from generated writers without duplicating the formatter loops.
+
+- perf(serialize): emit composite arrays through one element call site and replace the final comma with the closing bracket, allowing optimized generated object writers to fuse into the array loop.
+
+- perf(serialize): allocate direct owned string outputs without first clearing their pointer-free payload, then fully overwrite the logical result as before.
+
+- perf(simd): cache completed escape-free scans on immutable managed strings of at least 32 bytes, allowing repeated serialization to copy clean payloads directly while preserving reuse, encoding, GC, and all runtime semantics through AssemblyScript's reserved string-size metadata bit.
+
+- perf(strict): classify long checked UTF-16 string runs through one packed SIMD byte vector after an exact first pair.
+
+- perf(strings): overlap reserved SIMD clean-string stores with escape classification.
+
+- perf(strings): classify two UTF-16 vectors together in clean runs using signed saturation and full-width surrogate checks.
+
+- perf(strings): continue SIMD copying with exact UTF-16 event checks after ordinary BMP false candidates, and reuse the clean scan after escapes.
+
+- perf(strings): use a boolean SIMD event test and retain valid UTF-16 surrogate pairs on the bulk-copy serialization path.
+
+- perf(serialize): load generic array elements directly while rereading the backing pointer after callbacks.
+
+- perf(strict): defer implicit collection defaults during fresh checked object parsing, constructing empty defaults only for missing fields.
+
 ## 2026-10-29 - v1.7.0
 
 - fix(dynamic): materialize native arrays from dynamic `JSON.Value` instances, preserve callback mutation semantics, enforce live-length bounds for typed reads and writes, retain `JSON.Raw` payloads through garbage collection, release retained scalar source strings after copies, delete every duplicate parsed object key, and decode escaped object keys before storage ([#227](https://github.com/JairusSW/json-as/pull/227), [#230](https://github.com/JairusSW/json-as/pull/230), [#233](https://github.com/JairusSW/json-as/pull/233), [#236](https://github.com/JairusSW/json-as/pull/236), [#239](https://github.com/JairusSW/json-as/pull/239), [#240](https://github.com/JairusSW/json-as/pull/240)).

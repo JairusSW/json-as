@@ -1,5 +1,7 @@
+import { invalidateStringFieldTrace } from "../parseMode";
 import { bs } from "../../../lib/as-bs";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { STRING_SIZE_MASK } from "../../util/runtime";
 import { __heap_base } from "memory";
 import { QUOTE } from "../../custom/chars";
 import { BACK_SLASH } from "../../custom/chars";
@@ -86,7 +88,10 @@ function writeStringToField_SIMD(
   const current = load<usize>(dstFieldPtr);
   let stringPtr: usize;
   if (current >= __heap_base) {
-    if (changetype<OBJECT>(current - TOTAL_OVERHEAD).rtSize == byteLength) {
+    invalidateStringFieldTrace(current);
+    const object = changetype<OBJECT>(current - TOTAL_OVERHEAD);
+    if ((object.rtSize & STRING_SIZE_MASK) == byteLength) {
+      object.rtSize = byteLength;
       stringPtr = current;
     } else {
       stringPtr = __renew(current, byteLength);

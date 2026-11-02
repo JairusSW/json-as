@@ -178,7 +178,7 @@ class Issue {
   updated_at!: string;
   number!: i32;
   state!: string;
-  assignee!: string | null;
+  assignee!: GhUser | null;
   id!: i64;
   events_url!: string;
   comments_url!: string;

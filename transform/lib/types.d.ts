@@ -36,6 +36,7 @@ export declare class Schema {
     byteSize: number;
     deps: Schema[];
     customJsonKind: string;
+    hasCustomCursorLifecycle: boolean;
     private _custom;
     set custom(value: boolean);
     get custom(): boolean;

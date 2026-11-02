@@ -8,6 +8,28 @@ class MapValue {
   name: string = "";
 }
 
+let relocatingMap = new Map<string, RelocatingMapValue>();
+let relocatedMap = false;
+
+
+@json
+class RelocatingMapValue {
+  constructor(public value: i32 = 0) {}
+
+
+  @serializer("object")
+  serialize(self: RelocatingMapValue): string {
+    if (!relocatedMap && self.value == 1) {
+      relocatedMap = true;
+      for (let i = 0; i < 16; i++)
+        relocatingMap.set("extra-" + i.toString(), new RelocatingMapValue(i));
+      relocatingMap.set("b", new RelocatingMapValue(22));
+      __collect();
+    }
+    return '{"value":' + self.value.toString() + "}";
+  }
+}
+
 describe("Should deserialize complex objects", () => {
   const input =
     '{"a":{"b":{"c":[{"d":"random value 1"},{"e":["value 2","value 3"]}],"f":{"g":{"h":[1,2,3],"i":{"j":"nested value"}}}},"k":"simple value"},"l":[{"m":"another value","n":{"o":"deep nested","p":[{"q":"even deeper"},"final value"]}}],"r":null}';
@@ -35,6 +57,72 @@ describe("Should serialize and deserialize primitive maps", () => {
   expect(
     JSON.stringify(JSON.parse<Map<string, i32>>('{"one":1,"two":2}')),
   ).toBe('{"one":1,"two":2}');
+});
+
+describe("Fresh string-key maps preserve runtime hashes across boundaries", () => {
+  const keys = [
+    "",
+    "a",
+    "abc",
+    "1234567",
+    "12345678",
+    "123456789",
+    "123456789012345",
+    "1234567890123456",
+    "12345678901234567",
+    "π-value",
+    "漢字-key",
+    "emoji-😀",
+    'quote-"',
+    "slash-\\",
+    "line-\n-break",
+  ];
+  let input = "{";
+  for (let i = 0; i < keys.length; i++) {
+    if (i) input += ",";
+    input += JSON.stringify(keys[i]) + ":" + i.toString();
+  }
+  // Cross several runtime Map growth boundaries and exercise bucket chains.
+  for (let i = 0; i < 64; i++) {
+    input += ',"generated-' + i.toString() + '":' + (100 + i).toString();
+  }
+  input += "}";
+
+  const parsed = JSON.parse<Map<string, i32>>(input);
+  expect(parsed.size).toBe(keys.length + 64);
+  for (let i = 0; i < keys.length; i++) expect(parsed.get(keys[i])).toBe(i);
+  for (let i = 0; i < 64; i++)
+    expect(parsed.get("generated-" + i.toString())).toBe(100 + i);
+
+  const duplicate = JSON.parse<Map<string, i32>>('{"same":1,"same":2}');
+  expect(duplicate.size).toBe(1);
+  expect(duplicate.get("same")).toBe(2);
+});
+
+describe("Should serialize live map entries in insertion order", () => {
+  const m = new Map<string, i32>();
+  m.set("removed-first", 1);
+  m.set("kept-a", 2);
+  m.set("removed-middle", 3);
+  m.set("kept-b", 4);
+  m.set("removed-last", 5);
+  m.delete("removed-first");
+  m.delete("removed-middle");
+  m.delete("removed-last");
+  m.set("kept-c", 6);
+  expect(JSON.stringify(m)).toBe('{"kept-a":2,"kept-b":4,"kept-c":6}');
+});
+
+describe("Map serializers reload entries after reentrant rehash", () => {
+  relocatingMap = new Map<string, RelocatingMapValue>();
+  relocatingMap.set("a", new RelocatingMapValue(1));
+  relocatingMap.set("b", new RelocatingMapValue(2));
+  relocatingMap.set("c", new RelocatingMapValue(3));
+  relocatedMap = false;
+  expect(JSON.stringify(relocatingMap)).toBe(
+    '{"a":{"value":1},"b":{"value":22},"c":{"value":3}}',
+  );
+  expect(relocatedMap).toBe(true);
 });
 
 describe("Should serialize and deserialize nested map values", () => {

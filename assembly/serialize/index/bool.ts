@@ -1,1 +1,5 @@
-export { serializeBool, serializeBoolUnsafe } from "../naive/bool";
+export {
+  serializeBool,
+  serializeBoolAt,
+  serializeBoolUnsafe,
+} from "../naive/bool";

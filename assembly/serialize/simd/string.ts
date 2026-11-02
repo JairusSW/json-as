@@ -1,4 +1,5 @@
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
+import { STRING_METADATA_MASK, STRING_SIZE_MASK } from "../../util/runtime";
 import { bs } from "../../../lib/as-bs";
 import { BACK_SLASH } from "../../custom/chars";
 import { SERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
@@ -19,18 +20,100 @@ import { u16_to_hex4_swar } from "../../util/swar";
 @lazy const SURROGATE_MASK = i16x8.splat(i16(0xf800));
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SURROGATE_BASE = i16x8.splat(i16(0xd800));
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const SURROGATE_LOW_BOUND = i16x8.splat(i16(0xdc00));
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const BYTE_QUOTE = i8x16.splat(0x22);
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const BYTE_BACKSLASH = i8x16.splat(0x5c);
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const BYTE_SPACE = i8x16.splat(0x20);
+
+// String payload sizes are always even. A compatible runtime reserves bit 0
+// of String.rtSize as a completed escape-free classification; all byte-size
+// consumers mask it while String.length's existing shift is unchanged.
+const STRING_CLEAN_FLAG: u32 = STRING_METADATA_MASK;
 
 /**
  * Serializes strings into their JSON counterparts using SIMD operations
  */
 export function serializeString_SIMD(src: string): void {
   let srcStart = changetype<usize>(src);
-  const srcSize = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD).rtSize;
-  const srcEnd = srcStart + srcSize;
+  const object = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD);
+  const taggedSize = object.rtSize;
+  if (taggedSize < 32) {
+    bs.proposeSize(taggedSize + 4);
+    bs.offset =
+      taggedSize < 16
+        ? serializeShortStringReservedAt_SIMD(srcStart, taggedSize, bs.offset)
+        : serializeMediumStringReservedAt_SIMD(srcStart, taggedSize, bs.offset);
+    return;
+  }
+  const srcSize = taggedSize & STRING_SIZE_MASK;
   bs.proposeSize(srcSize + 4);
-  const dstStart = bs.offset;
+  const dst = bs.offset;
+  if (taggedSize & STRING_CLEAN_FLAG) {
+    bs.offset = copyKnownCleanString(srcStart, srcSize, dst);
+    return;
+  }
+  const next = serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dst);
+  bs.offset = next;
+  if (next - dst == <usize>srcSize + 4)
+    object.rtSize = taggedSize | STRING_CLEAN_FLAG;
+}
+
+
+@inline
+export function serializeStringRange_SIMD(srcStart: usize, srcSize: u32): void {
+  bs.proposeSize(srcSize + 4);
+  serializeStringRangeReserved_SIMD(srcStart, srcSize);
+}
+
+/** Emits a string whose unescaped payload and quotes are already reserved. */
+export function serializeStringRangeReserved_SIMD(
+  srcStart: usize,
+  srcSize: u32,
+): void {
+  bs.offset = serializeStringRangeReservedAt_SIMD(srcStart, srcSize, bs.offset);
+}
+
+/** Emits a pre-reserved string and returns the next output cursor. Clean
+ * strings never publish the cursor through shared builder state. */
+export function serializeStringRangeReservedAt_SIMD(
+  srcStart: usize,
+  srcSize: u32,
+  dstStart: usize,
+): usize {
+  const srcEnd = srcStart + srcSize;
   let dst = dstStart + 2;
   do {
+    const srcEnd32Fast = srcEnd - 32;
+    while (srcStart <= srcEnd32Fast) {
+      const first = load<v128>(srcStart);
+      const second = load<v128>(srcStart, 16);
+      // Classify sixteen UTF-16 units with one packed byte vector. Signed
+      // narrowing preserves ASCII and saturates every non-ASCII unit outside
+      // the JSON control range; the conservative byte-level surrogate test is
+      // retained for the exceptional path below.
+      const bytes = i8x16.narrow_i16x8_s(first, second);
+      // Signed narrowing maps controls to 0..31, ordinary positive non-ASCII
+      // units to +127, and U+8000..FFFF (including surrogates) to -128. One
+      // signed comparison therefore covers both controls and the conservative
+      // Unicode candidate formerly tested with a separate equality.
+      const special = v128.or(
+        i8x16.eq(bytes, BYTE_QUOTE),
+        v128.or(i8x16.eq(bytes, BYTE_BACKSLASH), i8x16.lt_s(bytes, BYTE_SPACE)),
+      );
+      // The payload is already reserved. Publish the candidate block before
+      // resolving its mask so clean-copy stores can overlap classification;
+      // the exceptional path rewrites this same output range on a hit.
+      store<v128>(dst, first);
+      store<v128>(dst, second, 16);
+      if (v128.any_true(special)) break;
+      srcStart += 32;
+      dst += 32;
+    }
+
     const srcEnd16Fast = srcEnd - 16;
 
     while (srcStart <= srcEnd16Fast) {
@@ -40,20 +123,53 @@ export function serializeString_SIMD(src: string): void {
       const lt20 = i16x8.lt_u(block, SPLAT_0020);
       const gteD8 = i8x16.gt_u(block, SPLAT_FFD8);
 
-      const mask = i8x16.bitmask(
-        v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))),
-      );
-      if (mask != 0) {
+      const special = v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8)));
+      if (v128.any_true(special)) {
         // The byte-level candidate test can also match ordinary BMP text.
         // Verify only candidate blocks so ASCII keeps the cheaper hot loop.
         const surrogate = i16x8.eq(
           v128.and(block, SURROGATE_MASK),
           SURROGATE_BASE,
         );
-        if (
-          v128.any_true(v128.or(eq22, v128.or(eq5C, v128.or(lt20, surrogate))))
-        )
+        if (v128.any_true(v128.or(eq22, v128.or(eq5C, lt20)))) break;
+        const surrogateBits = i8x16.bitmask(surrogate) & 0x5555;
+        if (!surrogateBits) {
+          // Ordinary BMP text triggered the conservative byte test. Copy the
+          // proven block, then classify whole UTF-16 units for this string.
+          store<v128>(dst, block);
+          srcStart += 16;
+          dst += 16;
+          if (srcStart <= srcEnd16Fast) {
+            const next = copyCleanUnicode(srcStart, srcEnd, dst);
+            dst += next - srcStart;
+            srcStart = next;
+          }
           break;
+        }
+        if (surrogateBits) {
+          const high =
+            i8x16.bitmask(i16x8.lt_u(block, SURROGATE_LOW_BOUND)) &
+            surrogateBits;
+          const low = surrogateBits ^ high;
+          const unpaired = (high & ~(low >> 2)) | (low & ~(high << 2));
+          if (unpaired) {
+            // A high surrogate at the end may pair with the following unit.
+            // Consume that unit now so the next block never sees a lone low.
+            if (
+              unpaired != 0x4000 ||
+              (high & 0x4000) == 0 ||
+              srcEnd - srcStart < 18
+            )
+              break;
+            const next = load<u16>(srcStart, 16);
+            if (<u32>(next - 0xdc00) > 0x3ff) break;
+            store<v128>(dst, block);
+            store<u16>(dst, next, 16);
+            srcStart += 18;
+            dst += 18;
+            continue;
+          }
+        }
       }
 
       store<v128>(dst, block);
@@ -79,8 +195,7 @@ export function serializeString_SIMD(src: string): void {
 
     store<u16>(dstStart, 34); // "
     store<u16>(dst, 34); // "
-    bs.offset = dst + 2;
-    return;
+    return dst + 2;
   } while (false);
 
   // The optimistic loop already copied the clean prefix. Keep it and resume
@@ -102,14 +217,24 @@ export function serializeString_SIMD(src: string): void {
     // console.log("lt20   : " + mask_to_string_v128(lt20) + " -> " + mask_to_string_v128(SPLAT_0020));
     // console.log("gteD8  : " + mask_to_string_v128(gteD8) + " -> " + mask_to_string_v128(SPLAT_FFD8));
 
-    let mask = i8x16.bitmask(
-      v128.or(eq22, v128.or(eq5C, v128.or(lt20, gteD8))),
-    );
+    // i16 comparison lanes set both constituent byte bits. Keep only the low
+    // byte bit for ASCII escapes and only the high byte bit for conservative
+    // surrogate candidates so every UTF-16 unit is visited at most once.
+    let mask =
+      (i8x16.bitmask(v128.or(eq22, v128.or(eq5C, lt20))) & 0x5555) |
+      (i8x16.bitmask(gteD8) & 0xaaaa);
 
     if (mask == 0) {
       store<v128>(bs.offset, block);
       bs.offset += 16;
       srcStart += 16;
+      // A clean suffix after an escape uses the same checked Unicode loop.
+      // Keep its cursor local instead of updating shared state per vector.
+      if (srcStart <= srcEnd16) {
+        const next = copyCleanUnicode(srcStart, srcEnd, bs.offset);
+        bs.offset += next - srcStart;
+        srcStart = next;
+      }
       continue;
     }
 
@@ -237,7 +362,199 @@ export function serializeString_SIMD(src: string): void {
 
   store<u16>(bs.offset, 34); // "
   bs.offset += 2;
+  return bs.offset;
 }
+
+/** Emits a complete managed string and records an escape-free scan in its
+ * structurally spare size bit. Ranges never use this entry because their
+ * source need not begin at a managed String payload. */
+@inline
+export function serializeStringPointerReservedAt_SIMD(
+  srcStart: usize,
+  dstStart: usize,
+): usize {
+  const object = changetype<OBJECT>(srcStart - TOTAL_OVERHEAD);
+  const taggedSize = object.rtSize;
+  if (taggedSize & STRING_CLEAN_FLAG) {
+    const srcSize = taggedSize & STRING_SIZE_MASK;
+    return copyKnownCleanString(srcStart, srcSize, dstStart);
+  }
+  if (taggedSize < 32)
+    return taggedSize < 16
+      ? serializeShortStringReservedAt_SIMD(srcStart, taggedSize, dstStart)
+      : serializeMediumStringReservedAt_SIMD(srcStart, taggedSize, dstStart);
+  const next = serializeStringRangeReservedAt_SIMD(
+    srcStart,
+    taggedSize,
+    dstStart,
+  );
+  if (taggedSize >= 32 && next - dstStart == <usize>taggedSize + 4)
+    object.rtSize = taggedSize | STRING_CLEAN_FLAG;
+  return next;
+}
+
+/** Compact clean path for eight to fifteen UTF-16 units. Exceptional input
+ * falls back to the complete shared writer. */
+function serializeMediumStringReservedAt_SIMD(
+  srcStart: usize,
+  srcSize: u32,
+  dstStart: usize,
+): usize {
+  const block = load<v128>(srcStart);
+  const special = v128.or(
+    i16x8.eq(block, SPLAT_0022),
+    v128.or(
+      i16x8.eq(block, SPLAT_005C),
+      v128.or(
+        i16x8.lt_u(block, SPLAT_0020),
+        i16x8.eq(v128.and(block, SURROGATE_MASK), SURROGATE_BASE),
+      ),
+    ),
+  );
+  if (v128.any_true(special))
+    return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
+
+  store<u16>(dstStart, 34);
+  store<v128>(dstStart, block, 2);
+  let src = srcStart + 16;
+  let dst = dstStart + 18;
+  const srcEnd = srcStart + srcSize;
+  while (src < srcEnd) {
+    const code = load<u16>(src);
+    if (
+      (code >= 0xd800 && code <= 0xdfff) ||
+      code == BACK_SLASH ||
+      code == 34 ||
+      code < 32
+    )
+      return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
+    store<u16>(dst, code);
+    src += 2;
+    dst += 2;
+  }
+  store<u16>(dst, 34);
+  return dst + 2;
+}
+
+function copyKnownCleanString(
+  src: usize,
+  srcSize: u32,
+  dstStart: usize,
+): usize {
+  const end = src + srcSize;
+  let dst = dstStart + 2;
+  while (src + 32 <= end) {
+    store<v128>(dst, load<v128>(src));
+    store<v128>(dst, load<v128>(src, 16), 16);
+    src += 32;
+    dst += 32;
+  }
+  if (src < end) {
+    // Completed-clean metadata is only recorded for payloads of at least 32
+    // bytes. Copy the exact final 32 bytes when a partial chunk remains; its
+    // overlap with the preceding chunk removes the 16/8/4/2 tail cascade.
+    const tail = end - 32;
+    const dstTail = dstStart + 2 + srcSize - 32;
+    store<v128>(dstTail, load<v128>(tail));
+    store<v128>(dstTail, load<v128>(tail, 16), 16);
+    dst = dstStart + 2 + srcSize;
+  }
+  store<u16>(dstStart, 34);
+  store<u16>(dst, 34);
+  return dst + 2;
+}
+
+/** Compact generated-field entry for at most seven UTF-16 units. The caller
+ * already reserved the unescaped payload. Exceptional input falls back to the
+ * complete shared writer. */
+export function serializeShortStringReservedAt_SIMD(
+  srcStart: usize,
+  srcSize: u32,
+  dstStart: usize,
+): usize {
+  const srcEnd = srcStart + srcSize;
+  let src = srcStart;
+  let dst = dstStart + 2;
+  while (src < srcEnd) {
+    const code = load<u16>(src);
+    if (
+      (code >= 0xd800 && code <= 0xdfff) ||
+      code == BACK_SLASH ||
+      code == 34 ||
+      code < 32
+    )
+      return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
+    store<u16>(dst, code);
+    src += 2;
+    dst += 2;
+  }
+  store<u16>(dstStart, 34);
+  store<u16>(dst, 34);
+  return dst + 2;
+}
+
+/** Copy clean UTF-16 after a byte-level false positive, stopping at an escape. */
+function copyCleanUnicode(src: usize, end: usize, dst: usize): usize {
+  const end32 = end - 32;
+  while (src <= end32) {
+    const first = load<v128>(src);
+    const second = load<v128>(src, 16);
+    // Signed saturation preserves ASCII and maps every other UTF-16 unit to
+    // a byte >= 0x7f. Unsigned saturation would turn negative i16 lanes into 0.
+    const bytes = i8x16.narrow_i16x8_s(first, second);
+    const ascii = v128.or(
+      i8x16.eq(bytes, BYTE_QUOTE),
+      v128.or(i8x16.eq(bytes, BYTE_BACKSLASH), i8x16.lt_u(bytes, BYTE_SPACE)),
+    );
+    const firstSurrogate = i16x8.eq(
+      v128.and(first, SURROGATE_MASK),
+      SURROGATE_BASE,
+    );
+    const secondSurrogate = i16x8.eq(
+      v128.and(second, SURROGATE_MASK),
+      SURROGATE_BASE,
+    );
+    if (v128.any_true(v128.or(ascii, v128.or(firstSurrogate, secondSurrogate))))
+      break;
+    store<v128>(dst, first);
+    store<v128>(dst, second, 16);
+    src += 32;
+    dst += 32;
+  }
+  const end16 = end - 16;
+  while (src <= end16) {
+    const block = load<v128>(src);
+    const ascii = v128.or(
+      i16x8.eq(block, SPLAT_0022),
+      v128.or(i16x8.eq(block, SPLAT_005C), i16x8.lt_u(block, SPLAT_0020)),
+    );
+    const surrogate = i16x8.eq(v128.and(block, SURROGATE_MASK), SURROGATE_BASE);
+    if (v128.any_true(v128.or(ascii, surrogate))) {
+      if (v128.any_true(ascii)) return src;
+      const bits = i8x16.bitmask(surrogate) & 0x5555;
+      const high = i8x16.bitmask(i16x8.lt_u(block, SURROGATE_LOW_BOUND)) & bits;
+      const low = bits ^ high;
+      const unpaired = (high & ~(low >> 2)) | (low & ~(high << 2));
+      if (unpaired) {
+        // A final high unit may pair with the first unit beyond this vector.
+        if (unpaired != 0x4000 || (high & 0x4000) == 0 || end - src < 18)
+          return src;
+        const next = load<u16>(src, 16);
+        if (<u32>(next - 0xdc00) > 0x3ff) return src;
+        store<v128>(dst, block);
+        store<u16>(dst, next, 16);
+        src += 18;
+        dst += 18;
+        continue;
+      }
+    }
+    store<v128>(dst, block);
+    src += 16;
+    dst += 16;
+  }
+  return src;
+}
+
 function write_u_escape(code: u16): void {
   bs.growSize(10);
   store<u32>(bs.offset, U_MARKER); // "\u"

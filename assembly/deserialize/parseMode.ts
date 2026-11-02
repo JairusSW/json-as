@@ -1,5 +1,32 @@
 let SIMD_PRETTY_PARSE = false;
 const ENABLE_EXACT_SOURCE_TRACES = true;
+// The generated cursor path builds a new, unpublished object graph entirely
+// inside the runtime's allocation batch. No old object can point at one of
+// these children yet, so incremental-GC write barriers are redundant until
+// the root is published. A depth counter keeps nested public parses safe.
+let CURSOR_FRESH_GRAPH_DEPTH = 0;
+
+
+@inline
+export function beginCursorFreshGraph(): void {
+  CURSOR_FRESH_GRAPH_DEPTH++;
+}
+
+
+@inline
+export function endCursorFreshGraph(): void {
+  CURSOR_FRESH_GRAPH_DEPTH--;
+}
+
+
+@inline
+export function cursorLink(
+  parent: usize,
+  child: usize,
+  expectMultiple: bool = false,
+): void {
+  if (CURSOR_FRESH_GRAPH_DEPTH == 0) __link(parent, child, expectMultiple);
+}
 
 // Steady-state SIMD string-field trace. JSON source strings and parsed field
 // strings are immutable at the language level, so the tuple
@@ -39,6 +66,29 @@ export function isPrettyParse(): bool {
 @inline
 export function setPrettyParse(value: bool): void {
   SIMD_PRETTY_PARSE = value;
+}
+
+/** Reused string buffers can be cached sources or decoded field values. */
+export function invalidateStringFieldTrace(
+  value: usize,
+  ownedOutput: bool = false,
+): void {
+  if (!ENABLE_EXACT_SOURCE_TRACES) return;
+  // A public stringify can overwrite either a cached source or decoded field.
+  // A different top-level parse already resets the single-root cache at entry;
+  // its ordinary field writes should not disrupt newly recorded trace slots.
+  // Nested parses can mutate the enclosing parse's graph and must suspend it.
+  if (
+    !ownedOutput &&
+    STRING_TRACE_DEPTH <= 1 &&
+    value != changetype<usize>(STRING_TRACE_SOURCE)
+  )
+    return;
+  // Also suspend probes in a reentrant parse. Clearing the source guarantees
+  // the next public parse rebuilds both string and object trace slots.
+  STRING_TRACE_SOURCE = null;
+  STRING_TRACE_ACTIVE = false;
+  STRING_TRACE_COMPLETE = false;
 }
 
 /** Enter one public parse call, suspending trace use in nested parses. */

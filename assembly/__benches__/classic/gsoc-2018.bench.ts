@@ -10,8 +10,8 @@ import {
 
 // gsoc-2018 (yyjson_benchmark): the document root is a dynamic-key map of ~1264
 // id -> organization records (schema.org JSON-LD). Parsed as Map<string, Org>;
-// the @-prefixed JSON-LD keys are aliased, and the irregular sponsor/author
-// sub-objects stay JSON.Raw passthrough.
+// the @-prefixed JSON-LD keys are aliased, and sponsor/author sub-objects are
+// fully materialized concrete records.
 
 @json
 class Sponsor {
