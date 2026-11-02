@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(strict): construct fresh checked object graphs inside a scoped AssemblyScript allocation batch, preserving individually managed results while avoiding repeated TLSF searches and free-list updates.
+
 - perf(simd): finish classified clean-string copies with overlapping exact-end vector stores, eliminating the scalar tail cascade and enabling optimizer fusion into generated writers.
 
 - perf(simd): inline managed-string field dispatch into generated writers so repeated clean strings and compact string kernels avoid a shared routing call.

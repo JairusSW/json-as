@@ -546,6 +546,12 @@ export namespace JSON {
           }
           // @ts-expect-error: transform-generated checked object reader
           if (isDefined(type.__DESERIALIZE_CURSOR)) {
+            const sourceBytes = (<usize>data.length) << 1;
+            const batchBytes = max<usize>(
+              4_096,
+              sourceBytes > 4_194_304 ? 16_777_216 : sourceBytes << 2,
+            );
+            const previousBatch = __beginAllocBatch(batchBytes);
             const obj = changetype<nonnull<T>>(
               __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
             );
@@ -573,6 +579,7 @@ export namespace JSON {
               );
               setParseSrc(previous);
             }
+            __endAllocBatch(previousBatch);
             if (!next || skipCursorWhitespace(next, end) != end)
               throw new Error("Invalid JSON syntax or target value");
             return obj;

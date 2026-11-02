@@ -4101,3 +4101,57 @@ string, dynamic-string and generated-struct coverage passed 1,587 checks.
 
 Artifacts under `build/simdjson-parity/`: runs `geninlinebase001/` and
 `geninlinecand001/`, and comparison `generated-clean-gsoc-v8/`.
+
+## Scoped fresh-graph allocation batches
+
+A current-head CITM parse-only profile records 5,100 Wasm self samples. TLSF
+insertion, removal and allocation account for 1,949 samples before incremental
+GC, linking and freeing; generated parsing accounts for 768. Earlier capacity,
+constructor, Map and GC-pacing experiments could not remove the required
+managed objects. The remaining target is allocator bookkeeping across the
+complete fresh graph.
+
+AssemblyScript commit `ea9dba1d` adds nested scoped allocation batches to the
+TLSF runtime. A scope reserves one ordinary used block, carves each request into
+an ordinary independently freeable TLSF block, and returns its unused remainder
+at scope exit. Every managed object keeps its normal header, GC list membership,
+write barriers, finalization and independent lifetime. RTrace disables the
+shortcut, while the stub runtime keeps the API as a no-op. json-as enters a
+batch only around fresh generated checked-object construction; reused outputs,
+primitive roots, dynamic fallbacks and standalone validation are unchanged.
+The reservation is derived only from source length, capped at 16 MiB, and has
+no corpus, schema, field or value selector.
+
+The focused 5,000-operation CITM profile falls from 1476.81 to 1104.96
+microseconds per parse, or 1.337x baseline throughput. Allocator removal falls
+from 569 self samples to no named sample and allocation falls from 356 to two;
+the remaining 682 insertion samples are primarily collection-time freeing.
+
+Seven alternating V8 process pairs compare equal-compiler, equal-length frozen
+`batchbase0000001` and `batchcand0000001` artifacts. Each corpus passes twenty
+complete owned-output and retention comparisons, and no phase crosses the 3%
+regression gate. SIMD candidate / baseline throughput:
+
+| Layout | Parse | Stringify | Validate |
+| --- | ---: | ---: | ---: |
+| Canada minified | 1.379x | 1.034x | 0.974x |
+| Twitter minified | 1.380x | 1.080x | 1.019x |
+| CITM minified | 1.363x | 1.076x | 1.000x |
+| GitHub Events minified | 1.004x | 1.000x | 1.005x |
+| Poet minified | 1.001x | 0.995x | 0.995x |
+| GSOC minified | 0.996x | 0.995x | 1.003x |
+| Lottie minified | 1.034x | 1.084x | 0.994x |
+
+CITM SWAR parsing independently improves 1.364x. A two-field, 16-to-19-byte
+changing-input diagnostic improves 1.038x over seven pairs, showing that the
+scope is not relying on a large-corpus threshold. Direct nested-batch probes
+pass under incremental, minimal and stub runtimes with mixed managed/raw
+allocations, explicit frees, collection and retained values. The json-as normal
+suite passes 123,935 checks across all modes; AssemblyScript build, typecheck,
+import checks and lint pass. Pretty layouts, latest-main w2c2 and the remaining
+large OTFCC/FGO rows still require qualification before a complete matrix claim.
+
+Artifacts under `build/simdjson-parity/`: profiles
+`citmcurrent{par,ser}01-*` and `citmbatchpar0001-*`, runs
+`batch{base,cand}0000001/`, comparisons `batchalloc-*-v8-01/`, and
+`tiny-batch-*`.
