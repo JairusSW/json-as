@@ -4191,6 +4191,23 @@ and diff checks pass. Artifacts: `citmsweeppar0001-*`, run
 `sweepcand0000001/`, and comparisons `sweeprun-*-v8-01/` under
 `build/simdjson-parity/`.
 
+## Rejected exceptional ASCII span emission
+
+A shared SIMD string-writer prototype emits each clean span between ASCII
+escape events exactly once, replacing the established shifted vector suffix
+copy after each event. Blocks with Unicode candidates retain the existing
+surrogate-aware writer. No corpus, schema or value signature selects it.
+The focused string, tail and surrogate suites pass 13,529 checks, and seven
+alternating GSOC minified V8 process pairs pass twenty complete owned-output
+and retention comparisons per label. Serialization is 0.903x baseline while
+parse and validation controls are 1.000x and 0.997x. The tiny span-copy overhead
+outweighs the avoided vector writes, so this prototype is reverted.
+
+Artifacts: `escapespan00001/` against `nestdefsafe0001/`, comparison
+`escape-span-gsoc-v8/` under `build/simdjson-parity/`. All timed batches in
+this comparison exceed one millisecond, so the older baseline's elapsed-time
+floor is inactive; these results do not establish any short-run timer claim.
+
 ## Rejected checked numeric-array run
 
 A general SIMD discard experiment consumes an array's initial consecutive
