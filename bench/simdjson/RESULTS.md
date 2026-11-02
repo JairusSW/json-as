@@ -4191,6 +4191,21 @@ and diff checks pass. Artifacts: `citmsweeppar0001-*`, run
 `sweepcand0000001/`, and comparisons `sweeprun-*-v8-01/` under
 `build/simdjson-parity/`.
 
+## Rejected number-first value dispatch
+
+A SIMD traversal experiment dispatches a leading minus sign or ASCII digit
+directly to the existing checked number reader before testing containers,
+strings and literals. It passes 17,381 strict cursor/RFC checks plus all
+validation preflight and changing-input oracles for eight classic layouts.
+Seven-pair results are mixed. Fifteen alternating fresh V8 pairs confirm
+Canada minified at 1.035x baseline but Canada pretty at 0.960x, CITM pretty at
+0.971x and the other rows between 0.978x and 0.996x. The branch-order change is
+reverted because it does not yield a general improvement.
+
+Artifacts: `containerlocal1/`, `numberfirst0001/`, comparisons
+`number-first-eight-v8/` and `number-first-eight-v8-15/` under
+`build/simdjson-parity/`.
+
 ## Rejected recursive container traversal
 
 A bounded recursive SIMD discard traversal gives arrays and objects separate
