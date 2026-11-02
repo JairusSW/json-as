@@ -278,6 +278,38 @@ Evidence is under `build/simdjson-parity/comparisons/` in
 the GitHub Events and Twitter confirmations carry the `-15` suffix. Rejected
 screens are retained under `shortall-*`, `short16-*` and `shortmap-*`.
 
+## 2026-11-02 post-medium profiles and negative screens
+
+An isolated GSOC serialization profile on committed head `c83bc32` records 280
+Wasm self samples: 164 in the complete SIMD string writer, 41 copying classified
+clean strings, 24 in Map/root serialization, 13 in the managed-string entry, 12
+in the new medium-string kernel and 10 in the short-string kernel. The source
+contains 13,829 escape events across 1,517 strings; LF and CR account for
+13,096 events. Of its eight-code-unit blocks, 4,273 contain at least two events.
+
+Three general dense-escape implementations were rejected. Scalar emission of
+all eight lanes regresses GSOC stringify 2.3%; retaining vector suffix shifts
+but publishing cursor/growth once per block regresses 3.4%. A true four-lane
+pair-expansion and dynamic-swizzle compactor passes exhaustive UTF-16 tests and
+all output oracles, but a two-event cutoff gains only 0.2%. Raising the cutoff
+to three events initially gains 0.9%, then collapses to 0.1% over 15 alternating
+pairs while adding 731 bytes. None remains in production. Evidence is in
+`comparisons/{dense,localesc,groupesc,groupesc3}-gsoc-v8*`; the profile is
+`gsoc-medium-serialize-self-profile.json`.
+
+A Canada parse-only profile on the same head records 1,235 Wasm self samples.
+Allocator/collector work dominates: TLSF insertion 206, removal 126, allocation
+80, incremental steps 101, array allocation 81, and additional GC/link/free
+work. Numeric pair and scalar conversion account for 201 samples. Increasing
+the runtime GC granularity from 1 KiB to 8 KiB is neutral-negative (parse
+0.996x); it only reschedules genuine allocation/sweep work. An inline-backed
+two-element numeric Array prototype removes one allocation per coordinate pair
+and transparently transitions to a normal ArrayBuffer on growth, but Canada
+parse remains exactly 1.000x. Both runtime prototypes were fully reverted.
+Evidence is in `comparisons/gc8k-canada-v8/` and
+`comparisons/inline-array4-canada-v8/`; the profile is
+`canada-medium-parse-self-profile.json`.
+
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
 descriptions of balanced variant rounds record the intended method, not a
