@@ -64,7 +64,13 @@ describe("SIMD clean-string classification preserves String and reuse semantics"
     '{"value":"' + "b".repeat(31) + '\\""}',
     holder,
   );
-  expect(changetype<usize>(holder.value)).toBe(samePointer);
+  // Slow object parsing reinitializes fields; only the generated fast reader
+  // promises to reuse the existing field buffer.
+  const type = changetype<ClassifiedStringField>(0);
+  // @ts-expect-error: transform-generated fast reader
+  if (isDefined(type.__DESERIALIZE_FAST)) {
+    expect(changetype<usize>(holder.value)).toBe(samePointer);
+  }
   expect(stringRuntimeSize(holder.value) & STRING_METADATA_MASK).toBe(0);
   expect(holder.value).toBe(escaped);
   expect(JSON.stringify(holder)).toBe('{"value":"' + "b".repeat(31) + '\\""}');
