@@ -4613,3 +4613,28 @@ count of explicit nested initializers.
 Artifacts: frozen runs `struninit000001/` and `nestdefsafe0001/`; comparisons
 `safe-nested-*-v8`, with fifteen-pair confirmations for Canada pretty, CITM
 minified and GitHub Events pretty, under `build/simdjson-parity/`.
+
+## GitHub serialization follow-up profile
+
+Inlining the generated cursor initializer/finalizer does not clear the
+GitHub-pretty serialization regression: fifteen paired processes report
+0.943x baseline serialization and 1.097x parsing. That experiment is reverted.
+The cause remains unresolved; changed graph allocation and code layout are
+hypotheses, not established explanations.
+
+A serialization-only diagnostic removes timed parsing, validation and retained
+object oracle output, then runs 500,000 output operations through the public
+API while rotating four objects and retaining eight output strings. It records
+6.72 microseconds per operation. Of 3,044 profiler samples, the full, short and
+medium SIMD string writers account for 13.3%, 5.6% and 4.3%; generated object
+writers account for over 40%; GC marking/visitation accounts for about 13%.
+Allocator helpers together account for under 1%. These measurements point to
+integrating generated writer regions and reducing repeated field dispatch as
+the next broad experiment. The sustained timing cannot replace the paired
+100-operation qualification or establish the regression's cause.
+
+Diagnostic artifacts: `github-serialize-profile.wasm`,
+`github-serialize-long.txt`, run `ghserprof000001/`; inlining experiment
+`nestinlin000001/` and comparison `inline-github-pretty-v8-15/`, under
+`build/simdjson-parity/`. The profile driver is deliberately modified and must
+not be treated as a frozen qualification run.
