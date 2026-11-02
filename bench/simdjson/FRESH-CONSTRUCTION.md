@@ -57,19 +57,46 @@ custom lifecycle hooks throughout the base chain. The expanded fixture covers
 each of these cases across all nine runtime/mode configurations. Both full
 suites, the transform suite, typecheck and lint pass after the correction.
 
-## Performance qualification pending
+## Development performance screen
 
 The frozen baseline is `freshpush000001` (production `c9e4c85`). Candidate
 `freshctor000001` contains the corrected construction bundle. The earlier
 `freshinit000001` checkpoint was never timed: its queued batch was stopped
 before acquiring the host so inheritance could be corrected first.
 Both use AssemblyScript `670f0653`, simdjson 5.0.4 and 500 operations per phase.
-The next qualification is one nine-pair fresh-process V8 SIMD screen across
-Canada, CITM and GitHub Events, minified and pretty, with full owned-output and
-retained-result oracles. No speedup or parity claim is made at this checkpoint.
+One nine-pair fresh-process V8 SIMD screen covers Canada, CITM and GitHub
+Events, minified and pretty. Every label passes twenty complete owned-output
+and retained-result comparisons on every layout. All observed phases remain
+within the 3% regression guard. Ratios below are baseline latency / candidate
+latency; values above one improve:
+
+| Layout | Parse | Serialize | Validate |
+| --- | ---: | ---: | ---: |
+| Canada minified | 0.996x | 0.993x | 0.985x |
+| Canada pretty | 1.000x | 0.997x | 0.981x |
+| CITM minified | 1.002x | 1.002x | 1.000x |
+| CITM pretty | 1.006x | 1.004x | 1.003x |
+| GitHub Events minified | 0.990x | 0.995x | 0.988x |
+| GitHub Events pretty | 0.996x | 1.003x | 1.012x |
+
+These results supply no material throughput win. The retained construction
+checkpoint includes the verified inheritance/runtime correctness fixes;
+default-initialization tuning is not established as a useful performance
+direction. Optimized driver sizes change by -0.07% Canada, approximately zero
+CITM and -0.44% GitHub.
+
+**This is not clean performance qualification.** Despite the kernel host lock,
+the audit captures the uncoordinated periodic publisher and capture-transfer
+`rsync` PID 42696 during part of the batch; desktop activity is also recorded.
+The coordination request in `~/LOCK.md` has been updated with this evidence.
+No speedup, regression-free qualification or native-parity claim follows from
+this screen, and the same batch will not be repeated until heavy publisher
+cycles coordinate through the host lock.
 
 Heavy checks/builds use `~/benchmark-lock.py`; the separate measurement batch
-is queued through the same host lock after releasing the build hold. An audit
-records process activity and the periodic-publisher coordination request from
-`~/LOCK.md`. Raw results and that audit must be reviewed before accepting
-performance evidence.
+used the same host lock after releasing the build hold. The completed hold
+released normally. Artifacts are under `build/simdjson-parity/`: frozen runs
+`freshpush000001/` and `freshctor000001/`, comparisons
+`fresh-construction-<layout>-v8/`, and `fresh-construction-host-audit.log`.
+Generated oracle JSON files were removed after complete comparisons passed;
+metadata, inputs, binaries, raw timing logs and summary results remain.
