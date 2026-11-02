@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- perf(serialize): emit composite arrays through one element call site and replace the final comma with the closing bracket, allowing optimized generated object writers to fuse into the array loop.
+
 - perf(serialize): allocate direct owned string outputs without first clearing their pointer-free payload, then fully overwrite the logical result as before.
 
 - perf(simd): cache completed escape-free scans on immutable managed strings of at least 32 bytes, allowing repeated serialization to copy clean payloads directly while preserving reuse, encoding, GC, and all runtime semantics through AssemblyScript's reserved string-size metadata bit.

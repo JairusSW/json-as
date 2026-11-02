@@ -441,9 +441,7 @@ export function serializeArray<T extends any[]>(src: T): void {
   }
 
   const len = src.length;
-  const end = len - 1;
-  let i = 0;
-  if (end == -1) {
+  if (len == 0) {
     bs.proposeSize(4);
     store<u32>(bs.offset, 6094939);
     bs.offset += 4;
@@ -464,20 +462,17 @@ export function serializeArray<T extends any[]>(src: T): void {
   bs.offset += 2;
 
   const stride = sizeof<valueof<T>>();
-  while (i < end) {
+  for (let i = 0; i < len; i++) {
     // Equivalent to Array.__uget, with the backing pointer read anew after
     // each callback so growth or replacement cannot leave a stale base.
     const block = load<valueof<T>>(src.dataStart + <usize>i * stride);
-    i++;
     serializeArrayElement<valueof<T>>(block);
     store<u16>(bs.offset, COMMA);
     bs.offset += 2;
   }
-
-  const lastBlock = load<valueof<T>>(src.dataStart + <usize>end * stride);
-  serializeArrayElement<valueof<T>>(lastBlock);
-  store<u16>(bs.offset, BRACKET_RIGHT);
-  bs.offset += 2;
+  // One element call site lets optimized generated object writers fuse into
+  // this loop. Replace its final comma instead of outlining the last element.
+  store<u16>(bs.offset - 2, BRACKET_RIGHT);
 }
 
 /**
@@ -495,34 +490,27 @@ export function serializeArrayPointer<T extends any[]>(src: usize): void {
     !isString<valueof<T>>()
   ) {
     const len = load<i32>(src, offsetof<T>("length_"));
-    const end = len - 1;
-    if (end == -1) {
+    if (len == 0) {
       bs.proposeSize(4);
       store<u32>(bs.offset, 6094939);
       bs.offset += 4;
       return;
     }
 
-    bs.proposeSize(4 + <u32>end * 2);
+    bs.proposeSize(4 + <u32>(len - 1) * 2);
     store<u16>(bs.offset, BRACKET_LEFT);
     bs.offset += 2;
 
     const stride = sizeof<valueof<T>>();
-    let i = 0;
-    while (i < end) {
+    for (let i = 0; i < len; i++) {
       const dataStart = load<usize>(src, offsetof<T>("dataStart"));
       const block = load<usize>(dataStart + <usize>i * stride);
-      i++;
       serializeArrayElementPointer<valueof<T>>(block);
       store<u16>(bs.offset, COMMA);
       bs.offset += 2;
     }
-
-    const dataStart = load<usize>(src, offsetof<T>("dataStart"));
-    const lastBlock = load<usize>(dataStart + <usize>end * stride);
-    serializeArrayElementPointer<valueof<T>>(lastBlock);
-    store<u16>(bs.offset, BRACKET_RIGHT);
-    bs.offset += 2;
+    // Keep the same single-call-site shape for transform-generated fields.
+    store<u16>(bs.offset - 2, BRACKET_RIGHT);
     return;
   }
   serializeArray<T>(changetype<T>(src));

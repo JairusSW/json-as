@@ -136,6 +136,10 @@ Evidence is under `build/simdjson-parity/comparisons/` in
 `uninitialized-owned-{canada,citm,twitter,github,lottie}-v8/` and the
 fifteen-pair `uninitialized-owned-{poet,gsoc}-v8-15/` comparisons. This is an
 accepted serialization gain; all seven rows still miss the 1.2x-native target.
+A separate fifteen-pair rebuild of the committed json-as and AssemblyScript
+heads is 1.006x the frozen prototype on Poet stringify, with parse and
+validation controls within 0.3%; see
+`uninitialized-owned-poet-exact-head-v8/`.
 
 A follow-up replaced the final in-place `__renew` with a direct logical-size
 header store. The owned capacity invariant makes this correct, but the smaller
@@ -145,6 +149,44 @@ Events to 0.989x; parse and validation controls remain within 1.3%, and all
 twenty output/retention comparisons pass for every label. The prototype is
 reverted rather than selecting by corpus or retaining a neutral-negative
 global change. Evidence is in `direct-owned-header-{poet,lottie,github}-v8/`.
+
+## 2026-11-01 accepted single-call-site composite arrays
+
+Composite arrays previously serialized every element except the last in a
+loop, then called the same element writer again for the last value. Generated
+object serializers therefore had two managed call sites and remained
+outlined. The retained loop emits a comma after every element and replaces the
+last comma with `]`. This leaves one element call site, preserves the fixed
+length snapshot and backing-pointer reload after callbacks, and lets Binaryen
+fuse suitable generated object writers into the loop without a forced inline
+annotation. The rule applies to every ordinary and transform-generated
+composite array; primitive specialized arrays are unchanged.
+
+Fifteen alternating V8 process pairs confirm Poet, Canada and CITM; the other
+typed minified corpora use seven. Every label passes twenty changing-output and
+retention oracle comparisons. Candidate / accepted no-fill baseline SIMD
+stringify throughput:
+
+| Corpus | Ratio |
+| --- | ---: |
+| Canada | 0.975x |
+| GitHub Events | 0.993x |
+| Twitter | 0.993x |
+| CITM Catalog | 1.075x |
+| Poet | 1.021x |
+| GSOC 2018 | 0.996x |
+| Lottie | 0.996x |
+
+No row crosses the 3% regression guard; parse and validation controls remain
+within 1.8%. Optimized SIMD binaries shrink by 68--264 bytes on every affected
+model and are byte-size unchanged on the GSOC map control. A named-Wasm Poet
+build confirms that the generated `Poem.__SERIALIZE` function and both calls
+disappear after the loop change. The rule has no corpus, field, schema-name,
+value or length selector.
+
+Evidence is under `build/simdjson-parity/comparisons/` in
+`single-loop-composite-{poet,canada,citm,twitter,github,gsoc,lottie}-v8/`;
+the fifteen-pair confirmations carry the `-15` suffix for Canada and CITM.
 
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
