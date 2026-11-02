@@ -525,6 +525,46 @@ export class JSONTransform extends Visitor {
     return null;
   }
 
+  /** Whether constructing an implicit nested default graph is free of
+   * user-provided expressions and cursor lifecycle hooks. */
+  private canDeferCursorObjectDefault(
+    owner: Schema,
+    type: string,
+    visiting: Set<Schema> = new Set<Schema>(),
+  ): boolean {
+    const schema = this.getDefaultSchema(owner, type);
+    if (
+      !schema ||
+      visiting.has(schema) ||
+      schema.custom ||
+      !schema.static ||
+      schema.node.isGeneric ||
+      schema.hasCustomCursorLifecycle ||
+      schema.members.some(
+        (member) =>
+          !!member.value ||
+          member.generic ||
+          member.flags.has(PropertyFlags.Lazy),
+      )
+    )
+      return false;
+
+    visiting.add(schema);
+    for (const member of schema.members) {
+      if (member.node.type.isNullable) continue;
+      const nested = this.getDefaultSchema(schema, member.type);
+      if (
+        nested &&
+        !this.canDeferCursorObjectDefault(schema, member.type, visiting)
+      ) {
+        visiting.delete(schema);
+        return false;
+      }
+    }
+    visiting.delete(schema);
+    return true;
+  }
+
   /** Extract the element type from the normalized collection spellings we emit. */
   private getDefaultElementType(type: string): string | null {
     const value = stripNull(type).trim();
@@ -1071,6 +1111,11 @@ export class JSONTransform extends Visitor {
     const schema = new Schema();
     schema.node = node;
     schema.name = source.getQualifiedName(node);
+    schema.hasCustomCursorLifecycle = node.members.some((member) =>
+      ["__INITIALIZE", "__INITIALIZE_CURSOR", "__FINALIZE_CURSOR"].includes(
+        member.name.text,
+      ),
+    );
 
     if (node.extendsType) {
       this.collectInheritedFieldMembers(node, source, members);
@@ -1914,11 +1959,7 @@ export class JSONTransform extends Visitor {
           !member.generic &&
           !member.flags.has(PropertyFlags.Lazy),
       ) &&
-      !node.members.some((member) =>
-        ["__INITIALIZE", "__INITIALIZE_CURSOR", "__FINALIZE_CURSOR"].includes(
-          member.name.text,
-        ),
-      );
+      !this.schema.hasCustomCursorLifecycle;
     const cursorInitializers: string[] = [];
     const cursorDeferred: Array<{ member: Property; initialize: string }> = [];
     for (let i = 0; i < this.schema.members.length; i++) {
@@ -1969,7 +2010,8 @@ export class JSONTransform extends Visitor {
       if (
         cursorMayDefer &&
         !member.node.type.isNullable &&
-        /^(Array|Map|Set)</.test(member.type)
+        (/^(Array|Map|Set)</.test(member.type) ||
+          this.canDeferCursorObjectDefault(this.schema, member.type))
       ) {
         cursorDeferred.push({ member, initialize: cursorInitialize });
       } else {

@@ -22,6 +22,7 @@ export declare class JSONTransform extends Visitor {
     visitClassDeclarationRef(node: ClassDeclaration): void;
     resolveType(type: string, source: Src, visited?: Set<string>): string;
     private getDefaultSchema;
+    private canDeferCursorObjectDefault;
     private getDefaultElementType;
     private getDefaultExpressionJSON;
     private getImplicitDefaultJSON;

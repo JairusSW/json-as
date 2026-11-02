@@ -336,6 +336,32 @@ export class JSONTransform extends Visitor {
             return owner.parent;
         return null;
     }
+    canDeferCursorObjectDefault(owner, type, visiting = new Set()) {
+        const schema = this.getDefaultSchema(owner, type);
+        if (!schema ||
+            visiting.has(schema) ||
+            schema.custom ||
+            !schema.static ||
+            schema.node.isGeneric ||
+            schema.hasCustomCursorLifecycle ||
+            schema.members.some((member) => !!member.value ||
+                member.generic ||
+                member.flags.has(PropertyFlags.Lazy)))
+            return false;
+        visiting.add(schema);
+        for (const member of schema.members) {
+            if (member.node.type.isNullable)
+                continue;
+            const nested = this.getDefaultSchema(schema, member.type);
+            if (nested &&
+                !this.canDeferCursorObjectDefault(schema, member.type, visiting)) {
+                visiting.delete(schema);
+                return false;
+            }
+        }
+        visiting.delete(schema);
+        return true;
+    }
     getDefaultElementType(type) {
         const value = stripNull(type).trim();
         if (value.startsWith("Array<") && value.endsWith(">"))
@@ -652,6 +678,7 @@ export class JSONTransform extends Visitor {
         const schema = new Schema();
         schema.node = node;
         schema.name = source.getQualifiedName(node);
+        schema.hasCustomCursorLifecycle = node.members.some((member) => ["__INITIALIZE", "__INITIALIZE_CURSOR", "__FINALIZE_CURSOR"].includes(member.name.text));
         if (node.extendsType) {
             this.collectInheritedFieldMembers(node, source, members);
             const extendsName = source.resolveExtendsName(node);
@@ -1230,7 +1257,7 @@ export class JSONTransform extends Visitor {
             this.schema.members.every((member) => !member.value &&
                 !member.generic &&
                 !member.flags.has(PropertyFlags.Lazy)) &&
-            !node.members.some((member) => ["__INITIALIZE", "__INITIALIZE_CURSOR", "__FINALIZE_CURSOR"].includes(member.name.text));
+            !this.schema.hasCustomCursorLifecycle;
         const cursorInitializers = [];
         const cursorDeferred = [];
         for (let i = 0; i < this.schema.members.length; i++) {
@@ -1275,7 +1302,8 @@ export class JSONTransform extends Visitor {
             const cursorInitialize = INITIALIZE.slice(initializeStart);
             if (cursorMayDefer &&
                 !member.node.type.isNullable &&
-                /^(Array|Map|Set)</.test(member.type)) {
+                (/^(Array|Map|Set)</.test(member.type) ||
+                    this.canDeferCursorObjectDefault(this.schema, member.type))) {
                 cursorDeferred.push({ member, initialize: cursorInitialize });
             }
             else {

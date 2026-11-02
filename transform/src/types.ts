@@ -98,6 +98,7 @@ export class Schema {
   public byteSize: number = 0;
   public deps: Schema[] = [];
   public customJsonKind: string = "any";
+  public hasCustomCursorLifecycle: boolean = false;
   private _custom: boolean = false;
 
   set custom(value: boolean) {

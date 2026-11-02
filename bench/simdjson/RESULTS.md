@@ -4570,3 +4570,46 @@ Artifacts: clean profile `gsoc-parse-clean-1f50520-profile.txt`, run
 comparisons `struninit-*-v8/` including `struninit-gsoc-2018-min-v8-15/`, and
 the rejected runtime run/comparison `sweep128x0001/` / `sweep128-gsoc-v8/`
 under `build/simdjson-parity/`.
+
+## Deferred implicit nested defaults
+
+Fresh strict cursor parsing previously constructed every implicit non-null
+nested object before reading the input, even when a present field immediately
+replaced that default graph. The transform now defers only compiler-generated,
+side-effect-free nested defaults until successful object completion. A
+recursive capability check rejects explicit default expressions, custom cursor
+lifecycle hooks, custom schemas, generics and lazy members. Missing fields keep
+their established default graph, while present fields avoid throwaway
+construction. The rule is structural and applies equally to SIMD and SWAR; it
+does not select corpora, schemas, field names or input values.
+
+Five alternating V8 process pairs cover all sixteen classic layouts and every
+label passes twenty complete owned-output and retention comparisons. SIMD
+parse throughput versus the preceding committed baseline:
+
+| Workload | Minified | Pretty |
+| --- | ---: | ---: |
+| Canada | 1.012x | 0.992x |
+| Twitter | 1.284x | 1.239x |
+| CITM Catalog | 1.048x | 1.000x |
+| GitHub Events | 1.117x | 1.137x |
+| Poet | 0.992x | 1.023x |
+| GSOC 2018 | 1.045x | 1.073x |
+| Lottie | 1.006x | 1.023x |
+| OTFCC | 1.008x | - |
+| FGO | 1.022x | - |
+
+Fifteen-pair reruns clear noisy Canada-pretty validation and CITM-minified
+serialization screens. GitHub-pretty serialization remains 0.954x baseline at
+15 pairs even though serialization source is unchanged; the different parsed
+graph/allocation layout is therefore carried as an explicit follow-up
+regression rather than hidden by the much larger parse win.
+
+The retained source passes the transform suite, typecheck/lint, 123,956 normal
+checks and 77,952 strict/RFC checks across NAIVE, SWAR and SIMD. New regression
+coverage proves both deferred implicit defaults and the observable evaluation
+count of explicit nested initializers.
+
+Artifacts: frozen runs `struninit000001/` and `nestdefsafe0001/`; comparisons
+`safe-nested-*-v8`, with fifteen-pair confirmations for Canada pretty, CITM
+minified and GitHub Events pretty, under `build/simdjson-parity/`.
