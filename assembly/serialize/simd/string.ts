@@ -453,24 +453,15 @@ function copyKnownCleanString(
     src += 32;
     dst += 32;
   }
-  if (src + 16 <= end) {
-    store<v128>(dst, load<v128>(src));
-    src += 16;
-    dst += 16;
-  }
-  if (src + 8 <= end) {
-    store<u64>(dst, load<u64>(src));
-    src += 8;
-    dst += 8;
-  }
-  if (src + 4 <= end) {
-    store<u32>(dst, load<u32>(src));
-    src += 4;
-    dst += 4;
-  }
   if (src < end) {
-    store<u16>(dst, load<u16>(src));
-    dst += 2;
+    // Completed-clean metadata is only recorded for payloads of at least 32
+    // bytes. Copy the exact final 32 bytes when a partial chunk remains; its
+    // overlap with the preceding chunk removes the 16/8/4/2 tail cascade.
+    const tail = end - 32;
+    const dstTail = dstStart + 2 + srcSize - 32;
+    store<v128>(dstTail, load<v128>(tail));
+    store<v128>(dstTail, load<v128>(tail, 16), 16);
+    dst = dstStart + 2 + srcSize;
   }
   store<u16>(dstStart, 34);
   store<u16>(dst, 34);

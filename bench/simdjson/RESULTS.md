@@ -359,6 +359,51 @@ Evidence is under `build/simdjson-parity/comparisons/` in
 `ptrinline-{otfcc,fgo}-min-v8/`, and the GitHub/GSOC w2c2 comparisons. The
 rejected outline is recorded under `ptrsplit-*`.
 
+## 2026-11-02 accepted overlapping clean-copy tail
+
+Completed-clean managed strings are at least 32 physical bytes. After copying
+full 32-byte chunks, the SIMD writer now copies any partial remainder with two
+exact-end vector stores. Their overlap with the preceding chunk is harmless and
+removes the 16/8/4/2-byte tail cascade. The rule depends only on the physical
+range and applies to every classified clean string; it has no corpus, schema,
+field-name or value signature.
+
+Seven balanced V8 pairs cover every minified typed classic workload, and five
+pairs cover every pretty layout. Candidate / committed-baseline SIMD stringify
+throughput:
+
+| Workload | Minified | Pretty |
+| --- | ---: | ---: |
+| Canada | 1.012x | 1.013x |
+| Twitter | 1.027x | 1.019x |
+| CITM | 0.997x | 0.996x |
+| GitHub Events | 1.000x | 1.008x |
+| Poet | 1.062x | 1.103x |
+| GSOC | 1.034x | 1.010x |
+| Lottie | 1.002x | 1.003x |
+
+Every comparison passes twenty complete changing-output and retained-output
+oracles, and no parse, stringify or validation row crosses the 3% regression
+guard. OTFCC and FGO contain neither changed function after dead-code
+elimination, so their compiled hot paths are unaffected.
+
+The smaller copy kernel crosses the optimizer's inlining threshold. A
+post-change GitHub serialization profile no longer has a separate clean-copy
+frame; the work is fused into the generated/root writer, and isolated
+throughput moves from 7.17 to 6.60 microseconds per operation. That fusion grows
+optimized modules by 168--14,207 bytes across the seven typed corpora, with the
+largest increase on GitHub's widest string-bearing schema.
+
+On w2c2, seven pairs improve GSOC stringify 1.036x with runtime checks and
+1.014x without them. An inactive checked-validation row initially moved 0.968x;
+a twelve-pair checked-only confirmation reports 1.033x stringify and 1.000x
+validation, superseding the noisy control failure. All backend oracles pass.
+
+Evidence is under `build/simdjson-parity/comparisons/` in
+`overlapcopy-{canada,twitter,citm,github,poet,gsoc,lottie}-*-v8/` and the two
+GSOC w2c2 comparisons. Profiles are
+`github-{inline,overlap}-serialize-self-profile.json`.
+
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
 descriptions of balanced variant rounds record the intended method, not a
