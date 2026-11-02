@@ -4297,6 +4297,21 @@ Artifacts: runs `itoa9base000001` and `itoa9cand000001`; V8 comparisons
 `itoa9-lottie-pretty-v8-15`; w2c2 comparison `itoa9-citm-w2c2-15` under
 `build/simdjson-parity/`.
 
+## Rejected independent five- through eight-digit quotients
+
+The same independent-quotient form was extended to five-, six-, seven- and
+eight-digit `u32` values and to padded eight-digit `u64` groups. Nine balanced
+V8 pairs pass every output oracle and report 1.006x CITM-minified, 1.004x CITM-
+pretty and 1.002x Twitter-minified stringify throughput; GitHub Events is
+unchanged. A 21-pair CITM-minified confirmation reduces the stringify result to
+1.003x while parse and validation controls remain within 0.7%. The extra form
+is therefore reverted: the small gain does not justify expanding three more
+width branches, while the retained nine-/ten-digit change has stronger classic
+and cross-backend evidence.
+
+Artifacts: run `itoa8cand000001` and comparisons `itoa8-*-v8`, including the
+21-pair `itoa8-citm-min-v8-21` confirmation.
+
 ## Rejected cached `Map<string, string>` traversal
 
 A type-specialized Map writer cached the rooted, non-moving entry buffer for
