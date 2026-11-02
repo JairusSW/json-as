@@ -30,6 +30,9 @@ jobs:
       - name: Test Transform
         run: bun run test:transform
 
+      - name: Test Runtime Compatibility
+        run: bun run test -- assembly/__tests__/string-clean-classification.spec.ts --mode simd --no-cache --show-logs
+
       - name: Run Tests (Slow)
         run: JSON_USE_FAST_PATH=0 bun run test:ci -- --no-cache
 
