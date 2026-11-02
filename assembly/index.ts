@@ -551,6 +551,7 @@ export namespace JSON {
               4_096,
               sourceBytes > 4_194_304 ? 16_777_216 : sourceBytes << 2,
             );
+            const previousGCBatch = __beginGCAllocationBatch();
             const previousBatch = __beginAllocBatch(batchBytes);
             const obj = changetype<nonnull<T>>(
               __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
@@ -580,6 +581,7 @@ export namespace JSON {
               setParseSrc(previous);
             }
             __endAllocBatch(previousBatch);
+            __endGCAllocationBatch(previousGCBatch);
             if (!next || skipCursorWhitespace(next, end) != end)
               throw new Error("Invalid JSON syntax or target value");
             return obj;
