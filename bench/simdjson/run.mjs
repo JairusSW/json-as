@@ -311,6 +311,8 @@ function build() {
   verifyUpstream();
   const file = path.join(dir, `generated/${key}.json`);
   const metadata = JSON.parse(read(file));
+  if (invoke("git", ["rev-parse", "HEAD"]).trim() !== metadata.revision)
+    throw new Error("Source revision changed since preparation");
   if (!metadata.assemblyscript)
     throw new Error("AssemblyScript compiler/runtime provenance is missing");
   verifyAssemblyscript(metadata.assemblyscript);

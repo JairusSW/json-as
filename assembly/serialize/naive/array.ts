@@ -489,33 +489,7 @@ export function serializeArrayPointer<T extends any[]>(src: usize): void {
     serializeIntegerArrayFast<T>(src);
     return;
   }
-  if (
-    (isManaged<valueof<T>>() || isReference<valueof<T>>()) &&
-    !isString<valueof<T>>()
-  ) {
-    const len = load<i32>(src, offsetof<T>("length_"));
-    if (len == 0) {
-      bs.proposeSize(4);
-      store<u32>(bs.offset, 6094939);
-      bs.offset += 4;
-      return;
-    }
-
-    bs.proposeSize(4 + <u32>(len - 1) * 2);
-    store<u16>(bs.offset, BRACKET_LEFT);
-    bs.offset += 2;
-
-    const stride = sizeof<valueof<T>>();
-    for (let i = 0; i < len; i++) {
-      const dataStart = load<usize>(src, offsetof<T>("dataStart"));
-      const block = load<usize>(dataStart + <usize>i * stride);
-      serializeArrayElementPointer<valueof<T>>(block);
-      store<u16>(bs.offset, COMMA);
-      bs.offset += 2;
-    }
-    // Keep the same single-call-site shape for transform-generated fields.
-    store<u16>(bs.offset - 2, BRACKET_RIGHT);
-    return;
-  }
+  // Element callbacks may replace the owner's field. Retain the original
+  // managed array, not only its address, until iteration has completed.
   serializeArray<T>(changetype<T>(src));
 }

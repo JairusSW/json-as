@@ -1818,7 +1818,12 @@ export class JSONTransform extends Visitor {
     const isPure = this.schema.static;
     let isRegular = isPure;
     let isFirst = true;
-    const directStringMembers = this.schema.static
+    // Reservations cannot span callbacks that can change later field sizes.
+    const canReserveDynamicPayloads = this.schema.members.every((member) =>
+      isReservedPrimitive(member.type) || isString(member.type) ||
+      /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type),
+    );
+    const directStringMembers = this.schema.static && canReserveDynamicPayloads
       ? this.schema.members.filter(
           (member) =>
             !member.flags.has(PropertyFlags.Lazy) &&
@@ -1830,7 +1835,7 @@ export class JSONTransform extends Visitor {
     // Even one field removes its separate capacity check and keeps the output
     // cursor local across the field boundary without changing the total bound.
     const reserveDirectStringPayloads = directStringMembers.length >= 1;
-    const wideIntegerArrayCandidates = this.schema.static
+    const wideIntegerArrayCandidates = this.schema.static && canReserveDynamicPayloads
       ? this.schema.members.filter((member) => {
           if (
             member.flags.has(PropertyFlags.Lazy) ||

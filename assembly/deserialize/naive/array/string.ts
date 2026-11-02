@@ -22,6 +22,7 @@ export function deserializeStringArray_NAIVE(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
+  nullable: bool = false,
 ): string[] {
   const out = changetype<string[]>(
     dst || changetype<usize>(instantiate<string[]>()),
@@ -56,6 +57,10 @@ export function deserializeStringArray_NAIVE(
       out.push(value);
       srcStart = closing + 2;
     } else if (srcStart + 8 <= srcEnd && load<u64>(srcStart) == NULL_WORD_U64) {
+      if (!nullable) {
+        markProductionParseError();
+        return changetype<string[]>(0);
+      }
       // `(string | null)[]` element
       out.push(changetype<string>(0));
       srcStart += 8;

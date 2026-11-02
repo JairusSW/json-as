@@ -1,8 +1,5 @@
-// Throughput charts for the classic/ dataset benches - native simdjson plus
-// json-as NAIVE / SWAR / SIMD / lazy / dynamic modes, rendered once per AS
-// runtime (v8 and wavm). The simdjson values are the recorded native medians
-// from the equivalent owned-output parity harness; json-as values come from the
-// regular benchmark logs.
+// Throughput charts for json-as classic workload logs. Native comparisons
+// belong to the matched owned-output parity harness, not these reuse logs.
 //
 // Populate the logs first (v8 and wavm), e.g.:
 //   for rt in "" "--wavm"; do for m in naive swar simd; do \
@@ -63,21 +60,6 @@ if (
 
 const MODES = ["naive", "swar", "simd"] as const;
 
-interface SimdjsonChartResult {
-  inputBytes: number;
-  deserialize: { medianNs: number; mbps: number };
-  serialize: { medianNs: number; mbps: number };
-}
-
-interface SimdjsonChartResults {
-  simdjson: { version: string; commit: string };
-  results: Record<string, SimdjsonChartResult>;
-}
-
-const SIMDJSON_RESULTS = JSON.parse(
-  fs.readFileSync("./bench/simdjson/classic-chart-results.json", "utf-8"),
-) as SimdjsonChartResults;
-
 const DATASETS: { key: string; label: string }[] = [
   { key: "twitter", label: "Twitter" },
   { key: "canada", label: "Canada" },
@@ -90,8 +72,7 @@ const DATASETS: { key: string; label: string }[] = [
   { key: "fgo", label: "FGO" },
 ];
 
-// simdjson / NAIVE / SWAR / SIMD in the standard competitor and mode hues.
-const SIMDJSON_BAR = MODE_BARS[0];
+// NAIVE / SWAR / SIMD retain their standard mode hues.
 const MODE_COLORS = [MODE_BARS[1], MODE_BARS[2], MODE_BARS[3]];
 // SIMD-only extra series: lazy(auto) (muted teal) and dynamic JSON.Obj (copper).
 const LAZY_BAR = { bg: rgba("mutedTeal", 0.85), border: BASE.mutedTeal };
@@ -121,11 +102,6 @@ function sizeLabel(bytes: number): string {
   return mb >= 1 ? `${mb.toFixed(1)}MB` : `${Math.round(bytes / 1e3)}KB`;
 }
 
-function simdjsonResult(key: string, kind: BenchKind): BenchResult {
-  const result = SIMDJSON_RESULTS.results[key][kind];
-  return { mbps: result.mbps } as BenchResult;
-}
-
 fs.mkdirSync("./build/charts", { recursive: true });
 
 for (const runtime of [ISOLATED_RUNTIME]) {
@@ -152,7 +128,7 @@ for (const runtime of [ISOLATED_RUNTIME]) {
       const obj =
         read(runtime, "simd", `${key}-obj-min`, kind) ??
         ({ mbps: 0 } as BenchResult);
-      chartData[key] = [simdjsonResult(key, kind), ...eager, lazy, obj];
+      chartData[key] = [...eager, lazy, obj];
     }
     if (present === 0) {
       console.warn(`  skip ${kind}/${runtime}: no logs found`);
@@ -165,15 +141,8 @@ for (const runtime of [ISOLATED_RUNTIME]) {
         runtimeLabel: runtime,
         yLabel: "Throughput (MB/s)",
         xLabel: "",
-        datasetLabels: [
-          `simdjson ${SIMDJSON_RESULTS.simdjson.version}`,
-          "NAIVE",
-          "SWAR",
-          "SIMD",
-          "Lazy",
-          "JSON.Obj",
-        ],
-        colors: [SIMDJSON_BAR, ...MODE_COLORS, LAZY_BAR, OBJ_BAR],
+        datasetLabels: ["NAIVE", "SWAR", "SIMD", "Lazy", "JSON.Obj"],
+        colors: [...MODE_COLORS, LAZY_BAR, OBJ_BAR],
         // Value labels stand up off each bar top (anchor "end", rotated vertical):
         // the six narrow same-height bars per group would otherwise overlap their
         // labels. generateChart compensates for the datalabels dpr quirk on the

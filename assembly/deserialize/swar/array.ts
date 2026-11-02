@@ -22,7 +22,12 @@ export function deserializeArrayField<T extends unknown[]>(
 ): usize {
   const fieldPtr = dstObj + dstOffset;
   if (isString<valueof<T>>()) {
-    return deserializeStringArrayField<T>(srcStart, srcEnd, fieldPtr);
+    return deserializeStringArrayField<T>(
+      srcStart,
+      srcEnd,
+      fieldPtr,
+      isNullable<valueof<T>>(),
+    );
   } else if (isBoolean<valueof<T>>()) {
     return deserializeBooleanArrayField<T>(srcStart, srcEnd, fieldPtr);
   } else if (isInteger<valueof<T>>()) {

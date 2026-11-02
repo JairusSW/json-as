@@ -1,4 +1,7 @@
-import { invalidateStringFieldTrace } from "../assembly/deserialize/parseMode";
+import {
+  invalidateStringFieldTrace,
+  claimStringBuffer,
+} from "../assembly/deserialize/parseMode";
 import { allocateUninitialized } from "../assembly/util/runtime";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { STRING_SIZE_MASK } from "../assembly/util/runtime";
@@ -250,7 +253,7 @@ export namespace bs {
   @inline
   export function proposeSize(size: u32): void {
     stackSize += size;
-    reserve(ownedOutput ? offset - buffer + size : stackSize, 0);
+    reserve(stackSize, 0);
   }
 
   /**
@@ -260,7 +263,7 @@ export namespace bs {
    */
   export function growSize(size: u32): void {
     stackSize += size;
-    reserve(ownedOutput ? offset - buffer + size : stackSize, MIN_BUFFER_SIZE);
+    reserve(stackSize, MIN_BUFFER_SIZE);
   }
 
   /** Reserve one vector block's worst-case expansion, then account for the
@@ -268,9 +271,7 @@ export namespace bs {
   @inline
   export function prepareGrowth(maxGrowth: u32, writeExtent: u32): void {
     reserve(
-      ownedOutput
-        ? offset - buffer + max(maxGrowth, writeExtent)
-        : max(stackSize + maxGrowth, offset - buffer + writeExtent),
+      max(stackSize + maxGrowth, offset - buffer + writeExtent),
       MIN_BUFFER_SIZE,
     );
   }
@@ -377,7 +378,7 @@ export namespace bs {
 
     const current = load<usize>(dstFieldPtr);
     let stringPtr: usize;
-    if (current >= __heap_base) {
+    if (current >= __heap_base && claimStringBuffer(current, dstFieldPtr)) {
       invalidateStringFieldTrace(current);
       const object = changetype<OBJECT>(current - TOTAL_OVERHEAD);
       if ((object.rtSize & STRING_SIZE_MASK) == byteLength) {

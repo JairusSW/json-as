@@ -1160,13 +1160,15 @@ export class JSONTransform extends Visitor {
         const isPure = this.schema.static;
         let isRegular = isPure;
         let isFirst = true;
-        const directStringMembers = this.schema.static
+        const canReserveDynamicPayloads = this.schema.members.every((member) => isReservedPrimitive(member.type) || isString(member.type) ||
+            /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type));
+        const directStringMembers = this.schema.static && canReserveDynamicPayloads
             ? this.schema.members.filter((member) => !member.flags.has(PropertyFlags.Lazy) &&
                 isString(member.type) &&
                 !defaultStringLiterals.has(member.name))
             : [];
         const reserveDirectStringPayloads = directStringMembers.length >= 1;
-        const wideIntegerArrayCandidates = this.schema.static
+        const wideIntegerArrayCandidates = this.schema.static && canReserveDynamicPayloads
             ? this.schema.members.filter((member) => {
                 if (member.flags.has(PropertyFlags.Lazy) ||
                     member.node.type.isNullable ||

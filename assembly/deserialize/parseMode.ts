@@ -91,6 +91,18 @@ export function invalidateStringFieldTrace(
   STRING_TRACE_COMPLETE = false;
 }
 
+// One parse may overwrite each managed string through only one destination
+// slot. Nested parses share these claims; duplicate keys in one slot may reuse.
+let STRING_BUFFER_OWNERS: Map<usize, usize> | null = null;
+
+export function claimStringBuffer(value: usize, field: usize): bool {
+  if (!STRING_BUFFER_OWNERS) STRING_BUFFER_OWNERS = new Map<usize, usize>();
+  const owners = STRING_BUFFER_OWNERS!;
+  if (owners.has(value)) return owners.get(value) == field;
+  owners.set(value, field);
+  return true;
+}
+
 /** Enter one public parse call, suspending trace use in nested parses. */
 @inline
 export function beginStringFieldTrace(
@@ -99,6 +111,8 @@ export function beginStringFieldTrace(
   typeId: u32,
 ): void {
   if (!ENABLE_EXACT_SOURCE_TRACES) return;
+  if (STRING_TRACE_DEPTH == 0 && STRING_BUFFER_OWNERS)
+    STRING_BUFFER_OWNERS!.clear();
   STRING_TRACE_DEPTH++;
   if (!ASC_FEATURE_SIMD || STRING_TRACE_DEPTH != 1 || out == 0) return;
 
@@ -140,6 +154,8 @@ export function endStringFieldTrace(success: bool): void {
     STRING_TRACE_COMPLETE = success;
   }
   STRING_TRACE_DEPTH--;
+  if (STRING_TRACE_DEPTH == 0 && STRING_BUFFER_OWNERS)
+    STRING_BUFFER_OWNERS!.clear();
 }
 
 /** Return the cached cursor, or zero when this field must be decoded. */
@@ -158,8 +174,10 @@ export function probeStringFieldTrace(
     unchecked(STRING_TRACE_STARTS[slot]) == payloadStart &&
     load<usize>(dstFieldPtr) ==
       changetype<usize>(unchecked(STRING_TRACE_VALUES[slot]))
-  )
+  ) {
+    if (!claimStringBuffer(load<usize>(dstFieldPtr), dstFieldPtr)) return 0;
     return unchecked(STRING_TRACE_ENDS[slot]);
+  }
   return 0;
 }
 

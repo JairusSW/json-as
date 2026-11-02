@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- fix: preserve owned-output reservations, reserve dynamic fields after callback boundaries, retain callback-capable arrays, and keep Map iteration stable across callback rehashing.
+- fix(parse): separate aliased reused string destinations and enforce string-array element nullability consistently for fresh and reused outputs.
+- bench: keep native parity comparisons separate from classic workload charts and reject prepared labels from another source revision.
 - fix(parse): invalidate cached string and object traces when owned string buffers are overwritten, preventing stale values after source or decoded-field buffer reuse.
 - compat: keep string metadata, uninitialized allocation, and allocation batching optional so published AssemblyScript runtimes retain ordinary allocation and string semantics.
 - perf(strict): construct fresh checked object graphs inside a scoped AssemblyScript allocation batch, preserving individually managed results while avoiding repeated TLSF searches and free-list updates.

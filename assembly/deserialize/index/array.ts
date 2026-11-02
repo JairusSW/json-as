@@ -30,16 +30,24 @@ export function deserializeArray<T extends unknown[]>(
   dst: usize,
 ): T {
   if (isString<valueof<T>>()) {
-    // SWAR/SIMD routes through the same `Into` helper used by the
-    // struct-field path; that helper carries the `null` token fast path
-    // for `(string | null)[]`. NAIVE keeps the naive scanner, which
-    // currently only handles non-nullable string arrays. The naive
-    // variant's static `string[]` return type is bit-identical to
-    // `(string | null)[]` so `changetype<T>` is a runtime no-op.
+    // Preserve element nullability before entering the narrower string-array
+    // helper signatures used by the individual mode implementations.
     if (JSON_MODE == JSONMode.SWAR || JSON_MODE == JSONMode.SIMD) {
-      return deserializeStringArray_SWAR<T>(srcStart, srcEnd, dst);
+      return deserializeStringArray_SWAR<T>(
+        srcStart,
+        srcEnd,
+        dst,
+        isNullable<valueof<T>>(),
+      );
     }
-    return changetype<T>(deserializeStringArray_NAIVE(srcStart, srcEnd, dst));
+    return changetype<T>(
+      deserializeStringArray_NAIVE(
+        srcStart,
+        srcEnd,
+        dst,
+        isNullable<valueof<T>>(),
+      ),
+    );
   } else if (isBoolean<valueof<T>>()) {
     return deserializeBooleanArray<T>(srcStart, srcEnd, dst);
   } else if (isInteger<valueof<T>>()) {

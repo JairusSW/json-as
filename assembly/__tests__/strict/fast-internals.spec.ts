@@ -22,7 +22,10 @@ function expectStrictFastReject(source: string): void {
   const end = start + ((<usize>source.length) << 1);
   const out = new StrictFastNumericFields();
 
-  expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(0);
+  // @ts-expect-error: generated only when fast paths are enabled
+  if (isDefined(out.__DESERIALIZE_FAST)) {
+    expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(0);
+  }
 }
 
 function expectStrictStringFastReject(source: string): void {
@@ -30,7 +33,10 @@ function expectStrictStringFastReject(source: string): void {
   const end = start + ((<usize>source.length) << 1);
   const out = new StrictFastStringFields();
 
-  expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(0);
+  // @ts-expect-error: generated only when fast paths are enabled
+  if (isDefined(out.__DESERIALIZE_FAST)) {
+    expect(out.__DESERIALIZE_FAST(start, end, out)).toBe(0);
+  }
 }
 
 describe("strict generated numeric paths fail malformed fields", () => {
@@ -46,6 +52,10 @@ describe("strict generated numeric paths fail malformed fields", () => {
 });
 
 describe("strict generated string paths validate complete tokens", () => {
+  // This suite exercises generated fast methods directly.
+  // @ts-expect-error: supplied by the json-as transform
+  if (!isDefined(changetype<StrictFastStringFields>(0).__DESERIALIZE_FAST))
+    return;
   const valid = '{"first":"line\\nquote: \\"","second":"slash: \\\\"}';
   const start = changetype<usize>(valid);
   const end = start + ((<usize>valid.length) << 1);

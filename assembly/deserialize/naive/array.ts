@@ -18,7 +18,14 @@ export function deserializeArray<T extends unknown[]>(
   dst: usize,
 ): T {
   if (isString<valueof<T>>()) {
-    return <T>deserializeStringArray_NAIVE(srcStart, srcEnd, dst);
+    return <T>(
+      deserializeStringArray_NAIVE(
+        srcStart,
+        srcEnd,
+        dst,
+        isNullable<valueof<T>>(),
+      )
+    );
   } else if (isBoolean<valueof<T>>()) {
     // @ts-ignore
     return deserializeBooleanArray<T>(srcStart, srcEnd, dst);

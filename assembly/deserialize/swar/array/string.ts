@@ -18,6 +18,7 @@ function deserializeStringArrayBody<T extends string[]>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
+  nullable: bool,
 ): usize {
   let index = 0;
   // Reused struct fields normally retain their array backing store. Cache the
@@ -45,18 +46,9 @@ function deserializeStringArrayBody<T extends string[]>(
         index < reusableLength
           ? reusableDataStart + <usize>index * elementSize
           : ensureArrayElementSlot<T>(out, index);
-      // Null fast path for `(string | null)[]`. "null" is 4 UTF-16 chars
-      // = 8 bytes, exactly one u64 compare. Store 0 (the AS null reference)
-      // and skip 8 bytes.
-      //
-      // We accept null tokens unconditionally rather than gating on
-      // `isNullable<valueof<T>>()` - AS's `valueof` of a nullable-array
-      // element type doesn't always preserve the nullable marker through
-      // the dispatcher's `<T>` cast, so the gate would mis-fire for the
-      // very case it's meant to handle. The runtime cost on plain
-      // `string[]` arrays is one extra u64 compare per element; a
-      // well-formed `string[]` input never matches it.
+      // Only nullable element types accept a null token.
       if (srcStart + 8 <= srcEnd && load<u64>(srcStart) == NULL_WORD_U64) {
+        if (!nullable) break;
         store<usize>(slot, 0);
         srcStart += 8;
       } else {
@@ -94,11 +86,13 @@ export function deserializeStringArrayField<T extends string[]>(
   srcStart: usize,
   srcEnd: usize,
   fieldPtr: usize,
+  nullable: bool = false,
 ): usize {
   return deserializeStringArrayBody<T>(
     srcStart,
     srcEnd,
     ensureArrayField<T>(fieldPtr),
+    nullable,
   );
 }
 
@@ -115,6 +109,7 @@ export function deserializeStringArray_SWAR<T extends string[]>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
+  nullable: bool = false,
 ): T {
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(instantiate<T>()),
@@ -162,6 +157,7 @@ export function deserializeStringArray_SWAR<T extends string[]>(
   while (srcStart < srcEnd && writePtr < writePtrLimit) {
     // Null fast path: one u64 compare.
     if (srcStart + 8 <= srcEnd && load<u64>(srcStart) == NULL_WORD_U64) {
+      if (!nullable) break;
       store<usize>(writePtr, 0);
       srcStart += 8;
     } else {

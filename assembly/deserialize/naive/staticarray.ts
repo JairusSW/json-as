@@ -40,7 +40,12 @@ export function deserializeStaticArray<T extends StaticArray<any>>(
   if (isString<valueof<T>>()) {
     return materializeStaticArray<T>(
       changetype<valueof<T>[]>(
-        deserializeStringArray_NAIVE(srcStart, srcEnd, 0),
+        deserializeStringArray_NAIVE(
+          srcStart,
+          srcEnd,
+          0,
+          isNullable<valueof<T>>(),
+        ),
       ),
       dst,
     );

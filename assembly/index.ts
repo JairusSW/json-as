@@ -3327,8 +3327,9 @@ export namespace JSON {
         // @ts-expect-error: type
         const value = deserializeArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
         if (changetype<usize>(value) == 0) {
-          takeProductionParseError();
-          throw new Error("Unterminated array in JSON");
+          // Nested readers propagate a sentinel; the public parse boundary
+          // reports the error so try-as can recover from typed rejections.
+          markProductionParseError();
         }
         return value;
       } else if (

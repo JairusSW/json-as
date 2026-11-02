@@ -4,17 +4,20 @@ import { BRACE_LEFT, BRACE_RIGHT, COLON, COMMA } from "../../custom/chars";
 import { serializeString } from "../index/string";
 import { serializeRaw } from "./raw";
 
+
 @unmanaged class SerializableMapEntry<K, V> {
   key: K;
   value: V;
   taggedNext: usize;
 }
 
+
 @inline function mapEntrySize<K, V>(): usize {
   const maxKV = sizeof<K>() > sizeof<V>() ? sizeof<K>() : sizeof<V>();
   const align = (maxKV > sizeof<usize>() ? maxKV : sizeof<usize>()) - 1;
   return (offsetof<SerializableMapEntry<K, V>>() + align) & ~align;
 }
+
 
 @inline function serializeMapValue<V>(value: V, rawValue: usize): void {
   if (isReference<V>() && !isNullable<V>()) {
@@ -28,6 +31,33 @@ import { serializeRaw } from "./raw";
   JSON.__serialize<V>(value);
 }
 
+// Snapshot original keys, read each value when visited, skip deleted keys,
+// and defer additions until a later call. Rehash cannot move this iteration.
+function serializeCallbackMap<T extends Map<any, any>>(src: T): void {
+  const keys = src.keys();
+  bs.proposeSize(4 + <u32>keys.length * 4);
+  store<u16>(bs.offset, BRACE_LEFT);
+  bs.offset += 2;
+  let wrote = false;
+  for (let i = 0; i < keys.length; i++) {
+    const key = unchecked(keys[i]);
+    if (!src.has(key)) continue;
+    const value = src.get(key);
+    if (wrote) {
+      store<u16>(bs.offset, COMMA);
+      bs.offset += 2;
+    }
+    if (isString<indexof<T>>()) serializeString(changetype<string>(key));
+    else JSON.__serialize<string>(JSON.internal.stringify<indexof<T>>(key));
+    store<u16>(bs.offset, COLON);
+    bs.offset += 2;
+    JSON.__serialize<valueof<T>>(value);
+    wrote = true;
+  }
+  store<u16>(bs.offset, BRACE_RIGHT);
+  bs.offset += 2;
+}
+
 export function serializeMap<T extends Map<any, any>>(src: T): void {
   const srcSize = src.size;
 
@@ -39,6 +69,17 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
   }
 
   const keyIsString = isString<indexof<T>>();
+  if (!keyIsString && isManaged<indexof<T>>()) {
+    serializeCallbackMap<T>(src);
+    return;
+  }
+  if (isManaged<valueof<T>>() && !isString<valueof<T>>()) {
+    const valueType = changetype<nonnull<valueof<T>>>(0);
+    if (!(valueType instanceof JSON.Raw)) {
+      serializeCallbackMap<T>(src);
+      return;
+    }
+  }
 
   bs.proposeSize(4 + <u32>(srcSize - 1) * 2 + <u32>srcSize * 2);
 
@@ -69,9 +110,7 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
     if (keyIsString) {
       serializeString(changetype<string>(key));
     } else {
-      JSON.__serialize<string>(
-        JSON.internal.stringify<indexof<T>>(key),
-      );
+      JSON.__serialize<string>(JSON.internal.stringify<indexof<T>>(key));
     }
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
