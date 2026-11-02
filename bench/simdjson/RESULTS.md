@@ -4723,3 +4723,31 @@ Artifacts: `github-validation-profile.wasm` and
 `stroutline00001/`, comparison `outlined-string-github-v8/`, under
 `build/simdjson-parity/`. The profiling driver is diagnostic, not a frozen
 qualification input.
+
+## Cache the current checked-discard container
+
+The checked discard traversal now keeps its current opening delimiter in a
+local. Entering a container saves the parent kind; closing restores it. Sibling
+values no longer reload the same stack byte. The bounded stack and grammar
+transitions are unchanged, including empty containers and the depth limit.
+This is shared grammar machinery with no corpus, schema or value selector.
+
+Seven alternating fresh V8 process pairs cover Canada, Twitter, CITM and
+GitHub Events in minified and pretty layouts; five pairs cover the remaining
+eight classic layouts. Both revisions use corrected sub-millisecond timing.
+Every RFC preflight and all 64 changing-input validation oracles pass per
+revision, and no SIMD or SWAR row crosses the 3% regression guard.
+
+SIMD validation changes range from 0.982x to 1.024x baseline: effectively
+neutral, with no claim that this closes native parity gaps. SWAR validation
+improves 1.075x/1.055x on Canada minified/pretty, 1.104x on GitHub minified and
+1.045x/1.099x on GSOC minified/pretty; its worst row is 0.985x Poet minified.
+The retained simplification is a useful shared/backported optimization while
+SIMD remains the only native parity gate.
+
+The complete source passes 123,956 normal checks, 77,952 strict/RFC checks
+across all three modes, typecheck and lint. No cached test binaries are used.
+
+Artifacts: runs `containerbase01/`, `containerlocal1/`, `contremaining01/`,
+`contremaining02/`; comparisons `container-local-eight-v8/` and
+`container-local-remaining-v8/` under `build/simdjson-parity/`.

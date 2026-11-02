@@ -611,8 +611,8 @@ export function readCursorLiteral(start: usize, end: usize, code: u16): usize {
 // Discard traversal cannot invoke user code. Its bounded scratch stack is used
 // only until this synchronous call returns, never across materialization or a
 // custom deserializer. Byte states need no managed references or lazy heap
-// allocation. Each byte records only the opening delimiter of its container;
-// parent cursor parsers keep their own depth in locals.
+// allocation. Each byte saves the parent container's opening delimiter;
+// the current container stays local across sibling values.
 const DISCARD_CONTAINERS: usize = memory.data(MAX_CURSOR_DEPTH);
 
 export function skipCheckedValue(
@@ -624,6 +624,7 @@ export function skipCheckedValue(
   let ptr =
     JSON_MODE == JSONMode.SIMD ? start : skipCursorWhitespace(start, end);
   let depth = 0;
+  let container: u16 = 0;
   while (true) {
     if (ptr >= end) return 0;
     let code = load<u16>(ptr);
@@ -634,13 +635,15 @@ export function skipCheckedValue(
     }
     if (code == 91 || code == 123) {
       if (outerDepth + depth >= MAX_CURSOR_DEPTH) return 0;
-      store<u8>(DISCARD_CONTAINERS + usize(depth++), <u8>code);
+      store<u8>(DISCARD_CONTAINERS + usize(depth++), <u8>container);
+      container = code;
       ptr = skipCursorWhitespace(ptr + 2, end);
       if (ptr >= end) return 0;
       const close = code == 91 ? 93 : 125;
       if (load<u16>(ptr) == close) {
         ptr += 2;
         depth--;
+        container = load<u8>(DISCARD_CONTAINERS + usize(depth));
       } else if (code == 123) {
         ptr = skipCursorKey(ptr, end);
         if (!ptr) return 0;
@@ -660,8 +663,8 @@ export function skipCheckedValue(
     }
 
     // A complete value can close any number of parent containers. The stack
-    // records only the container kind; grammar phase is represented by this
-    // control-flow position, avoiding a state write for every member/value.
+    // restores a parent kind only when a container closes; grammar phase is
+    // represented by this control-flow position.
     while (depth) {
       if (ptr >= end) return 0;
       code = load<u16>(ptr);
@@ -670,11 +673,11 @@ export function skipCheckedValue(
         if (ptr >= end) return 0;
         code = load<u16>(ptr);
       }
-      const container = load<u8>(DISCARD_CONTAINERS + usize(depth - 1));
       const close = container == 91 ? 93 : 125;
       if (code == close) {
         ptr += 2;
         depth--;
+        container = load<u8>(DISCARD_CONTAINERS + usize(depth));
         continue;
       }
       if (code != 44) return 0;
