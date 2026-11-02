@@ -54,10 +54,12 @@ gain rather than parity. Evidence is under
 `build/simdjson-parity/comparisons/string-size-tag5-*-v8/`.
 
 The benchmark harness now freezes the linked AssemblyScript checkout's real
-path, git revision, and actual compiler/runtime file hashes at prepare time,
-then refuses a build if any differ. Older artifacts record the json-as revision,
-binary hashes and AssemblyScript version but not that dependency commit; the
-baseline AssemblyScript checkout was `0c115329` and the candidate checkout is
+path, git revision, actual compiler files and a deterministic hash of the
+complete `std/assembly` source tree at prepare time, then refuses a build if any
+differ. The source-tree hash closes the dirty-runtime gap left by revision and
+compiler-file checks alone. Older artifacts record the json-as revision, binary
+hashes and AssemblyScript version but not that dependency commit; the baseline
+AssemblyScript checkout was `0c115329` and the candidate checkout is
 `0774f923`.
 
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering

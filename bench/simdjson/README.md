@@ -66,6 +66,12 @@ native binary only after checking the generated model, driver and recorded binar
 hash. Older artifacts without that provenance must be rebuilt. It
 is useful for isolated formatter experiments that change only xjb-as.
 
+Preparation records the linked AssemblyScript checkout's real path, git
+revision, compiler files and a deterministic hash of the complete
+`std/assembly` source tree. Build fails if any of them changes. The tree hash is
+required because a dirty standard-library or runtime edit does not change the
+checkout's git revision or compiled JavaScript compiler files.
+
 ## Comparable work
 
 - Primary json-as measurements compile `JSON_STRICT=true`, no string cache,

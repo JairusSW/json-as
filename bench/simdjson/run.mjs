@@ -41,6 +41,28 @@ if (!Number.isInteger(ops) || ops < 10 || !Number.isInteger(pairs) || pairs < 1)
 const relative = (p) => path.relative(root, p).split(path.sep).join("/");
 const sha = (v) => crypto.createHash("sha256").update(v).digest("hex");
 const read = (p) => fs.readFileSync(p, "utf8");
+function treeSha(directory) {
+  const hash = crypto.createHash("sha256");
+  const visit = (current) => {
+    for (const entry of fs
+      .readdirSync(current, { withFileTypes: true })
+      .toSorted((a, b) => a.name.localeCompare(b.name))) {
+      const absolute = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolute);
+      } else if (entry.isFile()) {
+        hash.update(
+          path.relative(directory, absolute).split(path.sep).join("/"),
+        );
+        hash.update("\0");
+        hash.update(fs.readFileSync(absolute));
+        hash.update("\0");
+      }
+    }
+  };
+  visit(directory);
+  return hash.digest("hex");
+}
 function invoke(bin, argv, { log, env } = {}) {
   const result = spawnSync(bin, argv, {
     cwd: root,
@@ -83,6 +105,7 @@ function assemblyscriptProvenance() {
     version: JSON.parse(read(path.join(packageRoot, "package.json"))).version,
     sourcePath: packageRoot,
     revision: gitRevision.status === 0 ? gitRevision.stdout.trim() : null,
+    standardLibrarySha256: treeSha(path.join(packageRoot, "std/assembly")),
     sha256: Object.fromEntries(
       files.map((file) => [
         file,
