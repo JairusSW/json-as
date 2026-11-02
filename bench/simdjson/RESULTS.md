@@ -4372,3 +4372,39 @@ classic runner, preventing mixed-runtime A/B comparisons.
 
 Artifacts: runs `digscan{base,cand}0002/` and comparison
 `digscan-selected-v8/` under `build/simdjson-parity/`.
+
+## Rejected shared xjb SIMD integer packer
+
+A fresh CITM serialize-only profile attributes 35.2% of samples to the
+generated object writer, 25.0% to integer formatting and 9.1% to integer-array
+emission. A prototype exposed xjb-as's buffered unsigned-integer writer and
+used its existing 16-digit SIMD packer for every nine- and ten-digit json-as
+integer. This reused the same general algorithm developed for AssemblyScript's
+number formatter; it had no schema or corpus selector.
+
+Seven alternating V8 pairs pass forty complete owned-output and retention
+comparisons. SIMD stringify throughput is 0.774x baseline while parse and
+validation controls are 1.001x and 0.987x. The packed path's 64-bit division
+and vector setup cost substantially more than json-as's four independently
+schedulable 32-bit constant quotients, so both the xjb-as API and json-as call
+site are fully reverted.
+
+Artifacts: profile `citm-serialize-current-profile.txt`, runs
+`xjbdig{base,cand}0001/` and comparison `xjbdigits-citm-v8/` under
+`build/simdjson-parity/`.
+
+## Rejected static integer pair table
+
+A second general prototype replaced the runtime-initialized 100-entry UTF-16
+digit-pair table with immutable data and made `ensureItoaPairs` an inlined
+no-op. This removes the apparent initialization guard at every scalar integer
+field without changing formatting algorithms or output.
+
+Seven alternating V8 pairs pass forty complete owned-output and retention
+comparisons. CITM SIMD stringify is 1.000x baseline and SWAR is 1.001x; all
+inactive phases remain within the 3% regression guard. The optimizer already
+amortizes or removes the guard, so the literal table is reverted rather than
+adding data with no measurable benefit.
+
+Artifacts: runs `pairlut{base,cand}001/` and comparison `pairlut-citm-v8/`
+under `build/simdjson-parity/`.
