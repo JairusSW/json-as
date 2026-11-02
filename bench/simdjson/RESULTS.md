@@ -4478,3 +4478,23 @@ is reverted rather than retaining a larger hot loop for a 0.4% result.
 Artifacts: clean profile `gsoc-serialize-clean-569871c-profile.txt`, runs
 `gsocserprof001/` and `escgrp{base,cand}001/`, and comparison
 `escape-group-gsoc-v8/` under `build/simdjson-parity/`.
+
+## Rejected SIMD dense-escape compaction
+
+A follow-up replaced the scalar dense-escape prototype with a true SIMD
+four-code-unit compactor. It classified short escapes in parallel, constructed
+candidate `[first, mapped]` pairs and used a 16-row `i8x16.swizzle` table to
+emit each dense group with one vector store. The established path still handled
+clean strings, sparse escapes, long controls and surrogates. Selection depended
+only on JSON escape density, not on a corpus, schema, field or value signature.
+
+The focused string matrix passes 49,503 checks across NAIVE, SWAR and SIMD.
+Seven alternating V8 pairs pass forty complete owned-output and retention
+comparisons per label. GSOC SIMD stringify throughput is 1.007x baseline;
+parse and validation controls are 1.042x and 1.005x, while inactive SWAR phases
+remain within the 3% regression guard. A 0.7% stringify result does not justify
+the additional hot-loop instructions and 256-byte shuffle table, so the
+prototype is reverted.
+
+Artifacts: runs `escgrpbase001/` and `escgrpsimd001/`, and comparison
+`escape-group-simd-gsoc-v8/` under `build/simdjson-parity/`.
