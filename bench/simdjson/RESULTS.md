@@ -4191,6 +4191,64 @@ and diff checks pass. Artifacts: `citmsweeppar0001-*`, run
 `sweepcand0000001/`, and comparisons `sweeprun-*-v8-01/` under
 `build/simdjson-parity/`.
 
+### Proportional incremental collection for fresh graphs
+
+The allocation scope still allowed the incremental collector to interrupt
+while json-as was constructing a fresh object graph. Each interrupt could trace
+and gray a graph that was not yet observable, then ordinary field stores paid
+write barriers even though every object in the scope was newly allocated and
+white. AssemblyScript commit `956ee680` adds a nested fresh-graph GC scope. It
+defers automatic interrupts during construction and, at the outer scope exit,
+runs an allocation-proportional budget before returning to the caller. An
+explicit collection inside the scope resets the deferred-allocation accounting;
+minimal and stub runtimes retain no-op implementations. AssemblyScript commit
+`670f0653` additionally omits incremental write barriers while a fresh-graph
+scope is active. json-as commit `69a365a` enters the GC scope together with its
+existing raw allocation batch around eligible fresh generated checked objects.
+The optimization is selected only by the fresh-graph ownership invariant, not
+by corpus, schema, field, value or input size.
+
+Seven alternating V8 process pairs first compare an equal-runtime inactive
+control with the deferred-collection scope. Each label passes twenty complete
+changing-output and retention oracles; no phase crosses the 3% regression
+guard. SIMD candidate / control throughput:
+
+| Layout | Parse | Stringify | Validate |
+| --- | ---: | ---: | ---: |
+| Canada minified | 1.044x | 0.997x | 0.998x |
+| Twitter minified | 0.995x | 1.018x | 0.996x |
+| CITM minified | 1.096x | 1.007x | 1.011x |
+| GitHub Events minified | 0.991x | 1.000x | 0.997x |
+| Poet minified | 0.992x | 0.992x | 0.994x |
+| GSOC minified | 1.006x | 0.996x | 0.998x |
+| Lottie minified | 1.003x | 1.006x | 1.000x |
+
+CITM SWAR parsing independently improves 1.092x. A second seven-pair V8
+screen isolates the barrier omission from the retained collection scope. It
+improves CITM parse another 1.015x and Lottie parse 1.042x; the other parse rows
+range from 0.998x to 1.007x. No stringify or validation row is more than 2.0%
+slower, and all 140 output/retention comparisons pass.
+
+Latest upstream w2c2 main `c6f15cb7`, built against SIMDe `65c15e6b`, passes
+all 22 translator tests plus the json-as ABI, memory-growth and Unicode host
+tests. On seven fresh CITM process pairs, the complete retained change improves
+parse throughput 1.107x in checked w2c2 and 1.113x in default w2c2. Stringify
+and validation remain within 0.9% of the inactive control. This independent
+backend result agrees with the V8 direction without replacing V8 as the
+qualification backend.
+
+Nested retained-graph probes pass under incremental, minimal and stub runtimes,
+including an explicit collection inside the outer scope followed by more
+allocations and links. AssemblyScript build and check pass. json-as passes
+123,935 normal and 77,928 strict/RFC checks across NAIVE, SWAR and SIMD, plus
+1,416 transform regressions and eleven benchmark-tooling tests. A post-barrier
+focused GC, production-safety, reuse and strict-cursor screen passes 1,563
+checks across all modes.
+
+Artifacts: profile `gcbatchprof0001`, runs `gcbatch{ctrl,cand}0001` and
+`gclinkcand00001`, V8 comparisons `gcbatch-*-v8` and `gclink-*-v8`, and w2c2
+comparison `gcbatch-current-citm-w2c2` under `build/simdjson-parity/`.
+
 ## Rejected cached `Map<string, string>` traversal
 
 A type-specialized Map writer cached the rooted, non-moving entry buffer for
