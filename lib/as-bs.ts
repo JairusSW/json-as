@@ -1,3 +1,4 @@
+import { invalidateStringFieldTrace } from "../assembly/deserialize/parseMode";
 import { allocateUninitialized } from "../assembly/util/runtime";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { STRING_SIZE_MASK } from "../assembly/util/runtime";
@@ -377,6 +378,7 @@ export namespace bs {
     const current = load<usize>(dstFieldPtr);
     let stringPtr: usize;
     if (current >= __heap_base) {
+      invalidateStringFieldTrace(current);
       const object = changetype<OBJECT>(current - TOTAL_OVERHEAD);
       if ((object.rtSize & STRING_SIZE_MASK) == byteLength) {
         object.rtSize = byteLength;
@@ -464,6 +466,7 @@ export namespace bs {
       len = cacheOutputLen;
       src = cacheOutput;
     }
+    invalidateStringFieldTrace(target, true);
     let dst = target;
     const targetObject = changetype<OBJECT>(target - TOTAL_OVERHEAD);
     if ((targetObject.rtSize & STRING_SIZE_MASK) != <u32>len) {

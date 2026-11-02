@@ -1,3 +1,4 @@
+import { invalidateStringFieldTrace } from "../parseMode";
 import { bs } from "../../../lib/as-bs";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
 import { STRING_SIZE_MASK } from "../../util/runtime";
@@ -237,6 +238,7 @@ function writeStringToField(
   const current = load<usize>(dstFieldPtr);
   let stringPtr: usize;
   if (current >= __heap_base) {
+    invalidateStringFieldTrace(current);
     const object = changetype<OBJECT>(current - TOTAL_OVERHEAD);
     if ((object.rtSize & STRING_SIZE_MASK) == byteLength) {
       object.rtSize = byteLength;

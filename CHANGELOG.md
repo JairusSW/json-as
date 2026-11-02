@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- fix(parse): invalidate cached string and object traces when owned string buffers are overwritten, preventing stale values after source or decoded-field buffer reuse.
 - compat: keep string metadata, uninitialized allocation, and allocation batching optional so published AssemblyScript runtimes retain ordinary allocation and string semantics.
 - perf(strict): construct fresh checked object graphs inside a scoped AssemblyScript allocation batch, preserving individually managed results while avoiding repeated TLSF searches and free-list updates.
 
