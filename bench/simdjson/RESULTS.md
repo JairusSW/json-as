@@ -4453,3 +4453,28 @@ remain separately labeled.
 Artifacts: runs `linkskip{base,cand}001/` and `linkskipfinl001/`; V8
 comparisons `linkskip-*-v8*`, including final CITM/Canada confirmations; w2c2
 comparison `linkskip-final-citm-w2c2/` under `build/simdjson-parity/`.
+
+## Rejected scalar dense-escape groups
+
+A corrected GSOC serialize-only profile removes the parse/validate phases and
+all post-benchmark oracle lifting, then runs 5,000 changing-output operations.
+The earlier mixed profile understated the actual writer cost: the full SIMD
+exceptional-string writer accounts for 60.6% of samples, the generated root
+writer 22.8%, and the medium/short string entries another 9.6%. The run
+completes at 281.66 microseconds per operation.
+
+Payload analysis shows that four-code-unit chunks containing at least two short
+JSON escapes account for 7,878 of 13,716 escape events. A general prototype
+emitted each such chunk once with scalar stores instead of letting every escape
+rewrite an overlapping vector suffix. Clean, sparse-escape, long-control and
+surrogate paths remained unchanged; no corpus or schema selector was used.
+
+Seven alternating V8 pairs pass forty complete owned-output and retention
+comparisons per label. GSOC SIMD stringify throughput is 1.004x baseline, with
+parse and validation controls at 1.012x and 0.998x. The scalar classifications
+and branches consume nearly all of the avoided-store benefit, so the prototype
+is reverted rather than retaining a larger hot loop for a 0.4% result.
+
+Artifacts: clean profile `gsoc-serialize-clean-569871c-profile.txt`, runs
+`gsocserprof001/` and `escgrp{base,cand}001/`, and comparison
+`escape-group-gsoc-v8/` under `build/simdjson-parity/`.
