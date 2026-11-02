@@ -71,6 +71,10 @@ revision, compiler files and a deterministic hash of the complete
 `std/assembly` source tree. Build fails if any of them changes. The tree hash is
 required because a dirty standard-library or runtime edit does not change the
 checkout's git revision or compiled JavaScript compiler files.
+Runtime experiments may pass `compare.py --allow-assemblyscript-source-change`;
+this relaxes only the AssemblyScript provenance equality check. Inputs, native
+binary, V8, wasm-opt, C++ toolchain, models, operation counts and output
+oracles must still match.
 
 ## Comparable work
 

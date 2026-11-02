@@ -24,6 +24,7 @@ parser.add_argument('--output', required=True)
 parser.add_argument('--backends', default='v8', help='v8,w2c2-checked,w2c2-default')
 parser.add_argument('--modes', default='swar,simd', help='Measured modes: swar,simd; defaults to both')
 parser.add_argument('--allow-w2c2-source-change', action='store_true', help='Backend experiment: permit different pinned w2c2 revisions and translators, retaining compiler/SIMDe/host checks')
+parser.add_argument('--allow-assemblyscript-source-change', action='store_true', help='Runtime experiment: permit different AssemblyScript provenance while retaining every other toolchain check')
 parser.add_argument('--require-equal-label-length', action='store_true', help='Keep embedded artifact path lengths equal across variants')
 parser.add_argument('--smoke', action='store_true', help='One diagnostic round; no performance gate')
 parser.add_argument('--gate-validation', choices=['v8','w2c2-checked','w2c2-default'])
@@ -79,9 +80,21 @@ if args.gate_validation:
     if set(baseline['phases']) != required:
         raise ValueError('Validation matrix coverage is incomplete')
 for label, meta in metadata.items():
-    for field in ['ops', 'schemaSha256', 'root', 'simdjson', 'phases', 'toolchain']:
+    for field in ['ops', 'schemaSha256', 'root', 'simdjson', 'phases']:
         if meta[field] != baseline[field]:
             raise ValueError(f'{label}: {field} differs')
+    toolchain = dict(meta['toolchain'])
+    baseline_toolchain = dict(baseline['toolchain'])
+    assemblyscript = toolchain.pop('assemblyscript', None)
+    baseline_assemblyscript = baseline_toolchain.pop('assemblyscript', None)
+    if toolchain != baseline_toolchain:
+        raise ValueError(f'{label}: toolchain differs')
+    if assemblyscript != meta.get('assemblyscript'):
+        raise ValueError(f'{label}: inconsistent AssemblyScript provenance')
+    if baseline_assemblyscript != baseline.get('assemblyscript'):
+        raise ValueError('baseline: inconsistent AssemblyScript provenance')
+    if assemblyscript != baseline_assemblyscript and not args.allow_assemblyscript_source_change:
+        raise ValueError(f'{label}: AssemblyScript provenance differs')
     if [item['sha256'] for item in meta['inputs']] != [item['sha256'] for item in baseline['inputs']]:
         raise ValueError(f'{label}: input contents differ')
     for item in meta['inputs']:

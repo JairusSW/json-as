@@ -62,6 +62,40 @@ hashes and AssemblyScript version but not that dependency commit; the baseline
 AssemblyScript checkout was `0c115329` and the candidate checkout is
 `0774f923`.
 
+## 2026-11-01 fresh-output serialization diagnostics
+
+An exact-head, serialization-only Poet profile attributes 777 of 1,312 Wasm
+self samples to copying already-classified long strings, 192 to the generated
+short-string writer, 226 to the generated `Poem` writer and only 3 to the full
+escape scanner. The repeated-string metadata therefore moved this workload
+from classification to copying and output allocation.
+
+Four general writer experiments were rejected. Replacing the explicit SIMD
+copy with `memory.copy` reduces Poet throughput 10.8% and GSOC 2.7%. A 64-byte
+copy unroll reduces Poet throughput 8.5% and is neutral on GSOC. Fixed two- and
+four-code-unit paths are neutral-negative, as is reusing the tagged string size
+from object capacity planning. Every comparison passes all 20 complete output
+and retention oracles. No corpus, schema, field-name or value signature was
+used, and none of these production prototypes remains.
+
+Poet also exposes a fresh-process allocation effect. With the same
+serialization-only binary, 100 operations after the normal nine warmups take
+roughly 279--325 microseconds each. Ten consecutive 100-operation batches,
+each preceded by a full collection, settle from 244 microseconds in the first
+batch to 175--182 microseconds by the third. Reordering the regular benchmark
+to serialize before parse is neutral, ruling out parse-phase heap state. The
+incremental collector performs a fixed amount of work per interrupt even for a
+multi-megabyte output allocation, but allocation-size-scaled budget prototypes
+do not improve the qualified fresh-process result: a balanced `/64`, `/128`,
+and `/256` sweep regresses stringification 4.2--6.5%. The runtime prototype is
+fully reverted.
+
+Evidence is under `build/simdjson-parity/comparisons/` in
+`copy-bulk-{poet,gsoc}-v8`, `copy64-{poet,gsoc}-v8`,
+`short-unroll-*-v8`, `short4-unroll-poet-v8`, `tagged-size-fuse-poet-v8`,
+`phase-order-poet-v8`, `gc-budget-poet-v8`, `gc-shift6-poet-v8`, and
+`gc-budget-sweep-poet-v8`. These are diagnostic screens, not whole-grid parity.
+
 Historical two-label `compare.py` measurements before `29e59b9` have an ordering
 defect: rotation followed by reversal always runs the baseline first. Earlier
 descriptions of balanced variant rounds record the intended method, not a
