@@ -4191,6 +4191,27 @@ and diff checks pass. Artifacts: `citmsweeppar0001-*`, run
 `sweepcand0000001/`, and comparisons `sweeprun-*-v8-01/` under
 `build/simdjson-parity/`.
 
+## Rejected recursive container traversal
+
+A bounded recursive SIMD discard traversal gives arrays and objects separate
+grammar loops, retaining the existing lexical readers and 256-container depth
+limit. The first version recurses for every value; a second keeps scalar
+dispatch inline and recurses only for nested containers. The first passes
+17,796 focused cursor, whitespace and RFC-matrix checks. Both versions pass
+the validation preflight and all 32 changing inputs for eight classic layouts.
+
+Seven alternating fresh V8 pairs compare each with the committed cached-
+container traversal using corrected timing. The first improves Canada
+minified 1.055x but regresses Canada pretty to 0.929x, Twitter minified/pretty
+to 0.959x/0.959x and CITM minified to 0.871x. The container-only recursive
+variant is worse: Canada minified/pretty 0.943x/0.904x and CITM minified
+0.829x. Both prototypes are reverted. Distinct array/object loops do not
+outweigh the recursive traversal overhead in this implementation.
+
+Artifacts: `containerlocal1/`, `recursiveloop01/`, `recursivechild1/`;
+comparisons `recursive-eight-v8/` and `recursive-child-eight-v8/` under
+`build/simdjson-parity/`.
+
 ### Proportional incremental collection for fresh graphs
 
 The allocation scope still allowed the incremental collector to interrupt
