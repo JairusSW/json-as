@@ -363,6 +363,10 @@ export function serializeIntegerArrayPointerReservedAt<T extends number[]>(
   dst: usize,
   src: usize,
 ): usize {
+  if (load<i32>(src, offsetof<T>("length_")) == 0) {
+    store<u32>(dst, 0x005d005b);
+    return dst + 4;
+  }
   return serializeIntegerArrayReservedAt<T>(src, dst);
 }
 
