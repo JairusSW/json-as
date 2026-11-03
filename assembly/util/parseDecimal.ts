@@ -70,15 +70,21 @@ export function parseDecimalF64(srcStart: usize, srcEnd: usize): f64 {
     while (ptr < srcEnd) {
       const digit = <u32>(load<u16>(ptr) - 48);
       if (digit > 9) break;
-      explicitExponent = min(10_000, explicitExponent * 10 + <i32>digit);
+      explicitExponent = <i32>(
+        min<i64>(<i64>i32.MAX_VALUE, <i64>explicitExponent * 10 + digit)
+      );
       ptr += 2;
     }
     if (exponentNegative) explicitExponent = -explicitExponent;
   }
 
   if (!significant) return negative ? -0.0 : 0.0;
-  const decimalExponent = explicitExponent - fractionDigits;
-  const exponent = decimalExponent + droppedDigits;
+  // Keep cancellation wide; only saturate the effective exponent passed to
+  // scientific(). Long digit runs may cancel equally long explicit exponents.
+  const decimalExponent = <i64>explicitExponent - fractionDigits;
+  const exponent = <i32>(
+    max<i64>(-10_000, min<i64>(10_000, decimalExponent + droppedDigits))
+  );
   let value: f64;
   if (droppedDigits) {
     const lower = scientific(mantissa, exponent);
@@ -91,7 +97,7 @@ export function parseDecimalF64(srcStart: usize, srcEnd: usize): f64 {
       const comparison = compareDecimalToMidpoint(
         significantStart,
         keptDigits + droppedDigits,
-        decimalExponent,
+        <i32>decimalExponent,
         lower,
         upper,
       );
@@ -165,7 +171,9 @@ export function roundDecimalF32(start: usize, end: usize, value: f64): f32 {
       p += 2;
     }
     while (p < end && <u32>(load<u16>(p) - 48) <= 9) {
-      exponent = min(10_000, exponent * 10 + <i32>(load<u16>(p) - 48));
+      exponent = <i32>(
+        min<i64>(<i64>i32.MAX_VALUE, <i64>exponent * 10 + (load<u16>(p) - 48))
+      );
       p += 2;
     }
     if (minus) exponent = -exponent;

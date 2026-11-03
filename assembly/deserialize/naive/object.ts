@@ -74,7 +74,7 @@ export function deserializeObject(
     return changetype<JSON.Obj>(0);
   }
 
-  out.reserveForParse((srcEnd - srcStart) >> 1);
+  out.reserveForParse((srcEnd - srcStart) >> 1, srcStart);
   return parseObjectBody(out, srcStart + 2, srcEnd) != 0
     ? out
     : changetype<JSON.Obj>(0);

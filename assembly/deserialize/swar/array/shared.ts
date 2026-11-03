@@ -1,3 +1,4 @@
+import { reuseComposite } from "../../parseMode";
 import {
   BACK_SLASH,
   BRACE_LEFT,
@@ -16,7 +17,7 @@ export function skipWhitespace(srcStart: usize, srcEnd: usize): usize {
 }
 
 export function ensureArrayField<T extends Array<any>>(fieldPtr: usize): T {
-  let out = load<T>(fieldPtr);
+  let out = changetype<T>(reuseComposite(load<usize>(fieldPtr), fieldPtr));
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
     store<T>(fieldPtr, out);
@@ -28,7 +29,9 @@ export function ensureArrayFieldAt<T extends Array<any>>(
   dstObj: usize,
   dstOffset: usize,
 ): T {
-  let out = load<T>(dstObj, dstOffset);
+  let out = changetype<T>(
+    reuseComposite(load<usize>(dstObj, dstOffset), dstObj + dstOffset),
+  );
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
     store<T>(dstObj, out, dstOffset);

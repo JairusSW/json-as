@@ -1,3 +1,4 @@
+import { reuseComposite } from "../../parseMode";
 import {
   BRACE_LEFT,
   BRACKET_LEFT,
@@ -96,7 +97,9 @@ function deserializeStructArrayBody<T extends unknown[]>(
         store<valueof<T>>(slot, changetype<valueof<T>>(0));
         next = srcStart + 8;
       } else {
-        let value = load<valueof<T>>(slot);
+        let value = changetype<valueof<T>>(
+          reuseComposite(load<usize>(slot), slot),
+        );
         if (changetype<usize>(value) != 0) {
           const ref = changetype<usize>(value);
           if (changetype<usize>(reusedValues)) {

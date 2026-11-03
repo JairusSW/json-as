@@ -6,6 +6,44 @@ import { serializeFloat32Unsafe, serializeFloat64Unsafe } from "./float";
 import { serializeIntegerUnsafe } from "./integer";
 import { serializeString } from "../index/string";
 
+
+@unmanaged class SerializableSetEntry<K> {
+  key: K;
+  taggedNext: usize;
+}
+
+function serializePrimitiveSet<T extends Set<any>>(src: T): void {
+  const size = src.size;
+  reservePrimitiveSet<indexof<T>>(size);
+  store<u16>(bs.offset, BRACKET_LEFT);
+  bs.offset += 2;
+  const base = changetype<usize>(src);
+  const entries = load<usize>(base, offsetof<T>("entries"));
+  const count = load<i32>(base, offsetof<T>("entriesOffset"));
+  const align = max<usize>(sizeof<indexof<T>>(), sizeof<usize>()) - 1;
+  const stride =
+    (offsetof<SerializableSetEntry<indexof<T>>>() + align) & ~align;
+  let wrote = false;
+  for (let i = 0; i < count; i++) {
+    const entry = changetype<SerializableSetEntry<indexof<T>>>(
+      entries + <usize>i * stride,
+    );
+    if (entry.taggedNext & 1) continue;
+    const value = entry.key;
+    if (wrote) {
+      store<u16>(bs.offset, COMMA);
+      bs.offset += 2;
+    }
+    if (isBoolean<indexof<T>>()) serializeBoolUnsafe(<bool>value);
+    else if (isInteger<indexof<T>>()) serializeIntegerUnsafe<indexof<T>>(value);
+    else if (sizeof<indexof<T>>() == 4) serializeFloat32Unsafe(<f32>value);
+    else serializeFloat64Unsafe(<f64>value);
+    wrote = true;
+  }
+  store<u16>(bs.offset, BRACKET_RIGHT);
+  bs.offset += 2;
+}
+
 function maxIntegerBytes<T extends number>(): u32 {
   if (sizeof<T>() == 1) return isSigned<T>() ? 8 : 6;
   if (sizeof<T>() == 2) return isSigned<T>() ? 12 : 10;
@@ -31,6 +69,14 @@ export function serializeSet<T extends Set<any>>(src: T): void {
     bs.proposeSize(4);
     store<u32>(bs.offset, 6094939); // []
     bs.offset += 4;
+    return;
+  }
+  if (
+    isBoolean<indexof<T>>() ||
+    isInteger<indexof<T>>() ||
+    isFloat<indexof<T>>()
+  ) {
+    serializePrimitiveSet<T>(src);
     return;
   }
   if (

@@ -2,6 +2,10 @@
   "$schema": "./node_modules/as-test/as-test.config.schema.json",
   "input": [
     "./assembly/__tests__/custom-array.spec.ts",
+    "./assembly/__tests__/composition-regressions.spec.ts",
+    "./assembly/__tests__/schema-composition.spec.ts",
+    "./assembly/__tests__/object-conversion.spec.ts",
+    "./assembly/__tests__/dynamic-mutation.spec.ts",
     "./assembly/__tests__/lazy-metadata.spec.ts",
     "./assembly/__tests__/value-api.spec.ts",
     "./assembly/__tests__/escaped-key-dispatch.spec.ts",

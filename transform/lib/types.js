@@ -243,7 +243,11 @@ export class Src {
             if (!externalSource)
                 continue;
             const source = this.sourceSet.get(externalSource);
-            const classDeclaration = source.getClass(qualifiedName);
+            const declaration = stmt.declarations?.find((d) => d.name.text === qualifiedName);
+            const originalName = declaration
+                ? declaration.foreignName.text
+                : qualifiedName;
+            const classDeclaration = source.getClass(originalName);
             if (classDeclaration && classDeclaration.flags & 2) {
                 return classDeclaration;
             }

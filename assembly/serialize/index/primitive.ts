@@ -1,3 +1,4 @@
+import { serializeString } from "./string";
 import { JSON } from "../..";
 import { bs } from "../../../lib/as-bs";
 import { serializeBool } from "./bool";
@@ -8,6 +9,9 @@ import { serializeInteger } from "./integer";
 // References and deferred values are untouched and use the existing dispatcher.
 export function serializePrimitiveSlot(slot: u64): bool {
   switch (JSON.Value.slotTag(slot)) {
+    case JSON.Types.String:
+      serializeString(JSON.Value.decodeBits<string>(slot));
+      return true;
     case JSON.Types.Null:
       bs.proposeSize(8);
       store<u64>(bs.offset, 30399761348886638);

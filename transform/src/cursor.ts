@@ -54,7 +54,11 @@ export function generateCursorParser(
   const decoded = entries
     .map(
       (entry) =>
-        `if (field < 0 && decoded == ${JSON.stringify(entry.member.alias || entry.member.name)}) field = ${entry.id};`,
+        `if (field < 0 && decoded == ${JSON.stringify(
+          entry.member.alias || entry.member.name,
+        )
+          .replaceAll("\u2028", "\\u2028")
+          .replaceAll("\u2029", "\\u2029")}) field = ${entry.id};`,
     )
     .join("\n");
   const values = entries

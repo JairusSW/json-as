@@ -1,3 +1,4 @@
+import { parseDateTime } from "./naive/date";
 import { JSON, JSONMode } from "..";
 import { Runtime } from "shared/runtime";
 import { getParseSrc } from "./naive/object";
@@ -339,7 +340,7 @@ export function readCursorValue<T>(
         offsetof<CursorSlot<string>>("value"),
       );
       if (!next) return 0;
-      const value = new Date(Date.fromString(slot.value).getTime());
+      const value = new Date(parseDateTime(slot.value));
       store<usize>(field, changetype<usize>(value));
       cursorLink(dst, changetype<usize>(value), false);
       return next;
@@ -571,7 +572,7 @@ function readDynamic<T>(
       cursorLink(dst, changetype<usize>(out), false);
       return ptr + 2;
     }
-    if (!depth) out.reserveForParse((end - start) >> 1);
+    if (!depth) out.reserveForParse((end - start) >> 1, start);
     const bits = new CursorSlot<u64>();
     while (ptr < end) {
       const keyStart = ptr;

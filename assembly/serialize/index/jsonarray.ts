@@ -14,11 +14,6 @@ export function serializeJsonArray(src: JSON.Arr): void {
     return;
   }
 
-  const vals = src._vals;
-  // Source base + upper bound for resolving a deferred slot's value range.
-  const srcBase = changetype<usize>(src._src);
-  const srcEnd = srcBase + ((<usize>src._src.length) << 1);
-
   bs.proposeSize(4 + <u32>(n - 1) * 2);
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
@@ -30,8 +25,12 @@ export function serializeJsonArray(src: JSON.Arr): void {
       store<u16>(bs.offset, COMMA);
       bs.offset += 2;
     }
-    const slot = unchecked(vals[i]);
+    const slot =
+      i < src.length ? unchecked(src._vals[i]) : JSON.Value.nullBits();
     if (JSON.Value.slotIsLazy(slot)) {
+      const source = src._src;
+      const srcBase = changetype<usize>(source);
+      const srcEnd = srcBase + ((<usize>source.length) << 1);
       const start = JSON.Value.slotPtr(slot, srcBase);
       const end = JSON.Value.slotEnd(slot, srcBase, srcEnd);
       const size = end - start;

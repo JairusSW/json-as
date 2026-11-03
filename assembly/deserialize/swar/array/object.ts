@@ -1,3 +1,4 @@
+import { reuseComposite } from "../../parseMode";
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import {
@@ -42,7 +43,7 @@ function deserializeObjectArrayBody<T extends unknown[]>(
       const value = JSON.__deserialize<valueof<T>>(
         valueStart,
         valueEnd,
-        changetype<usize>(load<valueof<T>>(slot)),
+        reuseComposite(load<usize>(slot), slot),
       );
       store<valueof<T>>(slot, value);
       srcStart = valueEnd;

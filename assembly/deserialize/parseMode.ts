@@ -34,6 +34,9 @@ export function cursorLink(
 // field still contains the bytes produced by the prior parse. Any mutation or
 // graph replacement changes at least one tuple component and takes the normal
 // decoder, which refreshes that trace slot.
+// Bound strong source/decoded-string retention between public calls.
+const STRING_TRACE_MAX_BYTES: usize = 256 * 1024;
+let STRING_TRACE_RETAINED_BYTES: usize = 0;
 let STRING_TRACE_DEPTH = 0;
 let STRING_TRACE_ACTIVE = false;
 let STRING_TRACE_COMPLETE = false;
@@ -86,9 +89,7 @@ export function invalidateStringFieldTrace(
     return;
   // Also suspend probes in a reentrant parse. Clearing the source guarantees
   // the next public parse rebuilds both string and object trace slots.
-  STRING_TRACE_SOURCE = null;
-  STRING_TRACE_ACTIVE = false;
-  STRING_TRACE_COMPLETE = false;
+  clearStringFieldTrace();
 }
 
 // One parse may overwrite each managed string through only one destination
@@ -103,6 +104,25 @@ export function claimStringBuffer(value: usize, field: usize): bool {
   return true;
 }
 
+/** Claim a composite allocation for one logical field in the current parse.
+ * Repeated keys targeting that same field may continue reusing it. */
+export function reuseComposite(value: usize, field: usize): usize {
+  return value != 0 && claimStringBuffer(value, field) ? value : 0;
+}
+
+/** Drop the optional exact-source cache without changing active parse nesting. */
+export function clearStringFieldTrace(): void {
+  STRING_TRACE_SOURCE = null;
+  STRING_TRACE_OUT = 0;
+  STRING_TRACE_COMPLETE = false;
+  STRING_TRACE_ACTIVE = false;
+  STRING_TRACE_VALUES.length = 0;
+  OBJECT_TRACE_TYPES.length = 0;
+  STRING_TRACE_COUNT = 0;
+  OBJECT_TRACE_COUNT = 0;
+  STRING_TRACE_RETAINED_BYTES = 0;
+}
+
 /** Enter one public parse call, suspending trace use in nested parses. */
 @inline
 export function beginStringFieldTrace(
@@ -113,8 +133,13 @@ export function beginStringFieldTrace(
   if (!ENABLE_EXACT_SOURCE_TRACES) return;
   if (STRING_TRACE_DEPTH == 0 && STRING_BUFFER_OWNERS)
     STRING_BUFFER_OWNERS!.clear();
+  if (out && STRING_TRACE_DEPTH == 0) claimStringBuffer(out, 0);
   STRING_TRACE_DEPTH++;
-  if (!ASC_FEATURE_SIMD || STRING_TRACE_DEPTH != 1 || out == 0) return;
+  if (!ASC_FEATURE_SIMD || STRING_TRACE_DEPTH != 1) return;
+  if (out == 0 || (<usize>source.length) << 1 > STRING_TRACE_MAX_BYTES) {
+    clearStringFieldTrace();
+    return;
+  }
 
   const sourcePtr = changetype<usize>(source);
   const sameRoot =
@@ -124,6 +149,7 @@ export function beginStringFieldTrace(
     changetype<usize>(STRING_TRACE_SOURCE) == sourcePtr;
   if (!sameRoot) {
     STRING_TRACE_SOURCE = source;
+    STRING_TRACE_RETAINED_BYTES = (<usize>source.length) << 1;
     STRING_TRACE_OUT = out;
     STRING_TRACE_TYPE = typeId;
     STRING_TRACE_COUNT = 0;
@@ -192,6 +218,14 @@ export function recordStringFieldTrace(
   if (!STRING_TRACE_ACTIVE || STRING_TRACE_DEPTH != 1) return;
   const slot = STRING_TRACE_SLOT;
   const value = load<string>(dstFieldPtr);
+  if (slot < STRING_TRACE_COUNT)
+    STRING_TRACE_RETAINED_BYTES -=
+      ((<usize>unchecked(STRING_TRACE_VALUES[slot]).length) << 1) + 16;
+  STRING_TRACE_RETAINED_BYTES += ((<usize>value.length) << 1) + 16;
+  if (STRING_TRACE_RETAINED_BYTES > STRING_TRACE_MAX_BYTES) {
+    clearStringFieldTrace();
+    return;
+  }
   if (slot < STRING_TRACE_COUNT) {
     unchecked((STRING_TRACE_FIELDS[slot] = dstFieldPtr));
     unchecked((STRING_TRACE_STARTS[slot] = payloadStart));
@@ -240,6 +274,11 @@ export function beginObjectFieldTrace(
     unchecked((OBJECT_TRACE_TIERS[slot] = 0));
     unchecked((OBJECT_TRACE_SEPARATORS[slot] = 0));
   } else {
+    STRING_TRACE_RETAINED_BYTES += 32;
+    if (STRING_TRACE_RETAINED_BYTES > STRING_TRACE_MAX_BYTES) {
+      clearStringFieldTrace();
+      return i32.MIN_VALUE;
+    }
     OBJECT_TRACE_FIELDS.push(dst);
     OBJECT_TRACE_STARTS.push(srcStart);
     OBJECT_TRACE_TYPES.push(typeTag);

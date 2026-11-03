@@ -261,6 +261,7 @@ export function bench(
   ops: u64 = 1_000_000,
   bytesPerOp: u64 = 0,
 ): void {
+  if (ops == 0) throw new RangeError("Benchmark operations must be positive");
   preallocateMemory();
   // Run a full GC cycle before timing to reduce cross-bench noise.
   __collect();
@@ -282,8 +283,8 @@ export function bench(
     bsBaselineSize = u64(bs.bufferSize);
   }
 
-  let warmup = ops / 10;
-  while (--warmup) {
+  const warmup = ops / 10;
+  for (let i: u64 = 0; i < warmup; i++) {
     routine();
   }
 
@@ -297,7 +298,7 @@ export function bench(
   // Defaults to a single frame (identical to the original behavior).
   // @ts-expect-error: BENCH_FRAMES may be undefined.
   const frames: u64 = isDefined(BENCH_FRAMES) ? u64(BENCH_FRAMES) : 1;
-  const perFrame: u64 = frames > 1 ? ops / frames : ops;
+  const perFrame: u64 = frames > 1 ? max<u64>(1, ops / frames) : ops;
 
   let elapsed: f64 = 0;
   let remaining = ops;

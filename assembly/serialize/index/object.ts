@@ -4,6 +4,7 @@ import { JSON } from "../..";
 import { BRACE_LEFT, BRACE_RIGHT, COLON, COMMA } from "../../custom/chars";
 import { serializeArbitrary } from "./arbitrary";
 import { serializePrimitiveSlot } from "./primitive";
+import { serializeString } from "./string";
 import { serializeStringRange } from "../naive/string";
 
 export function serializeObject(src: JSON.Obj): void {
@@ -33,6 +34,54 @@ export function serializeObject(src: JSON.Obj): void {
     return;
   }
 
+  // Preserve initial property identities across user callbacks. The common
+  // primitive/string/lazy case still walks flat storage without snapshots.
+  for (let i = 0; i < srcSize; i++) {
+    const tag = JSON.Value.slotTag(unchecked(src._vals[i]));
+    if (tag >= JSON.Types.Object && tag != JSON.Types.Lazy) {
+      const keys = src.keys();
+      bs.proposeSize(4 + <u32>keys.length * 4);
+      store<u16>(bs.offset, BRACE_LEFT);
+      bs.offset += 2;
+      let wrote = false;
+      for (let k = 0; k < keys.length; k++) {
+        const key = unchecked(keys[k]);
+        let occurrence = 0;
+        for (let prior = 0; prior < k; prior++)
+          if (unchecked(keys[prior]) == key) occurrence++;
+        const index = src.__indexOfOccurrence(key, occurrence);
+        if (index < 0) continue;
+        const slot = unchecked(src._vals[index]);
+        if (wrote) {
+          store<u16>(bs.offset, COMMA);
+          bs.offset += 2;
+        }
+        serializeString(key);
+        store<u16>(bs.offset, COLON);
+        bs.offset += 2;
+        if (JSON.Value.slotIsLazy(slot)) {
+          const source = src._src;
+          const base = changetype<usize>(source);
+          const start = JSON.Value.slotPtr(slot, base);
+          const end = JSON.Value.slotEnd(
+            slot,
+            base,
+            base + ((<usize>source.length) << 1),
+          );
+          bs.proposeSize(<u32>(end - start));
+          memory.copy(bs.offset, start, end - start);
+          bs.offset += end - start;
+        } else if (!serializePrimitiveSlot(slot)) {
+          const value = JSON.Value.fromBits(slot);
+          serializeArbitrary(value);
+        }
+        wrote = true;
+      }
+      store<u16>(bs.offset, BRACE_RIGHT);
+      bs.offset += 2;
+      return;
+    }
+  }
   const vals = src._vals;
   const kbuf = changetype<usize>(src._kbuf);
   const kused = src._kused;

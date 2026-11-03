@@ -1,3 +1,4 @@
+import { reuseComposite } from "../../parseMode";
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { deserializeFloatArrayBody } from "./float";
@@ -58,6 +59,12 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           value = load<valueof<T>>(
             reusableDataStart + <usize>index * elementSize,
           );
+          const slot = reusableDataStart + <usize>index * elementSize;
+          if (!reuseComposite(changetype<usize>(value), slot)) {
+            value = instantiate<valueof<T>>();
+            store<valueof<T>>(slot, value);
+            __link(changetype<usize>(out), changetype<usize>(value), false);
+          }
         } else {
           value = changetype<valueof<T>>(instantiate<valueof<T>>());
           out.push(value);
@@ -74,6 +81,12 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           value = load<valueof<T>>(
             reusableDataStart + <usize>index * elementSize,
           );
+          const slot = reusableDataStart + <usize>index * elementSize;
+          if (!reuseComposite(changetype<usize>(value), slot)) {
+            value = instantiate<valueof<T>>();
+            store<valueof<T>>(slot, value);
+            __link(changetype<usize>(out), changetype<usize>(value), false);
+          }
         } else {
           value = changetype<valueof<T>>(instantiate<valueof<T>>());
           out.push(value);
@@ -90,9 +103,8 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
 
         let valuePtr: usize = 0;
         if (index < reusableLength) {
-          valuePtr = changetype<usize>(
-            load<valueof<T>>(reusableDataStart + <usize>index * elementSize),
-          );
+          const slot = reusableDataStart + <usize>index * elementSize;
+          valuePtr = reuseComposite(load<usize>(slot), slot);
         }
         const value = JSON.__deserialize<valueof<T>>(
           srcStart,

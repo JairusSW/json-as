@@ -1,3 +1,4 @@
+import { reuseComposite } from "../parseMode";
 import { JSON } from "../..";
 import {
   BRACKET_LEFT,
@@ -144,6 +145,17 @@ function deserializeSetDirect<T extends Set<any>>(
   throw new Error("Failed to parse JSON!");
 }
 
+/** AS Set has no capacity-preserving reset. Its existing layout is also used
+ * by the serializer: only occupied entries are visited by the collector. */
+function resetSet<T extends Set<any>>(out: T): void {
+  const ptr = changetype<usize>(out);
+  const buckets = load<usize>(ptr, offsetof<T>("buckets"));
+  const mask = load<u32>(ptr, offsetof<T>("bucketsMask"));
+  memory.fill(buckets, 0, (<usize>mask + 1) * sizeof<usize>());
+  store<i32>(ptr, 0, offsetof<T>("entriesOffset"));
+  store<i32>(ptr, 0, offsetof<T>("entriesCount"));
+}
+
 export function deserializeSet<T extends Set<any>>(
   srcStart: usize,
   srcEnd: usize,
@@ -152,7 +164,7 @@ export function deserializeSet<T extends Set<any>>(
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(instantiate<T>()),
   );
-  out.clear();
+  if (dst || out.size != 0) resetSet<T>(out);
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
@@ -163,15 +175,6 @@ export function deserializeSet<T extends Set<any>>(
   return out;
 }
 
-function deserializeSetBody<T extends Set<any>>(
-  srcStart: usize,
-  srcEnd: usize,
-  out: T,
-): usize {
-  changetype<nonnull<T>>(out).clear();
-  return deserializeSetDirect<T>(srcStart, srcEnd, changetype<nonnull<T>>(out));
-}
-
 export function deserializeSetField<T extends Set<any>>(
   srcStart: usize,
   srcEnd: usize,
@@ -179,10 +182,13 @@ export function deserializeSetField<T extends Set<any>>(
   dstOffset: usize = 0,
 ): usize {
   const fieldPtr = dstObj + dstOffset;
-  let out = load<T>(fieldPtr);
+  let out = changetype<T>(reuseComposite(load<usize>(fieldPtr), fieldPtr));
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
     store<T>(fieldPtr, out);
+    if (out.size != 0) resetSet<T>(out);
+  } else {
+    resetSet<T>(out);
   }
-  return deserializeSetBody<T>(srcStart, srcEnd, out);
+  return deserializeSetDirect<T>(srcStart, srcEnd, out);
 }

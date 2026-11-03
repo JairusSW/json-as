@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- fix(parse): prevent shared composite destinations from overwriting one another, invalidate all public stringify output mutations, bound SIMD trace retention, and release it on fresh parse or Memory.shrink(). Constructor-dependent defaults no longer use the exact-default shortcut.
+- fix(schema): resolve renamed custom imports and namespaced enums; preserve nullable aliases, instantiated inherited types, omitted overrides, and combined omission predicates; escape alias comments and classify primitive names exactly.
+- fix(runtime): honor Map conversion representations, serialize dynamic containers consistently across callback mutation, tolerate shrinking joins, release removed lazy sources, parse signed expanded Date years, and preserve cancellation in long decimal exponents.
+- fix(bench): replace per-operation eval/exception handling with an observable result sink; reject zero operations and guarantee progress for small counts and oversized frame counts.
+- perf(memory): serialize materialized strings without wrappers, iterate primitive Sets without snapshots, preserve Set parse capacity, and sample top-level keys for bounded object metadata reservation. Preserve inner-loop completion when chunking wide generated parsers.
+
 - fix(lazy): preserve alias/omit/optional metadata, defaults, and source anchors through dependency revisits and inheritance.
 - fix(serde): restore custom serializer state by relative offsets and reserve returned fragments; decode escaped property names and preserve user-defined representations throughout container dispatch.
 - fix(dynamic): adopt existing JSON.Value instances, dispatch polymorphic serializers with their runtime receiver, escape reference-value string conversion while retaining scalar float display, and link managed payload writes during incremental collection.

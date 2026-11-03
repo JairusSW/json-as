@@ -1,3 +1,4 @@
+import { reuseComposite } from "../parseMode";
 import { JSON } from "../..";
 import {
   COMMA,
@@ -801,7 +802,7 @@ export function deserializeMapField<T extends Map<any, any>>(
   dstOffset: usize = 0,
 ): usize {
   const fieldPtr = dstObj + dstOffset;
-  let out = load<T>(fieldPtr);
+  let out = changetype<T>(reuseComposite(load<usize>(fieldPtr), fieldPtr));
   const reuseExisting = changetype<usize>(out) != 0;
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());

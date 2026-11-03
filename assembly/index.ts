@@ -84,6 +84,9 @@ import {
   endStringFieldTrace,
   endCursorFreshGraph,
   isPrettyParse,
+  invalidateStringFieldTrace,
+  clearStringFieldTrace,
+  reuseComposite,
   objectFieldTraceMask,
   objectFieldTraceSeparator,
   objectFieldTraceTier,
@@ -297,7 +300,9 @@ export namespace JSON {
    */
   export namespace Memory {
     /**
-     * Shrinks the internal serialization buffer to free memory.
+     * Releases excess serialization capacity and the retained SIMD parse cache.
+     * The cache budgets at most 256 KiB of source/decoded text and trace entries;
+     * a fresh public parse also drops the previous reused-output cache.
      * Call this after processing large JSON documents to release unused memory.
      *
      * @example
@@ -308,6 +313,7 @@ export namespace JSON {
      * ```
      */
     export function shrink(): void {
+      clearStringFieldTrace();
       bs.shrink();
     }
   }
@@ -320,6 +326,7 @@ export namespace JSON {
    * @returns string
    */
   export function stringify<T>(data: T, out: string | null = null): string {
+    if (out) invalidateStringFieldTrace(changetype<usize>(out), true);
     if (isBoolean<T>()) {
       if (out) {
         if (<bool>data == true) {
@@ -508,6 +515,9 @@ export namespace JSON {
   }
 
   export function parse<T>(data: string, out: T = __zero<T>()): T {
+    if (isManaged<T>() || isReference<T>()) {
+      if (changetype<usize>(out) == 0) clearStringFieldTrace();
+    } else clearStringFieldTrace();
     if (JSON_STRICT) {
       data = normalizeJSONEncoding(data);
       let fresh = true;
@@ -1066,6 +1076,41 @@ export namespace JSON {
     static from(data: string): JSON.Raw {
       return new JSON.Raw(data);
     }
+  }
+
+  /** Compile-time eligibility for the allocation-free Map conversion path. */
+  function valueBitsSupported<T>(): bool {
+    if (isBoolean<T>() || isInteger<T>() || isFloat<T>() || isString<T>())
+      return true;
+    if (isManaged<T>() || isReference<T>()) {
+      const type = changetype<nonnull<T>>(0);
+      // @ts-expect-error: supplied by transform
+      if (isDefined(type.__SERIALIZE)) return true;
+      if (
+        type instanceof JSON.Value ||
+        type instanceof JSON.Box ||
+        type instanceof JSON.Raw ||
+        type instanceof JSON.Obj ||
+        type instanceof JSON.Arr ||
+        type instanceof ArrayBuffer ||
+        type instanceof Int8Array ||
+        type instanceof Uint8Array ||
+        type instanceof Uint8ClampedArray ||
+        type instanceof Int16Array ||
+        type instanceof Uint16Array ||
+        type instanceof Int32Array ||
+        type instanceof Uint32Array ||
+        type instanceof Int64Array ||
+        type instanceof Uint64Array ||
+        type instanceof Float32Array ||
+        type instanceof Float64Array
+      )
+        return true;
+      if (isArray<T>()) return idof<valueof<T>>() == idof<JSON.Value>();
+      if (type instanceof Map)
+        return idof<nonnull<T>>() == idof<Map<string, JSON.Value>>();
+    }
+    return false;
   }
 
   /**
@@ -1655,22 +1700,53 @@ export namespace JSON {
     constructor() {}
 
     /**
-     * Pre-sizes the three flat parse buffers from a bounded source span.
-     * Large or nested values do not imply many keys in this object, so limit
-     * speculative reservation to the first 16,384 UTF-16 code units. Actual
-     * keys and slots still grow normally beyond the estimate; ordinary
-     * API-shaped objects avoid the repeated 8→16→32... allocation/copy ladder.
+     * Samples at most 2,048 source code units for top-level keys. A dense
+     * prefix can reserve bounded additional metadata; large string/nested
+     * values do not imply keys. Actual keys and slots still grow normally.
      */
-    reserveForParse(sourceUnits: usize): void {
-      sourceUnits = min<usize>(sourceUnits, 16384);
-      let keyNeed = <i32>((sourceUnits + 2) / 3);
-      if (keyNeed < 16) keyNeed = 16;
+    reserveForParse(sourceUnits: usize, sourceStart: usize = 0): void {
+      const limit = sourceStart + (min<usize>(sourceUnits, 2048) << 1);
+      let keyNeed = 16;
+      let slotNeed = 8;
+      let keys = 0;
+      let units = 0;
+      let depth = 0;
+      for (let p = sourceStart; sourceStart && p < limit; p += 2) {
+        const c = load<u16>(p);
+        if (c == 34) {
+          const start = p;
+          p += 2;
+          while (p < limit) {
+            const code = load<u16>(p);
+            if (code == 92) {
+              p += 4;
+              continue;
+            }
+            if (code == 34) break;
+            p += 2;
+          }
+          if (p >= limit) break;
+          let next = p + 2;
+          while (next < limit && JSON.Util.isSpace(load<u16>(next))) next += 2;
+          if (depth == 1 && next < limit && load<u16>(next) == 58) {
+            keys++;
+            units += <i32>((p - start - 2) >> 1) + KEY_HEADER_UNITS;
+          }
+        } else if (c == 123 || c == 91) depth++;
+        else if (c == 125 || c == 93) depth--;
+      }
+      // A key-dense prefix predicts more keys; a lone large value does not.
+      // Bound speculation even if the remainder changes shape.
+      if (keys >= 8 && sourceUnits > 2048) {
+        units = <i32>min<u64>(8192, (<u64>units * sourceUnits + 2047) / 2048);
+        keys = <i32>min<u64>(1024, (<u64>keys * sourceUnits + 2047) / 2048);
+      }
+      keyNeed = max(keyNeed, units);
+      slotNeed = max(slotNeed, keys);
       let keyCap = 16;
       while (keyCap < keyNeed) keyCap <<= 1;
       if (this._kbuf.length < keyCap) this._kbuf = new StaticArray<u16>(keyCap);
 
-      let slotNeed = <i32>(sourceUnits >> 6);
-      if (slotNeed < 8) slotNeed = 8;
       let slotCap = 8;
       while (slotCap < slotNeed) slotCap <<= 1;
       if (this._kpos.length < slotCap)
@@ -2095,6 +2171,7 @@ export namespace JSON {
       const buf = changetype<usize>(this._kbuf);
       let used = 0;
       let count = 0;
+      let needsSource = false;
       // Compact in place: surviving values remain traced by this owner, and
       // deleting a key needs no strings or replacement backing buffers.
       for (let j = 0; j < n; j++) {
@@ -2110,12 +2187,15 @@ export namespace JSON {
           );
         }
         unchecked((this._kpos[count] = used));
-        unchecked((this._vals[count] = unchecked(this._vals[j])));
+        const slot = unchecked(this._vals[j]);
+        unchecked((this._vals[count] = slot));
+        if (JSON.Value.slotIsLazy(slot)) needsSource = true;
         used += units;
         count++;
       }
       this._kused = used;
       this._vused = count;
+      if (!needsSource) this._src = "";
       this._index = null;
       this._indexMask = 0;
       return true;
@@ -2136,6 +2216,14 @@ export namespace JSON {
       this._rawEnd = 0;
       this._index = null;
       this._indexMask = 0;
+    }
+
+    /** Internal identity lookup for a snapshotted property occurrence. */
+    __indexOfOccurrence(key: string, occurrence: i32): i32 {
+      for (let i = 0; i < this._vused; i++) {
+        if (this.keyEquals(i, key) && occurrence-- == 0) return i;
+      }
+      return -1;
     }
 
     /**
@@ -2187,12 +2275,21 @@ export namespace JSON {
      */
     static from<T>(value: T): JSON.Obj {
       if (value instanceof JSON.Obj) return value;
-      if (value instanceof Map) {
+      // Custom representations and unsupported boxed element types use the
+      // same serialization contract as ordinary conversion.
+      if (
+        value instanceof Map &&
+        !isDefined(value.__SERIALIZE) &&
+        !isString<indexof<T>>()
+      ) {
+        throw new Error("JSON.Obj.from only supports maps with string keys");
+      }
+      if (
+        value instanceof Map &&
+        !isDefined(value.__SERIALIZE) &&
+        valueBitsSupported<valueof<T>>()
+      ) {
         const out = new JSON.Obj();
-        if (!isString<indexof<T>>()) {
-          throw new Error("JSON.Obj.from only supports maps with string keys");
-        }
-
         const keys = value.keys();
         const values = value.values();
         const len = keys.length;
@@ -2456,6 +2553,7 @@ export namespace JSON {
       const used = this._vused;
       if (newLength <= used) {
         this._vused = newLength;
+        if (newLength == 0) this._src = "";
         return;
       }
       this.ensureValCap(newLength);
@@ -2470,6 +2568,7 @@ export namespace JSON {
       if (n == 0) throw new Error("pop from empty JSON.Arr");
       const v = this.at(n - 1);
       this._vused = n - 1;
+      if (n == 1) this._src = "";
       return v;
     }
 
@@ -2481,6 +2580,7 @@ export namespace JSON {
       const base = changetype<usize>(this._vals);
       memory.copy(base, base + 8, (<usize>(n - 1)) << 3);
       this._vused = n - 1;
+      if (n == 1) this._src = "";
       return v;
     }
 
@@ -2569,6 +2669,7 @@ export namespace JSON {
         );
       }
       this._vused = n - d;
+      if (n == d) this._src = "";
       return removed;
     }
 
@@ -2593,7 +2694,9 @@ export namespace JSON {
       return out;
     }
 
-    /** First index of `value` (typed compare via getAs<T>), or -1. */
+    /** First index of `value` after getAs<T> decoding, or -1. This typed search
+     * is intended for homogeneous arrays; it compares decoded values rather
+     * than JSON tags (for example, bool true and integer 1 can compare equal). */
     indexOf<T>(value: T, fromIndex: i32 = 0): i32 {
       const n = this._vused;
       let i = fromIndex < 0 ? max(n + fromIndex, 0) : fromIndex;
@@ -2601,7 +2704,7 @@ export namespace JSON {
       return -1;
     }
 
-    /** Last index of `value`, searching backwards, or -1. */
+    /** Last typed-decoded match, searching backwards, or -1. See indexOf. */
     lastIndexOf<T>(value: T, fromIndex: i32 = i32.MAX_VALUE): i32 {
       const n = this._vused;
       let i = fromIndex < 0 ? n + fromIndex : min(fromIndex, n - 1);
@@ -2609,7 +2712,8 @@ export namespace JSON {
       return -1;
     }
 
-    /** Whether `value` is present. */
+    /** Whether a typed-decoded match is present. See indexOf; floating NaN
+     * searches additionally require the stored floating-point width. */
     includes<T>(value: T, fromIndex: i32 = 0): bool {
       if (isFloat<T>() && isNaN(value)) {
         const n = this._vused;
@@ -2768,6 +2872,7 @@ export namespace JSON {
     /** JS-parity element string: strings unquoted, null -> "", everything else
      *  via ES-exact JSON (numbers drop a trailing `.0`). */
     private elemStr(i: i32): string {
+      if (i >= this._vused) return "";
       const v = this.at(i);
       const t = v.type;
       if (t == JSON.Types.String) return v.get<string>();
@@ -3398,6 +3503,9 @@ export namespace JSON {
     );
   }
   export namespace Util {
+    export function reuseCompositeBuffer(value: usize, field: usize): usize {
+      return reuseComposite(value, field);
+    }
     /** Source owner for range-backed fields in generated deserializers. */
     export function getParseSource(): string {
       return getParseSrc();
@@ -3568,6 +3676,7 @@ export namespace JSON {
      * @returns - string
      */
     export function stringify<T>(data: T, out: string | null = null): string {
+      if (out) invalidateStringFieldTrace(changetype<usize>(out), true);
       bs.saveState();
       JSON.__serialize<T>(data);
       const result = bs.cpyOut<string>();
