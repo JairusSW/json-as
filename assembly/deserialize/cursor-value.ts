@@ -69,6 +69,8 @@ export function supportsCursor<T>(depth: i32 = 0): bool {
 
 function supportsCursorType<T>(depth: i32): bool {
   const type = changetype<nonnull<T>>(0);
+  // @ts-expect-error: immutable generated capability descriptor
+  if (isDefined(type.__CURSOR_SUPPORTED)) return type.__CURSOR_SUPPORTED(depth);
   if (type instanceof JSON.Box) return true;
   if (type instanceof Array || type instanceof StaticArray)
     return supportsCursor<valueof<T>>(depth + 1);
@@ -98,8 +100,6 @@ function supportsCursorType<T>(depth: i32): bool {
     type instanceof ArrayBuffer
   )
     return true;
-  // @ts-expect-error: immutable generated capability descriptor
-  if (isDefined(type.__CURSOR_SUPPORTED)) return type.__CURSOR_SUPPORTED(depth);
   return false;
 }
 

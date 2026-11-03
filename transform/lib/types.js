@@ -21,6 +21,7 @@ export class Property {
     node;
     byteSize = 0;
     lazyInner = null;
+    lazyPacked = false;
     _generic = false;
     _custom = false;
     parent;
@@ -90,7 +91,7 @@ export class Schema {
         let minChars = 2;
         for (let i = 0; i < requiredMembers.length; i++) {
             const member = requiredMembers[i];
-            const key = member.alias || member.name;
+            const key = member.alias ?? member.name;
             if (i > 0)
                 minChars += 1;
             minChars += key.length + 3;
@@ -228,6 +229,16 @@ export class Src {
     }
     getClass(qualifiedName) {
         return this.classes[qualifiedName] || null;
+    }
+    getClassInContext(name, owner) {
+        const path = this.getQualifiedName(owner).split(".").slice(0, -1);
+        for (let depth = path.length; depth >= 0; depth--) {
+            const qualified = [...path.slice(0, depth), name].join(".");
+            const declaration = this.getClass(qualified);
+            if (declaration)
+                return declaration;
+        }
+        return null;
     }
     getClasses() {
         return Object.values(this.classes);

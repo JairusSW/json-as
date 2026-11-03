@@ -13,7 +13,7 @@ export function generateCursorParser(
   const entries = members.map((member, id) => ({
     member,
     id,
-    encoded: JSON.stringify(member.alias || member.name),
+    encoded: JSON.stringify(member.alias ?? member.name),
   }));
   const equality = (entry: Entry) =>
     compare(entry.encoded, "keyStart", "==").join(" && ");
@@ -55,7 +55,7 @@ export function generateCursorParser(
     .map(
       (entry) =>
         `if (field < 0 && decoded == ${JSON.stringify(
-          entry.member.alias || entry.member.name,
+          entry.member.alias ?? entry.member.name,
         )
           .replaceAll("\u2028", "\\u2028")
           .replaceAll("\u2029", "\\u2029")}) field = ${entry.id};`,

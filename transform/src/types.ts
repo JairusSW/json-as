@@ -42,6 +42,7 @@ export class Property {
   // For `JSON.Lazy<T>` slot members: the inner type T, used by the
   // deserialize (range store) and serialize (raw emit / materialized) codegen.
   public lazyInner: string | null = null;
+  public lazyPacked: boolean = false;
   public _generic: boolean = false;
   public _custom: boolean = false;
   public parent: Schema;
@@ -125,7 +126,7 @@ export class Schema {
 
     for (let i = 0; i < requiredMembers.length; i++) {
       const member = requiredMembers[i];
-      const key = member.alias || member.name;
+      const key = member.alias ?? member.name;
 
       if (i > 0) minChars += 1; // ,
       minChars += key.length + 3; // "key":
@@ -316,6 +317,19 @@ export class Src {
    */
   getClass(qualifiedName: string): ClassDeclaration | null {
     return this.classes[qualifiedName] || null;
+  }
+
+  getClassInContext(
+    name: string,
+    owner: DeclarationStatement,
+  ): ClassDeclaration | null {
+    const path = this.getQualifiedName(owner).split(".").slice(0, -1);
+    for (let depth = path.length; depth >= 0; depth--) {
+      const qualified = [...path.slice(0, depth), name].join(".");
+      const declaration = this.getClass(qualified);
+      if (declaration) return declaration;
+    }
+    return null;
   }
 
   /** Classes declared in this source, including namespaced declarations. */

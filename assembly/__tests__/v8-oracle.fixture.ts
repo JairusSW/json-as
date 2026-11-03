@@ -178,3 +178,61 @@ export function mutation(kind: i32): string {
   callbackArray.push<i32>(3);
   return kind == 3 ? callbackArray.join(",") : JSON.stringify(callbackArray);
 }
+
+
+@json class EmptyKey {
+
+  @alias("") value: i32 = 0;
+}
+
+
+@json class SharedKinds {
+  a: Leaf = new Leaf();
+  b: Map<string, Leaf> = new Map();
+}
+
+
+@json class SharedStatic {
+  a: StaticArray<i32> = [0];
+  b: StaticArray<i32> = [0];
+}
+
+
+@json class GenericNullable<T> {
+  value!: T;
+}
+
+
+@json class LazyBase<T> {
+  value: JSON.Lazy<T> = changetype<T>(0);
+  constructor(value: T) {
+    this.value = value;
+  }
+}
+
+
+@json class LazyChild extends LazyBase<string> {
+  constructor() {
+    super("ok");
+  }
+}
+export function composed(kind: i32, source: string): string {
+  if (kind == 0) return JSON.stringify(JSON.parse<EmptyKey>(source));
+  if (kind == 1) {
+    const out = new SharedKinds();
+    out.b.set("x", out.a);
+    out.b.set("y", new Leaf());
+    return JSON.stringify(JSON.parse<SharedKinds>(source, out));
+  }
+  if (kind == 2) {
+    const out = new SharedStatic();
+    out.b = out.a;
+    return JSON.stringify(JSON.parse<SharedStatic>(source, out));
+  }
+  if (kind == 3)
+    return JSON.stringify(JSON.parse<GenericNullable<string | null>>(source));
+  if (kind == 4) return JSON.stringify(new LazyChild());
+  if (kind == 5)
+    return JSON.stringify(JSON.parse<StaticArray<Uint8Array>>(source));
+  return JSON.stringify(JSON.Obj.from(JSON.parse<Map<string, i32[]>>(source)));
+}

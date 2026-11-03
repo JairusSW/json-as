@@ -1,18 +1,6 @@
+import { reuseComposite } from "../parseMode";
 import { resizeStaticArray } from "../../util/resizeStaticArray";
-import { JSON } from "../..";
-import { deserializeArbitraryArray } from "./array/arbitrary";
-import { deserializeArrayArray } from "./array/array";
-import { deserializeBooleanArray } from "./array/bool";
-import { deserializeBoxArray } from "./array/box";
-import {
-  deserializeCustomArray,
-  deserializeGenericArray,
-} from "./array/generic";
-import { deserializeIntegerArray_NAIVE } from "./array/integer";
-import { deserializeMapArray } from "./array/map";
-import { deserializeObjectArray } from "./array/object";
-import { deserializeRawArray } from "./array/raw";
-import { deserializeStructArray } from "./array/struct";
+import { deserializeArray as deserializeReferenceArray } from "../index/array";
 import { deserializeStringArray_NAIVE } from "./array/string";
 import { deserializeStaticArrayBoolean } from "./staticarray/bool";
 import { deserializeStaticArrayFloat } from "./staticarray/float";
@@ -55,76 +43,13 @@ export function deserializeStaticArray<T extends StaticArray<any>>(
     return deserializeStaticArrayInteger<T>(srcStart, srcEnd, dst);
   } else if (isFloat<valueof<T>>()) {
     return deserializeStaticArrayFloat<T>(srcStart, srcEnd, dst);
-  } else if (isArray<valueof<T>>()) {
+  } else if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
+    // Share representation precedence and supported element types with Array.
     return materializeStaticArray<T>(
-      deserializeArrayArray<valueof<T>[]>(srcStart, srcEnd, 0),
+      deserializeReferenceArray<valueof<T>[]>(srcStart, srcEnd, 0),
       dst,
     );
-  } else if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
-    const type = changetype<nonnull<valueof<T>>>(0);
-    if (type instanceof StaticArray) {
-      return materializeStaticArray<T>(
-        deserializeArrayArray<valueof<T>[]>(srcStart, srcEnd, 0),
-        dst,
-      );
-    } else if (type instanceof JSON.Value) {
-      return materializeStaticArray<T>(
-        changetype<valueof<T>[]>(
-          deserializeArbitraryArray(srcStart, srcEnd, 0),
-        ),
-        dst,
-      );
-    } else if (type instanceof JSON.Box) {
-      return materializeStaticArray<T>(
-        changetype<valueof<T>[]>(
-          deserializeBoxArray<valueof<T>[]>(srcStart, srcEnd, 0),
-        ),
-        dst,
-      );
-    } else if (type instanceof JSON.Obj) {
-      return materializeStaticArray<T>(
-        deserializeObjectArray<valueof<T>[]>(srcStart, srcEnd, 0),
-        dst,
-      );
-    } else if (type instanceof JSON.Raw) {
-      return materializeStaticArray<T>(
-        changetype<valueof<T>[]>(
-          deserializeRawArray<valueof<T>[]>(srcStart, srcEnd, 0),
-        ),
-        dst,
-      );
-    } else if (
-      type instanceof Date ||
-      type instanceof Set ||
-      type instanceof JSON.Arr
-    ) {
-      return materializeStaticArray<T>(
-        deserializeGenericArray<valueof<T>[]>(srcStart, srcEnd, 0),
-        dst,
-      );
-    } else if (type instanceof Map) {
-      return materializeStaticArray<T>(
-        deserializeMapArray<valueof<T>[]>(srcStart, srcEnd, 0),
-        dst,
-      );
-      // @ts-ignore: supplied by transform
-    } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-      return materializeStaticArray<T>(
-        deserializeCustomArray<valueof<T>[]>(srcStart, srcEnd, 0),
-        dst,
-      );
-      // @ts-ignore: supplied by transform
-    } else if (
-      isDefined(type.__DESERIALIZE_SLOW) ||
-      isDefined(type.__DESERIALIZE_FAST)
-    ) {
-      return materializeStaticArray<T>(
-        deserializeStructArray<valueof<T>[]>(srcStart, srcEnd, 0),
-        dst,
-      );
-    }
   }
-
   throw new Error("Could not parse static array of type " + nameof<T>() + "!");
 }
 
@@ -141,7 +66,7 @@ export function deserializeStaticArrayField<T extends StaticArray<any>>(
   const out = deserializeStaticArray<T>(
     srcStart,
     valueEnd,
-    load<usize>(fieldPtr),
+    reuseComposite(load<usize>(fieldPtr), fieldPtr),
   );
   store<T>(fieldPtr, out);
   return valueEnd;

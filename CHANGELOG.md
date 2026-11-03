@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- fix(schema): resolve custom codecs by lexical declaration identity, validate qualified return types, preserve explicit empty aliases, and instantiate lazy metadata and physical layout through generic inheritance.
+- fix(parse): prioritize generated cursor capability and static-array element overrides; claim reused Map values and StaticArray fields across container boundaries; respect nullability supplied through generic arguments.
+- fix(dynamic): preserve wide integer Box conversions and guard primitive-array type-ID queries so Map conversions reach their serialization fallback.
+- perf(object): keep ordinary nested dynamic objects on linear flat traversal; compute callback key identities once and rebuild indexed occurrence lookup only after structural mutation.
+
 - fix(parse): prevent shared composite destinations from overwriting one another, invalidate all public stringify output mutations, bound SIMD trace retention, and release it on fresh parse or Memory.shrink(). Constructor-dependent defaults no longer use the exact-default shortcut.
 - fix(schema): resolve renamed custom imports and namespaced enums; preserve nullable aliases, instantiated inherited types, omitted overrides, and combined omission predicates; escape alias comments and classify primitive names exactly.
 - fix(runtime): honor Map conversion representations, serialize dynamic containers consistently across callback mutation, tolerate shrinking joins, release removed lazy sources, parse signed expanded Date years, and preserve cancellation in long decimal exponents.

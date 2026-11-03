@@ -176,6 +176,36 @@ try {
           g.__unpin(ptr);
           checks++;
         }
+        for (const [kind, value] of [
+          [0, { "": 7 }],
+          [1, { a: { n: 1 }, b: { x: { n: 2 }, y: { n: 3 } } }],
+          [1, { a: { n: 1 }, b: { y: { n: 3 }, x: { n: 2 } } }],
+          [1, { b: { y: { n: 3 }, x: { n: 2 } }, a: { n: 1 } }],
+          [2, { a: [1], b: [2] }],
+          [3, {}],
+          [3, { value: null }],
+          [3, { value: "ok" }],
+          [4, { value: "ok" }],
+          [5, [[7, 8]]],
+          [6, { items: [1, 2] }],
+        ]) {
+          for (const spacing of [undefined, 2]) {
+            const source = JSON.stringify(value, null, spacing);
+            const ptr = input(g, source);
+            const actual = JSON.parse(read(g, g.composed(kind, ptr)));
+            const expected =
+              kind === 3
+                ? { value: null, ...JSON.parse(source) }
+                : JSON.parse(source);
+            assert.deepEqual(
+              actual,
+              expected,
+              label + " composed " + kind + " " + source,
+            );
+            g.__unpin(ptr);
+            checks++;
+          }
+        }
         for (let kind = 0; kind < 5; kind++) {
           assert.equal(
             read(g, g.mutation(kind)),

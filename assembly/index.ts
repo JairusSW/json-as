@@ -1106,7 +1106,11 @@ export namespace JSON {
         type instanceof Float64Array
       )
         return true;
-      if (isArray<T>()) return idof<valueof<T>>() == idof<JSON.Value>();
+      if (isArray<T>()) {
+        if (isReference<valueof<T>>())
+          return idof<valueof<T>>() == idof<JSON.Value>();
+        return false;
+      }
       if (type instanceof Map)
         return idof<nonnull<T>>() == idof<Map<string, JSON.Value>>();
     }
@@ -1454,7 +1458,11 @@ export namespace JSON {
       } else if (value instanceof JSON.Arr) {
         return valBox(JSON.Types.Array, <u64>changetype<usize>(value));
         // @ts-expect-error
-      } else if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) {
+      } else if (
+        isArray<T>() &&
+        isReference<valueof<T>>() &&
+        idof<valueof<T>>() == idof<JSON.Value>()
+      ) {
         // A JSON.Value[] is converted to the buffer-backed JSON.Arr form, so
         // the Array tag always boxes a JSON.Arr.
         return valBox(
@@ -1484,7 +1492,11 @@ export namespace JSON {
         // the native Array<JSON.Value> layout. Materialize wrapper elements
         // for the legacy typed getter instead of reinterpreting that handle.
         // @ts-expect-error: valueof<T> is only used for array targets
-        if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) {
+        if (
+          isArray<T>() &&
+          isReference<valueof<T>>() &&
+          idof<valueof<T>>() == idof<JSON.Value>()
+        ) {
           const ptr = valPtr(w);
           if (ptr == 0) return changetype<T>(0);
           const arr = changetype<JSON.Arr>(ptr);
@@ -1517,7 +1529,11 @@ export namespace JSON {
         return JSON.Types.Null;
       if (isString<T>()) return JSON.Types.String;
       // @ts-expect-error: can assume that T is ArrayLike based on previous condition
-      if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>())
+      if (
+        isArray<T>() &&
+        isReference<valueof<T>>() &&
+        idof<valueof<T>>() == idof<JSON.Value>()
+      )
         return JSON.Types.Array;
       if (value instanceof JSON.Box) return this.getType(value.value);
       if (value instanceof i8) return JSON.Types.I8;
@@ -1697,6 +1713,9 @@ export namespace JSON {
     private _index: StaticArray<i32> | null = null;
     private _indexMask: i32 = 0;
 
+    // Only key insertion/removal/reset changes logical entry positions.
+    _structureVersion: u32 = 0;
+
     constructor() {}
 
     /**
@@ -1866,6 +1885,7 @@ export namespace JSON {
       const pos = this._vused;
       this.ensureValCap(pos + 1);
       this._vused = pos + 1;
+      this._structureVersion++;
       this.storeSlot(pos, bits);
     }
 
@@ -2018,6 +2038,7 @@ export namespace JSON {
         unchecked((this._vals[slotIndex] = bits));
         this._kused = keyPos + KEY_HEADER_UNITS + len;
         this._vused = slotIndex + 1;
+        this._structureVersion++;
         return;
       }
       this.pushKeyBytes(keyStart, keyEnd, slotIndex);
@@ -2165,6 +2186,7 @@ export namespace JSON {
     delete(key: string): bool {
       const removed = this.indexOf(key);
       if (removed < 0) return false;
+      this._structureVersion++;
       this._rawStart = 0;
       this._rawEnd = 0;
       const n = this._vused;
@@ -2209,6 +2231,7 @@ export namespace JSON {
      * from GC tracing safely.
      */
     clear(): void {
+      this._structureVersion++;
       this._kused = 0;
       this._vused = 0;
       this._src = "";
@@ -2216,14 +2239,6 @@ export namespace JSON {
       this._rawEnd = 0;
       this._index = null;
       this._indexMask = 0;
-    }
-
-    /** Internal identity lookup for a snapshotted property occurrence. */
-    __indexOfOccurrence(key: string, occurrence: i32): i32 {
-      for (let i = 0; i < this._vused; i++) {
-        if (this.keyEquals(i, key) && occurrence-- == 0) return i;
-      }
-      return -1;
     }
 
     /**
@@ -2499,7 +2514,11 @@ export namespace JSON {
     static from<T>(value: T): JSON.Arr {
       if (value instanceof JSON.Arr) return value;
       // @ts-expect-error: handled by the isArray guard below
-      if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) {
+      if (
+        isArray<T>() &&
+        isReference<valueof<T>>() &&
+        idof<valueof<T>>() == idof<JSON.Value>()
+      ) {
         const out = new JSON.Arr();
         // @ts-expect-error: T is JSON.Value[] here
         const arr = changetype<JSON.Value[]>(value);
@@ -2998,10 +3017,8 @@ export namespace JSON {
       if (!(value instanceof JSON.Value))
         throw new Error("value must be of type JSON.Value");
       if (value.type === JSON.Types.Null) return null;
-      const v =
-        value.type === JSON.Types.F64 ? value.get<f64>() : value.get<T>();
-      // @ts-expect-error
-      return new Box(isInteger<T>() || isFloat<T>() ? <T>v : v);
+      if (value.type === JSON.Types.F64) return new Box<T>(<T>value.get<f64>());
+      return new Box<T>(value.get<T>());
     }
     /**
      * Creates a reference to a primitive type

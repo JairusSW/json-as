@@ -18,6 +18,7 @@ export declare class Property {
     node: FieldDeclaration;
     byteSize: number;
     lazyInner: string | null;
+    lazyPacked: boolean;
     _generic: boolean;
     _custom: boolean;
     parent: Schema;
@@ -64,6 +65,7 @@ export declare class Src {
     private traverse;
     getQualifiedName(node: DeclarationStatement): string;
     getClass(qualifiedName: string): ClassDeclaration | null;
+    getClassInContext(name: string, owner: DeclarationStatement): ClassDeclaration | null;
     getClasses(): ClassDeclaration[];
     getEnum(qualifiedName: string): EnumDeclaration | null;
     getImportedClass(qualifiedName: string, parser: Parser): ClassDeclaration | null;

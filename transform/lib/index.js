@@ -240,7 +240,7 @@ export class JSONTransform extends Visitor {
         if (!extendsName || visited.has(extendsName))
             return;
         visited.add(extendsName);
-        let baseDecl = source.getClass(extendsName);
+        let baseDecl = source.getClassInContext(extendsName, node);
         let baseSource = baseDecl ? source : null;
         if (!baseDecl) {
             const imported = source.getImportedClass(extendsName, this.parser);
@@ -490,7 +490,7 @@ export class JSONTransform extends Visitor {
                 visiting.delete(schema);
                 return null;
             }
-            fields.push(JSON.stringify(member.alias || member.name) + ":" + value);
+            fields.push(JSON.stringify(member.alias ?? member.name) + ":" + value);
         }
         visiting.delete(schema);
         return "{" + fields.join(",") + "}";
@@ -654,6 +654,7 @@ export class JSONTransform extends Visitor {
             const decSlot = (lz) => baseT === "f32"
                 ? `reinterpret<f32>(<u32>(${lz}))`
                 : `(<${T}>(<u32>(${lz})))`;
+            lazyInner.get("__" + fname + "_lz").packed = packScalar;
             const lowered = (packScalar
                 ? [
                     `@alias(${key}) ${optional}private __${fname}_lz: u64 = ${fieldDefault != null
@@ -741,7 +742,7 @@ export class JSONTransform extends Visitor {
                     schema.parent = depSearch;
                 }
                 else {
-                    const internalSearch = source.getClass(extendsName);
+                    const internalSearch = source.getClassInContext(extendsName, node);
                     if (internalSearch) {
                         if (DEBUG > 0)
                             console.log("Found " +
@@ -758,7 +759,7 @@ export class JSONTransform extends Visitor {
                         }
                         const schem = this.schemas
                             .get(internalSearch.range.source.internalPath)
-                            ?.find((s) => s.name == extendsName);
+                            ?.find((s) => s.node === internalSearch);
                         if (!schem)
                             throw new Error("Could not find schema for " +
                                 internalSearch.name.text +
@@ -816,7 +817,7 @@ export class JSONTransform extends Visitor {
                                     }
                                     const schem = this.schemas
                                         .get(availableSource.internalPath)
-                                        ?.find((s) => s.name == extendsName);
+                                        ?.find((s) => s.node === availableSearch);
                                     if (schem) {
                                         schema.deps.push(schem);
                                         schema.parent = schem;
@@ -844,6 +845,7 @@ export class JSONTransform extends Visitor {
                             if (arguments_[j])
                                 bindings.set(parameters[j].name.text, arguments_[j]);
                         }
+                        const lazy = this.lazyMetadata.get(declaration);
                         declaration = cloneNode(declaration);
                         class InstantiateTypes extends Visitor {
                             visitNamedTypeNode(type) {
@@ -857,7 +859,34 @@ export class JSONTransform extends Visitor {
                                     super.visitNamedTypeNode(type);
                             }
                         }
-                        new InstantiateTypes().visit(declaration);
+                        const instantiate = new InstantiateTypes();
+                        instantiate.visit(declaration);
+                        if (lazy) {
+                            const instantiateType = (type) => {
+                                const field = SimpleParser.parseClassMember("__type: " + type + ";", node);
+                                instantiate.visit(field);
+                                return toString(field.type);
+                            };
+                            const initializer = lazy.valueInit
+                                ? SimpleParser.parseStatement(lazy.valueInit)
+                                : null;
+                            if (initializer)
+                                instantiate.visit(initializer);
+                            const omitIf = lazy.omitIf
+                                ? cloneNode(lazy.omitIf)
+                                : null;
+                            if (omitIf)
+                                instantiate.visit(omitIf);
+                            this.lazyMetadata.set(declaration, {
+                                ...lazy,
+                                inner: instantiateType(lazy.inner),
+                                valueType: instantiateType(lazy.valueType),
+                                valueInit: initializer
+                                    ? toString(initializer) + "\n"
+                                    : undefined,
+                                omitIf,
+                            });
+                        }
                     }
                     members.unshift(declaration);
                 }
@@ -911,7 +940,7 @@ export class JSONTransform extends Visitor {
                     }
                 }
                 else {
-                    const internalSearch = source.getClass(unknownType);
+                    const internalSearch = source.getClassInContext(unknownType, node);
                     if (internalSearch) {
                         if (DEBUG > 0)
                             console.log("Found " +
@@ -922,7 +951,7 @@ export class JSONTransform extends Visitor {
                             this.visitClassDeclarationRef(internalSearch);
                             const internalSchema = this.schemas
                                 .get(internalSearch.range.source.internalPath)
-                                ?.find((s) => s.name == unknownType);
+                                ?.find((s) => s.node === internalSearch);
                             schema.deps.push(internalSchema);
                             this.schemas
                                 .get(internalSearch.range.source.internalPath)
@@ -932,7 +961,7 @@ export class JSONTransform extends Visitor {
                         }
                         const schem = this.schemas
                             .get(internalSearch.range.source.internalPath)
-                            ?.find((s) => s.name == unknownType);
+                            ?.find((s) => s.node === internalSearch);
                         if (!schem)
                             throw new Error("Could not find schema for " +
                                 internalSearch.name.text +
@@ -1097,9 +1126,13 @@ export class JSONTransform extends Visitor {
             if (deserializer.signature.parameters[0].type.name
                 .identifier.text != "string")
                 throwError("Type of parameter for custom deserializer does not match! It must be 'string'", deserializer.signature.parameters[0].type.range);
-            if (!deserializer.signature.returnType ||
-                !((deserializer.signature.returnType).name.identifier.text.includes(this.schema.name) ||
-                    (deserializer.signature.returnType).name.identifier.text.includes("this")))
+            const returnType = deserializer.signature.returnType;
+            const returnName = returnType
+                ? toString(returnType.name)
+                : "";
+            const returnDeclaration = source.getClassInContext(returnName, node) ||
+                source.getImportedClass(returnName, this.parser);
+            if (returnName !== "this" && returnDeclaration !== node)
                 throwError("Could not find valid return type for deserializer in " +
                     this.schema.name +
                     "!. Set the return type to type '" +
@@ -1158,6 +1191,7 @@ export class JSONTransform extends Visitor {
             const lzInner = lazyInner.get(name.text);
             if (lzInner !== undefined) {
                 mem.flags.set(PropertyFlags.Lazy, null);
+                mem.lazyPacked = !!lzInner.packed;
                 mem.lazyInner = lzInner.inner;
                 if (lzInner.omitNull) {
                     mem.flags.set(PropertyFlags.OmitNull, null);
@@ -1304,15 +1338,7 @@ export class JSONTransform extends Visitor {
             const T = member.lazyInner;
             const baseName = realName.slice(0, -3);
             const baseT = stripNull(T);
-            const packScalar = baseT === "i8" ||
-                baseT === "u8" ||
-                baseT === "i16" ||
-                baseT === "u16" ||
-                baseT === "i32" ||
-                baseT === "u32" ||
-                baseT === "bool" ||
-                baseT === "boolean" ||
-                baseT === "f32";
+            const packScalar = member.lazyPacked;
             if (packScalar) {
                 const dec = baseT === "f32"
                     ? `reinterpret<f32>(<u32>(__s))`
@@ -1354,7 +1380,7 @@ export class JSONTransform extends Visitor {
         };
         const cursorMayDefer = STRICT &&
             !DESERIALIZE_CUSTOM &&
-            new Set(this.schema.members.map((member) => member.alias || member.name))
+            new Set(this.schema.members.map((member) => member.alias ?? member.name))
                 .size == this.schema.members.length &&
             this.schema.members.every((member) => !member.value &&
                 !member.generic &&
@@ -1366,7 +1392,7 @@ export class JSONTransform extends Visitor {
         for (let i = 0; i < this.schema.members.length; i++) {
             const member = this.schema.members[i];
             const initializeStart = INITIALIZE.length;
-            const aliasName = JSON.stringify(member.alias || member.name);
+            const aliasName = JSON.stringify(member.alias ?? member.name);
             const realName = member.name;
             if (member.value) {
                 INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
@@ -1375,7 +1401,9 @@ export class JSONTransform extends Visitor {
                     INITIALIZE += __valInit;
             }
             else if (member.generic && !member.node.type.isNullable) {
-                INITIALIZE += `  if (isManaged<nonnull<${member.type}>>() || isReference<nonnull<${member.type}>>()) {\n`;
+                INITIALIZE += `  if (isNullable<${member.type}>()) {\n`;
+                INITIALIZE += `    store<${member.type}>(changetype<usize>(this), changetype<${member.type}>(0), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                INITIALIZE += `  } else if (isManaged<nonnull<${member.type}>>() || isReference<nonnull<${member.type}>>()) {\n`;
                 INITIALIZE += `    store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())), offsetof<this>(${JSON.stringify(member.name)}));\n`;
                 INITIALIZE += `    if (isDefined(this.${member.name}.__INITIALIZE)) changetype<nonnull<${member.type}>>(this.${member.name}).__INITIALIZE();\n`;
                 INITIALIZE += `  }\n`;
@@ -2109,9 +2137,7 @@ export class JSONTransform extends Visitor {
             const t1opt = [];
             for (let i = 0; i < this.schema.members.length; i++) {
                 const member = this.schema.members[i];
-                const key = JSON.stringify(member.alias || member.name);
-                if (key.length <= 2)
-                    throw new Error("Key cannot be empty!");
+                const key = JSON.stringify(member.alias ?? member.name);
                 const resolvedType = stripNull(member.type);
                 const inlineStringValue = ["string", "String"].includes(resolvedType);
                 const packedQuote = inlineStringValue && !member.node.type.isNullable ? '"' : "";
@@ -2203,9 +2229,7 @@ export class JSONTransform extends Visitor {
             const t1blocks = [];
             for (let i = 0; i < this.schema.members.length; i++) {
                 const member = this.schema.members[i];
-                const key = JSON.stringify(member.alias || member.name);
-                if (key.length <= 2)
-                    throw new Error("Key cannot be empty!");
+                const key = JSON.stringify(member.alias ?? member.name);
                 const resolvedType = stripNull(member.type);
                 const inlineStringValue = ["string", "String"].includes(resolvedType);
                 const trustedStringValue = inlineStringValue && !member.node.type.isNullable;
@@ -2261,7 +2285,7 @@ export class JSONTransform extends Visitor {
             const t2blocks = [];
             for (let i = 0; i < this.schema.members.length; i++) {
                 const member = this.schema.members[i];
-                const key = JSON.stringify(member.alias || member.name);
+                const key = JSON.stringify(member.alias ?? member.name);
                 const keyBytes = key.length << 1;
                 let blk = "\n";
                 blk += skip;
@@ -2316,7 +2340,7 @@ export class JSONTransform extends Visitor {
             const t2opt = [];
             for (let i = 0; i < this.schema.members.length; i++) {
                 const member = this.schema.members[i];
-                const key = JSON.stringify(member.alias || member.name);
+                const key = JSON.stringify(member.alias ?? member.name);
                 const keyBytes = key.length << 1;
                 const traceBit = `<u64>1 << ${i}`;
                 const keyMatches = getComparisions(key, "kp", "==").join(" && ");
@@ -2526,7 +2550,7 @@ export class JSONTransform extends Visitor {
             const keyedMembersByBytes = new Map();
             for (let i = 0; i < this.schema.members.length; i++) {
                 const member = this.schema.members[i];
-                const keyBytes = JSON.stringify(member.alias || member.name).length << 1;
+                const keyBytes = JSON.stringify(member.alias ?? member.name).length << 1;
                 const group = keyedMembersByBytes.get(keyBytes);
                 if (group)
                     group.push(i);
@@ -2538,7 +2562,7 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE_FAST += i3 + `  case ${keyBytes}: {\n`;
                 for (const i of memberIndexes) {
                     const member = this.schema.members[i];
-                    const key = JSON.stringify(member.alias || member.name);
+                    const key = JSON.stringify(member.alias ?? member.name);
                     const condition = getComparisions(key, "keyStart", "==").join(" &&\n" + i3 + "      ");
                     DESERIALIZE_FAST += i3 + `    if (!matched && (${condition})) {\n`;
                     DESERIALIZE_FAST += i3 + "      matched = true;\n";
@@ -2694,7 +2718,7 @@ export class JSONTransform extends Visitor {
         const groupMembers = (members) => {
             const groups = new Map();
             for (const member of members) {
-                const name = member.alias || member.name;
+                const name = member.alias ?? member.name;
                 const length = name.length;
                 if (!groups.has(length)) {
                     groups.set(length, []);
@@ -2703,8 +2727,8 @@ export class JSONTransform extends Visitor {
             }
             return [...groups.values()]
                 .map((group) => group.sort((a, b) => {
-                const aLen = (a.alias || a.name).length;
-                const bLen = (b.alias || b.name).length;
+                const aLen = (a.alias ?? a.name).length;
+                const bLen = (b.alias ?? b.name).length;
                 return aLen - bLen;
             }))
                 .sort((a, b) => b.length - a.length);
@@ -2735,7 +2759,7 @@ export class JSONTransform extends Visitor {
                 const groups = groupMembers(members);
                 DESERIALIZE += "     switch (<u32>keyEnd - <u32>keyStart) {\n";
                 for (const group of groups) {
-                    const groupLen = (group[0].alias || group[0].name).length << 1;
+                    const groupLen = (group[0].alias ?? group[0].name).length << 1;
                     DESERIALIZE += "           case " + groupLen + ": {\n";
                     const emitDispatch = (tree) => {
                         if ("members" in tree) {
@@ -2749,7 +2773,7 @@ export class JSONTransform extends Visitor {
                             DESERIALIZE += "}\n";
                         }
                     };
-                    emitDispatch(keyDispatch(group, (member) => member.alias || member.name));
+                    emitDispatch(keyDispatch(group, (member) => member.alias ?? member.name));
                     DESERIALIZE += "\n            }\n";
                 }
                 DESERIALIZE += "    default: {\n";
@@ -2779,21 +2803,21 @@ export class JSONTransform extends Visitor {
             }
         };
         const generateConsts = (members) => {
-            if (members.some((m) => (m.alias || m.name).length << 1 == 2)) {
+            if (members.some((m) => (m.alias ?? m.name).length << 1 == 2)) {
                 DESERIALIZE += "            const code16 = load<u16>(keyStart);\n";
             }
-            if (members.some((m) => (m.alias || m.name).length << 1 == 4)) {
+            if (members.some((m) => (m.alias ?? m.name).length << 1 == 4)) {
                 DESERIALIZE += "            const code32 = load<u32>(keyStart);\n";
             }
-            if (members.some((m) => (m.alias || m.name).length << 1 == 6)) {
+            if (members.some((m) => (m.alias ?? m.name).length << 1 == 6)) {
                 DESERIALIZE +=
                     "            const code48 = load<u64>(keyStart) & 0x0000FFFFFFFFFFFF;\n";
             }
-            if (members.some((m) => (m.alias || m.name).length << 1 == 8)) {
+            if (members.some((m) => (m.alias ?? m.name).length << 1 == 8)) {
                 DESERIALIZE += "            const code64 = load<u64>(keyStart);\n";
             }
-            if (members.some((m) => (m.alias || m.name).length << 1 > 8)) {
-                DESERIALIZE += toMemCDecl(Math.max(...members.map((m) => (m.alias || m.name).length << 1)), "            ");
+            if (members.some((m) => (m.alias ?? m.name).length << 1 > 8)) {
+                DESERIALIZE += toMemCDecl(Math.max(...members.map((m) => (m.alias ?? m.name).length << 1)), "            ");
             }
         };
         const getLazyRangeStore = (member, valueStart, valueEnd, prefix) => {
@@ -2852,7 +2876,7 @@ export class JSONTransform extends Visitor {
             generateGroups(slowStringMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
-                const fName = first.alias || first.name;
+                const fName = first.alias ?? first.name;
                 DESERIALIZE +=
                     indent +
                         "            if (" +
@@ -2868,7 +2892,7 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE += indent + "            }";
                 for (let i = 1; i < group.length; i++) {
                     const mem = group[i];
-                    const memName = mem.alias || mem.name;
+                    const memName = mem.alias ?? mem.name;
                     DESERIALIZE +=
                         indent +
                             " else if (" +
@@ -2921,7 +2945,7 @@ export class JSONTransform extends Visitor {
             generateGroups(slowNumberMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
-                const fName = first.alias || first.name;
+                const fName = first.alias ?? first.name;
                 DESERIALIZE +=
                     indent +
                         "            if (" +
@@ -2943,7 +2967,7 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE += indent + "            }";
                 for (let i = 1; i < group.length; i++) {
                     const mem = group[i];
-                    const memName = mem.alias || mem.name;
+                    const memName = mem.alias ?? mem.name;
                     DESERIALIZE +=
                         indent +
                             " else if (" +
@@ -3016,7 +3040,7 @@ export class JSONTransform extends Visitor {
             generateGroups(slowObjectMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
-                const fName = first.alias || first.name;
+                const fName = first.alias ?? first.name;
                 DESERIALIZE +=
                     indent +
                         "            if (" +
@@ -3030,7 +3054,7 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE += indent + "            }";
                 for (let i = 1; i < group.length; i++) {
                     const mem = group[i];
-                    const memName = mem.alias || mem.name;
+                    const memName = mem.alias ?? mem.name;
                     DESERIALIZE +=
                         indent +
                             " else if (" +
@@ -3096,7 +3120,7 @@ export class JSONTransform extends Visitor {
             generateGroups(slowArrayMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
-                const fName = first.alias || first.name;
+                const fName = first.alias ?? first.name;
                 DESERIALIZE +=
                     indent +
                         "            if (" +
@@ -3111,7 +3135,7 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE += indent + "            }";
                 for (let i = 1; i < group.length; i++) {
                     const mem = group[i];
-                    const memName = mem.alias || mem.name;
+                    const memName = mem.alias ?? mem.name;
                     DESERIALIZE +=
                         indent +
                             " else if (" +
@@ -3160,7 +3184,7 @@ export class JSONTransform extends Visitor {
             generateGroups(slowBooleanMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
-                const fName = first.alias || first.name;
+                const fName = first.alias ?? first.name;
                 DESERIALIZE +=
                     indent +
                         "          if (" +
@@ -3176,7 +3200,7 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE += indent + "          }";
                 for (let i = 1; i < group.length; i++) {
                     const mem = group[i];
-                    const memName = mem.alias || mem.name;
+                    const memName = mem.alias ?? mem.name;
                     DESERIALIZE +=
                         indent +
                             " else if (" +
@@ -3224,7 +3248,7 @@ export class JSONTransform extends Visitor {
             generateGroups(slowBooleanMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
-                const fName = first.alias || first.name;
+                const fName = first.alias ?? first.name;
                 DESERIALIZE +=
                     indent +
                         "          if (" +
@@ -3240,7 +3264,7 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE += indent + "          }";
                 for (let i = 1; i < group.length; i++) {
                     const mem = group[i];
-                    const memName = mem.alias || mem.name;
+                    const memName = mem.alias ?? mem.name;
                     DESERIALIZE +=
                         indent +
                             " else if (" +
@@ -3287,7 +3311,7 @@ export class JSONTransform extends Visitor {
             generateGroups(slowNullMembers, (group) => {
                 generateConsts(group);
                 const first = group[0];
-                const fName = first.alias || first.name;
+                const fName = first.alias ?? first.name;
                 DESERIALIZE +=
                     indent +
                         "          if (" +
@@ -3303,7 +3327,7 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE += indent + "          }";
                 for (let i = 1; i < group.length; i++) {
                     const mem = group[i];
-                    const memName = mem.alias || mem.name;
+                    const memName = mem.alias ?? mem.name;
                     DESERIALIZE +=
                         indent +
                             " else if (" +
@@ -3502,7 +3526,7 @@ export class JSONTransform extends Visitor {
             }
         }
         if (STRICT && !DESERIALIZE_CUSTOM) {
-            const keys = this.schema.members.map((member) => member.alias || member.name);
+            const keys = this.schema.members.map((member) => member.alias ?? member.name);
             if (new Set(keys).size === keys.length) {
                 if (cursorDeferred.length) {
                     node.members.push(SimpleParser.parseClassMember("__INITIALIZE_CURSOR(): this {\n" +
@@ -3576,6 +3600,12 @@ export class JSONTransform extends Visitor {
     getSchema(name) {
         name = stripNull(name);
         const source = this.sources.get(this.schema.node.range.source);
+        const declaration = source.getClassInContext(name, this.schema.node);
+        if (declaration) {
+            return (this.schemas
+                .get(source.internalPath)
+                ?.find((s) => s.node === declaration) || null);
+        }
         const imported = source.getImportedClass(name, this.parser);
         if (imported) {
             const importedSource = this.sources.get(imported.range.source);
@@ -4285,6 +4315,8 @@ function sortMembers(members) {
     });
 }
 function getComparison(data) {
+    if (data.length == 0)
+        return "true";
     switch (data.length << 1) {
         case 2: {
             return "code16 == " + data.charCodeAt(0);

@@ -4,7 +4,7 @@ export function generateCursorParser(members, compare, completeDefaults = false)
     const entries = members.map((member, id) => ({
         member,
         id,
-        encoded: JSON.stringify(member.alias || member.name),
+        encoded: JSON.stringify(member.alias ?? member.name),
     }));
     const equality = (entry) => compare(entry.encoded, "keyStart", "==").join(" && ");
     const selector = (tree) => {
@@ -34,7 +34,7 @@ export function generateCursorParser(members, compare, completeDefaults = false)
         .map(([bytes, group]) => `case ${bytes}: {\n${selector(keyDispatch(group, (entry) => entry.encoded))}\nbreak;\n}`)
         .join("\n");
     const decoded = entries
-        .map((entry) => `if (field < 0 && decoded == ${JSON.stringify(entry.member.alias || entry.member.name)
+        .map((entry) => `if (field < 0 && decoded == ${JSON.stringify(entry.member.alias ?? entry.member.name)
         .replaceAll("\u2028", "\\u2028")
         .replaceAll("\u2029", "\\u2029")}) field = ${entry.id};`)
         .join("\n");

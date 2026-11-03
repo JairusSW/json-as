@@ -62,3 +62,23 @@ describe("callback traversal retains duplicate occurrences and untouched slices"
     '{"a":1,"dup":1,"dup":2,"keep":[1.0, 2.0]}',
   );
 });
+
+describe("callback detection follows eager nested containers", () => {
+  for (let kind = 0; kind < 2; kind++) {
+    object = new JSON.Obj();
+    if (kind == 0) {
+      const child = new JSON.Obj();
+      child.set("nested", new DeleteProperty());
+      object.set("a", child);
+    } else {
+      const child = new JSON.Arr();
+      child.push(new DeleteProperty());
+      object.set("a", child);
+    }
+    object.set<i32>("b", 2);
+    object.set<i32>("c", 3);
+    expect(JSON.stringify(object)).toBe(
+      kind == 0 ? '{"a":{"nested":1},"c":3}' : '{"a":[1],"c":3}',
+    );
+  }
+});

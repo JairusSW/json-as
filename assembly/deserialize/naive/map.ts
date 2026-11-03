@@ -1,3 +1,4 @@
+import { HASH } from "util/hash";
 import { reuseComposite } from "../parseMode";
 import { JSON } from "../..";
 import {
@@ -121,6 +122,42 @@ function deserializeFreshStringMapKey(start: usize, end: usize): u64 {
 
 /** Inserts into a fresh runtime Map with an already computed key hash. Returns
  * false only at a growth boundary, where ordinary `Map.set` performs rehash. */
+function reusableMapValueSlot<T extends Map<any, any>>(
+  out: T,
+  key: indexof<T>,
+): usize {
+  const ptr = changetype<usize>(out);
+  const buckets = load<usize>(
+    ptr,
+    offsetof<Map<indexof<T>, valueof<T>>>("buckets"),
+  );
+  const mask = load<u32>(
+    ptr,
+    offsetof<Map<indexof<T>, valueof<T>>>("bucketsMask"),
+  );
+  let entry = load<usize>(
+    buckets + ((<usize>(HASH<indexof<T>>(key) & mask)) << alignof<usize>()),
+  );
+  while (entry) {
+    const next = load<usize>(
+      entry,
+      offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("taggedNext"),
+    );
+    if (
+      !(next & 1) &&
+      load<indexof<T>>(
+        entry,
+        offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("key"),
+      ) == key
+    )
+      return (
+        entry + offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value")
+      );
+    entry = next & ~(<usize>1);
+  }
+  return 0;
+}
+
 function setFreshMapValuePrehashed<T extends Map<any, any>>(
   out: T,
   key: indexof<T>,
@@ -628,6 +665,17 @@ export function deserializeMapBody<T extends Map<any, any>>(
           );
         } else if (reuseExisting && changetype<nonnull<T>>(out).has(key)) {
           value = changetype<nonnull<T>>(out).get(key);
+        }
+        // A stable map-entry value slot identifies the logical destination,
+        // including repeated keys, across the complete public parse.
+        if (changetype<usize>(value) != 0) {
+          const slot = matchedPreviousKey
+            ? previousEntry +
+              offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value")
+            : reusableMapValueSlot<T>(out, key);
+          value = changetype<valueof<T>>(
+            reuseComposite(changetype<usize>(value), slot),
+          );
         }
         // A destination graph may share one instance across different keys.
         // Only its first occurrence can be mutated without changing an earlier
