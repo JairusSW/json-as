@@ -81,6 +81,8 @@ export function deserializeArray<T extends unknown[]>(
     )
       return deserializeStructArray_SWAR<T>(srcStart, srcEnd, dst);
     if (type instanceof JSON.Value) {
+      if (isNullable<valueof<T>>())
+        return deserializeGenericArray<T>(srcStart, srcEnd, dst);
       return deserializeArbitraryArray(srcStart, srcEnd, dst) as T;
     } else if (type instanceof JSON.Box) {
       return deserializeBoxArray<T>(srcStart, srcEnd, dst);

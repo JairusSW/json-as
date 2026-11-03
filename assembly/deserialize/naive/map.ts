@@ -412,11 +412,11 @@ export function deserializeMap<T extends Map<any, any>>(
   srcEnd: usize,
   dst: usize,
 ): T {
-  const reuseExisting = dst != 0;
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(instantiate<T>()),
   );
 
+  const reuseExisting = dst != 0 || out.size != 0;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
   if (srcStart - srcEnd == 0) return changetype<T>(0);
@@ -572,7 +572,14 @@ export function deserializeMapBody<T extends Map<any, any>>(
       parsedKeyCount++;
     }
 
-    if (isReference<valueof<T>>() && arbitraryValue) {
+    if (
+      isNullable<valueof<T>>() &&
+      srcStart + 8 <= srcEnd &&
+      load<u64>(srcStart) == NULL_WORD_U64
+    ) {
+      setParsedMapValue<T>(out, key, changetype<valueof<T>>(0), packedKey);
+      srcStart += 8;
+    } else if (isReference<valueof<T>>() && arbitraryValue) {
       const val = parseValue(srcStart, srcEnd);
       const next = lastValueEnd();
       if (!next) break;
@@ -584,13 +591,6 @@ export function deserializeMapBody<T extends Map<any, any>>(
         packedKey,
       );
       srcStart = next;
-    } else if (
-      isNullable<valueof<T>>() &&
-      srcStart + 8 <= srcEnd &&
-      load<u64>(srcStart) == NULL_WORD_U64
-    ) {
-      setParsedMapValue<T>(out, key, changetype<valueof<T>>(0), packedKey);
-      srcStart += 8;
     } else if (isReference<valueof<T>>() && rawValue) {
       const valueEnd = scanValueEnd(srcStart, srcEnd);
       if (!valueEnd || valueEnd <= srcStart) break;
@@ -856,5 +856,10 @@ export function deserializeMapField<T extends Map<any, any>>(
     out = changetype<T>(instantiate<T>());
     store<T>(fieldPtr, out);
   }
-  return deserializeMapBody<T>(srcStart, srcEnd, out, reuseExisting);
+  return deserializeMapBody<T>(
+    srcStart,
+    srcEnd,
+    out,
+    reuseExisting || out.size != 0,
+  );
 }

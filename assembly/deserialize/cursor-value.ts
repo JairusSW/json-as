@@ -1,4 +1,8 @@
-import { parseDateTime } from "./naive/date";
+import {
+  parseDateTime,
+  parseCanonicalDate,
+  NON_CANONICAL_DATE,
+} from "./naive/date";
 import { JSON, JSONMode } from "..";
 import { Runtime } from "shared/runtime";
 import { getParseSrc } from "./naive/object";
@@ -332,6 +336,18 @@ export function readCursorValue<T>(
       return next;
     }
     if (type instanceof Date) {
+      if (load<u16>(start) == 34) {
+        for (let length = 24; length <= 27; length += 3) {
+          const close = start + 2 + ((<usize>length) << 1);
+          if (close + 2 > end || load<u16>(close) != 34) continue;
+          const time = parseCanonicalDate(start + 2, close);
+          if (time == NON_CANONICAL_DATE) continue;
+          const value = new Date(time);
+          store<usize>(field, changetype<usize>(value));
+          cursorLink(dst, changetype<usize>(value), false);
+          return close + 2;
+        }
+      }
       const slot = new CursorSlot<string>();
       const next = readCursorString(
         start,

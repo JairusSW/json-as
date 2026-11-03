@@ -16,7 +16,7 @@ export declare class JSONTransform extends Visitor {
     schema: Schema;
     sources: SourceSet;
     imports: ImportStatement[];
-    simdStatements: string[];
+    simdStatements: Map<Source, string[]>;
     visitedClasses: Set<string>;
     private lazyMetadata;
     private collectInheritedFieldMembers;

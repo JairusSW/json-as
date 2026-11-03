@@ -230,7 +230,7 @@ export class JSONTransform extends Visitor {
     schema;
     sources = new SourceSet();
     imports = [];
-    simdStatements = [];
+    simdStatements = new Map();
     visitedClasses = new Set();
     lazyMetadata = new Map();
     collectInheritedFieldMembers(node, source, members, visited = new Set()) {
@@ -1250,6 +1250,7 @@ export class JSONTransform extends Visitor {
             }
             this.schema.members.push(mem);
         }
+        const initializationMembers = this.schema.members.slice();
         this.schema.members = sortMembers(this.schema.members);
         const hasOmitIfMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitIf));
         const hasOmitNullMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull));
@@ -1386,8 +1387,9 @@ export class JSONTransform extends Visitor {
                 !member.generic &&
                 !member.flags.has(PropertyFlags.Lazy)) &&
             !this.hasCustomCursorLifecycle(this.schema);
-        const cursorInitializers = [];
-        const cursorFreshInitializers = [];
+        const initializationFragments = new Map();
+        const cursorInitializers = new Set();
+        const cursorFreshInitializers = new Set();
         const cursorDeferred = [];
         for (let i = 0; i < this.schema.members.length; i++) {
             const member = this.schema.members[i];
@@ -1430,7 +1432,18 @@ export class JSONTransform extends Visitor {
             else {
                 INITIALIZE += `  store<${member.type}>(changetype<usize>(this), null, offsetof<this>(${JSON.stringify(member.name)}));\n`;
             }
-            const cursorInitialize = INITIALIZE.slice(initializeStart);
+            let cursorInitialize = INITIALIZE.slice(initializeStart);
+            const initializeField = "__JSON_INITIALIZE_FIELD_" + member.name;
+            const inherited = this.schema.parent?.members.some((parent) => parent.name === member.name) &&
+                !node.members.some((field) => field.kind === NodeKind.FieldDeclaration &&
+                    field.name.text === member.name);
+            if (inherited) {
+                cursorInitialize = `  this.${initializeField}();\n`;
+            }
+            else if (!node.members.some((method) => method.name.text === initializeField)) {
+                node.members.push(SimpleParser.parseClassMember(`@inline ${initializeField}(): void {\n${cursorInitialize}}`, node));
+            }
+            initializationFragments.set(member, cursorInitialize);
             if (cursorMayDefer &&
                 !member.node.type.isNullable &&
                 (/^(Array|Map|Set)</.test(member.type) ||
@@ -1438,14 +1451,14 @@ export class JSONTransform extends Visitor {
                 cursorDeferred.push({ member, initialize: cursorInitialize });
             }
             else {
-                cursorInitializers.push(cursorInitialize);
+                cursorInitializers.add(member);
                 if (cursorMayDefer &&
                     !member.node.type.isNullable &&
                     isString(member.type)) {
                     cursorDeferred.push({ member, initialize: cursorInitialize });
                 }
                 else if (!member.node.type.isNullable && !isPrimitive(member.type)) {
-                    cursorFreshInitializers.push(cursorInitialize);
+                    cursorFreshInitializers.add(member);
                 }
             }
             const SIMD_ENABLED = this.program.options.hasFeature(16);
@@ -2487,7 +2500,7 @@ export class JSONTransform extends Visitor {
             const keyedResets = this.schema.members.map((member) => {
                 const offset = `offsetof<this>(${JSON.stringify(member.name)})`;
                 if (member.value)
-                    return `store<${member.type}>(dst, ${member.value}, ${offset});`;
+                    return `changetype<this>(dst).__JSON_INITIALIZE_FIELD_${member.name}();`;
                 if (member.node.type.isNullable)
                     return `store<${member.type}>(dst, null, ${offset});`;
                 if (this.getSchema(member.type))
@@ -3403,6 +3416,15 @@ export class JSONTransform extends Visitor {
                 directWideIntegerArrayReserve +
                 ");\n" +
                 SERIALIZE.slice(32);
+        const orderedInitializers = (members) => initializationMembers
+            .filter((member) => members.has(member))
+            .map((member) => initializationFragments.get(member))
+            .join("");
+        INITIALIZE =
+            "@inline __INITIALIZE(): this {\n" +
+                initializationMembers
+                    .map((member) => initializationFragments.get(member))
+                    .join("");
         INITIALIZE += "  return this;\n";
         INITIALIZE += "}";
         if (__hasLazy && !DESERIALIZE_CUSTOM) {
@@ -3507,7 +3529,7 @@ export class JSONTransform extends Visitor {
         if (STRICT) {
             if (!node.members.some((member) => member.name.text == "__INITIALIZE_CURSOR_FRESH")) {
                 const initialize = cursorMayDefer
-                    ? cursorFreshInitializers.join("")
+                    ? orderedInitializers(cursorFreshInitializers)
                     : this.hasCustomCursorInitializer(this.schema)
                         ? "  this.__INITIALIZE_CURSOR();\n"
                         : "  this.__INITIALIZE();\n";
@@ -3531,7 +3553,7 @@ export class JSONTransform extends Visitor {
                 if (cursorDeferred.length) {
                     node.members.push(SimpleParser.parseClassMember("__INITIALIZE_CURSOR(): this {\n" +
                         "  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n" +
-                        cursorInitializers.join("") +
+                        orderedInitializers(cursorInitializers) +
                         "  return this;\n}", node));
                     const complete = cursorDeferred
                         .map(({ member, initialize }) => {
@@ -3777,10 +3799,14 @@ export class JSONTransform extends Visitor {
         let offset = 0;
         for (const [size, num] of sizes) {
             if (size == "v128" && simd) {
-                const index = this.simdStatements.findIndex((v) => v.includes(num));
-                const name = "SIMD_" + (index == -1 ? this.simdStatements.length : index);
+                const owner = this.schema.node.range.source;
+                let statements = this.simdStatements.get(owner);
+                if (!statements)
+                    this.simdStatements.set(owner, (statements = []));
+                const index = statements.findIndex((v) => v.includes(num));
+                const name = "SIMD_" + (index == -1 ? statements.length : index);
                 if (index == -1)
-                    this.simdStatements.push(`const ${name} = ${num};`);
+                    statements.push(`const ${name} = ${num};`);
                 out.push("store<v128>(" +
                     target +
                     ", " +
@@ -3964,17 +3990,16 @@ export default class Transformer extends Transform {
             transformer.imports = [];
             transformer.currentSource = source;
             transformer.visit(source);
-            if (transformer.simdStatements.length) {
-                for (const simd of transformer.simdStatements)
-                    source.statements.unshift(SimpleParser.parseTopLevelStatement(simd));
-            }
-            transformer.simdStatements = [];
             if (transformer.schemas.has(source.internalPath)) {
                 transformer.addImports(source);
             }
             if (source.normalizedPath == WRITE) {
                 writeFileSync(path.join(process.cwd(), this.baseDir, removeExtension(source.normalizedPath) + ".tmp.ts"), toString(source));
             }
+        }
+        for (const [source, statements] of transformer.simdStatements) {
+            for (const statement of statements)
+                source.statements.unshift(SimpleParser.parseTopLevelStatement(statement));
         }
         const configuredLibrarySource = process.env["JSON_AS_LIBRARY_SOURCE"]?.trim();
         for (const source of parser.sources) {

@@ -391,7 +391,7 @@ export class JSONTransform extends Visitor {
   public schema!: Schema;
   public sources: SourceSet = new SourceSet();
   public imports: ImportStatement[] = [];
-  public simdStatements: string[] = [];
+  public simdStatements = new Map<Source, string[]>();
 
   public visitedClasses: Set<string> = new Set<string>();
 
@@ -1931,6 +1931,7 @@ export class JSONTransform extends Visitor {
     // only moves @omit fields - @optional fields stay in DECLARATION ORDER, which
     // the order-sensitive optional fast path requires (it matches in declaration
     // order with skips, so moving them would desync against real documents).
+    const initializationMembers = this.schema.members.slice();
     this.schema.members = sortMembers(this.schema.members);
 
     const hasOmitIfMembers = this.schema.members.some((v) =>
@@ -2145,8 +2146,9 @@ export class JSONTransform extends Visitor {
           !member.flags.has(PropertyFlags.Lazy),
       ) &&
       !this.hasCustomCursorLifecycle(this.schema);
-    const cursorInitializers: string[] = [];
-    const cursorFreshInitializers: string[] = [];
+    const initializationFragments = new Map<Property, string>();
+    const cursorInitializers = new Set<Property>();
+    const cursorFreshInitializers = new Set<Property>();
     const cursorDeferred: Array<{ member: Property; initialize: string }> = [];
     for (let i = 0; i < this.schema.members.length; i++) {
       const member = this.schema.members[i];
@@ -2194,7 +2196,32 @@ export class JSONTransform extends Visitor {
         INITIALIZE += `  store<${member.type}>(changetype<usize>(this), null, offsetof<this>(${JSON.stringify(member.name)}));\n`;
       }
 
-      const cursorInitialize = INITIALIZE.slice(initializeStart);
+      let cursorInitialize = INITIALIZE.slice(initializeStart);
+      // Keep field expressions in their declaring module. Inherited helpers
+      // retain private lexical bindings and generic parameters in that scope.
+      const initializeField = "__JSON_INITIALIZE_FIELD_" + member.name;
+      const inherited =
+        this.schema.parent?.members.some(
+          (parent) => parent.name === member.name,
+        ) &&
+        !node.members.some(
+          (field) =>
+            field.kind === NodeKind.FieldDeclaration &&
+            field.name.text === member.name,
+        );
+      if (inherited) {
+        cursorInitialize = `  this.${initializeField}();\n`;
+      } else if (
+        !node.members.some((method) => method.name.text === initializeField)
+      ) {
+        node.members.push(
+          SimpleParser.parseClassMember(
+            `@inline ${initializeField}(): void {\n${cursorInitialize}}`,
+            node,
+          ),
+        );
+      }
+      initializationFragments.set(member, cursorInitialize);
       if (
         cursorMayDefer &&
         !member.node.type.isNullable &&
@@ -2203,7 +2230,7 @@ export class JSONTransform extends Visitor {
       ) {
         cursorDeferred.push({ member, initialize: cursorInitialize });
       } else {
-        cursorInitializers.push(cursorInitialize);
+        cursorInitializers.add(member);
         if (
           cursorMayDefer &&
           !member.node.type.isNullable &&
@@ -2215,7 +2242,7 @@ export class JSONTransform extends Visitor {
         } else if (!member.node.type.isNullable && !isPrimitive(member.type)) {
           // Preserve eager initialization of observable nested defaults. Null
           // and scalar zero defaults are already established by fresh clearing.
-          cursorFreshInitializers.push(cursorInitialize);
+          cursorFreshInitializers.add(member);
         }
       }
 
@@ -3641,7 +3668,7 @@ export class JSONTransform extends Visitor {
       const keyedResets = this.schema.members.map((member) => {
         const offset = `offsetof<this>(${JSON.stringify(member.name)})`;
         if (member.value)
-          return `store<${member.type}>(dst, ${member.value}, ${offset});`;
+          return `changetype<this>(dst).__JSON_INITIALIZE_FIELD_${member.name}();`;
         if (member.node.type.isNullable)
           return `store<${member.type}>(dst, null, ${offset});`;
         if (this.getSchema(member.type))
@@ -4834,6 +4861,16 @@ export class JSONTransform extends Visitor {
       ");\n" +
       SERIALIZE.slice(32);
 
+    const orderedInitializers = (members: Set<Property>) =>
+      initializationMembers
+        .filter((member) => members.has(member))
+        .map((member) => initializationFragments.get(member)!)
+        .join("");
+    INITIALIZE =
+      "@inline __INITIALIZE(): this {\n" +
+      initializationMembers
+        .map((member) => initializationFragments.get(member)!)
+        .join("");
     INITIALIZE += "  return this;\n";
     INITIALIZE += "}";
 
@@ -5024,7 +5061,7 @@ export class JSONTransform extends Visitor {
         )
       ) {
         const initialize = cursorMayDefer
-          ? cursorFreshInitializers.join("")
+          ? orderedInitializers(cursorFreshInitializers)
           : this.hasCustomCursorInitializer(this.schema)
             ? "  this.__INITIALIZE_CURSOR();\n"
             : "  this.__INITIALIZE();\n";
@@ -5067,7 +5104,7 @@ export class JSONTransform extends Visitor {
             SimpleParser.parseClassMember(
               "__INITIALIZE_CURSOR(): this {\n" +
                 "  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n" +
-                cursorInitializers.join("") +
+                orderedInitializers(cursorInitializers) +
                 "  return this;\n}",
               node,
             ),
@@ -5566,10 +5603,12 @@ export class JSONTransform extends Visitor {
     let offset = 0;
     for (const [size, num] of sizes) {
       if (size == "v128" && simd) {
-        const index = this.simdStatements.findIndex((v) => v.includes(num));
-        const name =
-          "SIMD_" + (index == -1 ? this.simdStatements.length : index);
-        if (index == -1) this.simdStatements.push(`const ${name} = ${num};`);
+        const owner = this.schema.node.range.source;
+        let statements = this.simdStatements.get(owner);
+        if (!statements) this.simdStatements.set(owner, (statements = []));
+        const index = statements.findIndex((v) => v.includes(num));
+        const name = "SIMD_" + (index == -1 ? statements.length : index);
+        if (index == -1) statements.push(`const ${name} = ${num};`);
         out.push(
           "store<v128>(" +
             target +
@@ -5785,12 +5824,6 @@ export default class Transformer extends Transform {
       transformer.currentSource = source;
       transformer.visit(source);
 
-      if (transformer.simdStatements.length) {
-        for (const simd of transformer.simdStatements)
-          source.statements.unshift(SimpleParser.parseTopLevelStatement(simd));
-      }
-      transformer.simdStatements = [];
-
       if (transformer.schemas.has(source.internalPath)) {
         transformer.addImports(source);
       }
@@ -5804,6 +5837,13 @@ export default class Transformer extends Transform {
           toString(source),
         );
       }
+    }
+
+    for (const [source, statements] of transformer.simdStatements) {
+      for (const statement of statements)
+        source.statements.unshift(
+          SimpleParser.parseTopLevelStatement(statement),
+        );
     }
 
     // AssemblyScript only wires a class's custom `__visit` GC hook when that

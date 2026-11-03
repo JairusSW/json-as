@@ -49,6 +49,8 @@ export function deserializeArrayField<T extends unknown[]>(
     )
       return deserializeStructArrayField<T>(srcStart, srcEnd, fieldPtr);
     if (type instanceof JSON.Value) {
+      if (isNullable<valueof<T>>())
+        return deserializeGenericArrayField<T>(srcStart, srcEnd, fieldPtr);
       return deserializeArbitraryArrayField(srcStart, srcEnd, fieldPtr);
     } else if (type instanceof JSON.Box) {
       return deserializeBoxArrayField<T>(srcStart, srcEnd, fieldPtr);

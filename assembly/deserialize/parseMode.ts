@@ -95,8 +95,24 @@ export function invalidateStringFieldTrace(
 // One parse may overwrite each managed string through only one destination
 // slot. Nested parses share these claims; duplicate keys in one slot may reuse.
 let STRING_BUFFER_OWNERS: Map<usize, usize> | null = null;
+// Active inputs cannot be writable destinations, even when also reachable from out.
+const ACTIVE_PARSE_SOURCES = new Array<string>(8);
+
+function resetBufferOwners(): void {
+  if (!STRING_BUFFER_OWNERS || STRING_BUFFER_OWNERS!.size == 0) return;
+  const ptr = changetype<usize>(STRING_BUFFER_OWNERS);
+  const buckets = load<usize>(ptr, offsetof<Map<usize, usize>>("buckets"));
+  const mask = load<u32>(ptr, offsetof<Map<usize, usize>>("bucketsMask"));
+  memory.fill(buckets, 0, (<usize>mask + 1) * sizeof<usize>());
+  store<i32>(ptr, 0, offsetof<Map<usize, usize>>("entriesOffset"));
+  store<i32>(ptr, 0, offsetof<Map<usize, usize>>("entriesCount"));
+}
 
 export function claimStringBuffer(value: usize, field: usize): bool {
+  for (let i = 0; i < STRING_TRACE_DEPTH; i++) {
+    if (value == changetype<usize>(unchecked(ACTIVE_PARSE_SOURCES[i])))
+      return false;
+  }
   if (!STRING_BUFFER_OWNERS) STRING_BUFFER_OWNERS = new Map<usize, usize>();
   const owners = STRING_BUFFER_OWNERS!;
   if (owners.has(value)) return owners.get(value) == field;
@@ -131,9 +147,12 @@ export function beginStringFieldTrace(
   typeId: u32,
 ): void {
   if (!ENABLE_EXACT_SOURCE_TRACES) return;
-  if (STRING_TRACE_DEPTH == 0 && STRING_BUFFER_OWNERS)
-    STRING_BUFFER_OWNERS!.clear();
+  if (STRING_TRACE_DEPTH == 0) resetBufferOwners();
   if (out && STRING_TRACE_DEPTH == 0) claimStringBuffer(out, 0);
+  const sourcePtr = changetype<usize>(source);
+  if (STRING_TRACE_DEPTH >= ACTIVE_PARSE_SOURCES.length)
+    ACTIVE_PARSE_SOURCES.length = STRING_TRACE_DEPTH + 1;
+  unchecked((ACTIVE_PARSE_SOURCES[STRING_TRACE_DEPTH] = source));
   STRING_TRACE_DEPTH++;
   if (!ASC_FEATURE_SIMD || STRING_TRACE_DEPTH != 1) return;
   if (out == 0 || (<usize>source.length) << 1 > STRING_TRACE_MAX_BYTES) {
@@ -141,7 +160,6 @@ export function beginStringFieldTrace(
     return;
   }
 
-  const sourcePtr = changetype<usize>(source);
   const sameRoot =
     STRING_TRACE_COMPLETE &&
     STRING_TRACE_OUT == out &&
@@ -180,8 +198,8 @@ export function endStringFieldTrace(success: bool): void {
     STRING_TRACE_COMPLETE = success;
   }
   STRING_TRACE_DEPTH--;
-  if (STRING_TRACE_DEPTH == 0 && STRING_BUFFER_OWNERS)
-    STRING_BUFFER_OWNERS!.clear();
+  unchecked((ACTIVE_PARSE_SOURCES[STRING_TRACE_DEPTH] = changetype<string>(0)));
+  if (STRING_TRACE_DEPTH == 0) resetBufferOwners();
 }
 
 /** Return the cached cursor, or zero when this field must be decoded. */
