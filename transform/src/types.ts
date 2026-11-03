@@ -1,3 +1,4 @@
+import { NUMERIC_TYPES } from "./scalars.js";
 import {
   ClassDeclaration,
   Expression,
@@ -44,6 +45,7 @@ export class Property {
   // deserialize (range store) and serialize (raw emit / materialized) codegen.
   public lazyInner: string | null = null;
   public lazyPacked: boolean = false;
+  public lazyScalar: boolean = false;
   public _generic: boolean = false;
   public _custom: boolean = false;
   public parent: Schema;
@@ -104,6 +106,7 @@ export class Schema {
   public customJsonKind: string = "any";
   public hasCustomCursorLifecycle: boolean = false;
   public hasInternalInitializers: boolean = false;
+  public hasInitializerEffects: boolean = false;
   private _custom: boolean = false;
 
   set custom(value: boolean) {
@@ -207,20 +210,7 @@ export class Schema {
   }
 
   private static isNumericType(type: string): boolean {
-    return [
-      "u8",
-      "u16",
-      "u32",
-      "u64",
-      "usize",
-      "i8",
-      "i16",
-      "i32",
-      "i64",
-      "isize",
-      "f32",
-      "f64",
-    ].includes(type);
+    return NUMERIC_TYPES.includes(type);
   }
 }
 
@@ -450,7 +440,12 @@ export class Src {
       if (!externalSource) continue;
 
       const source = this.sourceSet.get(externalSource);
-      const enumDeclaration = source.getEnum(qualifiedName);
+      const declaration = stmt.declarations?.find(
+        (d) => d.name.text === qualifiedName,
+      );
+      const enumDeclaration = source.getEnum(
+        declaration ? declaration.foreignName.text : qualifiedName,
+      );
       if (enumDeclaration && enumDeclaration.flags & CommonFlags.Export) {
         return enumDeclaration;
       }

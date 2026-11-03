@@ -452,7 +452,11 @@ export function deserializeMapBody<T extends Map<any, any>>(
     // @ts-ignore: instanceof on the (reference) value type
     arbitraryValue = changetype<nonnull<valueof<T>>>(0) instanceof JSON.Value;
     // @ts-ignore: instanceof on the (reference) value type
-    rawValue = changetype<nonnull<valueof<T>>>(0) instanceof JSON.Raw;
+    const valueType = changetype<nonnull<valueof<T>>>(0);
+    rawValue =
+      valueType instanceof JSON.Raw &&
+      !isDefined(valueType.__DESERIALIZE_CUSTOM) &&
+      !isDefined(valueType.__DESERIALIZE_SLOW);
   }
 
   let previousKeys = changetype<Array<indexof<T>>>(0);

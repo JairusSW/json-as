@@ -18,6 +18,7 @@ export function deserializeArrayArray<T extends unknown[][]>(
   if (isManaged<valueof<valueof<T>>>() || isReference<valueof<valueof<T>>>()) {
     // @ts-ignore: instanceof on the (reference) inner element type
     arbitraryInner =
+      !isNullable<valueof<valueof<T>>>() &&
       changetype<nonnull<valueof<valueof<T>>>>(0) instanceof JSON.Value;
   }
 

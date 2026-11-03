@@ -18,6 +18,10 @@ export declare class JSONTransform extends Visitor {
     imports: ImportStatement[];
     simdStatements: Map<Source, string[]>;
     visitedClasses: Set<string>;
+    private eagerOverrides;
+    private lazyRuntimeSource;
+    private lazyInnerType;
+    prepareLazyOverrides(sources: Source[]): void;
     private lazyMetadata;
     private collectInheritedFieldMembers;
     visitClassDeclarationRef(node: ClassDeclaration): void;

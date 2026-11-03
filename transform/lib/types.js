@@ -1,3 +1,4 @@
+import { NUMERIC_TYPES } from "./scalars.js";
 import { TypeAlias } from "./linkers/alias.js";
 import { stripNull } from "./index.js";
 import * as asc from "assemblyscript/dist/assemblyscript.js";
@@ -23,6 +24,7 @@ export class Property {
     byteSize = 0;
     lazyInner = null;
     lazyPacked = false;
+    lazyScalar = false;
     _generic = false;
     _custom = false;
     parent;
@@ -72,6 +74,7 @@ export class Schema {
     customJsonKind = "any";
     hasCustomCursorLifecycle = false;
     hasInternalInitializers = false;
+    hasInitializerEffects = false;
     _custom = false;
     set custom(value) {
         this._custom = value;
@@ -154,20 +157,7 @@ export class Schema {
         return 1;
     }
     static isNumericType(type) {
-        return [
-            "u8",
-            "u16",
-            "u32",
-            "u64",
-            "usize",
-            "i8",
-            "i16",
-            "i32",
-            "i64",
-            "isize",
-            "f32",
-            "f64",
-        ].includes(type);
+        return NUMERIC_TYPES.includes(type);
     }
 }
 export class SourceSet {
@@ -305,7 +295,8 @@ export class Src {
             if (!externalSource)
                 continue;
             const source = this.sourceSet.get(externalSource);
-            const enumDeclaration = source.getEnum(qualifiedName);
+            const declaration = stmt.declarations?.find((d) => d.name.text === qualifiedName);
+            const enumDeclaration = source.getEnum(declaration ? declaration.foreignName.text : qualifiedName);
             if (enumDeclaration && enumDeclaration.flags & 2) {
                 return enumDeclaration;
             }

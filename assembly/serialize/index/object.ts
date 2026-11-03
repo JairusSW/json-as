@@ -12,7 +12,8 @@ import { serializeStringRange } from "../naive/string";
 // cyclic/deep graphs conservatively use the mutation-safe path.
 function mayInvokeCallback(slot: u64, depth: i32 = 0): bool {
   const tag = JSON.Value.slotTag(slot);
-  if (tag == JSON.Types.Struct || tag == JSON.Types.Map) return true;
+  if (tag == JSON.Types.Struct || tag == JSON.Types.Map)
+    return !JSON.Value.slotHasPureSerializer(slot);
   if (tag == JSON.Types.Object) {
     if (depth >= 16) return true;
     const value = JSON.Value.decodeBits<JSON.Obj>(slot);

@@ -54,7 +54,7 @@ describe("should use custom deserializer for subclass", () => {
   expect(bar.b.toString()).toBe("2");
 });
 
-describe("should use custom deserializer even when type is the parent", () => {
+describe("should retain inherited fields in the custom subclass result", () => {
   const json = '"bar"';
   const foo = JSON.parse<Bar>(json);
   expect(foo.a.toString()).toBe("1");

@@ -1,15 +1,14 @@
-import { JSON } from "../../..";
 import { deserializeGenericArrayBody } from "./generic";
 import { ensureArrayField } from "./shared";
 
-export function deserializeRawArrayField(
+export function deserializeRawArrayField<T extends unknown[]>(
   srcStart: usize,
   srcEnd: usize,
   fieldPtr: usize,
 ): usize {
-  return deserializeGenericArrayBody<JSON.Raw[]>(
+  return deserializeGenericArrayBody<T>(
     srcStart,
     srcEnd,
-    ensureArrayField<JSON.Raw[]>(fieldPtr),
+    ensureArrayField<T>(fieldPtr),
   );
 }

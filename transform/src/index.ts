@@ -1,6 +1,10 @@
 import {
   ArrayLiteralExpression,
-  AssertionExpression,
+  BinaryExpression,
+  CallExpression,
+  Token,
+  UnaryPrefixExpression,
+  UnaryPostfixExpression,
   ClassDeclaration,
   CommonFlags,
   Feature,
@@ -30,6 +34,12 @@ import {
   TypeDeclaration,
   TypeNode,
 } from "assemblyscript/dist/assemblyscript.js";
+import {
+  SIGNED_INTEGER_TYPES,
+  INTEGER_TYPES,
+  FLOAT_TYPES,
+  isScalarType,
+} from "./scalars.js";
 import { Transform } from "assemblyscript/dist/transform.js";
 import { writeFileSync } from "fs";
 import * as path from "path";
@@ -397,6 +407,249 @@ export class JSONTransform extends Visitor {
 
   public visitedClasses: Set<string> = new Set<string>();
 
+  private eagerOverrides = new Set<FieldDeclaration>();
+  private lazyRuntimeSource: Source | null | undefined;
+
+  // Resolve aliases and import bindings to the actual JSON.Lazy declaration.
+  private lazyInnerType(
+    type: TypeNode | null,
+    source: Src,
+    scope = "",
+    seen = new Set<string>(),
+  ): string | null {
+    if (!type || type.kind !== NodeKind.NamedType) return null;
+    const named = type as NamedTypeNode;
+    const name = toString(named.name);
+    const identity = `${source.internalPath}:${scope}:${toString(type)}`;
+    if (seen.has(identity)) return null;
+    seen.add(identity);
+    if (this.lazyRuntimeSource === undefined)
+      this.lazyRuntimeSource =
+        this.parser.sources.find(
+          (candidate) =>
+            candidate.internalPath.endsWith("/json-as/assembly/index") ||
+            candidate.internalPath === process.env["JSON_AS_LIBRARY_SOURCE"],
+        ) ??
+        this.parser.sources.find(
+          (candidate) =>
+            candidate.internalPath.endsWith("assembly/index") &&
+            this.sources.get(candidate).getClass("JSON.Value"),
+        ) ??
+        null;
+    const runtime = this.lazyRuntimeSource;
+    const nullable = (inner: string | null): string | null =>
+      inner !== null && named.isNullable && !inner.endsWith(" | null")
+        ? inner + " | null"
+        : inner;
+    const parse = (text: string): TypeNode =>
+      (
+        SimpleParser.parseTopLevelStatement(
+          `type __JSON_LAZY = ${text};`,
+        ) as TypeDeclaration
+      ).type;
+    const parents = scope ? scope.split(".") : [];
+    for (let depth = parents.length; depth >= 0; depth--) {
+      const qualified = [...parents.slice(0, depth), name].join(".");
+      if (source.getClass(qualified)) return null;
+      const alias = source.aliases.find(
+        (candidate) => candidate.name === qualified,
+      );
+      if (!alias) continue;
+      if (
+        alias.name === "JSON.Lazy" &&
+        alias.declaration &&
+        (alias.declaration.range.source.internalPath ===
+          runtime?.internalPath ||
+          alias.declaration.range.source.internalPath ===
+            process.env["JSON_AS_LIBRARY_SOURCE"] ||
+          alias.declaration.range.source.internalPath.endsWith(
+            "/json-as/assembly/index",
+          ) ||
+          (alias.declaration.range.source.internalPath.endsWith(
+            "assembly/index",
+          ) &&
+            source.getClass("JSON.Value")))
+      ) {
+        return named.typeArguments?.length === 1
+          ? nullable(toString(named.typeArguments[0]))
+          : null;
+      }
+      if (alias.parameters.length !== (named.typeArguments?.length ?? 0))
+        return null;
+      return nullable(
+        this.lazyInnerType(
+          parse(alias.getBaseType(named.typeArguments ?? [])),
+          source,
+          alias.name.split(".").slice(0, -1).join("."),
+          seen,
+        ),
+      );
+    }
+    const parts = name.split(".");
+    for (const statement of source.imports) {
+      const declaration = statement.declarations?.find(
+        (candidate) => candidate.name.text === parts[0],
+      );
+      const wildcard = statement.namespaceName?.text === parts[0];
+      if (!declaration && !wildcard) continue;
+      const external = this.parser.sources.find(
+        (candidate) =>
+          candidate.internalPath === statement.internalPath ||
+          candidate.internalPath === statement.internalPath + "/index",
+      );
+      if (!external) return null;
+      const target = declaration
+        ? [declaration.foreignName.text, ...parts.slice(1)].join(".")
+        : parts.slice(1).join(".");
+      const arguments_ = named.typeArguments?.length
+        ? `<${named.typeArguments.map((argument) => toString(argument)).join(",")}>`
+        : "";
+      return nullable(
+        this.lazyInnerType(
+          parse(target + arguments_),
+          this.sources.get(external),
+          "",
+          seen,
+        ),
+      );
+    }
+    // addImports supplies the canonical JSON binding to classes that omit it.
+    if (name === "JSON.Lazy" && runtime && named.typeArguments?.length === 1)
+      return nullable(toString(named.typeArguments[0]));
+    return null;
+  }
+
+  // Determine physical field/accessor compatibility before any class is lowered.
+  prepareLazyOverrides(sources: Source[]): void {
+    type Spec = {
+      field: FieldDeclaration;
+      owner: ClassDeclaration;
+      source: Src;
+      inner: string | null;
+      lazy: boolean;
+    };
+    const specs = new Map<FieldDeclaration, Spec>();
+    const parent = new Map<FieldDeclaration, FieldDeclaration>();
+    const root = (field: FieldDeclaration): FieldDeclaration => {
+      const next = parent.get(field)!;
+      if (next === field) return field;
+      const result = root(next);
+      parent.set(field, result);
+      return result;
+    };
+    const has = (
+      field: FieldDeclaration | ClassDeclaration,
+      name: string,
+    ): boolean =>
+      field.decorators?.some(
+        (decorator) => (decorator.name as IdentifierExpression).text === name,
+      ) ?? false;
+    for (const source of sources) {
+      const src = this.sources.get(source);
+      for (const owner of src.getClasses()) {
+        const decorated = has(owner, "json") || has(owner, "serializable");
+        const mode = decorated ? classLazyMode(owner) : "none";
+        const custom = owner.members.some((member) =>
+          member.decorators?.some((decorator) =>
+            ["serializer", "deserializer"].includes(
+              (decorator.name as IdentifierExpression).text,
+            ),
+          ),
+        );
+        for (const member of owner.members) {
+          if (
+            member.kind !== NodeKind.FieldDeclaration ||
+            member.is(CommonFlags.Static) ||
+            member.is(CommonFlags.Private) ||
+            member.is(CommonFlags.Protected)
+          )
+            continue;
+          const field = member as FieldDeclaration;
+          if (!field.type) continue;
+          const scope = src
+            .getQualifiedName(owner)
+            .split(".")
+            .slice(0, -1)
+            .join(".");
+          const inner = this.lazyInnerType(field.type, src, scope);
+          const auto =
+            mode !== "none" &&
+            !has(field, "eager") &&
+            !has(field, "omit") &&
+            (mode === "all" ||
+              lazyAutoCost(
+                this.resolveType(toString(field.type), src, new Set(), scope),
+                src,
+                this.parser,
+              ) >= LAZY_AUTO_THRESHOLD);
+          specs.set(field, {
+            field,
+            owner,
+            source: src,
+            inner,
+            lazy:
+              decorated &&
+              !custom &&
+              (inner !== null || has(field, "lazy") || auto),
+          });
+          parent.set(field, field);
+        }
+      }
+    }
+    for (const spec of specs.values()) {
+      let owner = spec.owner;
+      const seen = new Set<ClassDeclaration>();
+      while (owner.extendsType && !seen.has(owner)) {
+        seen.add(owner);
+        const src = this.sources.get(owner.range.source);
+        const name = src.resolveExtendsName(owner);
+        const base =
+          src.getClassInContext(name, owner) ||
+          src.getImportedClass(name, this.parser) ||
+          src.getAvailableClass(name, this.parser);
+        if (!base || isStdlib(base)) break;
+        const field = base.members.find(
+          (member) =>
+            member.kind === NodeKind.FieldDeclaration &&
+            member.name.text === spec.field.name.text,
+        ) as FieldDeclaration | undefined;
+        if (field && specs.has(field)) {
+          parent.set(root(spec.field), root(field));
+          break;
+        }
+        owner = base;
+      }
+    }
+    const groups = new Map<FieldDeclaration, Spec[]>();
+    for (const spec of specs.values()) {
+      const key = root(spec.field);
+      const group = groups.get(key) ?? [];
+      group.push(spec);
+      groups.set(key, group);
+    }
+    for (const group of groups.values()) {
+      if (!group.some((spec) => spec.lazy) || !group.some((spec) => !spec.lazy))
+        continue;
+      for (const spec of group) {
+        this.eagerOverrides.add(spec.field);
+        if (spec.inner !== null) {
+          const type = (
+            SimpleParser.parseTopLevelStatement(
+              `type __JSON_EAGER = ${spec.inner};`,
+            ) as TypeDeclaration
+          ).type;
+          type.range = spec.field.type!.range;
+          spec.field.type = type;
+        }
+        spec.field.decorators =
+          spec.field.decorators?.filter(
+            (decorator) =>
+              (decorator.name as IdentifierExpression).text !== "lazy",
+          ) ?? null;
+      }
+    }
+  }
+
   private lazyMetadata = new Map<
     FieldDeclaration,
     {
@@ -406,6 +659,7 @@ export class JSONTransform extends Visitor {
       omitIf: Expression | null;
       valueInit?: string;
       packed?: boolean;
+      scalar?: boolean;
     }
   >();
 
@@ -716,14 +970,8 @@ export class JSONTransform extends Visitor {
         visiting,
       );
     }
-    if (expression.kind == NodeKind.Assertion) {
-      return this.getDefaultExpressionJSON(
-        (expression as AssertionExpression).expression,
-        type,
-        owner,
-        visiting,
-      );
-    }
+    // A cast can change the value; decline the shortcut until conversions are evaluated.
+    if (expression.kind == NodeKind.Assertion) return null;
     if (expression.kind == NodeKind.Null) return "null";
     if (expression.kind == NodeKind.True) return "true";
     if (expression.kind == NodeKind.False) return "false";
@@ -960,6 +1208,7 @@ export class JSONTransform extends Visitor {
         omitIf: Expression | null;
         valueInit?: string;
         packed?: boolean;
+        scalar?: boolean;
       }
     >();
 
@@ -1007,6 +1256,7 @@ export class JSONTransform extends Visitor {
         !(fd as FieldDeclaration).type
       )
         continue;
+      if (this.eagerOverrides.has(fd as FieldDeclaration)) continue;
       const written = toString((fd as FieldDeclaration).type!).trim();
       // Two equivalent ways to mark a field on-demand:
       //   - `JSON.Lazy<T>` type wrapper (transparent alias, T preserved), or
@@ -1020,8 +1270,10 @@ export class JSONTransform extends Visitor {
         false;
       // `Lazy<T>` wrapper (AST-detected, alias-safe), else explicit `@lazy`,
       // else the class-level mode (with `@eager`/`@omit` opting out).
-      let inner: string | null = lazyWrapperInner(
+      let inner: string | null = this.lazyInnerType(
         (fd as FieldDeclaration).type,
+        source,
+        source.getQualifiedName(node).split(".").slice(0, -1).join("."),
       );
       if (inner === null) {
         if (hasDeco("lazy")) {
@@ -1119,6 +1371,7 @@ export class JSONTransform extends Visitor {
       lazyInner.set("__" + fname + "_lz", {
         inner: T,
         valueType,
+        scalar: storesScalar,
         omitNull: hasDeco("omitnull"),
         omitIf: omitIfDeco?.args?.[0] ?? null,
       });
@@ -1670,6 +1923,16 @@ export class JSONTransform extends Visitor {
           !!(field as FieldDeclaration).initializer,
       );
 
+    schema.hasInitializerEffects =
+      !!schema.parent?.hasInitializerEffects ||
+      node.members.some(
+        (member) =>
+          member.kind === NodeKind.FieldDeclaration &&
+          !member.is(CommonFlags.Static) &&
+          !!(member as FieldDeclaration).initializer &&
+          initializerHasEffects((member as FieldDeclaration).initializer!),
+      );
+
     const effectful = (
       candidate: Schema,
       seen = new Set<Schema>(),
@@ -1679,6 +1942,7 @@ export class JSONTransform extends Visitor {
       return (
         candidate.custom ||
         candidate.hasInternalInitializers ||
+        candidate.hasInitializerEffects ||
         candidate.deps.some((dep) => dep && effectful(dep, seen))
       );
     };
@@ -1954,6 +2218,7 @@ export class JSONTransform extends Visitor {
       if (lzInner !== undefined) {
         mem.flags.set(PropertyFlags.Lazy, null);
         mem.lazyPacked = !!lzInner.packed;
+        mem.lazyScalar = !!lzInner.scalar;
         mem.lazyInner = lzInner.inner; // inner type T for the deser/ser codegen
         // @omitnull/@omitif carried from the original (pre-lowering) field.
         // Must also clear `schema.static` (as the decorator handler does) - it
@@ -2214,7 +2479,7 @@ export class JSONTransform extends Visitor {
           `{\n` +
             `  const __s = this.${realName};\n` +
             `  if ((__s >>> 32) == 0xffffffff) {\n` + // materialized scalar
-            `    JSON.__serialize<${T}>(${dec});\n` +
+            `    JSON.__serializeLazyValue<${T}>(${dec});\n` +
             `  } else if (__s != 0) {\n` + // range -> raw bytes verbatim
             `    const __hi = <usize>(__s >>> 32);\n` +
             `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
@@ -2222,7 +2487,7 @@ export class JSONTransform extends Visitor {
             `    memory.copy(bs.offset, __hi, __len);\n` +
             `    bs.offset += __len;\n` +
             `  } else {\n` + // absent -> default scalar
-            `    JSON.__serialize<${T}>(${def});\n` +
+            `    JSON.__serializeLazyValue<${T}>(${def});\n` +
             `  }\n` +
             `}\n`,
         );
@@ -2231,7 +2496,7 @@ export class JSONTransform extends Visitor {
         `{\n` +
           `  const __s = this.${realName};\n` +
           `  if (__s == u64.MAX_VALUE) {\n` + // materialized -> serialize typed value
-          `    JSON.__serialize<${T}>(this.${baseName}_val as ${T});\n` +
+          `    JSON.__serializeLazyValue<${T}>(this.${baseName}_val as ${T});\n` +
           `  } else if (__s != 0) {\n` + // range -> raw bytes verbatim (zero-copy)
           `    const __hi = <usize>(__s >>> 32);\n` +
           `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
@@ -2240,8 +2505,8 @@ export class JSONTransform extends Visitor {
           `    bs.offset += __len;\n` +
           `  } else {\n` + // absent
           // A 64-bit scalar (i64/u64/f64/...) defaults to 0, not null; refs to null.
-          (isPrimitive(baseT)
-            ? `    JSON.__serialize<${T}>(0);\n`
+          (member.lazyScalar
+            ? `    JSON.__serializeLazyValue<${T}>(0);\n`
             : `    bs.ensureSize(8);\n` +
               `    store<u64>(bs.offset, 0x006c006c0075006e);\n` +
               `    bs.offset += 8;\n`) +
@@ -2626,22 +2891,16 @@ export class JSONTransform extends Visitor {
     //   return initializer + " " + name + " = " + value;
     // };
 
-    const UNSIGNED_INTEGER_TYPES = ["u8", "u16", "u32", "u64", "usize"];
-    const SIGNED_INTEGER_TYPES = ["i8", "i16", "i32", "i64", "isize"];
-    const FLOAT_TYPES = ["f32", "f64"];
-    const INTEGER_TYPES = [...UNSIGNED_INTEGER_TYPES, ...SIGNED_INTEGER_TYPES];
     const STRING_FIELD_DESERIALIZER = "__deserializeStringField";
     const STRING_FIELD_TRUSTED_DESERIALIZER = "__deserializeStringFieldTrusted";
 
-    // Custom deserializers are instance methods, but generated code must invoke
-    // them before an instance exists. AssemblyScript's static dispatch lets a
-    // zero reference select the method without dereferencing `this`.
+    // Stateless adapters use a rooted descriptor for inherited virtual dispatch.
     const getCustomDeserializeExpression = (
       type: string,
       valueStart: string,
       valueEnd: string,
     ): string =>
-      `changetype<nonnull<${stripNull(type)}>>(0).__DESERIALIZE_CUSTOM(JSON.Util.ptrToStr(${valueStart}, ${valueEnd}))`;
+      `JSON.__deserializeCustom<${type}>(JSON.Util.ptrToStr(${valueStart}, ${valueEnd}))`;
 
     const getArrayValueType = (type: string): string | null => {
       if (!type.startsWith("Array<") && !type.startsWith("StaticArray<"))
@@ -5280,6 +5539,30 @@ export class JSONTransform extends Visitor {
       ),
     );
 
+    const serializerPure =
+      !schema.custom &&
+      !schema.parent?.custom &&
+      !node.members.some((member) => member.name.text === "__SERIALIZE") &&
+      schema.members.every(
+        (member) =>
+          !member.flags.has(PropertyFlags.OmitIf) &&
+          !member.flags.has(PropertyFlags.Lazy) &&
+          (isPrimitive(member.type) ||
+            isString(member.type) ||
+            isEnum(stripNull(member.type), source, this.parser)),
+      );
+    const ownType =
+      node.name.text +
+      (node.typeParameters?.length
+        ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
+        : "");
+    node.members.push(
+      SimpleParser.parseClassMember(
+        `__SERIALIZE_PURE_TYPE(): u32 { return ${serializerPure ? `idof<${ownType}>()` : "0"}; }`,
+        node,
+      ),
+    );
+
     // Reusing final static slots is restricted to callback-free scalar models.
     const reusableScalarModel =
       !effectful(schema) &&
@@ -5511,6 +5794,17 @@ export class JSONTransform extends Visitor {
     const SERIALIZE_EMPTY =
       "__SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
     this.addDeclaredInitializer(node);
+    const ownType =
+      node.name.text +
+      (node.typeParameters?.length
+        ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
+        : "");
+    node.members.push(
+      SimpleParser.parseClassMember(
+        `__SERIALIZE_PURE_TYPE(): u32 { return idof<${ownType}>(); }`,
+        node,
+      ),
+    );
     node.members.push(
       SimpleParser.parseClassMember(
         "__DESERIALIZE_FAST_ENABLED(): bool { return false; }",
@@ -5926,16 +6220,8 @@ export class JSONTransform extends Visitor {
   isValidType(type: string, node: ClassDeclaration): boolean {
     const validTypes = [
       "string",
-      "u8",
-      "i8",
-      "u16",
-      "i16",
-      "u32",
-      "i32",
-      "u64",
-      "i64",
-      "f32",
-      "f64",
+      ...INTEGER_TYPES,
+      ...FLOAT_TYPES,
       "bool",
       "boolean",
       "Date",
@@ -6080,6 +6366,7 @@ export default class Transformer extends Transform {
     transformer.baseCWD = path.join(process.cwd(), this.baseDir);
     transformer.program = this.program;
     transformer.parser = parser;
+    transformer.prepareLazyOverrides(sources);
     for (const source of sources) {
       transformer.imports = [];
       transformer.currentSource = source;
@@ -6303,7 +6590,7 @@ function sizeof(type: string): number {
     return 42; // -9223372036854775808
   else if (type == "f32")
     return 34; // max dtoa length used by runtime reserve
-  else if (type == "f64")
+  else if (type == "f64" || type == "number")
     return 66; // max dtoa length used by runtime reserve
   else if (type == "bool" || type == "boolean") return 10;
   else return 0;
@@ -6394,24 +6681,6 @@ function lazyAutoCost(type: string, source: Src, parser: Parser): number {
   return sum; // small struct -> low cost -> stays eager
 }
 
-// Detect a `Lazy<T>` type wrapper from the AST rather than the raw spelling, so
-// it survives namespace aliasing: `JSON.Lazy<T>`, `J.Lazy<T>` (import { JSON as
-// J }), `ns.JSON.Lazy<T>`, or a bare imported `Lazy<T>` all match - we read the
-// terminal name segment and take the inner type from the type argument node.
-// Returns the inner type T (string, with outer nullability folded in) or null.
-function lazyWrapperInner(typeNode: Node | null): string | null {
-  if (!typeNode || typeNode.kind !== NodeKind.NamedType) return null;
-  const named = typeNode as NamedTypeNode;
-  let seg = named.name;
-  while (seg.next) seg = seg.next;
-  if (seg.identifier.text !== "Lazy") return null;
-  if (!named.typeArguments || named.typeArguments.length !== 1) return null;
-  let inner = toString(named.typeArguments[0]).trim();
-  // `Lazy<T> | null`: the alias is transparent, so fold the outer null in.
-  if (named.isNullable && !inner.endsWith("null")) inner += " | null";
-  return inner;
-}
-
 function estimatedSerializedByteSize(
   type: string,
   source: Src,
@@ -6460,22 +6729,50 @@ function estimatedSerializedByteSize(
   return estimated;
 }
 
+// Construction expressions may be needed after a layout miss. Replaying a call,
+// increment, or assignment can change a default that survives in the result.
+function initializerHasEffects(expression: Expression): boolean {
+  class Effects extends Visitor {
+    effect = false;
+    visitCallExpression(node: CallExpression): void {
+      if (
+        ![
+          "changetype",
+          "reinterpret",
+          "idof",
+          "offsetof",
+          "sizeof",
+          "nameof",
+        ].includes(toString(node.expression))
+      )
+        this.effect = true;
+      super.visitCallExpression(node);
+    }
+    visitUnaryPrefixExpression(node: UnaryPrefixExpression): void {
+      if (
+        node.operator === Token.Plus_Plus ||
+        node.operator === Token.Minus_Minus
+      )
+        this.effect = true;
+      super.visitUnaryPrefixExpression(node);
+    }
+    visitUnaryPostfixExpression(node: UnaryPostfixExpression): void {
+      this.effect = true;
+      super.visitUnaryPostfixExpression(node);
+    }
+    visitBinaryExpression(node: BinaryExpression): void {
+      if (node.operator >= Token.Equals && node.operator <= Token.Caret_Equals)
+        this.effect = true;
+      super.visitBinaryExpression(node);
+    }
+  }
+  const effects = new Effects();
+  effects.visit(expression);
+  return effects.effect;
+}
+
 function isPrimitive(type: string): boolean {
-  const primitiveTypes = [
-    "u8",
-    "u16",
-    "u32",
-    "u64",
-    "i8",
-    "i16",
-    "i32",
-    "i64",
-    "f32",
-    "f64",
-    "bool",
-    "boolean",
-  ];
-  return primitiveTypes.includes(stripNull(type).trim());
+  return isScalarType(stripNull(type).trim());
 }
 
 function isBoolean(type: string): boolean {

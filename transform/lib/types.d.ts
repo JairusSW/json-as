@@ -20,6 +20,7 @@ export declare class Property {
     byteSize: number;
     lazyInner: string | null;
     lazyPacked: boolean;
+    lazyScalar: boolean;
     _generic: boolean;
     _custom: boolean;
     parent: Schema;
@@ -41,6 +42,7 @@ export declare class Schema {
     customJsonKind: string;
     hasCustomCursorLifecycle: boolean;
     hasInternalInitializers: boolean;
+    hasInitializerEffects: boolean;
     private _custom;
     set custom(value: boolean);
     get custom(): boolean;

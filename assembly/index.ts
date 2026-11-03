@@ -280,6 +280,28 @@ export namespace JSON {
    */
   export type Lazy<T> = T;
 
+  // Stateless custom adapters still require a real receiver for virtual dispatch.
+  // Cache zeroed descriptors, rooted as managed objects, once per requested type.
+  /* eslint-disable @typescript-eslint/no-wrapper-object-types -- AssemblyScript managed Object is required for GC rooting. */
+  @lazy const CUSTOM_DESERIALIZER_RECEIVERS: Map<u32, Object> = new Map<
+    u32,
+    Object
+  >();
+  function __deserializeCustom<T>(source: string): T {
+    const id = idof<nonnull<T>>();
+    let receiver: nonnull<T>;
+    if (CUSTOM_DESERIALIZER_RECEIVERS.has(id)) {
+      receiver = changetype<nonnull<T>>(CUSTOM_DESERIALIZER_RECEIVERS.get(id));
+    } else {
+      receiver = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), id));
+      memory.fill(changetype<usize>(receiver), 0, offsetof<nonnull<T>>());
+      CUSTOM_DESERIALIZER_RECEIVERS.set(id, changetype<Object>(receiver));
+    }
+    // @ts-expect-error: supplied by transform
+    return receiver.__DESERIALIZE_CUSTOM(source);
+  }
+  /* eslint-enable @typescript-eslint/no-wrapper-object-types */
+
   /**
    * Whether a lazy slot's value is JSON null - for `@omitnull` on lazy fields,
    * without forcing materialization. The slot encodes the state: `u64.MAX_VALUE`
@@ -785,9 +807,7 @@ export namespace JSON {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
       // @ts-expect-error: Defined by transform
       if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-        const obj = changetype<nonnull<T>>(0);
-        // @ts-expect-error
-        return obj.__DESERIALIZE_CUSTOM(data);
+        return __deserializeCustom<T>(data);
         // @ts-expect-error: Defined by transform
       } else if (
         isDefined(type.__DESERIALIZE_SLOW) ||
@@ -1091,6 +1111,17 @@ export namespace JSON {
     }
   }
 
+  function dynamicMapSupported<T>(): bool {
+    if (
+      isString<indexof<T>>() &&
+      !isNullable<indexof<T>>() &&
+      isReference<valueof<T>>() &&
+      !isNullable<valueof<T>>()
+    )
+      return idof<valueof<T>>() == idof<JSON.Value>();
+    return false;
+  }
+
   /** Compile-time eligibility for the allocation-free Map conversion path. */
   function valueBitsSupported<T>(): bool {
     if (isBoolean<T>() || isInteger<T>() || isFloat<T>() || isString<T>())
@@ -1124,8 +1155,7 @@ export namespace JSON {
           return idof<valueof<T>>() == idof<JSON.Value>();
         return false;
       }
-      if (type instanceof Map)
-        return idof<nonnull<T>>() == idof<Map<string, JSON.Value>>();
+      if (type instanceof Map) return dynamicMapSupported<T>();
     }
     return false;
   }
@@ -1153,6 +1183,27 @@ export namespace JSON {
   @final export class Value {
     /** Map of struct type IDs to their serialization function indices */
     @lazy static METHODS: Map<u32, u32> = new Map<u32, u32>();
+
+
+    @lazy private static PURE_SERIALIZERS: Set<u32> = new Set<u32>();
+
+    /** Concrete, class-owned metadata only; inherited claims do not certify a subclass. */
+    static slotHasPureSerializer(slot: u64): bool {
+      const type = JSON.Value.slotTag(slot);
+      if (type != JSON.Types.Struct && type != JSON.Types.Map) return false;
+      const pointer = valPtr(slot);
+      const id = changetype<OBJECT>(pointer - TOTAL_OVERHEAD).rtId;
+      if (type == JSON.Types.Struct) return JSON.Value.PURE_SERIALIZERS.has(id);
+      if (type == JSON.Types.Map)
+        return (
+          id == idof<Map<string, JSON.Value>>() &&
+          load<i32>(
+            pointer,
+            offsetof<Map<string, JSON.Value>>("entriesCount"),
+          ) == 0
+        );
+      return false;
+    }
 
     /** NaN-boxed word holding both the type tag and the value (8 bytes). */
     private bits: u64;
@@ -1412,7 +1463,7 @@ export namespace JSON {
       if (value instanceof JSON.Value) {
         value.materialize();
         return value.bits;
-      } else if (value instanceof JSON.Box) {
+      } else if (value instanceof JSON.Box && !isDefined(value.__SERIALIZE)) {
         return JSON.Value.bitsFrom(value.value);
       } else if (isBoolean<T>()) {
         return valBox(JSON.Types.Bool, value ? 1 : 0);
@@ -1441,8 +1492,15 @@ export namespace JSON {
         const runtimeId = changetype<OBJECT>(
           changetype<usize>(value) - TOTAL_OVERHEAD,
         ).rtId;
-        if (!JSON.Value.METHODS.has(runtimeId))
+        if (!JSON.Value.METHODS.has(runtimeId)) {
           JSON.Value.METHODS.set(runtimeId, value.__SERIALIZE.index);
+          // @ts-expect-error: generated metadata certifies only its declaring class
+          if (isDefined(value.__SERIALIZE_PURE_TYPE)) {
+            const owner = value.__SERIALIZE_PURE_TYPE();
+            if (owner != 0 && owner == runtimeId)
+              JSON.Value.PURE_SERIALIZERS.add(runtimeId);
+          }
+        }
         return valBox(JSON.Types.Struct, <u64>changetype<usize>(value));
       } else if (value instanceof JSON.Raw) {
         return valBox(JSON.Types.Raw, <u64>changetype<usize>(value));
@@ -1463,7 +1521,7 @@ export namespace JSON {
       } else if (value instanceof ArrayBuffer) {
         return valBox(JSON.Types.ArrayBuffer, <u64>changetype<usize>(value));
       } else if (value instanceof Map) {
-        if (idof<T>() !== idof<Map<string, JSON.Value>>()) {
+        if (!dynamicMapSupported<T>()) {
           abort("Maps must be of type Map<string, JSON.Value>!");
         }
         return valBox(JSON.Types.Map, <u64>changetype<usize>(value));
@@ -1531,16 +1589,13 @@ export namespace JSON {
      * @returns JSON.Types
      */
     getType<T>(value: T): JSON.Types {
+      if (value instanceof JSON.Value) return value.type;
       if (isNullable<T>() && changetype<usize>(value) === 0)
         return JSON.Types.Null;
       if (isBoolean<T>()) return JSON.Types.Bool;
-      if (
-        isInteger<T>() &&
-        !isSigned<T>() &&
-        changetype<usize>(value) == 0 &&
-        nameof<T>() == "usize"
-      )
-        return JSON.Types.Null;
+      if (isInteger<T>()) {
+        if (nameof<T>() == "usize" && value == 0) return JSON.Types.Null;
+      }
       if (isString<T>()) return JSON.Types.String;
       // @ts-expect-error: can assume that T is ArrayLike based on previous condition
       if (
@@ -1549,7 +1604,8 @@ export namespace JSON {
         idof<valueof<T>>() == idof<JSON.Value>()
       )
         return JSON.Types.Array;
-      if (value instanceof JSON.Box) return this.getType(value.value);
+      if (value instanceof JSON.Box && !isDefined(value.__SERIALIZE))
+        return this.getType(value.value);
       if (value instanceof i8) return JSON.Types.I8;
       if (value instanceof i16) return JSON.Types.I16;
       if (value instanceof i32) return JSON.Types.I32;
@@ -1562,7 +1618,11 @@ export namespace JSON {
       if (value instanceof f64) return JSON.Types.F64;
       // @ts-expect-error: supplied by transform
       if (isDefined(value.__SERIALIZE) && isManaged<T>(value))
-        return u16(idof<T>()) + JSON.Types.Struct;
+        return (
+          u16(
+            changetype<OBJECT>(changetype<usize>(value) - TOTAL_OVERHEAD).rtId,
+          ) + JSON.Types.Struct
+        );
       if (
         value instanceof Int8Array ||
         value instanceof Uint8Array ||
@@ -3165,6 +3225,18 @@ export namespace JSON {
    * @param data - T
    * @returns void
    */
+  // A field's usize zero is numeric, even though the public scalar API uses
+  // usize(0) as its internal null sentinel. Lazy fields preserve eager spelling.
+  function __serializeLazyValue<T>(data: T): void {
+    if (isInteger<T>()) {
+      if (nameof<T>() == "usize") {
+        __serialize<u64>(<u64>data);
+        return;
+      }
+    }
+    __serialize<T>(data);
+  }
+
   function __serialize<T>(data: T): void {
     if (isBoolean<T>()) {
       serializeBool(data as bool);
@@ -3498,9 +3570,7 @@ export namespace JSON {
       let type: nonnull<T> = changetype<nonnull<T>>(0);
       // @ts-expect-error: Defined by transform
       if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-        const out = changetype<nonnull<T>>(0);
-        // @ts-expect-error: Defined by transform
-        return out.__DESERIALIZE_CUSTOM(ptrToStr(srcStart, srcEnd));
+        return __deserializeCustom<T>(ptrToStr(srcStart, srcEnd));
         // @ts-expect-error: Defined by transform
       } else if (
         isDefined(type.__DESERIALIZE_SLOW) ||

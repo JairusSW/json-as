@@ -57,7 +57,7 @@ export function deserializeArrayField<T extends unknown[]>(
     } else if (type instanceof JSON.Obj) {
       return deserializeObjectArrayField<T>(srcStart, srcEnd, fieldPtr);
     } else if (type instanceof JSON.Raw) {
-      return deserializeRawArrayField(srcStart, srcEnd, fieldPtr);
+      return deserializeRawArrayField<T>(srcStart, srcEnd, fieldPtr);
     } else if (
       type instanceof Int8Array ||
       type instanceof Uint8Array ||
