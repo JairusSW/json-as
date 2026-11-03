@@ -1,4 +1,4 @@
-import { ptrToStr } from "../../../util/ptrToStr";
+import { parseDecimalF32, roundDecimalF32 } from "../../../util/parseDecimal";
 import { scientific } from "../../../util/scientific";
 import { deserializeFloatField_NAIVE } from "../../naive/float";
 import { deserializeFloatArray_NAIVE } from "../../naive/array/float";
@@ -16,7 +16,10 @@ import {
   eiselLemireMinus14,
   eiselLemireMinus14_54Bit,
 } from "../../../util/eisel-lemire";
-import { markProductionParseError } from "../../error";
+import {
+  markProductionParseError,
+  takeProductionParseError,
+} from "../../error";
 import { parseDecimalF64 } from "../../../util/parseDecimal";
 
 function skipFloatArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
@@ -32,7 +35,7 @@ function skipFloatArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
 
 function fallbackStore<E>(origStart: usize, end: usize, slot: usize): void {
   if (sizeof<E>() == sizeof<f32>()) {
-    store<f32>(slot, f32.parse(ptrToStr(origStart, end)));
+    store<f32>(slot, parseDecimalF32(origStart, end));
   } else {
     store<f64>(slot, parseDecimalF64(origStart, end));
   }
@@ -130,7 +133,7 @@ function parseGeoAlternateFixed<E>(
   }
   if (negative) result = -result;
   if (sizeof<E>() == sizeof<f32>()) {
-    store<f32>(slot, <f32>result);
+    store<f32>(slot, roundDecimalF32(negative ? p - 2 : p, term, result));
   } else {
     store<f64>(slot, result);
   }
@@ -255,8 +258,11 @@ function parseFixed14Pair<E>(
   if (negative0) value0 = -value0;
   if (negative1) value1 = -value1;
   if (sizeof<E>() == sizeof<f32>()) {
-    store<f32>(dataStart, <f32>value0);
-    store<f32>(dataStart + sizeof<E>(), <f32>value1);
+    store<f32>(dataStart, roundDecimalF32(srcStart, term0, value0));
+    store<f32>(
+      dataStart + sizeof<E>(),
+      roundDecimalF32(p1 - (negative1 ? 2 : 0), term1, value1),
+    );
   } else {
     store<f64>(dataStart, value0);
     store<f64>(dataStart + sizeof<E>(), value1);
@@ -352,7 +358,7 @@ export function parseFloatElementSWAR<E>(
                 : eiselLemireMinus14(mantissa);
           if (negative) result = -result;
           if (sizeof<E>() == sizeof<f32>()) {
-            store<f32>(slot, <f32>result);
+            store<f32>(slot, roundDecimalF32(origStart, term, result));
           } else {
             store<f64>(slot, result);
           }
@@ -507,7 +513,7 @@ function parseFloatElementGeneric<E>(
   if (negative) result = -result;
 
   if (sizeof<E>() == sizeof<f32>()) {
-    store<f32>(slot, <f32>result);
+    store<f32>(slot, roundDecimalF32(origStart, p, result));
   } else {
     store<f64>(slot, result);
   }
@@ -536,68 +542,25 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
   srcEnd: usize,
   dst: usize,
 ): T {
-  const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
-  );
-  const originalSrcStart = srcStart;
-
-  const elementSize = sizeof<valueof<T>>();
-  const maxElements = i32((<usize>(srcEnd - srcStart)) >> 2);
-  if (maxElements > 0) out.length = maxElements;
-  const dataStart = out.dataStart;
-  let writePtr = dataStart;
-
-  do {
-    if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) break;
-    srcStart += 2;
-    srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);
-    if (srcStart >= srcEnd) break;
-    if (load<u16>(srcStart) == BRACKET_RIGHT) {
-      out.length = 0;
-      return out;
-    }
-
-    while (srcStart < srcEnd) {
-      const next = parseFloatElementSWAR<valueof<T>>(
-        srcStart,
-        srcEnd,
-        writePtr,
-      );
-      if (!next) break;
-      writePtr += elementSize;
-      srcStart = skipFloatArrayWhitespace(next, srcEnd);
-      if (srcStart >= srcEnd) break;
-
-      const code = load<u16>(srcStart);
-      if (code == COMMA) {
-        srcStart += 2;
-        srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);
-        continue;
-      }
-      if (code == BRACKET_RIGHT) {
-        out.length = i32(<usize>(writePtr - dataStart) / elementSize);
-        return out;
-      }
-      break;
-    }
-  } while (false);
-
-  return deserializeFloatArray_NAIVE<T>(
-    originalSrcStart,
-    srcEnd,
-    changetype<usize>(out),
-  );
+  const out = changetype<T>(dst || changetype<usize>(instantiate<T>()));
+  const next = deserializeFloatArrayBody<T>(srcStart, srcEnd, out, true);
+  if (!next || skipFloatArrayWhitespace(next, srcEnd) != srcEnd) {
+    takeProductionParseError();
+    return deserializeFloatArray_NAIVE<T>(
+      srcStart,
+      srcEnd,
+      changetype<usize>(out),
+    );
+  }
+  return out;
 }
 
 /**
  * Field/into variant - parses `[..]` into the existing `out` array and
  * returns the cursor past the closing `]`.
  *
- * Worst-case pre-sizing (`(srcEnd - srcStart) >> 2`) used by the top-level
- * SWAR entry is unsafe here: nested callers pass the *outer* container's
- * `srcEnd`, so on `f64[][][]` payloads like canada.json each tiny inner
- * `[lon,lat]` would over-allocate megabytes of f64 capacity. Instead we
- * use `ensureArrayElementSlot`'s grow-or-reuse strategy.
+ * Roots and fields share bounded grow-or-reuse storage. Nested callers may
+ * pass an outer container's end, so source byte lengths never size arrays.
  */
 @inline
 export function deserializeFloatArrayBody<T extends number[]>(

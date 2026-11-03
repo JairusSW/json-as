@@ -109,3 +109,79 @@ export function parseDecimalF64(srcStart: usize, srcEnd: usize): f64 {
   if (negative) value = -value;
   return value;
 }
+
+/** Narrow only after resolving the rare binary64 result exactly on an f32
+ * midpoint. Decimal digits distinguish either side even when f64 cannot. */
+export function roundDecimalF32(start: usize, end: usize, value: f64): f32 {
+  const negative = value < 0 || reinterpret<u64>(value) >> 63 != 0;
+  const magnitude = abs(value);
+  const rounded = <f32>magnitude;
+  if (!isFinite(magnitude) || <f64>rounded == magnitude) return <f32>value;
+  const bits = reinterpret<u32>(rounded);
+  let low: u32;
+  let high: u32;
+  if (<f64>rounded > magnitude) {
+    low = bits - 1;
+    high = bits;
+  } else {
+    low = bits;
+    high = bits + 1;
+  }
+  const lower = <f64>reinterpret<f32>(low);
+  const upper =
+    high == 0x7f800000
+      ? 340282366920938463463374607431768211456.0
+      : <f64>reinterpret<f32>(high);
+  if (magnitude != (lower + upper) * 0.5) return <f32>value;
+
+  while (start < end && isSpace(load<u16>(start))) start += 2;
+  if (load<u16>(start) == 45) start += 2;
+  let significantStart: usize = 0;
+  let digits = 0;
+  let fractionDigits = 0;
+  let fraction = false;
+  let p = start;
+  while (p < end) {
+    const c = load<u16>(p);
+    if (c == 46) {
+      fraction = true;
+      p += 2;
+      continue;
+    }
+    if (<u32>(c - 48) > 9) break;
+    if (fraction) fractionDigits++;
+    if (significantStart || c != 48) {
+      if (!significantStart) significantStart = p;
+      digits++;
+    }
+    p += 2;
+  }
+  let exponent = 0;
+  if (p < end && (load<u16>(p) == 101 || load<u16>(p) == 69)) {
+    p += 2;
+    let minus = false;
+    if (p < end && (load<u16>(p) == 43 || load<u16>(p) == 45)) {
+      minus = load<u16>(p) == 45;
+      p += 2;
+    }
+    while (p < end && <u32>(load<u16>(p) - 48) <= 9) {
+      exponent = min(10_000, exponent * 10 + <i32>(load<u16>(p) - 48));
+      p += 2;
+    }
+    if (minus) exponent = -exponent;
+  }
+  const comparison = compareDecimalToMidpoint(
+    significantStart,
+    digits,
+    exponent - fractionDigits,
+    lower,
+    upper,
+  );
+  const result =
+    comparison < 0 ? low : comparison > 0 ? high : (low & 1) == 0 ? low : high;
+  return reinterpret<f32>(result | (negative ? 0x80000000 : 0));
+}
+
+export function parseDecimalF32(start: usize, end: usize): f32 {
+  return roundDecimalF32(start, end, parseDecimalF64(start, end));
+}

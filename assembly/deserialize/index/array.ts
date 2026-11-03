@@ -71,6 +71,15 @@ export function deserializeArray<T extends unknown[]>(
     return deserializeArrayArray<T>(srcStart, srcEnd, dst);
   } else if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
     const type = changetype<nonnull<valueof<T>>>(0);
+    // @ts-expect-error: generated custom reader
+    if (isDefined(type.__DESERIALIZE_CUSTOM))
+      return deserializeCustomArray<T>(srcStart, srcEnd, dst);
+    // @ts-expect-error: generated object reader
+    if (
+      isDefined(type.__DESERIALIZE_SLOW) ||
+      isDefined(type.__DESERIALIZE_FAST)
+    )
+      return deserializeStructArray_SWAR<T>(srcStart, srcEnd, dst);
     if (type instanceof JSON.Value) {
       return deserializeArbitraryArray(srcStart, srcEnd, dst) as T;
     } else if (type instanceof JSON.Box) {
@@ -80,6 +89,17 @@ export function deserializeArray<T extends unknown[]>(
     } else if (type instanceof JSON.Raw) {
       return deserializeRawArray<T>(srcStart, srcEnd, dst) as T;
     } else if (
+      type instanceof Int8Array ||
+      type instanceof Uint8Array ||
+      type instanceof Uint8ClampedArray ||
+      type instanceof Int16Array ||
+      type instanceof Uint16Array ||
+      type instanceof Int32Array ||
+      type instanceof Uint32Array ||
+      type instanceof Int64Array ||
+      type instanceof Uint64Array ||
+      type instanceof Float32Array ||
+      type instanceof Float64Array ||
       type instanceof Date ||
       type instanceof Set ||
       type instanceof StaticArray ||
@@ -88,17 +108,6 @@ export function deserializeArray<T extends unknown[]>(
       return deserializeGenericArray<T>(srcStart, srcEnd, dst);
     } else if (type instanceof Map) {
       return deserializeMapArray<T>(srcStart, srcEnd, dst);
-      // @ts-ignore: defined by transform
-    } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-      // Custom codecs may consume any JSON value shape and return a new
-      // instance rather than mutating a reusable struct element.
-      return deserializeCustomArray<T>(srcStart, srcEnd, dst);
-      // @ts-ignore: defined by transform
-    } else if (
-      isDefined(type.__DESERIALIZE_SLOW) ||
-      isDefined(type.__DESERIALIZE_FAST)
-    ) {
-      return deserializeStructArray_SWAR<T>(srcStart, srcEnd, dst);
     }
     throw new Error("Could not parse array of type " + nameof<T>() + "!");
   } else {

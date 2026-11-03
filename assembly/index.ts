@@ -107,6 +107,7 @@ import { itoa_buffered } from "util/number";
 import { joinStringArray } from "util/string";
 import { dtoa_buffered, ftoa_buffered } from "xjb-as";
 import { ptrToStr } from "./util/ptrToStr";
+import { isUnescapedQuote as stringQuoteIsUnescaped } from "./util/stringScan";
 import { atoi, bytes, scanStringEnd } from "./util";
 import { scanValueEnd_SIMD } from "./util/scanValueEndSimd";
 import { scanValueEnd_SWAR } from "./util/scanValueEndSwar";
@@ -786,7 +787,7 @@ export namespace JSON {
         // initializes normally before the slow retry below.
         // @ts-expect-error: Defined by transform
         const fullWrite = isDefined(type.__DESERIALIZE_FULL_WRITE);
-        if (!reuse) {
+        if (!reuse && isDefined(type.__DESERIALIZE_FAST)) {
           if (fullWrite) {
             memory.fill(changetype<usize>(obj), 0, offsetof<nonnull<T>>());
           } else if (isDefined(type.__INITIALIZE)) {
@@ -1174,18 +1175,23 @@ export namespace JSON {
       const target = changetype<JSON.Value>(dst);
       const bits = src.bits;
       target.bits = bits;
-      if (valBoxed(bits)) {
-        const tag = valTag(bits);
+      target.linkPayload();
+      return target;
+    }
+
+    private linkPayload(): void {
+      const w = this.bits;
+      if (valBoxed(w)) {
+        const tag = valTag(w);
         if (
           tag == JSON.Types.Raw ||
           tag >= JSON.Types.String ||
           ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
-            (bits & VAL_BOX64) != 0)
+            (w & VAL_BOX64) != 0)
         ) {
-          __link(dst, valPtr(bits), false);
+          __link(changetype<usize>(this), valPtr(w), false);
         }
       }
-      return target;
     }
 
     /**
@@ -1206,6 +1212,7 @@ export namespace JSON {
         <usize>(<u32>lz),
         ref.src,
       );
+      this.linkPayload();
     }
 
     /**
@@ -1339,9 +1346,79 @@ export namespace JSON {
     }
     /** Concrete NaN-boxed bits for a value of type T (materializing if lazy). */
     static bitsFrom<T>(value: T): u64 {
-      const v = JSON.Value.from<T>(value);
-      v.materialize();
-      return v.bits;
+      if (value instanceof JSON.Value) {
+        value.materialize();
+        return value.bits;
+      } else if (value instanceof JSON.Box) {
+        return JSON.Value.bitsFrom(value.value);
+      } else if (isBoolean<T>()) {
+        return valBox(JSON.Types.Bool, value ? 1 : 0);
+      } else if (isInteger<T>() && nameof<T>() == "usize") {
+        // A `usize` of 0 is the null sentinel (see deserializeArbitrary);
+        // any other usize is an ordinary 32-bit unsigned integer.
+        return value ? valBox(valIntTag<T>(), <u64>value) : VAL_NULL;
+      } else if (isFloat<T>()) {
+        if (sizeof<T>() == 4) {
+          return valBox(JSON.Types.F32, <u64>reinterpret<u32>(<f32>value));
+        } else {
+          const f = <f64>value;
+          // Canonicalize NaN so it never collides with the box signature.
+          return isNaN(f) ? 0x7ff8000000000000 : reinterpret<u64>(f);
+        }
+      } else if (isInteger<T>()) {
+        if (sizeof<T>() == 8) return JSON.Value.wideBits<T>(value);
+        else return valBox(valIntTag<T>(), <u64>value);
+      } else if (isNullable<T>() && changetype<usize>(value) === 0) {
+        return VAL_NULL;
+      } else if (isString<T>()) {
+        return valBox(JSON.Types.String, <u64>changetype<usize>(value));
+      } else if (value instanceof JSON.Raw) {
+        return valBox(JSON.Types.Raw, <u64>changetype<usize>(value));
+        // @ts-expect-error: supplied by transform
+      } else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
+        // @ts-expect-error
+        const runtimeId = changetype<OBJECT>(
+          changetype<usize>(value) - TOTAL_OVERHEAD,
+        ).rtId;
+        if (!JSON.Value.METHODS.has(runtimeId))
+          JSON.Value.METHODS.set(runtimeId, value.__SERIALIZE.index);
+        return valBox(JSON.Types.Struct, <u64>changetype<usize>(value));
+      } else if (
+        value instanceof Int8Array ||
+        value instanceof Uint8Array ||
+        value instanceof Uint8ClampedArray ||
+        value instanceof Int16Array ||
+        value instanceof Uint16Array ||
+        value instanceof Int32Array ||
+        value instanceof Uint32Array ||
+        value instanceof Int64Array ||
+        value instanceof Uint64Array ||
+        value instanceof Float32Array ||
+        value instanceof Float64Array
+      ) {
+        return valBox(JSON.Types.TypedArray, <u64>changetype<usize>(value));
+      } else if (value instanceof ArrayBuffer) {
+        return valBox(JSON.Types.ArrayBuffer, <u64>changetype<usize>(value));
+      } else if (value instanceof Map) {
+        if (idof<T>() !== idof<Map<string, JSON.Value>>()) {
+          abort("Maps must be of type Map<string, JSON.Value>!");
+        }
+        return valBox(JSON.Types.Map, <u64>changetype<usize>(value));
+      } else if (value instanceof JSON.Obj) {
+        return valBox(JSON.Types.Object, <u64>changetype<usize>(value));
+      } else if (value instanceof JSON.Arr) {
+        return valBox(JSON.Types.Array, <u64>changetype<usize>(value));
+        // @ts-expect-error
+      } else if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) {
+        // A JSON.Value[] is converted to the buffer-backed JSON.Arr form, so
+        // the Array tag always boxes a JSON.Arr.
+        return valBox(
+          JSON.Types.Array,
+          <u64>changetype<usize>(JSON.Arr.from<T>(value)),
+        );
+      }
+
+      throw new Error("Unsupported JSON.Value type: " + nameof<T>());
     }
     /** Decodes NaN-boxed bits into T (the body of the instance `get<T>`). */
     static decodeBits<T>(w: u64): T {
@@ -1437,100 +1514,37 @@ export namespace JSON {
      * @param value - The value to be set.
      */
     set<T>(value: T): void {
-      if (value instanceof JSON.Box) {
-        this.set(value.value);
-      } else if (isBoolean<T>()) {
-        this.bits = valBox(JSON.Types.Bool, value ? 1 : 0);
-      } else if (isInteger<T>() && nameof<T>() == "usize") {
-        // A `usize` of 0 is the null sentinel (see deserializeArbitrary);
-        // any other usize is an ordinary 32-bit unsigned integer.
-        this.bits = value ? valBox(valIntTag<T>(), <u64>value) : VAL_NULL;
-      } else if (isFloat<T>()) {
-        if (sizeof<T>() == 4) {
-          this.bits = valBox(JSON.Types.F32, <u64>reinterpret<u32>(<f32>value));
-        } else {
-          const f = <f64>value;
-          // Canonicalize NaN so it never collides with the box signature.
-          this.bits = isNaN(f) ? 0x7ff8000000000000 : reinterpret<u64>(f);
-        }
-      } else if (isInteger<T>()) {
-        if (sizeof<T>() == 8) this.setWide<T>(value);
-        else this.bits = valBox(valIntTag<T>(), <u64>value);
-      } else if (isNullable<T>() && changetype<usize>(value) === 0) {
-        this.bits = VAL_NULL;
-      } else if (isString<T>()) {
-        this.bits = valBox(JSON.Types.String, <u64>changetype<usize>(value));
-      } else if (value instanceof JSON.Raw) {
-        this.bits = valBox(JSON.Types.Raw, <u64>changetype<usize>(value));
-        // @ts-expect-error: supplied by transform
-      } else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
-        // @ts-expect-error
-        if (!JSON.Value.METHODS.has(idof<T>()))
-          JSON.Value.METHODS.set(idof<T>(), value.__SERIALIZE.index);
-        this.bits = valBox(JSON.Types.Struct, <u64>changetype<usize>(value));
-      } else if (
-        value instanceof Int8Array ||
-        value instanceof Uint8Array ||
-        value instanceof Uint8ClampedArray ||
-        value instanceof Int16Array ||
-        value instanceof Uint16Array ||
-        value instanceof Int32Array ||
-        value instanceof Uint32Array ||
-        value instanceof Int64Array ||
-        value instanceof Uint64Array ||
-        value instanceof Float32Array ||
-        value instanceof Float64Array
-      ) {
-        this.bits = valBox(
-          JSON.Types.TypedArray,
-          <u64>changetype<usize>(value),
-        );
-      } else if (value instanceof ArrayBuffer) {
-        this.bits = valBox(
-          JSON.Types.ArrayBuffer,
-          <u64>changetype<usize>(value),
-        );
-      } else if (value instanceof Map) {
-        if (idof<T>() !== idof<Map<string, JSON.Value>>()) {
-          abort("Maps must be of type Map<string, JSON.Value>!");
-        }
-        this.bits = valBox(JSON.Types.Map, <u64>changetype<usize>(value));
-      } else if (value instanceof JSON.Obj) {
-        this.bits = valBox(JSON.Types.Object, <u64>changetype<usize>(value));
-      } else if (value instanceof JSON.Arr) {
-        this.bits = valBox(JSON.Types.Array, <u64>changetype<usize>(value));
-        // @ts-expect-error
-      } else if (isArray<T>() && idof<valueof<T>>() == idof<JSON.Value>()) {
-        // A JSON.Value[] is converted to the buffer-backed JSON.Arr form, so
-        // the Array tag always boxes a JSON.Arr.
-        this.bits = valBox(
-          JSON.Types.Array,
-          <u64>changetype<usize>(JSON.Arr.from<T>(value)),
-        );
+      if (value instanceof JSON.Value) {
+        JSON.Value.__adoptInto(changetype<usize>(this), value);
+        return;
       }
+      this.bits = JSON.Value.bitsFrom<T>(value);
+      this.linkPayload();
     }
 
     /** Encodes a 64-bit integer, spilling to the heap when it exceeds the payload. */
-    private setWide<T>(value: T): void {
+    private static wideBits<T>(value: T): u64 {
       if (isSigned<T>()) {
         const v = <i64>value;
         if (v >= -VAL_I64_LIMIT && v < VAL_I64_LIMIT) {
-          this.bits = valBox(JSON.Types.I64, <u64>v);
+          return valBox(JSON.Types.I64, <u64>v);
         } else {
           const box = new StaticArray<u64>(1);
           unchecked((box[0] = <u64>v));
-          this.bits =
-            valBox(JSON.Types.I64, <u64>changetype<usize>(box)) | VAL_BOX64;
+          return (
+            valBox(JSON.Types.I64, <u64>changetype<usize>(box)) | VAL_BOX64
+          );
         }
       } else {
         const v = <u64>value;
         if (v < VAL_U64_LIMIT) {
-          this.bits = valBox(JSON.Types.U64, v);
+          return valBox(JSON.Types.U64, v);
         } else {
           const box = new StaticArray<u64>(1);
           unchecked((box[0] = v));
-          this.bits =
-            valBox(JSON.Types.U64, <u64>changetype<usize>(box)) | VAL_BOX64;
+          return (
+            valBox(JSON.Types.U64, <u64>changetype<usize>(box)) | VAL_BOX64
+          );
         }
       }
     }
@@ -1567,59 +1581,17 @@ export namespace JSON {
     }
 
     /**
-     * Converts the JSON.Value to a string representation.
+     * Converts references using JSON escaping and container serialization.
+     * Floating-point scalars retain AssemblyScript display formatting ("1.0").
      * @returns The string representation of the JSON.Value.
      */
     toString(): string {
       this.materialize();
-      switch (this.type) {
-        case JSON.Types.Null:
-          return "null";
-        case JSON.Types.U8:
-          return this.get<u8>().toString();
-        case JSON.Types.U16:
-          return this.get<u16>().toString();
-        case JSON.Types.U32:
-          return this.get<u32>().toString();
-        case JSON.Types.U64:
-          return this.get<u64>().toString();
-        case JSON.Types.I8:
-          return this.get<i8>().toString();
-        case JSON.Types.I16:
-          return this.get<i16>().toString();
-        case JSON.Types.I32:
-          return this.get<i32>().toString();
-        case JSON.Types.I64:
-          return this.get<i64>().toString();
-        case JSON.Types.F32:
-          return this.get<f32>().toString();
-        case JSON.Types.F64:
-          return this.get<f64>().toString();
-        case JSON.Types.String:
-          return '"' + this.get<string>() + '"';
-        case JSON.Types.Bool:
-          return this.get<boolean>() ? "true" : "false";
-        case JSON.Types.Raw: {
-          return this.get<JSON.Raw>().toString();
-        }
-        case JSON.Types.Array: {
-          return JSON.stringify(this.get<JSON.Arr>());
-        }
-        case JSON.Types.TypedArray:
-        case JSON.Types.ArrayBuffer: {
-          serializeDynamic(this.type, this.get<usize>());
-          return bs.out<string>();
-        }
-        case JSON.Types.Object: {
-          return JSON.stringify(this.get<JSON.Obj>());
-        }
-        default: {
-          const fn = JSON.Value.METHODS.get(this.type - JSON.Types.Struct);
-          const value = this.get<usize>();
-          call_indirect<void>(fn, 0, value);
-          return bs.out<string>();
-        }
-      }
+      // Preserve the established scalar float display (for example "1.0").
+      // Reference values use JSON escaping and the complete JSON dispatcher.
+      if (this.type == JSON.Types.F32) return this.get<f32>().toString();
+      if (this.type == JSON.Types.F64) return this.get<f64>().toString();
+      return JSON.stringify<JSON.Value>(this);
     }
 
 
@@ -3292,7 +3264,12 @@ export namespace JSON {
         // strings/containers. Initialize only a freshly allocated object here;
         // callers that pass `dst` intentionally retain that reusable graph.
         // @ts-expect-error: Defined by transform
-        if (fresh && isDefined(type.__INITIALIZE)) out.__INITIALIZE();
+        if (
+          fresh &&
+          isDefined(type.__DESERIALIZE_FAST) &&
+          isDefined(type.__INITIALIZE)
+        )
+          out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST)) {
           // @ts-expect-error: Defined by transform
@@ -3428,6 +3405,9 @@ export namespace JSON {
     /** Record a cold malformed-input path and return the zero cursor sentinel. */
     export function failProductionParse(): usize {
       return failProductionParseInternal();
+    }
+    export function isUnescapedQuote(ptr: usize): bool {
+      return stringQuoteIsUnescaped(ptr);
     }
     export function isSpace(code: u16): boolean {
       return code == 0x20 || code - 9 <= 4;

@@ -38,6 +38,16 @@ export function deserializeArrayField<T extends unknown[]>(
     return deserializeArrayArrayField<T>(srcStart, srcEnd, fieldPtr);
   } else if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
     const type = changetype<nonnull<valueof<T>>>(0);
+    // User representations take precedence over inherited built-in layouts.
+    // @ts-expect-error: generated custom reader
+    if (isDefined(type.__DESERIALIZE_CUSTOM))
+      return deserializeCustomArrayField<T>(srcStart, srcEnd, fieldPtr);
+    // @ts-expect-error: generated object reader
+    if (
+      isDefined(type.__DESERIALIZE_SLOW) ||
+      isDefined(type.__DESERIALIZE_FAST)
+    )
+      return deserializeStructArrayField<T>(srcStart, srcEnd, fieldPtr);
     if (type instanceof JSON.Value) {
       return deserializeArbitraryArrayField(srcStart, srcEnd, fieldPtr);
     } else if (type instanceof JSON.Box) {
@@ -47,6 +57,17 @@ export function deserializeArrayField<T extends unknown[]>(
     } else if (type instanceof JSON.Raw) {
       return deserializeRawArrayField(srcStart, srcEnd, fieldPtr);
     } else if (
+      type instanceof Int8Array ||
+      type instanceof Uint8Array ||
+      type instanceof Uint8ClampedArray ||
+      type instanceof Int16Array ||
+      type instanceof Uint16Array ||
+      type instanceof Int32Array ||
+      type instanceof Uint32Array ||
+      type instanceof Int64Array ||
+      type instanceof Uint64Array ||
+      type instanceof Float32Array ||
+      type instanceof Float64Array ||
       type instanceof Date ||
       type instanceof Set ||
       type instanceof StaticArray ||
@@ -55,15 +76,6 @@ export function deserializeArrayField<T extends unknown[]>(
       return deserializeGenericArrayField<T>(srcStart, srcEnd, fieldPtr);
     } else if (type instanceof Map) {
       return deserializeMapArrayField<T>(srcStart, srcEnd, fieldPtr);
-      // @ts-ignore: defined by transform
-    } else if (isDefined(type.__DESERIALIZE_CUSTOM)) {
-      return deserializeCustomArrayField<T>(srcStart, srcEnd, fieldPtr);
-      // @ts-ignore: defined by transform
-    } else if (
-      isDefined(type.__DESERIALIZE_SLOW) ||
-      isDefined(type.__DESERIALIZE_FAST)
-    ) {
-      return deserializeStructArrayField<T>(srcStart, srcEnd, fieldPtr);
     }
     throw new Error("Could not parse array field of type " + nameof<T>() + "!");
   } else {

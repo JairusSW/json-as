@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- fix(lazy): preserve alias/omit/optional metadata, defaults, and source anchors through dependency revisits and inheritance.
+- fix(serde): restore custom serializer state by relative offsets and reserve returned fragments; decode escaped property names and preserve user-defined representations throughout container dispatch.
+- fix(dynamic): adopt existing JSON.Value instances, dispatch polymorphic serializers with their runtime receiver, escape reference-value string conversion while retaining scalar float display, and link managed payload writes during incremental collection.
+- fix(numbers): resolve decimal-to-f32 midpoint ties exactly for roots, fields, reuse, and arrays, avoiding double rounding through f64.
+- perf(memory): eliminate temporary primitive-slot wrappers and the inactive cache arena; bound root-array capacity and float-output reservations, and use proportional slack for medium owned outputs. Effectful codecs use a single parser traversal instead of replaying callbacks after layout misses.
 - fix: preserve owned-output reservations, reserve dynamic fields after callback boundaries, retain callback-capable arrays, and keep Map iteration stable across callback rehashing.
 - fix(parse): separate aliased reused string destinations and enforce string-array element nullability consistently for fresh and reused outputs.
 - bench: keep native parity comparisons separate from classic workload charts and reject prepared labels from another source revision.

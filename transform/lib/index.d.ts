@@ -18,6 +18,7 @@ export declare class JSONTransform extends Visitor {
     imports: ImportStatement[];
     simdStatements: string[];
     visitedClasses: Set<string>;
+    private lazyMetadata;
     private collectInheritedFieldMembers;
     visitClassDeclarationRef(node: ClassDeclaration): void;
     resolveType(type: string, source: Src, visited?: Set<string>): string;

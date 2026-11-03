@@ -277,8 +277,9 @@ declare const JSON_STRICT: bool;
 
 /**
  * Whether the string cache is enabled (default off). Injected from the
- * `JSON_CACHE` build-time environment variable. When on, repeated strings are
- * reused to speed up string-heavy serialization.
+ * `JSON_CACHE` build-time environment variable. This controls the experimental
+ * internal cache API; regular JSON.stringify does not call it. Storage is lazy,
+ * and disabled caches do not allocate an arena.
  *
  * @example
  * ```sh

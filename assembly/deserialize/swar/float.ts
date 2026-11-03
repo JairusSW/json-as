@@ -1,3 +1,4 @@
+import { parseDecimalF32, roundDecimalF32 } from "../../util/parseDecimal";
 // SWAR float deserializers. Lemire-style fast path with parse4 SWAR digit
 // folding on the fractional accumulator. Output is correctly rounded on the
 // fast path because:
@@ -15,7 +16,6 @@
 // stride there pays the wasted-validate cost on every call without saving
 // enough scalar iterations.
 
-import { ptrToStr } from "../../util/ptrToStr";
 import { parse4Digits_PairMul } from "../../util/swar-int";
 import { scientific } from "../../util/scientific";
 import { eiselLemire22 } from "../../util/eisel-lemire";
@@ -42,22 +42,20 @@ export function loadPow10(exp: u32): f64 {
 }
 
 function fallback<T>(srcStart: usize, srcEnd: usize): T {
-  const s = ptrToStr(srcStart, srcEnd);
   // @ts-ignore
   const type: T = 0;
   // @ts-ignore
   if (type instanceof f64) return <T>parseDecimalF64(srcStart, srcEnd);
   // @ts-ignore
-  return <T>(<f32>f32.parse(s));
+  return <T>(<f32>parseDecimalF32(srcStart, srcEnd));
 }
 function fallbackField<T extends number>(
   origStart: usize,
   end: usize,
   fieldPtr: usize,
 ): void {
-  const s = ptrToStr(origStart, end);
   if (sizeof<T>() == sizeof<f32>()) {
-    store<f32>(fieldPtr, f32.parse(s));
+    store<f32>(fieldPtr, parseDecimalF32(origStart, end));
   } else {
     store<f64>(fieldPtr, parseDecimalF64(origStart, end));
   }
@@ -190,7 +188,7 @@ export function deserializeFloat_SWAR<T>(srcStart: usize, srcEnd: usize): T {
   // @ts-ignore
   if (type instanceof f64) return <T>result;
   // @ts-ignore
-  return <T>(<f32>result);
+  return <T>roundDecimalF32(origStart, srcEnd, result);
 }
 
 export function deserializeFloatField_SWAR<T extends number>(
@@ -316,7 +314,7 @@ export function deserializeFloatField_SWAR<T extends number>(
   if (negative) result = -result;
 
   if (sizeof<T>() == sizeof<f32>()) {
-    store<f32>(fieldPtr, <f32>result);
+    store<f32>(fieldPtr, roundDecimalF32(origStart, p, result));
   } else {
     store<f64>(fieldPtr, result);
   }

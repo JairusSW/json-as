@@ -105,7 +105,11 @@ export namespace bs {
     // useful bytes. The unmanaged staging buffer keeps its established 2x
     // policy because it is reused rather than returned.
     let next = ownedOutput
-      ? bufferSize + max<usize>(bufferSize >> 2, 1 << 20)
+      ? bufferSize +
+        max<usize>(
+          bufferSize >> 2,
+          bufferSize < LARGE_OWNED_OUTPUT_SIZE ? MIN_BUFFER_SIZE : 1 << 20,
+        )
       : bufferSize << 1;
     const minNext = requiredSize + extra;
     if (next < minNext) next = minNext;
@@ -152,7 +156,10 @@ export namespace bs {
   function finishOwned(): string {
     const len = offset - buffer;
     let result = buffer;
-    const excessLimit = max<usize>(len >> 2, 1 << 20);
+    const excessLimit = max<usize>(
+      len >> 2,
+      len < LARGE_OWNED_OUTPUT_SIZE ? MIN_BUFFER_SIZE : 1 << 20,
+    );
     if (ownedCapacity > len && ownedCapacity - len > excessLimit) {
       // A large downward size swing should not make the small returned string
       // retain the previous result's large physical allocation.
@@ -547,8 +554,9 @@ export namespace sc {
   /** Minimum serialized length to cache - smaller outputs aren't worth caching */
   export const MIN_CACHE_LEN: usize = 128;
   /** Size of the circular arena buffer for cached strings */
-  export const ARENA_SIZE: usize =
-    CACHE_BYTES >= MIN_CACHE_LEN ? CACHE_BYTES : MIN_CACHE_LEN;
+  export const ARENA_SIZE: usize = CACHE_ENABLED
+    ? max<usize>(CACHE_BYTES, MIN_CACHE_LEN)
+    : 0;
 
   /** Number of cache slots (power of 2 for efficient masking). Set to 0 when caching disabled. */
   const CACHE_SIZE_BASE: i32 = CACHE_ENABLED
@@ -572,13 +580,13 @@ export namespace sc {
   }
 
   /** Static array of cache entries */
-  export const entries = new StaticArray<sc.Entry>(i32(CACHE_SIZE));
+  @lazy export const entries = new StaticArray<sc.Entry>(i32(sc.CACHE_SIZE));
   /** Circular buffer arena for storing cached serialized strings */
-  export const arena = new ArrayBuffer(i32(ARENA_SIZE));
+  @lazy export const arena = new ArrayBuffer(i32(sc.ARENA_SIZE));
   /** Current write position in the arena */
-  export let arenaPtr: usize = changetype<usize>(arena);
+  @lazy export let arenaPtr: usize = changetype<usize>(sc.arena);
   /** End boundary of the arena */
-  export let arenaEnd: usize = arenaPtr + ARENA_SIZE;
+  @lazy export let arenaEnd: usize = sc.arenaPtr + sc.ARENA_SIZE;
 
   /**
    * Computes cache index for a given string pointer.
@@ -598,6 +606,7 @@ export namespace sc {
    */
 
   export function tryEmitCached(key: usize): bool {
+    if (!CACHE_ENABLED) return false;
     const e = unchecked(entries[indexFor(key)]);
     if (e.key == key) {
       bs.cacheOutput = e.ptr;
@@ -621,7 +630,7 @@ export namespace sc {
     if (len > ARENA_SIZE) return;
     if (arenaPtr + len > arenaEnd) {
       // Wrap around to beginning of arena (circular buffer)
-      arenaPtr = changetype<usize>(arena);
+      arenaPtr = changetype<usize>(sc.arena);
     }
 
     memory.copy(arenaPtr, start, len);

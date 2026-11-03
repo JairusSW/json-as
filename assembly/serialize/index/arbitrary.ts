@@ -135,7 +135,7 @@ export function serializeArbitrary(src: JSON.Value): void {
     default: {
       const fn = JSON.Value.METHODS.get(src.type - JSON.Types.Struct);
       const ptr = src.get<usize>();
-      call_indirect<void>(fn, 0, ptr);
+      call_indirect<void>(fn, ptr, ptr);
       break;
     }
   }

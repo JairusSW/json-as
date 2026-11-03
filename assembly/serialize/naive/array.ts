@@ -228,7 +228,7 @@ function serializeF64ArrayFast(src: f64[]): void {
   // Worst case per element: a 21-char fixed integer (e.g. 1e20) or a ~24-char
   // exponent form, + comma = ~52 bytes; plus the writer's SIMD stores can
   // overshoot the logical end by up to 16 bytes. 80 covers both comfortably.
-  bs.proposeSize(4 + <u32>len * 80);
+  bs.proposeSize(4);
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
   if (len == 0) {
@@ -243,6 +243,12 @@ function serializeF64ArrayFast(src: f64[]): void {
   const dataStart = src.dataStart;
   let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
+    if ((i & 15) == 0) {
+      bs.offset = offset;
+      bs.prepareGrowth(<u32>min(16, len - i) * 80, <u32>min(16, len - i) * 80);
+      offset = bs.offset;
+    }
+    const before = offset;
     const v = load<f64>(dataStart + ((<usize>i) << 3));
     if ((reinterpret<u64>(v) & 0x7ff0000000000000) == 0x7ff0000000000000) {
       store<u64>(offset, 0x006c006c0075006e); // null
@@ -252,6 +258,7 @@ function serializeF64ArrayFast(src: f64[]): void {
     }
     store<u16>(offset, COMMA);
     offset += 2;
+    bs.addSize(<u32>(offset - before));
   }
   // Overwrite the final trailing comma with `]`.
   store<u16>(offset - 2, BRACKET_RIGHT);
@@ -263,7 +270,7 @@ function serializeF32ArrayFast(src: f32[]): void {
   // Worst case for f32 is a 21-char fixed integer (e.g. 1e20 rounds to a
   // 21-digit value), + comma = ~44 bytes, plus up to 16 bytes of SIMD store
   // overshoot. 64 covers it.
-  bs.proposeSize(4 + <u32>len * 64);
+  bs.proposeSize(4);
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
   if (len == 0) {
@@ -275,6 +282,12 @@ function serializeF32ArrayFast(src: f32[]): void {
   const dataStart = src.dataStart;
   let offset = bs.offset;
   for (let i: i32 = 0; i < len; i++) {
+    if ((i & 15) == 0) {
+      bs.offset = offset;
+      bs.prepareGrowth(<u32>min(16, len - i) * 64, <u32>min(16, len - i) * 64);
+      offset = bs.offset;
+    }
+    const before = offset;
     const v = load<f32>(dataStart + ((<usize>i) << 2));
     if ((reinterpret<u32>(v) & 0x7f800000) == 0x7f800000) {
       store<u64>(offset, 0x006c006c0075006e); // null
@@ -284,6 +297,7 @@ function serializeF32ArrayFast(src: f32[]): void {
     }
     store<u16>(offset, COMMA);
     offset += 2;
+    bs.addSize(<u32>(offset - before));
   }
   store<u16>(offset - 2, BRACKET_RIGHT);
   bs.offset = offset;

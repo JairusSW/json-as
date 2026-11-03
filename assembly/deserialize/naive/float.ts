@@ -1,4 +1,4 @@
-import { ptrToStr } from "../../util/ptrToStr";
+import { parseDecimalF32 } from "../../util/parseDecimal";
 import { isSpace } from "../../util";
 import { parseDecimalF64 } from "../../util/parseDecimal";
 
@@ -68,7 +68,7 @@ export function deserializeFloat_NAIVE<T>(srcStart: usize, srcEnd: usize): T {
   // @ts-ignore
   if (type instanceof f64) return parseDecimalF64(srcStart, srcEnd);
   // @ts-ignore
-  return f32.parse(ptrToStr(srcStart, srcEnd));
+  return parseDecimalF32(srcStart, srcEnd);
 }
 
 function scanFloatEnd(srcStart: usize, srcEnd: usize): usize {
@@ -119,7 +119,7 @@ export function deserializeFloatField_NAIVE<T extends number>(
   const end = scanFloatEnd(srcStart, srcEnd);
 
   if (sizeof<T>() == sizeof<f32>()) {
-    store<f32>(fieldPtr, f32.parse(ptrToStr(srcStart, end)));
+    store<f32>(fieldPtr, parseDecimalF32(srcStart, end));
   } else {
     store<f64>(fieldPtr, parseDecimalF64(srcStart, end));
   }

@@ -1,3 +1,4 @@
+import { parseDecimalF32, roundDecimalF32 } from "../../util/parseDecimal";
 // SIMD float deserializers. Same Eisel-Lemire / `scientific()` / `f*.parse`
 // cascade as `swar/float.ts`, but the fractional digit loop starts with a
 // `parse16Digits_SIMD` stride before falling through to `parse4Digits_PairMul`
@@ -9,7 +10,6 @@
 // Requires `--enable simd` at compile time. Dead-code-eliminated when
 // JSON_MODE != SIMD.
 
-import { ptrToStr } from "../../util/ptrToStr";
 import { parse4Digits_PairMul } from "../../util/swar-int";
 import { parse16Digits_SIMD } from "../../util/simd-int";
 import { scientific } from "../../util/scientific";
@@ -30,13 +30,12 @@ const ASCII_E_UP: u16 = 69;
 const ASCII_E_LO: u16 = 101;
 
 function fallback<T>(srcStart: usize, srcEnd: usize): T {
-  const s = ptrToStr(srcStart, srcEnd);
   // @ts-ignore
   const type: T = 0;
   // @ts-ignore
   if (type instanceof f64) return <T>parseDecimalF64(srcStart, srcEnd);
   // @ts-ignore
-  return <T>(<f32>f32.parse(s));
+  return <T>(<f32>parseDecimalF32(srcStart, srcEnd));
 }
 
 function fallbackField<T extends number>(
@@ -44,9 +43,8 @@ function fallbackField<T extends number>(
   end: usize,
   fieldPtr: usize,
 ): void {
-  const s = ptrToStr(origStart, end);
   if (sizeof<T>() == sizeof<f32>()) {
-    store<f32>(fieldPtr, f32.parse(s));
+    store<f32>(fieldPtr, parseDecimalF32(origStart, end));
   } else {
     store<f64>(fieldPtr, parseDecimalF64(origStart, end));
   }
@@ -167,7 +165,7 @@ export function deserializeFloat_SIMD<T>(srcStart: usize, srcEnd: usize): T {
   // @ts-ignore
   if (type instanceof f64) return <T>result;
   // @ts-ignore
-  return <T>(<f32>result);
+  return <T>roundDecimalF32(origStart, srcEnd, result);
 }
 
 export function deserializeFloatField_SIMD<T extends number>(
@@ -305,7 +303,7 @@ export function deserializeFloatField_SIMD<T extends number>(
   if (negative) result = -result;
 
   if (sizeof<T>() == sizeof<f32>()) {
-    store<f32>(fieldPtr, <f32>result);
+    store<f32>(fieldPtr, roundDecimalF32(origStart, p, result));
   } else {
     store<f64>(fieldPtr, result);
   }

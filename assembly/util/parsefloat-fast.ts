@@ -1,3 +1,4 @@
+import { parseDecimalF32, roundDecimalF32 } from "./parseDecimal";
 import { ptrToStr } from "./ptrToStr";
 
 // Lemire-style fast float parser.
@@ -40,20 +41,19 @@ function loadPow10(exp: u32): f64 {
 }
 
 function fallback<T>(srcStart: usize, srcEnd: usize): T {
-  const s = ptrToStr(srcStart, srcEnd);
   // @ts-ignore: type
   const type: T = 0;
   // @ts-ignore: type
-  if (type instanceof f64) return <T>f64.parse(s);
+  if (type instanceof f64) return <T>f64.parse(ptrToStr(srcStart, srcEnd));
   // @ts-ignore: cast
-  return <T>(<f32>f32.parse(s));
+  return <T>(<f32>parseDecimalF32(srcStart, srcEnd));
 }
 
 /**
  * Fast path for `deserializeFloat`. `srcStart..srcEnd` must contain only
  * the float content (no surrounding whitespace, no `null`). Returns the
- * parsed value; on the slow path falls back to `f64.parse` /
- * `f32.parse` over the same range so behavior is preserved for every
+ * parsed value; the binary32 slow path uses exact decimal midpoint correction,
+ * while binary64 retains its native fallback over the same range for every
  * input the previous parser accepted.
  *
  * Structure mirrors the existing parser's split integer/fraction loops
@@ -160,5 +160,5 @@ export function parseFloatFast<T>(srcStart: usize, srcEnd: usize): T {
   // @ts-ignore: type
   if (type instanceof f64) return <T>result;
   // @ts-ignore: cast
-  return <T>(<f32>result);
+  return <T>roundDecimalF32(origStart, srcEnd, result);
 }

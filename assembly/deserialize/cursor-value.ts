@@ -189,6 +189,20 @@ export function readCursorValue<T>(
     return readCursorString(start, end, dst, offset);
   } else if (isReference<T>() || isManaged<T>()) {
     const type = changetype<nonnull<T>>(0);
+    // @ts-expect-error: generated checked cursor method
+    if (isDefined(type.__DESERIALIZE_CURSOR)) {
+      if (depth >= MAX_CURSOR_DEPTH) return 0;
+      const obj = changetype<nonnull<T>>(
+        __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
+      );
+      initializeCursorObject(obj);
+      const next = obj.__DESERIALIZE_CURSOR(start, end, obj, depth);
+      if (next) {
+        store<T>(field, obj);
+        cursorLink(dst, changetype<usize>(obj), false);
+      }
+      return next;
+    }
     if (type instanceof JSON.Box) {
       return readCursorBox(start, end, dst, offset, depth, type, type.value);
     }
@@ -406,20 +420,6 @@ export function readCursorValue<T>(
         ptr = skipCursorWhitespace(ptr + 2, end);
       }
       return 0;
-    }
-    // @ts-expect-error: generated checked cursor method
-    if (isDefined(type.__DESERIALIZE_CURSOR)) {
-      if (depth >= MAX_CURSOR_DEPTH) return 0;
-      const obj = changetype<nonnull<T>>(
-        __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
-      );
-      initializeCursorObject(obj);
-      const next = obj.__DESERIALIZE_CURSOR(start, end, obj, depth);
-      if (next) {
-        store<T>(field, obj);
-        cursorLink(dst, changetype<usize>(obj), false);
-      }
-      return next;
     }
   }
   return 0;

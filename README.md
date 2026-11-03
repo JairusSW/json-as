@@ -642,7 +642,7 @@ Lazy cost scales with how much you actually read. For each payload (vec3 → lar
 Instead of using flags for setting options, `json-as` is configured by environmental variables.
 Here's a short list:
 
-**JSON_CACHE** (default: 0) - Enables and sizes string cache. Supports `true|false`, raw bytes (`JSON_CACHE=1048576`), bits (`JSON_CACHE=512kb`, `2mb`, `1gb`), and bytes (`JSON_CACHE=64KB`, `2MB`, `1GB`). May boost string serialization in excess of 22 GB/s.
+**JSON_CACHE** (default: 0) - Controls the experimental internal string-cache API. Regular serialization does not use this cache; enabling it does not accelerate `JSON.stringify`. Cache storage is allocated lazily, and a disabled cache has no arena storage. Accepts `true|false`, raw bytes (`JSON_CACHE=1048576`), bits (`JSON_CACHE=512kb`, `2mb`, `1gb`), and bytes (`JSON_CACHE=64KB`, `2MB`, `1GB`).
 
 **JSON_DEBUG** (default: 0) - Sets the debug level. May be within range `0-3`
 

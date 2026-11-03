@@ -96,100 +96,19 @@ export function deserializeStringArrayField<T extends string[]>(
   );
 }
 
-// Top-level entry for `JSON.parse<string[]>` / `JSON.parse<(string | null)[]>`.
-//
-// Pre-grows the destination array to a worst-case bound in one allocation,
-// then writes elements via `writePtr` direct stores. This sidesteps the
-// per-element growth cost of `deserializeStringArrayBody`'s
-// `ensureArrayElementSlot` path. The incremental runtime zero-initializes
-// new allocations, so `null` slots need no per-element store on cold
-// arrays (we still write 0 to handle reused arrays whose old refs would
-// otherwise leak through).
+// Root arrays use the same geometric growth policy as field arrays. Token
+// byte lengths do not predict element counts, especially for long strings.
 export function deserializeStringArray_SWAR<T extends string[]>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
   nullable: bool = false,
 ): T {
-  const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
-  );
-
-  // Top-level exact-range entry. Field arrays use the cursor-returning body
-  // above, so trimming here preserves valid document whitespace without
-  // touching the hot generated-struct path.
-  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
-
-  // Worst-case sizing: shortest possible element is `""` followed by `,` =
-  // 6 UTF-16 bytes, so `(srcLen + 5) / 6` upper-bounds the count. Clamp to
-  // AS's BLOCK_MAXSIZE / sizeof<string ref> = (1<<28) - 4 elements; payloads
-  // that exceed this would fail the `out.length =` setter anyway. For a
-  // 1 GiB UTF-16 source that maxes at ~256M slot allocation = ~1 GiB.
-  const elementSize: usize = sizeof<usize>();
-  const maxBlockElements: i32 = i32((<usize>0x40000000 - 16) / elementSize);
-  let maxElements: i32 = i32((<usize>(srcEnd - srcStart) + 5) / 6);
-  if (maxElements < 0 || maxElements > maxBlockElements) {
-    maxElements = maxBlockElements;
-  }
-  if (out.length < maxElements) out.length = maxElements;
-
-  const dataStart: usize = out.dataStart;
-  let writePtr: usize = dataStart;
-  const writePtrLimit: usize = dataStart + <usize>maxElements * elementSize;
-
-  // Caller guarantees srcStart is at the opening `[`.
-  if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) {
-    out.length = 0;
+  const out = changetype<T>(dst || changetype<usize>(instantiate<T>()));
+  const next = deserializeStringArrayBody<T>(srcStart, srcEnd, out, nullable);
+  if (!next || skipStringArrayWhitespace(next, srcEnd) != srcEnd) {
     markProductionParseError();
     return changetype<T>(0);
   }
-  srcStart += 2;
-  srcStart = skipStringArrayWhitespace(srcStart, srcEnd);
-  if (srcStart < srcEnd && load<u16>(srcStart) == BRACKET_RIGHT) {
-    if (srcStart + 2 != srcEnd) {
-      markProductionParseError();
-      return changetype<T>(0);
-    }
-    out.length = 0;
-    return out;
-  }
-
-  while (srcStart < srcEnd && writePtr < writePtrLimit) {
-    // Null fast path: one u64 compare.
-    if (srcStart + 8 <= srcEnd && load<u64>(srcStart) == NULL_WORD_U64) {
-      if (!nullable) break;
-      store<usize>(writePtr, 0);
-      srcStart += 8;
-    } else {
-      srcStart = deserializeStringField_SWAR<valueof<T>>(
-        srcStart,
-        srcEnd,
-        writePtr,
-      );
-      if (!srcStart) break;
-    }
-    writePtr += elementSize;
-    srcStart = skipStringArrayWhitespace(srcStart, srcEnd);
-    if (srcStart >= srcEnd) break;
-
-    const code = load<u16>(srcStart);
-    if (code == COMMA) {
-      srcStart += 2;
-      srcStart = skipStringArrayWhitespace(srcStart, srcEnd);
-      continue;
-    }
-    if (code == BRACKET_RIGHT) {
-      if (srcStart + 2 != srcEnd) {
-        markProductionParseError();
-        return changetype<T>(0);
-      }
-      const finalLen = i32(<usize>(writePtr - dataStart) / elementSize);
-      if (out.length != finalLen) out.length = finalLen;
-      return out;
-    }
-    break;
-  }
-
-  markProductionParseError();
-  return changetype<T>(0);
+  return out;
 }

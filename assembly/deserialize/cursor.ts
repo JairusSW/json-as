@@ -1,3 +1,4 @@
+import { parseDecimalF32 } from "../util/parseDecimal";
 import { allocateUninitialized } from "../util/runtime";
 import { JSONMode } from "..";
 import { bs } from "../../lib/as-bs";
@@ -549,7 +550,7 @@ function numberCursor<T extends number>(
         if (negative) value = -value;
         store<T>(dst, <T>value);
       } else {
-        store<T>(dst, <T>f32.parse(ptrToStr(start, ptr)));
+        store<T>(dst, <T>parseDecimalF32(start, ptr));
       }
     } else {
       const scale = (exponentNegative ? -exponent : exponent) - fractionDigits;

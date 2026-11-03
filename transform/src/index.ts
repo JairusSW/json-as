@@ -389,6 +389,17 @@ export class JSONTransform extends Visitor {
 
   public visitedClasses: Set<string> = new Set<string>();
 
+  private lazyMetadata = new Map<
+    FieldDeclaration,
+    {
+      inner: string;
+      valueType: string;
+      omitNull: boolean;
+      omitIf: Expression | null;
+      valueInit?: string;
+    }
+  >();
+
   private collectInheritedFieldMembers(
     node: ClassDeclaration,
     source: Src,
@@ -854,6 +865,7 @@ export class JSONTransform extends Visitor {
         valueType: string;
         omitNull: boolean;
         omitIf: Expression | null;
+        valueInit?: string;
       }
     >();
 
@@ -937,6 +949,15 @@ export class JSONTransform extends Visitor {
         }
       }
       if (inner === null) continue;
+      if (hasDeco("omit")) {
+        // Omitted fields keep their ordinary application storage; there is no
+        // wire slot to defer. Remove the instance-only lazy marker.
+        (fd as FieldDeclaration).decorators =
+          decos?.filter(
+            (d) => (<IdentifierExpression>d.name).text !== "lazy",
+          ) ?? null;
+        continue;
+      }
 
       if (hasCustomSerde)
         throwError(
@@ -948,7 +969,13 @@ export class JSONTransform extends Visitor {
         );
 
       const fname = fd.name.text;
-      const key = JSON.stringify(fname);
+      const alias = decos?.find(
+        (d) => (<IdentifierExpression>d.name).text === "alias",
+      );
+      const key = alias?.args?.[0]
+        ? toString(alias.args[0])
+        : JSON.stringify(fname);
+      const optional = hasDeco("optional") ? "@optional " : "";
       const T = inner;
       const baseT = stripNull(T);
       const storesScalar =
@@ -1032,7 +1059,7 @@ export class JSONTransform extends Visitor {
       const lowered = (
         packScalar
           ? [
-              `@alias(${key}) private __${fname}_lz: u64 = ${
+              `@alias(${key}) ${optional}private __${fname}_lz: u64 = ${
                 fieldDefault != null
                   ? `(((<u64>0xffffffff) << 32) | ${encVal(`<${T}>(${fieldDefault})`)})`
                   : "0"
@@ -1050,7 +1077,7 @@ export class JSONTransform extends Visitor {
                 `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
             ]
           : [
-              `@alias(${key}) private __${fname}_lz: u64 = ${
+              `@alias(${key}) ${optional}private __${fname}_lz: u64 = ${
                 refDefault != null ? "u64.MAX_VALUE" : "0"
               };`,
               `private __${fname}_val: ${valueType} = ${refDefault ?? valueDefault};`,
@@ -1069,6 +1096,10 @@ export class JSONTransform extends Visitor {
             ]
       ).map((src) => SimpleParser.parseClassMember(src, node));
       node.members.splice(i, 1, ...lowered);
+      this.lazyMetadata.set(
+        lowered[0] as FieldDeclaration,
+        lazyInner.get("__" + fname + "_lz")!,
+      );
       // Ref lazy field whose slot seeds to materialized (MAX) - i.e. it has an
       // effective default (a declared default, or the type default for a
       // non-nullable field). Record the matching `__x_val` initializer so
@@ -1076,22 +1107,10 @@ export class JSONTransform extends Visitor {
       // initializers). Packed scalars carry their default in the slot itself,
       // so they need no `_val` seed.
       if (!packScalar && refDefault != null) {
-        __lazyValInits.set(
-          `__${fname}_lz`,
-          `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`__${fname}_val`)}));\n`,
-        );
+        const valueInit = `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`__${fname}_val`)}));\n`;
+        __lazyValInits.set(`__${fname}_lz`, valueInit);
+        lazyInner.get(`__${fname}_lz`)!.valueInit = valueInit;
       }
-    }
-    if (__hasLazy) {
-      // Each generated entry point retains the active source, including when
-      // this object is nested in a collection or materialized by a lazy getter.
-      node.members.push(
-        SimpleParser.parseClassMember(`private __src: string = "";`, node),
-        SimpleParser.parseClassMember(
-          `@inline __SET_SRC(s: string): void { this.__src = s; }`,
-          node,
-        ),
-      );
     }
 
     const members: FieldDeclaration[] = [
@@ -1101,7 +1120,8 @@ export class JSONTransform extends Visitor {
           !v.is(CommonFlags.Static) &&
           // Lazy slot fields (`__name_lz`) are emitted `private` for
           // encapsulation but must still (de)serialize - keep them.
-          (!v.is(CommonFlags.Private) || lazyInner.has(v.name.text)) &&
+          (!v.is(CommonFlags.Private) ||
+            this.lazyMetadata.has(v as FieldDeclaration)) &&
           !v.is(CommonFlags.Protected) &&
           !v.decorators?.some(
             (decorator) =>
@@ -1422,17 +1442,53 @@ export class JSONTransform extends Visitor {
       }
     }
 
+    for (const member of members) {
+      const metadata = this.lazyMetadata.get(member);
+      if (!metadata) continue;
+      lazyInner.set(member.name.text, metadata);
+      if (metadata.valueInit)
+        __lazyValInits.set(member.name.text, metadata.valueInit);
+    }
+    __hasLazy = lazyInner.size > 0;
+    const inheritsLazy = schema.parent?.members.some((member) =>
+      member.flags.has(PropertyFlags.Lazy),
+    );
+    if (
+      __hasLazy &&
+      !inheritsLazy &&
+      !node.members.some((member) => member.name.text === "__src")
+    ) {
+      node.members.push(
+        SimpleParser.parseClassMember(`protected __src: string = "";`, node),
+        SimpleParser.parseClassMember(
+          `@inline __SET_SRC(s: string): void { this.__src = s; }`,
+          node,
+        ),
+      );
+    }
+
     this.schemas.get(source.internalPath).push(schema);
     this.schema = schema;
     this.visitedClasses.add(fullClassPath);
 
-    const requestedFastPath = USE_FAST_PATH;
+    const effectful = (
+      candidate: Schema,
+      seen = new Set<Schema>(),
+    ): boolean => {
+      if (seen.has(candidate)) return false;
+      seen.add(candidate);
+      return (
+        candidate.custom ||
+        candidate.deps.some((dep) => dep && effectful(dep, seen))
+      );
+    };
+    const requestedFastPath = USE_FAST_PATH && !effectful(schema);
 
     let SERIALIZE =
       "__SERIALIZE(ptr: usize): void {\n  let __dst = bs.offset;\n";
     let INITIALIZE = "@inline __INITIALIZE(): this {\n";
     let DESERIALIZE =
-      "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
+      '__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n  let decodedKey: string = "";\n';
     let DESERIALIZE_FAST =
       "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
     const lazySourceHeader = __hasLazy
@@ -1475,7 +1531,6 @@ export class JSONTransform extends Visitor {
       this.schema.custom = true;
       const serializer = serializers[0];
       const serializerJsonKind = parseCustomJsonKind(serializer, "serializer");
-      const hasCall = CustomTransform.hasCall(serializer);
       this.schema.customJsonKind = serializerJsonKind;
 
       CustomTransform.visit(serializer);
@@ -1530,10 +1585,7 @@ export class JSONTransform extends Visitor {
         );
       }
       SERIALIZE_CUSTOM += "  __SERIALIZE(ptr: usize): void {\n";
-      if (hasCall) {
-        SERIALIZE_CUSTOM += "    const savedOffset = bs.offset;\n";
-        SERIALIZE_CUSTOM += "    const savedStackSize = bs.stackSize;\n";
-      }
+      SERIALIZE_CUSTOM += "    bs.saveState();\n";
       SERIALIZE_CUSTOM += "    const self = changetype<this>(ptr);\n";
       SERIALIZE_CUSTOM +=
         "    const data = self." +
@@ -1541,11 +1593,9 @@ export class JSONTransform extends Visitor {
         "(" +
         (serializer.signature.parameters.length ? "self" : "") +
         ");\n";
-      if (hasCall) {
-        SERIALIZE_CUSTOM += "    bs.offset = savedOffset;\n";
-        SERIALIZE_CUSTOM += "    bs.stackSize = savedStackSize;\n";
-      }
+      SERIALIZE_CUSTOM += "    bs.loadState();\n";
       SERIALIZE_CUSTOM += "    const dataSize = data.length << 1;\n";
+      SERIALIZE_CUSTOM += "    bs.proposeSize(dataSize);\n";
       SERIALIZE_CUSTOM +=
         "    memory.copy(bs.offset, changetype<usize>(data), dataSize);\n";
       SERIALIZE_CUSTOM += "    bs.offset += dataSize;\n";
@@ -3544,6 +3594,11 @@ export class JSONTransform extends Visitor {
         i3 +
         "const keyEnd = JSON.Util.scanValueEnd<string>(keyStart, srcEnd);\n";
       DESERIALIZE_FAST += i3 + "if (!keyEnd) break;\n";
+      DESERIALIZE_FAST += i3 + "let escapedKey = false;\n";
+      DESERIALIZE_FAST +=
+        i3 +
+        "for (let p = keyStart + 2; p < keyEnd - 2; p += 2) { if (load<u16>(p) == 92) { escapedKey = true; break; } }\n";
+      DESERIALIZE_FAST += i3 + "if (escapedKey) break;\n";
       DESERIALIZE_FAST +=
         i3 + "srcStart = JSON.Util.skipWhitespace(keyEnd, srcEnd);\n";
       DESERIALIZE_FAST += i3 + "if (load<u16>(srcStart) != 0x3a) break; // :\n";
@@ -3698,10 +3753,23 @@ export class JSONTransform extends Visitor {
     DESERIALIZE += indent + "    }\n";
     DESERIALIZE += indent + "    if (keyStart == 0) {\n";
     DESERIALIZE +=
-      indent + "      if (code == 34 && load<u16>(srcStart - 2) !== 92) {\n";
+      indent +
+      "      if (code == 34 && JSON.Util.isUnescapedQuote(srcStart)) {\n";
     DESERIALIZE += indent + "        if (isKey) {\n";
     DESERIALIZE += indent + "          keyStart = lastIndex;\n";
     DESERIALIZE += indent + "          keyEnd = srcStart;\n";
+    DESERIALIZE +=
+      indent +
+      "          for (let keyPtr = keyStart; keyPtr < keyEnd; keyPtr += 2) {\n";
+    DESERIALIZE +=
+      indent + "            if (load<u16>(keyPtr) != 92) continue;\n";
+    DESERIALIZE +=
+      indent +
+      "            decodedKey = JSON.__deserialize<string>(keyStart - 2, keyEnd + 2);\n";
+    DESERIALIZE +=
+      indent +
+      "            keyStart = changetype<usize>(decodedKey); keyEnd = keyStart + ((<usize>decodedKey.length) << 1); break;\n";
+    DESERIALIZE += indent + "          }\n";
     if (DEBUG > 1)
       DESERIALIZE +=
         indent +
