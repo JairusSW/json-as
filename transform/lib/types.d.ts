@@ -31,6 +31,7 @@ export declare class Schema {
     static: boolean;
     name: string;
     members: Property[];
+    initializationMembers: Property[];
     parent: Schema | null;
     node: ClassDeclaration;
     needsLink: string | null;

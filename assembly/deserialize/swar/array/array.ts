@@ -53,7 +53,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
     }
 
     while (srcStart < srcEnd) {
-      if (isFloat<valueof<valueof<T>>>()) {
+      if (isFloat<valueof<valueof<T>>>() && !isNullable<valueof<T>>()) {
         let value: valueof<T>;
         if (index < reusableLength) {
           value = load<valueof<T>>(
@@ -75,7 +75,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           value,
         );
         if (!srcStart || srcStart >= srcEnd) break;
-      } else if (isArray<valueof<valueof<T>>>()) {
+      } else if (isArray<valueof<valueof<T>>>() && !isNullable<valueof<T>>()) {
         let value: valueof<T>;
         if (index < reusableLength) {
           value = load<valueof<T>>(

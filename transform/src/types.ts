@@ -93,6 +93,8 @@ export class Schema {
   public static: boolean = true;
   public name: string = "";
   public members: Property[] = [];
+  // Preserve declaration order independently of serialization's omission sort.
+  public initializationMembers: Property[] = [];
   public parent: Schema | null = null;
   public node!: ClassDeclaration;
   public needsLink: string | null = null;

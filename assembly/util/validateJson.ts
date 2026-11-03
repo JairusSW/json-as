@@ -78,7 +78,7 @@ function skipJSONWhitespace(ptr: usize, end: usize): usize {
   return ptr;
 }
 
-function scanJSONString(ptr: usize, end: usize): usize {
+export function scanJSONString(ptr: usize, end: usize): usize {
   if (ptr >= end || load<u16>(ptr) != 0x22) return 0;
   ptr += 2;
   const end8 = end >= 8 ? end - 8 : 0;

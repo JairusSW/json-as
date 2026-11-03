@@ -23,7 +23,11 @@ import { serializeRaw } from "./raw";
   if (isReference<V>() && !isNullable<V>()) {
     const valueType = changetype<nonnull<V>>(0);
     // @ts-ignore: instanceof on the reference value type
-    if (valueType instanceof JSON.Raw) {
+    if (
+      valueType instanceof JSON.Raw &&
+      !isDefined(valueType.__SERIALIZE) &&
+      !isDefined(valueType.__SERIALIZE_CUSTOM)
+    ) {
       serializeRaw(changetype<JSON.Raw>(rawValue));
       return;
     }
@@ -75,7 +79,11 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
   }
   if (isManaged<valueof<T>>() && !isString<valueof<T>>()) {
     const valueType = changetype<nonnull<valueof<T>>>(0);
-    if (!(valueType instanceof JSON.Raw)) {
+    if (
+      isDefined(valueType.__SERIALIZE) ||
+      isDefined(valueType.__SERIALIZE_CUSTOM) ||
+      !(valueType instanceof JSON.Raw)
+    ) {
       serializeCallbackMap<T>(src);
       return;
     }

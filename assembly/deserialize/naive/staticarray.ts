@@ -1,7 +1,7 @@
 import { reuseComposite } from "../parseMode";
 import { resizeStaticArray } from "../../util/resizeStaticArray";
 import { deserializeArray as deserializeReferenceArray } from "../index/array";
-import { deserializeStringArray_NAIVE } from "./array/string";
+import { deserializeStaticArrayString } from "./staticarray/string";
 import { deserializeStaticArrayBoolean } from "./staticarray/bool";
 import { deserializeStaticArrayFloat } from "./staticarray/float";
 import { deserializeStaticArrayInteger } from "./staticarray/integer";
@@ -26,17 +26,7 @@ export function deserializeStaticArray<T extends StaticArray<any>>(
   dst: usize,
 ): T {
   if (isString<valueof<T>>()) {
-    return materializeStaticArray<T>(
-      changetype<valueof<T>[]>(
-        deserializeStringArray_NAIVE(
-          srcStart,
-          srcEnd,
-          0,
-          isNullable<valueof<T>>(),
-        ),
-      ),
-      dst,
-    );
+    return deserializeStaticArrayString<T>(srcStart, srcEnd, dst);
   } else if (isBoolean<valueof<T>>()) {
     return deserializeStaticArrayBoolean<T>(srcStart, srcEnd, dst);
   } else if (isInteger<valueof<T>>()) {

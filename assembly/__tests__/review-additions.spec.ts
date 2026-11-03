@@ -12,6 +12,11 @@ function next(): i32 {
 
   @omitif((self:ConditionalOrder)=>false) second: i32 = next();
 }
+
+
+@json class InheritedConditionalOrder extends ConditionalOrder {
+  tag: i32 = 7;
+}
 class Bytes extends Uint8Array {
   constructor(n: i32) {
     super(n);
@@ -97,4 +102,11 @@ describe("nullable dynamic array values retain reference null", () => {
   const fixed = JSON.parse<StaticArray<JSON.Value | null>>("[null,1]");
   expect(fixed[0] == null).toBe(true);
   expect(fixed[1]!.get<f64>()).toBe(1);
+});
+
+describe("inherited omission does not reorder default evaluation", () => {
+  sequence = 0;
+  const value = JSON.parse<InheritedConditionalOrder>("{}");
+  expect(value.first).toBe(1);
+  expect(value.second).toBe(2);
 });

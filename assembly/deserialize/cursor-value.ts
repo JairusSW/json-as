@@ -74,7 +74,16 @@ export function supportsCursor<T>(depth: i32 = 0): bool {
 function supportsCursorType<T>(depth: i32): bool {
   const type = changetype<nonnull<T>>(0);
   // @ts-expect-error: immutable generated capability descriptor
-  if (isDefined(type.__CURSOR_SUPPORTED)) return type.__CURSOR_SUPPORTED(depth);
+  if (isDefined(type.__CURSOR_SUPPORTED)) {
+    // A base descriptor can be virtual once a decorated subclass exists.
+    // Capability results are cached, so use one zeroed, uninitialized probe
+    // per queried type rather than dispatching through a null receiver.
+    const descriptor = changetype<nonnull<T>>(
+      __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
+    );
+    memory.fill(changetype<usize>(descriptor), 0, offsetof<nonnull<T>>());
+    return descriptor.__CURSOR_SUPPORTED(depth);
+  }
   if (type instanceof JSON.Box) return true;
   if (type instanceof Array || type instanceof StaticArray)
     return supportsCursor<valueof<T>>(depth + 1);

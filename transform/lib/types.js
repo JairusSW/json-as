@@ -62,6 +62,7 @@ export class Schema {
     static = true;
     name = "";
     members = [];
+    initializationMembers = [];
     parent = null;
     node;
     needsLink = null;

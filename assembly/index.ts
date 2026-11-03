@@ -326,6 +326,10 @@ export namespace JSON {
    * @returns string
    */
   export function stringify<T>(data: T, out: string | null = null): string {
+    // Public calls reached through callbacks share the scoped buffer protocol.
+    // Scalar writers do not touch it and retain their direct fast path.
+    if (!isBoolean<T>() && !isInteger<T>() && !isFloat<T>() && bs.isPaused())
+      return internal.stringify<T>(data, out);
     if (out) invalidateStringFieldTrace(changetype<usize>(out), true);
     if (isBoolean<T>()) {
       if (out) {
@@ -1421,8 +1425,6 @@ export namespace JSON {
         return VAL_NULL;
       } else if (isString<T>()) {
         return valBox(JSON.Types.String, <u64>changetype<usize>(value));
-      } else if (value instanceof JSON.Raw) {
-        return valBox(JSON.Types.Raw, <u64>changetype<usize>(value));
         // @ts-expect-error: supplied by transform
       } else if (isDefined(value.__SERIALIZE) && isManaged<T>(value)) {
         // @ts-expect-error
@@ -1432,6 +1434,8 @@ export namespace JSON {
         if (!JSON.Value.METHODS.has(runtimeId))
           JSON.Value.METHODS.set(runtimeId, value.__SERIALIZE.index);
         return valBox(JSON.Types.Struct, <u64>changetype<usize>(value));
+      } else if (value instanceof JSON.Raw) {
+        return valBox(JSON.Types.Raw, <u64>changetype<usize>(value));
       } else if (
         value instanceof Int8Array ||
         value instanceof Uint8Array ||
@@ -3277,6 +3281,17 @@ export namespace JSON {
     return data == 0
       ? 0
       : changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize & STRING_SIZE_MASK;
+  }
+
+  /** Evaluate an omission expression or invoke a typed predicate. */
+  function __omitIf<T, U>(condition: T, self: U): bool {
+    if (isFunction<T>()) {
+      bs.saveState();
+      const result = condition(self);
+      bs.loadState();
+      return result;
+    }
+    return bool(condition);
   }
 
   /** Internal direct entry for generated non-nullable concrete object fields. */

@@ -1,68 +1,71 @@
+import { scanJSONString } from "../../../util/validateJson";
+import { isSpace } from "../../../util";
+import { NULL_WORD_U64 } from "../../../custom/chars";
 import { resizeStaticArray } from "../../../util/resizeStaticArray";
-import { JSON } from "../../..";
-import { QUOTE, NULL_WORD_U64 } from "../../../custom/chars";
-import { isUnescapedQuote } from "../../../util";
+import { deserializeStringField_SWAR } from "../../swar/string";
+import { markProductionParseError } from "../../error";
 
+/** Count structural slots before resizing, then decode into the final storage.
+ * Existing strings participate in the same ownership checks as dynamic fields. */
 export function deserializeStaticArrayString<T extends StaticArray<any>>(
-  srcStart: usize,
-  srcEnd: usize,
+  start: usize,
+  end: usize,
   dst: usize,
 ): T {
-  // First pass: count elements using same logic as Array deserializer
-  let count: i32 = 0;
-  let ptr = srcStart;
-  let inString = false;
-  while (ptr < srcEnd) {
-    const code = load<u16>(ptr);
-    if (!inString && ptr + 8 <= srcEnd && load<u64>(ptr) == NULL_WORD_U64) {
-      count++;
-      ptr += 8;
-      continue;
-    }
-    if (code == QUOTE) {
-      if (!inString) {
-        inString = true;
-      } else if (isUnescapedQuote(ptr)) {
-        count++;
-        inString = false;
-      }
-    }
-    ptr += 2;
-  }
-
-  // Allocate StaticArray with correct size
-  const out = resizeStaticArray<T>(dst, count);
-
-  // Second pass: populate values
-  let index = 0;
-  let lastPos: usize = 0;
-  inString = false;
-  while (srcStart < srcEnd) {
-    const code = load<u16>(srcStart);
-    if (
-      !inString &&
-      srcStart + 8 <= srcEnd &&
-      load<u64>(srcStart) == NULL_WORD_U64
+  while (end > start && isSpace(load<u16>(end - 2))) end -= 2;
+  if (end < start + 4 || load<u16>(start) != 91 || load<u16>(end - 2) != 93)
+    return fail<T>();
+  const last = end - 2;
+  let cursor = start + 2;
+  let length = 0;
+  while (cursor < last && isSpace(load<u16>(cursor))) cursor += 2;
+  while (cursor < last) {
+    if (load<u16>(cursor) == 34) {
+      const next = scanJSONString(cursor, last);
+      if (!next) return fail<T>();
+      cursor = next;
+    } else if (
+      isNullable<valueof<T>>() &&
+      cursor + 8 <= last &&
+      load<u64>(cursor) == NULL_WORD_U64
     ) {
-      unchecked((out[index++] = changetype<valueof<T>>(0)));
-      srcStart += 8;
-      continue;
-    }
-    if (code == QUOTE) {
-      if (!inString) {
-        inString = true;
-        lastPos = srcStart;
-      } else if (isUnescapedQuote(srcStart)) {
-        unchecked(
-          (out[index++] = changetype<valueof<T>>(
-            JSON.__deserialize<string>(lastPos, srcStart + 2),
-          )),
-        );
-        inString = false;
-      }
-    }
-    srcStart += 2;
+      cursor += 8;
+    } else return fail<T>();
+    length++;
+    while (cursor < last && isSpace(load<u16>(cursor))) cursor += 2;
+    if (cursor == last) break;
+    if (load<u16>(cursor) != 44) return fail<T>();
+    cursor += 2;
+    while (cursor < last && isSpace(load<u16>(cursor))) cursor += 2;
+    if (cursor == last) return fail<T>();
   }
-
+  const out = resizeStaticArray<T>(dst, length);
+  // Fresh reference slots must be safe for collection during string decoding.
+  if (!dst)
+    memory.fill(
+      changetype<usize>(out),
+      0,
+      <usize>length * sizeof<valueof<T>>(),
+    );
+  cursor = start + 2;
+  for (let index = 0; index < length; index++) {
+    while (cursor < last && isSpace(load<u16>(cursor))) cursor += 2;
+    const slot = changetype<usize>(out) + <usize>index * sizeof<valueof<T>>();
+    if (isNullable<valueof<T>>() && load<u16>(cursor) == 110) {
+      store<usize>(slot, 0);
+      cursor += 8;
+    } else {
+      cursor = deserializeStringField_SWAR<valueof<T>>(cursor, last, slot);
+      if (!cursor) return fail<T>();
+      __link(changetype<usize>(out), load<usize>(slot), false);
+    }
+    while (cursor < last && isSpace(load<u16>(cursor))) cursor += 2;
+    if (index + 1 < length) cursor += 2; // Commas were checked in the first pass.
+  }
   return out;
+}
+
+function fail<T>(): T {
+  markProductionParseError();
+  return changetype<T>(0);
 }

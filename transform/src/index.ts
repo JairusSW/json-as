@@ -27,6 +27,8 @@ import {
   SourceKind,
   StringLiteralExpression,
   Type,
+  TypeDeclaration,
+  TypeNode,
 } from "assemblyscript/dist/assemblyscript.js";
 import { Transform } from "assemblyscript/dist/transform.js";
 import { writeFileSync } from "fs";
@@ -494,9 +496,25 @@ export class JSONTransform extends Visitor {
     }
     visited.add(stripped);
 
-    const resolvedType = source.aliases
-      .find((v) => stripNull(v.name) === stripped)
-      ?.getBaseType();
+    const generic = stripped.indexOf("<");
+    const bareName = (
+      generic < 0 ? stripped : stripped.slice(0, generic)
+    ).trim();
+    const arguments_ = (): TypeNode[] =>
+      generic < 0
+        ? []
+        : ((
+            (
+              SimpleParser.parseTopLevelStatement(
+                `type __JSON_ALIAS = ${stripped};`,
+              ) as TypeDeclaration
+            ).type as NamedTypeNode
+          ).typeArguments ?? []);
+    const alias = source.aliases.find(
+      (candidate) => candidate.name === bareName,
+    );
+    if (alias && alias.parameters.length !== arguments_().length) return type;
+    const resolvedType = alias?.getBaseType(arguments_());
 
     if (resolvedType) {
       return (
@@ -511,7 +529,7 @@ export class JSONTransform extends Visitor {
       if (!imp.declarations) continue;
 
       for (const decl of imp.declarations) {
-        if (decl.name.text === stripped) {
+        if (decl.name.text === bareName) {
           const externalSource = this.parser.sources.find(
             (s) => s.internalPath === imp.internalPath,
           );
@@ -524,7 +542,9 @@ export class JSONTransform extends Visitor {
             );
 
             if (externalAlias) {
-              const externalType = externalAlias.getBaseType();
+              if (externalAlias.parameters.length !== arguments_().length)
+                return type;
+              const externalType = externalAlias.getBaseType(arguments_());
               return (
                 this.resolveType(externalType, externalSrc, visited) +
                 (type !== stripped && !externalType.endsWith(" | null")
@@ -1334,8 +1354,11 @@ export class JSONTransform extends Visitor {
         }
       }
       if (schema.parent?.members) {
-        for (let i = schema.parent.members.length - 1; i >= 0; i--) {
-          const inherited = schema.parent.members[i];
+        const parentMembers = schema.parent.initializationMembers.length
+          ? schema.parent.initializationMembers
+          : schema.parent.members;
+        for (let i = parentMembers.length - 1; i >= 0; i--) {
+          const inherited = parentMembers[i];
           // Every derived declaration shadows the base, including @omit.
           if (
             node.members.some(
@@ -1932,6 +1955,7 @@ export class JSONTransform extends Visitor {
     // the order-sensitive optional fast path requires (it matches in declaration
     // order with skips, so moving them would desync against real documents).
     const initializationMembers = this.schema.members.slice();
+    this.schema.initializationMembers = initializationMembers;
     this.schema.members = sortMembers(this.schema.members);
 
     const hasOmitIfMembers = this.schema.members.some((v) =>
@@ -2337,6 +2361,7 @@ export class JSONTransform extends Visitor {
           this.schema.byteSize += 2;
           SERIALIZE += indent + `}\n`;
         } else if (member.flags.has(PropertyFlags.OmitIf)) {
+          const expression = member.flags.get(PropertyFlags.OmitIf);
           if (
             member.flags.get(PropertyFlags.OmitIf).kind == NodeKind.Function
           ) {
@@ -2356,22 +2381,23 @@ export class JSONTransform extends Visitor {
                 (arg.declaration.signature.returnType as NamedTypeNode).name
                   .range,
               );
-            SERIALIZE +=
-              indent +
-              `if ((${omitNullCond}) && !(${toString(member.flags.get(PropertyFlags.OmitIf))})(this)) {\n`;
-          } else {
-            const expression = member.flags.get(PropertyFlags.OmitIf);
-            const rendered =
-              expression.kind == NodeKind.Literal &&
-              (expression as LiteralExpression).literalKind ==
-                LiteralKind.String
-                ? JSON.stringify(
-                    (expression as StringLiteralExpression).value,
-                  ).slice(1, -1)
-                : toString(expression);
-            SERIALIZE +=
-              indent + `if ((${omitNullCond}) && !(${rendered})) {\n`;
           }
+          const rendered =
+            expression.kind == NodeKind.Literal &&
+            (expression as LiteralExpression).literalKind == LiteralKind.String
+              ? JSON.stringify(
+                  (expression as StringLiteralExpression).value,
+                ).slice(1, -1)
+              : toString(expression);
+          SERIALIZE +=
+            indent +
+            `bs.offset = __dst;\n` +
+            indent +
+            `const __emit${i} = (${omitNullCond}) && !JSON.__omitIf(${rendered}, this);\n` +
+            indent +
+            `__dst = bs.offset;\n` +
+            indent +
+            `if (__emit${i}) {\n`;
           indentInc();
           this.schema.byteSize += 2;
           SERIALIZE +=

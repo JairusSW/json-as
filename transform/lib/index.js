@@ -295,9 +295,15 @@ export class JSONTransform extends Visitor {
             return stripped;
         }
         visited.add(stripped);
-        const resolvedType = source.aliases
-            .find((v) => stripNull(v.name) === stripped)
-            ?.getBaseType();
+        const generic = stripped.indexOf("<");
+        const bareName = (generic < 0 ? stripped : stripped.slice(0, generic)).trim();
+        const arguments_ = () => generic < 0
+            ? []
+            : (SimpleParser.parseTopLevelStatement(`type __JSON_ALIAS = ${stripped};`).type.typeArguments ?? []);
+        const alias = source.aliases.find((candidate) => candidate.name === bareName);
+        if (alias && alias.parameters.length !== arguments_().length)
+            return type;
+        const resolvedType = alias?.getBaseType(arguments_());
         if (resolvedType) {
             return (this.resolveType(resolvedType, source, visited) +
                 (type !== stripped && !resolvedType.endsWith(" | null")
@@ -308,7 +314,7 @@ export class JSONTransform extends Visitor {
             if (!imp.declarations)
                 continue;
             for (const decl of imp.declarations) {
-                if (decl.name.text === stripped) {
+                if (decl.name.text === bareName) {
                     const externalSource = this.parser.sources.find((s) => s.internalPath === imp.internalPath);
                     if (externalSource) {
                         const externalSrc = this.sources.get(externalSource);
@@ -316,7 +322,9 @@ export class JSONTransform extends Visitor {
                             continue;
                         const externalAlias = externalSrc.aliases.find((a) => a.name === decl.foreignName.text);
                         if (externalAlias) {
-                            const externalType = externalAlias.getBaseType();
+                            if (externalAlias.parameters.length !== arguments_().length)
+                                return type;
+                            const externalType = externalAlias.getBaseType(arguments_());
                             return (this.resolveType(externalType, externalSrc, visited) +
                                 (type !== stripped && !externalType.endsWith(" | null")
                                     ? " | null"
@@ -829,8 +837,11 @@ export class JSONTransform extends Visitor {
                 }
             }
             if (schema.parent?.members) {
-                for (let i = schema.parent.members.length - 1; i >= 0; i--) {
-                    const inherited = schema.parent.members[i];
+                const parentMembers = schema.parent.initializationMembers.length
+                    ? schema.parent.initializationMembers
+                    : schema.parent.members;
+                for (let i = parentMembers.length - 1; i >= 0; i--) {
+                    const inherited = parentMembers[i];
                     if (node.members.some((m) => m.kind === NodeKind.FieldDeclaration &&
                         m.name.text === inherited.name))
                         continue;
@@ -1251,6 +1262,7 @@ export class JSONTransform extends Visitor {
             this.schema.members.push(mem);
         }
         const initializationMembers = this.schema.members.slice();
+        this.schema.initializationMembers = initializationMembers;
         this.schema.members = sortMembers(this.schema.members);
         const hasOmitIfMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitIf));
         const hasOmitNullMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull));
@@ -1548,26 +1560,27 @@ export class JSONTransform extends Visitor {
                     SERIALIZE += indent + `}\n`;
                 }
                 else if (member.flags.has(PropertyFlags.OmitIf)) {
+                    const expression = member.flags.get(PropertyFlags.OmitIf);
                     if (member.flags.get(PropertyFlags.OmitIf).kind == NodeKind.Function) {
                         const arg = member.flags.get(PropertyFlags.OmitIf);
                         arg.declaration.signature.parameters[0].type = Node.createNamedType(Node.createSimpleTypeName("this", node.range), null, false, node.range);
                         arg.declaration.signature.returnType.name =
                             Node.createSimpleTypeName("boolean", arg.declaration.signature.returnType.name
                                 .range);
-                        SERIALIZE +=
+                    }
+                    const rendered = expression.kind == NodeKind.Literal &&
+                        expression.literalKind == 2
+                        ? JSON.stringify(expression.value).slice(1, -1)
+                        : toString(expression);
+                    SERIALIZE +=
+                        indent +
+                            `bs.offset = __dst;\n` +
                             indent +
-                                `if ((${omitNullCond}) && !(${toString(member.flags.get(PropertyFlags.OmitIf))})(this)) {\n`;
-                    }
-                    else {
-                        const expression = member.flags.get(PropertyFlags.OmitIf);
-                        const rendered = expression.kind == NodeKind.Literal &&
-                            expression.literalKind ==
-                                2
-                            ? JSON.stringify(expression.value).slice(1, -1)
-                            : toString(expression);
-                        SERIALIZE +=
-                            indent + `if ((${omitNullCond}) && !(${rendered})) {\n`;
-                    }
+                            `const __emit${i} = (${omitNullCond}) && !JSON.__omitIf(${rendered}, this);\n` +
+                            indent +
+                            `__dst = bs.offset;\n` +
+                            indent +
+                            `if (__emit${i}) {\n`;
                     indentInc();
                     this.schema.byteSize += 2;
                     SERIALIZE +=

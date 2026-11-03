@@ -198,6 +198,12 @@ export namespace bs {
 
   export let cacheOutput: usize = 0;
   export let cacheOutputLen: usize = 0;
+
+
+  @inline export function isPaused(): bool {
+    return pauseOffsets.length != 0;
+  }
+
   /**
    * Stores the state of the buffer, allowing further changes to be reset
    */
