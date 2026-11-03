@@ -21,7 +21,7 @@ export declare class JSONTransform extends Visitor {
     private lazyMetadata;
     private collectInheritedFieldMembers;
     visitClassDeclarationRef(node: ClassDeclaration): void;
-    resolveType(type: string, source: Src, visited?: Set<string>): string;
+    resolveType(type: string, source: Src, visited?: Set<string>, scope?: string, preserveClassAliases?: boolean): string;
     private getDefaultSchema;
     private canDeferCursorObjectDefault;
     private hasCustomCursorInitializer;
@@ -33,6 +33,9 @@ export declare class JSONTransform extends Visitor {
     private getDefaultMatcherSource;
     visitClassDeclaration(node: ClassDeclaration): void;
     getSchema(name: string): Schema | null;
+    private explicitFieldInitializer;
+    private baseInitializer;
+    private addDeclaredInitializer;
     generateEmptyMethods(node: ClassDeclaration): void;
     visitImportStatement(node: ImportStatement): void;
     visitSource(node: Source): void;

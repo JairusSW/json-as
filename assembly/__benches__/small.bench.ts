@@ -35,7 +35,7 @@ dumpToFile("small", "deserialize");
 // Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
 const objSmall = JSON.parse<JSON.Obj>(v2);
 bench(
-  "Serialize Small (JSON.Obj)",
+  "Serialize Small (untouched JSON.Obj forwarding)",
   () => {
     blackbox(JSON.stringify(objSmall));
   },

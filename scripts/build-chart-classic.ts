@@ -11,6 +11,7 @@ import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import {
   createBarChart,
+  readBenchLog,
   generateChart,
   type BenchKind,
   type BenchResult,
@@ -91,8 +92,9 @@ function read(
   const suffix = runtime === "wavm" ? ".wavm.json" : ".as.json";
   const p = `./build/logs/as/${mode}/${suite}.${kind}${suffix}`;
   try {
-    return JSON.parse(fs.readFileSync(p, "utf-8")) as BenchResult;
-  } catch {
+    return readBenchLog(p);
+  } catch (error) {
+    if (fs.existsSync(p)) throw error;
     return null;
   }
 }
@@ -141,7 +143,13 @@ for (const runtime of [ISOLATED_RUNTIME]) {
         runtimeLabel: runtime,
         yLabel: "Throughput (MB/s)",
         xLabel: "",
-        datasetLabels: ["NAIVE", "SWAR", "SIMD", "Lazy", "JSON.Obj"],
+        datasetLabels: [
+          "NAIVE",
+          "SWAR",
+          "SIMD",
+          "Lazy",
+          kind === "serialize" ? "untouched JSON.Obj forwarding" : "JSON.Obj",
+        ],
         colors: [...MODE_COLORS, LAZY_BAR, OBJ_BAR],
         // Value labels stand up off each bar top (anchor "end", rotated vertical):
         // the six narrow same-height bars per group would otherwise overlap their

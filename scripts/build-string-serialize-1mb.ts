@@ -1,12 +1,15 @@
-import fs from "fs";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
-import { benchLogPath, subtitle, generateChart } from "./lib/bench-utils";
+import {
+  benchLogPath,
+  subtitle,
+  generateChart,
+  readBenchLog,
+} from "./lib/bench-utils";
 import { MODE_RGB, INK } from "./lib/palette";
 
 function loadJSON(file: string) {
-  const text = fs.readFileSync(file, "utf-8");
-  return JSON.parse(text);
+  return readBenchLog(file);
 }
 
 function getBenchData(filePath: string) {

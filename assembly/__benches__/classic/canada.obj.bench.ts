@@ -133,7 +133,7 @@ bench(
 dumpToFile("canada-obj-min", "deserialize");
 
 bench(
-  "Serialize canada (JSON.Obj, min)",
+  "Serialize canada (untouched JSON.Obj forwarding, min)",
   () => {
     blackbox(JSON.stringify(doc));
   },

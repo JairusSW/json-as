@@ -148,7 +148,7 @@ bench(
 dumpToFile("citm_catalog-obj-min", "deserialize");
 
 bench(
-  "Serialize citm_catalog (JSON.Obj, min)",
+  "Serialize citm_catalog (untouched JSON.Obj forwarding, min)",
   () => {
     blackbox(JSON.stringify(doc));
   },

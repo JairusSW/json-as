@@ -213,7 +213,7 @@ bench(
 dumpToFile("twitter-distinct_user_id-obj-min", "deserialize");
 
 bench(
-  "Serialize twitter (JSON.Obj, min)",
+  "Serialize twitter (untouched JSON.Obj forwarding, min)",
   () => {
     blackbox(JSON.stringify(doc));
   },

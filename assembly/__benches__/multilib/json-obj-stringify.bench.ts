@@ -3,7 +3,7 @@ import { blackbox, bench, dumpToFile } from "../lib/bench";
 import { JSON_OBJ_STRINGIFY_OPS, objValue, payloadBytes } from "./shared";
 
 bench(
-  "Serialize Multilib Payload (json-as JSON.Obj)",
+  "Serialize Multilib Payload (untouched JSON.Obj forwarding)",
   () => {
     blackbox(JSON.stringify(objValue));
   },

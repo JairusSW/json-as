@@ -1,8 +1,14 @@
 import { Visitor } from "../visitor.js";
 import { toString, cloneNode, SimpleParser } from "../util.js";
 class AliasFinder extends Visitor {
+    namespace = [];
+    visitNamespaceDeclaration(node) {
+        this.namespace.push(node.name.text);
+        super.visitNamespaceDeclaration(node);
+        this.namespace.pop();
+    }
     visitTypeDeclaration(node, _ref) {
-        TypeAlias.add(node.name.text, node.type, node.typeParameters);
+        TypeAlias.add([...this.namespace, node.name.text].join("."), node.type, node.typeParameters, node);
     }
 }
 export class TypeAlias {
@@ -13,6 +19,7 @@ export class TypeAlias {
         this.type = type;
     }
     parameters = [];
+    declaration = null;
     getBaseType(arguments_ = []) {
         const text = typeof this.type === "string" ? this.type : this.type.getBaseType();
         if (!this.parameters.length)
@@ -36,8 +43,11 @@ export class TypeAlias {
     }
     static foundAliases = new Map();
     static parameters = new Map();
+    static declarations = new Map();
     static aliases = new Map();
-    static add(name, type, parameters = null) {
+    static add(name, type, parameters = null, declaration = null) {
+        if (declaration)
+            this.declarations.set(name, declaration);
         this.parameters.set(name, parameters?.map((parameter) => parameter.name.text) ?? []);
         if (!TypeAlias.foundAliases.has(name)) {
             TypeAlias.foundAliases.set(name, toString(type));
@@ -52,12 +62,14 @@ export class TypeAlias {
     static getAliases(source) {
         this.foundAliases.clear();
         this.parameters.clear();
+        this.declarations.clear();
         this.aliases.clear();
         const finder = new AliasFinder();
         finder.visit(source);
         for (const [name, typeStr] of this.foundAliases) {
             const alias = new TypeAlias(name, typeStr);
             alias.parameters = this.parameters.get(name) ?? [];
+            alias.declaration = this.declarations.get(name) ?? null;
             this.aliases.set(name, alias);
         }
         for (const alias of this.aliases.values()) {

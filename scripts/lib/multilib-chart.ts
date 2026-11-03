@@ -1,8 +1,8 @@
-import fs from "fs";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
 import {
   benchLogPath,
+  readBenchLog,
   subtitle,
   generateChart,
   type BenchKind,
@@ -20,7 +20,7 @@ const MODES = ["NAIVE", "SWAR", "SIMD"] as const;
 
 function mbps(payload: string, kind: BenchKind, engine = ""): number {
   const file = benchLogPath(payload, kind, engine ? "as" : "js", engine);
-  const data = JSON.parse(fs.readFileSync(file, "utf-8"));
+  const data = readBenchLog(file);
   return typeof data.mbps === "number" ? data.mbps : 0;
 }
 
@@ -62,17 +62,20 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
 
   entries.sort((a, b) => b[1] - a[1]);
 
-  const payloadBytes = Buffer.byteLength(
-    fs.readFileSync("./assembly/__benches__/payloads/multilib.json", "utf-8"),
-    "utf8",
-  );
+  const payloadBytes = readBenchLog(
+    benchLogPath("multilib-native-json", kind, "js"),
+  ).bytes;
   const KiB = (payloadBytes / 1024).toFixed(0);
   const top = entries[0][1];
 
   const config: ChartConfiguration<"bar"> = {
     type: "bar",
     data: {
-      labels: entries.map(([l]) => l),
+      labels: entries.map(([l]) =>
+        kind === "serialize" && l === "json-as JSON.Obj"
+          ? "untouched JSON.Obj forwarding"
+          : l,
+      ),
       datasets: [
         {
           data: entries.map(([, v]) => Math.round(v)),

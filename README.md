@@ -44,6 +44,8 @@ Add the `--transform` to your `asc` command (e.g. in package.json)
 --transform json-as
 ```
 
+Set `JSON_STRICT=true` when compiling to enable complete JSON syntax validation for `JSON.parse`. The default compatibility mode prioritizes parsing known input.
+
 Optionally, for additional performance, also add:
 
 ```bash
@@ -648,7 +650,9 @@ Here's a short list:
 
 **JSON_MODE** (default: SWAR) - Selects which mode should be used. Can be `NAIVE,SWAR,SIMD`. Note that `--enable simd` may be required.
 
-**JSON_USE_FAST_PATH** (default: 1) - The transform emits the fast `__DESERIALIZE` implementation for generated structs by default. Set to `0`, `false`, `off`, or `no` to force slow-path-only output. See [FAST_PATH_DESERIALIZE.md](./FAST_PATH_DESERIALIZE.md) for the current support matrix, known gaps, and dedicated test command.
+**JSON_STRICT** (default: false) - Set to `true` when compiling for complete JSON syntax validation through the checked parser or validated fallback.
+
+**JSON_USE_FAST_PATH** (default: 1) - The transform emits the fast `__DESERIALIZE` implementation for generated structs by default. Set to `0`, `false`, `off`, or `no` to force slow-path-only output.
 
 **JSON_WRITE** (default: "") - Select a series of files to output after transform and optimization passes have completed for easy inspection. Usage: `JSON_WRITE=.path-to-file-a.ts,./path-to-file-b.ts`
 
@@ -736,10 +740,6 @@ grammar is unchanged.
 `JSON.validate(data)` checks complete strict syntax without materializing values,
 regardless of the `JSON_STRICT` setting. It uses the same checked lexical readers
 and bounded discard traversal as cursor parsing.
-
-For a deep dive into how json-as works internally, including the transform system, optimization modes (NAIVE, SWAR, SIMD), and buffer management, see [ARCHITECTURE.md](./ARCHITECTURE.md).
-
-For a code-oriented repository walkthrough that maps the runtime, transform, tests, and benchmark files to their concrete responsibilities, see [PROJECT_WALKTHROUGH.md](./PROJECT_WALKTHROUGH.md).
 
 ## Contributing
 

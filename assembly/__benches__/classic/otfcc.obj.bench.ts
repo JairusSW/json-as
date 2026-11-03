@@ -124,7 +124,7 @@ bench(
 dumpToFile("otfcc-obj-min", "deserialize");
 
 bench(
-  "Serialize otfcc (JSON.Obj, min)",
+  "Serialize otfcc (untouched JSON.Obj forwarding, min)",
   () => {
     blackbox(JSON.stringify(doc));
   },

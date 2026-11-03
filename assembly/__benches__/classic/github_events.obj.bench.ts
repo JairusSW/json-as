@@ -152,7 +152,7 @@ bench(
 dumpToFile("github_events-obj-min", "deserialize");
 
 bench(
-  "Serialize github_events (JSON.Obj, min)",
+  "Serialize github_events (untouched JSON.Obj forwarding, min)",
   () => {
     blackbox(JSON.stringify(doc));
   },

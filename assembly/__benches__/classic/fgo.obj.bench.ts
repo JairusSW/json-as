@@ -124,7 +124,7 @@ bench(
 dumpToFile("fgo-obj-min", "deserialize");
 
 bench(
-  "Serialize fgo (JSON.Obj, min)",
+  "Serialize fgo (untouched JSON.Obj forwarding, min)",
   () => {
     blackbox(JSON.stringify(doc));
   },

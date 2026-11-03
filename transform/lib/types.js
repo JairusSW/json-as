@@ -16,6 +16,7 @@ export class Property {
     name = "";
     alias = null;
     type = "";
+    nullable = false;
     value = null;
     flags = new Map();
     node;
@@ -70,6 +71,7 @@ export class Schema {
     deps = [];
     customJsonKind = "any";
     hasCustomCursorLifecycle = false;
+    hasInternalInitializers = false;
     _custom = false;
     set custom(value) {
         this._custom = value;
@@ -231,13 +233,20 @@ export class Src {
     getClass(qualifiedName) {
         return this.classes[qualifiedName] || null;
     }
-    getClassInContext(name, owner) {
+    getClassInContext(name, owner, visited = new Set()) {
         const path = this.getQualifiedName(owner).split(".").slice(0, -1);
         for (let depth = path.length; depth >= 0; depth--) {
             const qualified = [...path.slice(0, depth), name].join(".");
             const declaration = this.getClass(qualified);
             if (declaration)
                 return declaration;
+            const alias = this.aliases.find((candidate) => candidate.name === qualified);
+            if (alias?.declaration && !visited.has(alias.name)) {
+                visited.add(alias.name);
+                const target = this.getClassInContext(stripNull(alias.getBaseType()), alias.declaration, visited);
+                if (target)
+                    return target;
+            }
         }
         return null;
     }
@@ -262,6 +271,14 @@ export class Src {
             const classDeclaration = source.getClass(originalName);
             if (classDeclaration && classDeclaration.flags & 2) {
                 return classDeclaration;
+            }
+            const alias = source.aliases.find((candidate) => candidate.name === originalName);
+            if (declaration &&
+                alias?.declaration &&
+                alias.declaration.flags & 2) {
+                const target = source.getClassInContext(stripNull(alias.getBaseType()), alias.declaration);
+                if (target)
+                    return target;
             }
         }
         return null;

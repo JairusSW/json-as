@@ -32,6 +32,7 @@ export class Property {
   public name: string = "";
   public alias: string | null = null;
   public type: string = "";
+  public nullable: boolean = false;
   public value: string | null = null;
   public flags: Map<PropertyFlags, Expression | null> = new Map<
     PropertyFlags,
@@ -102,6 +103,7 @@ export class Schema {
   public deps: Schema[] = [];
   public customJsonKind: string = "any";
   public hasCustomCursorLifecycle: boolean = false;
+  public hasInternalInitializers: boolean = false;
   private _custom: boolean = false;
 
   set custom(value: boolean) {
@@ -324,12 +326,25 @@ export class Src {
   getClassInContext(
     name: string,
     owner: DeclarationStatement,
+    visited = new Set<string>(),
   ): ClassDeclaration | null {
     const path = this.getQualifiedName(owner).split(".").slice(0, -1);
     for (let depth = path.length; depth >= 0; depth--) {
       const qualified = [...path.slice(0, depth), name].join(".");
       const declaration = this.getClass(qualified);
       if (declaration) return declaration;
+      const alias = this.aliases.find(
+        (candidate) => candidate.name === qualified,
+      );
+      if (alias?.declaration && !visited.has(alias.name)) {
+        visited.add(alias.name);
+        const target = this.getClassInContext(
+          stripNull(alias.getBaseType()),
+          alias.declaration,
+          visited,
+        );
+        if (target) return target;
+      }
     }
     return null;
   }
@@ -374,6 +389,20 @@ export class Src {
       const classDeclaration = source.getClass(originalName);
       if (classDeclaration && classDeclaration.flags & CommonFlags.Export) {
         return classDeclaration;
+      }
+      const alias = source.aliases.find(
+        (candidate) => candidate.name === originalName,
+      );
+      if (
+        declaration &&
+        alias?.declaration &&
+        alias.declaration.flags & CommonFlags.Export
+      ) {
+        const target = source.getClassInContext(
+          stripNull(alias.getBaseType()),
+          alias.declaration,
+        );
+        if (target) return target;
       }
     }
     return null;

@@ -155,7 +155,7 @@ bench(
 dumpToFile("lottie-obj-min", "deserialize");
 
 bench(
-  "Serialize lottie (JSON.Obj, min)",
+  "Serialize lottie (untouched JSON.Obj forwarding, min)",
   () => {
     blackbox(JSON.stringify(doc));
   },

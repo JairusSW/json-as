@@ -289,23 +289,36 @@ export class JSONTransform extends Visitor {
                 node.range.source.internalPath);
         this.visitClassDeclaration(node);
     }
-    resolveType(type, source, visited = new Set()) {
+    resolveType(type, source, visited = new Set(), scope = "", preserveClassAliases = true) {
         const stripped = stripNull(type);
-        if (visited.has(stripped)) {
-            return stripped;
-        }
-        visited.add(stripped);
+        const identity = source.internalPath + ":" + scope + ":" + stripped;
+        if (visited.has(identity))
+            return type;
+        visited.add(identity);
         const generic = stripped.indexOf("<");
         const bareName = (generic < 0 ? stripped : stripped.slice(0, generic)).trim();
         const arguments_ = () => generic < 0
             ? []
             : (SimpleParser.parseTopLevelStatement(`type __JSON_ALIAS = ${stripped};`).type.typeArguments ?? []);
-        const alias = source.aliases.find((candidate) => candidate.name === bareName);
+        let alias = source.aliases.find((candidate) => candidate.name === bareName);
+        const namespace = scope ? scope.split(".") : [];
+        for (let depth = namespace.length; depth > 0; depth--) {
+            const qualified = [...namespace.slice(0, depth), bareName].join(".");
+            const found = source.aliases.find((candidate) => candidate.name === qualified);
+            if (found) {
+                alias = found;
+                break;
+            }
+        }
         if (alias && alias.parameters.length !== arguments_().length)
             return type;
         const resolvedType = alias?.getBaseType(arguments_());
         if (resolvedType) {
-            return (this.resolveType(resolvedType, source, visited) +
+            if (preserveClassAliases &&
+                alias.declaration &&
+                source.getClassInContext(stripNull(resolvedType), alias.declaration))
+                return type;
+            return (this.resolveType(resolvedType, source, visited, alias.name.split(".").slice(0, -1).join("."), preserveClassAliases) +
                 (type !== stripped && !resolvedType.endsWith(" | null")
                     ? " | null"
                     : ""));
@@ -325,7 +338,11 @@ export class JSONTransform extends Visitor {
                             if (externalAlias.parameters.length !== arguments_().length)
                                 return type;
                             const externalType = externalAlias.getBaseType(arguments_());
-                            return (this.resolveType(externalType, externalSrc, visited) +
+                            if (preserveClassAliases &&
+                                externalAlias.declaration &&
+                                externalSrc.getClassInContext(stripNull(externalType), externalAlias.declaration))
+                                return type;
+                            return (this.resolveType(externalType, externalSrc, visited, externalAlias.name.split(".").slice(0, -1).join("."), preserveClassAliases) +
                                 (type !== stripped && !externalType.endsWith(" | null")
                                     ? " | null"
                                     : ""));
@@ -365,7 +382,7 @@ export class JSONTransform extends Visitor {
             return false;
         visiting.add(schema);
         for (const member of schema.members) {
-            if (member.node.type.isNullable)
+            if (member.nullable)
                 continue;
             const nested = this.getDefaultSchema(schema, member.type);
             if (nested &&
@@ -462,7 +479,7 @@ export class JSONTransform extends Visitor {
         return null;
     }
     getImplicitDefaultJSON(member, owner, visiting) {
-        if (member.node.type.isNullable)
+        if (member.nullable)
             return "null";
         const type = stripNull(member.type).trim();
         if (isBoolean(type))
@@ -599,7 +616,7 @@ export class JSONTransform extends Visitor {
                     !hasDeco("omit")) {
                     if (lazyMode === "all")
                         inner = written;
-                    else if (lazyAutoCost(this.resolveType(written, source), source, this.parser) >= LAZY_AUTO_THRESHOLD)
+                    else if (lazyAutoCost(this.resolveType(written, source, new Set(), source.getQualifiedName(node).split(".").slice(0, -1).join(".")), source, this.parser) >= LAZY_AUTO_THRESHOLD)
                         inner = written;
                 }
             }
@@ -905,7 +922,7 @@ export class JSONTransform extends Visitor {
         }
         const getUnknownTypes = (type, types = []) => {
             type = stripNull(type);
-            type = this.resolveType(type, source);
+            type = this.resolveType(type, source, new Set(), source.getQualifiedName(node).split(".").slice(0, -1).join("."));
             if (type.startsWith("Array<")) {
                 return getUnknownTypes(type.slice(6, -1));
             }
@@ -916,8 +933,8 @@ export class JSONTransform extends Visitor {
                 return getUnknownTypes(type.slice(4, -1));
             }
             else if (type.startsWith("Map<")) {
-                const parts = type.slice(4, -1).split(",");
-                return getUnknownTypes(parts[0]) || getUnknownTypes(parts[1]);
+                const map = SimpleParser.parseTopLevelStatement(`type __JSON_DEPENDENCY = ${type};`).type;
+                return (map.typeArguments ?? []).flatMap((argument) => getUnknownTypes(toString(argument)));
             }
             else if (isString(type) || isPrimitive(type)) {
                 return types;
@@ -1031,14 +1048,26 @@ export class JSONTransform extends Visitor {
         this.schemas.get(source.internalPath).push(schema);
         this.schema = schema;
         this.visitedClasses.add(fullClassPath);
+        const wireNodes = new Set(members);
+        const generatedBacking = (field) => (__hasLazy && field.name.text === "__src") ||
+            members.some((member) => this.lazyMetadata.has(member) &&
+                field.name.text === member.name.text.slice(0, -3) + "_val");
+        schema.hasInternalInitializers =
+            !!schema.parent?.hasInternalInitializers ||
+                node.members.some((field) => field.kind === NodeKind.FieldDeclaration &&
+                    !field.is(32) &&
+                    !wireNodes.has(field) &&
+                    !generatedBacking(field) &&
+                    !!field.initializer);
         const effectful = (candidate, seen = new Set()) => {
             if (seen.has(candidate))
                 return false;
             seen.add(candidate);
             return (candidate.custom ||
+                candidate.hasInternalInitializers ||
                 candidate.deps.some((dep) => dep && effectful(dep, seen)));
         };
-        const requestedFastPath = USE_FAST_PATH && !effectful(schema);
+        const requestedFastPath = USE_FAST_PATH && !effectful(schema) && !schema.hasInternalInitializers;
         let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n  let __dst = bs.offset;\n";
         let INITIALIZE = "@inline __INITIALIZE(): this {\n";
         let DESERIALIZE = '__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n  let decodedKey: string = "";\n';
@@ -1166,7 +1195,7 @@ export class JSONTransform extends Visitor {
             if (!member.type)
                 throwError("Fields must be strongly typed", node.range);
             let type = toString(member.type);
-            type = this.resolveType(type, source);
+            type = this.resolveType(type, source, new Set(), source.getQualifiedName(node).split(".").slice(0, -1).join("."));
             const namespace = schema.name.split(".").slice(0, -1);
             for (let depth = namespace.length; depth > 0; depth--) {
                 const qualified = namespace.slice(0, depth).join(".") + "." + stripNull(type);
@@ -1183,6 +1212,9 @@ export class JSONTransform extends Visitor {
             mem.parent = this.schema;
             mem.name = name.text;
             mem.type = type;
+            const effectiveType = this.resolveType(toString(member.type), source, new Set(), source.getQualifiedName(node).split(".").slice(0, -1).join("."), false);
+            mem.nullable =
+                member.type.isNullable || effectiveType !== stripNull(effectiveType);
             mem.value = value;
             mem.node = member;
             mem.byteSize = estimatedSerializedByteSize(mem.type, source, this.parser);
@@ -1249,7 +1281,7 @@ export class JSONTransform extends Visitor {
                             if (isPrimitive(type)) {
                                 throwError("@omitnull cannot be used on primitive types!", member.range);
                             }
-                            else if (!member.type.isNullable) {
+                            else if (!mem.nullable) {
                                 throwError("@omitnull cannot be used on non-nullable types!", member.range);
                             }
                             mem.flags.set(PropertyFlags.OmitNull, null);
@@ -1301,7 +1333,7 @@ export class JSONTransform extends Visitor {
         const wideIntegerArrayCandidates = this.schema.static && canReserveDynamicPayloads
             ? this.schema.members.filter((member) => {
                 if (member.flags.has(PropertyFlags.Lazy) ||
-                    member.node.type.isNullable ||
+                    member.nullable ||
                     !member.type.startsWith("Array<"))
                     return false;
                 const element = member.type.slice(6, -1).trim();
@@ -1329,7 +1361,7 @@ export class JSONTransform extends Visitor {
                         `}\n`);
                 }
                 if (reserveDirectStringPayloads && isString(member.type)) {
-                    const writer = member.node.type.isNullable
+                    const writer = member.nullable
                         ? "__serializeNullableStringPointerReservedAt"
                         : "__serializeStringPointerReservedAt";
                     return `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
@@ -1343,7 +1375,7 @@ export class JSONTransform extends Visitor {
                     !resolvedSchema.custom &&
                     !member.custom &&
                     !member.generic &&
-                    !member.node.type.isNullable) {
+                    !member.nullable) {
                     return syncSerializeCursor(`JSON.__serializeObject<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
                 }
                 return getSerializeCall(member.type, realName);
@@ -1392,6 +1424,7 @@ export class JSONTransform extends Visitor {
                 `}\n`);
         };
         const cursorMayDefer = STRICT &&
+            !schema.hasInternalInitializers &&
             !DESERIALIZE_CUSTOM &&
             new Set(this.schema.members.map((member) => member.alias ?? member.name))
                 .size == this.schema.members.length &&
@@ -1414,7 +1447,7 @@ export class JSONTransform extends Visitor {
                 if (__valInit)
                     INITIALIZE += __valInit;
             }
-            else if (member.generic && !member.node.type.isNullable) {
+            else if (member.generic && !member.nullable) {
                 INITIALIZE += `  if (isNullable<${member.type}>()) {\n`;
                 INITIALIZE += `    store<${member.type}>(changetype<usize>(this), changetype<${member.type}>(0), offsetof<this>(${JSON.stringify(member.name)}));\n`;
                 INITIALIZE += `  } else if (isManaged<nonnull<${member.type}>>() || isReference<nonnull<${member.type}>>()) {\n`;
@@ -1422,7 +1455,7 @@ export class JSONTransform extends Visitor {
                 INITIALIZE += `    if (isDefined(this.${member.name}.__INITIALIZE)) changetype<nonnull<${member.type}>>(this.${member.name}).__INITIALIZE();\n`;
                 INITIALIZE += `  }\n`;
             }
-            else if (!member.node.type.isNullable) {
+            else if (!member.nullable) {
                 if (this.getSchema(member.type)) {
                     INITIALIZE += `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<nonnull<${member.type}>>(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
                 }
@@ -1457,19 +1490,17 @@ export class JSONTransform extends Visitor {
             }
             initializationFragments.set(member, cursorInitialize);
             if (cursorMayDefer &&
-                !member.node.type.isNullable &&
+                !member.nullable &&
                 (/^(Array|Map|Set)</.test(member.type) ||
                     this.canDeferCursorObjectDefault(this.schema, member.type))) {
                 cursorDeferred.push({ member, initialize: cursorInitialize });
             }
             else {
                 cursorInitializers.add(member);
-                if (cursorMayDefer &&
-                    !member.node.type.isNullable &&
-                    isString(member.type)) {
+                if (cursorMayDefer && !member.nullable && isString(member.type)) {
                     cursorDeferred.push({ member, initialize: cursorInitialize });
                 }
-                else if (!member.node.type.isNullable && !isPrimitive(member.type)) {
+                else if (!member.nullable && !isPrimitive(member.type)) {
                     cursorFreshInitializers.add(member);
                 }
             }
@@ -1612,11 +1643,11 @@ export class JSONTransform extends Visitor {
             const isCustomType = member.custom || !!customDep;
             if (isCustomType || member.generic) {
                 addMemberToCustomBucket(sortedMembers, member, member.generic ? "any" : customDep?.customJsonKind || "any");
-                if (member.node.type.isNullable)
+                if (member.nullable)
                     sortedMembers.null.push(member);
             }
             else {
-                if (member.node.type.isNullable)
+                if (member.nullable)
                     sortedMembers.null.push(member);
                 if (isString(type) || type == "Date")
                     sortedMembers.string.push(member);
@@ -1716,7 +1747,7 @@ export class JSONTransform extends Visitor {
             }
             else if (["string", "String"].includes(resolvedType)) {
                 out.push("{");
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
                     out.push(`    store<${member.type}>(${outPtr}, changetype<${member.type}>(0), ${fieldOffset});`);
                     out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
@@ -1726,7 +1757,7 @@ export class JSONTransform extends Visitor {
                 const defaultString = declaredDefaultString?.encoded == '""'
                     ? undefined
                     : declaredDefaultString;
-                const stringFieldDeserializer = fastPath && keyOffset && !member.node.type.isNullable
+                const stringFieldDeserializer = fastPath && keyOffset && !member.nullable
                     ? STRING_FIELD_TRUSTED_DESERIALIZER
                     : STRING_FIELD_DESERIALIZER;
                 const stringValuePtr = stringFieldDeserializer == STRING_FIELD_TRUSTED_DESERIALIZER
@@ -1748,7 +1779,7 @@ export class JSONTransform extends Visitor {
                 else {
                     out.push(`  ${srcPtr} = ${stringFieldCall}(${stringValuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 }
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push("  }");
                 }
                 out.push("}");
@@ -1756,7 +1787,7 @@ export class JSONTransform extends Visitor {
             }
             else if (resolvedType == "Date") {
                 out.push("{");
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
                     out.push(`    store<${member.type}>(${outPtr}, changetype<${member.type}>(0), ${fieldOffset});`);
                     out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
@@ -1771,7 +1802,7 @@ export class JSONTransform extends Visitor {
                 out.push("  if (dateEnd >= srcEnd) break;");
                 out.push(`  store<${resolvedType}>(${outPtr}, JSON.__deserialize<${resolvedType}>(${valuePtr}, dateEnd + 2), ${fieldOffset});`);
                 out.push(`  ${srcPtr} = dateEnd + 2;`);
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push("  }");
                 }
                 out.push("}");
@@ -1782,7 +1813,7 @@ export class JSONTransform extends Visitor {
                     .slice(resolvedType.indexOf("<") + 1, -1)
                     .trim();
                 out.push("{");
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
                     out.push(`    store<${member.type}>(${outPtr}, changetype<${member.type}>(0), ${fieldOffset});`);
                     out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
@@ -1812,7 +1843,7 @@ export class JSONTransform extends Visitor {
                     out.push(`    store<${resolvedType}>(${outPtr}, changetype<${resolvedType}>(JSON.Box.from<${innerType}>(JSON.__deserialize<${innerType}>(${valuePtr}, boxEnd))), ${fieldOffset});`);
                     out.push(`    ${srcPtr} = boxEnd;`);
                 }
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push("  }");
                 }
                 out.push("}");
@@ -1845,7 +1876,7 @@ export class JSONTransform extends Visitor {
             }
             else if (resolvedSchema?.custom) {
                 out.push("{");
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
                     out.push(`    store<${member.type}>(${outPtr}, changetype<${member.type}>(0), ${fieldOffset});`);
                     out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
@@ -1856,7 +1887,7 @@ export class JSONTransform extends Visitor {
                 out.push("  if (!valueEnd) break;");
                 out.push(`  store<${member.type}>(${outPtr}, ${getCustomDeserializeExpression(resolvedType, "valueStart", "valueEnd")}, ${fieldOffset});`);
                 out.push(`  ${srcPtr} = valueEnd;`);
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push("  }");
                 }
                 out.push("}");
@@ -1864,7 +1895,7 @@ export class JSONTransform extends Visitor {
             else if (resolvedSchema && !resolvedSchema.custom) {
                 if (fastPath) {
                     out.push("{");
-                    if (member.node.type.isNullable) {
+                    if (member.nullable) {
                         out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
                         out.push(`    store<${resolvedType}>(${outPtr}, changetype<${resolvedType}>(0), ${fieldOffset});`);
                         out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
@@ -1886,14 +1917,14 @@ export class JSONTransform extends Visitor {
                     out.push(`    changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_SLOW<${resolvedType}>(${valuePtr}, __ve, value);`);
                     out.push(`    ${srcPtr} = __ve;`);
                     out.push(`  }`);
-                    if (member.node.type.isNullable) {
+                    if (member.nullable) {
                         out.push("  }");
                     }
                     out.push("}");
                     return out;
                 }
                 out.push("{");
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push(`  if (load<u64>(${srcPtr}) == 30399761348886638) {`);
                     out.push(`    store<${resolvedType}>(${outPtr}, changetype<${resolvedType}>(0), ${fieldOffset});`);
                     out.push(`    ${srcPtr} += 8;`);
@@ -1913,7 +1944,7 @@ export class JSONTransform extends Visitor {
                 else {
                     out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_SLOW<${resolvedType}>(valueStart, valueEnd, value);`);
                 }
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push("  }");
                 }
                 out.push("}");
@@ -1925,7 +1956,7 @@ export class JSONTransform extends Visitor {
                     .trim();
                 const elementNullable = stripNull(rawInner) !== rawInner;
                 out.push("{");
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
                     out.push(`    store<${member.type}>(${outPtr}, changetype<${member.type}>(0), ${fieldOffset});`);
                     out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
@@ -1977,7 +2008,7 @@ export class JSONTransform extends Visitor {
                     out.push("    }");
                     out.push("    break;");
                     out.push("  }");
-                    if (member.node.type.isNullable) {
+                    if (member.nullable) {
                         out.push("  }");
                     }
                     out.push("}");
@@ -1994,7 +2025,8 @@ export class JSONTransform extends Visitor {
                     out.push("  let index = 0;");
                     out.push("  const reusableLength = value.length;");
                     out.push("  const reusableDataStart = value.dataStart;");
-                    out.push("  const reusedValues = reusableLength > 16 ? new Set<usize>() : changetype<Set<usize>>(0);");
+                    out.push("  const scopedOwnership = JSON.Util.hasCompositeReuseScope();");
+                    out.push("  const reusedValues = !scopedOwnership && reusableLength > 16 ? new Set<usize>() : changetype<Set<usize>>(0);");
                     out.push(`  ${srcPtr} = ${valuePtr} + 2;`);
                     out.push(`  ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`);
                     out.push(`  if (load<u16>(${srcPtr}) == 0x5d) {`);
@@ -2005,7 +2037,7 @@ export class JSONTransform extends Visitor {
                     out.push("    if (index < reusableLength) {");
                     out.push(`      const itemSlot = reusableDataStart + ((<usize>index) << alignof<${valueType}>());`);
                     out.push(`      item = load<${valueType}>(itemSlot);`);
-                    out.push("      if (changetype<usize>(item) != 0) {");
+                    out.push("      if (!scopedOwnership && changetype<usize>(item) != 0) {");
                     out.push("        const ref = changetype<usize>(item);");
                     out.push("        if (changetype<usize>(reusedValues)) {");
                     out.push(`          if (reusedValues.has(ref)) item = changetype<${valueType}>(0);`);
@@ -2060,7 +2092,7 @@ export class JSONTransform extends Visitor {
                     out.push("    }");
                     out.push("    break;");
                     out.push("  }");
-                    if (member.node.type.isNullable) {
+                    if (member.nullable) {
                         out.push("  }");
                     }
                     out.push("}");
@@ -2085,7 +2117,7 @@ export class JSONTransform extends Visitor {
                     out.push(`  ${srcPtr} = __deserializeArrayField_SWAR<nonnull<${resolvedType}>>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                     out.push(`  if (!${srcPtr}) break;`);
                 }
-                if (member.node.type.isNullable) {
+                if (member.nullable) {
                     out.push("  }");
                 }
                 out.push("}");
@@ -2166,7 +2198,7 @@ export class JSONTransform extends Visitor {
                 const key = JSON.stringify(member.alias ?? member.name);
                 const resolvedType = stripNull(member.type);
                 const inlineStringValue = ["string", "String"].includes(resolvedType);
-                const packedQuote = inlineStringValue && !member.node.type.isNullable ? '"' : "";
+                const packedQuote = inlineStringValue && !member.nullable ? '"' : "";
                 const firstKeySection = key + ":" + packedQuote;
                 const nextKeySection = "," + key + ":" + packedQuote;
                 const firstKeyOffset = firstKeySection.length << 1;
@@ -2258,7 +2290,7 @@ export class JSONTransform extends Visitor {
                 const key = JSON.stringify(member.alias ?? member.name);
                 const resolvedType = stripNull(member.type);
                 const inlineStringValue = ["string", "String"].includes(resolvedType);
-                const trustedStringValue = inlineStringValue && !member.node.type.isNullable;
+                const trustedStringValue = inlineStringValue && !member.nullable;
                 const keySection = (i == 0 ? "{" : ",") + key + ":" + (trustedStringValue ? '"' : "");
                 let blk = indent +
                     `if (${getComparisions(keySection, "srcStart", "!=").join(" || ")}) break;\n`;
@@ -2471,8 +2503,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE_FAST += i2 + "return srcStart;\n";
             DESERIALIZE_FAST += i1 + "} while (false);\n\n";
         }
-        const keyedUnionAlternatives = this.schema.members.filter((member) => member.node.type.isNullable &&
-            this.getSchema(stripNull(member.type)) != null).length;
+        const keyedUnionAlternatives = this.schema.members.filter((member) => member.nullable && this.getSchema(stripNull(member.type)) != null).length;
         const scalarKeyedSchema = this.schema.members.every((member) => {
             const type = stripNull(member.type);
             return (INTEGER_TYPES.includes(type) ||
@@ -2514,7 +2545,7 @@ export class JSONTransform extends Visitor {
                 const offset = `offsetof<this>(${JSON.stringify(member.name)})`;
                 if (member.value)
                     return `changetype<this>(dst).__JSON_INITIALIZE_FIELD_${member.name}();`;
-                if (member.node.type.isNullable)
+                if (member.nullable)
                     return `store<${member.type}>(dst, null, ${offset});`;
                 if (this.getSchema(member.type))
                     return (`store<${member.type}>(dst, ` +
@@ -3410,7 +3441,7 @@ export class JSONTransform extends Visitor {
         const directStringPayloadReserve = reserveDirectStringPayloads
             ? directStringMembers
                 .map((member) => {
-                const size = member.node.type.isNullable
+                const size = member.nullable
                     ? "__nullableStringByteSizePointer"
                     : "__stringByteSizePointer";
                 return ` + JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
@@ -3433,11 +3464,11 @@ export class JSONTransform extends Visitor {
             .filter((member) => members.has(member))
             .map((member) => initializationFragments.get(member))
             .join("");
+        this.addDeclaredInitializer(node, initializationFragments);
         INITIALIZE =
             "@inline __INITIALIZE(): this {\n" +
-                initializationMembers
-                    .map((member) => initializationFragments.get(member))
-                    .join("");
+                "  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n" +
+                "  this.__JSON_INITIALIZE_FIELDS();\n";
         INITIALIZE += "  return this;\n";
         INITIALIZE += "}";
         if (__hasLazy && !DESERIALIZE_CUSTOM) {
@@ -3586,6 +3617,14 @@ export class JSONTransform extends Visitor {
                 node.members.push(SimpleParser.parseClassMember(generateCursorParser(this.schema.members, getComparisions, cursorMayDefer && cursorDeferred.length > 0), node));
             }
         }
+        node.members.push(SimpleParser.parseClassMember(`__DESERIALIZE_FAST_ENABLED(): bool { return ${!DESERIALIZE_CUSTOM && useFastPath}; }`, node));
+        const reusableScalarModel = !effectful(schema) &&
+            !schema.hasInternalInitializers &&
+            !this.hasCustomCursorLifecycle(schema) &&
+            schema.members.every((member) => (isPrimitive(stripNull(member.type)) || isString(member.type)) &&
+                (!member.node.initializer ||
+                    member.node.initializer.kind === NodeKind.Literal));
+        node.members.push(SimpleParser.parseClassMember(`__DESERIALIZE_REUSE_PURE(): bool { return ${reusableScalarModel}; }`, node));
         if (!node.members.find((v) => v.name.text == "__SERIALIZE"))
             node.members.push(SERIALIZE_METHOD);
         if (INITIALIZE_METHOD &&
@@ -3661,9 +3700,74 @@ export class JSONTransform extends Visitor {
         const qualified = this.schema.deps.filter((schema) => schema && schema.name.endsWith("." + name));
         return qualified.length == 1 ? qualified[0] : null;
     }
+    explicitFieldInitializer(field) {
+        if (!field.initializer)
+            return "";
+        const type = toString(field.type);
+        const offset = `offsetof<this>(${JSON.stringify(field.name.text)})`;
+        return (`  store<${type}>(changetype<usize>(this), ${toString(field.initializer)}, ${offset});\n` +
+            `  if (isManaged<${type}>()) __link(changetype<usize>(this), load<usize>(changetype<usize>(this), ${offset}), false);\n`);
+    }
+    baseInitializer(node) {
+        if (!node.extendsType)
+            return false;
+        const source = this.sources.get(node.range.source);
+        const name = source.resolveExtendsName(node);
+        const base = source.getClassInContext(name, node) ||
+            source.getImportedClass(name, this.parser) ||
+            source.getAvailableClass(name, this.parser);
+        if (!base || isStdlib(base))
+            return false;
+        if (!base.members.some((member) => member.name.text === "__JSON_INITIALIZE_FIELDS")) {
+            const body = (this.baseInitializer(base)
+                ? "  super.__JSON_INITIALIZE_FIELDS();\n"
+                : "") +
+                base.members
+                    .filter((member) => member.kind === NodeKind.FieldDeclaration &&
+                    !member.is(32))
+                    .map((field) => this.explicitFieldInitializer(field))
+                    .join("");
+            base.members.push(SimpleParser.parseClassMember(`__JSON_INITIALIZE_FIELDS(): void {\n${body}}`, base));
+        }
+        return true;
+    }
+    addDeclaredInitializer(node, fragments = new Map()) {
+        if (node.members.some((member) => member.name.text === "__JSON_INITIALIZE_FIELDS"))
+            return;
+        const fields = node.members.filter((member) => member.kind === NodeKind.FieldDeclaration &&
+            !member.is(32));
+        const wire = new Map(this.schema.members.map((member) => [member.node, member]));
+        const backing = new Set(this.schema.members
+            .filter((member) => member.flags.has(PropertyFlags.Lazy))
+            .map((member) => member.name.slice(0, -3) + "_val"));
+        let body = this.baseInitializer(node)
+            ? "  super.__JSON_INITIALIZE_FIELDS();\n"
+            : "";
+        if (!this.schema.parent)
+            for (const member of this.schema.members) {
+                if (!fields.includes(member.node) && !member.node.initializer)
+                    body += fragments.get(member) ?? "";
+            }
+        for (const field of fields) {
+            const member = wire.get(field);
+            if (member && fragments.has(member)) {
+                body += fragments.get(member);
+                body += `  if (isManaged<${member.type}>()) __link(changetype<usize>(this), load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})), false);\n`;
+                const valueField = fields.find((candidate) => candidate.name.text === member.name.slice(0, -3) + "_val");
+                if (member.flags.has(PropertyFlags.Lazy) && valueField)
+                    body += `  if (isManaged<${toString(valueField.type)}>()) __link(changetype<usize>(this), load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(valueField.name.text)})), false);\n`;
+            }
+            else if (!backing.has(field.name.text))
+                body += this.explicitFieldInitializer(field);
+        }
+        node.members.push(SimpleParser.parseClassMember(`__JSON_INITIALIZE_FIELDS(): void {\n${body}}`, node));
+    }
     generateEmptyMethods(node) {
         const SERIALIZE_EMPTY = "__SERIALIZE(ptr: usize): void {\n  bs.proposeSize(4);\n  store<u32>(bs.offset, 8192123);\n  bs.offset += 4;\n}";
-        const INITIALIZE_EMPTY = "__INITIALIZE(): this {\n  return this;\n}";
+        this.addDeclaredInitializer(node);
+        node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_FAST_ENABLED(): bool { return false; }", node));
+        node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_REUSE_PURE(): bool { return false; }", node));
+        const INITIALIZE_EMPTY = "__INITIALIZE(): this {\n  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n  this.__JSON_INITIALIZE_FIELDS();\n  return this;\n}";
         const DESERIALIZE_SLOW_EMPTY = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n  return srcEnd;\n}";
         if (DEBUG > 0) {
             console.log(SERIALIZE_EMPTY);

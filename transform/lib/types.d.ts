@@ -13,6 +13,7 @@ export declare class Property {
     name: string;
     alias: string | null;
     type: string;
+    nullable: boolean;
     value: string | null;
     flags: Map<PropertyFlags, Expression | null>;
     node: FieldDeclaration;
@@ -39,6 +40,7 @@ export declare class Schema {
     deps: Schema[];
     customJsonKind: string;
     hasCustomCursorLifecycle: boolean;
+    hasInternalInitializers: boolean;
     private _custom;
     set custom(value: boolean);
     get custom(): boolean;
@@ -66,7 +68,7 @@ export declare class Src {
     private traverse;
     getQualifiedName(node: DeclarationStatement): string;
     getClass(qualifiedName: string): ClassDeclaration | null;
-    getClassInContext(name: string, owner: DeclarationStatement): ClassDeclaration | null;
+    getClassInContext(name: string, owner: DeclarationStatement, visited?: Set<string>): ClassDeclaration | null;
     getClasses(): ClassDeclaration[];
     getEnum(qualifiedName: string): EnumDeclaration | null;
     getImportedClass(qualifiedName: string, parser: Parser): ClassDeclaration | null;

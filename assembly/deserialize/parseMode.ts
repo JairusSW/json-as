@@ -120,6 +120,11 @@ export function claimStringBuffer(value: usize, field: usize): bool {
   return true;
 }
 
+
+@inline export function hasCompositeReuseScope(): bool {
+  return STRING_TRACE_DEPTH != 0;
+}
+
 /** Claim a composite allocation for one logical field in the current parse.
  * Repeated keys targeting that same field may continue reusing it. */
 export function reuseComposite(value: usize, field: usize): usize {

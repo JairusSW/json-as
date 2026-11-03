@@ -54,7 +54,7 @@ const config = createBarChart(chartData, PAYLOADS, {
     "JSON-AS (NAIVE)",
     "JSON-AS (SWAR)",
     "JSON-AS (SIMD)",
-    "JSON-AS (JSON.Obj)",
+    "untouched JSON.Obj forwarding",
   ],
   colors: [...MODE_BARS, OBJ_BAR],
   // Stand the value labels up off each bar top so adjacent ones don't collide.

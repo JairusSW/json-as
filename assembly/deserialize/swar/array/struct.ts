@@ -1,4 +1,4 @@
-import { reuseComposite } from "../../parseMode";
+import { reuseComposite, hasCompositeReuseScope } from "../../parseMode";
 import {
   BRACE_LEFT,
   BRACKET_LEFT,
@@ -51,20 +51,25 @@ function skipStructArrayWhitespace(srcStart: usize, srcEnd: usize): usize {
 //   - Whitespace is skipped at each separator boundary so struct-array
 //     fields tolerate the same `[ {...} , {...} ]` shape that top-level
 //     `JSON.parse` does.
-function deserializeStructArrayBody<T extends unknown[]>(
+export function deserializeStructArrayBody<T>(
   srcStart: usize,
   srcEnd: usize,
   out: T,
 ): usize {
   let index = 0;
-  const reusableLength = load<i32>(
-    changetype<usize>(out),
-    offsetof<T>("length_"),
-  );
-  const reusableDataStart = out.dataStart;
+  let reusableLength: i32;
+  let reusableDataStart: usize;
+  if (out instanceof StaticArray) {
+    reusableLength = out.length;
+    reusableDataStart = changetype<usize>(out);
+  } else {
+    reusableLength = out.length;
+    reusableDataStart = out.dataStart;
+  }
   const elementSize = sizeof<valueof<T>>();
+  const scopedOwnership = hasCompositeReuseScope();
   const reusedValues =
-    reusableLength > ALIAS_SCAN_LIMIT
+    !scopedOwnership && reusableLength > ALIAS_SCAN_LIMIT
       ? new Set<usize>()
       : changetype<Set<usize>>(0);
   let pretty = false;
@@ -79,15 +84,21 @@ function deserializeStructArrayBody<T extends unknown[]>(
     }
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
-      out.length = 0;
+      if (!(out instanceof StaticArray)) out.length = 0;
       return srcStart + 2;
     }
 
     while (srcStart < srcEnd) {
-      const slot =
-        index < reusableLength
-          ? reusableDataStart + <usize>index * elementSize
-          : ensureArrayElementSlot<T>(out, index);
+      let slot: usize;
+      if (out instanceof StaticArray) {
+        if (index >= reusableLength) break;
+        slot = reusableDataStart + <usize>index * elementSize;
+      } else {
+        slot =
+          index < reusableLength
+            ? reusableDataStart + <usize>index * elementSize
+            : ensureArrayElementSlot<T>(out, index);
+      }
       let next: usize = 0;
       if (
         isNullable<valueof<T>>() &&
@@ -100,7 +111,7 @@ function deserializeStructArrayBody<T extends unknown[]>(
         let value = changetype<valueof<T>>(
           reuseComposite(load<usize>(slot), slot),
         );
-        if (changetype<usize>(value) != 0) {
+        if (!scopedOwnership && changetype<usize>(value) != 0) {
           const ref = changetype<usize>(value);
           if (changetype<usize>(reusedValues)) {
             if (reusedValues.has(ref)) value = changetype<valueof<T>>(0);
@@ -122,6 +133,7 @@ function deserializeStructArrayBody<T extends unknown[]>(
             }
           }
         }
+        let initialized = false;
         if (changetype<usize>(value) == 0) {
           value = changetype<valueof<T>>(
             __new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
@@ -130,16 +142,31 @@ function deserializeStructArrayBody<T extends unknown[]>(
           if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {
             // @ts-ignore: supplied by transform
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
+            initialized = true;
           }
           store<valueof<T>>(slot, value);
           __link(changetype<usize>(out), changetype<usize>(value), false);
         }
 
         const valueStart = srcStart;
+        let attemptedFast = false;
+        let canFast = true;
+        // @ts-ignore: supplied by transform
+        if (
+          isDefined(
+            changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST_ENABLED,
+          )
+        )
+          canFast =
+            changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST_ENABLED();
         if (
           // @ts-ignore: supplied by transform
-          isDefined(changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST)
+          isDefined(
+            changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST,
+          ) &&
+          canFast
         ) {
+          attemptedFast = true;
           // Omit the explicit type arg so AS infers it from `value` — passing
           // `<valueof<T>>` explicitly collides when the element type is itself
           // generic (e.g. GenericTest<string>) because AS resolves `T` against
@@ -172,7 +199,10 @@ function deserializeStructArrayBody<T extends unknown[]>(
           const valueEnd = scanValueEnd(valueStart, srcEnd);
           if (!valueEnd) break;
           // @ts-ignore: supplied by transform
-          if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {
+          if (
+            isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE) &&
+            (!initialized || attemptedFast)
+          ) {
             // @ts-ignore: supplied by transform
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
           }
@@ -207,7 +237,9 @@ function deserializeStructArrayBody<T extends unknown[]>(
         // right length (e.g. canada-style geometry rings whose count
         // matches a previous parse).
         const nextLen = index + 1;
-        if (reusableLength != nextLen) out.length = nextLen;
+        if (out instanceof StaticArray) {
+          if (reusableLength != nextLen) break;
+        } else if (reusableLength != nextLen) out.length = nextLen;
         return srcStart + 2;
       }
       break;

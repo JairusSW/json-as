@@ -304,6 +304,10 @@ test("chart configuration uses only the selected run and original subtitle", (t)
     path.join(repo, "scripts/lib/runtime-bench-run.mjs"),
     path.join(renderer, "scripts/lib/runtime-bench-run.mjs"),
   );
+  fs.copyFileSync(
+    path.join(repo, "scripts/lib/bench-provenance.mjs"),
+    path.join(renderer, "scripts/lib/bench-provenance.mjs"),
+  );
   // Capture the actual chart configuration, without a native canvas dependency.
   fs.writeFileSync(
     path.join(renderer, "scripts/lib/canvas-fixture.mjs"),

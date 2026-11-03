@@ -146,7 +146,7 @@ dumpToFile("large", "deserialize");
 // Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
 const objLarge = JSON.parse<JSON.Obj>(v2);
 bench(
-  "Serialize Large (JSON.Obj)",
+  "Serialize Large (untouched JSON.Obj forwarding)",
   () => {
     blackbox(JSON.stringify(objLarge));
   },

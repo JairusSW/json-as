@@ -46,6 +46,7 @@ export function deserializeReferenceArray<T extends unknown[]>(
             srcStart,
             srcEnd,
             map,
+            map.size != 0,
           );
           value = changetype<valueof<T>>(map);
         }

@@ -1,6 +1,6 @@
-import fs from "fs";
 import {
   createBarChart,
+  readBenchLog,
   generateChart,
   type BenchResult,
 } from "./lib/bench-utils";
@@ -19,12 +19,7 @@ import {
 // the logs with `bun run bench:as lazy/ --mode simd`, then run this script.
 const MODE = process.env["JSON_CHART_LAZY_MODE"] ?? "simd";
 const read = (suite: string, type: string): BenchResult =>
-  JSON.parse(
-    fs.readFileSync(
-      `./build/logs/as/${MODE}/${suite}.${type}.as.json`,
-      "utf-8",
-    ),
-  );
+  readBenchLog(`./build/logs/as/${MODE}/${suite}.${type}.as.json`);
 
 const MBPS = "Throughput (MB/s, higher is better)";
 const LAZY = ["eager", 'lazy ("auto")'];
@@ -108,9 +103,7 @@ sizeChart(
 // assembly/__benches__/lazy/access-pattern.bench.ts (run `bun run bench:as
 // lazy/` to regenerate every mode's logs).
 const SWAR_READ = (suite: string, type: string): BenchResult =>
-  JSON.parse(
-    fs.readFileSync(`./build/logs/as/swar/${suite}.${type}.as.json`, "utf-8"),
-  );
+  readBenchLog(`./build/logs/as/swar/${suite}.${type}.as.json`);
 
 const ACCESS_SETS: [string, string][] = [
   ["vec3", "Vec3\n(19b)"],

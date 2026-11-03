@@ -5,13 +5,25 @@ import {
   TypeNode,
   TypeParameterNode,
   NamedTypeNode,
+  NamespaceDeclaration,
 } from "assemblyscript/dist/assemblyscript.js";
 import { Visitor } from "../visitor.js";
 import { toString, cloneNode, SimpleParser } from "../util.js";
 
 class AliasFinder extends Visitor {
+  private namespace: string[] = [];
+  visitNamespaceDeclaration(node: NamespaceDeclaration): void {
+    this.namespace.push(node.name.text);
+    super.visitNamespaceDeclaration(node);
+    this.namespace.pop();
+  }
   visitTypeDeclaration(node: TypeDeclaration, _ref?: Node | null): void {
-    TypeAlias.add(node.name.text, node.type, node.typeParameters);
+    TypeAlias.add(
+      [...this.namespace, node.name.text].join("."),
+      node.type,
+      node.typeParameters,
+      node,
+    );
   }
 }
 
@@ -25,6 +37,7 @@ export class TypeAlias {
   }
 
   public parameters: string[] = [];
+  public declaration: TypeDeclaration | null = null;
 
   getBaseType(arguments_: TypeNode[] = []): string {
     const text =
@@ -52,13 +65,16 @@ export class TypeAlias {
 
   static foundAliases: Map<string, string> = new Map<string, string>();
   static parameters = new Map<string, string[]>();
+  static declarations = new Map<string, TypeDeclaration>();
   static aliases: Map<string, TypeAlias> = new Map<string, TypeAlias>();
 
   static add(
     name: string,
     type: TypeNode,
     parameters: TypeParameterNode[] | null = null,
+    declaration: TypeDeclaration | null = null,
   ): void {
+    if (declaration) this.declarations.set(name, declaration);
     this.parameters.set(
       name,
       parameters?.map((parameter) => parameter.name.text) ?? [],
@@ -78,6 +94,7 @@ export class TypeAlias {
   static getAliases(source: Source): TypeAlias[] {
     this.foundAliases.clear();
     this.parameters.clear();
+    this.declarations.clear();
     this.aliases.clear();
 
     const finder = new AliasFinder();
@@ -86,6 +103,7 @@ export class TypeAlias {
     for (const [name, typeStr] of this.foundAliases) {
       const alias = new TypeAlias(name, typeStr);
       alias.parameters = this.parameters.get(name) ?? [];
+      alias.declaration = this.declarations.get(name) ?? null;
       this.aliases.set(name, alias);
     }
 

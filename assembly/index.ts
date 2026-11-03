@@ -87,6 +87,7 @@ import {
   invalidateStringFieldTrace,
   clearStringFieldTrace,
   reuseComposite,
+  hasCompositeReuseScope as compositeReuseScopeActive,
   objectFieldTraceMask,
   objectFieldTraceSeparator,
   objectFieldTraceTier,
@@ -675,7 +676,11 @@ export namespace JSON {
         const end = start + ((<usize>data.length) << 1);
         // @ts-expect-error: generated method is a receiver-independent factory
         const value = type.__DESERIALIZE_DEFAULT(start, end);
-        if (changetype<usize>(value) != 0) {
+        if (
+          changetype<usize>(value) != 0 &&
+          changetype<OBJECT>(changetype<usize>(value) - TOTAL_OVERHEAD).rtId ==
+            idof<nonnull<T>>()
+        ) {
           return changetype<T>(value);
         }
       }
@@ -800,8 +805,12 @@ export namespace JSON {
         // avoiding redundant default graph construction; a fast miss still
         // initializes normally before the slow retry below.
         // @ts-expect-error: Defined by transform
+        let canFast = isDefined(type.__DESERIALIZE_FAST);
+        // @ts-expect-error: a derived schema may disable inherited fast methods
+        if (isDefined(obj.__DESERIALIZE_FAST_ENABLED))
+          canFast = obj.__DESERIALIZE_FAST_ENABLED();
         const fullWrite = isDefined(type.__DESERIALIZE_FULL_WRITE);
-        if (!reuse && isDefined(type.__DESERIALIZE_FAST)) {
+        if (!reuse && canFast) {
           if (fullWrite) {
             memory.fill(changetype<usize>(obj), 0, offsetof<nonnull<T>>());
           } else if (isDefined(type.__INITIALIZE)) {
@@ -810,7 +819,7 @@ export namespace JSON {
           }
         }
         // @ts-expect-error: Defined by transform
-        if (isDefined(type.__DESERIALIZE_FAST)) {
+        if (isDefined(type.__DESERIALIZE_FAST) && canFast) {
           let fastEnd: usize;
           // @ts-expect-error: Defined by transform in SIMD builds
           if (
@@ -1132,8 +1141,9 @@ export namespace JSON {
    * // Parse unknown JSON structure
    * const arr = JSON.parse<JSON.Value[]>('["string", 42, true]');
    * console.log(arr[0].get<string>());  // "string"
-   * console.log(arr[1].get<i32>().toString());  // 42
+   * console.log(arr[1].get<f64>().toString());  // 42 (parsed numbers are f64)
    *
+   * // get<T>() reads the stored representation. Box.fromValue<T>() converts numeric types.
    * // Create dynamic values
    * const val = JSON.Value.from<i32>(42);
    * val.set<string>("now a string");
@@ -1709,6 +1719,7 @@ export namespace JSON {
     _kpos: StaticArray<i32> = EMPTY_I32S;
     _vals: StaticArray<u64> = EMPTY_VALS;
     _vused: i32 = 0;
+    private _lazySlots: i32 = 0;
     /** Source string the lazy slot pointers index into; anchors it for GC. */
     _src: string = "";
     /** Untouched source range for whole-object serialization passthrough. */
@@ -1866,7 +1877,10 @@ export namespace JSON {
     }
 
     /** Writes a slot and, if it carries a managed pointer, links it for the GC. */
-    private storeSlot(i: i32, bits: u64): void {
+    private storeSlot(i: i32, bits: u64, replace: bool = true): void {
+      if (replace && JSON.Value.slotIsLazy(unchecked(this._vals[i])))
+        this._lazySlots--;
+      if (JSON.Value.slotIsLazy(bits)) this._lazySlots++;
       unchecked((this._vals[i] = bits));
       if (valBoxed(bits)) {
         const tag = valTag(bits);
@@ -1882,6 +1896,7 @@ export namespace JSON {
           __link(changetype<usize>(this), valPtr(bits), false);
         }
       }
+      if (replace && this._lazySlots == 0 && this._rawEnd == 0) this._src = "";
     }
 
     /** Appends a value slot (raw NaN-boxed bits). */
@@ -1890,7 +1905,7 @@ export namespace JSON {
       this.ensureValCap(pos + 1);
       this._vused = pos + 1;
       this._structureVersion++;
-      this.storeSlot(pos, bits);
+      this.storeSlot(pos, bits, false);
     }
 
     /** End pointer of the source buffer (upper bound for scanning a lazy slot). */
@@ -2040,6 +2055,7 @@ export namespace JSON {
           );
         unchecked((this._kpos[slotIndex] = keyPos));
         unchecked((this._vals[slotIndex] = bits));
+        if (JSON.Value.slotIsLazy(bits)) this._lazySlots++;
         this._kused = keyPos + KEY_HEADER_UNITS + len;
         this._vused = slotIndex + 1;
         this._structureVersion++;
@@ -2140,6 +2156,7 @@ export namespace JSON {
         this.pushValSlot(bits);
         this.insertIndex(slotIndex);
       }
+      if (this._lazySlots == 0) this._src = "";
     }
 
     /**
@@ -2198,6 +2215,7 @@ export namespace JSON {
       let used = 0;
       let count = 0;
       let needsSource = false;
+      let lazySlots = 0;
       // Compact in place: surviving values remain traced by this owner, and
       // deleting a key needs no strings or replacement backing buffers.
       for (let j = 0; j < n; j++) {
@@ -2215,12 +2233,16 @@ export namespace JSON {
         unchecked((this._kpos[count] = used));
         const slot = unchecked(this._vals[j]);
         unchecked((this._vals[count] = slot));
-        if (JSON.Value.slotIsLazy(slot)) needsSource = true;
+        if (JSON.Value.slotIsLazy(slot)) {
+          needsSource = true;
+          lazySlots++;
+        }
         used += units;
         count++;
       }
       this._kused = used;
       this._vused = count;
+      this._lazySlots = lazySlots;
       if (!needsSource) this._src = "";
       this._index = null;
       this._indexMask = 0;
@@ -2238,6 +2260,7 @@ export namespace JSON {
       this._structureVersion++;
       this._kused = 0;
       this._vused = 0;
+      this._lazySlots = 0;
       this._src = "";
       this._rawStart = 0;
       this._rawEnd = 0;
@@ -2384,6 +2407,7 @@ export namespace JSON {
     // the slot encoding, the custom `__visit`, and the `__link` write barrier.
     _vals: StaticArray<u64> = EMPTY_VALS;
     _vused: i32 = 0;
+    private _lazySlots: i32 = 0;
     /** Source string the lazy slot pointers index into; anchors it for GC. */
     _src: string = "";
 
@@ -2401,6 +2425,7 @@ export namespace JSON {
      */
     clear(): void {
       this._vused = 0;
+      this._lazySlots = 0;
       this._src = "";
     }
 
@@ -2421,7 +2446,10 @@ export namespace JSON {
     }
 
     /** Writes a slot and, if it carries a managed pointer, links it for the GC. */
-    private storeSlot(i: i32, bits: u64): void {
+    private storeSlot(i: i32, bits: u64, replace: bool = true): void {
+      if (replace && JSON.Value.slotIsLazy(unchecked(this._vals[i])))
+        this._lazySlots--;
+      if (JSON.Value.slotIsLazy(bits)) this._lazySlots++;
       unchecked((this._vals[i] = bits));
       if (valBoxed(bits)) {
         const tag = valTag(bits);
@@ -2435,6 +2463,7 @@ export namespace JSON {
           __link(changetype<usize>(this), valPtr(bits), false);
         }
       }
+      if (replace && this._lazySlots == 0) this._src = "";
     }
 
     /** Appends a value slot (raw NaN-boxed bits). Deserializer entry point. */
@@ -2442,7 +2471,7 @@ export namespace JSON {
       const pos = this._vused;
       this.ensureValCap(pos + 1);
       this._vused = pos + 1;
-      this.storeSlot(pos, bits);
+      this.storeSlot(pos, bits, false);
     }
 
     /** End pointer of the source buffer (upper bound for scanning a lazy slot). */
@@ -2565,7 +2594,7 @@ export namespace JSON {
         const slot = unchecked(this._vals[from + k]);
         // Do not clear an anchor needed by slots already appended to dst.
         if (JSON.Value.slotIsLazy(slot)) dst._src = this._src;
-        dst.storeSlot(at + k, slot);
+        dst.storeSlot(at + k, slot, false);
       }
       dst._vused = at + count;
     }
@@ -2575,8 +2604,12 @@ export namespace JSON {
       if (newLength < 0) throw new Error("Invalid array length");
       const used = this._vused;
       if (newLength <= used) {
+        if (this._lazySlots)
+          for (let i = newLength; i < used; i++)
+            if (JSON.Value.slotIsLazy(unchecked(this._vals[i])))
+              this._lazySlots--;
         this._vused = newLength;
-        if (newLength == 0) this._src = "";
+        if (this._lazySlots == 0) this._src = "";
         return;
       }
       this.ensureValCap(newLength);
@@ -2591,7 +2624,7 @@ export namespace JSON {
       if (n == 0) throw new Error("pop from empty JSON.Arr");
       const v = this.at(n - 1);
       this._vused = n - 1;
-      if (n == 1) this._src = "";
+      if (this._lazySlots == 0) this._src = "";
       return v;
     }
 
@@ -2603,7 +2636,7 @@ export namespace JSON {
       const base = changetype<usize>(this._vals);
       memory.copy(base, base + 8, (<usize>(n - 1)) << 3);
       this._vused = n - 1;
-      if (n == 1) this._src = "";
+      if (this._lazySlots == 0) this._src = "";
       return v;
     }
 
@@ -2614,7 +2647,7 @@ export namespace JSON {
       const base = changetype<usize>(this._vals);
       if (n) memory.copy(base + 8, base, (<usize>n) << 3);
       this._vused = n + 1;
-      this.storeSlot(0, JSON.Value.bitsFrom<T>(value));
+      this.storeSlot(0, JSON.Value.bitsFrom<T>(value), false);
       return n + 1;
     }
 
@@ -2642,8 +2675,16 @@ export namespace JSON {
       const bits = JSON.Value.bitsFrom<T>(value);
       // Link a managed value once for this owner. Repeated slots carry the
       // same pointer and the remaining writes cannot allocate or run GC.
-      this.storeSlot(s++, bits);
-      for (; s < e; s++) unchecked((this._vals[s] = bits));
+      if (this._lazySlots)
+        for (let i = s; i < e; i++)
+          if (JSON.Value.slotIsLazy(unchecked(this._vals[i])))
+            this._lazySlots--;
+      this.storeSlot(s++, bits, false);
+      for (; s < e; s++) {
+        unchecked((this._vals[s] = bits));
+        if (JSON.Value.slotIsLazy(bits)) this._lazySlots++;
+      }
+      if (this._lazySlots == 0) this._src = "";
       return this;
     }
 
@@ -2655,6 +2696,14 @@ export namespace JSON {
       const e = end < 0 ? max(n + end, 0) : min(end, n);
       const count = min(e - s, n - t);
       if (count > 0) {
+        if (this._lazySlots) {
+          let delta = 0;
+          for (let i = 0; i < count; i++) {
+            if (JSON.Value.slotIsLazy(unchecked(this._vals[s + i]))) delta++;
+            if (JSON.Value.slotIsLazy(unchecked(this._vals[t + i]))) delta--;
+          }
+          this._lazySlots += delta;
+        }
         const base = changetype<usize>(this._vals);
         memory.copy(
           base + ((<usize>t) << 3),
@@ -2662,6 +2711,7 @@ export namespace JSON {
           (<usize>count) << 3,
         );
       }
+      if (this._lazySlots == 0) this._src = "";
       return this;
     }
 
@@ -2680,6 +2730,10 @@ export namespace JSON {
       const n = this._vused;
       const s = start < 0 ? max(n + start, 0) : min(start, n);
       const d = max(min(deleteCount, n - s), 0);
+      let removedLazy = 0;
+      if (this._lazySlots)
+        for (let i = s; i < s + d; i++)
+          if (JSON.Value.slotIsLazy(unchecked(this._vals[i]))) removedLazy++;
       const removed = new JSON.Arr();
       this.copyInto(removed, s, d);
       const tail = n - (s + d);
@@ -2692,7 +2746,8 @@ export namespace JSON {
         );
       }
       this._vused = n - d;
-      if (n == d) this._src = "";
+      this._lazySlots -= removedLazy;
+      if (this._lazySlots == 0) this._src = "";
       return removed;
     }
 
@@ -3055,8 +3110,32 @@ export namespace JSON {
       if (!(value instanceof JSON.Value))
         throw new Error("value must be of type JSON.Value");
       if (value.type === JSON.Types.Null) return null;
-      if (value.type === JSON.Types.F64) return new Box<T>(<T>value.get<f64>());
-      return new Box<T>(value.get<T>());
+      switch (value.type) {
+        case JSON.Types.Bool:
+          return new Box<T>(<T>value.get<bool>());
+        case JSON.Types.I8:
+          return new Box<T>(<T>value.get<i8>());
+        case JSON.Types.U8:
+          return new Box<T>(<T>value.get<u8>());
+        case JSON.Types.I16:
+          return new Box<T>(<T>value.get<i16>());
+        case JSON.Types.U16:
+          return new Box<T>(<T>value.get<u16>());
+        case JSON.Types.I32:
+          return new Box<T>(<T>value.get<i32>());
+        case JSON.Types.U32:
+          return new Box<T>(<T>value.get<u32>());
+        case JSON.Types.I64:
+          return new Box<T>(<T>value.get<i64>());
+        case JSON.Types.U64:
+          return new Box<T>(<T>value.get<u64>());
+        case JSON.Types.F32:
+          return new Box<T>(<T>value.get<f32>());
+        case JSON.Types.F64:
+          return new Box<T>(<T>value.get<f64>());
+        default:
+          throw new Error("JSON.Box requires a boolean or numeric value");
+      }
     }
     /**
      * Creates a reference to a primitive type
@@ -3431,18 +3510,18 @@ export namespace JSON {
         const out = changetype<nonnull<T>>(
           dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
         );
+        let canFast = isDefined(type.__DESERIALIZE_FAST);
+        // @ts-expect-error: supplied by transform
+        if (isDefined(out.__DESERIALIZE_FAST_ENABLED))
+          canFast = out.__DESERIALIZE_FAST_ENABLED();
         // Generated fast paths may preserve omitted fields and reuse existing
         // strings/containers. Initialize only a freshly allocated object here;
         // callers that pass `dst` intentionally retain that reusable graph.
         // @ts-expect-error: Defined by transform
-        if (
-          fresh &&
-          isDefined(type.__DESERIALIZE_FAST) &&
-          isDefined(type.__INITIALIZE)
-        )
+        if (fresh && canFast && isDefined(type.__INITIALIZE))
           out.__INITIALIZE();
         // @ts-expect-error: Defined by transform
-        if (isDefined(type.__DESERIALIZE_FAST)) {
+        if (isDefined(type.__DESERIALIZE_FAST) && canFast) {
           // @ts-expect-error: Defined by transform
           const fastEnd = out.__DESERIALIZE_FAST(srcStart, srcEnd, out);
           // Accept the fast path when only trailing whitespace remains.
@@ -3569,6 +3648,9 @@ export namespace JSON {
     );
   }
   export namespace Util {
+    export function hasCompositeReuseScope(): bool {
+      return compositeReuseScopeActive();
+    }
     export function reuseCompositeBuffer(value: usize, field: usize): usize {
       return reuseComposite(value, field);
     }

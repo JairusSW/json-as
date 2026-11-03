@@ -33,7 +33,7 @@ dumpToFile("token", "deserialize");
 // Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
 const objToken = JSON.parse<JSON.Obj>(v2);
 bench(
-  "Serialize Token (JSON.Obj)",
+  "Serialize Token (untouched JSON.Obj forwarding)",
   () => {
     blackbox(JSON.stringify(objToken));
   },

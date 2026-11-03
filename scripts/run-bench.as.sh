@@ -326,6 +326,9 @@ build_v8_mode() {
     opt_flags+=(--enable-simd)
   fi
 
+  JSON_BENCH_COMPILER_FLAGS="$(printf '%q ' "${asc_flags[@]}" ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"})"
+  JSON_BENCH_OPTIMIZER_FLAGS="$(printf '%q ' "${opt_flags[@]}")"
+  export JSON_BENCH_COMPILER_FLAGS JSON_BENCH_OPTIMIZER_FLAGS
   JSON_AS_LIBRARY_SOURCE=assembly/index JSON_CACHE=0 JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.tmp" "${asc_flags[@]}" ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
   optimize_or_fallback "${output}.tmp" "$out_wasm" "${opt_flags[@]}"
 }
@@ -342,6 +345,9 @@ build_wasi_mode() {
     features+=(--enable simd)
   fi
 
+  JSON_BENCH_COMPILER_FLAGS="-O3 --converge --noAssert --uncheckedBehavior always --runtime $runtime --use AS_BENCH_RUNTIME_WAVM=1 --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json $(printf '%q ' "${features[@]}" --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"})"
+  JSON_BENCH_OPTIMIZER_FLAGS="none"
+  export JSON_BENCH_COMPILER_FLAGS JSON_BENCH_OPTIMIZER_FLAGS
   JSON_AS_LIBRARY_SOURCE=assembly/index JSON_CACHE=0 JSON_WRITE="$write_target" JSON_MODE="$mode" npx asc "$file" --transform ./transform -o "${output}.wasi.tmp" -O3 --converge --noAssert --uncheckedBehavior always --runtime "$runtime" --use AS_BENCH_RUNTIME_WAVM=1 --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json "${features[@]}" --exportRuntime ${EXTRA_ASC_FLAGS[@]+"${EXTRA_ASC_FLAGS[@]}"} || return 1
   mv "${output}.wasi.tmp" "$out_wasm"
 }
@@ -388,7 +394,9 @@ for file in "${FILES[@]}"; do
         fi
         for engine in $ENGINES; do
           echo -e "$filename (asc/$runtime/$engine/$mode_lower/v8)\n"
+          provenance_state="$(D8_BIN="$D8_BIN" JSON_MODE="$mode" RUNTIMES="$runtime" ENGINES="$engine" TURBOFAN_FLAGS="$TURBOFAN_FLAGS" node ./scripts/lib/bench-provenance.mjs begin as v8 "$file" "$arg")"
           run_v8_module "$engine" "$arg"
+          node ./scripts/lib/bench-provenance.mjs finish "$provenance_state"
         done
       fi
 
@@ -405,7 +413,9 @@ for file in "${FILES[@]}"; do
             wago) [[ $RUN_WAGO -eq 1 ]] || continue ;;
           esac
           echo -e "$filename (asc/$runtime/$wasi_engine/$mode_lower/$wasi_engine)\n"
+          provenance_state="$(JSON_MODE="$mode" RUNTIMES="$runtime" WAVM_RUN_FLAGS="$WAVM_RUN_FLAGS" node ./scripts/lib/bench-provenance.mjs begin as "$wasi_engine" "$file" "$arg")"
           run_wasi_module "$wasi_engine" "$arg"
+          node ./scripts/lib/bench-provenance.mjs finish "$provenance_state"
         done
       fi
     done

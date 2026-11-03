@@ -132,7 +132,7 @@ bench(
 dumpToFile("gsoc-2018-obj-min", "deserialize");
 
 bench(
-  "Serialize gsoc-2018 (JSON.Obj, min)",
+  "Serialize gsoc-2018 (untouched JSON.Obj forwarding, min)",
   () => {
     blackbox(JSON.stringify(doc));
   },

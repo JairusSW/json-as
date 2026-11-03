@@ -112,10 +112,13 @@ for file in "${FILES[@]}"; do
         echo "Skipping $filename: multilib benches require the Node runner"
         continue
       fi
+      provenance_state="$(ENGINES="$engine" node ./scripts/lib/bench-provenance.mjs begin js node "$file" "$file_js")"
       node ./bench/multilib/node-runner.mjs "$file_js"
+      node ./scripts/lib/bench-provenance.mjs finish "$provenance_state"
       continue
     fi
 
+    provenance_state="$(D8_BIN="$D8_BIN" ENGINES="$engine" node ./scripts/lib/bench-provenance.mjs begin js v8 "$file" "$file_js")"
     if [[ "$engine" == "ignition" ]]; then
       "$D8_BIN" --no-opt --allow-natives-syntax --module "$file_js"
     fi
@@ -131,6 +134,7 @@ for file in "${FILES[@]}"; do
     if [[ "$engine" == "turbofan" ]]; then
       "$D8_BIN" --no-liftoff --no-wasm-tier-up --allow-natives-syntax --module "$file_js"
     fi
+    node ./scripts/lib/bench-provenance.mjs finish "$provenance_state"
   done
 done
 

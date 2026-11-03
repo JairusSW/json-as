@@ -128,7 +128,7 @@ bench(
 dumpToFile("poet-obj-min", "deserialize");
 
 bench(
-  "Serialize poet (JSON.Obj, min)",
+  "Serialize poet (untouched JSON.Obj forwarding, min)",
   () => {
     blackbox(JSON.stringify(doc));
   },

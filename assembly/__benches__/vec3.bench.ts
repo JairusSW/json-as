@@ -34,7 +34,7 @@ dumpToFile("vec3", "deserialize");
 // Dynamic JSON.Obj variant of the same payload (typed struct vs JSON.Obj).
 const objVec3 = JSON.parse<JSON.Obj>(v2);
 bench(
-  "Serialize Vec3 (JSON.Obj)",
+  "Serialize Vec3 (untouched JSON.Obj forwarding)",
   () => {
     blackbox(JSON.stringify(objVec3));
   },

@@ -85,11 +85,23 @@ function supportsCursorType<T>(depth: i32): bool {
     return descriptor.__CURSOR_SUPPORTED(depth);
   }
   if (type instanceof JSON.Box) return true;
-  if (type instanceof Array || type instanceof StaticArray)
-    return supportsCursor<valueof<T>>(depth + 1);
-  if (type instanceof Set) return supportsCursor<indexof<T>>(depth + 1);
+  if (type instanceof Array)
+    return (
+      idof<nonnull<T>>() == idof<Array<valueof<T>>>() &&
+      supportsCursor<valueof<T>>(depth + 1)
+    );
+  if (type instanceof StaticArray) return supportsCursor<valueof<T>>(depth + 1);
+  if (type instanceof Set)
+    return (
+      idof<nonnull<T>>() == idof<Set<indexof<T>>>() &&
+      supportsCursor<indexof<T>>(depth + 1)
+    );
   if (type instanceof Map)
-    return isString<indexof<T>>() && supportsCursor<valueof<T>>(depth + 1);
+    return (
+      idof<nonnull<T>>() == idof<Map<indexof<T>, valueof<T>>>() &&
+      isString<indexof<T>>() &&
+      supportsCursor<valueof<T>>(depth + 1)
+    );
   if (
     type instanceof JSON.Raw ||
     type instanceof Date ||

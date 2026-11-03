@@ -1,6 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { execSync } from "child_process";
+import {
+  readBenchArtifact,
+  benchProvenanceSubtitle,
+} from "./bench-provenance.mjs";
 import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import type { ChartConfiguration } from "chart.js";
 import { MODE_BARS, INK } from "./palette";
@@ -40,35 +43,15 @@ const BENCH_RUNTIME: ASBenchRuntime = ((): ASBenchRuntime => {
   return value === "wavm" ? "wavm" : "v8";
 })();
 
+const measuredProvenance: unknown[] = [];
 export function subtitle(runtime: string = BENCH_RUNTIME) {
-  // Runtime comparison charts supply recorded provenance instead. Do not probe
-  // the current checkout or require a locally installed V8 just to render them.
-  const version =
-    "v" + JSON.parse(fs.readFileSync("./package.json", "utf-8")).version;
-  const gitHash = execSync("git rev-parse --short HEAD").toString().trim();
-  const gitBranch = execSync("git rev-parse --abbrev-ref HEAD")
-    .toString()
-    .trim();
-  let v8Version = "";
-  if (runtime === "v8") {
-    v8Version = execSync("v8")
-      .toString()
-      .trim()
-      .slice(11)
-      .split("\n")[0]
-      .trim();
-  }
-  const engine =
-    runtime === "v8"
-      ? `V8 ${v8Version}`
-      : runtime === "wavm"
-        ? "WAVM"
-        : runtime;
-  return `${new Date().toDateString()} • ${version} • ${engine} • ${gitHash} • ${gitBranch}`;
+  return benchProvenanceSubtitle(measuredProvenance, runtime);
 }
 
-function readBenchLog(filePath: string): BenchResult {
-  return JSON.parse(fs.readFileSync("./" + filePath, "utf-8")) as BenchResult;
+export function readBenchLog(filePath: string): BenchResult {
+  const { result, provenance } = readBenchArtifact(filePath);
+  measuredProvenance.push(provenance);
+  return result as BenchResult;
 }
 
 /** Reads one AssemblyScript benchmark result for a named mode/runtime. */
@@ -128,7 +111,9 @@ export function readObjBenchResult(
 ): BenchResult | null {
   try {
     return readBenchLog(benchLogPath(`${payload}-obj`, kind, "as", engine));
-  } catch {
+  } catch (error) {
+    if (fs.existsSync(benchLogPath(`${payload}-obj`, kind, "as", engine)))
+      throw error;
     return null;
   }
 }
