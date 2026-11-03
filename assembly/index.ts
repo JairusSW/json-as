@@ -2896,11 +2896,13 @@ export namespace JSON {
      *  via ES-exact JSON (numbers drop a trailing `.0`). */
     private elemStr(i: i32): string {
       if (i >= this._vused) return "";
-      const v = this.at(i);
-      const t = v.type;
-      if (t == JSON.Types.String) return v.get<string>();
-      if (t == JSON.Types.Null) return "";
-      return JSON.stringify(v);
+      const slot = this.materializeSlot(i);
+      if (valBoxed(slot)) {
+        const tag = valTag(slot);
+        if (tag == JSON.Types.String) return changetype<string>(valPtr(slot));
+        if (tag == JSON.Types.Null) return "";
+      }
+      return JSON.stringify(JSON.Value.fromBits(slot));
     }
 
     /** Joins the elements with `separator` (JS `Array#join` semantics). */
@@ -2912,13 +2914,45 @@ export namespace JSON {
       // A serializer may overwrite aliased strings through stringify's public
       // output-reuse argument. Containers can contain such serializers too.
       // Unmaterialized JSON has no user objects, so lazy slots are safe here.
+      let onlyStrings = true;
+      let stringLength = <u64>separator.length * <u64>(n - 1);
       for (let i = 0; i < n; i++) {
         const slot = unchecked(this._vals[i]);
         if (valBoxed(slot)) {
           const tag = valTag(slot);
           if (tag >= JSON.Types.Object && tag != JSON.Types.Lazy)
             return this.joinWithSnapshots(separator, n);
+          if (tag == JSON.Types.String)
+            stringLength += <u64>changetype<string>(valPtr(slot)).length;
+          else if (tag != JSON.Types.Null) onlyStrings = false;
+        } else onlyStrings = false;
+      }
+      if (onlyStrings) {
+        if (stringLength > <u64>(OBJECT_MAXSIZE >> 1))
+          throw new RangeError("Invalid string length");
+        if (stringLength == 0) return "";
+        const result = changetype<string>(
+          __new((<usize>stringLength) << 1, idof<string>()),
+        );
+        let destination = changetype<usize>(result);
+        const separatorBytes = (<usize>separator.length) << 1;
+        for (let i = 0; i < n; i++) {
+          if (i != 0) {
+            memory.copy(
+              destination,
+              changetype<usize>(separator),
+              separatorBytes,
+            );
+            destination += separatorBytes;
+          }
+          const slot = unchecked(this._vals[i]);
+          if (valTag(slot) != JSON.Types.String) continue;
+          const value = changetype<string>(valPtr(slot));
+          const bytes = (<usize>value.length) << 1;
+          memory.copy(destination, changetype<usize>(value), bytes);
+          destination += bytes;
         }
+        return result;
       }
 
       // Convert each slot once, in order. In particular, stringify may invoke
