@@ -1454,12 +1454,29 @@ export namespace JSON {
       if (p & LZ_ABS_FLAG) return <usize>(p & VAL_PTR_MASK);
       return srcBase + ((<usize>(p & LZ_OFF_MASK)) << 1);
     }
+    /** Keep an encoded managed payload on the shadow stack across allocation.
+     * Deferred slices are interior source pointers, not object references. */
+    /* eslint-disable @typescript-eslint/no-wrapper-object-types */
+    static slotReference(bits: u64): Object | null {
+      if (valBoxed(bits)) {
+        const tag = valTag(bits);
+        if (tag != JSON.Types.Lazy &&
+            (tag == JSON.Types.Raw || tag >= JSON.Types.String ||
+             ((tag == JSON.Types.U64 || tag == JSON.Types.I64) && (bits & VAL_BOX64))))
+          return changetype<Object>(valPtr(bits));
+      }
+      return null;
+    }
+    /* eslint-enable @typescript-eslint/no-wrapper-object-types */
+
     /** Wraps raw bits in a JSON.Value (eager scalar / materialized reference). */
     static fromBits(w: u64): JSON.Value {
+      const root = JSON.Value.slotReference(w);
       const out = changetype<JSON.Value>(
         __new(offsetof<JSON.Value>(), idof<JSON.Value>()),
       );
       out.bits = w;
+      if (root) __link(changetype<usize>(out), changetype<usize>(root), false);
       return out;
     }
     /** Concrete NaN-boxed bits for a value of type T (materializing if lazy). */
@@ -1584,7 +1601,7 @@ export namespace JSON {
           const out = instantiate<nonnull<T>>();
           out.length = arr.length;
           for (let i = 0; i < arr.length; i++) {
-            unchecked((out[i] = arr.at(i)));
+            unchecked((changetype<Array<JSON.Value>>(out)[i] = arr.at(i)));
           }
           return changetype<T>(out);
         }
@@ -1946,7 +1963,8 @@ export namespace JSON {
     }
 
     /** Writes a slot and, if it carries a managed pointer, links it for the GC. */
-    private storeSlot(i: i32, bits: u64, replace: bool = true): void {
+    // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+    private storeSlot(i: i32, bits: u64, replace: bool = true, root: Object | null = null): void {
       if (replace && JSON.Value.slotIsLazy(unchecked(this._vals[i])))
         this._lazySlots--;
       if (JSON.Value.slotIsLazy(bits)) this._lazySlots++;
@@ -1962,19 +1980,21 @@ export namespace JSON {
             ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
               bits & VAL_BOX64))
         ) {
-          __link(changetype<usize>(this), valPtr(bits), false);
+          __link(changetype<usize>(this), root ? changetype<usize>(root) : valPtr(bits), false);
         }
       }
       if (replace && this._lazySlots == 0 && this._rawEnd == 0) this._src = "";
     }
 
     /** Appends a value slot (raw NaN-boxed bits). */
-    private pushValSlot(bits: u64): void {
+    // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+    private pushValSlot(bits: u64, root: Object | null = null): void {
+      const held = root || JSON.Value.slotReference(bits);
       const pos = this._vused;
       this.ensureValCap(pos + 1);
       this._vused = pos + 1;
       this._structureVersion++;
-      this.storeSlot(pos, bits, false);
+      this.storeSlot(pos, bits, false, held);
     }
 
     /** End pointer of the source buffer (upper bound for scanning a lazy slot). */
@@ -2089,11 +2109,12 @@ export namespace JSON {
      * per-key string allocation, no per-value object, no hashing.
      */
     appendRawSlot(keyStart: usize, keyEnd: usize, bits: u64): void {
+      const root = JSON.Value.slotReference(bits);
       this._rawStart = 0;
       this._rawEnd = 0;
       const slotIndex = this._vused;
       this.pushKeyBytes(keyStart, keyEnd, slotIndex);
-      this.pushValSlot(bits);
+      this.pushValSlot(bits, root);
       this.insertIndex(slotIndex);
     }
 
@@ -2212,9 +2233,10 @@ export namespace JSON {
       this._rawStart = 0;
       this._rawEnd = 0;
       const bits = JSON.Value.bitsFrom<T>(value);
+      const root = JSON.Value.slotReference(bits);
       const i = this.indexOf(key);
       if (i >= 0) {
-        this.storeSlot(i, bits);
+        this.storeSlot(i, bits, true, root);
       } else {
         const slotIndex = this._vused;
         this.pushKeyBytes(
@@ -2222,7 +2244,7 @@ export namespace JSON {
           changetype<usize>(key) + ((<usize>key.length) << 1),
           slotIndex,
         );
-        this.pushValSlot(bits);
+        this.pushValSlot(bits, root);
         this.insertIndex(slotIndex);
       }
       if (this._lazySlots == 0) this._src = "";
@@ -2412,7 +2434,9 @@ export namespace JSON {
         // Map keys are unique, so appending avoids a lookup and hash-index
         // maintenance for every entry in a newly constructed object.
         for (let i = 0; i < len; i++) {
-          const key = unchecked(keys[i]);
+          const storedKey = unchecked(keys[i]);
+          const key = isNullable<indexof<T>>() && changetype<usize>(storedKey) == 0
+            ? "null" : changetype<string>(storedKey);
           const start = changetype<usize>(key);
           out.appendRaw(
             start,
@@ -2518,7 +2542,8 @@ export namespace JSON {
     }
 
     /** Writes a slot and, if it carries a managed pointer, links it for the GC. */
-    private storeSlot(i: i32, bits: u64, replace: bool = true): void {
+    // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+    private storeSlot(i: i32, bits: u64, replace: bool = true, root: Object | null = null): void {
       if (replace && JSON.Value.slotIsLazy(unchecked(this._vals[i])))
         this._lazySlots--;
       if (JSON.Value.slotIsLazy(bits)) this._lazySlots++;
@@ -2532,7 +2557,7 @@ export namespace JSON {
             ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
               bits & VAL_BOX64))
         ) {
-          __link(changetype<usize>(this), valPtr(bits), false);
+          __link(changetype<usize>(this), root ? changetype<usize>(root) : valPtr(bits), false);
         }
       }
       if (replace && this._lazySlots == 0) this._src = "";
@@ -2545,10 +2570,11 @@ export namespace JSON {
 
     /** Appends a value slot (raw NaN-boxed bits). Deserializer entry point. */
     pushRawSlot(bits: u64): void {
+      const root = JSON.Value.slotReference(bits);
       const pos = this._vused;
       this.ensureValCap(pos + 1);
       this._vused = pos + 1;
-      this.storeSlot(pos, bits, false);
+      this.storeSlot(pos, bits, false, root);
     }
 
     /** End pointer of the source buffer (upper bound for scanning a lazy slot). */

@@ -57,6 +57,11 @@ export declare class Schema {
     byteSize: number;
     deps: Schema[];
     customJsonKind: string;
+    ownCustomReader: boolean;
+    ownCustomWriter: boolean;
+    fastReader: boolean;
+    get customReader(): boolean;
+    get customWriter(): boolean;
     hasCustomCursorLifecycle: boolean;
     hasInternalInitializers: boolean;
     hasInitializerEffects: boolean;
@@ -94,7 +99,7 @@ export declare class Src {
     getEnum(qualifiedName: string): EnumDeclaration | null;
     getImportedClass(qualifiedName: string, parser: Parser, visited?: Set<string>): ClassDeclaration | null;
     classTypeParameters(owner: DeclarationStatement): Map<string, TypeArgumentContext>;
-    resolveTypeMeaning(text: string, scope: string, parser: Parser, supplied?: Map<string, TypeArgumentContext>): TypeMeaning;
+    resolveTypeMeaning(text: string, scope: string, parser: Parser, supplied?: Map<string, TypeArgumentContext>, preserveAlias?: (alias: TypeAlias, source: Src) => boolean): TypeMeaning;
     resolveClass(name: string, owner: DeclarationStatement, parser: Parser): ClassDeclaration | null;
     getImportedBinding(name: string, parser: Parser, visited?: Set<string>): {
         source: Src;

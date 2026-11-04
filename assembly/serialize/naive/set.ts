@@ -1,3 +1,4 @@
+import { NativeSet } from "../../util/native-collections";
 import { bs } from "../../../lib/as-bs";
 import { COMMA, BRACKET_RIGHT, BRACKET_LEFT } from "../../custom/chars";
 import { JSON } from "../..";
@@ -13,7 +14,7 @@ import { serializeString } from "../index/string";
 }
 
 function serializePrimitiveSet<T extends Set<any>>(src: T): void {
-  const size = src.size;
+  const size = changetype<NativeSet<indexof<T>>>(src).nativeSize();
   reservePrimitiveSet<indexof<T>>(size);
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
@@ -64,7 +65,7 @@ function reservePrimitiveSet<T>(len: i32): void {
 }
 
 export function serializeSet<T extends Set<any>>(src: T): void {
-  const srcSize = src.size;
+  const srcSize = changetype<NativeSet<indexof<T>>>(src).nativeSize();
   if (srcSize == 0) {
     bs.proposeSize(4);
     store<u32>(bs.offset, 6094939); // []
@@ -90,7 +91,7 @@ export function serializeSet<T extends Set<any>>(src: T): void {
     bs.proposeSize(4 + <u32>(srcSize - 1) * 2);
   }
 
-  const values = src.values();
+  const values = changetype<NativeSet<indexof<T>>>(src).nativeValues();
   store<u16>(bs.offset, BRACKET_LEFT);
   bs.offset += 2;
 

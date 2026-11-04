@@ -1,3 +1,4 @@
+import { NativeMap } from "../../util/native-collections";
 import { bs } from "../../../lib/as-bs";
 import { JSON } from "../..";
 import { BRACE_LEFT, BRACE_RIGHT, COLON, COMMA } from "../../custom/chars";
@@ -35,24 +36,31 @@ import { serializeRaw } from "./raw";
   JSON.__serialize<V>(value);
 }
 
+@inline
+function serializeMapKey<K>(key: K): void {
+  if (isString<K>()) {
+    if (isNullable<K>() && changetype<usize>(key) == 0) serializeString("null");
+    else serializeString(changetype<string>(key));
+  } else JSON.__serialize<string>(JSON.internal.stringify<K>(key));
+}
+
 // Snapshot original keys, read each value when visited, skip deleted keys,
 // and defer additions until a later call. Rehash cannot move this iteration.
 function serializeCallbackMap<T extends Map<any, any>>(src: T): void {
-  const keys = src.keys();
+  const keys = changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeKeys();
   bs.proposeSize(4 + <u32>keys.length * 4);
   store<u16>(bs.offset, BRACE_LEFT);
   bs.offset += 2;
   let wrote = false;
   for (let i = 0; i < keys.length; i++) {
     const key = unchecked(keys[i]);
-    if (!src.has(key)) continue;
-    const value = src.get(key);
+    if (!changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeHas(key)) continue;
+    const value = changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeGet(key);
     if (wrote) {
       store<u16>(bs.offset, COMMA);
       bs.offset += 2;
     }
-    if (isString<indexof<T>>()) serializeString(changetype<string>(key));
-    else JSON.__serialize<string>(JSON.internal.stringify<indexof<T>>(key));
+    serializeMapKey<indexof<T>>(key);
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
     JSON.__serialize<valueof<T>>(value);
@@ -63,7 +71,7 @@ function serializeCallbackMap<T extends Map<any, any>>(src: T): void {
 }
 
 export function serializeMap<T extends Map<any, any>>(src: T): void {
-  const srcSize = src.size;
+  const srcSize = changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeSize();
 
   if (srcSize == 0) {
     bs.proposeSize(4);
@@ -115,11 +123,7 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
       changetype<usize>(entry),
       offsetof<SerializableMapEntry<indexof<T>, valueof<T>>>("value"),
     );
-    if (keyIsString) {
-      serializeString(changetype<string>(key));
-    } else {
-      JSON.__serialize<string>(JSON.internal.stringify<indexof<T>>(key));
-    }
+    serializeMapKey<indexof<T>>(key);
     store<u16>(bs.offset, COLON);
     bs.offset += 2;
     serializeMapValue<valueof<T>>(value, rawValue);

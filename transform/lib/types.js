@@ -49,7 +49,7 @@ export class Property {
             return true;
         }
         for (const dep of this.parent.deps) {
-            if (this.name == dep.name && dep.custom) {
+            if (this.name == dep.name && dep.customReader) {
                 this._custom = true;
                 return true;
             }
@@ -81,6 +81,15 @@ export class Schema {
     byteSize = 0;
     deps = [];
     customJsonKind = "any";
+    ownCustomReader = false;
+    ownCustomWriter = false;
+    fastReader = false;
+    get customReader() {
+        return this.ownCustomReader || !!this.parent?.customReader;
+    }
+    get customWriter() {
+        return this.ownCustomWriter || !!this.parent?.customWriter;
+    }
     hasCustomCursorLifecycle = false;
     hasInternalInitializers = false;
     hasInitializerEffects = false;
@@ -299,7 +308,7 @@ export class Src {
             }
         return result;
     }
-    resolveTypeMeaning(text, scope, parser, supplied = new Map()) {
+    resolveTypeMeaning(text, scope, parser, supplied = new Map(), preserveAlias) {
         const empty = new Map();
         const parameters = new Map();
         for (const [name, argument] of supplied)
@@ -360,6 +369,15 @@ export class Src {
                 ...use,
                 type,
             }));
+            if (alias?.declaration && preserveAlias?.(alias, owner)) {
+                return {
+                    name: alias.name,
+                    nullable: !!node.isNullable,
+                    arguments: arguments_.map((argument) => resolve(argument, depth + 1)),
+                    source: owner,
+                    declaration: null,
+                };
+            }
             if (alias?.declaration) {
                 if (use.trail.has(alias.declaration) ||
                     arguments_.length > alias.parameters.length)

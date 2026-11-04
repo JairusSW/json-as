@@ -270,15 +270,9 @@ export class JSONTransform extends Visitor {
         return this.generatedRuntimeName;
     }
     lazyRuntimeSource;
-    lazyInnerType(type, source, scope = "", seen = new Set()) {
+    lazyInnerType(type, source, scope = "", owner) {
         if (!type || type.kind !== NodeKind.NamedType)
             return null;
-        const named = type;
-        const name = toString(named.name);
-        const identity = `${source.internalPath}:${scope}:${toString(type)}`;
-        if (seen.has(identity))
-            return null;
-        seen.add(identity);
         if (this.lazyRuntimeSource === undefined)
             this.lazyRuntimeSource =
                 this.parser.sources.find((candidate) => candidate.internalPath.endsWith("/json-as/assembly/index") ||
@@ -287,49 +281,18 @@ export class JSONTransform extends Visitor {
                         this.sources.get(candidate).getClass("JSON.Value")) ??
                     null;
         const runtime = this.lazyRuntimeSource;
-        const nullable = (inner) => inner !== null && named.isNullable && !inner.endsWith(" | null")
-            ? inner + " | null"
-            : inner;
-        const parse = (text) => SimpleParser.parseTopLevelStatement(`type __JSON_LAZY = ${text};`).type;
-        const parents = scope ? scope.split(".") : [];
-        for (let depth = parents.length; depth >= 0; depth--) {
-            const qualified = [...parents.slice(0, depth), name].join(".");
-            if (source.getClass(qualified))
-                return null;
-            const alias = source.aliases.find((candidate) => candidate.name === qualified);
-            if (!alias)
-                continue;
-            if (alias.name === "JSON.Lazy" &&
-                alias.declaration &&
-                (alias.declaration.range.source.internalPath ===
-                    runtime?.internalPath ||
-                    alias.declaration.range.source.internalPath ===
-                        process.env["JSON_AS_LIBRARY_SOURCE"] ||
-                    alias.declaration.range.source.internalPath.endsWith("/json-as/assembly/index") ||
-                    (alias.declaration.range.source.internalPath.endsWith("assembly/index") &&
-                        source.getClass("JSON.Value")))) {
-                return named.typeArguments?.length === 1
-                    ? nullable(toString(named.typeArguments[0]))
-                    : null;
-            }
-            if (!alias.arguments(named.typeArguments ?? []))
-                return null;
-            return nullable(this.lazyInnerType(parse(alias.getBaseType(named.typeArguments ?? [])), source, alias.name.split(".").slice(0, -1).join("."), seen));
-        }
-        const binding = source.getImportedBinding(name, this.parser);
-        if (binding) {
-            const arguments_ = named.typeArguments?.length
-                ? `<${named.typeArguments.map((argument) => toString(argument)).join(",")}>`
-                : "";
-            const inner = this.lazyInnerType(parse(binding.name + arguments_), binding.source, "", seen);
-            const alias = binding.source.aliases.find((item) => item.name === binding.name);
-            if (inner !== null && alias?.declaration)
-                return nullable(toString(type));
-            return nullable(inner);
-        }
-        if (name === "JSON.Lazy" && runtime && named.typeArguments?.length === 1)
-            return nullable(toString(named.typeArguments[0]));
-        return null;
+        const meaning = source.resolveTypeMeaning(toString(type), scope, this.parser, owner ? source.classTypeParameters(owner) : new Map(), (alias) => alias.name === "JSON.Lazy" &&
+            alias.declaration?.range.source === runtime);
+        if (meaning.name !== "JSON.Lazy" || meaning.arguments.length !== 1)
+            return null;
+        const inner = {
+            ...meaning.arguments[0],
+            nullable: meaning.nullable || meaning.arguments[0].nullable,
+        };
+        const resolved = typeMeaningText(inner);
+        return isPrimitive(stripNull(resolved)) || isString(resolved)
+            ? resolved
+            : toString(type) + (inner.nullable && !type.isNullable ? " | null" : "");
     }
     prepareLazyOverrides(sources) {
         const specs = new Map();
@@ -363,7 +326,7 @@ export class JSONTransform extends Visitor {
                         .split(".")
                         .slice(0, -1)
                         .join(".");
-                    const inner = this.lazyInnerType(field.type, src, scope);
+                    const inner = this.lazyInnerType(field.type, src, scope, owner);
                     const auto = mode !== "none" &&
                         !has(field, "eager") &&
                         !has(field, "omit") &&
@@ -1011,7 +974,7 @@ export class JSONTransform extends Visitor {
             const decos = fd.decorators;
             const hasDeco = (name) => decos?.some((d) => d.name.text === name) ??
                 false;
-            let inner = this.lazyInnerType(fd.type, source, source.getQualifiedName(node).split(".").slice(0, -1).join("."));
+            let inner = this.lazyInnerType(fd.type, source, source.getQualifiedName(node).split(".").slice(0, -1).join("."), node);
             if (inner === null) {
                 if (hasDeco("lazy")) {
                     inner = written;
@@ -1562,6 +1525,7 @@ export class JSONTransform extends Visitor {
                 " but schemas can only have one deserializer!", deserializers[1].range);
         if (serializers.length) {
             this.schema.custom = true;
+            this.schema.ownCustomWriter = true;
             const serializer = serializers[0];
             const serializerJsonKind = parseCustomJsonKind(serializer, "serializer");
             this.schema.customJsonKind = serializerJsonKind;
@@ -1611,6 +1575,7 @@ export class JSONTransform extends Visitor {
         }
         if (deserializers.length) {
             this.schema.custom = true;
+            this.schema.ownCustomReader = true;
             const deserializer = deserializers[0];
             const deserializerJsonKind = parseCustomJsonKind(deserializer, "deserializer");
             if (this.schema.customJsonKind != "any" &&
@@ -1640,7 +1605,7 @@ export class JSONTransform extends Visitor {
                 throwError("Custom deserializer parameter must be string", inputType?.range || deserializer.range);
             const returnType = deserializer.signature.returnType;
             const returnName = returnType
-                ? toString(returnType.name)
+                ? this.resolveType(toString(returnType), source, new Set(), codecScope, false, node)
                 : "";
             const returnDeclaration = returnType
                 ? source.resolveClass(toString(returnType), node, this.parser)
@@ -1718,7 +1683,7 @@ export class JSONTransform extends Visitor {
                     encoded,
                 });
             }
-            mem.custom = !!this.getSchema(type)?.custom;
+            mem.custom = !!this.getSchema(type)?.customReader;
             const lzInner = lazyInner.get(name.text);
             if (lzInner !== undefined) {
                 mem.flags.set(PropertyFlags.Lazy, null);
@@ -1829,6 +1794,7 @@ export class JSONTransform extends Visitor {
             !hasTypeParams &&
             !this.schema.members.some((member) => member.generic) &&
             (this.schema.static || supportsFastOptionalPath);
+        this.schema.fastReader = useFastPath && !DESERIALIZE_CUSTOM;
         indent = "  ";
         if (this.schema.static == false) {
             if (this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull))) {
@@ -1971,12 +1937,7 @@ export class JSONTransform extends Visitor {
                     INITIALIZE += __valInit;
             }
             else if (member.generic && !member.nullable) {
-                INITIALIZE += `  if (isNullable<${member.type}>()) {\n`;
-                INITIALIZE += `    store<${member.type}>(changetype<usize>(this), changetype<${member.type}>(0), offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                INITIALIZE += `  } else if (isManaged<nonnull<${member.type}>>() || isReference<nonnull<${member.type}>>()) {\n`;
-                INITIALIZE += `    store<${member.type}>(changetype<usize>(this), changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())), offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                INITIALIZE += `    if (isDefined(this.${member.name}.__INITIALIZE)) changetype<nonnull<${member.type}>>(this.${member.name}).__INITIALIZE();\n`;
-                INITIALIZE += `  }\n`;
+                INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${this.runtimeReference()}.__lazyDefault<${member.type}>(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
             }
             else if (!member.nullable) {
                 if (this.getSchema(member.type)) {
@@ -2149,7 +2110,7 @@ export class JSONTransform extends Visitor {
         };
         for (const member of this.schema.members) {
             const type = stripNull(member.type);
-            const customDep = this.getSchema(type)?.custom
+            const customDep = this.getSchema(type)?.customReader
                 ? this.getSchema(type)
                 : null;
             const isCustomType = member.custom || !!customDep;
@@ -2392,7 +2353,7 @@ export class JSONTransform extends Visitor {
                 out.push(`${srcPtr} = __deserializeFloatField<${resolvedType}>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 out.push(`if (!${srcPtr}) break;`);
             }
-            else if (resolvedSchema?.custom) {
+            else if (resolvedSchema?.customReader) {
                 out.push("{");
                 if (member.nullable) {
                     out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
@@ -2410,8 +2371,8 @@ export class JSONTransform extends Visitor {
                 }
                 out.push("}");
             }
-            else if (resolvedSchema && !resolvedSchema.custom) {
-                if (fastPath) {
+            else if (resolvedSchema && !resolvedSchema.customReader) {
+                if (fastPath && resolvedSchema.fastReader) {
                     out.push("{");
                     if (member.nullable) {
                         out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
@@ -2456,7 +2417,7 @@ export class JSONTransform extends Visitor {
                 out.push(`  const valueStart = ${valuePtr};`);
                 out.push(`  const valueEnd = JSON.Util.scanValueEnd<${resolvedType}>(valueStart, srcEnd);`);
                 out.push("  if (!valueEnd) break;");
-                if (fastPath) {
+                if (fastPath && resolvedSchema.fastReader) {
                     out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(valueStart, valueEnd, value);`);
                 }
                 else {
@@ -2533,7 +2494,10 @@ export class JSONTransform extends Visitor {
                     return out;
                 }
                 const valueSchema = valueType ? this.getSchema(valueType) : null;
-                if (fastPath && valueType && valueSchema && !valueSchema.custom) {
+                if (fastPath &&
+                    valueType &&
+                    valueSchema?.fastReader &&
+                    !valueSchema.customReader) {
                     out.push(`  if (load<u16>(${valuePtr}) != 0x5b) break;`);
                     out.push(`  let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`);
                     out.push("  if (changetype<usize>(value) == 0) {");
@@ -3412,7 +3376,7 @@ export class JSONTransform extends Visitor {
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
             const offset = JSON.stringify(member.name);
             const memberSchema = this.getSchema(member.type);
-            if (memberSchema?.custom) {
+            if (memberSchema?.customReader) {
                 return (prefix +
                     `store<${member.type}>(changetype<usize>(out), ${getCustomDeserializeExpression(member.type, valueStart, valueEnd)}, offsetof<this>(${offset}));\n`);
             }
@@ -3427,7 +3391,7 @@ export class JSONTransform extends Visitor {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
             if (member.generic ||
-                this.getSchema(member.type)?.custom ||
+                this.getSchema(member.type)?.customReader ||
                 stripNull(member.type) === "JSON.Raw" ||
                 stripNull(member.type) === "JSON.Value")
                 return getSlowValueStore(member, valueStart, valueEnd, prefix);
@@ -3445,7 +3409,7 @@ export class JSONTransform extends Visitor {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
             if (member.generic ||
-                ((this.getSchema(member.type)?.custom ||
+                ((this.getSchema(member.type)?.customReader ||
                     ["JSON.Raw", "JSON.Value"].includes(stripNull(member.type))) &&
                     !member.nullable))
                 return getSlowValueStore(member, valueStart, valueEnd, prefix);

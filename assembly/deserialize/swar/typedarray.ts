@@ -76,6 +76,21 @@ function parseLooseFloatFallback<E>(
  * a length update if the runtime supports in-place shrink), much
  * cheaper than a second 64 MB scan over the input.
  */
+@inline
+function exactTypedArray<T>(): bool {
+  return idof<T>() == idof<Int8Array>() ||
+    idof<T>() == idof<Uint8Array>() ||
+    idof<T>() == idof<Uint8ClampedArray>() ||
+    idof<T>() == idof<Int16Array>() ||
+    idof<T>() == idof<Uint16Array>() ||
+    idof<T>() == idof<Int32Array>() ||
+    idof<T>() == idof<Uint32Array>() ||
+    idof<T>() == idof<Int64Array>() ||
+    idof<T>() == idof<Uint64Array>() ||
+    idof<T>() == idof<Float32Array>() ||
+    idof<T>() == idof<Float64Array>();
+}
+
 export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   srcStart: usize,
   srcEnd: usize,
@@ -103,7 +118,7 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   }
 
   const elementSize = sizeof<valueof<T>>();
-  const maxElements = dst
+  const maxElements = dst || !exactTypedArray<T>()
     ? countArrayElements(srcStart, srcEnd)
     : i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
   let out = changetype<T>(

@@ -1,3 +1,4 @@
+import { NativeMap, NativeSet } from "../util/native-collections";
 import {
   parseDateTime,
   parseCanonicalDate,
@@ -405,7 +406,7 @@ export function readCursorValue<T>(
           depth + 1,
         );
         if (!ptr) return 0;
-        out.add(slot.value);
+        changetype<NativeSet<indexof<T>>>(out).nativeAdd(slot.value);
         ptr = skipCursorWhitespace(ptr, end);
         if (ptr >= end) return 0;
         const code = load<u16>(ptr);
@@ -449,7 +450,7 @@ export function readCursorValue<T>(
           depth + 1,
         );
         if (!ptr) return 0;
-        out.set(key.value, value.value);
+        changetype<NativeMap<string, valueof<T>>>(out).nativeSet(key.value, value.value);
         ptr = skipCursorWhitespace(ptr, end);
         if (ptr >= end) return 0;
         const code = load<u16>(ptr);

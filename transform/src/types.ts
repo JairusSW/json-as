@@ -94,7 +94,7 @@ export class Property {
     }
 
     for (const dep of this.parent.deps) {
-      if (this.name == dep.name && dep.custom) {
+      if (this.name == dep.name && dep.customReader) {
         // console.log("Custom (Dependency): " + this.name);
         this._custom = true;
         return true;
@@ -133,6 +133,16 @@ export class Schema {
   public byteSize: number = 0;
   public deps: Schema[] = [];
   public customJsonKind: string = "any";
+  // Directional dispatch capabilities; `custom` remains combined effect metadata.
+  public ownCustomReader: boolean = false;
+  public ownCustomWriter: boolean = false;
+  public fastReader: boolean = false;
+  get customReader(): boolean {
+    return this.ownCustomReader || !!this.parent?.customReader;
+  }
+  get customWriter(): boolean {
+    return this.ownCustomWriter || !!this.parent?.customWriter;
+  }
   public hasCustomCursorLifecycle: boolean = false;
   public hasInternalInitializers: boolean = false;
   public hasInitializerEffects: boolean = false;
@@ -459,6 +469,7 @@ export class Src {
     scope: string,
     parser: Parser,
     supplied = new Map<string, TypeArgumentContext>(),
+    preserveAlias?: (alias: TypeAlias, source: Src) => boolean,
   ): TypeMeaning {
     type Use = {
       type: asc.TypeNode;
@@ -541,6 +552,15 @@ export class Src {
         ...use,
         type,
       }));
+      if (alias?.declaration && preserveAlias?.(alias, owner)) {
+        return {
+          name: alias.name,
+          nullable: !!node.isNullable,
+          arguments: arguments_.map((argument) => resolve(argument, depth + 1)),
+          source: owner,
+          declaration: null,
+        };
+      }
       if (alias?.declaration) {
         if (
           use.trail.has(alias.declaration) ||
