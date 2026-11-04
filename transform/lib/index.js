@@ -5,6 +5,7 @@ import { writeFileSync } from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { CustomTransform } from "./linkers/custom.js";
+import { TypeAlias } from "./linkers/alias.js";
 import { NodeKind } from "./types.js";
 import { Property, PropertyFlags, Schema, SourceSet } from "./types.js";
 import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from "./util.js";
@@ -151,8 +152,8 @@ function getSerializeCall(type, realName) {
         return syncSerializeCursor(`JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
     }
     return syncSerializeCursor(needsReferenceLoad(type)
-        ? `JSON.__serialize<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n`
-        : `JSON.__serialize<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
+        ? `JSON.__serializeLazyValue<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n`
+        : `JSON.__serializeLazyValue<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
 }
 const CUSTOM_JSON_KINDS = new Set([
     "any",
@@ -234,6 +235,30 @@ export class JSONTransform extends Visitor {
     simdStatements = new Map();
     visitedClasses = new Set();
     eagerOverrides = new Set();
+    lazySourceFields = new Map();
+    lazySourceInstalled = new Set();
+    unusedMemberName(node, stem) {
+        const names = new Set();
+        const visited = new Set();
+        let current = node;
+        while (current && !visited.has(current)) {
+            visited.add(current);
+            for (const member of current.members)
+                names.add(member.name.text);
+            const source = this.sources.get(current.range.source);
+            const parent = current.extendsType
+                ? toString(current.extendsType.name)
+                : "";
+            current = parent
+                ? source.getClassInContext(parent, current) ||
+                    source.getImportedClass(parent, this.parser)
+                : null;
+        }
+        let name = stem;
+        for (let suffix = 1; names.has(name); suffix++)
+            name = stem + "_" + suffix;
+        return name;
+    }
     lazyRuntimeSource;
     lazyInnerType(type, source, scope = "", seen = new Set()) {
         if (!type || type.kind !== NodeKind.NamedType)
@@ -281,29 +306,17 @@ export class JSONTransform extends Visitor {
                 return null;
             return nullable(this.lazyInnerType(parse(alias.getBaseType(named.typeArguments ?? [])), source, alias.name.split(".").slice(0, -1).join("."), seen));
         }
-        const parts = name.split(".");
-        for (const statement of source.imports) {
-            const declaration = statement.declarations?.find((candidate) => candidate.name.text === parts[0]);
-            const wildcard = statement.namespaceName?.text === parts[0];
-            if (!declaration && !wildcard)
-                continue;
-            const external = this.parser.sources.find((candidate) => candidate.internalPath === statement.internalPath ||
-                candidate.internalPath === statement.internalPath + "/index");
-            if (!external)
-                return null;
-            const target = declaration
-                ? [declaration.foreignName.text, ...parts.slice(1)].join(".")
-                : parts.slice(1).join(".");
+        const binding = source.getImportedBinding(name, this.parser);
+        if (binding) {
             const arguments_ = named.typeArguments?.length
                 ? `<${named.typeArguments.map((argument) => toString(argument)).join(",")}>`
                 : "";
-            const externalSrc = this.sources.get(external);
-            const inner = this.lazyInnerType(parse(target + arguments_), externalSrc, "", seen);
-            const importedAlias = externalSrc.aliases.find((alias) => alias.name === target);
+            const inner = this.lazyInnerType(parse(binding.name + arguments_), binding.source, "", seen);
+            const alias = binding.source.aliases.find((item) => item.name === binding.name);
             if (inner !== null &&
                 !named.typeArguments?.length &&
-                importedAlias?.declaration &&
-                externalSrc.getClassInContext(inner, importedAlias.declaration))
+                alias?.declaration &&
+                binding.source.getClassInContext(inner, alias.declaration))
                 return nullable(toString(type));
             return nullable(inner);
         }
@@ -405,6 +418,123 @@ export class JSONTransform extends Visitor {
             }
         }
     }
+    usesBuiltinRepresentation(node, visited = new Set()) {
+        if (visited.has(node))
+            return false;
+        visited.add(node);
+        if (node.decorators?.some((decorator) => ["json", "serializable"].includes(toString(decorator.name))))
+            return false;
+        const builtins = [
+            "Array",
+            "Map",
+            "Set",
+            "StaticArray",
+            "ArrayBuffer",
+            "Int8Array",
+            "Uint8Array",
+            "Uint8ClampedArray",
+            "Int16Array",
+            "Uint16Array",
+            "Int32Array",
+            "Uint32Array",
+            "Int64Array",
+            "Uint64Array",
+            "Float32Array",
+            "Float64Array",
+            "Date",
+        ];
+        if (isStdlib(node) && builtins.includes(node.name.text))
+            return true;
+        const source = this.sources.get(node.range.source);
+        if (node.range.source.internalPath === this.lazyRuntimeSource?.internalPath &&
+            ["JSON.Raw", "JSON.Value", "JSON.Obj", "JSON.Arr", "JSON.Box"].includes(source.getQualifiedName(node)))
+            return true;
+        if (!node.extendsType)
+            return false;
+        const name = toString(node.extendsType.name);
+        const parent = source.getClassInContext(name, node) ||
+            source.getImportedClass(name, this.parser) ||
+            source.getAvailableClass(name, this.parser);
+        return parent
+            ? this.usesBuiltinRepresentation(parent, visited)
+            : builtins.includes(name);
+    }
+    inheritedAliases = new Map();
+    inheritedAliasId = 0;
+    inheritedTypeBinding(member, parent, child) {
+        const owner = parent.node.range.source;
+        const source = this.sources.get(owner);
+        let name = this.inheritedAliases.get(member);
+        const parameters = parent.node.typeParameters ?? [];
+        const parameterNames = parameters.map((parameter) => parameter.name.text);
+        const declarationParameters = parameters.length
+            ? `<${parameters.map((parameter) => toString(parameter)).join(",")}>`
+            : "";
+        const useParameters = parameters.length
+            ? `<${parameterNames.join(",")}>`
+            : "";
+        if (!name) {
+            do {
+                name = "__JSON_FieldType_" + this.inheritedAliasId++;
+            } while (this.parser.sources.some((file) => file.text.includes(name)));
+            const scope = source
+                .getQualifiedName(parent.node)
+                .split(".")
+                .slice(0, -1);
+            let statements = owner.statements;
+            let namespace = null;
+            const namespaces = [];
+            for (const part of scope) {
+                namespace = statements.find((statement) => statement.kind === NodeKind.NamespaceDeclaration &&
+                    statement.name.text === part);
+                namespaces.push(namespace);
+                statements = namespace.members;
+            }
+            const addAlias = (local, type, into, ns) => {
+                const declaration = SimpleParser.parseTopLevelStatement(`export type ${local}${declarationParameters} = ${type};`, ns);
+                class OwnRanges extends Visitor {
+                    _visit(node, reference) {
+                        node.range = parent.node.range;
+                        super._visit(node, reference);
+                    }
+                }
+                new OwnRanges().visit(declaration);
+                into.push(declaration);
+                const alias = new TypeAlias([...scope.slice(0, ns ? scope.length : 0), local].join("."), type);
+                alias.parameters = parameterNames;
+                alias.declaration = declaration;
+                source.registerAlias(alias, ns ? namespaces : []);
+            };
+            addAlias(name, member.lazyInner || member.type, statements, namespace);
+            if (scope.length) {
+                const exported = name + "_Export";
+                addAlias(exported, scope.join(".") + "." + name + useParameters, owner.statements, null);
+                name = exported;
+            }
+            this.inheritedAliases.set(member, name);
+        }
+        const target = child.range.source;
+        if (!target.statements.some((statement) => statement.kind === NodeKind.Import &&
+            statement.declarations?.some((item) => item.name.text === name))) {
+            const relative = path.posix.relative(path.posix.dirname(target.internalPath), owner.internalPath);
+            const module = owner.internalPath.startsWith("~lib/")
+                ? owner.internalPath.slice(5)
+                : relative.startsWith(".")
+                    ? relative
+                    : "./" + relative;
+            target.statements.unshift(Node.createImportStatement([
+                Node.createImportDeclaration(Node.createIdentifierExpression(name, child.range, false), null, child.range),
+            ], Node.createStringLiteralExpression(module, child.range), child.range));
+            target.statements[0].internalPath =
+                owner.internalPath;
+            this.sources
+                .get(target)
+                .imports.push(target.statements[0]);
+        }
+        const arguments_ = child.extendsType?.typeArguments?.map((argument) => toString(argument)) ??
+            [];
+        return name + (parameters.length ? `<${arguments_.join(",")}>` : "");
+    }
     lazyMetadata = new Map();
     collectInheritedFieldMembers(node, source, members, visited = new Set()) {
         if (!node.extendsType)
@@ -496,33 +626,18 @@ export class JSONTransform extends Visitor {
                     ? " | null"
                     : ""));
         }
-        for (const imp of source.imports) {
-            if (!imp.declarations)
-                continue;
-            for (const decl of imp.declarations) {
-                if (decl.name.text === bareName) {
-                    const externalSource = this.parser.sources.find((s) => s.internalPath === imp.internalPath);
-                    if (externalSource) {
-                        const externalSrc = this.sources.get(externalSource);
-                        if (!externalSrc)
-                            continue;
-                        const externalAlias = externalSrc.aliases.find((a) => a.name === decl.foreignName.text);
-                        if (externalAlias) {
-                            if (externalAlias.parameters.length !== arguments_().length)
-                                return type;
-                            const externalType = externalAlias.getBaseType(arguments_());
-                            if (preserveClassAliases &&
-                                externalAlias.declaration &&
-                                externalSrc.getClassInContext(stripNull(externalType), externalAlias.declaration))
-                                return type;
-                            return (this.resolveType(externalType, externalSrc, visited, externalAlias.name.split(".").slice(0, -1).join("."), preserveClassAliases) +
-                                (type !== stripped && !externalType.endsWith(" | null")
-                                    ? " | null"
-                                    : ""));
-                        }
-                    }
-                }
-            }
+        const binding = source.getImportedBinding(bareName, this.parser);
+        const externalAlias = binding?.source.aliases.find((alias) => alias.name === binding.name);
+        if (externalAlias) {
+            if (externalAlias.parameters.length !== arguments_().length)
+                return type;
+            if (preserveClassAliases)
+                return type;
+            const externalType = externalAlias.getBaseType(arguments_());
+            return (this.resolveType(externalType, binding.source, visited, externalAlias.name.split(".").slice(0, -1).join("."), false) +
+                (type !== stripped && !externalType.endsWith(" | null")
+                    ? " | null"
+                    : ""));
         }
         return type;
     }
@@ -765,6 +880,11 @@ export class JSONTransform extends Visitor {
             }) ??
                 false));
         let __hasLazy = false;
+        let sourceField = this.lazySourceFields.get(node);
+        if (!sourceField) {
+            sourceField = this.unusedMemberName(node, "__src");
+            this.lazySourceFields.set(node, sourceField);
+        }
         const __lazyValInits = new Map();
         for (let i = node.members.length - 1; i >= 0; i--) {
             const fd = node.members[i];
@@ -807,6 +927,11 @@ export class JSONTransform extends Visitor {
                     "bypass the generated (de)serializer, so the deferred slot is never filled. " +
                     "Remove the lazy marker or the custom (de)serializer.", fd.range);
             const fname = fd.name.text;
+            let backing = "__" + fname;
+            for (let suffix = 1; node.members.some((member) => member.name.text === backing + "_lz" ||
+                member.name.text === backing + "_val"); suffix++)
+                backing = "__" + fname + "_" + suffix;
+            const slotName = backing + "_lz";
             const alias = decos?.find((d) => d.name.text === "alias");
             const key = alias?.args?.[0]
                 ? toString(alias.args[0])
@@ -815,7 +940,9 @@ export class JSONTransform extends Visitor {
             const T = inner;
             const baseT = stripNull(T);
             const storesScalar = isPrimitive(baseT) || isEnum(baseT, source, this.parser);
-            const valueType = storesScalar || baseT != T ? T : `${T} | null`;
+            const inferredInner = node.typeParameters?.some((parameter) => parameter.name.text === baseT) ||
+                this.resolveType(T, source, new Set(), source.getQualifiedName(node).split(".").slice(0, -1).join("."), false) !== T;
+            const valueType = inferredInner || storesScalar || baseT != T ? T : `${T} | null`;
             const valueDefault = isBoolean(baseT)
                 ? "false"
                 : storesScalar
@@ -825,14 +952,16 @@ export class JSONTransform extends Visitor {
             const fieldDefault = fdInit ? toString(fdInit) : null;
             const refDefault = fieldDefault != null
                 ? fieldDefault
-                : !storesScalar && baseT == T && !baseT.startsWith("StaticArray<")
-                    ? baseT == "string" || baseT == "String"
-                        ? '""'
-                        : `new ${baseT}()`
-                    : null;
+                : inferredInner
+                    ? `JSON.__lazyDefault<${T}>()`
+                    : !storesScalar && baseT == T && !baseT.startsWith("StaticArray<")
+                        ? baseT == "string" || baseT == "String"
+                            ? '""'
+                            : `new ${baseT}()`
+                        : null;
             __hasLazy = true;
             const omitIfDeco = decos?.find((d) => d.name.text === "omitif");
-            lazyInner.set("__" + fname + "_lz", {
+            lazyInner.set(slotName, {
                 inner: T,
                 valueType,
                 scalar: storesScalar,
@@ -854,44 +983,44 @@ export class JSONTransform extends Visitor {
             const decSlot = (lz) => baseT === "f32"
                 ? `reinterpret<f32>(<u32>(${lz}))`
                 : `(<${T}>(<u32>(${lz})))`;
-            lazyInner.get("__" + fname + "_lz").packed = packScalar;
+            lazyInner.get(slotName).packed = packScalar;
             const lowered = (packScalar
                 ? [
-                    `@alias(${key}) ${optional}private __${fname}_lz: u64 = ${fieldDefault != null
+                    `@alias(${key}) ${optional}private ${backing}_lz: u64 = ${fieldDefault != null
                         ? `(((<u64>0xffffffff) << 32) | ${encVal(`<${T}>(${fieldDefault})`)})`
                         : "0"};`,
                     `get ${fname}(): ${T} {\n` +
-                        `  const __lz = this.__${fname}_lz;\n` +
+                        `  const __lz = this.${backing}_lz;\n` +
                         `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
                         `  if (__lz != 0) {\n` +
-                        `    const __v = JSON.__deserializeLazy<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz), this.__src);\n` +
-                        `    this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("__v")};\n` +
+                        `    const __v = JSON.__deserializeLazy<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz), this.${sourceField});\n` +
+                        `    this.${backing}_lz = ((<u64>0xffffffff) << 32) | ${encVal("__v")};\n` +
                         `    return __v;\n` +
                         `  }\n` +
                         `  return ${valueDefault};\n}`,
                     `set ${fname}(value: ${T}) {\n` +
-                        `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
+                        `  this.${backing}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
                 ]
                 : [
-                    `@alias(${key}) ${optional}private __${fname}_lz: u64 = ${refDefault != null ? "u64.MAX_VALUE" : "0"};`,
-                    `private __${fname}_val: ${valueType} = ${refDefault ?? valueDefault};`,
+                    `@alias(${key}) ${optional}private ${backing}_lz: u64 = ${refDefault != null ? "u64.MAX_VALUE" : "0"};`,
+                    `private ${backing}_val: ${valueType} = ${refDefault ?? valueDefault};`,
                     `get ${fname}(): ${T} {\n` +
-                        `  const __lz = this.__${fname}_lz;\n` +
+                        `  const __lz = this.${backing}_lz;\n` +
                         `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +
-                        `    this.__${fname}_val = JSON.__deserializeLazy<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz), this.__src);\n` +
-                        `    this.__${fname}_lz = u64.MAX_VALUE;\n` +
+                        `    this.${backing}_val = JSON.__deserializeLazy<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz), this.${sourceField});\n` +
+                        `    this.${backing}_lz = u64.MAX_VALUE;\n` +
                         `  }\n` +
-                        `  return this.__${fname}_val as ${T};\n}`,
+                        `  return this.${backing}_val as ${T};\n}`,
                     `set ${fname}(value: ${T}) {\n` +
-                        `  this.__${fname}_val = value;\n` +
-                        `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
+                        `  this.${backing}_val = value;\n` +
+                        `  this.${backing}_lz = u64.MAX_VALUE;\n}`,
                 ]).map((src) => SimpleParser.parseClassMember(src, node));
             node.members.splice(i, 1, ...lowered);
-            this.lazyMetadata.set(lowered[0], lazyInner.get("__" + fname + "_lz"));
+            this.lazyMetadata.set(lowered[0], lazyInner.get(slotName));
             if (!packScalar && refDefault != null) {
-                const valueInit = `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`__${fname}_val`)}));\n`;
-                __lazyValInits.set(`__${fname}_lz`, valueInit);
-                lazyInner.get(`__${fname}_lz`).valueInit = valueInit;
+                const valueInit = `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`${backing}_val`)}));\n`;
+                __lazyValInits.set(`${backing}_lz`, valueInit);
+                lazyInner.get(`${backing}_lz`).valueInit = valueInit;
             }
         }
         const members = [
@@ -970,7 +1099,7 @@ export class JSONTransform extends Visitor {
                     }
                     else {
                         const externalSearch = source.getImportedClass(extendsName, this.parser);
-                        if (externalSearch) {
+                        if (externalSearch?.decorators?.some((decorator) => ["json", "serializable"].includes(toString(decorator.name)))) {
                             if (DEBUG > 0)
                                 console.log("Found " +
                                     externalSearch.name.text +
@@ -1091,6 +1220,30 @@ export class JSONTransform extends Visitor {
                             });
                         }
                     }
+                    const inheritedLazy = this.lazyMetadata.get(declaration);
+                    if (schema.parent.node.range.source !== node.range.source &&
+                        inheritedLazy &&
+                        !isPrimitive(inheritedLazy.inner) &&
+                        !isString(inheritedLazy.inner)) {
+                        declaration = cloneNode(declaration);
+                        const binding = this.inheritedTypeBinding(inherited, schema.parent, node);
+                        this.lazyMetadata.set(declaration, {
+                            ...inheritedLazy,
+                            inner: binding,
+                            valueType: binding +
+                                (inheritedLazy.valueType.endsWith(" | null") &&
+                                    !inheritedLazy.inner.endsWith(" | null")
+                                    ? " | null"
+                                    : ""),
+                        });
+                    }
+                    if (schema.parent.node.range.source !== node.range.source &&
+                        !isPrimitive(inherited.type) &&
+                        !isString(inherited.type)) {
+                        declaration = cloneNode(declaration);
+                        const binding = this.inheritedTypeBinding(inherited, schema.parent, node);
+                        declaration.type = SimpleParser.parseClassMember(`__type: ${binding};`, node).type;
+                    }
                     members.unshift(declaration);
                 }
             }
@@ -1124,6 +1277,10 @@ export class JSONTransform extends Visitor {
             else if (type == node.name.text) {
                 return types;
             }
+            const declaration = source.getClassInContext(type, node) ||
+                source.getImportedClass(type, this.parser);
+            if (declaration && this.usesBuiltinRepresentation(declaration))
+                return types;
             types.push(type);
             return types;
         };
@@ -1215,16 +1372,16 @@ export class JSONTransform extends Visitor {
         }
         __hasLazy = lazyInner.size > 0;
         const inheritsLazy = schema.parent?.members.some((member) => member.flags.has(PropertyFlags.Lazy));
-        if (__hasLazy &&
-            !inheritsLazy &&
-            !node.members.some((member) => member.name.text === "__src")) {
-            node.members.push(SimpleParser.parseClassMember(`protected __src: string = "";`, node), SimpleParser.parseClassMember(`@inline __SET_SRC(s: string): void { this.__src = s; }`, node));
+        const ownsLazy = node.members.some((member) => this.lazyMetadata.has(member));
+        if (ownsLazy && !this.lazySourceInstalled.has(node)) {
+            node.members.push(SimpleParser.parseClassMember(`protected ${sourceField}: string = "";`, node), SimpleParser.parseClassMember(`@inline __SET_SRC(s: string): void { ${inheritsLazy ? "super.__SET_SRC(s); " : ""}this.${sourceField} = s; }`, node));
+            this.lazySourceInstalled.add(node);
         }
         this.schemas.get(source.internalPath).push(schema);
         this.schema = schema;
         this.visitedClasses.add(fullClassPath);
         const wireNodes = new Set(members);
-        const generatedBacking = (field) => (__hasLazy && field.name.text === "__src") ||
+        const generatedBacking = (field) => (__hasLazy && field.name.text === sourceField) ||
             members.some((member) => this.lazyMetadata.has(member) &&
                 field.name.text === member.name.text.slice(0, -3) + "_val");
         schema.hasInternalInitializers =
@@ -1291,19 +1448,23 @@ export class JSONTransform extends Visitor {
                     ", but serializers can only accept one parameter of type '" +
                     this.schema.name +
                     "'!", serializer.signature.parameters[1].range);
-            if (serializer.signature.parameters.length > 0 &&
-                serializer.signature.parameters[0].type.name.identifier
-                    .text != node.name.text &&
-                serializer.signature.parameters[0].type.name.identifier
-                    .text != "this")
-                throwError("Type of parameter for custom serializer does not match! It should be 'string'either be 'this' or '" +
-                    this.schema.name +
-                    "'", serializer.signature.parameters[0].type.range);
-            if (!serializer.signature.returnType ||
-                !(serializer.signature.returnType).name.identifier.text.includes("string"))
-                throwError("Could not find valid return type for serializer in " +
-                    this.schema.name +
-                    "!. Set the return type to type 'string' and try again", serializer.signature.returnType.range);
+            const codecScope = source
+                .getQualifiedName(node)
+                .split(".")
+                .slice(0, -1)
+                .join(".");
+            const selfType = serializer.signature.parameters[0]?.type;
+            const selfName = selfType
+                ? this.resolveType(toString(selfType), source, new Set(), codecScope, false)
+                : "this";
+            const selfDeclaration = source.getClassInContext(selfName, node) ||
+                source.getImportedClass(selfName, this.parser);
+            if (selfName !== "this" && selfDeclaration !== node)
+                throwError(`Custom serializer parameter must name this or ${this.schema.name}`, selfType.range);
+            const outputType = serializer.signature.returnType;
+            if (!outputType ||
+                this.resolveType(toString(outputType), source, new Set(), codecScope, false) !== "string")
+                throwError(`Custom serializer for ${this.schema.name} must return string`, outputType?.range || serializer.range);
             if (!serializer.decorators.some((v) => v.name.text == "inline")) {
                 serializer.decorators.push(Node.createDecorator(Node.createIdentifierExpression("inline", serializer.range), null, serializer.range));
             }
@@ -1345,9 +1506,15 @@ export class JSONTransform extends Visitor {
                 throwError("Found too many parameters in custom deserializer for " +
                     this.schema.name +
                     ", but deserializers can only accept one parameter of type 'string'!", deserializer.signature.parameters[1].range);
-            if (deserializer.signature.parameters[0].type.name
-                .identifier.text != "string")
-                throwError("Type of parameter for custom deserializer does not match! It must be 'string'", deserializer.signature.parameters[0].type.range);
+            const inputType = deserializer.signature.parameters[0].type;
+            const codecScope = source
+                .getQualifiedName(node)
+                .split(".")
+                .slice(0, -1)
+                .join(".");
+            if (!inputType ||
+                this.resolveType(toString(inputType), source, new Set(), codecScope, false) !== "string")
+                throwError("Custom deserializer parameter must be string", inputType?.range || deserializer.range);
             const returnType = deserializer.signature.returnType;
             const returnName = returnType
                 ? toString(returnType.name)
@@ -1397,6 +1564,15 @@ export class JSONTransform extends Visitor {
             const effectiveType = this.resolveType(toString(member.type), source, new Set(), source.getQualifiedName(node).split(".").slice(0, -1).join("."), false);
             mem.nullable =
                 member.type.isNullable || effectiveType !== stripNull(effectiveType);
+            if (stripNull(effectiveType) !== stripNull(mem.type))
+                mem.generic = true;
+            const representation = source.getClassInContext(stripNull(mem.type), node) ||
+                source.getImportedClass(stripNull(mem.type), this.parser);
+            if (representation &&
+                this.usesBuiltinRepresentation(representation) &&
+                !["JSON.Raw", "JSON.Value", "JSON.Obj", "JSON.Arr"].includes(stripNull(mem.type)) &&
+                !stripNull(mem.type).startsWith("JSON.Box<"))
+                mem.generic = true;
             mem.value = value;
             mem.node = member;
             mem.byteSize = estimatedSerializedByteSize(mem.type, source, this.parser);
@@ -1474,6 +1650,38 @@ export class JSONTransform extends Visitor {
                     }
                 }
             }
+            if (mem.flags.has(PropertyFlags.OmitIf)) {
+                const inherited = this.schema.parent?.members.find((parent) => parent.name === mem.name);
+                if (inherited?.omitIfMethod && !node.members.includes(member)) {
+                    mem.omitIfMethod = inherited.omitIfMethod;
+                }
+                else {
+                    const expression = mem.flags.get(PropertyFlags.OmitIf);
+                    const zeroParameters = expression.kind === NodeKind.Function &&
+                        !expression.declaration.signature.parameters
+                            .length;
+                    if (expression.kind === NodeKind.Function) {
+                        const signature = expression.declaration
+                            .signature;
+                        if (signature.parameters.length)
+                            signature.parameters[0].type = Node.createNamedType(Node.createSimpleTypeName("this", node.range), null, false, node.range);
+                        signature.returnType = Node.createNamedType(Node.createSimpleTypeName("bool", node.range), null, false, node.range);
+                    }
+                    const rendered = expression.kind === NodeKind.Literal &&
+                        expression.literalKind === 2
+                        ? expression.value
+                        : toString(expression);
+                    const baseName = "__JSON_OMIT_" + node.name.text + "_" + mem.name;
+                    let helper = baseName;
+                    for (let suffix = 1; node.members.some((field) => field.name.text === helper); suffix++)
+                        helper = baseName + "_" + suffix;
+                    const condition = zeroParameters
+                        ? `(${rendered})()`
+                        : `JSON.__omitIf(${rendered}, this)`;
+                    node.members.push(SimpleParser.parseClassMember(`${helper}(): bool { JSON.__beginOmission(); const result = ${condition}; JSON.__endOmission(); return result; }`, node));
+                    mem.omitIfMethod = helper;
+                }
+            }
             this.schema.members.push(mem);
         }
         const initializationMembers = this.schema.members.slice();
@@ -1488,6 +1696,7 @@ export class JSONTransform extends Visitor {
         const hasTypeParams = !!node.typeParameters && node.typeParameters.length > 0;
         const useFastPath = requestedFastPath &&
             !hasTypeParams &&
+            !this.schema.members.some((member) => member.generic) &&
             (this.schema.static || supportsFastOptionalPath);
         indent = "  ";
         if (this.schema.static == false) {
@@ -1774,23 +1983,11 @@ export class JSONTransform extends Visitor {
                     SERIALIZE += indent + `}\n`;
                 }
                 else if (member.flags.has(PropertyFlags.OmitIf)) {
-                    const expression = member.flags.get(PropertyFlags.OmitIf);
-                    if (member.flags.get(PropertyFlags.OmitIf).kind == NodeKind.Function) {
-                        const arg = member.flags.get(PropertyFlags.OmitIf);
-                        arg.declaration.signature.parameters[0].type = Node.createNamedType(Node.createSimpleTypeName("this", node.range), null, false, node.range);
-                        arg.declaration.signature.returnType.name =
-                            Node.createSimpleTypeName("boolean", arg.declaration.signature.returnType.name
-                                .range);
-                    }
-                    const rendered = expression.kind == NodeKind.Literal &&
-                        expression.literalKind == 2
-                        ? JSON.stringify(expression.value).slice(1, -1)
-                        : toString(expression);
                     SERIALIZE +=
                         indent +
                             `bs.offset = __dst;\n` +
                             indent +
-                            `const __emit${i} = (${omitNullCond}) && !JSON.__omitIf(${rendered}, this);\n` +
+                            `const __emit${i} = (${omitNullCond}) && !this.${member.omitIfMethod}();\n` +
                             indent +
                             `__dst = bs.offset;\n` +
                             indent +
@@ -1824,7 +2021,10 @@ export class JSONTransform extends Visitor {
                 ? this.getSchema(type)
                 : null;
             const isCustomType = member.custom || !!customDep;
-            if (isCustomType || member.generic) {
+            if (isCustomType ||
+                member.generic ||
+                type === "JSON.Raw" ||
+                type === "JSON.Value") {
                 addMemberToCustomBucket(sortedMembers, member, member.generic ? "any" : customDep?.customJsonKind || "any");
                 if (member.nullable)
                     sortedMembers.null.push(member);
@@ -2029,11 +2229,18 @@ export class JSONTransform extends Visitor {
             }
             else if (resolvedType == "JSON.Raw") {
                 out.push("{");
+                if (member.nullable) {
+                    out.push(`if (srcEnd - ${valuePtr} >= 8 && load<u64>(${valuePtr}) == 30399761348886638) {`);
+                    out.push(`store<usize>(${outPtr}, 0, ${fieldOffset}); ${srcPtr} = ${valuePtr} + 8;`);
+                    out.push("} else {");
+                }
                 out.push(`  const valueStart = ${valuePtr};`);
                 out.push(`  const valueEnd = JSON.Util.scanValueEnd<JSON.Raw>(valueStart, srcEnd);`);
                 out.push("  if (!valueEnd) break;");
                 out.push(`  store<${member.type}>(${outPtr}, JSON.Raw.from(JSON.Util.ptrToStr(valueStart, valueEnd)), ${fieldOffset});`);
                 out.push(`  ${srcPtr} = valueEnd;`);
+                if (member.nullable)
+                    out.push("}");
                 out.push("}");
             }
             else if (isBoolean(resolvedType)) {
@@ -2305,13 +2512,21 @@ export class JSONTransform extends Visitor {
                 out.push(`${srcPtr} = __deserializeMapField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 out.push(`if (!${srcPtr}) break;`);
             }
-            else if (resolvedType.startsWith("Set<")) {
-                out.push(`${srcPtr} = __deserializeSetField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
+            else if (resolvedType.startsWith("Set<") ||
+                resolvedType.startsWith("StaticArray<")) {
+                const reader = resolvedType.startsWith("Set<")
+                    ? "__deserializeSetField"
+                    : "__deserializeStaticArrayField";
+                if (member.nullable) {
+                    out.push(`if (srcEnd - ${srcPtr} >= 8 && load<u64>(${srcPtr}) == 30399761348886638) {`);
+                    out.push(`  store<usize>(${outPtr}, 0, ${fieldOffset});`);
+                    out.push(`  ${srcPtr} += 8;`);
+                    out.push("} else {");
+                }
+                out.push(`${srcPtr} = ${reader}<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                 out.push(`if (!${srcPtr}) break;`);
-            }
-            else if (resolvedType.startsWith("StaticArray<")) {
-                out.push(`${srcPtr} = __deserializeStaticArrayField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
-                out.push(`if (!${srcPtr}) break;`);
+                if (member.nullable)
+                    out.push("}");
             }
             else if (resolvedType == "JSON.Value" ||
                 resolvedType == "JSON.Obj" ||
@@ -2743,7 +2958,7 @@ export class JSONTransform extends Visitor {
                     const element = member.type.slice("StaticArray<".length, -1).trim();
                     return `store<${member.type}>(dst, new StaticArray<${element}>(0), ${offset});`;
                 }
-                return `store<${member.type}>(dst, 0, ${offset});`;
+                return `store<${member.type}>(dst, JSON.__zero<${member.type}>(), ${offset});`;
             });
             DESERIALIZE_FAST += i1 + "srcStart = start;\n";
             DESERIALIZE_FAST += i1 + "do {\n";
@@ -3079,6 +3294,11 @@ export class JSONTransform extends Visitor {
         const getSlowBooleanStore = (member, value, valueStart, valueEnd, prefix) => {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+            if (member.generic ||
+                this.getSchema(member.type)?.custom ||
+                stripNull(member.type) === "JSON.Raw" ||
+                stripNull(member.type) === "JSON.Value")
+                return getSlowValueStore(member, valueStart, valueEnd, prefix);
             if (member.type.startsWith("JSON.Box<bool") ||
                 member.type.startsWith("JSON.Box<boolean") ||
                 member.type.startsWith("Box<bool") ||
@@ -3092,6 +3312,11 @@ export class JSONTransform extends Visitor {
         const getSlowNullStore = (member, valueStart, valueEnd, prefix) => {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+            if (member.generic ||
+                ((this.getSchema(member.type)?.custom ||
+                    ["JSON.Raw", "JSON.Value"].includes(stripNull(member.type))) &&
+                    !member.nullable))
+                return getSlowValueStore(member, valueStart, valueEnd, prefix);
             return (prefix +
                 `store<usize>(changetype<usize>(out), 0, offsetof<this>(${JSON.stringify(member.name)}));\n`);
         };
@@ -3116,7 +3341,9 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE +=
                     indent +
                         "            if (" +
-                        (first.generic ? "isString<" + first.type + ">() && " : "") +
+                        (first.generic
+                            ? `JSON.__acceptsJsonKind<${first.type}>(1) && `
+                            : "") +
                         getComparison(fName) +
                         ") { // " +
                         JSON.stringify(fName) +
@@ -3132,7 +3359,9 @@ export class JSONTransform extends Visitor {
                     DESERIALIZE +=
                         indent +
                             " else if (" +
-                            (mem.generic ? "isString<" + mem.type + ">() && " : "") +
+                            (mem.generic
+                                ? `JSON.__acceptsJsonKind<${mem.type}>(1) && `
+                                : "") +
                             getComparison(memName) +
                             ") { // " +
                             JSON.stringify(memName) +
@@ -3186,11 +3415,7 @@ export class JSONTransform extends Visitor {
                     indent +
                         "            if (" +
                         (first.generic
-                            ? "(isInteger<" +
-                                first.type +
-                                ">() || isFloat<" +
-                                first.type +
-                                ">()) && "
+                            ? `JSON.__acceptsJsonKind<${first.type}>(0) && `
                             : "") +
                         getComparison(fName) +
                         ") { // " +
@@ -3208,11 +3433,7 @@ export class JSONTransform extends Visitor {
                         indent +
                             " else if (" +
                             (mem.generic
-                                ? "(isInteger<" +
-                                    mem.type +
-                                    ">() || isFloat<" +
-                                    mem.type +
-                                    ">()) && "
+                                ? `JSON.__acceptsJsonKind<${mem.type}>(0) && `
                                 : "") +
                             getComparison(memName) +
                             ") { // " +
@@ -3280,6 +3501,9 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE +=
                     indent +
                         "            if (" +
+                        (first.generic
+                            ? `JSON.__acceptsJsonKind<${first.type}>(5) && `
+                            : "") +
                         getComparison(fName) +
                         ") { // " +
                         JSON.stringify(fName) +
@@ -3294,6 +3518,9 @@ export class JSONTransform extends Visitor {
                     DESERIALIZE +=
                         indent +
                             " else if (" +
+                            (mem.generic
+                                ? `JSON.__acceptsJsonKind<${mem.type}>(5) && `
+                                : "") +
                             getComparison(memName) +
                             ") { // " +
                             JSON.stringify(memName) +
@@ -3360,7 +3587,9 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE +=
                     indent +
                         "            if (" +
-                        (first.generic ? "isArray<" + first.type + ">() && " : "") +
+                        (first.generic
+                            ? `JSON.__acceptsJsonKind<${first.type}>(4) && `
+                            : "") +
                         getComparison(fName) +
                         ") { // " +
                         JSON.stringify(fName) +
@@ -3375,7 +3604,9 @@ export class JSONTransform extends Visitor {
                     DESERIALIZE +=
                         indent +
                             " else if (" +
-                            (mem.generic ? "isArray<" + mem.type + ">() && " : "") +
+                            (mem.generic
+                                ? `JSON.__acceptsJsonKind<${mem.type}>(4) && `
+                                : "") +
                             getComparison(memName) +
                             ") { // " +
                             JSON.stringify(memName) +
@@ -3424,7 +3655,9 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE +=
                     indent +
                         "          if (" +
-                        (first.generic ? "isBoolean<" + first.type + ">() && " : "") +
+                        (first.generic
+                            ? `JSON.__acceptsJsonKind<${first.type}>(2) && `
+                            : "") +
                         getComparison(fName) +
                         ") { // " +
                         JSON.stringify(fName) +
@@ -3440,7 +3673,9 @@ export class JSONTransform extends Visitor {
                     DESERIALIZE +=
                         indent +
                             " else if (" +
-                            (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") +
+                            (mem.generic
+                                ? `JSON.__acceptsJsonKind<${mem.type}>(2) && `
+                                : "") +
                             getComparison(memName) +
                             ") { // " +
                             JSON.stringify(memName) +
@@ -3488,7 +3723,9 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE +=
                     indent +
                         "          if (" +
-                        (first.generic ? "isBoolean<" + first.type + ">() && " : "") +
+                        (first.generic
+                            ? `JSON.__acceptsJsonKind<${first.type}>(2) && `
+                            : "") +
                         getComparison(fName) +
                         ") { // " +
                         JSON.stringify(fName) +
@@ -3504,7 +3741,9 @@ export class JSONTransform extends Visitor {
                     DESERIALIZE +=
                         indent +
                             " else if (" +
-                            (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") +
+                            (mem.generic
+                                ? `JSON.__acceptsJsonKind<${mem.type}>(2) && `
+                                : "") +
                             getComparison(memName) +
                             ") { // " +
                             JSON.stringify(memName) +
@@ -3551,7 +3790,9 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE +=
                     indent +
                         "          if (" +
-                        (first.generic ? "isNullable<" + first.type + ">() && " : "") +
+                        (first.generic
+                            ? `JSON.__acceptsJsonKind<${first.type}>(3) && `
+                            : "") +
                         getComparison(fName) +
                         ") { // " +
                         JSON.stringify(fName) +
@@ -3567,7 +3808,9 @@ export class JSONTransform extends Visitor {
                     DESERIALIZE +=
                         indent +
                             " else if (" +
-                            (mem.generic ? "isNullable<" + mem.type + ">() && " : "") +
+                            (mem.generic
+                                ? `JSON.__acceptsJsonKind<${mem.type}>(3) && `
+                                : "") +
                             getComparison(memName) +
                             ") { // " +
                             JSON.stringify(memName) +
@@ -3997,13 +4240,8 @@ export class JSONTransform extends Visitor {
         fromPath = fromPath.startsWith("~lib")
             ? fromPath.slice(5)
             : path.join(this.baseCWD, fromPath);
-        const bsImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "bs" || d.name.text == "bs"));
-        const jsonImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "JSON" || d.name.text == "JSON"));
-        const atoiImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "atoi" || d.name.text == "atoi"));
-        const scanValueEndImport = this.imports.find((i) => i.declarations?.find((d) => d.foreignName.text == "scanValueEnd" || d.name.text == "scanValueEnd"));
-        const fieldHelpersImport = this.imports.find((i) => i.declarations?.find((d) => d.name.text == "__deserializeStringField"));
-        const sourceText = node.text;
-        const hasLocalScanValueEnd = /\bscanValueEnd\b/.test(sourceText);
+        const imports = node.statements.filter((statement) => statement.kind === NodeKind.Import);
+        const jsonImport = imports.find((statement) => statement.declarations?.some((item) => item.foreignName.text === "JSON"));
         const baseRel = computeImportBaseRel(path.dirname(fromPath), path.join(baseDir));
         const runtimeSource = this.parser.sources.find((source) => (source.internalPath === jsonImport?.internalPath ||
             source.internalPath === jsonImport?.internalPath + "/index") &&
@@ -4037,74 +4275,108 @@ export class JSONTransform extends Visitor {
             }
             return path.posix.join(baseRel, ...segments);
         };
-        if (!bsImport) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("bs", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(runtimeImport("lib", "as-bs"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
+        const names = new Set();
+        for (const statement of node.statements) {
+            const declaration = statement;
+            if (declaration.name)
+                names.add(declaration.name.text);
+            for (const item of declaration.declarations || [])
+                names.add(item.name.text);
         }
-        if (!jsonImport) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("JSON", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(runtimeImport("assembly", "index"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
+        const shadowed = new Set();
+        class CollectShadowingNames extends Visitor {
+            visitIdentifierExpression(identifier, parent = null) {
+                if (parent &&
+                    [
+                        NodeKind.VariableDeclaration,
+                        NodeKind.FunctionDeclaration,
+                        NodeKind.Parameter,
+                        NodeKind.NamespaceDeclaration,
+                    ].includes(parent.kind)) {
+                    const declaration = parent;
+                    if (declaration.name === identifier)
+                        shadowed.add(identifier.text);
+                }
+            }
         }
-        if (!atoiImport) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("atoi", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(runtimeImport("assembly", "util", "atoi"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
-        if (!scanValueEndImport && !hasLocalScanValueEnd) {
-            const replaceNode = Node.createImportStatement([
-                Node.createImportDeclaration(Node.createIdentifierExpression("scanValueEnd", node.range, false), null, node.range),
-            ], Node.createStringLiteralExpression(runtimeImport("assembly", "deserialize", "swar", "array", "shared"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
-        }
-        if (!fieldHelpersImport) {
-            const fieldHelper = (real, alias) => Node.createImportDeclaration(Node.createIdentifierExpression(real, node.range, false), Node.createIdentifierExpression(alias, node.range, false), node.range);
-            const replaceNode = Node.createImportStatement([
-                fieldHelper("deserializeIntegerField", "__deserializeIntegerField"),
-                fieldHelper("deserializeUnsignedField", "__deserializeUnsignedField"),
-                fieldHelper("deserializeFloatField", "__deserializeFloatField"),
-                fieldHelper("deserializeStringField", "__deserializeStringField"),
-                fieldHelper("deserializeStringFieldTrusted", "__deserializeStringFieldTrusted"),
-                fieldHelper("deserializeArrayField_SWAR", "__deserializeArrayField_SWAR"),
-                fieldHelper("deserializeMapField", "__deserializeMapField"),
-                fieldHelper("deserializeSetField", "__deserializeSetField"),
-                fieldHelper("deserializeStaticArrayField", "__deserializeStaticArrayField"),
-            ], Node.createStringLiteralExpression(runtimeImport("assembly", "deserialize"), node.range), node.range);
-            node.range.source.statements.unshift(replaceNode);
-            if (DEBUG > 0)
-                console.log("Added import: " +
-                    toString(replaceNode) +
-                    " to " +
-                    node.range.source.normalizedPath +
-                    "\n");
+        new CollectShadowingNames().visit(node);
+        for (const name of shadowed)
+            names.add(name);
+        const aliases = new Map();
+        const inject = (module, bindings) => {
+            const declarations = bindings
+                .map(([foreign, preferred]) => {
+                const targetPath = module.startsWith(".")
+                    ? path.posix.normalize(path.posix.join(path.posix.dirname(node.internalPath), module))
+                    : "~lib/" + module;
+                const target = this.parser.sources.find((candidate) => candidate.internalPath === targetPath ||
+                    candidate.internalPath === targetPath + "/index");
+                const existing = imports
+                    .find((statement) => ((target &&
+                    (statement.internalPath === target.internalPath ||
+                        statement.internalPath + "/index" ===
+                            target.internalPath)) ||
+                    (foreign === "JSON" &&
+                        runtimeRoot !== undefined &&
+                        statement.internalPath === runtimeRoot + "index")) &&
+                    statement.declarations?.some((item) => item.foreignName.text === foreign &&
+                        item.name.text === preferred))
+                    ?.declarations?.find((item) => item.foreignName.text === foreign &&
+                    item.name.text === preferred);
+                if (existing && !shadowed.has(preferred))
+                    return null;
+                let local = preferred;
+                for (let suffix = 0; names.has(local); suffix++)
+                    local = "__json_" + preferred + "_" + suffix;
+                names.add(local);
+                if (local !== preferred)
+                    aliases.set(preferred, local);
+                return Node.createImportDeclaration(Node.createIdentifierExpression(foreign, node.range, false), local === foreign
+                    ? null
+                    : Node.createIdentifierExpression(local, node.range, false), node.range);
+            })
+                .filter((declaration) => declaration !== null);
+            if (declarations.length)
+                node.statements.unshift(Node.createImportStatement(declarations, Node.createStringLiteralExpression(module, node.range), node.range));
+        };
+        inject(runtimeImport("lib", "as-bs"), [["bs", "bs"]]);
+        inject(runtimeImport("assembly", "index"), [["JSON", "JSON"]]);
+        inject(runtimeImport("assembly", "util", "atoi"), [["atoi", "atoi"]]);
+        inject(runtimeImport("assembly", "deserialize", "swar", "array", "shared"), [["scanValueEnd", "scanValueEnd"]]);
+        inject(runtimeImport("assembly", "deserialize"), [
+            ["deserializeIntegerField", "__deserializeIntegerField"],
+            ["deserializeUnsignedField", "__deserializeUnsignedField"],
+            ["deserializeFloatField", "__deserializeFloatField"],
+            ["deserializeStringField", "__deserializeStringField"],
+            ["deserializeStringFieldTrusted", "__deserializeStringFieldTrusted"],
+            ["deserializeArrayField_SWAR", "__deserializeArrayField_SWAR"],
+            ["deserializeMapField", "__deserializeMapField"],
+            ["deserializeSetField", "__deserializeSetField"],
+            ["deserializeStaticArrayField", "__deserializeStaticArrayField"],
+        ]);
+        if (aliases.size) {
+            class BindGeneratedReferences extends Visitor {
+                visitIdentifierExpression(identifier) {
+                    const local = aliases.get(identifier.text);
+                    if (local)
+                        identifier.text = local;
+                }
+                visitPropertyAccessExpression(expression) {
+                    this.visit(expression.expression);
+                }
+                visitNamedTypeNode(_type) { }
+            }
+            const bind = new BindGeneratedReferences();
+            for (const schema of this.schemas.get(node.internalPath) || []) {
+                for (const member of schema.node.members) {
+                    if (member.kind !== NodeKind.MethodDeclaration ||
+                        this.parser.sources.includes(member.range.source) ||
+                        member.name.text.includes("INITIALIZE") ||
+                        member.name.text.startsWith("__JSON_OMIT_"))
+                        continue;
+                    bind.visit(member.body);
+                }
+            }
         }
     }
     getStores(data, simd = false, target = "bs.offset") {
@@ -4611,7 +4883,14 @@ function initializerHasEffects(expression) {
             this.effect = true;
             super.visitUnaryPostfixExpression(node);
         }
+        visitElementAccessExpression(node) {
+            this.effect = true;
+            super.visitElementAccessExpression(node);
+        }
         visitBinaryExpression(node) {
+            if (node.left.kind !== NodeKind.Literal ||
+                node.right.kind !== NodeKind.Literal)
+                this.effect = true;
             if (node.operator >= 101 && node.operator <= 113)
                 this.effect = true;
             super.visitBinaryExpression(node);

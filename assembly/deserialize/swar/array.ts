@@ -51,7 +51,7 @@ export function deserializeArrayField<T extends unknown[]>(
     if (type instanceof JSON.Value) {
       if (isNullable<valueof<T>>())
         return deserializeGenericArrayField<T>(srcStart, srcEnd, fieldPtr);
-      return deserializeArbitraryArrayField(srcStart, srcEnd, fieldPtr);
+      return deserializeArbitraryArrayField<T>(srcStart, srcEnd, fieldPtr);
     } else if (type instanceof JSON.Box) {
       return deserializeBoxArrayField<T>(srcStart, srcEnd, fieldPtr);
     } else if (type instanceof JSON.Obj) {
@@ -70,6 +70,7 @@ export function deserializeArrayField<T extends unknown[]>(
       type instanceof Uint64Array ||
       type instanceof Float32Array ||
       type instanceof Float64Array ||
+      type instanceof ArrayBuffer ||
       type instanceof Date ||
       type instanceof Set ||
       type instanceof StaticArray ||

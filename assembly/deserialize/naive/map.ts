@@ -605,6 +605,15 @@ export function deserializeMapBody<T extends Map<any, any>>(
         );
       }
       if (raw !== null) {
+        const slot = matchedPreviousKey
+          ? previousEntry +
+            offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value")
+          : reusableMapValueSlot<T>(out, key);
+        raw = changetype<JSON.Raw | null>(
+          reuseComposite(changetype<usize>(raw), slot),
+        );
+      }
+      if (raw !== null) {
         if (
           !changetype<usize>(reusedValues) &&
           previousCount > ALIAS_SCAN_LIMIT
@@ -733,9 +742,15 @@ export function deserializeMapBody<T extends Map<any, any>>(
         }
 
         const valueStart = srcStart;
+        let canFast = isDefined(valueType.__DESERIALIZE_FAST);
+        if (isDefined(valueType.__DESERIALIZE_FAST_ENABLED))
+          canFast =
+            changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST_ENABLED();
+        let attemptedFast = false;
         let next: usize = 0;
         // @ts-ignore: supplied by the json-as transform
-        if (isDefined(valueType.__DESERIALIZE_FAST)) {
+        if (isDefined(valueType.__DESERIALIZE_FAST) && canFast) {
+          attemptedFast = true;
           // @ts-ignore: supplied by the json-as transform
           if (pretty && isDefined(valueType.__DESERIALIZE_FAST_PRETTY)) {
             // @ts-ignore: supplied by the json-as transform
@@ -756,7 +771,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
           if (!valueEnd || valueEnd <= valueStart) break;
           // A failed FAST attempt may have partially overwritten fields.
           // @ts-ignore: supplied by the json-as transform
-          if (isDefined(valueType.__INITIALIZE)) {
+          if (attemptedFast && isDefined(valueType.__INITIALIZE)) {
             // @ts-ignore: supplied by the json-as transform
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
           }

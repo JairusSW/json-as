@@ -2,14 +2,14 @@ import { JSON } from "../../..";
 import { deserializeGenericArrayBody } from "./generic";
 import { ensureArrayField } from "./shared";
 
-export function deserializeArbitraryArrayField(
+export function deserializeArbitraryArrayField<T extends JSON.Value[]>(
   srcStart: usize,
   srcEnd: usize,
   fieldPtr: usize,
 ): usize {
-  return deserializeGenericArrayBody<JSON.Value[]>(
+  return deserializeGenericArrayBody<T>(
     srcStart,
     srcEnd,
-    ensureArrayField<JSON.Value[]>(fieldPtr),
+    ensureArrayField<T>(fieldPtr),
   );
 }

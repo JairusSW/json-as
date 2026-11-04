@@ -83,7 +83,7 @@ export function deserializeArray<T extends unknown[]>(
     if (type instanceof JSON.Value) {
       if (isNullable<valueof<T>>())
         return deserializeGenericArray<T>(srcStart, srcEnd, dst);
-      return deserializeArbitraryArray(srcStart, srcEnd, dst) as T;
+      return deserializeArbitraryArray<T>(srcStart, srcEnd, dst) as T;
     } else if (type instanceof JSON.Box) {
       return deserializeBoxArray<T>(srcStart, srcEnd, dst);
     } else if (type instanceof JSON.Obj) {
@@ -102,6 +102,7 @@ export function deserializeArray<T extends unknown[]>(
       type instanceof Uint64Array ||
       type instanceof Float32Array ||
       type instanceof Float64Array ||
+      type instanceof ArrayBuffer ||
       type instanceof Date ||
       type instanceof Set ||
       type instanceof StaticArray ||

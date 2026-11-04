@@ -1,4 +1,4 @@
-import { ClassDeclaration, Expression, FieldDeclaration, Source, DeclarationStatement, Parser, ImportStatement, EnumDeclaration } from "assemblyscript/dist/assemblyscript.js";
+import { ClassDeclaration, Expression, FieldDeclaration, Source, NamespaceDeclaration, DeclarationStatement, Parser, ImportStatement, EnumDeclaration } from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
 export declare const NodeKind: Record<string, number>;
 export declare enum PropertyFlags {
@@ -19,6 +19,7 @@ export declare class Property {
     node: FieldDeclaration;
     byteSize: number;
     lazyInner: string | null;
+    omitIfMethod: string | null;
     lazyPacked: boolean;
     lazyScalar: boolean;
     _generic: boolean;
@@ -72,12 +73,17 @@ export declare class Src {
     getQualifiedName(node: DeclarationStatement): string;
     getClass(qualifiedName: string): ClassDeclaration | null;
     getClassInContext(name: string, owner: DeclarationStatement, visited?: Set<string>): ClassDeclaration | null;
+    registerAlias(alias: TypeAlias, namespaces?: NamespaceDeclaration[]): void;
     getClasses(): ClassDeclaration[];
     getEnum(qualifiedName: string): EnumDeclaration | null;
-    getImportedClass(qualifiedName: string, parser: Parser): ClassDeclaration | null;
+    getImportedClass(qualifiedName: string, parser: Parser, visited?: Set<string>): ClassDeclaration | null;
+    getImportedBinding(name: string, parser: Parser, visited?: Set<string>): {
+        source: Src;
+        name: string;
+    } | null;
+    private getExportedBinding;
     getAvailableClass(qualifiedName: string, parser: Parser): ClassDeclaration | null;
-    getImportedEnum(qualifiedName: string, parser: Parser, visited?: Set<string>): EnumDeclaration | null;
-    private getExportedEnum;
+    getImportedEnum(name: string, parser: Parser, visited?: Set<string>): EnumDeclaration | null;
     getFullPath(node: DeclarationStatement): string;
     resolveExtendsName(classDeclaration: ClassDeclaration): string;
     private qualifiedName;

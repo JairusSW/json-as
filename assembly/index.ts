@@ -1575,7 +1575,8 @@ export namespace JSON {
           const ptr = valPtr(w);
           if (ptr == 0) return changetype<T>(0);
           const arr = changetype<JSON.Arr>(ptr);
-          const out = new Array<JSON.Value>(arr.length);
+          const out = instantiate<nonnull<T>>();
+          out.length = arr.length;
           for (let i = 0; i < arr.length; i++) {
             unchecked((out[i] = arr.at(i)));
           }
@@ -1601,6 +1602,13 @@ export namespace JSON {
         return <JSON.Types>valIntTag<T>();
       }
       if (isString<T>()) return JSON.Types.String;
+      // @ts-expect-error: supplied by transform
+      if (isDefined(value.__SERIALIZE) && isManaged<T>(value))
+        return (
+          u16(
+            changetype<OBJECT>(changetype<usize>(value) - TOTAL_OVERHEAD).rtId,
+          ) + JSON.Types.Struct
+        );
       // @ts-expect-error: can assume that T is ArrayLike based on previous condition
       if (
         isArray<T>() &&
@@ -1620,13 +1628,6 @@ export namespace JSON {
       if (value instanceof u64) return JSON.Types.U64;
       if (value instanceof f32) return JSON.Types.F32;
       if (value instanceof f64) return JSON.Types.F64;
-      // @ts-expect-error: supplied by transform
-      if (isDefined(value.__SERIALIZE) && isManaged<T>(value))
-        return (
-          u16(
-            changetype<OBJECT>(changetype<usize>(value) - TOTAL_OVERHEAD).rtId,
-          ) + JSON.Types.Struct
-        );
       if (
         value instanceof Int8Array ||
         value instanceof Uint8Array ||
@@ -1653,10 +1654,8 @@ export namespace JSON {
      * @param value - The value to be set.
      */
     set<T>(value: T): void {
-      if (value instanceof JSON.Value) {
-        JSON.Value.__adoptInto(changetype<usize>(this), value);
-        return;
-      }
+      // Public assignment shares materialized composites, regardless of whether
+      // the source has previously been read. Parser adoption remains deferred.
       this.bits = JSON.Value.bitsFrom<T>(value);
       this.linkPayload();
     }
@@ -2623,10 +2622,16 @@ export namespace JSON {
       ) {
         const out = new JSON.Arr();
         // @ts-expect-error: T is JSON.Value[] here
-        const arr = changetype<JSON.Value[]>(value);
+        const arr = changetype<nonnull<T>>(value);
         const len = arr.length;
         for (let i = 0; i < len; i++) {
-          out.pushRawSlot(JSON.Value.bitsFrom<JSON.Value>(unchecked(arr[i])));
+          out.pushRawSlot(
+            changetype<usize>(unchecked(arr[i])) == 0
+              ? JSON.Value.nullBits()
+              : JSON.Value.bitsFrom<JSON.Value>(
+                  changetype<JSON.Value>(unchecked(arr[i])),
+                ),
+          );
         }
         return out;
       }
@@ -3236,6 +3241,34 @@ export namespace JSON {
    */
   // A field's usize zero is numeric, even though the public scalar API uses
   // usize(0) as its internal null sentinel. Lazy fields preserve eager spelling.
+  function __lazyDefault<T>(): T {
+    if (isNullable<T>()) return changetype<T>(0);
+    if (isBoolean<T>() || isInteger<T>() || isFloat<T>()) return <T>0;
+    if (isString<T>()) return "" as T;
+    const type = changetype<nonnull<T>>(0);
+    if (isDefined(type.__INITIALIZE)) return __cursorDefault<nonnull<T>>() as T;
+    if (type instanceof JSON.Value) return changetype<T>(JSON.Value.empty());
+    if (type instanceof JSON.Raw) return changetype<T>(JSON.Raw.from("null"));
+    if (type instanceof Date) return changetype<T>(new Date(0));
+    if (
+      type instanceof ArrayBuffer ||
+      type instanceof StaticArray ||
+      type instanceof Int8Array ||
+      type instanceof Uint8Array ||
+      type instanceof Uint8ClampedArray ||
+      type instanceof Int16Array ||
+      type instanceof Uint16Array ||
+      type instanceof Int32Array ||
+      type instanceof Uint32Array ||
+      type instanceof Int64Array ||
+      type instanceof Uint64Array ||
+      type instanceof Float32Array ||
+      type instanceof Float64Array
+    )
+      return instantiate<nonnull<T>>(0) as T;
+    return instantiate<nonnull<T>>() as T;
+  }
+
   function __serializeLazyValue<T>(data: T): void {
     if (isInteger<T>()) {
       if (nameof<T>() == "usize") {
@@ -3475,6 +3508,40 @@ export namespace JSON {
     return data == 0
       ? 0
       : changetype<OBJECT>(data - TOTAL_OVERHEAD).rtSize & STRING_SIZE_MASK;
+  }
+
+  /** Representation guard for generic field dispatch. Kind: number, string,
+   * boolean, null, array, object. Custom readers decide their own wire form. */
+  @inline
+  function __acceptsJsonKind<T>(kind: i32): bool {
+    if (kind == 3 && isNullable<T>()) return true;
+    if (isBoolean<T>()) return kind == 2;
+    if (isInteger<T>() || isFloat<T>()) return kind == 0;
+    if (isString<T>()) return kind == 1;
+    if (isReference<T>() || isManaged<T>()) {
+      const type = changetype<nonnull<T>>(0);
+      // @ts-expect-error: generated custom reader
+      if (isDefined(type.__DESERIALIZE_CUSTOM)) return true;
+      // @ts-expect-error: generated object reader
+      if (
+        isDefined(type.__DESERIALIZE_SLOW) ||
+        isDefined(type.__DESERIALIZE_FAST)
+      )
+        return kind == 5;
+      if (type instanceof JSON.Value || type instanceof JSON.Raw) return true;
+      if (type instanceof JSON.Box) return true;
+      if (type instanceof Date) return kind == 1;
+      if (type instanceof Map || type instanceof JSON.Obj) return kind == 5;
+      return kind == 4;
+    }
+    return false;
+  }
+
+  function __beginOmission(): void {
+    bs.saveState();
+  }
+  function __endOmission(): void {
+    bs.loadState();
   }
 
   /** Evaluate an omission expression or invoke a typed predicate. */
@@ -3922,9 +3989,9 @@ export namespace JSON {
      * @param data - string
      * @returns - T
      */
-    export function parse<T>(data: string): T {
+    export function parse<T>(data: string, out: T = __zero<T>()): T {
       bs.saveState();
-      const result = JSON.parse<T>(data);
+      const result = JSON.parse<T>(data, out);
       bs.loadState();
       return result;
     }

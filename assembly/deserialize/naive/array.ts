@@ -42,7 +42,7 @@ export function deserializeArray<T extends unknown[]>(
     const type = changetype<nonnull<valueof<T>>>(0);
     if (type instanceof JSON.Value) {
       // @ts-ignore: type
-      return deserializeArbitraryArray(srcStart, srcEnd, dst);
+      return deserializeArbitraryArray<T>(srcStart, srcEnd, dst);
     } else if (type instanceof JSON.Box) {
       // @ts-ignore: type
       return deserializeBoxArray<T>(srcStart, srcEnd, dst);

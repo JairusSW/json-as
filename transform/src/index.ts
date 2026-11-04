@@ -10,6 +10,7 @@ import {
   Feature,
   FieldDeclaration,
   Expression,
+  ElementAccessExpression,
   FloatLiteralExpression,
   FunctionExpression,
   IdentifierExpression,
@@ -46,6 +47,7 @@ import { writeFileSync } from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { CustomTransform } from "./linkers/custom.js";
+import { TypeAlias } from "./linkers/alias.js";
 import { NodeKind } from "./types.js";
 import { Property, PropertyFlags, Schema, SourceSet, Src } from "./types.js";
 import {
@@ -291,8 +293,8 @@ function getSerializeCall(type: string, realName: string): string {
 
   return syncSerializeCursor(
     needsReferenceLoad(type)
-      ? `JSON.__serialize<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n`
-      : `JSON.__serialize<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
+      ? `JSON.__serializeLazyValue<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n`
+      : `JSON.__serializeLazyValue<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
   );
 }
 
@@ -409,6 +411,29 @@ export class JSONTransform extends Visitor {
   public visitedClasses: Set<string> = new Set<string>();
 
   private eagerOverrides = new Set<FieldDeclaration>();
+  private lazySourceFields = new Map<ClassDeclaration, string>();
+  private lazySourceInstalled = new Set<ClassDeclaration>();
+
+  private unusedMemberName(node: ClassDeclaration, stem: string): string {
+    const names = new Set<string>();
+    const visited = new Set<ClassDeclaration>();
+    let current: ClassDeclaration | null = node;
+    while (current && !visited.has(current)) {
+      visited.add(current);
+      for (const member of current.members) names.add(member.name.text);
+      const source = this.sources.get(current.range.source);
+      const parent = current.extendsType
+        ? toString(current.extendsType.name)
+        : "";
+      current = parent
+        ? source.getClassInContext(parent, current) ||
+          source.getImportedClass(parent, this.parser)
+        : null;
+    }
+    let name = stem;
+    for (let suffix = 1; names.has(name); suffix++) name = stem + "_" + suffix;
+    return name;
+  }
   private lazyRuntimeSource: Source | null | undefined;
 
   // Resolve aliases and import bindings to the actual JSON.Lazy declaration.
@@ -486,42 +511,25 @@ export class JSONTransform extends Visitor {
         ),
       );
     }
-    const parts = name.split(".");
-    for (const statement of source.imports) {
-      const declaration = statement.declarations?.find(
-        (candidate) => candidate.name.text === parts[0],
-      );
-      const wildcard = statement.namespaceName?.text === parts[0];
-      if (!declaration && !wildcard) continue;
-      const external = this.parser.sources.find(
-        (candidate) =>
-          candidate.internalPath === statement.internalPath ||
-          candidate.internalPath === statement.internalPath + "/index",
-      );
-      if (!external) return null;
-      const target = declaration
-        ? [declaration.foreignName.text, ...parts.slice(1)].join(".")
-        : parts.slice(1).join(".");
+    const binding = source.getImportedBinding(name, this.parser);
+    if (binding) {
       const arguments_ = named.typeArguments?.length
         ? `<${named.typeArguments.map((argument) => toString(argument)).join(",")}>`
         : "";
-      const externalSrc = this.sources.get(external);
       const inner = this.lazyInnerType(
-        parse(target + arguments_),
-        externalSrc,
+        parse(binding.name + arguments_),
+        binding.source,
         "",
         seen,
       );
-      const importedAlias = externalSrc.aliases.find(
-        (alias) => alias.name === target,
+      const alias = binding.source.aliases.find(
+        (item) => item.name === binding.name,
       );
-      // A concrete Lazy alias is also a legal alias for its value type. Keep
-      // that consumer-visible binding when its implementation class is private.
       if (
         inner !== null &&
         !named.typeArguments?.length &&
-        importedAlias?.declaration &&
-        externalSrc.getClassInContext(inner, importedAlias.declaration)
+        alias?.declaration &&
+        binding.source.getClassInContext(inner, alias.declaration)
       )
         return nullable(toString(type));
       return nullable(inner);
@@ -661,6 +669,180 @@ export class JSONTransform extends Visitor {
           ) ?? null;
       }
     }
+  }
+
+  private usesBuiltinRepresentation(
+    node: ClassDeclaration,
+    visited = new Set<ClassDeclaration>(),
+  ): boolean {
+    if (visited.has(node)) return false;
+    visited.add(node);
+    if (
+      node.decorators?.some((decorator) =>
+        ["json", "serializable"].includes(toString(decorator.name)),
+      )
+    )
+      return false;
+    const builtins = [
+      "Array",
+      "Map",
+      "Set",
+      "StaticArray",
+      "ArrayBuffer",
+      "Int8Array",
+      "Uint8Array",
+      "Uint8ClampedArray",
+      "Int16Array",
+      "Uint16Array",
+      "Int32Array",
+      "Uint32Array",
+      "Int64Array",
+      "Uint64Array",
+      "Float32Array",
+      "Float64Array",
+      "Date",
+    ];
+    if (isStdlib(node) && builtins.includes(node.name.text)) return true;
+    const source = this.sources.get(node.range.source);
+    if (
+      node.range.source.internalPath === this.lazyRuntimeSource?.internalPath &&
+      ["JSON.Raw", "JSON.Value", "JSON.Obj", "JSON.Arr", "JSON.Box"].includes(
+        source.getQualifiedName(node),
+      )
+    )
+      return true;
+    if (!node.extendsType) return false;
+    const name = toString(node.extendsType.name);
+    const parent =
+      source.getClassInContext(name, node) ||
+      source.getImportedClass(name, this.parser) ||
+      source.getAvailableClass(name, this.parser);
+    return parent
+      ? this.usesBuiltinRepresentation(parent, visited)
+      : builtins.includes(name);
+  }
+
+  private inheritedAliases = new Map<Property, string>();
+  private inheritedAliasId = 0;
+
+  private inheritedTypeBinding(
+    member: Property,
+    parent: Schema,
+    child: ClassDeclaration,
+  ): string {
+    const owner = parent.node.range.source;
+    const source = this.sources.get(owner);
+    let name = this.inheritedAliases.get(member);
+    const parameters = parent.node.typeParameters ?? [];
+    const parameterNames = parameters.map((parameter) => parameter.name.text);
+    const declarationParameters = parameters.length
+      ? `<${parameters.map((parameter) => toString(parameter)).join(",")}>`
+      : "";
+    const useParameters = parameters.length
+      ? `<${parameterNames.join(",")}>`
+      : "";
+    if (!name) {
+      do {
+        name = "__JSON_FieldType_" + this.inheritedAliasId++;
+      } while (this.parser.sources.some((file) => file.text.includes(name!)));
+      const scope = source
+        .getQualifiedName(parent.node)
+        .split(".")
+        .slice(0, -1);
+      let statements = owner.statements;
+      let namespace: NamespaceDeclaration | null = null;
+      const namespaces: NamespaceDeclaration[] = [];
+      for (const part of scope) {
+        namespace = statements.find(
+          (statement) =>
+            statement.kind === NodeKind.NamespaceDeclaration &&
+            (statement as NamespaceDeclaration).name.text === part,
+        ) as NamespaceDeclaration;
+        namespaces.push(namespace);
+        statements = namespace.members;
+      }
+      const addAlias = (
+        local: string,
+        type: string,
+        into: Node[],
+        ns: NamespaceDeclaration | null,
+      ): void => {
+        const declaration = SimpleParser.parseTopLevelStatement(
+          `export type ${local}${declarationParameters} = ${type};`,
+          ns,
+        ) as TypeDeclaration;
+        class OwnRanges extends Visitor {
+          _visit(node: Node, reference: Node | null): void {
+            node.range = parent.node.range;
+            super._visit(node, reference);
+          }
+        }
+        new OwnRanges().visit(declaration);
+        into.push(declaration);
+        const alias = new TypeAlias(
+          [...scope.slice(0, ns ? scope.length : 0), local].join("."),
+          type,
+        );
+        alias.parameters = parameterNames;
+        alias.declaration = declaration;
+        source.registerAlias(alias, ns ? namespaces : []);
+      };
+      addAlias(name, member.lazyInner || member.type, statements, namespace);
+      if (scope.length) {
+        const exported = name + "_Export";
+        addAlias(
+          exported,
+          scope.join(".") + "." + name + useParameters,
+          owner.statements,
+          null,
+        );
+        name = exported;
+      }
+      this.inheritedAliases.set(member, name);
+    }
+    const target = child.range.source;
+    if (
+      !target.statements.some(
+        (statement) =>
+          statement.kind === NodeKind.Import &&
+          (statement as ImportStatement).declarations?.some(
+            (item) => item.name.text === name,
+          ),
+      )
+    ) {
+      const relative = path.posix.relative(
+        path.posix.dirname(target.internalPath),
+        owner.internalPath,
+      );
+      const module = owner.internalPath.startsWith("~lib/")
+        ? owner.internalPath.slice(5)
+        : relative.startsWith(".")
+          ? relative
+          : "./" + relative;
+      target.statements.unshift(
+        Node.createImportStatement(
+          [
+            Node.createImportDeclaration(
+              Node.createIdentifierExpression(name, child.range, false),
+              null,
+              child.range,
+            ),
+          ],
+          Node.createStringLiteralExpression(module, child.range),
+          child.range,
+        ),
+      );
+      // The transform's source index must see imports inserted after parsing too.
+      (target.statements[0] as ImportStatement).internalPath =
+        owner.internalPath;
+      this.sources
+        .get(target)
+        .imports.push(target.statements[0] as ImportStatement);
+    }
+    const arguments_ =
+      child.extendsType?.typeArguments?.map((argument) => toString(argument)) ??
+      [];
+    return name + (parameters.length ? `<${arguments_.join(",")}>` : "");
   }
 
   private lazyMetadata = new Map<
@@ -820,51 +1002,28 @@ export class JSONTransform extends Visitor {
       );
     }
 
-    for (const imp of source.imports) {
-      if (!imp.declarations) continue;
-
-      for (const decl of imp.declarations) {
-        if (decl.name.text === bareName) {
-          const externalSource = this.parser.sources.find(
-            (s) => s.internalPath === imp.internalPath,
-          );
-          if (externalSource) {
-            const externalSrc = this.sources.get(externalSource);
-            if (!externalSrc) continue;
-
-            const externalAlias = externalSrc.aliases.find(
-              (a) => a.name === decl.foreignName.text,
-            );
-
-            if (externalAlias) {
-              if (externalAlias.parameters.length !== arguments_().length)
-                return type;
-              const externalType = externalAlias.getBaseType(arguments_());
-              if (
-                preserveClassAliases &&
-                externalAlias.declaration &&
-                externalSrc.getClassInContext(
-                  stripNull(externalType),
-                  externalAlias.declaration,
-                )
-              )
-                return type;
-              return (
-                this.resolveType(
-                  externalType,
-                  externalSrc,
-                  visited,
-                  externalAlias.name.split(".").slice(0, -1).join("."),
-                  preserveClassAliases,
-                ) +
-                (type !== stripped && !externalType.endsWith(" | null")
-                  ? " | null"
-                  : "")
-              );
-            }
-          }
-        }
-      }
+    const binding = source.getImportedBinding(bareName, this.parser);
+    const externalAlias = binding?.source.aliases.find(
+      (alias) => alias.name === binding.name,
+    );
+    if (externalAlias) {
+      if (externalAlias.parameters.length !== arguments_().length) return type;
+      // The public alias is the legal spelling in this module. The compiler's
+      // typed reader can resolve its representation without exposing private names.
+      if (preserveClassAliases) return type;
+      const externalType = externalAlias.getBaseType(arguments_());
+      return (
+        this.resolveType(
+          externalType,
+          binding.source,
+          visited,
+          externalAlias.name.split(".").slice(0, -1).join("."),
+          false,
+        ) +
+        (type !== stripped && !externalType.endsWith(" | null")
+          ? " | null"
+          : "")
+      );
     }
 
     return type;
@@ -1252,6 +1411,11 @@ export class JSONTransform extends Visitor {
     // `__src` ref set via `__SET_SRC` (called by JSON.parse). Idempotent: after
     // the rewrite the field is a `u64`, so the extends re-entry won't match it.
     let __hasLazy = false;
+    let sourceField = this.lazySourceFields.get(node);
+    if (!sourceField) {
+      sourceField = this.unusedMemberName(node, "__src");
+      this.lazySourceFields.set(node, sourceField);
+    }
     // For ref (non-packed) lazy fields whose slot defaults to materialized
     // (`u64.MAX_VALUE`, i.e. the field has a declared default), __INITIALIZE must
     // also seed the `__x_val` field — otherwise an *absent* such field on the
@@ -1333,6 +1497,18 @@ export class JSONTransform extends Visitor {
         );
 
       const fname = fd.name.text;
+      let backing = "__" + fname;
+      for (
+        let suffix = 1;
+        node.members.some(
+          (member) =>
+            member.name.text === backing + "_lz" ||
+            member.name.text === backing + "_val",
+        );
+        suffix++
+      )
+        backing = "__" + fname + "_" + suffix;
+      const slotName = backing + "_lz";
       const alias = decos?.find(
         (d) => (<IdentifierExpression>d.name).text === "alias",
       );
@@ -1344,7 +1520,19 @@ export class JSONTransform extends Visitor {
       const baseT = stripNull(T);
       const storesScalar =
         isPrimitive(baseT) || isEnum(baseT, source, this.parser);
-      const valueType = storesScalar || baseT != T ? T : `${T} | null`;
+      const inferredInner =
+        node.typeParameters?.some(
+          (parameter) => parameter.name.text === baseT,
+        ) ||
+        this.resolveType(
+          T,
+          source,
+          new Set(),
+          source.getQualifiedName(node).split(".").slice(0, -1).join("."),
+          false,
+        ) !== T;
+      const valueType =
+        inferredInner || storesScalar || baseT != T ? T : `${T} | null`;
       const valueDefault = isBoolean(baseT)
         ? "false"
         : storesScalar
@@ -1369,11 +1557,13 @@ export class JSONTransform extends Visitor {
       const refDefault =
         fieldDefault != null
           ? fieldDefault
-          : !storesScalar && baseT == T && !baseT.startsWith("StaticArray<")
-            ? baseT == "string" || baseT == "String"
-              ? '""'
-              : `new ${baseT}()`
-            : null;
+          : inferredInner
+            ? `JSON.__lazyDefault<${T}>()`
+            : !storesScalar && baseT == T && !baseT.startsWith("StaticArray<")
+              ? baseT == "string" || baseT == "String"
+                ? '""'
+                : `new ${baseT}()`
+              : null;
       __hasLazy = true;
       // Carry @omitnull/@omitif from the original field onto the lowered slot
       // (they can't ride the u64 slot directly - @omitnull rejects primitives -
@@ -1381,7 +1571,7 @@ export class JSONTransform extends Visitor {
       const omitIfDeco = decos?.find(
         (d) => (<IdentifierExpression>d.name).text === "omitif",
       );
-      lazyInner.set("__" + fname + "_lz", {
+      lazyInner.set(slotName, {
         inner: T,
         valueType,
         scalar: storesScalar,
@@ -1421,50 +1611,50 @@ export class JSONTransform extends Visitor {
         baseT === "f32"
           ? `reinterpret<f32>(<u32>(${lz}))`
           : `(<${T}>(<u32>(${lz})))`;
-      lazyInner.get("__" + fname + "_lz")!.packed = packScalar;
+      lazyInner.get(slotName)!.packed = packScalar;
       const lowered = (
         packScalar
           ? [
-              `@alias(${key}) ${optional}private __${fname}_lz: u64 = ${
+              `@alias(${key}) ${optional}private ${backing}_lz: u64 = ${
                 fieldDefault != null
                   ? `(((<u64>0xffffffff) << 32) | ${encVal(`<${T}>(${fieldDefault})`)})`
                   : "0"
               };`,
               `get ${fname}(): ${T} {\n` +
-                `  const __lz = this.__${fname}_lz;\n` +
+                `  const __lz = this.${backing}_lz;\n` +
                 `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
                 `  if (__lz != 0) {\n` + // a range -> parse once, then pack
-                `    const __v = JSON.__deserializeLazy<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz), this.__src);\n` +
-                `    this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("__v")};\n` +
+                `    const __v = JSON.__deserializeLazy<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz), this.${sourceField});\n` +
+                `    this.${backing}_lz = ((<u64>0xffffffff) << 32) | ${encVal("__v")};\n` +
                 `    return __v;\n` +
                 `  }\n` +
                 `  return ${valueDefault};\n}`, // absent -> default
               `set ${fname}(value: ${T}) {\n` +
-                `  this.__${fname}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
+                `  this.${backing}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
             ]
           : [
-              `@alias(${key}) ${optional}private __${fname}_lz: u64 = ${
+              `@alias(${key}) ${optional}private ${backing}_lz: u64 = ${
                 refDefault != null ? "u64.MAX_VALUE" : "0"
               };`,
-              `private __${fname}_val: ${valueType} = ${refDefault ?? valueDefault};`,
+              `private ${backing}_val: ${valueType} = ${refDefault ?? valueDefault};`,
               // Slow path goes through the shared (non-inline) JSON.__deserialize<T>
               // so the parser is emitted once per type, not inlined into every getter.
               `get ${fname}(): ${T} {\n` +
-                `  const __lz = this.__${fname}_lz;\n` +
+                `  const __lz = this.${backing}_lz;\n` +
                 `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` + // a range -> parse once
-                `    this.__${fname}_val = JSON.__deserializeLazy<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz), this.__src);\n` +
-                `    this.__${fname}_lz = u64.MAX_VALUE;\n` +
+                `    this.${backing}_val = JSON.__deserializeLazy<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz), this.${sourceField});\n` +
+                `    this.${backing}_lz = u64.MAX_VALUE;\n` +
                 `  }\n` + // (0 -> default, MAX -> already materialized): return __val
-                `  return this.__${fname}_val as ${T};\n}`,
+                `  return this.${backing}_val as ${T};\n}`,
               `set ${fname}(value: ${T}) {\n` +
-                `  this.__${fname}_val = value;\n` +
-                `  this.__${fname}_lz = u64.MAX_VALUE;\n}`,
+                `  this.${backing}_val = value;\n` +
+                `  this.${backing}_lz = u64.MAX_VALUE;\n}`,
             ]
       ).map((src) => SimpleParser.parseClassMember(src, node));
       node.members.splice(i, 1, ...lowered);
       this.lazyMetadata.set(
         lowered[0] as FieldDeclaration,
-        lazyInner.get("__" + fname + "_lz")!,
+        lazyInner.get(slotName)!,
       );
       // Ref lazy field whose slot seeds to materialized (MAX) - i.e. it has an
       // effective default (a declared default, or the type default for a
@@ -1473,9 +1663,9 @@ export class JSONTransform extends Visitor {
       // initializers). Packed scalars carry their default in the slot itself,
       // so they need no `_val` seed.
       if (!packScalar && refDefault != null) {
-        const valueInit = `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`__${fname}_val`)}));\n`;
-        __lazyValInits.set(`__${fname}_lz`, valueInit);
-        lazyInner.get(`__${fname}_lz`)!.valueInit = valueInit;
+        const valueInit = `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`${backing}_val`)}));\n`;
+        __lazyValInits.set(`${backing}_lz`, valueInit);
+        lazyInner.get(`${backing}_lz`)!.valueInit = valueInit;
       }
     }
 
@@ -1587,7 +1777,11 @@ export class JSONTransform extends Visitor {
               extendsName,
               this.parser,
             );
-            if (externalSearch) {
+            if (
+              externalSearch?.decorators?.some((decorator) =>
+                ["json", "serializable"].includes(toString(decorator.name)),
+              )
+            ) {
               if (DEBUG > 0)
                 console.log(
                   "Found " +
@@ -1737,6 +1931,48 @@ export class JSONTransform extends Visitor {
               });
             }
           }
+          const inheritedLazy = this.lazyMetadata.get(declaration);
+          if (
+            schema.parent.node.range.source !== node.range.source &&
+            inheritedLazy &&
+            !isPrimitive(inheritedLazy.inner) &&
+            !isString(inheritedLazy.inner)
+          ) {
+            declaration = cloneNode(declaration) as FieldDeclaration;
+            const binding = this.inheritedTypeBinding(
+              inherited,
+              schema.parent,
+              node,
+            );
+            this.lazyMetadata.set(declaration, {
+              ...inheritedLazy,
+              inner: binding,
+              valueType:
+                binding +
+                (inheritedLazy.valueType.endsWith(" | null") &&
+                !inheritedLazy.inner.endsWith(" | null")
+                  ? " | null"
+                  : ""),
+            });
+          }
+          if (
+            schema.parent.node.range.source !== node.range.source &&
+            !isPrimitive(inherited.type) &&
+            !isString(inherited.type)
+          ) {
+            declaration = cloneNode(declaration) as FieldDeclaration;
+            const binding = this.inheritedTypeBinding(
+              inherited,
+              schema.parent,
+              node,
+            );
+            declaration.type = (
+              SimpleParser.parseClassMember(
+                `__type: ${binding};`,
+                node,
+              ) as FieldDeclaration
+            ).type;
+          }
           members.unshift(declaration);
         }
       }
@@ -1781,6 +2017,11 @@ export class JSONTransform extends Visitor {
       } else if (type == node.name.text) {
         return types;
       }
+      const declaration =
+        source.getClassInContext(type, node) ||
+        source.getImportedClass(type, this.parser);
+      if (declaration && this.usesBuiltinRepresentation(declaration))
+        return types;
       types.push(type);
       return types;
     };
@@ -1899,18 +2140,21 @@ export class JSONTransform extends Visitor {
     const inheritsLazy = schema.parent?.members.some((member) =>
       member.flags.has(PropertyFlags.Lazy),
     );
-    if (
-      __hasLazy &&
-      !inheritsLazy &&
-      !node.members.some((member) => member.name.text === "__src")
-    ) {
+    const ownsLazy = node.members.some((member) =>
+      this.lazyMetadata.has(member as FieldDeclaration),
+    );
+    if (ownsLazy && !this.lazySourceInstalled.has(node)) {
       node.members.push(
-        SimpleParser.parseClassMember(`protected __src: string = "";`, node),
         SimpleParser.parseClassMember(
-          `@inline __SET_SRC(s: string): void { this.__src = s; }`,
+          `protected ${sourceField}: string = "";`,
+          node,
+        ),
+        SimpleParser.parseClassMember(
+          `@inline __SET_SRC(s: string): void { ${inheritsLazy ? "super.__SET_SRC(s); " : ""}this.${sourceField} = s; }`,
           node,
         ),
       );
+      this.lazySourceInstalled.add(node);
     }
 
     this.schemas.get(source.internalPath).push(schema);
@@ -1919,7 +2163,7 @@ export class JSONTransform extends Visitor {
 
     const wireNodes = new Set(members);
     const generatedBacking = (field: FieldDeclaration): boolean =>
-      (__hasLazy && field.name.text === "__src") ||
+      (__hasLazy && field.name.text === sourceField) ||
       members.some(
         (member) =>
           this.lazyMetadata.has(member) &&
@@ -2023,30 +2267,43 @@ export class JSONTransform extends Visitor {
             "'!",
           serializer.signature.parameters[1].range,
         );
-      if (
-        serializer.signature.parameters.length > 0 &&
-        (<NamedTypeNode>serializer.signature.parameters[0].type).name.identifier
-          .text != node.name.text &&
-        (<NamedTypeNode>serializer.signature.parameters[0].type).name.identifier
-          .text != "this"
-      )
+      const codecScope = source
+        .getQualifiedName(node)
+        .split(".")
+        .slice(0, -1)
+        .join(".");
+      const selfType = serializer.signature.parameters[0]?.type;
+      const selfName = selfType
+        ? this.resolveType(
+            toString(selfType),
+            source,
+            new Set(),
+            codecScope,
+            false,
+          )
+        : "this";
+      const selfDeclaration =
+        source.getClassInContext(selfName, node) ||
+        source.getImportedClass(selfName, this.parser);
+      if (selfName !== "this" && selfDeclaration !== node)
         throwError(
-          "Type of parameter for custom serializer does not match! It should be 'string'either be 'this' or '" +
-            this.schema.name +
-            "'",
-          serializer.signature.parameters[0].type.range,
+          `Custom serializer parameter must name this or ${this.schema.name}`,
+          selfType.range,
         );
+      const outputType = serializer.signature.returnType;
       if (
-        !serializer.signature.returnType ||
-        !(<NamedTypeNode>(
-          serializer.signature.returnType
-        )).name.identifier.text.includes("string")
+        !outputType ||
+        this.resolveType(
+          toString(outputType),
+          source,
+          new Set(),
+          codecScope,
+          false,
+        ) !== "string"
       )
         throwError(
-          "Could not find valid return type for serializer in " +
-            this.schema.name +
-            "!. Set the return type to type 'string' and try again",
-          serializer.signature.returnType.range,
+          `Custom serializer for ${this.schema.name} must return string`,
+          outputType?.range || serializer.range,
         );
 
       if (
@@ -2115,13 +2372,25 @@ export class JSONTransform extends Visitor {
             ", but deserializers can only accept one parameter of type 'string'!",
           deserializer.signature.parameters[1].range,
         );
+      const inputType = deserializer.signature.parameters[0].type;
+      const codecScope = source
+        .getQualifiedName(node)
+        .split(".")
+        .slice(0, -1)
+        .join(".");
       if (
-        (<NamedTypeNode>deserializer.signature.parameters[0].type).name
-          .identifier.text != "string"
+        !inputType ||
+        this.resolveType(
+          toString(inputType),
+          source,
+          new Set(),
+          codecScope,
+          false,
+        ) !== "string"
       )
         throwError(
-          "Type of parameter for custom deserializer does not match! It must be 'string'",
-          deserializer.signature.parameters[0].type.range,
+          "Custom deserializer parameter must be string",
+          inputType?.range || deserializer.range,
         );
       const returnType = deserializer.signature.returnType;
       const returnName = returnType
@@ -2209,6 +2478,19 @@ export class JSONTransform extends Visitor {
       );
       mem.nullable =
         member.type.isNullable || effectiveType !== stripNull(effectiveType);
+      if (stripNull(effectiveType) !== stripNull(mem.type)) mem.generic = true;
+      const representation =
+        source.getClassInContext(stripNull(mem.type), node) ||
+        source.getImportedClass(stripNull(mem.type), this.parser);
+      if (
+        representation &&
+        this.usesBuiltinRepresentation(representation) &&
+        !["JSON.Raw", "JSON.Value", "JSON.Obj", "JSON.Arr"].includes(
+          stripNull(mem.type),
+        ) &&
+        !stripNull(mem.type).startsWith("JSON.Box<")
+      )
+        mem.generic = true;
       mem.value = value;
       mem.node = member;
       mem.byteSize = estimatedSerializedByteSize(mem.type, source, this.parser);
@@ -2318,6 +2600,60 @@ export class JSONTransform extends Visitor {
         }
       }
 
+      if (mem.flags.has(PropertyFlags.OmitIf)) {
+        const inherited = this.schema.parent?.members.find(
+          (parent) => parent.name === mem.name,
+        );
+        if (inherited?.omitIfMethod && !node.members.includes(member)) {
+          mem.omitIfMethod = inherited.omitIfMethod;
+        } else {
+          const expression = mem.flags.get(PropertyFlags.OmitIf)!;
+          const zeroParameters =
+            expression.kind === NodeKind.Function &&
+            !(expression as FunctionExpression).declaration.signature.parameters
+              .length;
+          if (expression.kind === NodeKind.Function) {
+            const signature = (expression as FunctionExpression).declaration
+              .signature;
+            if (signature.parameters.length)
+              signature.parameters[0].type = Node.createNamedType(
+                Node.createSimpleTypeName("this", node.range),
+                null,
+                false,
+                node.range,
+              );
+            signature.returnType = Node.createNamedType(
+              Node.createSimpleTypeName("bool", node.range),
+              null,
+              false,
+              node.range,
+            );
+          }
+          const rendered =
+            expression.kind === NodeKind.Literal &&
+            (expression as LiteralExpression).literalKind === LiteralKind.String
+              ? (expression as StringLiteralExpression).value
+              : toString(expression);
+          const baseName = "__JSON_OMIT_" + node.name.text + "_" + mem.name;
+          let helper = baseName;
+          for (
+            let suffix = 1;
+            node.members.some((field) => field.name.text === helper);
+            suffix++
+          )
+            helper = baseName + "_" + suffix;
+          const condition = zeroParameters
+            ? `(${rendered})()`
+            : `JSON.__omitIf(${rendered}, this)`;
+          node.members.push(
+            SimpleParser.parseClassMember(
+              `${helper}(): bool { JSON.__beginOmission(); const result = ${condition}; JSON.__endOmission(); return result; }`,
+              node,
+            ),
+          );
+          mem.omitIfMethod = helper;
+        }
+      }
       this.schema.members.push(mem);
     }
 
@@ -2359,6 +2695,7 @@ export class JSONTransform extends Visitor {
     const useFastPath =
       requestedFastPath &&
       !hasTypeParams &&
+      !this.schema.members.some((member) => member.generic) &&
       (this.schema.static || supportsFastOptionalPath);
 
     indent = "  ";
@@ -2730,39 +3067,11 @@ export class JSONTransform extends Visitor {
           this.schema.byteSize += 2;
           SERIALIZE += indent + `}\n`;
         } else if (member.flags.has(PropertyFlags.OmitIf)) {
-          const expression = member.flags.get(PropertyFlags.OmitIf);
-          if (
-            member.flags.get(PropertyFlags.OmitIf).kind == NodeKind.Function
-          ) {
-            const arg = member.flags.get(
-              PropertyFlags.OmitIf,
-            ) as FunctionExpression;
-            arg.declaration.signature.parameters[0].type = Node.createNamedType(
-              Node.createSimpleTypeName("this", node.range),
-              null,
-              false,
-              node.range,
-            );
-            // @ts-expect-error: Type should be guaranteed
-            arg.declaration.signature.returnType.name =
-              Node.createSimpleTypeName(
-                "boolean",
-                (arg.declaration.signature.returnType as NamedTypeNode).name
-                  .range,
-              );
-          }
-          const rendered =
-            expression.kind == NodeKind.Literal &&
-            (expression as LiteralExpression).literalKind == LiteralKind.String
-              ? JSON.stringify(
-                  (expression as StringLiteralExpression).value,
-                ).slice(1, -1)
-              : toString(expression);
           SERIALIZE +=
             indent +
             `bs.offset = __dst;\n` +
             indent +
-            `const __emit${i} = (${omitNullCond}) && !JSON.__omitIf(${rendered}, this);\n` +
+            `const __emit${i} = (${omitNullCond}) && !this.${member.omitIfMethod}();\n` +
             indent +
             `__dst = bs.offset;\n` +
             indent +
@@ -2806,7 +3115,12 @@ export class JSONTransform extends Visitor {
         ? this.getSchema(type)
         : null;
       const isCustomType = member.custom || !!customDep;
-      if (isCustomType || member.generic) {
+      if (
+        isCustomType ||
+        member.generic ||
+        type === "JSON.Raw" ||
+        type === "JSON.Value"
+      ) {
         addMemberToCustomBucket(
           sortedMembers,
           member,
@@ -3105,6 +3419,15 @@ export class JSONTransform extends Visitor {
         out.push("}");
       } else if (resolvedType == "JSON.Raw") {
         out.push("{");
+        if (member.nullable) {
+          out.push(
+            `if (srcEnd - ${valuePtr} >= 8 && load<u64>(${valuePtr}) == 30399761348886638) {`,
+          );
+          out.push(
+            `store<usize>(${outPtr}, 0, ${fieldOffset}); ${srcPtr} = ${valuePtr} + 8;`,
+          );
+          out.push("} else {");
+        }
         out.push(`  const valueStart = ${valuePtr};`);
         out.push(
           `  const valueEnd = JSON.Util.scanValueEnd<JSON.Raw>(valueStart, srcEnd);`,
@@ -3114,6 +3437,7 @@ export class JSONTransform extends Visitor {
           `  store<${member.type}>(${outPtr}, JSON.Raw.from(JSON.Util.ptrToStr(valueStart, valueEnd)), ${fieldOffset});`,
         );
         out.push(`  ${srcPtr} = valueEnd;`);
+        if (member.nullable) out.push("}");
         out.push("}");
       } else if (isBoolean(resolvedType)) {
         out.push(`if (load<u64>(${srcPtr}) == 28429475166421108) {`);
@@ -3519,16 +3843,26 @@ export class JSONTransform extends Visitor {
           `${srcPtr} = __deserializeMapField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
         );
         out.push(`if (!${srcPtr}) break;`);
-      } else if (resolvedType.startsWith("Set<")) {
+      } else if (
+        resolvedType.startsWith("Set<") ||
+        resolvedType.startsWith("StaticArray<")
+      ) {
+        const reader = resolvedType.startsWith("Set<")
+          ? "__deserializeSetField"
+          : "__deserializeStaticArrayField";
+        if (member.nullable) {
+          out.push(
+            `if (srcEnd - ${srcPtr} >= 8 && load<u64>(${srcPtr}) == 30399761348886638) {`,
+          );
+          out.push(`  store<usize>(${outPtr}, 0, ${fieldOffset});`);
+          out.push(`  ${srcPtr} += 8;`);
+          out.push("} else {");
+        }
         out.push(
-          `${srcPtr} = __deserializeSetField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
+          `${srcPtr} = ${reader}<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
         );
         out.push(`if (!${srcPtr}) break;`);
-      } else if (resolvedType.startsWith("StaticArray<")) {
-        out.push(
-          `${srcPtr} = __deserializeStaticArrayField<${resolvedType}>(${srcPtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
-        );
-        out.push(`if (!${srcPtr}) break;`);
+        if (member.nullable) out.push("}");
       } else if (
         resolvedType == "JSON.Value" ||
         resolvedType == "JSON.Obj" ||
@@ -4083,7 +4417,7 @@ export class JSONTransform extends Visitor {
           const element = member.type.slice("StaticArray<".length, -1).trim();
           return `store<${member.type}>(dst, new StaticArray<${element}>(0), ${offset});`;
         }
-        return `store<${member.type}>(dst, 0, ${offset});`;
+        return `store<${member.type}>(dst, JSON.__zero<${member.type}>(), ${offset});`;
       });
       DESERIALIZE_FAST += i1 + "srcStart = start;\n";
       DESERIALIZE_FAST += i1 + "do {\n";
@@ -4526,6 +4860,13 @@ export class JSONTransform extends Visitor {
       if (member.flags.has(PropertyFlags.Lazy))
         return getLazyRangeStore(member, valueStart, valueEnd, prefix);
       if (
+        member.generic ||
+        this.getSchema(member.type)?.custom ||
+        stripNull(member.type) === "JSON.Raw" ||
+        stripNull(member.type) === "JSON.Value"
+      )
+        return getSlowValueStore(member, valueStart, valueEnd, prefix);
+      if (
         member.type.startsWith("JSON.Box<bool") ||
         member.type.startsWith("JSON.Box<boolean") ||
         member.type.startsWith("Box<bool") ||
@@ -4550,6 +4891,13 @@ export class JSONTransform extends Visitor {
     ): string => {
       if (member.flags.has(PropertyFlags.Lazy))
         return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+      if (
+        member.generic ||
+        ((this.getSchema(member.type)?.custom ||
+          ["JSON.Raw", "JSON.Value"].includes(stripNull(member.type))) &&
+          !member.nullable)
+      )
+        return getSlowValueStore(member, valueStart, valueEnd, prefix);
       return (
         prefix +
         `store<usize>(changetype<usize>(out), 0, offsetof<this>(${JSON.stringify(member.name)}));\n`
@@ -4580,7 +4928,9 @@ export class JSONTransform extends Visitor {
           DESERIALIZE +=
             indent +
             "            if (" +
-            (first.generic ? "isString<" + first.type + ">() && " : "") +
+            (first.generic
+              ? `JSON.__acceptsJsonKind<${first.type}>(1) && `
+              : "") +
             getComparison(fName) +
             ") { // " +
             JSON.stringify(fName) +
@@ -4602,7 +4952,9 @@ export class JSONTransform extends Visitor {
             DESERIALIZE +=
               indent +
               " else if (" +
-              (mem.generic ? "isString<" + mem.type + ">() && " : "") +
+              (mem.generic
+                ? `JSON.__acceptsJsonKind<${mem.type}>(1) && `
+                : "") +
               getComparison(memName) +
               ") { // " +
               JSON.stringify(memName) +
@@ -4668,11 +5020,7 @@ export class JSONTransform extends Visitor {
             indent +
             "            if (" +
             (first.generic
-              ? "(isInteger<" +
-                first.type +
-                ">() || isFloat<" +
-                first.type +
-                ">()) && "
+              ? `JSON.__acceptsJsonKind<${first.type}>(0) && `
               : "") +
             getComparison(fName) +
             ") { // " +
@@ -4696,11 +5044,7 @@ export class JSONTransform extends Visitor {
               indent +
               " else if (" +
               (mem.generic
-                ? "(isInteger<" +
-                  mem.type +
-                  ">() || isFloat<" +
-                  mem.type +
-                  ">()) && "
+                ? `JSON.__acceptsJsonKind<${mem.type}>(0) && `
                 : "") +
               getComparison(memName) +
               ") { // " +
@@ -4781,6 +5125,9 @@ export class JSONTransform extends Visitor {
           DESERIALIZE +=
             indent +
             "            if (" +
+            (first.generic
+              ? `JSON.__acceptsJsonKind<${first.type}>(5) && `
+              : "") +
             getComparison(fName) +
             ") { // " +
             JSON.stringify(fName) +
@@ -4801,6 +5148,9 @@ export class JSONTransform extends Visitor {
             DESERIALIZE +=
               indent +
               " else if (" +
+              (mem.generic
+                ? `JSON.__acceptsJsonKind<${mem.type}>(5) && `
+                : "") +
               getComparison(memName) +
               ") { // " +
               JSON.stringify(memName) +
@@ -4880,7 +5230,9 @@ export class JSONTransform extends Visitor {
           DESERIALIZE +=
             indent +
             "            if (" +
-            (first.generic ? "isArray<" + first.type + ">() && " : "") +
+            (first.generic
+              ? `JSON.__acceptsJsonKind<${first.type}>(4) && `
+              : "") +
             getComparison(fName) +
             ") { // " +
             JSON.stringify(fName) +
@@ -4901,7 +5253,9 @@ export class JSONTransform extends Visitor {
             DESERIALIZE +=
               indent +
               " else if (" +
-              (mem.generic ? "isArray<" + mem.type + ">() && " : "") +
+              (mem.generic
+                ? `JSON.__acceptsJsonKind<${mem.type}>(4) && `
+                : "") +
               getComparison(memName) +
               ") { // " +
               JSON.stringify(memName) +
@@ -4963,7 +5317,9 @@ export class JSONTransform extends Visitor {
           DESERIALIZE +=
             indent +
             "          if (" +
-            (first.generic ? "isBoolean<" + first.type + ">() && " : "") +
+            (first.generic
+              ? `JSON.__acceptsJsonKind<${first.type}>(2) && `
+              : "") +
             getComparison(fName) +
             ") { // " +
             JSON.stringify(fName) +
@@ -4986,7 +5342,9 @@ export class JSONTransform extends Visitor {
             DESERIALIZE +=
               indent +
               " else if (" +
-              (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") +
+              (mem.generic
+                ? `JSON.__acceptsJsonKind<${mem.type}>(2) && `
+                : "") +
               getComparison(memName) +
               ") { // " +
               JSON.stringify(memName) +
@@ -5050,7 +5408,9 @@ export class JSONTransform extends Visitor {
           DESERIALIZE +=
             indent +
             "          if (" +
-            (first.generic ? "isBoolean<" + first.type + ">() && " : "") +
+            (first.generic
+              ? `JSON.__acceptsJsonKind<${first.type}>(2) && `
+              : "") +
             getComparison(fName) +
             ") { // " +
             JSON.stringify(fName) +
@@ -5073,7 +5433,9 @@ export class JSONTransform extends Visitor {
             DESERIALIZE +=
               indent +
               " else if (" +
-              (mem.generic ? "isBoolean<" + mem.type + ">() && " : "") +
+              (mem.generic
+                ? `JSON.__acceptsJsonKind<${mem.type}>(2) && `
+                : "") +
               getComparison(memName) +
               ") { // " +
               JSON.stringify(memName) +
@@ -5135,7 +5497,9 @@ export class JSONTransform extends Visitor {
           DESERIALIZE +=
             indent +
             "          if (" +
-            (first.generic ? "isNullable<" + first.type + ">() && " : "") +
+            (first.generic
+              ? `JSON.__acceptsJsonKind<${first.type}>(3) && `
+              : "") +
             getComparison(fName) +
             ") { // " +
             JSON.stringify(fName) +
@@ -5157,7 +5521,9 @@ export class JSONTransform extends Visitor {
             DESERIALIZE +=
               indent +
               " else if (" +
-              (mem.generic ? "isNullable<" + mem.type + ">() && " : "") +
+              (mem.generic
+                ? `JSON.__acceptsJsonKind<${mem.type}>(3) && `
+                : "") +
               getComparison(memName) +
               ") { // " +
               JSON.stringify(memName) +
@@ -5919,41 +6285,12 @@ export class JSONTransform extends Visitor {
 
     // console.log("fromPath", fromPath);
 
-    const bsImport = this.imports.find((i) =>
-      i.declarations?.find(
-        (d) => d.foreignName.text == "bs" || d.name.text == "bs",
-      ),
+    const imports = node.statements.filter(
+      (statement) => statement.kind === NodeKind.Import,
+    ) as ImportStatement[];
+    const jsonImport = imports.find((statement) =>
+      statement.declarations?.some((item) => item.foreignName.text === "JSON"),
     );
-    const jsonImport = this.imports.find((i) =>
-      i.declarations?.find(
-        (d) => d.foreignName.text == "JSON" || d.name.text == "JSON",
-      ),
-    );
-    const atoiImport = this.imports.find((i) =>
-      i.declarations?.find(
-        (d) => d.foreignName.text == "atoi" || d.name.text == "atoi",
-      ),
-    );
-    const scanValueEndImport = this.imports.find((i) =>
-      i.declarations?.find(
-        (d) =>
-          d.foreignName.text == "scanValueEnd" || d.name.text == "scanValueEnd",
-      ),
-    );
-    // All struct-field deserializers are injected as a single aliased import
-    // from the `assembly/deserialize` barrel (tree-shaking drops the unused
-    // ones; the `__`-prefixed local names can't collide with user code).
-    const fieldHelpersImport = this.imports.find((i) =>
-      i.declarations?.find((d) => d.name.text == "__deserializeStringField"),
-    );
-    // Read the source text from the in-memory Source node rather than from disk.
-    // Under a virtual filesystem (e.g. asbuilder's in-memory compile, where a
-    // module's normalizedPath does not map to a real on-disk file) readFileSync
-    // throws ENOENT. The parsed Source already carries its full text, which is
-    // exactly what we're scanning for a local `scanValueEnd` definition.
-    const sourceText = node.text;
-    const hasLocalScanValueEnd = /\bscanValueEnd\b/.test(sourceText);
-
     const baseRel = computeImportBaseRel(
       path.dirname(fromPath),
       path.join(baseDir),
@@ -6011,153 +6348,149 @@ export class JSONTransform extends Visitor {
       return path.posix.join(baseRel, ...segments);
     };
 
-    if (!bsImport) {
-      const replaceNode = Node.createImportStatement(
-        [
-          Node.createImportDeclaration(
-            Node.createIdentifierExpression("bs", node.range, false),
-            null,
+    const names = new Set<string>();
+    for (const statement of node.statements) {
+      const declaration = statement as unknown as {
+        name?: IdentifierExpression;
+        declarations?: { name: IdentifierExpression }[];
+      };
+      if (declaration.name) names.add(declaration.name.text);
+      for (const item of declaration.declarations || [])
+        names.add(item.name.text);
+    }
+    // Namespace and local declarations can shadow a module-level import at a
+    // generated method's use site. Prefer names absent from every such scope.
+    const shadowed = new Set<string>();
+    class CollectShadowingNames extends Visitor {
+      visitIdentifierExpression(
+        identifier: IdentifierExpression,
+        parent: Node | null = null,
+      ): void {
+        if (
+          parent &&
+          [
+            NodeKind.VariableDeclaration,
+            NodeKind.FunctionDeclaration,
+            NodeKind.Parameter,
+            NodeKind.NamespaceDeclaration,
+          ].includes(parent.kind)
+        ) {
+          const declaration = parent as unknown as {
+            name?: IdentifierExpression;
+          };
+          if (declaration.name === identifier) shadowed.add(identifier.text);
+        }
+      }
+    }
+    new CollectShadowingNames().visit(node);
+    for (const name of shadowed) names.add(name);
+    const aliases = new Map<string, string>();
+    const inject = (module: string, bindings: [string, string][]): void => {
+      const declarations = bindings
+        .map(([foreign, preferred]) => {
+          // Keep the conventional spelling when it is free. A renamed import
+          // of JSON does not provide a local JSON identifier.
+          const targetPath = module.startsWith(".")
+            ? path.posix.normalize(
+                path.posix.join(path.posix.dirname(node.internalPath), module),
+              )
+            : "~lib/" + module;
+          const target = this.parser.sources.find(
+            (candidate) =>
+              candidate.internalPath === targetPath ||
+              candidate.internalPath === targetPath + "/index",
+          );
+          const existing = imports
+            .find(
+              (statement) =>
+                ((target &&
+                  (statement.internalPath === target.internalPath ||
+                    statement.internalPath + "/index" ===
+                      target.internalPath)) ||
+                  (foreign === "JSON" &&
+                    runtimeRoot !== undefined &&
+                    statement.internalPath === runtimeRoot + "index")) &&
+                statement.declarations?.some(
+                  (item) =>
+                    item.foreignName.text === foreign &&
+                    item.name.text === preferred,
+                ),
+            )
+            ?.declarations?.find(
+              (item) =>
+                item.foreignName.text === foreign &&
+                item.name.text === preferred,
+            );
+          if (existing && !shadowed.has(preferred)) return null;
+          let local = preferred;
+          for (let suffix = 0; names.has(local); suffix++)
+            local = "__json_" + preferred + "_" + suffix;
+          names.add(local);
+          if (local !== preferred) aliases.set(preferred, local);
+          return Node.createImportDeclaration(
+            Node.createIdentifierExpression(foreign, node.range, false),
+            local === foreign
+              ? null
+              : Node.createIdentifierExpression(local, node.range, false),
+            node.range,
+          );
+        })
+        .filter((declaration) => declaration !== null);
+      if (declarations.length)
+        node.statements.unshift(
+          Node.createImportStatement(
+            declarations,
+            Node.createStringLiteralExpression(module, node.range),
             node.range,
           ),
-        ],
-        Node.createStringLiteralExpression(
-          runtimeImport("lib", "as-bs"),
-          node.range,
-        ),
-        node.range,
-      );
-      node.range.source.statements.unshift(replaceNode);
-      if (DEBUG > 0)
-        console.log(
-          "Added import: " +
-            toString(replaceNode) +
-            " to " +
-            node.range.source.normalizedPath +
-            "\n",
         );
-    }
-
-    if (!jsonImport) {
-      const replaceNode = Node.createImportStatement(
-        [
-          Node.createImportDeclaration(
-            Node.createIdentifierExpression("JSON", node.range, false),
-            null,
-            node.range,
-          ),
-        ],
-        Node.createStringLiteralExpression(
-          runtimeImport("assembly", "index"),
-          node.range,
-        ), // Ensure POSIX-style path for 'assembly'
-        node.range,
-      );
-      node.range.source.statements.unshift(replaceNode);
-      if (DEBUG > 0)
-        console.log(
-          "Added import: " +
-            toString(replaceNode) +
-            " to " +
-            node.range.source.normalizedPath +
-            "\n",
-        );
-    }
-
-    if (!atoiImport) {
-      const replaceNode = Node.createImportStatement(
-        [
-          Node.createImportDeclaration(
-            Node.createIdentifierExpression("atoi", node.range, false),
-            null,
-            node.range,
-          ),
-        ],
-        Node.createStringLiteralExpression(
-          runtimeImport("assembly", "util", "atoi"),
-          node.range,
-        ),
-        node.range,
-      );
-      node.range.source.statements.unshift(replaceNode);
-      if (DEBUG > 0)
-        console.log(
-          "Added import: " +
-            toString(replaceNode) +
-            " to " +
-            node.range.source.normalizedPath +
-            "\n",
-        );
-    }
-
-    if (!scanValueEndImport && !hasLocalScanValueEnd) {
-      const replaceNode = Node.createImportStatement(
-        [
-          Node.createImportDeclaration(
-            Node.createIdentifierExpression("scanValueEnd", node.range, false),
-            null,
-            node.range,
-          ),
-        ],
-        Node.createStringLiteralExpression(
-          runtimeImport("assembly", "deserialize", "swar", "array", "shared"),
-          node.range,
-        ),
-        node.range,
-      );
-      node.range.source.statements.unshift(replaceNode);
-      if (DEBUG > 0)
-        console.log(
-          "Added import: " +
-            toString(replaceNode) +
-            " to " +
-            node.range.source.normalizedPath +
-            "\n",
-        );
-    }
-
-    if (!fieldHelpersImport) {
-      const fieldHelper = (real: string, alias: string) =>
-        Node.createImportDeclaration(
-          Node.createIdentifierExpression(real, node.range, false),
-          Node.createIdentifierExpression(alias, node.range, false),
-          node.range,
-        );
-      const replaceNode = Node.createImportStatement(
-        [
-          fieldHelper("deserializeIntegerField", "__deserializeIntegerField"),
-          fieldHelper("deserializeUnsignedField", "__deserializeUnsignedField"),
-          fieldHelper("deserializeFloatField", "__deserializeFloatField"),
-          fieldHelper("deserializeStringField", "__deserializeStringField"),
-          fieldHelper(
-            "deserializeStringFieldTrusted",
-            "__deserializeStringFieldTrusted",
-          ),
-          fieldHelper(
-            "deserializeArrayField_SWAR",
-            "__deserializeArrayField_SWAR",
-          ),
-          fieldHelper("deserializeMapField", "__deserializeMapField"),
-          fieldHelper("deserializeSetField", "__deserializeSetField"),
-          fieldHelper(
-            "deserializeStaticArrayField",
-            "__deserializeStaticArrayField",
-          ),
-        ],
-        Node.createStringLiteralExpression(
-          runtimeImport("assembly", "deserialize"),
-          node.range,
-        ),
-        node.range,
-      );
-      node.range.source.statements.unshift(replaceNode);
-      if (DEBUG > 0)
-        console.log(
-          "Added import: " +
-            toString(replaceNode) +
-            " to " +
-            node.range.source.normalizedPath +
-            "\n",
-        );
+    };
+    inject(runtimeImport("lib", "as-bs"), [["bs", "bs"]]);
+    inject(runtimeImport("assembly", "index"), [["JSON", "JSON"]]);
+    inject(runtimeImport("assembly", "util", "atoi"), [["atoi", "atoi"]]);
+    inject(
+      runtimeImport("assembly", "deserialize", "swar", "array", "shared"),
+      [["scanValueEnd", "scanValueEnd"]],
+    );
+    inject(runtimeImport("assembly", "deserialize"), [
+      ["deserializeIntegerField", "__deserializeIntegerField"],
+      ["deserializeUnsignedField", "__deserializeUnsignedField"],
+      ["deserializeFloatField", "__deserializeFloatField"],
+      ["deserializeStringField", "__deserializeStringField"],
+      ["deserializeStringFieldTrusted", "__deserializeStringFieldTrusted"],
+      ["deserializeArrayField_SWAR", "__deserializeArrayField_SWAR"],
+      ["deserializeMapField", "__deserializeMapField"],
+      ["deserializeSetField", "__deserializeSetField"],
+      ["deserializeStaticArrayField", "__deserializeStaticArrayField"],
+    ]);
+    if (aliases.size) {
+      class BindGeneratedReferences extends Visitor {
+        visitIdentifierExpression(identifier: IdentifierExpression): void {
+          const local = aliases.get(identifier.text);
+          if (local) identifier.text = local;
+        }
+        visitPropertyAccessExpression(
+          expression: PropertyAccessExpression,
+        ): void {
+          this.visit(expression.expression);
+        }
+        // User type names and copied initializer/predicate expressions retain
+        // their own bindings. Only generated runtime method bodies are rebound.
+        visitNamedTypeNode(_type: NamedTypeNode): void {}
+      }
+      const bind = new BindGeneratedReferences();
+      for (const schema of this.schemas.get(node.internalPath) || []) {
+        for (const member of schema.node.members) {
+          if (
+            member.kind !== NodeKind.MethodDeclaration ||
+            this.parser.sources.includes(member.range.source) ||
+            member.name.text.includes("INITIALIZE") ||
+            member.name.text.startsWith("__JSON_OMIT_")
+          )
+            continue;
+          bind.visit((member as MethodDeclaration).body);
+        }
+      }
     }
   }
 
@@ -6785,7 +7118,17 @@ function initializerHasEffects(expression: Expression): boolean {
       this.effect = true;
       super.visitUnaryPostfixExpression(node);
     }
+    visitElementAccessExpression(node: ElementAccessExpression): void {
+      this.effect = true;
+      super.visitElementAccessExpression(node);
+    }
     visitBinaryExpression(node: BinaryExpression): void {
+      // Nonliteral operands can invoke user-defined operators.
+      if (
+        node.left.kind !== NodeKind.Literal ||
+        node.right.kind !== NodeKind.Literal
+      )
+        this.effect = true;
       if (node.operator >= Token.Equals && node.operator <= Token.Caret_Equals)
         this.effect = true;
       super.visitBinaryExpression(node);

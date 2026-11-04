@@ -22,6 +22,14 @@ export function deserializeArrayArray<T extends unknown[][]>(
       changetype<nonnull<valueof<valueof<T>>>>(0) instanceof JSON.Value;
   }
 
+  const innerType = changetype<nonnull<valueof<T>>>(0);
+  // A decorated array's wire representation and callbacks override its storage.
+  if (
+    isDefined(innerType.__DESERIALIZE_CUSTOM) ||
+    isDefined(innerType.__DESERIALIZE_SLOW)
+  )
+    arbitraryInner = false;
+
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT)
     throw new Error("Expected '[' at start of array");
@@ -45,8 +53,13 @@ export function deserializeArrayArray<T extends unknown[][]>(
       arbitraryInner &&
       load<u16>(srcStart) == BRACKET_LEFT
     ) {
-      const inner = instantiate<JSON.Value[]>();
-      srcStart = parseArrayBody(inner, srcStart + 2, srcEnd);
+      const inner = instantiate<nonnull<valueof<T>>>();
+      inner.length = 0;
+      srcStart = parseArrayBody(
+        changetype<JSON.Value[]>(inner),
+        srcStart + 2,
+        srcEnd,
+      );
       if (srcStart == 0) return changetype<T>(0);
       // @ts-ignore: valueof<T> is JSON.Value[] in this branch
       value = changetype<valueof<T>>(changetype<usize>(inner));

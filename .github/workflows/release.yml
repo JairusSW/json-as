@@ -59,6 +59,9 @@ jobs:
       - name: Run Strict Tests (Fast)
         run: JSON_USE_FAST_PATH=1 bun run test:rfc -- --no-cache
 
+      - name: Test Packed Consumer
+        run: npm run test:package
+
       - name: Check Package Contents
         run: npm pack --dry-run --ignore-scripts
 

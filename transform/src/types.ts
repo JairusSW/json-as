@@ -45,6 +45,7 @@ export class Property {
   // For `JSON.Lazy<T>` slot members: the inner type T, used by the
   // deserialize (range store) and serialize (raw emit / materialized) codegen.
   public lazyInner: string | null = null;
+  public omitIfMethod: string | null = null;
   public lazyPacked: boolean = false;
   public lazyScalar: boolean = false;
   public _generic: boolean = false;
@@ -346,6 +347,14 @@ export class Src {
     return null;
   }
 
+  registerAlias(
+    alias: TypeAlias,
+    namespaces: NamespaceDeclaration[] = [],
+  ): void {
+    this.aliases.push(alias);
+    if (alias.declaration) this.nodeMap.set(alias.declaration, namespaces);
+  }
+
   /** Classes declared in this source, including namespaced declarations. */
   getClasses(): ClassDeclaration[] {
     return Object.values(this.classes);
@@ -369,37 +378,102 @@ export class Src {
   getImportedClass(
     qualifiedName: string,
     parser: Parser,
+    visited = new Set<string>(),
   ): ClassDeclaration | null {
-    for (const stmt of this.imports) {
-      const externalSource = parser.sources
-        .filter((src) => src.internalPath != this.internalPath)
-        .find((src) => src.internalPath == stmt.internalPath);
-      if (!externalSource) continue;
+    const binding = this.getImportedBinding(qualifiedName, parser);
+    if (!binding) return null;
+    const identity = binding.source.internalPath + ":class:" + binding.name;
+    if (visited.has(identity)) return null;
+    visited.add(identity);
+    const direct = binding.source.getClass(binding.name);
+    if (direct) return direct;
+    const alias = binding.source.aliases.find(
+      (item) => item.name === binding.name,
+    );
+    if (alias?.declaration) {
+      const target = stripNull(alias.getBaseType());
+      return (
+        binding.source.getClassInContext(target, alias.declaration) ||
+        binding.source.getImportedClass(
+          target.replace(/<.*>$/, ""),
+          parser,
+          visited,
+        )
+      );
+    }
+    return null;
+  }
 
-      const source = this.sourceSet.get(externalSource);
-      const declaration = stmt.declarations?.find(
-        (d) => d.name.text === qualifiedName,
+  /** Follow a local import binding to its actual exported declaration. */
+  getImportedBinding(
+    name: string,
+    parser: Parser,
+    visited = new Set<string>(),
+  ): { source: Src; name: string } | null {
+    const parts = name.split(".");
+    for (const statement of this.imports) {
+      const declaration = statement.declarations?.find(
+        (item) => item.name.text === parts[0],
       );
-      const originalName = declaration
-        ? declaration.foreignName.text
-        : qualifiedName;
-      const classDeclaration = source.getClass(originalName);
-      if (classDeclaration && classDeclaration.flags & CommonFlags.Export) {
-        return classDeclaration;
-      }
-      const alias = source.aliases.find(
-        (candidate) => candidate.name === originalName,
+      const namespace = statement.namespaceName?.text === parts[0];
+      if (!declaration && !namespace) continue;
+      const external = parser.sources.find(
+        (source) =>
+          source.internalPath === statement.internalPath ||
+          source.internalPath === statement.internalPath + "/index",
       );
-      if (
-        declaration &&
-        alias?.declaration &&
-        alias.declaration.flags & CommonFlags.Export
-      ) {
-        const target = source.getClassInContext(
-          stripNull(alias.getBaseType()),
-          alias.declaration,
+      if (!external) continue;
+      const target = declaration
+        ? [declaration.foreignName.text, ...parts.slice(1)].join(".")
+        : parts.slice(1).join(".");
+      const result = this.sourceSet
+        .get(external)
+        .getExportedBinding(target, parser, visited);
+      if (result) return result;
+    }
+    return null;
+  }
+
+  private getExportedBinding(
+    name: string,
+    parser: Parser,
+    visited: Set<string>,
+  ): { source: Src; name: string } | null {
+    const identity = this.internalPath + ":export:" + name;
+    if (visited.has(identity)) return null;
+    visited.add(identity);
+    const direct =
+      this.getClass(name) ||
+      this.getEnum(name) ||
+      this.aliases.find((item) => item.name === name)?.declaration;
+    if (direct && direct.flags & CommonFlags.Export)
+      return { source: this, name };
+    for (const statement of this.exportStatements) {
+      const member = statement.members?.find(
+        (item) => item.exportedName.text === name,
+      );
+      if (statement.members && !member) continue;
+      const local = member ? member.localName.text : name;
+      if (statement.path) {
+        const external = parser.sources.find(
+          (source) =>
+            source.internalPath === statement.internalPath ||
+            source.internalPath === statement.internalPath + "/index",
         );
-        if (target) return target;
+        if (!external) continue;
+        const result = this.sourceSet
+          .get(external)
+          .getExportedBinding(local, parser, visited);
+        if (result) return result;
+      } else {
+        if (
+          this.getClass(local) ||
+          this.getEnum(local) ||
+          this.aliases.some((item) => item.name === local)
+        )
+          return { source: this, name: local };
+        const result = this.getImportedBinding(local, parser, visited);
+        if (result) return result;
       }
     }
     return null;
@@ -437,68 +511,26 @@ export class Src {
    * @returns Enum declaration or null if not found.
    */
   getImportedEnum(
-    qualifiedName: string,
+    name: string,
     parser: Parser,
     visited = new Set<string>(),
   ): EnumDeclaration | null {
-    const parts = qualifiedName.split(".");
-    for (const statement of this.imports) {
-      const declaration = statement.declarations?.find(
-        (item) => item.name.text === parts[0],
-      );
-      const namespace = statement.namespaceName?.text === parts[0];
-      if (!declaration && !namespace) continue;
-      const external = parser.sources.find(
-        (source) =>
-          source.internalPath === statement.internalPath ||
-          source.internalPath === statement.internalPath + "/index",
-      );
-      if (!external) continue;
-      const target = declaration
-        ? [declaration.foreignName.text, ...parts.slice(1)].join(".")
-        : parts.slice(1).join(".");
-      const found = this.sourceSet
-        .get(external)
-        .getExportedEnum(target, parser, visited);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  private getExportedEnum(
-    name: string,
-    parser: Parser,
-    visited: Set<string>,
-  ): EnumDeclaration | null {
-    const identity = this.internalPath + ":" + name;
+    const binding = this.getImportedBinding(name, parser);
+    if (!binding) return null;
+    const identity = binding.source.internalPath + ":enum:" + binding.name;
     if (visited.has(identity)) return null;
     visited.add(identity);
-    const direct = this.getEnum(name);
-    if (direct && direct.flags & CommonFlags.Export) return direct;
-    for (const statement of this.exportStatements) {
-      const member = statement.members?.find(
-        (item) => item.exportedName.text === name,
-      );
-      if (statement.members && !member) continue;
-      const local = member ? member.localName.text : name;
-      if (statement.path) {
-        const external = parser.sources.find(
-          (source) =>
-            source.internalPath === statement.internalPath ||
-            source.internalPath === statement.internalPath + "/index",
-        );
-        if (!external) continue;
-        const found = this.sourceSet
-          .get(external)
-          .getExportedEnum(local, parser, visited);
-        if (found) return found;
-      } else {
-        const found =
-          this.getEnum(local) || this.getImportedEnum(local, parser, visited);
-        if (found) return found;
-      }
-    }
-    return null;
+    const direct = binding.source.getEnum(binding.name);
+    if (direct) return direct;
+    const alias = binding.source.aliases.find(
+      (item) => item.name === binding.name,
+    );
+    if (!alias) return null;
+    const target = stripNull(alias.getBaseType());
+    return (
+      binding.source.getEnum(target) ||
+      binding.source.getImportedEnum(target, parser, visited)
+    );
   }
 
   /**
