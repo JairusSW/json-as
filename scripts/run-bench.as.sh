@@ -413,7 +413,12 @@ for file in "${FILES[@]}"; do
             wago) [[ $RUN_WAGO -eq 1 ]] || continue ;;
           esac
           echo -e "$filename (asc/$runtime/$wasi_engine/$mode_lower/$wasi_engine)\n"
-          provenance_state="$(JSON_MODE="$mode" RUNTIMES="$runtime" WAVM_RUN_FLAGS="$WAVM_RUN_FLAGS" node ./scripts/lib/bench-provenance.mjs begin as "$wasi_engine" "$file" "$arg")"
+          case "$wasi_engine" in
+            wavm) runtime_executable="$(command -v "$WAVM_BIN")" ;;
+            wazero) runtime_executable="$(command -v "$WAZERO_BIN")" ;;
+            wago) runtime_executable="$WAGO_HOST" ;;
+          esac
+          provenance_state="$(BENCH_RUNTIME_EXECUTABLE="$runtime_executable" JSON_MODE="$mode" RUNTIMES="$runtime" WAVM_RUN_FLAGS="$WAVM_RUN_FLAGS" node ./scripts/lib/bench-provenance.mjs begin as "$wasi_engine" "$file" "$arg")"
           run_wasi_module "$wasi_engine" "$arg"
           node ./scripts/lib/bench-provenance.mjs finish "$provenance_state"
         done

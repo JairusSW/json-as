@@ -26,6 +26,7 @@ import {
   Parser,
   ParenthesizedExpression,
   Program,
+  PropertyAccessExpression,
   Range,
   Source,
   SourceKind,
@@ -504,14 +505,26 @@ export class JSONTransform extends Visitor {
       const arguments_ = named.typeArguments?.length
         ? `<${named.typeArguments.map((argument) => toString(argument)).join(",")}>`
         : "";
-      return nullable(
-        this.lazyInnerType(
-          parse(target + arguments_),
-          this.sources.get(external),
-          "",
-          seen,
-        ),
+      const externalSrc = this.sources.get(external);
+      const inner = this.lazyInnerType(
+        parse(target + arguments_),
+        externalSrc,
+        "",
+        seen,
       );
+      const importedAlias = externalSrc.aliases.find(
+        (alias) => alias.name === target,
+      );
+      // A concrete Lazy alias is also a legal alias for its value type. Keep
+      // that consumer-visible binding when its implementation class is private.
+      if (
+        inner !== null &&
+        !named.typeArguments?.length &&
+        importedAlias?.declaration &&
+        externalSrc.getClassInContext(inner, importedAlias.declaration)
+      )
+        return nullable(toString(type));
+      return nullable(inner);
     }
     // addImports supplies the canonical JSON binding to classes that omit it.
     if (name === "JSON.Lazy" && runtime && named.typeArguments?.length === 1)
@@ -5542,7 +5555,7 @@ export class JSONTransform extends Visitor {
     const serializerPure =
       !schema.custom &&
       !schema.parent?.custom &&
-      !node.members.some((member) => member.name.text === "__SERIALIZE") &&
+      !hasManualSerializer(node) &&
       schema.members.every(
         (member) =>
           !member.flags.has(PropertyFlags.OmitIf) &&
@@ -5801,7 +5814,7 @@ export class JSONTransform extends Visitor {
         : "");
     node.members.push(
       SimpleParser.parseClassMember(
-        `__SERIALIZE_PURE_TYPE(): u32 { return idof<${ownType}>(); }`,
+        `__SERIALIZE_PURE_TYPE(): u32 { return ${hasManualSerializer(node) ? "0" : `idof<${ownType}>()`}; }`,
         node,
       ),
     );
@@ -6729,11 +6742,23 @@ function estimatedSerializedByteSize(
   return estimated;
 }
 
-// Construction expressions may be needed after a layout miss. Replaying a call,
-// increment, or assignment can change a default that survives in the result.
+function hasManualSerializer(node: ClassDeclaration): boolean {
+  return node.members.some((member) => member.name.text === "__SERIALIZE");
+}
+
+// Defaults may survive a layout miss. Calls, constructors and property reads
+// can execute user code, so speculation must not replay their initialization.
 function initializerHasEffects(expression: Expression): boolean {
   class Effects extends Visitor {
     effect = false;
+    visitNewExpression(node: NewExpression): void {
+      this.effect = true;
+      super.visitNewExpression(node);
+    }
+    visitPropertyAccessExpression(node: PropertyAccessExpression): void {
+      this.effect = true;
+      super.visitPropertyAccessExpression(node);
+    }
     visitCallExpression(node: CallExpression): void {
       if (
         ![

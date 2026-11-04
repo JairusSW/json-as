@@ -12,6 +12,7 @@ import {
   ImportStatement,
   CommonFlags,
   EnumDeclaration,
+  ExportStatement,
 } from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
 import { stripNull } from "./index.js";
@@ -240,6 +241,7 @@ export class Src {
   public aliases: TypeAlias[];
   public exports: Schema[] = [];
   public imports: ImportStatement[] = [];
+  private exportStatements: ExportStatement[] = [];
   private nodeMap: Map<Node, NamespaceDeclaration[]> = new Map<
     Node,
     NamespaceDeclaration[]
@@ -285,6 +287,9 @@ export class Src {
           this.enums[this.qualifiedName(enumDeclaration, path)] =
             enumDeclaration;
           break;
+        case NodeKind.Export:
+          this.exportStatements.push(node as ExportStatement);
+          break;
         case NodeKind.Import:
           // eslint-disable-next-line no-case-declarations
           const importStatement = node as ImportStatement;
@@ -318,6 +323,8 @@ export class Src {
     owner: DeclarationStatement,
     visited = new Set<string>(),
   ): ClassDeclaration | null {
+    // Generic arguments belong to the type use, not the declaration identity.
+    name = stripNull(name).replace(/<.*>$/, "").trim();
     const path = this.getQualifiedName(owner).split(".").slice(0, -1);
     for (let depth = path.length; depth >= 0; depth--) {
       const qualified = [...path.slice(0, depth), name].join(".");
@@ -432,22 +439,63 @@ export class Src {
   getImportedEnum(
     qualifiedName: string,
     parser: Parser,
+    visited = new Set<string>(),
   ): EnumDeclaration | null {
-    for (const stmt of this.imports) {
-      const externalSource = parser.sources
-        .filter((src) => src.internalPath != this.internalPath)
-        .find((src) => src.internalPath == stmt.internalPath);
-      if (!externalSource) continue;
+    const parts = qualifiedName.split(".");
+    for (const statement of this.imports) {
+      const declaration = statement.declarations?.find(
+        (item) => item.name.text === parts[0],
+      );
+      const namespace = statement.namespaceName?.text === parts[0];
+      if (!declaration && !namespace) continue;
+      const external = parser.sources.find(
+        (source) =>
+          source.internalPath === statement.internalPath ||
+          source.internalPath === statement.internalPath + "/index",
+      );
+      if (!external) continue;
+      const target = declaration
+        ? [declaration.foreignName.text, ...parts.slice(1)].join(".")
+        : parts.slice(1).join(".");
+      const found = this.sourceSet
+        .get(external)
+        .getExportedEnum(target, parser, visited);
+      if (found) return found;
+    }
+    return null;
+  }
 
-      const source = this.sourceSet.get(externalSource);
-      const declaration = stmt.declarations?.find(
-        (d) => d.name.text === qualifiedName,
+  private getExportedEnum(
+    name: string,
+    parser: Parser,
+    visited: Set<string>,
+  ): EnumDeclaration | null {
+    const identity = this.internalPath + ":" + name;
+    if (visited.has(identity)) return null;
+    visited.add(identity);
+    const direct = this.getEnum(name);
+    if (direct && direct.flags & CommonFlags.Export) return direct;
+    for (const statement of this.exportStatements) {
+      const member = statement.members?.find(
+        (item) => item.exportedName.text === name,
       );
-      const enumDeclaration = source.getEnum(
-        declaration ? declaration.foreignName.text : qualifiedName,
-      );
-      if (enumDeclaration && enumDeclaration.flags & CommonFlags.Export) {
-        return enumDeclaration;
+      if (statement.members && !member) continue;
+      const local = member ? member.localName.text : name;
+      if (statement.path) {
+        const external = parser.sources.find(
+          (source) =>
+            source.internalPath === statement.internalPath ||
+            source.internalPath === statement.internalPath + "/index",
+        );
+        if (!external) continue;
+        const found = this.sourceSet
+          .get(external)
+          .getExportedEnum(local, parser, visited);
+        if (found) return found;
+      } else {
+        const found =
+          this.getEnum(local) || this.getImportedEnum(local, parser, visited);
+        if (found) return found;
       }
     }
     return null;

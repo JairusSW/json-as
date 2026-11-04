@@ -297,7 +297,15 @@ export class JSONTransform extends Visitor {
             const arguments_ = named.typeArguments?.length
                 ? `<${named.typeArguments.map((argument) => toString(argument)).join(",")}>`
                 : "";
-            return nullable(this.lazyInnerType(parse(target + arguments_), this.sources.get(external), "", seen));
+            const externalSrc = this.sources.get(external);
+            const inner = this.lazyInnerType(parse(target + arguments_), externalSrc, "", seen);
+            const importedAlias = externalSrc.aliases.find((alias) => alias.name === target);
+            if (inner !== null &&
+                !named.typeArguments?.length &&
+                importedAlias?.declaration &&
+                externalSrc.getClassInContext(inner, importedAlias.declaration))
+                return nullable(toString(type));
+            return nullable(inner);
         }
         if (name === "JSON.Lazy" && runtime && named.typeArguments?.length === 1)
             return nullable(toString(named.typeArguments[0]));
@@ -3791,7 +3799,7 @@ export class JSONTransform extends Visitor {
         node.members.push(SimpleParser.parseClassMember(`__DESERIALIZE_FAST_ENABLED(): bool { return ${!DESERIALIZE_CUSTOM && useFastPath}; }`, node));
         const serializerPure = !schema.custom &&
             !schema.parent?.custom &&
-            !node.members.some((member) => member.name.text === "__SERIALIZE") &&
+            !hasManualSerializer(node) &&
             schema.members.every((member) => !member.flags.has(PropertyFlags.OmitIf) &&
                 !member.flags.has(PropertyFlags.Lazy) &&
                 (isPrimitive(member.type) ||
@@ -3953,7 +3961,7 @@ export class JSONTransform extends Visitor {
             (node.typeParameters?.length
                 ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
                 : "");
-        node.members.push(SimpleParser.parseClassMember(`__SERIALIZE_PURE_TYPE(): u32 { return idof<${ownType}>(); }`, node));
+        node.members.push(SimpleParser.parseClassMember(`__SERIALIZE_PURE_TYPE(): u32 { return ${hasManualSerializer(node) ? "0" : `idof<${ownType}>()`}; }`, node));
         node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_FAST_ENABLED(): bool { return false; }", node));
         node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_REUSE_PURE(): bool { return false; }", node));
         const INITIALIZE_EMPTY = "__INITIALIZE(): this {\n  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n  this.__JSON_INITIALIZE_FIELDS();\n  return this;\n}";
@@ -4567,9 +4575,20 @@ function estimatedSerializedByteSize(type, source, parser) {
     }
     return estimated;
 }
+function hasManualSerializer(node) {
+    return node.members.some((member) => member.name.text === "__SERIALIZE");
+}
 function initializerHasEffects(expression) {
     class Effects extends Visitor {
         effect = false;
+        visitNewExpression(node) {
+            this.effect = true;
+            super.visitNewExpression(node);
+        }
+        visitPropertyAccessExpression(node) {
+            this.effect = true;
+            super.visitPropertyAccessExpression(node);
+        }
         visitCallExpression(node) {
             if (![
                 "changetype",

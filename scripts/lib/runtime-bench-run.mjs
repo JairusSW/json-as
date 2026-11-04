@@ -4,12 +4,9 @@ import os from "node:os";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import { runtimeVersionArgs } from "./runtime-version.mjs";
 
 const RUNTIMES = ["wago", "wasmtime", "wavm", "wazero", "v8", "bun"];
-const VERSION_ARGS = {
-  wavm: ["version"],
-  wazero: ["version"],
-};
 const PAYLOADS = ["twitter", "citm_catalog", "canada"];
 const FILES = PAYLOADS.flatMap((suite) => [
   `${suite}-pretty.deserialize.json`,
@@ -79,7 +76,7 @@ export function startRuntimeRun(root, frames, compilerFlags) {
       ["go", command(root, "go", ["version"])],
       ...RUNTIMES.filter((name) => name !== "wago").map((name) => [
         name,
-        command(root, name, VERSION_ARGS[name] ?? ["--version"]),
+        command(root, name, runtimeVersionArgs(name)),
       ]),
     ]),
     wagoDependencies: fs.readFileSync(

@@ -4,6 +4,7 @@ import os from "node:os";
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { runtimeVersionArgs } from "./runtime-version.mjs";
 
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 function command(root, program, args) {
@@ -115,7 +116,11 @@ export function beginBenchRun(root, settings = {}) {
       wasmOpt: command(root, "wasm-opt", ["--version"]),
       runtime:
         settings.runtime && settings.runtime !== "v8"
-          ? command(root, settings.runtime, ["--version"])
+          ? command(
+              root,
+              settings.runtimeExecutable || settings.runtime,
+              runtimeVersionArgs(settings.runtime),
+            )
           : null,
     },
     logs: logs(root),
@@ -197,6 +202,7 @@ if (
       beginBenchRun(process.cwd(), {
         language,
         runtime,
+        runtimeExecutable: env.BENCH_RUNTIME_EXECUTABLE || null,
         source,
         driverArguments,
         d8: env.D8_BIN,

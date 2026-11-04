@@ -574,7 +574,10 @@ export namespace JSON {
         }
         if (isReference<T>() || isManaged<T>()) {
           const type = changetype<nonnull<T>>(0);
-          if (type instanceof JSON.Raw) {
+          if (
+            type instanceof JSON.Raw &&
+            !isDefined(type.__DESERIALIZE_CURSOR)
+          ) {
             const first = skipCursorWhitespace(
               changetype<usize>(data),
               changetype<usize>(data) + ((<usize>data.length) << 1),
@@ -1595,6 +1598,7 @@ export namespace JSON {
       if (isBoolean<T>()) return JSON.Types.Bool;
       if (isInteger<T>()) {
         if (nameof<T>() == "usize" && value == 0) return JSON.Types.Null;
+        return <JSON.Types>valIntTag<T>();
       }
       if (isString<T>()) return JSON.Types.String;
       // @ts-expect-error: can assume that T is ArrayLike based on previous condition
@@ -2524,6 +2528,11 @@ export namespace JSON {
         }
       }
       if (replace && this._lazySlots == 0) this._src = "";
+    }
+
+    /** Release the input after parsing when every slot is already eager. */
+    __releaseEagerSource(): void {
+      if (this._lazySlots == 0) this._src = "";
     }
 
     /** Appends a value slot (raw NaN-boxed bits). Deserializer entry point. */

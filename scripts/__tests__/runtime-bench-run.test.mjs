@@ -42,6 +42,7 @@ function fixture(t) {
     "scripts/run-bench.runtimes.sh",
     "scripts/publish-benchmarks.sh",
     "scripts/lib/runtime-bench-run.mjs",
+    "scripts/lib/runtime-version.mjs",
     "bench/runners/wago/go.mod",
   ]) {
     fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
@@ -307,6 +308,10 @@ test("chart configuration uses only the selected run and original subtitle", (t)
   fs.copyFileSync(
     path.join(repo, "scripts/lib/bench-provenance.mjs"),
     path.join(renderer, "scripts/lib/bench-provenance.mjs"),
+  );
+  fs.copyFileSync(
+    path.join(repo, "scripts/lib/runtime-version.mjs"),
+    path.join(renderer, "scripts/lib/runtime-version.mjs"),
   );
   // Capture the actual chart configuration, without a native canvas dependency.
   fs.writeFileSync(

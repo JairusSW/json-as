@@ -124,7 +124,10 @@ export function parseArrayBodySlots(
       srcStart += 2;
       continue;
     }
-    if (code == BRACKET_RIGHT) return srcStart + 2;
+    if (code == BRACKET_RIGHT) {
+      out.__releaseEagerSource();
+      return srcStart + 2;
+    }
     if (parseSrc.length != 0) {
       out.pushRawSlot(parseSlotBits(srcStart, srcEnd));
     } else {

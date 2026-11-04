@@ -62,6 +62,7 @@ test("the JavaScript runner records completed measurements without live chart pr
   for (const name of [
     "scripts/run-bench.js.sh",
     "scripts/lib/bench-provenance.mjs",
+    "scripts/lib/runtime-version.mjs",
   ]) {
     fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
     fs.copyFileSync(path.join(repository, name), path.join(root, name));

@@ -63,6 +63,7 @@ export declare class Src {
     aliases: TypeAlias[];
     exports: Schema[];
     imports: ImportStatement[];
+    private exportStatements;
     private nodeMap;
     private classes;
     private enums;
@@ -75,7 +76,8 @@ export declare class Src {
     getEnum(qualifiedName: string): EnumDeclaration | null;
     getImportedClass(qualifiedName: string, parser: Parser): ClassDeclaration | null;
     getAvailableClass(qualifiedName: string, parser: Parser): ClassDeclaration | null;
-    getImportedEnum(qualifiedName: string, parser: Parser): EnumDeclaration | null;
+    getImportedEnum(qualifiedName: string, parser: Parser, visited?: Set<string>): EnumDeclaration | null;
+    private getExportedEnum;
     getFullPath(node: DeclarationStatement): string;
     resolveExtendsName(classDeclaration: ClassDeclaration): string;
     private qualifiedName;
