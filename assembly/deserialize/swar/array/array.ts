@@ -67,7 +67,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           }
         } else {
           value = changetype<valueof<T>>(instantiate<valueof<T>>());
-          out.push(value);
+          changetype<Array<valueof<T>>>(out)[out.length] = value;
         }
         srcStart = deserializeFloatArrayBody<valueof<T>>(
           srcStart,
@@ -89,7 +89,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           }
         } else {
           value = changetype<valueof<T>>(instantiate<valueof<T>>());
-          out.push(value);
+          changetype<Array<valueof<T>>>(out)[out.length] = value;
         }
         srcStart = deserializeArrayArrayBody<valueof<T>>(
           srcStart,
@@ -117,7 +117,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
             value,
           );
         } else {
-          out.push(value);
+          changetype<Array<valueof<T>>>(out)[out.length] = value;
         }
         srcStart = valueEnd;
       }

@@ -33,6 +33,7 @@ export declare class JSONTransform extends Visitor {
     private inheritedTypeBinding;
     private lazyMetadata;
     private collectInheritedFieldMembers;
+    private inheritedDefaultHelpers;
     visitClassDeclarationRef(node: ClassDeclaration): void;
     resolveType(type: string, source: Src, visited?: Set<string>, scope?: string, preserveClassAliases?: boolean): string;
     private getDefaultSchema;

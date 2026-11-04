@@ -910,7 +910,8 @@ export class JSONTransform extends Visitor {
     });
     if (isDecoratedBase) return;
 
-    this.collectInheritedFieldMembers(baseDecl, baseSource, members, visited);
+    const ancestors: FieldDeclaration[] = [];
+    this.collectInheritedFieldMembers(baseDecl, baseSource, ancestors, visited);
 
     const inheritedMembers = baseDecl.members.filter(
       (v) =>
@@ -922,13 +923,72 @@ export class JSONTransform extends Visitor {
           (decorator) => (<IdentifierExpression>decorator.name).text === "omit",
         ),
     ) as FieldDeclaration[];
-    for (let i = inheritedMembers.length - 1; i >= 0; i--) {
-      const inherited = inheritedMembers[i];
-      if (!members.some((member) => member.name.text == inherited.name.text)) {
+    const arguments_ =
+      effectiveTypeArguments(
+        baseDecl.typeParameters,
+        node.extendsType.typeArguments ?? [],
+      ) ?? [];
+    const bindings = new Map(
+      (baseDecl.typeParameters ?? []).map((parameter, index) => [
+        parameter.name.text,
+        arguments_[index],
+      ]),
+    );
+    class InstantiateInherited extends Visitor {
+      visitNamedTypeNode(type: NamedTypeNode): void {
+        const value = bindings.get(toString(type.name));
+        if (value) {
+          const nullable = type.isNullable;
+          Object.assign(type, cloneNode(value));
+          type.isNullable ||= nullable;
+        } else super.visitNamedTypeNode(type);
+      }
+    }
+    const instantiate = new InstantiateInherited();
+    // Local declarations shadow their inherited logical fields.
+    const fields = [
+      ...ancestors.filter(
+        (field) =>
+          !inheritedMembers.some((own) => own.name.text === field.name.text),
+      ),
+      ...inheritedMembers,
+    ];
+    for (let i = fields.length - 1; i >= 0; i--) {
+      const original = fields[i];
+      if (!members.some((member) => member.name.text == original.name.text)) {
+        const inherited = cloneNode(original) as FieldDeclaration;
+        instantiate.visit(inherited);
+        if (inheritedMembers.includes(original) && original.initializer) {
+          let helper = this.inheritedDefaultHelpers.get(original);
+          if (!helper) {
+            const stem = "__JSON_DEFAULT_" + original.name.text;
+            helper = this.unusedMemberName(baseDecl, stem);
+            for (
+              let suffix = 1;
+              this.parser.sources.some((source) =>
+                source.text.includes(helper!),
+              );
+              suffix++
+            )
+              helper = this.unusedMemberName(baseDecl, stem + "_" + suffix);
+            baseDecl.members.push(
+              SimpleParser.parseClassMember(
+                `${helper}(): ${toString(original.type)} { return ${toString(original.initializer)}; }`,
+                baseDecl,
+              ),
+            );
+            this.inheritedDefaultHelpers.set(original, helper);
+          }
+          inherited.initializer = SimpleParser.parseExpression(
+            `this.${helper}()`,
+          );
+        }
         members.unshift(inherited);
       }
     }
   }
+
+  private inheritedDefaultHelpers = new Map<FieldDeclaration, string>();
 
   visitClassDeclarationRef(node: ClassDeclaration): void {
     if (
@@ -1565,7 +1625,7 @@ export class JSONTransform extends Visitor {
         fieldDefault != null
           ? fieldDefault
           : inferredInner
-            ? `JSON.__lazyDefault<${T}>()`
+            ? `${this.runtimeReference()}.__lazyDefault<${T}>()`
             : !storesScalar && baseT == T && !baseT.startsWith("StaticArray<")
               ? baseT == "string" || baseT == "String"
                 ? '""'
@@ -1751,7 +1811,11 @@ export class JSONTransform extends Visitor {
           schema.parent = depSearch;
         } else {
           const internalSearch = source.getClassInContext(extendsName, node);
-          if (internalSearch) {
+          if (
+            internalSearch?.decorators?.some((decorator) =>
+              ["json", "serializable"].includes(toString(decorator.name)),
+            )
+          ) {
             if (DEBUG > 0)
               console.log(
                 "Found " +
@@ -1779,7 +1843,7 @@ export class JSONTransform extends Visitor {
               );
             schema.deps.push(schem);
             schema.parent = schem;
-          } else {
+          } else if (!internalSearch) {
             const externalSearch = source.getImportedClass(
               extendsName,
               this.parser,
@@ -2292,11 +2356,9 @@ export class JSONTransform extends Visitor {
             false,
           )
         : "this";
-      const selfDeclaration =
-        (selfType &&
-          source.getImportedClass(toString(selfType), this.parser)) ||
-        source.getClassInContext(selfName, node) ||
-        source.getImportedClass(selfName, this.parser);
+      const selfDeclaration = selfType
+        ? source.resolveClass(toString(selfType), node, this.parser)
+        : null;
       if (selfName !== "this" && selfDeclaration !== node)
         throwError(
           `Custom serializer parameter must name this or ${this.schema.name}`,
@@ -2408,9 +2470,9 @@ export class JSONTransform extends Visitor {
       const returnName = returnType
         ? toString((returnType as NamedTypeNode).name)
         : "";
-      const returnDeclaration =
-        source.getClassInContext(returnName, node) ||
-        source.getImportedClass(returnName, this.parser);
+      const returnDeclaration = returnType
+        ? source.resolveClass(toString(returnType), node, this.parser)
+        : null;
       if (returnName !== "this" && returnDeclaration !== node)
         throwError(
           "Could not find valid return type for deserializer in " +
@@ -6498,6 +6560,20 @@ export class JSONTransform extends Visitor {
       const bind = new BindGeneratedReferences();
       for (const schema of this.schemas.get(node.internalPath) || []) {
         for (const member of schema.node.members) {
+          if (member.kind === NodeKind.FieldDeclaration) {
+            const runtimeName = this.runtimeReference();
+            class BindFieldRuntime extends Visitor {
+              visitIdentifierExpression(
+                identifier: IdentifierExpression,
+              ): void {
+                if (identifier.text === runtimeName)
+                  identifier.text = aliases.get(runtimeName)!;
+              }
+            }
+            new BindFieldRuntime().visit(
+              (member as FieldDeclaration).initializer,
+            );
+          }
           if (
             member.kind !== NodeKind.MethodDeclaration ||
             this.parser.sources.includes(member.range.source)
@@ -7138,7 +7214,8 @@ function initializerHasEffects(expression: Expression): boolean {
     visitUnaryPrefixExpression(node: UnaryPrefixExpression): void {
       if (
         node.operator === Token.Plus_Plus ||
-        node.operator === Token.Minus_Minus
+        node.operator === Token.Minus_Minus ||
+        node.operand.kind !== NodeKind.Literal
       )
         this.effect = true;
       super.visitUnaryPrefixExpression(node);

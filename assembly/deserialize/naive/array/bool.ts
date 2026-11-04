@@ -46,14 +46,14 @@ export function deserializeBooleanArray<T extends boolean[]>(
 
   while (true) {
     if (srcStart + 8 <= srcEnd && load<u64>(srcStart) == TRUE_WORD_U64) {
-      out.push(true);
+      changetype<Array<valueof<T>>>(out)[out.length] = true;
       srcStart += 8;
     } else if (
       srcStart + 10 <= srcEnd &&
       load<u64>(srcStart) == FALSE_WORD_U64 &&
       load<u16>(srcStart, 8) == 101
     ) {
-      out.push(false);
+      changetype<Array<valueof<T>>>(out)[out.length] = false;
       srcStart += 10;
     } else {
       markProductionParseError();

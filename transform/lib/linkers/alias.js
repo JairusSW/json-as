@@ -111,11 +111,6 @@ export class TypeAlias {
             alias.declaration = this.declarations.get(name) ?? null;
             this.aliases.set(name, alias);
         }
-        for (const alias of this.aliases.values()) {
-            if (typeof alias.type === "string" && this.aliases.has(alias.type)) {
-                alias.type = this.aliases.get(alias.type);
-            }
-        }
         return [...this.aliases.values()];
     }
 }

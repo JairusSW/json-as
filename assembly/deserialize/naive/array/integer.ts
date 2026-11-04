@@ -51,7 +51,10 @@ export function deserializeIntegerArray_NAIVE<T extends number[]>(
       markProductionParseError();
       return changetype<T>(0);
     }
-    out.push(atoi<valueof<T>>(tokenStart, srcStart));
+    changetype<Array<valueof<T>>>(out)[out.length] = atoi<valueof<T>>(
+      tokenStart,
+      srcStart,
+    );
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;

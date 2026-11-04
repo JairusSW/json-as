@@ -52,7 +52,7 @@ export function deserializeReferenceArray<T extends unknown[]>(
         }
         if (!srcStart) break;
       } else break;
-      out.push(value);
+      changetype<Array<valueof<T>>>(out)[out.length] = value;
       while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
       if (srcStart >= srcEnd) break;
       if (load<u16>(srcStart) == BRACKET_RIGHT && srcStart + 2 == srcEnd)

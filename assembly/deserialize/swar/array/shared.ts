@@ -54,20 +54,13 @@ export function ensureArrayElementSlot<T extends Array<any>>(
 ): usize {
   const nextLength = index + 1;
   if (out.length < nextLength) {
-    // Grow via `push`, not `out.length = nextLength`. AS's `length=`
-    // setter calls `ensureCapacity(canGrow=false)` which reallocates to
-    // *exactly* the requested size - fine for a one-shot resize, but
-    // catastrophic in the per-element loop (every push triggers a full
-    // copy of the array, giving O(N²) growth cost). `push` goes through
-    // `canGrow=true`, doubling capacity geometrically as needed.
-    //
-    // We push a zero-bit default: `0` for primitives, the null reference
-    // for managed/reference element types. The caller overwrites this
-    // slot immediately, so the placeholder is never observed.
+    // The base Array index setter grows geometrically and links references.
+    // It cannot invoke an overridden push method or alter the decoded value.
+    const storage = changetype<Array<valueof<T>>>(out);
     if (isManaged<valueof<T>>() || isReference<valueof<T>>()) {
-      out.push(changetype<valueof<T>>(0));
+      storage[index] = changetype<valueof<T>>(0);
     } else {
-      out.push(<valueof<T>>0);
+      storage[index] = <valueof<T>>0;
     }
   }
   return out.dataStart + <usize>index * sizeof<valueof<T>>();

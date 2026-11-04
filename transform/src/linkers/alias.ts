@@ -147,11 +147,8 @@ export class TypeAlias {
       this.aliases.set(name, alias);
     }
 
-    for (const alias of this.aliases.values()) {
-      if (typeof alias.type === "string" && this.aliases.has(alias.type)) {
-        alias.type = this.aliases.get(alias.type)!;
-      }
-    }
+    // Keep alias bodies in source form. Their lexical namespace and bound type
+    // parameters are resolved at the use site before following another alias.
 
     return [...this.aliases.values()];
   }

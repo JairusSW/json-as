@@ -65,7 +65,9 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
       markProductionParseError();
       return changetype<T>(0);
     }
-    out.push(JSON.__deserialize<valueof<T>>(tokenStart, srcStart));
+    changetype<Array<valueof<T>>>(out)[out.length] = JSON.__deserialize<
+      valueof<T>
+    >(tokenStart, srcStart);
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break; // end of array body

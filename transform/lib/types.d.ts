@@ -77,6 +77,7 @@ export declare class Src {
     getClasses(): ClassDeclaration[];
     getEnum(qualifiedName: string): EnumDeclaration | null;
     getImportedClass(qualifiedName: string, parser: Parser, visited?: Set<string>): ClassDeclaration | null;
+    resolveClass(name: string, owner: DeclarationStatement, parser: Parser, visited?: Set<string>): ClassDeclaration | null;
     getImportedBinding(name: string, parser: Parser, visited?: Set<string>): {
         source: Src;
         name: string;

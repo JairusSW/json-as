@@ -16,6 +16,7 @@ import {
 } from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
 import { stripNull } from "./index.js";
+import { SimpleParser, toString } from "./util.js";
 
 import * as asc from "assemblyscript/dist/assemblyscript.js";
 export const NodeKind = (asc as unknown as { NodeKind: Record<string, number> })
@@ -402,6 +403,79 @@ export class Src {
       );
     }
     return null;
+  }
+
+  /** Resolve a class through transparent aliases without moving a foreign
+   * spelling into the consumer's lexical scope. Generic arguments are metadata,
+   * never part of the imported declaration's binding name. */
+  resolveClass(
+    name: string,
+    owner: DeclarationStatement,
+    parser: Parser,
+    visited = new Set<string>(),
+  ): ClassDeclaration | null {
+    const written = stripNull(name).trim();
+    const named = (
+      SimpleParser.parseTopLevelStatement(
+        `type __JSON_CLASS = ${written};`,
+      ) as asc.TypeDeclaration
+    ).type as asc.NamedTypeNode;
+    const arguments_ = named.typeArguments ?? [];
+    name = toString(named.name);
+    const suppliedClass = (alias: TypeAlias): ClassDeclaration | null => {
+      const parameter = alias.parameters.indexOf(
+        stripNull(typeof alias.type === "string" ? alias.type : ""),
+      );
+      return parameter >= 0 && arguments_[parameter]
+        ? this.resolveClass(
+            toString(arguments_[parameter]),
+            owner,
+            parser,
+            visited,
+          )
+        : null;
+    };
+    const scope = this.getQualifiedName(owner).split(".").slice(0, -1);
+    for (let depth = scope.length; depth >= 0; depth--) {
+      const qualified = [...scope.slice(0, depth), name].join(".");
+      const direct = this.getClass(qualified);
+      if (direct) return direct;
+      const alias = this.aliases.find(
+        (candidate) => candidate.name === qualified,
+      );
+      if (alias?.declaration) {
+        const identity = this.internalPath + ":codec:" + qualified;
+        if (visited.has(identity)) return null;
+        visited.add(identity);
+        const supplied = suppliedClass(alias);
+        if (supplied) return supplied;
+        return this.resolveClass(
+          alias.getBaseType(arguments_),
+          alias.declaration,
+          parser,
+          visited,
+        );
+      }
+    }
+    const binding = this.getImportedBinding(name, parser);
+    if (!binding) return null;
+    const direct = binding.source.getClass(binding.name);
+    if (direct) return direct;
+    const alias = binding.source.aliases.find(
+      (candidate) => candidate.name === binding.name,
+    );
+    if (!alias?.declaration) return null;
+    const identity = binding.source.internalPath + ":codec:" + binding.name;
+    if (visited.has(identity)) return null;
+    visited.add(identity);
+    const supplied = suppliedClass(alias);
+    if (supplied) return supplied;
+    return binding.source.resolveClass(
+      alias.getBaseType(arguments_),
+      alias.declaration,
+      parser,
+      visited,
+    );
   }
 
   /** Follow a local import binding to its actual exported declaration. */

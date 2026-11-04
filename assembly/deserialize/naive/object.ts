@@ -313,12 +313,12 @@ export function parseArrayBody(
         markProductionParseError();
         return 0;
       }
-      out.push(JSON.Value.fromSlice(srcStart, end, parseSrc));
+      out[out.length] = JSON.Value.fromSlice(srcStart, end, parseSrc);
       srcStart = end;
     } else {
       const value = parseValue(srcStart, srcEnd);
       if (parseValueEnd == 0) return 0;
-      out.push(value);
+      out[out.length] = value;
       srcStart = parseValueEnd;
     }
   }

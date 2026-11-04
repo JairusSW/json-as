@@ -1564,6 +1564,10 @@ export namespace JSON {
       } else if (isBoolean<T>()) {
         return <T>valPayload(w);
       } else if (isReference<T>()) {
+        // A generated/custom representation stores the instance itself. This
+        // compile-time branch must precede native-array construction requirements.
+        if (isDefined(changetype<nonnull<T>>(0).__SERIALIZE))
+          return changetype<T>(valPtr(w));
         // Array-tagged values store JSON.Arr, whose slot buffers do not have
         // the native Array<JSON.Value> layout. Materialize wrapper elements
         // for the legacy typed getter instead of reinterpreting that handle.
@@ -3250,8 +3254,9 @@ export namespace JSON {
     const type = changetype<nonnull<T>>(0);
     if (isDefined(type.__INITIALIZE)) return __cursorDefault<nonnull<T>>() as T;
     if (type instanceof JSON.Value) return changetype<T>(JSON.Value.empty());
-    if (type instanceof JSON.Raw) return changetype<T>(JSON.Raw.from("null"));
-    if (type instanceof Date) return changetype<T>(new Date(0));
+    if (type instanceof JSON.Raw) return instantiate<nonnull<T>>("null") as T;
+    if (type instanceof Date) return instantiate<nonnull<T>>(<i64>0) as T;
+    if (type instanceof JSON.Box) return __lazyBoxDefault(type, type.value);
     if (
       type instanceof ArrayBuffer ||
       type instanceof StaticArray ||
@@ -3269,6 +3274,10 @@ export namespace JSON {
     )
       return instantiate<nonnull<T>>(0) as T;
     return instantiate<nonnull<T>>() as T;
+  }
+
+  function __lazyBoxDefault<T, V>(_box: T, _value: V): T {
+    return instantiate<nonnull<T>>(<V>0) as T;
   }
 
   function __serializeLazyValue<T>(data: T): void {

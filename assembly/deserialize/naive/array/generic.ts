@@ -36,7 +36,9 @@ export function deserializeGenericArray<T extends unknown[]>(
     const valueEnd = scanValueEnd(srcStart, srcEnd);
     if (!valueEnd || valueEnd <= srcStart) break;
 
-    out.push(JSON.__deserialize<valueof<T>>(srcStart, valueEnd));
+    changetype<Array<valueof<T>>>(out)[out.length] = JSON.__deserialize<
+      valueof<T>
+    >(srcStart, valueEnd);
     srcStart = valueEnd;
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;

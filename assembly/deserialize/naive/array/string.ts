@@ -52,7 +52,8 @@ export function deserializeStringArray_NAIVE<T extends (string | null)[]>(
       }
       const value = deserializeString(srcStart, closing + 2);
       if (changetype<usize>(value) == 0) return changetype<T>(0);
-      out.push(changetype<valueof<T>>(value));
+      changetype<Array<valueof<T>>>(out)[out.length] =
+        changetype<valueof<T>>(value);
       srcStart = closing + 2;
     } else if (srcStart + 8 <= srcEnd && load<u64>(srcStart) == NULL_WORD_U64) {
       if (!nullable) {
@@ -60,7 +61,8 @@ export function deserializeStringArray_NAIVE<T extends (string | null)[]>(
         return changetype<T>(0);
       }
       // `(string | null)[]` element
-      out.push(changetype<valueof<T>>(0));
+      changetype<Array<valueof<T>>>(out)[out.length] =
+        changetype<valueof<T>>(0);
       srcStart += 8;
     } else {
       markProductionParseError();
