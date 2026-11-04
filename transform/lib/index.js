@@ -693,6 +693,28 @@ export class JSONTransform extends Visitor {
     }
     inheritedDefaultHelpers = new Map();
     inheritedOrigins = new Map();
+    isCodecStringType(type, source, scope, owner) {
+        if (!type)
+            return false;
+        const meaning = source.resolveTypeMeaning(toString(type), scope, this.parser, source.classTypeParameters(owner));
+        return (!meaning.nullable &&
+            ["string", "String"].includes(meaning.name) &&
+            (!meaning.declaration || isStdlib(meaning.declaration)));
+    }
+    classAncestors(node) {
+        const ancestors = [];
+        const seen = new Set([node]);
+        while (node.extendsType) {
+            const source = this.sources.get(node.range.source);
+            const parent = source.resolveClass(source.resolveExtendsName(node), node, this.parser);
+            if (!parent || isStdlib(parent) || seen.has(parent))
+                break;
+            seen.add(parent);
+            ancestors.push(parent);
+            node = parent;
+        }
+        return ancestors;
+    }
     initializerChainHasEffects(node, seen = new Set()) {
         if (seen.has(node))
             return false;
@@ -1243,6 +1265,14 @@ export class JSONTransform extends Visitor {
                 }
             }
             if (schema.parent?.members) {
+                const parentSource = this.sources.get(schema.parent.node.range.source);
+                const crossesScope = schema.parent.node.range.source !== node.range.source ||
+                    parentSource
+                        .getQualifiedName(schema.parent.node)
+                        .split(".")
+                        .slice(0, -1)
+                        .join(".") !==
+                        source.getQualifiedName(node).split(".").slice(0, -1).join(".");
                 const parentMembers = schema.parent.initializationMembers.length
                     ? schema.parent.initializationMembers
                     : schema.parent.members;
@@ -1306,7 +1336,7 @@ export class JSONTransform extends Visitor {
                         }
                     }
                     const inheritedLazy = this.lazyMetadata.get(declaration);
-                    if (schema.parent.node.range.source !== node.range.source &&
+                    if (crossesScope &&
                         inheritedLazy &&
                         !isPrimitive(inheritedLazy.inner) &&
                         !isString(inheritedLazy.inner)) {
@@ -1329,7 +1359,7 @@ export class JSONTransform extends Visitor {
                             this.lazyMetadata.set(declaration, lazy);
                         declaration.type = SimpleParser.parseClassMember(`__type: ${inherited.type};`, node).type;
                     }
-                    if (schema.parent.node.range.source !== node.range.source &&
+                    if (crossesScope &&
                         !isPrimitive(inherited.type) &&
                         !isString(inherited.type)) {
                         declaration = cloneNode(declaration);
@@ -1463,7 +1493,8 @@ export class JSONTransform extends Visitor {
                 __lazyValInits.set(member.name.text, metadata.valueInit);
         }
         __hasLazy = lazyInner.size > 0;
-        const inheritsLazy = schema.parent?.members.some((member) => member.flags.has(PropertyFlags.Lazy));
+        const ancestors = this.classAncestors(node);
+        const inheritsLazy = ancestors.some((ancestor) => this.lazySourceInstalled.has(ancestor));
         const ownsLazy = node.members.some((member) => this.lazyMetadata.has(member));
         if (ownsLazy && !this.lazySourceInstalled.has(node)) {
             node.members.push(SimpleParser.parseClassMember(`protected ${sourceField}: string = "";`, node), SimpleParser.parseClassMember(`@inline __SET_SRC(s: string): void { ${inheritsLazy ? "super.__SET_SRC(s); " : ""}this.${sourceField} = s; }`, node));
@@ -1478,6 +1509,12 @@ export class JSONTransform extends Visitor {
                 field.name.text === member.name.text.slice(0, -3) + "_val");
         schema.hasInternalInitializers =
             !!schema.parent?.hasInternalInitializers ||
+                ancestors.some((ancestor) => ancestor.members.some((field) => field.kind === NodeKind.FieldDeclaration &&
+                    !field.is(32) &&
+                    !!field.initializer &&
+                    (field.is(512) ||
+                        field.is(1024) ||
+                        field.decorators?.some((decorator) => toString(decorator.name) === "omit")))) ||
                 node.members.some((field) => field.kind === NodeKind.FieldDeclaration &&
                     !field.is(32) &&
                     !wireNodes.has(field) &&
@@ -1550,8 +1587,7 @@ export class JSONTransform extends Visitor {
             if (selfName !== "this" && selfDeclaration !== node)
                 throwError(`Custom serializer parameter must name this or ${this.schema.name}`, selfType.range);
             const outputType = serializer.signature.returnType;
-            if (!outputType ||
-                this.resolveType(toString(outputType), source, new Set(), codecScope, false, node) !== "string")
+            if (!this.isCodecStringType(outputType, source, codecScope, node))
                 throwError(`Custom serializer for ${this.schema.name} must return string`, outputType?.range || serializer.range);
             if (!serializer.decorators.some((v) => v.name.text == "inline")) {
                 serializer.decorators.push(Node.createDecorator(Node.createIdentifierExpression("inline", serializer.range), null, serializer.range));
@@ -1600,8 +1636,7 @@ export class JSONTransform extends Visitor {
                 .split(".")
                 .slice(0, -1)
                 .join(".");
-            if (!inputType ||
-                this.resolveType(toString(inputType), source, new Set(), codecScope, false, node) !== "string")
+            if (!this.isCodecStringType(inputType, source, codecScope, node))
                 throwError("Custom deserializer parameter must be string", inputType?.range || deserializer.range);
             const returnType = deserializer.signature.returnType;
             const returnName = returnType
@@ -1653,7 +1688,13 @@ export class JSONTransform extends Visitor {
             const effectiveType = this.resolveType(toString(member.type), source, new Set(), source.getQualifiedName(node).split(".").slice(0, -1).join("."), false, node);
             mem.nullable =
                 member.type.isNullable || effectiveType !== stripNull(effectiveType);
-            if (stripNull(effectiveType) !== stripNull(mem.type))
+            const meaning = source.resolveTypeMeaning(toString(member.type), source.getQualifiedName(node).split(".").slice(0, -1).join("."), this.parser, source.classTypeParameters(node));
+            const writtenDeclaration = source.getClassInContext(stripNull(mem.type), node) ||
+                source.getImportedClass(stripNull(mem.type), this.parser) ||
+                source.getEnum(stripNull(mem.type)) ||
+                source.getImportedEnum(stripNull(mem.type), this.parser);
+            if (stripNull(effectiveType) !== stripNull(mem.type) ||
+                (meaning.declaration && meaning.declaration !== writtenDeclaration))
                 mem.generic = true;
             const representation = source.getClassInContext(stripNull(mem.type), node) ||
                 source.getImportedClass(stripNull(mem.type), this.parser);

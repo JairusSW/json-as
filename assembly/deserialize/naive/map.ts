@@ -251,6 +251,15 @@ function setFreshMapValuePrehashed<T extends Map<any, any>>(
   return true;
 }
 
+// A storage-only view: super dispatch bypasses a subtype's user-defined set.
+// This view adds no fields and is never constructed.
+class ParsedMapState<K, V> extends Map<K, V> {
+
+  @inline write(key: K, value: V): void {
+    super.set(key, value);
+  }
+}
+
 
 @inline
 function setParsedMapValue<T extends Map<any, any>>(
@@ -264,7 +273,7 @@ function setParsedMapValue<T extends Map<any, any>>(
     setFreshMapValuePrehashed<T>(out, key, value, <u32>(packedKey >> 32))
   )
     return;
-  changetype<nonnull<T>>(out).set(key, value);
+  changetype<ParsedMapState<indexof<T>, valueof<T>>>(out).write(key, value);
 }
 
 

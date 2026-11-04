@@ -35,6 +35,8 @@ export declare class JSONTransform extends Visitor {
     private collectInheritedFieldMembers;
     private inheritedDefaultHelpers;
     private inheritedOrigins;
+    private isCodecStringType;
+    private classAncestors;
     private initializerChainHasEffects;
     visitClassDeclarationRef(node: ClassDeclaration): void;
     resolveType(type: string, source: Src, _visited?: Set<string>, scope?: string, preserveClassAliases?: boolean, owner?: ClassDeclaration): string;

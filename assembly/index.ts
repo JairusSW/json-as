@@ -2398,7 +2398,10 @@ export namespace JSON {
       if (
         value instanceof Map &&
         !isDefined(value.__SERIALIZE) &&
-        valueBitsSupported<valueof<T>>()
+        valueBitsSupported<valueof<T>>() &&
+        idof<nonnull<T>>() == idof<Map<indexof<T>, valueof<T>>>() &&
+        changetype<OBJECT>(changetype<usize>(value) - TOTAL_OVERHEAD).rtId ==
+          idof<Map<indexof<T>, valueof<T>>>()
       ) {
         const out = new JSON.Obj();
         const keys = value.keys();

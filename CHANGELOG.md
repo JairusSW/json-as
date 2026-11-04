@@ -1,82 +1,82 @@
 # Changelog
 
-## Unreleased
+## Unreleased - v2.0.0
 
-- fix(schema): resolve custom codecs by lexical declaration identity, validate qualified return types, preserve explicit empty aliases, and instantiate lazy metadata and physical layout through generic inheritance.
-- fix(parse): prioritize generated cursor capability and static-array element overrides; claim reused Map values and StaticArray fields across container boundaries; respect nullability supplied through generic arguments.
-- fix(dynamic): preserve wide integer Box conversions and guard primitive-array type-ID queries so Map conversions reach their serialization fallback.
-- perf(object): keep ordinary nested dynamic objects on linear flat traversal; compute callback key identities once and rebuild indexed occurrence lookup only after structural mutation.
+This release includes all changes since v1.6.2. The planned v1.7.0 release was never published; its changes are included in v2.0.0 below.
 
-- fix(parse): prevent shared composite destinations from overwriting one another, invalidate all public stringify output mutations, bound SIMD trace retention, and release it on fresh parse or Memory.shrink(). Constructor-dependent defaults no longer use the exact-default shortcut.
-- fix(schema): resolve renamed custom imports and namespaced enums; preserve nullable aliases, instantiated inherited types, omitted overrides, and combined omission predicates; escape alias comments and classify primitive names exactly.
-- fix(runtime): honor Map conversion representations, serialize dynamic containers consistently across callback mutation, tolerate shrinking joins, release removed lazy sources, parse signed expanded Date years, and preserve cancellation in long decimal exponents.
-- fix(bench): replace per-operation eval/exception handling with an observable result sink; reject zero operations and guarantee progress for small counts and oversized frame counts.
-- perf(memory): serialize materialized strings without wrappers, iterate primitive Sets without snapshots, preserve Set parse capacity, and sample top-level keys for bounded object metadata reservation. Preserve inner-loop completion when chunking wide generated parsers.
+### Parsing and validation
 
-- fix(lazy): preserve alias/omit/optional metadata, defaults, and source anchors through dependency revisits and inheritance.
-- fix(serde): restore custom serializer state by relative offsets and reserve returned fragments; decode escaped property names and preserve user-defined representations throughout container dispatch.
-- fix(dynamic): adopt existing JSON.Value instances, dispatch polymorphic serializers with their runtime receiver, escape reference-value string conversion while retaining scalar float display, and link managed payload writes during incremental collection.
-- fix(numbers): resolve decimal-to-f32 midpoint ties exactly for roots, fields, reuse, and arrays, avoiding double rounding through f64.
-- perf(memory): eliminate temporary primitive-slot wrappers and the inactive cache arena; bound root-array capacity and float-output reservations, and use proportional slack for medium owned outputs. Effectful codecs use a single parser traversal instead of replaying callbacks after layout misses.
-- fix: preserve owned-output reservations, reserve dynamic fields after callback boundaries, retain callback-capable arrays, and keep Map iteration stable across callback rehashing.
-- fix(parse): separate aliased reused string destinations and enforce string-array element nullability consistently for fresh and reused outputs.
-- bench: keep native parity comparisons separate from classic workload charts and reject prepared labels from another source revision.
-- fix(parse): invalidate cached string and object traces when owned string buffers are overwritten, preventing stale values after source or decoded-field buffer reuse.
-- compat: keep string metadata, uninitialized allocation, and allocation batching optional so published AssemblyScript runtimes retain ordinary allocation and string semantics.
-- perf(strict): construct fresh checked object graphs inside a scoped AssemblyScript allocation batch, preserving individually managed results while avoiding repeated TLSF searches and free-list updates.
+- Add `JSON.validate(data)` for complete JSON syntax validation without materializing values, independent of the `JSON_STRICT` setting.
+- Fuse strict validation with generated checked-cursor parsing for supported fresh objects and containers. Preserve document prevalidation for reused destinations and custom deserializers, so malformed syntax is rejected before either is modified or invoked. `JSON_STRICT=true` remains opt-in; the default compatibility mode is unchanged.
+- Continue checked object parsing after reordered keys instead of restarting from the beginning, preserving aliases, duplicate-key handling, defaults, and lazy source ranges. Improve expected-order key dispatch and checked string, whitespace, and discarded-value scanning.
+- Reject malformed complete numeric, boolean, string, array, and map tokens consistently across NAIVE, SWAR, and SIMD paths. Fix fractional/exponent input for integer targets, trailing documents, trailing commas, invalid escapes, and incomplete tokens; accept valid trailing whitespace after integers and nullable `null` ([#229](https://github.com/JairusSW/json-as/pull/229), [#234](https://github.com/JairusSW/json-as/pull/234)).
+- Make decimal-to-float conversion consistent across roots, fields, arrays, and reused destinations, including long mantissas, cancelling exponents, subnormals, overflow, and signed zero. Resolve decimal-to-`f32` midpoint ties directly rather than double-rounding through `f64`.
+- Preserve `number`, `usize`, `isize`, enum, and aliased scalar values in generated readers and writers. Disable exact-default shortcuts for constructor-dependent or value-changing cast initializers, so whitespace and fast-path selection cannot substitute a different default for supplied JSON.
+- Preserve the fast path for schemas exceeding 32 fields by retaining successful inner-loop exits when generated parsers are split into helpers. Extend bounded, collision-safe packed-key dispatch to wide objects ([#238](https://github.com/JairusSW/json-as/pull/238)).
 
-- perf(simd): finish classified clean-string copies with overlapping exact-end vector stores, eliminating the scalar tail cascade and enabling optimizer fusion into generated writers.
+### Types, inheritance, and decorators
 
-- perf(simd): inline managed-string field dispatch into generated writers so repeated clean strings and compact string kernels avoid a shared routing call.
+- Resolve aliases using declaration identity and lexical context. Preserve caller bindings for supplied generic arguments, keep class type parameters bound, apply default generic arguments, and accept finite nested uses of the same alias while retaining definition-cycle protection. Fix `f32` fields being serialized as integer bit patterns after alias expansion.
+- Follow renamed imports, namespace imports, named and wildcard re-exports, and barrel modules when resolving classes, enums, custom codecs, and lazy markers. Preserve consumer exports and canonical runtime imports across relative, virtual, pnpm, workspace, linked, and package-entry layouts ([#246](https://github.com/JairusSW/json-as/pull/246)).
+- Preserve private implementation types behind public aliases, including arrays, enums, generic classes, and lazy aliases. Generate legal type bindings for inherited fields across modules and namespace scopes instead of reinterpreting their names in the child context. Keep chained aliases classified by their resolved declarations even when renamed imports share an implementation name.
+- Merge inherited metadata across decorated and undecorated classes, including generic bases and undecorated intermediates. Track ancestor declarations rather than repeated local import names, preserve inherited scalar types, and keep overridden fields from appearing twice.
+- Apply shadowing before filtering wire fields: an overriding `@omit` still suppresses the ancestor's field. Preserve empty `@alias("")` keys and correctly escape unusual keys and generated comments.
+- Separate object initialization from JSON field participation. Preserve omitted, private, and protected defaults through the full ancestry, including undecorated bases, in compatibility and checked-cursor parsing; retain declaration order and declaring-module bindings. Reinitialize reused Map values for each parse without evaluating fresh defaults twice.
+- Propagate initializer effects through the full inheritance chain. Prevent speculative fallback from replaying observable function calls, constructors, getters, overloaded indexing, binary operators, or unary operators.
+- Evaluate inherited omission predicates in their declaring scope. Support named predicates, zero-parameter arrows, combined omission conditions, and quoted string expressions; preserve outer serialization state when a predicate performs nested JSON operations.
+- Allocate generated runtime imports and lazy backing fields without colliding with application declarations, inherited members, renamed `JSON` imports, or namespace-local helpers. Rebind generated runtime references in initialization, omission, and backing-field expressions while preserving copied user expressions.
 
-- perf(simd): serialize clean strings of eight to fifteen UTF-16 units through a compact one-vector kernel, falling back to the complete escape writer for quotes, slashes, controls, and surrogates.
+### Lazy fields and custom codecs
 
-- perf(serialize): emit map entries through one separator shape and replace the final comma with the closing brace, removing the per-entry first-element branch while preserving reentrant mutation safety.
+- Preserve lazy aliases, omission/optional metadata, defaults, scalar classification, nullability, source anchors, and materialized values through dependency revisits and generic inheritance. Propagate lazy source ownership through undecorated intermediate classes. Handle eager/lazy override combinations and distinguish the library's `JSON.Lazy` marker from unrelated classes named `Lazy`.
+- Use the same type-aware implicit-default construction for `@lazy`, `JSON.Lazy<T>`, and class-level lazy modes. Support Date, Raw, Box, typed-array, and dynamic-value defaults and preserve requested Date/Raw subclass identity.
+- Dispatch generic fields through the full typed reader, including custom number, string, boolean, null, array, and object representations and built-ins such as Date and Set. Preserve actual null references in nullable Raw/Value fields and nested containers.
+- Give custom/generated codecs precedence over inherited built-in representations in arrays, StaticArrays, Maps, and dynamic boxing, including decorated Raw and Box subclasses ([#232](https://github.com/JairusSW/json-as/pull/232)).
+- Invoke inherited custom deserializers through a valid receiver. Track effectful codec dependencies through nested containers so layout fallback cannot execute callbacks twice.
+- Validate codec signatures by resolved type identity, accepting qualified self types, local/imported/generic aliases, forwarded aliases, composed return types, and the equivalent native `String` spelling. Preserve `JSON.parse(data, out)` when calls inside custom serializers are redirected through the internal API.
+- Preserve custom array instances when retrieving Struct-tagged values through `get`, `as`, and dynamic-container typed getters, including classes with required constructor arguments.
 
-- perf(serialize): inline the compile-time integer formatter dispatch while keeping the shared digit-formatting kernels outlined, removing generic width/sign routing from generated writers without duplicating the formatter loops.
+### Reuse, collections, and dynamic values
 
-- perf(serialize): emit composite arrays through one element call site and replace the final comma with the closing bracket, allowing optimized generated object writers to fuse into the array loop.
+- Track composite ownership across each public parse so shared child objects, Maps, native arrays, StaticArrays, nested rows/planes, and Raw wrappers cannot overwrite another logical destination. Retain normal repeated-key behavior and avoid allocating ownership bookkeeping on unrelated scalar parses.
+- Preserve supported container subtype identity and construction across fresh/reused parsing, fields, nested containers, and dynamic typed getters. Cover Array, Map, Set, typed-array, Date, Raw, and Box subclasses; replace constructor-seeded collection contents with the supplied JSON. Preserve typed-array element kind, signedness, length, and subviews through dynamic boxing.
+- Fill native array storage consistently across backends, bypassing overridden `push` and index setters for both existing and appended slots. Read native elements once during dynamic conversion, preserving wire values regardless of destination capacity or overloaded accessors.
+- Insert parsed Map entries consistently without invoking overridden `set` methods, including escaped keys and reused outputs. Keep `JSON.Obj.from(MapSubclass)` consistent with direct serialization instead of invoking overridden key/value enumeration.
+- Make reused Date parsing update base Date state without invoking an overridden `setTime`, preserving the decoded timestamp, output identity, and constructor count.
+- Add missing ArrayBuffer array/container dispatch and align StaticArray element dispatch with ordinary arrays. Preserve nested-array token boundaries and nullable string, Raw, Value, struct, and float-row behavior ([#228](https://github.com/JairusSW/json-as/pull/228), [#237](https://github.com/JairusSW/json-as/pull/237), [#243](https://github.com/JairusSW/json-as/pull/243), [#244](https://github.com/JairusSW/json-as/pull/244), [#245](https://github.com/JairusSW/json-as/pull/245)).
+- Invalidate cached string/object traces and clean-string classification whenever public stringify output reuse overwrites a source or decoded-field allocation. Bound trace retention and release it on fresh parsing or `JSON.Memory.shrink()` ([#231](https://github.com/JairusSW/json-as/pull/231)).
+- Preserve string escape parity across reused buffers, escaped backslash runs, and SWAR/SIMD boundaries. Respect live payload sizes and separate aliased string destinations ([#225](https://github.com/JairusSW/json-as/pull/225), [#242](https://github.com/JairusSW/json-as/pull/242)).
+- Materialize native arrays from dynamic values without losing subtype identity; preserve actual null elements when converting nullable Value arrays. Make `Value.set` share composite values consistently, regardless of a prior lazy read or strict-mode selection ([#227](https://github.com/JairusSW/json-as/pull/227)).
+- Honor custom serializers and supported value representations in `JSON.Obj.from(Map)`. Route unsupported direct boxing types, including primitive arrays and Dates, through conversion fallback rather than replacing them with zero.
+- Convert Box numeric values according to their stored tag, including exact wide-integer paths. Align `Value.getType` with represented values, pointer-sized integers, and custom container representations. Clarify numeric access: parsed dynamic numbers use `f64`; `Value.get<T>()` reads the stored numeric representation while `Box.fromValue<T>()` converts numeric types. Escape reference-value string conversion while retaining scalar float display.
+- Preserve callback mutation semantics across dynamic objects/arrays, map rehashing, array shrinking, reverse traversal, sorting, joins, and nested serialization. Keep callback-capable values rooted across buffer growth and garbage collection ([#230](https://github.com/JairusSW/json-as/pull/230)).
+- Guard typed dynamic-array reads and writes by live length, decode escaped object keys before storage, and delete every occurrence of duplicate parsed keys ([#233](https://github.com/JairusSW/json-as/pull/233), [#239](https://github.com/JairusSW/json-as/pull/239), [#240](https://github.com/JairusSW/json-as/pull/240)).
+- Trace Raw and dynamic reference payloads correctly and link managed writes during incremental collection. Release unnecessary source anchors after materialization, copies, replacement, deletion, or clearing ([#236](https://github.com/JairusSW/json-as/pull/236)).
+- Preserve signed expanded Date years in serialization and parsing, including canonical negative-year round trips and source-buffer reuse ([#226](https://github.com/JairusSW/json-as/pull/226)). Serialize non-finite floats as JSON `null` and avoid typed-array `NaN` membership false positives.
+- Correct owned-output reservations and callback-relative cursor restoration. Reserve custom fragments and dynamic fields after callback boundaries, preventing out-of-bounds string, float, and composite writes ([#247](https://github.com/JairusSW/json-as/pull/247)).
 
-- perf(serialize): allocate direct owned string outputs without first clearing their pointer-free payload, then fully overwrite the logical result as before.
+### Performance and allocation
 
-- perf(simd): cache completed escape-free scans on immutable managed strings of at least 32 bytes, allowing repeated serialization to copy clean payloads directly while preserving reuse, encoding, GC, and all runtime semantics through AssemblyScript's reserved string-size metadata bit.
+- Optimize SIMD/SWAR clean-string classification, copying, escapes, short/medium strings, and exact-end stores while preserving BMP characters, surrogate pairs, and Unicode boundaries. Reuse safe clean-string classifications and invalidate them on output mutation.
+- Keep generated serialization cursors local, dispatch strings/arrays/objects directly by pointer, inline primitive formatter selection, combine field reservations, and fuse integer-array and composite-array output loops. Use a single separator shape for Map and composite-array serialization.
+- Write large and medium outputs directly into owned strings with bounded growth/slack. Avoid clearing pointer-free string payloads that are immediately overwritten, and reduce over-reservation for floating-point output and empty arrays.
+- Use scoped allocation and incremental-GC batching for eligible fresh checked graphs while retaining independently managed results. Defer implicit nested/collection defaults until a missing field needs them and append fresh checked array slots directly.
+- Keep ordinary nested `JSON.Obj` serialization linear and avoid materializing every key for proven callback-free children. Exclude manual/custom serializers from generated purity certificates. Compute callback key identities once and rebuild indexed occurrence lookup only after structural mutation.
+- Serialize primitive dynamic slots and materialized strings without temporary Value wrappers; join materialized strings without per-element boxes or quadratic prefix copying ([#241](https://github.com/JairusSW/json-as/pull/241)).
+- Remove the unused `f64` fallback string copy, avoid primitive Set snapshots, retain Set capacity during reuse, and skip redundant fresh-Set clearing. Preserve snapshot handling where serializers can execute callbacks.
+- Reuse eligible string and struct elements in StaticArrays without rebuilding them through a temporary dynamic array. Remove redundant local identity sets from reused struct arrays while retaining parse-wide alias protection.
+- Bound fresh numeric-array capacity, count reusable numeric elements with exact SWAR masks, and avoid redundant validation scans for built-in reference arrays. Sample top-level keys for `JSON.Obj` reservations so large values do not imply large metadata buffers.
+- Keep string metadata, uninitialized allocation, and allocation-batching optimizations optional, with fallbacks for published AssemblyScript runtimes. Disabled experimental string caches allocate no arena; regular `JSON.stringify` does not use that cache.
 
-- perf(strict): classify long checked UTF-16 string runs through one packed SIMD byte vector after an exact first pair.
+### Benchmarks, testing, and release tooling
 
-- perf(strings): overlap reserved SIMD clean-string stores with escape classification.
-
-- perf(strings): classify two UTF-16 vectors together in clean runs using signed saturation and full-width surrogate checks.
-
-- perf(strings): continue SIMD copying with exact UTF-16 event checks after ordinary BMP false candidates, and reuse the clean scan after escapes.
-
-- perf(strings): use a boolean SIMD event test and retain valid UTF-16 surrogate pairs on the bulk-copy serialization path.
-
-- perf(serialize): load generic array elements directly while rereading the backing pointer after callbacks.
-
-- perf(strict): defer implicit collection defaults during fresh checked object parsing, constructing empty defaults only for missing fields.
-
-## 2026-10-29 - v1.7.0
-
-- fix(dynamic): materialize native arrays from dynamic `JSON.Value` instances, preserve callback mutation semantics, enforce live-length bounds for typed reads and writes, retain `JSON.Raw` payloads through garbage collection, release retained scalar source strings after copies, delete every duplicate parsed object key, and decode escaped object keys before storage ([#227](https://github.com/JairusSW/json-as/pull/227), [#230](https://github.com/JairusSW/json-as/pull/230), [#233](https://github.com/JairusSW/json-as/pull/233), [#236](https://github.com/JairusSW/json-as/pull/236), [#239](https://github.com/JairusSW/json-as/pull/239), [#240](https://github.com/JairusSW/json-as/pull/240)).
-- fix(collections): safely parse and serialize nullable strings, raw values, and structs in arrays, maps, and sets; preserve nested-array value boundaries; and dispatch custom-codec array elements by their JSON value shape ([#228](https://github.com/JairusSW/json-as/pull/228), [#232](https://github.com/JairusSW/json-as/pull/232), [#237](https://github.com/JairusSW/json-as/pull/237), [#243](https://github.com/JairusSW/json-as/pull/243), [#244](https://github.com/JairusSW/json-as/pull/244), [#245](https://github.com/JairusSW/json-as/pull/245)).
-- fix(reuse): make composite, static-array, typed-array, and cached-default reuse respect live payload sizes, GC ownership, and source-buffer replacement; separate aliased struct destinations without quadratic scans in large arrays or maps; reject typed-array `NaN` membership false positives.
-- fix(lazy): retain source strings for lazy structs inside arrays, maps, and parent fields, and propagate the source when deferred children are materialized.
-- fix(collections): decode escaped keys during map reuse, separate aliased struct array/map destinations and raw map values, preserve nullable raw map entries, and support arrays of static arrays or `JSON.Arr` plus static arrays of dates, sets, and `JSON.Arr`.
-- fix(parse): reject fractional/exponent tokens for integer destinations, malformed boolean set literals, trailing documents after maps, and trailing commas in generic or nested arrays; validate SWAR and SIMD integer tokens while folding them instead of accepting malformed fast-path prefixes.
-- fix(numbers): make decimal-to-float conversion exact and consistent across scalar, array, SWAR, and SIMD paths, including long mantissas, midpoint rounding, subnormals, overflow, and signed zero; reject malformed primitive-array tokens instead of partially accepting them.
-- fix(parse): accept valid trailing whitespace after integer and nullable `null` values while keeping malformed complete tokens rejected ([#229](https://github.com/JairusSW/json-as/pull/229), [#234](https://github.com/JairusSW/json-as/pull/234)).
-- fix(strings): preserve escape parity when dynamic or generated string output reuses an existing buffer, including escaped backslash runs at fast-scan block boundaries ([#225](https://github.com/JairusSW/json-as/pull/225), [#242](https://github.com/JairusSW/json-as/pull/242)).
-- fix(serialize): encode non-finite floats as `null`, reserve the exact bytes needed for booleans, and prevent wide SWAR/SIMD UTF-16 escape writes from crossing the serialization buffer.
-- fix(date): preserve extended years in top-level `Date` serialization and keep decoded dates safe when their source buffer is reused ([#226](https://github.com/JairusSW/json-as/pull/226)).
-- fix(transform): resolve generated runtime imports through the parsed canonical module path, including aliased, renamed, pnpm, and nested consumer layouts ([#246](https://github.com/JairusSW/json-as/pull/246)).
-- perf(transform): extend bounded packed-key dispatch to wide generated objects while retaining collision-safe fallback behavior ([#238](https://github.com/JairusSW/json-as/pull/238)).
-- perf(serialize): write primitive `JSON.Value` slots directly without transient wrappers ([#241](https://github.com/JairusSW/json-as/pull/241)).
-- perf(deserialize): count reusable numeric-array elements with exact SWAR delimiter masks, avoid redundant validation scans for built-in reference arrays, and keep alias-safe reuse allocation-free for small collections while using linear-time identity tracking for larger ones.
-- perf(serialize): batch UTF-16 buffer growth by vector block and keep escape-free BMP strings on their direct SWAR/SIMD paths.
-- bench: isolate runtime benchmark attempts, record source and engine provenance in manifests, reject incomplete runs, and keep older completed runs explicitly selectable ([#235](https://github.com/JairusSW/json-as/pull/235)).
-- ci(release): validate all benchmark tooling and npm package contents before publishing, install the exact committed dependency graph, enforce type and lint failures, reject tags that disagree with the package version, and generate GitHub release notes from the exact versioned changelog section so missing historical tags cannot duplicate changes.
-- chore(deps): refresh development-tooling dependencies and pin patched transitive releases, clearing the release dependency audit without changing the published runtime dependency graph.
-- test: add broad regressions for composite reuse, built-in array bounds, callback mutation, duplicate and escaped keys, nullable collections, custom codecs, numeric validity and rounding, string escape boundaries, canonical imports, wide-key dispatch, and runtime benchmark provenance.
+- Add owned-output simdjson/native comparisons, retained-output checks, changing-input workloads, classic corpus screens, and independent backend checks. Keep native-parity results separate from classic charts and distinguish validation, fresh/reused parsing, lazy access, materialized serialization, and untouched dynamic forwarding.
+- Record benchmark source hashes, compiler/standard-library provenance, strict/fast settings, input/workload identity, and the selected runtime executable/version. Build chart labels from recorded provenance rather than the current checkout, and reject stale, incomplete, or mismatched captures ([#235](https://github.com/JairusSW/json-as/pull/235)).
+- Remove JavaScript per-operation `eval`/exception overhead from benchmark loops, retain observable results, preserve sub-millisecond timings, reject zero-operation runs, and guarantee progress for small or oversized frame counts.
+- Add V8 JSON/Date differential oracles, exact `f32` midpoint checks, malformed-input and RFC matrices, GC/allocation budgets, and composition regressions across modes, strictness, fast paths, imports, inheritance, callbacks, and reused destinations.
+- Execute packed npm artifacts in isolated consumers across both import entry points and incremental, minimal, and stub runtimes. Include that consumer gate in release CI alongside fast/slow tests, strict public/RFC tests, transform/oracle suites, lint/type checks, and benchmark-tooling tests.
+- Commit the reproducible dependency graph, refresh development dependencies and patched transitive versions, and support published AssemblyScript runtime capabilities in CI. Validate package contents and tag/package-version agreement, and generate GitHub release notes from the exact versioned changelog section.
+- Remove obsolete implementation-reference documents and broken README references; clarify strict parsing and dynamic numeric access in the primary API documentation.
 
 ## 2026-10-15 - v1.6.2
 
