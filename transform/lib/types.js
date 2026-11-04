@@ -5,6 +5,13 @@ import { SimpleParser, toString } from "./util.js";
 import * as asc from "assemblyscript/dist/assemblyscript.js";
 export const NodeKind = asc
     .NodeKind;
+export function typeMeaningText(type) {
+    return (type.name +
+        (type.arguments.length
+            ? "<" + type.arguments.map(typeMeaningText).join(", ") + ">"
+            : "") +
+        (type.nullable ? " | null" : ""));
+}
 export var PropertyFlags;
 (function (PropertyFlags) {
     PropertyFlags[PropertyFlags["OmitNull"] = 0] = "OmitNull";
@@ -277,52 +284,134 @@ export class Src {
         }
         return null;
     }
-    resolveClass(name, owner, parser, visited = new Set()) {
-        const written = stripNull(name).trim();
-        const named = SimpleParser.parseTopLevelStatement(`type __JSON_CLASS = ${written};`).type;
-        const arguments_ = named.typeArguments ?? [];
-        name = toString(named.name);
-        const suppliedClass = (alias) => {
-            const parameter = alias.parameters.indexOf(stripNull(typeof alias.type === "string" ? alias.type : ""));
-            return parameter >= 0 && arguments_[parameter]
-                ? this.resolveClass(toString(arguments_[parameter]), owner, parser, visited)
-                : null;
-        };
-        const scope = this.getQualifiedName(owner).split(".").slice(0, -1);
-        for (let depth = scope.length; depth >= 0; depth--) {
-            const qualified = [...scope.slice(0, depth), name].join(".");
-            const direct = this.getClass(qualified);
-            if (direct)
-                return direct;
-            const alias = this.aliases.find((candidate) => candidate.name === qualified);
-            if (alias?.declaration) {
-                const identity = this.internalPath + ":codec:" + qualified;
-                if (visited.has(identity))
-                    return null;
-                visited.add(identity);
-                const supplied = suppliedClass(alias);
-                if (supplied)
-                    return supplied;
-                return this.resolveClass(alias.getBaseType(arguments_), alias.declaration, parser, visited);
+    classTypeParameters(owner) {
+        const result = new Map();
+        if (owner.kind === NodeKind.ClassDeclaration)
+            for (const parameter of owner.typeParameters ??
+                []) {
+                const type = SimpleParser.parseTopLevelStatement(`type __JSON_PARAMETER = ${parameter.name.text};`).type;
+                result.set(parameter.name.text, {
+                    type,
+                    source: this,
+                    scope: "",
+                    opaque: true,
+                });
             }
-        }
-        const binding = this.getImportedBinding(name, parser);
-        if (!binding)
-            return null;
-        const direct = binding.source.getClass(binding.name);
-        if (direct)
-            return direct;
-        const alias = binding.source.aliases.find((candidate) => candidate.name === binding.name);
-        if (!alias?.declaration)
-            return null;
-        const identity = binding.source.internalPath + ":codec:" + binding.name;
-        if (visited.has(identity))
-            return null;
-        visited.add(identity);
-        const supplied = suppliedClass(alias);
-        if (supplied)
-            return supplied;
-        return binding.source.resolveClass(alias.getBaseType(arguments_), alias.declaration, parser, visited);
+        return result;
+    }
+    resolveTypeMeaning(text, scope, parser, supplied = new Map()) {
+        const empty = new Map();
+        const parameters = new Map();
+        for (const [name, argument] of supplied)
+            parameters.set(name, {
+                ...argument,
+                parameters: argument.owner
+                    ? new Map([...argument.source.classTypeParameters(argument.owner)].map(([name, value]) => [
+                        name,
+                        {
+                            ...value,
+                            parameters: empty,
+                            trail: new Set(),
+                        },
+                    ]))
+                    : empty,
+                trail: new Set(),
+            });
+        const parse = (value) => SimpleParser.parseTopLevelStatement(`type __JSON_MEANING = ${value};`).type;
+        const resolve = (use, depth = 0) => {
+            const node = use.type;
+            const name = node.kind === NodeKind.NamedType ? toString(node.name) : toString(node);
+            const plain = () => ({
+                name,
+                nullable: !!node.isNullable,
+                arguments: [],
+                source: use.source,
+                declaration: null,
+            });
+            if (use.opaque || depth > 128 || node.kind !== NodeKind.NamedType)
+                return plain();
+            const parameter = use.parameters.get(name);
+            const nullable = (result) => node.isNullable && !result.nullable
+                ? { ...result, nullable: true }
+                : result;
+            if (parameter)
+                return nullable(resolve(parameter, depth + 1));
+            let owner = use.source;
+            let alias;
+            let declaration = null;
+            const parts = use.scope ? use.scope.split(".") : [];
+            for (let length = parts.length; length >= 0; length--) {
+                const qualified = [...parts.slice(0, length), name].join(".");
+                declaration = owner.getClass(qualified) || owner.getEnum(qualified);
+                alias = owner.aliases.find((candidate) => candidate.name === qualified);
+                if (declaration || alias)
+                    break;
+            }
+            if (!declaration && !alias) {
+                const binding = owner.getImportedBinding(name, parser);
+                if (binding) {
+                    owner = binding.source;
+                    alias = owner.aliases.find((candidate) => candidate.name === binding.name);
+                    declaration =
+                        owner.getClass(binding.name) || owner.getEnum(binding.name);
+                }
+            }
+            const arguments_ = (node.typeArguments ?? []).map((type) => ({
+                ...use,
+                type,
+            }));
+            if (alias?.declaration) {
+                if (use.trail.has(alias.declaration) ||
+                    arguments_.length > alias.parameters.length)
+                    return plain();
+                const environment = new Map();
+                const aliasScope = alias.name.split(".").slice(0, -1).join(".");
+                const trail = new Set(use.trail).add(alias.declaration);
+                for (let i = 0; i < alias.parameters.length; i++) {
+                    let argument = arguments_[i];
+                    if (!argument) {
+                        const fallback = alias.declaration.typeParameters?.[i]?.defaultType;
+                        if (!fallback)
+                            return plain();
+                        argument = {
+                            type: fallback,
+                            source: owner,
+                            scope: aliasScope,
+                            parameters: new Map(environment),
+                            trail,
+                        };
+                    }
+                    environment.set(alias.parameters[i], argument);
+                }
+                return nullable(resolve({
+                    type: alias.declaration.type,
+                    source: owner,
+                    scope: aliasScope,
+                    parameters: environment,
+                    trail,
+                }, depth + 1));
+            }
+            return {
+                name: declaration ? owner.getQualifiedName(declaration) : name,
+                nullable: !!node.isNullable,
+                arguments: arguments_.map((argument) => resolve(argument, depth + 1)),
+                source: owner,
+                declaration,
+            };
+        };
+        return resolve({
+            type: parse(text),
+            source: this,
+            scope,
+            parameters,
+            trail: new Set(),
+        });
+    }
+    resolveClass(name, owner, parser) {
+        const meaning = this.resolveTypeMeaning(name, this.getQualifiedName(owner).split(".").slice(0, -1).join("."), parser, this.classTypeParameters(owner));
+        return meaning.declaration?.kind === NodeKind.ClassDeclaration
+            ? meaning.declaration
+            : null;
     }
     getImportedBinding(name, parser, visited = new Set()) {
         const parts = name.split(".");

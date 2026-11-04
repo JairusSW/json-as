@@ -34,8 +34,10 @@ export declare class JSONTransform extends Visitor {
     private lazyMetadata;
     private collectInheritedFieldMembers;
     private inheritedDefaultHelpers;
+    private inheritedOrigins;
+    private initializerChainHasEffects;
     visitClassDeclarationRef(node: ClassDeclaration): void;
-    resolveType(type: string, source: Src, visited?: Set<string>, scope?: string, preserveClassAliases?: boolean): string;
+    resolveType(type: string, source: Src, _visited?: Set<string>, scope?: string, preserveClassAliases?: boolean, owner?: ClassDeclaration): string;
     private getDefaultSchema;
     private canDeferCursorObjectDefault;
     private hasCustomCursorInitializer;

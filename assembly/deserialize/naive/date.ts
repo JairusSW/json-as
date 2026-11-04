@@ -118,6 +118,15 @@ export function parseDateTime(text: string): i64 {
   return Date.fromString(text).getTime();
 }
 
+// A non-virtual super call updates Date's own state without invoking a user's
+// setTime override. This view adds no fields and never needs construction.
+class DateState extends Date {
+
+  @inline write(time: i64): void {
+    super.setTime(time);
+  }
+}
+
 export function deserializeDate<T extends Date = Date>(
   srcStart: usize,
   srcEnd: usize,
@@ -145,7 +154,7 @@ export function deserializeDate<T extends Date = Date>(
   // is globally aliased to wasi_Date (or some other superclass).
   if (dst) {
     const out = changetype<T>(dst);
-    out.setTime(time);
+    changetype<DateState>(dst).write(time);
     return out;
   }
   return instantiate<T>(time);

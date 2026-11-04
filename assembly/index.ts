@@ -2628,14 +2628,15 @@ export namespace JSON {
       ) {
         const out = new JSON.Arr();
         // @ts-expect-error: T is JSON.Value[] here
-        const arr = changetype<nonnull<T>>(value);
+        const arr = changetype<Array<valueof<T>>>(value);
         const len = arr.length;
         for (let i = 0; i < len; i++) {
+          const element = unchecked(arr[i]);
           out.pushRawSlot(
-            changetype<usize>(unchecked(arr[i])) == 0
+            changetype<usize>(element) == 0
               ? JSON.Value.nullBits()
               : JSON.Value.bitsFrom<JSON.Value>(
-                  changetype<JSON.Value>(unchecked(arr[i])),
+                  changetype<JSON.Value>(element),
                 ),
           );
         }

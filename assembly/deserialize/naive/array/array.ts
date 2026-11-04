@@ -73,7 +73,7 @@ export function deserializeArrayArray<T extends unknown[][]>(
     }
 
     if (index < out.length) {
-      unchecked((out[index] = value));
+      unchecked((changetype<Array<valueof<T>>>(out)[index] = value));
     } else {
       changetype<Array<valueof<T>>>(out)[out.length] = value;
     }

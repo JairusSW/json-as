@@ -1,6 +1,22 @@
 import { ClassDeclaration, Expression, FieldDeclaration, Source, NamespaceDeclaration, DeclarationStatement, Parser, ImportStatement, EnumDeclaration } from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
+import * as asc from "assemblyscript/dist/assemblyscript.js";
 export declare const NodeKind: Record<string, number>;
+export interface TypeArgumentContext {
+    type: asc.TypeNode;
+    source: Src;
+    scope: string;
+    owner?: DeclarationStatement;
+    opaque?: boolean;
+}
+export interface TypeMeaning {
+    name: string;
+    nullable: boolean;
+    arguments: TypeMeaning[];
+    source: Src;
+    declaration: ClassDeclaration | EnumDeclaration | null;
+}
+export declare function typeMeaningText(type: TypeMeaning): string;
 export declare enum PropertyFlags {
     OmitNull = 0,
     OmitIf = 1,
@@ -77,7 +93,9 @@ export declare class Src {
     getClasses(): ClassDeclaration[];
     getEnum(qualifiedName: string): EnumDeclaration | null;
     getImportedClass(qualifiedName: string, parser: Parser, visited?: Set<string>): ClassDeclaration | null;
-    resolveClass(name: string, owner: DeclarationStatement, parser: Parser, visited?: Set<string>): ClassDeclaration | null;
+    classTypeParameters(owner: DeclarationStatement): Map<string, TypeArgumentContext>;
+    resolveTypeMeaning(text: string, scope: string, parser: Parser, supplied?: Map<string, TypeArgumentContext>): TypeMeaning;
+    resolveClass(name: string, owner: DeclarationStatement, parser: Parser): ClassDeclaration | null;
     getImportedBinding(name: string, parser: Parser, visited?: Set<string>): {
         source: Src;
         name: string;
