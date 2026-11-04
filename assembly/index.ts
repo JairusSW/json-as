@@ -961,14 +961,14 @@ export namespace JSON {
         return value;
       } else if (type instanceof Date) {
         // @ts-expect-error
-        return deserializeDate(
+        return deserializeDate<nonnull<T>>(
           dataPtr,
           dataPtr + dataSize,
           changetype<usize>(out),
         );
       } else if (type instanceof JSON.Raw) {
         // @ts-expect-error: type
-        return deserializeRaw(
+        return deserializeRaw<nonnull<T>>(
           dataPtr,
           dataPtr + dataSize,
           changetype<usize>(out),
@@ -1010,6 +1010,7 @@ export namespace JSON {
           data,
           changetype<nonnull<T>>(0).value,
           changetype<usize>(out),
+          changetype<nonnull<T>>(0),
         );
       } else {
         throw new Error(
@@ -1570,7 +1571,8 @@ export namespace JSON {
         if (
           isArray<T>() &&
           isReference<valueof<T>>() &&
-          idof<valueof<T>>() == idof<JSON.Value>()
+          idof<valueof<T>>() == idof<JSON.Value>() &&
+          valTag(w) == JSON.Types.Array
         ) {
           const ptr = valPtr(w);
           if (ptr == 0) return changetype<T>(0);
@@ -3748,10 +3750,10 @@ export namespace JSON {
         return value;
       } else if (type instanceof Date) {
         // @ts-expect-error: type
-        return deserializeDate(srcStart, srcEnd, dst);
+        return deserializeDate<nonnull<T>>(srcStart, srcEnd, dst);
       } else if (type instanceof JSON.Raw) {
         // @ts-expect-error: type
-        return deserializeRaw(srcStart, srcEnd, dst);
+        return deserializeRaw<nonnull<T>>(srcStart, srcEnd, dst);
       } else if (type instanceof JSON.Value) {
         // @ts-expect-error: type
         const value = deserializeArbitrary(srcStart, srcEnd, dst);
@@ -3783,6 +3785,7 @@ export namespace JSON {
           srcEnd,
           dst,
           changetype<nonnull<T>>(0).value,
+          changetype<nonnull<T>>(0),
         );
       }
     }
@@ -4004,29 +4007,35 @@ export enum JSONMode {
   NAIVE = 2,
 }
 
-function parseBox<T>(data: string, ty: T, dst: usize = 0): JSON.Box<T> {
+function parseBox<T, U extends JSON.Box<T>>(
+  data: string,
+  ty: T,
+  dst: usize,
+  _box: U,
+): U {
   const value = JSON.parse<T>(data);
   if (dst) {
-    const out = changetype<JSON.Box<T>>(dst);
+    const out = changetype<U>(dst);
     out.value = value;
     return out;
   }
-  return new JSON.Box<T>(value);
+  return instantiate<U>(value);
 }
 
-function deserializeBox<T>(
+function deserializeBox<T, U extends JSON.Box<T>>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
   ty: T,
-): JSON.Box<T> {
+  _box: U,
+): U {
   const value = JSON.__deserialize<T>(srcStart, srcEnd);
   if (dst) {
-    const out = changetype<JSON.Box<T>>(dst);
+    const out = changetype<U>(dst);
     out.value = value;
     return out;
   }
-  return new JSON.Box<T>(value);
+  return instantiate<U>(value);
 }
 
 export function toRaw(data: string): JSON.Raw {

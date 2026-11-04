@@ -41,7 +41,7 @@ export function deserializeArray<T extends unknown[]>(
       );
     }
     return changetype<T>(
-      deserializeStringArray_NAIVE(
+      deserializeStringArray_NAIVE<T>(
         srcStart,
         srcEnd,
         dst,

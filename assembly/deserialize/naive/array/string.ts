@@ -18,15 +18,13 @@ import { deserializeString } from "../../index/string";
  * validated by the selected whole-string decoder. Returns the shared failure
  * sentinel on any deviation so JSON.parse can throw at its public boundary.
  */
-export function deserializeStringArray_NAIVE(
+export function deserializeStringArray_NAIVE<T extends (string | null)[]>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize,
   nullable: bool = false,
-): string[] {
-  const out = changetype<string[]>(
-    dst || changetype<usize>(instantiate<string[]>()),
-  );
+): T {
+  const out = changetype<T>(dst || changetype<usize>(instantiate<T>()));
   out.length = 0; // dst may arrive pre-sized; re-parse from empty via push
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
@@ -36,7 +34,7 @@ export function deserializeStringArray_NAIVE(
     load<u16>(srcEnd - 2) != BRACKET_RIGHT
   ) {
     markProductionParseError();
-    return changetype<string[]>(0);
+    return changetype<T>(0);
   }
   srcStart += 2; // past '['
   srcEnd -= 2; // before ']'
@@ -50,36 +48,36 @@ export function deserializeStringArray_NAIVE(
       const closing = scanStringEnd(srcStart, srcEnd);
       if (closing >= srcEnd) {
         markProductionParseError();
-        return changetype<string[]>(0);
+        return changetype<T>(0);
       }
       const value = deserializeString(srcStart, closing + 2);
-      if (changetype<usize>(value) == 0) return changetype<string[]>(0);
-      out.push(value);
+      if (changetype<usize>(value) == 0) return changetype<T>(0);
+      out.push(changetype<valueof<T>>(value));
       srcStart = closing + 2;
     } else if (srcStart + 8 <= srcEnd && load<u64>(srcStart) == NULL_WORD_U64) {
       if (!nullable) {
         markProductionParseError();
-        return changetype<string[]>(0);
+        return changetype<T>(0);
       }
       // `(string | null)[]` element
-      out.push(changetype<string>(0));
+      out.push(changetype<valueof<T>>(0));
       srcStart += 8;
     } else {
       markProductionParseError();
-      return changetype<string[]>(0);
+      return changetype<T>(0);
     }
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) != COMMA) {
       markProductionParseError();
-      return changetype<string[]>(0);
+      return changetype<T>(0);
     }
     srcStart += 2;
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) {
       markProductionParseError();
-      return changetype<string[]>(0);
+      return changetype<T>(0);
     }
   }
 

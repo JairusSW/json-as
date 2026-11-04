@@ -19,7 +19,7 @@ export function deserializeArray<T extends unknown[]>(
 ): T {
   if (isString<valueof<T>>()) {
     return <T>(
-      deserializeStringArray_NAIVE(
+      deserializeStringArray_NAIVE<T>(
         srcStart,
         srcEnd,
         dst,

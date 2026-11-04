@@ -455,6 +455,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
     const valueType = changetype<nonnull<valueof<T>>>(0);
     rawValue =
       valueType instanceof JSON.Raw &&
+      idof<nonnull<valueof<T>>>() == idof<JSON.Raw>() &&
       !isDefined(valueType.__DESERIALIZE_CUSTOM) &&
       !isDefined(valueType.__DESERIALIZE_SLOW);
   }
@@ -730,6 +731,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
         }
         const reusedMappedValue =
           matchedPreviousKey && changetype<usize>(value) != 0;
+        let initialized = false;
         if (changetype<usize>(value) == 0) {
           value = changetype<valueof<T>>(
             __new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
@@ -738,6 +740,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
           if (isDefined(valueType.__INITIALIZE)) {
             // @ts-ignore: supplied by the json-as transform
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
+            initialized = true;
           }
         }
 
@@ -771,7 +774,10 @@ export function deserializeMapBody<T extends Map<any, any>>(
           if (!valueEnd || valueEnd <= valueStart) break;
           // A failed FAST attempt may have partially overwritten fields.
           // @ts-ignore: supplied by the json-as transform
-          if (attemptedFast && isDefined(valueType.__INITIALIZE)) {
+          if (
+            (!initialized || attemptedFast) &&
+            isDefined(valueType.__INITIALIZE)
+          ) {
             // @ts-ignore: supplied by the json-as transform
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
           }

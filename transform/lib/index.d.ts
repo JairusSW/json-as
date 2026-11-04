@@ -22,6 +22,8 @@ export declare class JSONTransform extends Visitor {
     private lazySourceFields;
     private lazySourceInstalled;
     private unusedMemberName;
+    private generatedRuntimeName;
+    private runtimeReference;
     private lazyRuntimeSource;
     private lazyInnerType;
     prepareLazyOverrides(sources: Source[]): void;

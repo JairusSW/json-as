@@ -450,10 +450,14 @@ export class Src {
       return { source: this, name };
     for (const statement of this.exportStatements) {
       const member = statement.members?.find(
-        (item) => item.exportedName.text === name,
+        (item) =>
+          name === item.exportedName.text ||
+          name.startsWith(item.exportedName.text + "."),
       );
       if (statement.members && !member) continue;
-      const local = member ? member.localName.text : name;
+      const local = member
+        ? member.localName.text + name.slice(member.exportedName.text.length)
+        : name;
       if (statement.path) {
         const external = parser.sources.find(
           (source) =>

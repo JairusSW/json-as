@@ -71,6 +71,10 @@ export function supportsCursor<T>(depth: i32 = 0): bool {
   return false;
 }
 
+function supportsCursorBox<T, V>(_box: T, _value: V): bool {
+  return idof<nonnull<T>>() == idof<JSON.Box<V>>();
+}
+
 function supportsCursorType<T>(depth: i32): bool {
   const type = changetype<nonnull<T>>(0);
   // @ts-expect-error: immutable generated capability descriptor
@@ -84,7 +88,7 @@ function supportsCursorType<T>(depth: i32): bool {
     memory.fill(changetype<usize>(descriptor), 0, offsetof<nonnull<T>>());
     return descriptor.__CURSOR_SUPPORTED(depth);
   }
-  if (type instanceof JSON.Box) return true;
+  if (type instanceof JSON.Box) return supportsCursorBox(type, type.value);
   if (type instanceof Array)
     return (
       idof<nonnull<T>>() == idof<Array<valueof<T>>>() &&
@@ -102,9 +106,9 @@ function supportsCursorType<T>(depth: i32): bool {
       isString<indexof<T>>() &&
       supportsCursor<valueof<T>>(depth + 1)
     );
+  if (type instanceof JSON.Raw) return idof<nonnull<T>>() == idof<JSON.Raw>();
+  if (type instanceof Date) return idof<nonnull<T>>() == idof<Date>();
   if (
-    type instanceof JSON.Raw ||
-    type instanceof Date ||
     type instanceof JSON.Value ||
     type instanceof JSON.Obj ||
     type instanceof JSON.Arr

@@ -47,7 +47,7 @@ import { writeFileSync } from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { CustomTransform } from "./linkers/custom.js";
-import { TypeAlias } from "./linkers/alias.js";
+import { TypeAlias, effectiveTypeArguments } from "./linkers/alias.js";
 import { NodeKind } from "./types.js";
 import { Property, PropertyFlags, Schema, SourceSet, Src } from "./types.js";
 import {
@@ -434,6 +434,20 @@ export class JSONTransform extends Visitor {
     for (let suffix = 1; names.has(name); suffix++) name = stem + "_" + suffix;
     return name;
   }
+  private generatedRuntimeName: string | undefined;
+  private runtimeReference(): string {
+    if (!this.generatedRuntimeName) {
+      let name = "__JSON_Runtime";
+      for (
+        let suffix = 1;
+        this.parser.sources.some((source) => source.text.includes(name));
+        suffix++
+      )
+        name = "__JSON_Runtime_" + suffix;
+      this.generatedRuntimeName = name;
+    }
+    return this.generatedRuntimeName;
+  }
   private lazyRuntimeSource: Source | null | undefined;
 
   // Resolve aliases and import bindings to the actual JSON.Lazy declaration.
@@ -500,8 +514,7 @@ export class JSONTransform extends Visitor {
           ? nullable(toString(named.typeArguments[0]))
           : null;
       }
-      if (alias.parameters.length !== (named.typeArguments?.length ?? 0))
-        return null;
+      if (!alias.arguments(named.typeArguments ?? [])) return null;
       return nullable(
         this.lazyInnerType(
           parse(alias.getBaseType(named.typeArguments ?? [])),
@@ -525,13 +538,7 @@ export class JSONTransform extends Visitor {
       const alias = binding.source.aliases.find(
         (item) => item.name === binding.name,
       );
-      if (
-        inner !== null &&
-        !named.typeArguments?.length &&
-        alias?.declaration &&
-        binding.source.getClassInContext(inner, alias.declaration)
-      )
-        return nullable(toString(type));
+      if (inner !== null && alias?.declaration) return nullable(toString(type));
       return nullable(inner);
     }
     // addImports supplies the canonical JSON binding to classes that omit it.
@@ -839,9 +846,12 @@ export class JSONTransform extends Visitor {
         .get(target)
         .imports.push(target.statements[0] as ImportStatement);
     }
-    const arguments_ =
-      child.extendsType?.typeArguments?.map((argument) => toString(argument)) ??
-      [];
+    const arguments_ = (
+      effectiveTypeArguments(
+        parent.node.typeParameters,
+        child.extendsType?.typeArguments ?? [],
+      ) ?? []
+    ).map((argument) => toString(argument));
     return name + (parameters.length ? `<${arguments_.join(",")}>` : "");
   }
 
@@ -976,7 +986,7 @@ export class JSONTransform extends Visitor {
         break;
       }
     }
-    if (alias && alias.parameters.length !== arguments_().length) return type;
+    if (alias && !alias.arguments(arguments_())) return type;
     const resolvedType = alias?.getBaseType(arguments_());
 
     if (resolvedType) {
@@ -1007,7 +1017,7 @@ export class JSONTransform extends Visitor {
       (alias) => alias.name === binding.name,
     );
     if (externalAlias) {
-      if (externalAlias.parameters.length !== arguments_().length) return type;
+      if (!externalAlias.arguments(arguments_())) return type;
       // The public alias is the legal spelling in this module. The compiler's
       // typed reader can resolve its representation without exposing private names.
       if (preserveClassAliases) return type;
@@ -1500,11 +1510,8 @@ export class JSONTransform extends Visitor {
       let backing = "__" + fname;
       for (
         let suffix = 1;
-        node.members.some(
-          (member) =>
-            member.name.text === backing + "_lz" ||
-            member.name.text === backing + "_val",
-        );
+        this.unusedMemberName(node, backing + "_lz") !== backing + "_lz" ||
+        this.unusedMemberName(node, backing + "_val") !== backing + "_val";
         suffix++
       )
         backing = "__" + fname + "_" + suffix;
@@ -1879,7 +1886,10 @@ export class JSONTransform extends Visitor {
           if (members.some((m) => m.name.text === inherited.name)) continue;
           let declaration = inherited.node;
           const parameters = schema.parent.node.typeParameters;
-          const arguments_ = node.extendsType.typeArguments;
+          const arguments_ = effectiveTypeArguments(
+            parameters,
+            node.extendsType.typeArguments ?? [],
+          );
           if (parameters?.length && arguments_?.length) {
             const bindings = new Map<string, NamedTypeNode>();
             for (let j = 0; j < parameters.length; j++) {
@@ -2283,6 +2293,8 @@ export class JSONTransform extends Visitor {
           )
         : "this";
       const selfDeclaration =
+        (selfType &&
+          source.getImportedClass(toString(selfType), this.parser)) ||
         source.getClassInContext(selfName, node) ||
         source.getImportedClass(selfName, this.parser);
       if (selfName !== "this" && selfDeclaration !== node)
@@ -2644,10 +2656,10 @@ export class JSONTransform extends Visitor {
             helper = baseName + "_" + suffix;
           const condition = zeroParameters
             ? `(${rendered})()`
-            : `JSON.__omitIf(${rendered}, this)`;
+            : `${this.runtimeReference()}.__omitIf(${rendered}, this)`;
           node.members.push(
             SimpleParser.parseClassMember(
-              `${helper}(): bool { JSON.__beginOmission(); const result = ${condition}; JSON.__endOmission(); return result; }`,
+              `${helper}(): bool { ${this.runtimeReference()}.__beginOmission(); const result = ${condition}; ${this.runtimeReference()}.__endOmission(); return result; }`,
               node,
             ),
           );
@@ -2911,7 +2923,7 @@ export class JSONTransform extends Visitor {
         INITIALIZE += `  }\n`;
       } else if (!member.nullable) {
         if (this.getSchema(member.type)) {
-          INITIALIZE += `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<nonnull<${member.type}>>(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+          INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${this.runtimeReference()}.__cursorDefault<nonnull<${member.type}>>(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
         } else if (member.type.startsWith("Array<")) {
           INITIALIZE += `  store<${member.type}>(changetype<usize>(this), [], offsetof<this>(${JSON.stringify(member.name)}));\n`;
         } else if (member.type.startsWith("Map<")) {
@@ -5873,7 +5885,7 @@ export class JSONTransform extends Visitor {
                 this.schema,
                 member.type,
               )
-                ? `  store<${member.type}>(changetype<usize>(this), JSON.__cursorDefault<${member.type}>(), ${field});\n`
+                ? `  store<${member.type}>(changetype<usize>(this), ${this.runtimeReference()}.__cursorDefault<${member.type}>(), ${field});\n`
                 : initialize;
               return `  if (load<usize>(changetype<usize>(this), ${field}) == 0) {\n${value}    __link(changetype<usize>(this), load<usize>(changetype<usize>(this), ${field}), false);\n  }\n`;
             })
@@ -6421,12 +6433,17 @@ export class JSONTransform extends Visitor {
                 item.foreignName.text === foreign &&
                 item.name.text === preferred,
             );
-          if (existing && !shadowed.has(preferred)) return null;
+          if (existing && !shadowed.has(preferred)) {
+            if (foreign === "JSON")
+              aliases.set(this.runtimeReference(), preferred);
+            return null;
+          }
           let local = preferred;
           for (let suffix = 0; names.has(local); suffix++)
             local = "__json_" + preferred + "_" + suffix;
           names.add(local);
           if (local !== preferred) aliases.set(preferred, local);
+          if (foreign === "JSON") aliases.set(this.runtimeReference(), local);
           return Node.createImportDeclaration(
             Node.createIdentifierExpression(foreign, node.range, false),
             local === foreign
@@ -6483,12 +6500,24 @@ export class JSONTransform extends Visitor {
         for (const member of schema.node.members) {
           if (
             member.kind !== NodeKind.MethodDeclaration ||
-            this.parser.sources.includes(member.range.source) ||
-            member.name.text.includes("INITIALIZE") ||
-            member.name.text.startsWith("__JSON_OMIT_")
+            this.parser.sources.includes(member.range.source)
           )
             continue;
-          bind.visit((member as MethodDeclaration).body);
+          if (
+            member.name.text.includes("INITIALIZE") ||
+            member.name.text.startsWith("__JSON_OMIT_")
+          ) {
+            const runtimeName = this.runtimeReference();
+            class BindRuntimeOnly extends Visitor {
+              visitIdentifierExpression(
+                identifier: IdentifierExpression,
+              ): void {
+                if (identifier.text === runtimeName)
+                  identifier.text = aliases.get(runtimeName)!;
+              }
+            }
+            new BindRuntimeOnly().visit((member as MethodDeclaration).body);
+          } else bind.visit((member as MethodDeclaration).body);
         }
       }
     }

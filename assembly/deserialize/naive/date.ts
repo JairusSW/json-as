@@ -118,11 +118,11 @@ export function parseDateTime(text: string): i64 {
   return Date.fromString(text).getTime();
 }
 
-export function deserializeDate(
+export function deserializeDate<T extends Date = Date>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize = 0,
-): Date {
+): T {
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   let time = NON_CANONICAL_DATE;
   if (
@@ -144,9 +144,9 @@ export function deserializeDate(
   // This may seem redundant, but it addresses the issue when Date
   // is globally aliased to wasi_Date (or some other superclass).
   if (dst) {
-    const out = changetype<Date>(dst);
+    const out = changetype<T>(dst);
     out.setTime(time);
     return out;
   }
-  return new Date(time);
+  return instantiate<T>(time);
 }

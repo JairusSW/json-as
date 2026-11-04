@@ -5,14 +5,14 @@ import { JSON } from "../..";
 import { ptrToStr } from "../../util/ptrToStr";
 import { __heap_base } from "memory";
 
-export function deserializeRaw(
+export function deserializeRaw<T extends JSON.Raw = JSON.Raw>(
   srcStart: usize,
   srcEnd: usize,
   dst: usize = 0,
-): JSON.Raw {
+): T {
   const size = srcEnd - srcStart;
   if (dst) {
-    const out = changetype<JSON.Raw>(dst);
+    const out = changetype<T>(dst);
     const current = changetype<usize>(out.data);
     // Literal strings have static headers, not allocator headers. Match the
     // string-field decoders: only renew storage owned by the managed heap.
@@ -32,5 +32,5 @@ export function deserializeRaw(
     out.data = data;
     return out;
   }
-  return JSON.Raw.from(ptrToStr(srcStart, srcEnd));
+  return instantiate<T>(ptrToStr(srcStart, srcEnd));
 }

@@ -10,6 +10,37 @@ import {
 import { Visitor } from "../visitor.js";
 import { toString, cloneNode, SimpleParser } from "../util.js";
 
+export function effectiveTypeArguments(
+  parameters: TypeParameterNode[] | null,
+  supplied: TypeNode[] = [],
+): TypeNode[] | null {
+  if (supplied.length > (parameters?.length ?? 0)) return null;
+  const result = supplied.map((argument) => cloneNode(argument) as TypeNode);
+  const bindings = new Map<string, TypeNode>();
+  class Substitute extends Visitor {
+    visitNamedTypeNode(type: NamedTypeNode): void {
+      const value = bindings.get(toString(type.name));
+      if (value) {
+        const nullable = type.isNullable;
+        Object.assign(type, cloneNode(value));
+        type.isNullable ||= nullable;
+      } else super.visitNamedTypeNode(type);
+    }
+  }
+  const substitute = new Substitute();
+  for (let i = 0; i < (parameters?.length ?? 0); i++) {
+    const parameter = parameters![i];
+    if (!result[i]) {
+      if (!parameter.defaultType) return null;
+      const value = cloneNode(parameter.defaultType) as TypeNode;
+      substitute.visit(value);
+      result.push(value);
+    }
+    bindings.set(parameter.name.text, result[i]);
+  }
+  return result;
+}
+
 class AliasFinder extends Visitor {
   private namespace: string[] = [];
   visitNamespaceDeclaration(node: NamespaceDeclaration): void {
@@ -39,7 +70,16 @@ export class TypeAlias {
   public parameters: string[] = [];
   public declaration: TypeDeclaration | null = null;
 
+  arguments(supplied: TypeNode[] = []): TypeNode[] | null {
+    return this.declaration
+      ? effectiveTypeArguments(this.declaration.typeParameters, supplied)
+      : supplied.length === this.parameters.length
+        ? supplied
+        : null;
+  }
+
   getBaseType(arguments_: TypeNode[] = []): string {
+    arguments_ = this.arguments(arguments_) ?? arguments_;
     const text =
       typeof this.type === "string" ? this.type : this.type.getBaseType();
     if (!this.parameters.length) return text;
