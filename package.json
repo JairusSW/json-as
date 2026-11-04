@@ -22,7 +22,7 @@
     "chartjs-plugin-datalabels": "^2.2.0",
     "eslint": "^10.4.1",
     "fast-json-parse": "^1.0.3",
-    "fast-json-stringify": "^6.4.0",
+    "fast-json-stringify": "^7.0.0",
     "husky": "^9.1.7",
     "json-as": "file:./",
     "prettier": "3.8.3",
