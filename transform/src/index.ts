@@ -3858,6 +3858,7 @@ export class JSONTransform extends Visitor {
           fastPath &&
           valueType &&
           valueSchema?.fastReader &&
+          !elementNullable &&
           !valueSchema.customReader
         ) {
           out.push(`  if (load<u16>(${valuePtr}) != 0x5b) break;`);
@@ -4747,6 +4748,27 @@ export class JSONTransform extends Visitor {
     DESERIALIZE += indent + "  let keyStart: usize = 0;\n";
     DESERIALIZE += indent + "  let keyEnd: usize = 0;\n";
     DESERIALIZE += indent + "  let isKey = false;\n";
+    // Most slow callers have already initialized the destination. Nested reuse
+    // can instead retain present buffers and request only omitted-field resets.
+    const slowSeen = new Map(
+      this.schema.members.map((member, index) => [member, `__seen_${index}`]),
+    );
+    const slowComparison = (name: string, member: Property): string =>
+      `(${getComparison(name)}) && (!__resetMissing || (${slowSeen.get(member)} = true))`;
+    const slowReset =
+      `if (__resetMissing) {\n` +
+      initializationMembers
+        .map(
+          (member) =>
+            `  if (!${slowSeen.get(member)}) ${resetField(member, "changetype<usize>(out)")}\n`,
+        )
+        .join("") +
+      `}\n`;
+
+    DESERIALIZE += [...slowSeen.values()]
+      .map((name) => `  let ${name} = false;\n`)
+      .join("");
+
     if (!STRICT || slowObjectMembers.length || slowArrayMembers.length)
       DESERIALIZE += indent + "  let depth: i32 = 0;\n";
     DESERIALIZE += indent + "  let lastIndex: usize = 0;\n\n";
@@ -4796,7 +4818,7 @@ export class JSONTransform extends Visitor {
     DESERIALIZE +=
       indent +
       "        if (prevCode == 44) return JSON.Util.failProductionParse();\n";
-    DESERIALIZE += indent + "        return srcStart + 2;\n";
+    DESERIALIZE += slowReset + indent + "        return srcStart + 2;\n";
     DESERIALIZE += indent + "      }\n";
     DESERIALIZE += indent + "      if (code == 44) {\n";
     DESERIALIZE +=
@@ -4848,23 +4870,6 @@ export class JSONTransform extends Visitor {
     DESERIALIZE += indent + "      srcStart += 2;\n";
     DESERIALIZE += indent + "    } else {\n";
     // if (shouldGroup) DESERIALIZE += "    const keySize = keyEnd - keyStart;\n";
-
-    // Most slow callers have already initialized the destination. Nested reuse
-    // can instead retain present buffers and request only omitted-field resets.
-    const slowSeen = new Map(
-      this.schema.members.map((member, index) => [member, `__seen_${index}`]),
-    );
-    const slowComparison = (name: string, member: Property): string =>
-      `(${getComparison(name)}) && (!__resetMissing || (${slowSeen.get(member)} = true))`;
-    const slowReset =
-      `if (__resetMissing) {\n` +
-      initializationMembers
-        .map(
-          (member) =>
-            `  if (!${slowSeen.get(member)}) ${resetField(member, "changetype<usize>(out)")}\n`,
-        )
-        .join("") +
-      `}\n`;
 
     const groupMembers = (members: Property[]): Property[][] => {
       // const customMembers = this.schema.members.filter((m) => m.flags.has(PropertyFlags.Custom));
@@ -5806,16 +5811,7 @@ export class JSONTransform extends Visitor {
       `    const lastCode = load<u16>(lastIndex);\n` +
       `    if (lastCode == 123 || lastCode == 91) return 0;\n` +
       `  }\n`;
-    DESERIALIZE += `  return srcStart;\n}\n`; // Close function
-    DESERIALIZE = DESERIALIZE.replace(
-      '  let decodedKey: string = "";\n',
-      '  let decodedKey: string = "";\n' +
-        [...slowSeen.values()]
-          .map((name) => `  let ${name} = false;\n`)
-          .join(""),
-    )
-      .replaceAll("return srcStart + 2;", slowReset + "return srcStart + 2;")
-      .replaceAll("return srcStart;", slowReset + "return srcStart;");
+    DESERIALIZE += slowReset + `  return srcStart;\n}\n`; // Close function
 
     indent = "  ";
 

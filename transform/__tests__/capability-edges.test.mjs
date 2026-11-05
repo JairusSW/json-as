@@ -31,6 +31,8 @@ const expected = [
   '{"a":{"n":8}}',
 ];
 const bindings = {
+  "nullable-objects": '{"items":[null]}|{"items":[null]}',
+  "return-alias": "9:10:11",
   "reused-inherited": "7:2|7:2",
   "reused-defaults": "7:2:null|7:2:null|7:2|7:2:null|7:2:null|7:2:null",
   defaults: "7:8|7:8",

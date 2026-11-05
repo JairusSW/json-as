@@ -2502,6 +2502,7 @@ export class JSONTransform extends Visitor {
                 if (fastPath &&
                     valueType &&
                     valueSchema?.fastReader &&
+                    !elementNullable &&
                     !valueSchema.customReader) {
                     out.push(`  if (load<u16>(${valuePtr}) != 0x5b) break;`);
                     out.push(`  let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`);
@@ -3197,6 +3198,16 @@ export class JSONTransform extends Visitor {
         DESERIALIZE += indent + "  let keyStart: usize = 0;\n";
         DESERIALIZE += indent + "  let keyEnd: usize = 0;\n";
         DESERIALIZE += indent + "  let isKey = false;\n";
+        const slowSeen = new Map(this.schema.members.map((member, index) => [member, `__seen_${index}`]));
+        const slowComparison = (name, member) => `(${getComparison(name)}) && (!__resetMissing || (${slowSeen.get(member)} = true))`;
+        const slowReset = `if (__resetMissing) {\n` +
+            initializationMembers
+                .map((member) => `  if (!${slowSeen.get(member)}) ${resetField(member, "changetype<usize>(out)")}\n`)
+                .join("") +
+            `}\n`;
+        DESERIALIZE += [...slowSeen.values()]
+            .map((name) => `  let ${name} = false;\n`)
+            .join("");
         if (!STRICT || slowObjectMembers.length || slowArrayMembers.length)
             DESERIALIZE += indent + "  let depth: i32 = 0;\n";
         DESERIALIZE += indent + "  let lastIndex: usize = 0;\n\n";
@@ -3236,7 +3247,7 @@ export class JSONTransform extends Visitor {
         DESERIALIZE +=
             indent +
                 "        if (prevCode == 44) return JSON.Util.failProductionParse();\n";
-        DESERIALIZE += indent + "        return srcStart + 2;\n";
+        DESERIALIZE += slowReset + indent + "        return srcStart + 2;\n";
         DESERIALIZE += indent + "      }\n";
         DESERIALIZE += indent + "      if (code == 44) {\n";
         DESERIALIZE +=
@@ -3287,13 +3298,6 @@ export class JSONTransform extends Visitor {
         DESERIALIZE += indent + "      }\n";
         DESERIALIZE += indent + "      srcStart += 2;\n";
         DESERIALIZE += indent + "    } else {\n";
-        const slowSeen = new Map(this.schema.members.map((member, index) => [member, `__seen_${index}`]));
-        const slowComparison = (name, member) => `(${getComparison(name)}) && (!__resetMissing || (${slowSeen.get(member)} = true))`;
-        const slowReset = `if (__resetMissing) {\n` +
-            initializationMembers
-                .map((member) => `  if (!${slowSeen.get(member)}) ${resetField(member, "changetype<usize>(out)")}\n`)
-                .join("") +
-            `}\n`;
         const groupMembers = (members) => {
             const groups = new Map();
             for (const member of members) {
@@ -3981,13 +3985,7 @@ export class JSONTransform extends Visitor {
                 `    const lastCode = load<u16>(lastIndex);\n` +
                 `    if (lastCode == 123 || lastCode == 91) return 0;\n` +
                 `  }\n`;
-        DESERIALIZE += `  return srcStart;\n}\n`;
-        DESERIALIZE = DESERIALIZE.replace('  let decodedKey: string = "";\n', '  let decodedKey: string = "";\n' +
-            [...slowSeen.values()]
-                .map((name) => `  let ${name} = false;\n`)
-                .join(""))
-            .replaceAll("return srcStart + 2;", slowReset + "return srcStart + 2;")
-            .replaceAll("return srcStart;", slowReset + "return srcStart;");
+        DESERIALIZE += slowReset + `  return srcStart;\n}\n`;
         indent = "  ";
         this.schema.byteSize += 2;
         SERIALIZE += indent + "store<u16>(__dst, 125, 0); // }\n";
