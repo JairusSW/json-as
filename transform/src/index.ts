@@ -3732,6 +3732,9 @@ export class JSONTransform extends Visitor {
         out.push(
           `    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
         );
+        out.push(
+          `    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`,
+        );
         out.push("  }");
         out.push(`  const valueStart = ${valuePtr};`);
         out.push(

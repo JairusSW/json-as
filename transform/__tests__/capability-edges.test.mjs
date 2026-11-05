@@ -31,6 +31,9 @@ const expected = [
   '{"a":{"n":8}}',
 ];
 const bindings = {
+  defaults: "7:8|7:8",
+  "map-slots": '{"n":9007199254740993,"tail":true}|7|{"a":7,"tail":true}',
+
   nested: '{"field":{"value":7},"items":[{"value":8}]}',
   writer: '{"inner":{"value":7}}',
   lazy: "float:1.5",

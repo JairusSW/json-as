@@ -2413,6 +2413,7 @@ export class JSONTransform extends Visitor {
                 out.push(`  if (changetype<usize>(value) == 0) {`);
                 out.push(`    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
                 out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
+                out.push(`    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`);
                 out.push("  }");
                 out.push(`  const valueStart = ${valuePtr};`);
                 out.push(`  const valueEnd = JSON.Util.scanValueEnd<${resolvedType}>(valueStart, srcEnd);`);

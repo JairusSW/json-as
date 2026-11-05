@@ -1,6 +1,7 @@
 /// <reference path="./index.d.ts" />
 
 import { keyLength, KEY_HEADER_UNITS } from "./util/key-buffer";
+import { NativeMap } from "./util/native-collections";
 import { bs } from "../lib/as-bs";
 import {
   CursorSlot,
@@ -2420,14 +2421,12 @@ export namespace JSON {
       if (
         value instanceof Map &&
         !isDefined(value.__SERIALIZE) &&
-        valueBitsSupported<valueof<T>>() &&
-        idof<nonnull<T>>() == idof<Map<indexof<T>, valueof<T>>>() &&
-        changetype<OBJECT>(changetype<usize>(value) - TOTAL_OVERHEAD).rtId ==
-          idof<Map<indexof<T>, valueof<T>>>()
+        valueBitsSupported<valueof<T>>()
       ) {
         const out = new JSON.Obj();
-        const keys = value.keys();
-        const values = value.values();
+        const native = changetype<NativeMap<indexof<T>, valueof<T>>>(value);
+        const keys = native.nativeKeys();
+        const values = native.nativeValues();
         const len = keys.length;
         out.ensureKeyPosCap(len);
         out.ensureValCap(len);
