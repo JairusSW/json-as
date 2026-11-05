@@ -833,7 +833,12 @@ export namespace JSON {
         // @ts-expect-error: a derived schema may disable inherited fast methods
         if (isDefined(obj.__DESERIALIZE_FAST_ENABLED))
           canFast = obj.__DESERIALIZE_FAST_ENABLED();
-        const fullWrite = isDefined(type.__DESERIALIZE_FULL_WRITE);
+        // The certificate belongs to the declaring schema, not its descendants.
+        let fullWrite = false;
+        if (isDefined(type.__DESERIALIZE_FULL_WRITE)) {
+          // @ts-expect-error: Defined by transform
+          fullWrite = obj.__DESERIALIZE_FULL_WRITE() == idof<nonnull<T>>();
+        }
         if (!reuse && canFast) {
           if (fullWrite) {
             memory.fill(changetype<usize>(obj), 0, offsetof<nonnull<T>>());
@@ -856,10 +861,16 @@ export namespace JSON {
               dataPtr,
               dataPtr + dataSize,
               obj,
+              reuse,
             );
           } else {
             // @ts-expect-error: Defined by transform
-            fastEnd = obj.__DESERIALIZE_FAST(dataPtr, dataPtr + dataSize, obj);
+            fastEnd = obj.__DESERIALIZE_FAST(
+              dataPtr,
+              dataPtr + dataSize,
+              obj,
+              reuse,
+            );
           }
           // A non-zero return means the fast path matched; accept it when only
           // trailing whitespace remains (pretty-printed input ends with a
@@ -3709,7 +3720,7 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST) && canFast) {
           // @ts-expect-error: Defined by transform
-          const fastEnd = out.__DESERIALIZE_FAST(srcStart, srcEnd, out);
+          const fastEnd = out.__DESERIALIZE_FAST(srcStart, srcEnd, out, !fresh);
           // Accept the fast path when only trailing whitespace remains.
           if (
             fastEnd != 0 &&

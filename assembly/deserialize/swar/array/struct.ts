@@ -182,12 +182,13 @@ export function deserializeStructArrayBody<T>(
             // @ts-ignore: supplied by transform
             next = changetype<nonnull<valueof<T>>>(
               value,
-            ).__DESERIALIZE_FAST_PRETTY(srcStart, srcEnd, value);
+            ).__DESERIALIZE_FAST_PRETTY(srcStart, srcEnd, value, !initialized);
           } else {
             next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST(
               srcStart,
               srcEnd,
               value,
+              !initialized,
             );
           }
         }

@@ -759,13 +759,14 @@ export function deserializeMapBody<T extends Map<any, any>>(
             // @ts-ignore: supplied by the json-as transform
             next = changetype<nonnull<valueof<T>>>(
               value,
-            ).__DESERIALIZE_FAST_PRETTY(srcStart, srcEnd, value);
+            ).__DESERIALIZE_FAST_PRETTY(srcStart, srcEnd, value, !initialized);
           } else {
             // @ts-ignore: supplied by the json-as transform
             next = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_FAST(
               srcStart,
               srcEnd,
               value,
+              !initialized,
             );
           }
         }

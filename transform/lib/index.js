@@ -1496,8 +1496,8 @@ export class JSONTransform extends Visitor {
         const requestedFastPath = USE_FAST_PATH && !effectful(schema) && !schema.hasInternalInitializers;
         let SERIALIZE = "__SERIALIZE(ptr: usize): void {\n  let __dst = bs.offset;\n";
         let INITIALIZE = "@inline __INITIALIZE(): this {\n";
-        let DESERIALIZE = '__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n  let decodedKey: string = "";\n';
-        let DESERIALIZE_FAST = "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n";
+        let DESERIALIZE = '__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = false): usize {\n  let decodedKey: string = "";\n';
+        let DESERIALIZE_FAST = "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n";
         const lazySourceHeader = __hasLazy
             ? "  changetype<this>(out).__SET_SRC(JSON.Util.getParseSource());\n"
             : "";
@@ -2380,13 +2380,15 @@ export class JSONTransform extends Visitor {
                         out.push(`    ${srcPtr} = ${valuePtr} + 8;`);
                         out.push("  } else {");
                     }
+                    out.push("  let __initialized = false;");
                     out.push(`  let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`);
                     out.push(`  if (changetype<usize>(value) == 0) {`);
                     out.push(`    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push(`    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`);
+                    out.push("    __initialized = true;");
                     out.push("  }");
-                    out.push(`  const __fe = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${valuePtr}, srcEnd, value);`);
+                    out.push(`  const __fe = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${valuePtr}, srcEnd, value, !__initialized);`);
                     out.push(`  if (__fe) {`);
                     out.push(`    ${srcPtr} = __fe;`);
                     out.push(`  } else {`);
@@ -2409,20 +2411,22 @@ export class JSONTransform extends Visitor {
                     out.push(`    ${srcPtr} += 8;`);
                     out.push("  } else {");
                 }
+                out.push("  let __initialized = false;");
                 out.push(`  let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`);
                 out.push(`  if (changetype<usize>(value) == 0) {`);
                 out.push(`    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
                 out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                 out.push(`    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`);
+                out.push("    __initialized = true;");
                 out.push("  }");
                 out.push(`  const valueStart = ${valuePtr};`);
                 out.push(`  const valueEnd = JSON.Util.scanValueEnd<${resolvedType}>(valueStart, srcEnd);`);
                 out.push("  if (!valueEnd) break;");
                 if (fastPath && resolvedSchema.fastReader) {
-                    out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(valueStart, valueEnd, value);`);
+                    out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(valueStart, valueEnd, value, !__initialized);`);
                 }
                 else {
-                    out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_SLOW<${resolvedType}>(valueStart, valueEnd, value);`);
+                    out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_SLOW<${resolvedType}>(valueStart, valueEnd, value, !__initialized);`);
                 }
                 if (member.nullable) {
                     out.push("  }");
@@ -2516,6 +2520,7 @@ export class JSONTransform extends Visitor {
                     out.push("    if (value.length != 0) value.length = 0;");
                     out.push(`    ${srcPtr} += 2;`);
                     out.push("  } else while (true) {");
+                    out.push("    let __itemInitialized = false;");
                     out.push(`    let item: ${valueType};`);
                     out.push("    if (index < reusableLength) {");
                     out.push(`      const itemSlot = reusableDataStart + ((<usize>index) << alignof<${valueType}>());`);
@@ -2544,14 +2549,16 @@ export class JSONTransform extends Visitor {
                     out.push(`        store<${valueType}>(itemSlot, item);`);
                     out.push("        __link(changetype<usize>(value), changetype<usize>(item), false);");
                     out.push(`        changetype<nonnull<${valueType}>>(item).__INITIALIZE();`);
+                    out.push("        __itemInitialized = true;");
                     out.push("      }");
                     out.push("    } else {");
                     out.push(`      item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
                     out.push("      value.push(item);");
                     out.push(`      changetype<nonnull<${valueType}>>(item).__INITIALIZE();`);
+                    out.push("      __itemInitialized = true;");
                     out.push("    }");
                     out.push(`    const __es = ${srcPtr};`);
-                    out.push(`    const __ee = changetype<nonnull<${valueType}>>(item).__DESERIALIZE_FAST<${valueType}>(${srcPtr}, srcEnd, item);`);
+                    out.push(`    const __ee = changetype<nonnull<${valueType}>>(item).__DESERIALIZE_FAST<${valueType}>(${srcPtr}, srcEnd, item, !__itemInitialized);`);
                     out.push(`    if (__ee) {`);
                     out.push(`      ${srcPtr} = __ee;`);
                     out.push(`    } else {`);
@@ -2657,6 +2664,22 @@ export class JSONTransform extends Visitor {
         const chunkFastBlocksOptional = (blocks, _tag, _callIndent, _needsKp) => {
             return blocks.join("");
         };
+        const resetField = (member, destination) => {
+            const offset = `offsetof<this>(${JSON.stringify(member.name)})`;
+            let body = initializationFragments.get(member)?.trim()
+                ? `changetype<this>(${destination}).__JSON_INITIALIZE_FIELD_${member.name}();`
+                : `store<${member.type}>(${destination}, JSON.__zero<${member.type}>(), ${offset});`;
+            body += ` if (isManaged<${member.type}>()) __link(${destination}, load<usize>(${destination}, ${offset}), false);`;
+            if (member.flags.has(PropertyFlags.Lazy) && !member.lazyPacked) {
+                const backing = member.name.slice(0, -3) + "_val";
+                if (!__lazyValInits.has(member.name)) {
+                    const type = this.lazyMetadata.get(member.node)?.valueType || member.lazyInner;
+                    body += ` store<${type}>(${destination}, JSON.__zero<${type}>(), offsetof<this>(${JSON.stringify(backing)}));`;
+                }
+                body += ` if (isManaged<${member.lazyInner}>()) __link(${destination}, load<usize>(${destination}, offsetof<this>(${JSON.stringify(backing)})), false);`;
+            }
+            return `{ ${body} }`;
+        };
         const traceOptionalObject = supportsFastOptionalPath && this.schema.members.length <= 63;
         const objectTraceHeader = traceOptionalObject
             ? "  const __traceToken = JSON.Util.beginObjectTrace(dst, start, " +
@@ -2723,7 +2746,7 @@ export class JSONTransform extends Visitor {
                 blk += indent + `if (${firstAbsent}) {\n`;
                 indent += "  ";
                 if (isOptional) {
-                    blk += indent + "// optional @omitnull field omitted\n";
+                    blk += indent + `if (__resetMissing) ${resetField(member, "dst")}\n`;
                 }
                 else {
                     blk += indent + "break;\n";
@@ -2749,7 +2772,7 @@ export class JSONTransform extends Visitor {
                 blk += indent + `if (${nextAbsent}) {\n`;
                 indent += "  ";
                 if (isOptional) {
-                    blk += indent + "// optional @omitnull field omitted\n";
+                    blk += indent + `if (__resetMissing) ${resetField(member, "dst")}\n`;
                 }
                 else {
                     blk += indent + "break;\n";
@@ -2978,7 +3001,8 @@ export class JSONTransform extends Visitor {
                     blk += i3 + `__tracePresent |= ${traceBit};\n`;
                 if (multi)
                     blk += i3 + "seenAny = true;\n";
-                blk += i2 + "}\n";
+                blk +=
+                    i2 + `} else if (__resetMissing) { ${resetField(member, "dst")} }\n`;
                 t2opt.push(blk);
             }
             DESERIALIZE_FAST += chunkFastBlocksOptional(t2opt, "T2O", i2, true);
@@ -3263,6 +3287,13 @@ export class JSONTransform extends Visitor {
         DESERIALIZE += indent + "      }\n";
         DESERIALIZE += indent + "      srcStart += 2;\n";
         DESERIALIZE += indent + "    } else {\n";
+        const slowSeen = new Map(this.schema.members.map((member, index) => [member, `__seen_${index}`]));
+        const slowComparison = (name, member) => `(${getComparison(name)}) && (!__resetMissing || (${slowSeen.get(member)} = true))`;
+        const slowReset = `if (__resetMissing) {\n` +
+            initializationMembers
+                .map((member) => `  if (!${slowSeen.get(member)}) ${resetField(member, "changetype<usize>(out)")}\n`)
+                .join("") +
+            `}\n`;
         const groupMembers = (members) => {
             const groups = new Map();
             for (const member of members) {
@@ -3441,7 +3472,7 @@ export class JSONTransform extends Visitor {
                         (first.generic
                             ? `JSON.__acceptsJsonKind<${first.type}>(1) && `
                             : "") +
-                        getComparison(fName) +
+                        slowComparison(fName, first) +
                         ") { // " +
                         JSON.stringify(fName) +
                         "\n";
@@ -3459,7 +3490,7 @@ export class JSONTransform extends Visitor {
                             (mem.generic
                                 ? `JSON.__acceptsJsonKind<${mem.type}>(1) && `
                                 : "") +
-                            getComparison(memName) +
+                            slowComparison(memName, mem) +
                             ") { // " +
                             JSON.stringify(memName) +
                             "\n";
@@ -3514,7 +3545,7 @@ export class JSONTransform extends Visitor {
                         (first.generic
                             ? `JSON.__acceptsJsonKind<${first.type}>(0) && `
                             : "") +
-                        getComparison(fName) +
+                        slowComparison(fName, first) +
                         ") { // " +
                         JSON.stringify(fName) +
                         "\n";
@@ -3532,7 +3563,7 @@ export class JSONTransform extends Visitor {
                             (mem.generic
                                 ? `JSON.__acceptsJsonKind<${mem.type}>(0) && `
                                 : "") +
-                            getComparison(memName) +
+                            slowComparison(memName, mem) +
                             ") { // " +
                             JSON.stringify(memName) +
                             "\n";
@@ -3601,7 +3632,7 @@ export class JSONTransform extends Visitor {
                         (first.generic
                             ? `JSON.__acceptsJsonKind<${first.type}>(5) && `
                             : "") +
-                        getComparison(fName) +
+                        slowComparison(fName, first) +
                         ") { // " +
                         JSON.stringify(fName) +
                         "\n";
@@ -3618,7 +3649,7 @@ export class JSONTransform extends Visitor {
                             (mem.generic
                                 ? `JSON.__acceptsJsonKind<${mem.type}>(5) && `
                                 : "") +
-                            getComparison(memName) +
+                            slowComparison(memName, mem) +
                             ") { // " +
                             JSON.stringify(memName) +
                             "\n";
@@ -3687,7 +3718,7 @@ export class JSONTransform extends Visitor {
                         (first.generic
                             ? `JSON.__acceptsJsonKind<${first.type}>(4) && `
                             : "") +
-                        getComparison(fName) +
+                        slowComparison(fName, first) +
                         ") { // " +
                         JSON.stringify(fName) +
                         "\n";
@@ -3704,7 +3735,7 @@ export class JSONTransform extends Visitor {
                             (mem.generic
                                 ? `JSON.__acceptsJsonKind<${mem.type}>(4) && `
                                 : "") +
-                            getComparison(memName) +
+                            slowComparison(memName, mem) +
                             ") { // " +
                             JSON.stringify(memName) +
                             "\n";
@@ -3755,7 +3786,7 @@ export class JSONTransform extends Visitor {
                         (first.generic
                             ? `JSON.__acceptsJsonKind<${first.type}>(2) && `
                             : "") +
-                        getComparison(fName) +
+                        slowComparison(fName, first) +
                         ") { // " +
                         JSON.stringify(fName) +
                         "\n";
@@ -3773,7 +3804,7 @@ export class JSONTransform extends Visitor {
                             (mem.generic
                                 ? `JSON.__acceptsJsonKind<${mem.type}>(2) && `
                                 : "") +
-                            getComparison(memName) +
+                            slowComparison(memName, mem) +
                             ") { // " +
                             JSON.stringify(memName) +
                             "\n";
@@ -3823,7 +3854,7 @@ export class JSONTransform extends Visitor {
                         (first.generic
                             ? `JSON.__acceptsJsonKind<${first.type}>(2) && `
                             : "") +
-                        getComparison(fName) +
+                        slowComparison(fName, first) +
                         ") { // " +
                         JSON.stringify(fName) +
                         "\n";
@@ -3841,7 +3872,7 @@ export class JSONTransform extends Visitor {
                             (mem.generic
                                 ? `JSON.__acceptsJsonKind<${mem.type}>(2) && `
                                 : "") +
-                            getComparison(memName) +
+                            slowComparison(memName, mem) +
                             ") { // " +
                             JSON.stringify(memName) +
                             "\n";
@@ -3890,7 +3921,7 @@ export class JSONTransform extends Visitor {
                         (first.generic
                             ? `JSON.__acceptsJsonKind<${first.type}>(3) && `
                             : "") +
-                        getComparison(fName) +
+                        slowComparison(fName, first) +
                         ") { // " +
                         JSON.stringify(fName) +
                         "\n";
@@ -3908,7 +3939,7 @@ export class JSONTransform extends Visitor {
                             (mem.generic
                                 ? `JSON.__acceptsJsonKind<${mem.type}>(3) && `
                                 : "") +
-                            getComparison(memName) +
+                            slowComparison(memName, mem) +
                             ") { // " +
                             JSON.stringify(memName) +
                             "\n";
@@ -3951,6 +3982,12 @@ export class JSONTransform extends Visitor {
                 `    if (lastCode == 123 || lastCode == 91) return 0;\n` +
                 `  }\n`;
         DESERIALIZE += `  return srcStart;\n}\n`;
+        DESERIALIZE = DESERIALIZE.replace('  let decodedKey: string = "";\n', '  let decodedKey: string = "";\n' +
+            [...slowSeen.values()]
+                .map((name) => `  let ${name} = false;\n`)
+                .join(""))
+            .replaceAll("return srcStart + 2;", slowReset + "return srcStart + 2;")
+            .replaceAll("return srcStart;", slowReset + "return srcStart;");
         indent = "  ";
         this.schema.byteSize += 2;
         SERIALIZE += indent + "store<u16>(__dst, 125, 0); // }\n";
@@ -4023,7 +4060,7 @@ export class JSONTransform extends Visitor {
                 "    srcStart += 2;\n" +
                 "    if (load<u16>(srcStart) == 0x20) srcStart += 2;\n" +
                 "    else srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n");
-            const prettyFast = ("__DESERIALIZE_FAST_PRETTY<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n" +
+            const prettyFast = ("__DESERIALIZE_FAST_PRETTY<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n" +
                 lazySourceHeader +
                 "  const start = srcStart;\n" +
                 "  const dst = changetype<usize>(out);\n" +
@@ -4037,7 +4074,7 @@ export class JSONTransform extends Visitor {
         }
         else if (this.program.options.hasFeature(16) && useFastPath) {
             const prettyTail = DESERIALIZE_FAST.slice(fastPrettyTailStart);
-            DESERIALIZE_FAST_PRETTY_METHOD = SimpleParser.parseClassMember("__DESERIALIZE_FAST_PRETTY<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n" +
+            DESERIALIZE_FAST_PRETTY_METHOD = SimpleParser.parseClassMember("__DESERIALIZE_FAST_PRETTY<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n" +
                 lazySourceHeader +
                 "  const start = srcStart;\n" +
                 "  const dst = changetype<usize>(out);\n" +
@@ -4046,8 +4083,8 @@ export class JSONTransform extends Visitor {
                 "}", node);
         }
         else if (useFastPath) {
-            DESERIALIZE_FAST_PRETTY_METHOD = SimpleParser.parseClassMember("__DESERIALIZE_FAST_PRETTY<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n" +
-                "  return this.__DESERIALIZE_FAST(srcStart, srcEnd, out);\n" +
+            DESERIALIZE_FAST_PRETTY_METHOD = SimpleParser.parseClassMember("__DESERIALIZE_FAST_PRETTY<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n" +
+                "  return this.__DESERIALIZE_FAST(srcStart, srcEnd, out, __resetMissing);\n" +
                 "}", node);
         }
         const sourceFreeDeserialize = !DESERIALIZE_CUSTOM &&
@@ -4064,7 +4101,7 @@ export class JSONTransform extends Visitor {
             ? SimpleParser.parseClassMember("__DESERIALIZE_SOURCE_FREE(): void {}", node)
             : null;
         const FULL_WRITE_METHOD = useFastPath && !supportsFastOptionalPath
-            ? SimpleParser.parseClassMember("__DESERIALIZE_FULL_WRITE(): void {}", node)
+            ? SimpleParser.parseClassMember(`__DESERIALIZE_FULL_WRITE(): u32 { return idof<${node.name.text}>(); }`, node)
             : null;
         const defaultObjectJSON = USE_DEFAULT_OBJECT_SPECIALIZATION &&
             this.program.options.hasFeature(16) &&
@@ -4305,7 +4342,7 @@ export class JSONTransform extends Visitor {
         node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_FAST_ENABLED(): bool { return false; }", node));
         node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_REUSE_PURE(): bool { return false; }", node));
         const INITIALIZE_EMPTY = "__INITIALIZE(): this {\n  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n  this.__JSON_INITIALIZE_FIELDS();\n  return this;\n}";
-        const DESERIALIZE_SLOW_EMPTY = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T): usize {\n  return srcEnd;\n}";
+        const DESERIALIZE_SLOW_EMPTY = "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = false): usize {\n  return srcEnd;\n}";
         if (DEBUG > 0) {
             console.log(SERIALIZE_EMPTY);
             console.log(INITIALIZE_EMPTY);

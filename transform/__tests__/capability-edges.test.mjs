@@ -31,6 +31,8 @@ const expected = [
   '{"a":{"n":8}}',
 ];
 const bindings = {
+  "reused-inherited": "7:2|7:2",
+  "reused-defaults": "7:2:null|7:2:null|7:2|7:2:null|7:2:null|7:2:null",
   defaults: "7:8|7:8",
   "map-slots": '{"n":9007199254740993,"tail":true}|7|{"a":7,"tail":true}',
 
