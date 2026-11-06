@@ -137,6 +137,7 @@ export class Schema {
   public ownCustomReader: boolean = false;
   public ownCustomWriter: boolean = false;
   public fastReader: boolean = false;
+  public generatedFastReader: boolean = false;
   get customReader(): boolean {
     return this.ownCustomReader || !!this.parent?.customReader;
   }

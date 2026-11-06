@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
@@ -9,7 +10,7 @@ export function deserializeGenericArray<T extends unknown[]>(
   dst: usize,
 ): T {
   const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
+    dst || changetype<usize>(newNativeArray<T>()),
   );
   out.length = 0;
 

@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { deserializeIntegerArray_NAIVE } from "../../naive/array/integer";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
@@ -192,7 +193,7 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
   dst: usize,
 ): T {
   const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
+    dst || changetype<usize>(newNativeArray<T>()),
   );
   let index = 0;
 
@@ -281,7 +282,7 @@ function deserializeIntegerArrayImpl<T extends number[]>(
   useSWAR: bool,
 ): T {
   const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
+    dst || changetype<usize>(newNativeArray<T>()),
   );
   const originalSrcStart = srcStart;
   const reusableLength = load<i32>(

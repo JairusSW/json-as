@@ -218,3 +218,74 @@ Evidence: `build/perf/classic-native/whitespace/integrated-batch-{samples,summar
 `build/perf/classic-native/integrated-batch-stress.log`,
 `batched-packed-consumer.log`, `batched-preparation.log`, and
 `batched-transform-tests.log`.
+
+## Native-array construction and generated child tier-down
+
+The next integration specializes zero-length native Array construction at
+explicit library and generated-reader sites. Exact native Arrays retain their
+normal eight-element initial capacity, two independent managed allocations,
+zeroed storage and GC link. Subtypes run their constructors; nonincremental
+runtimes retain the standard constructor. The empty-wire-array optimization
+continues to use its separate zero-capacity path.
+
+A whitespace-tier parent now calls a known generated child's whitespace reader
+directly. Its next parse still begins at tier 1. Manual fast methods and generic
+children retain their existing dispatch. This change covers generated nested
+field and inline struct-array calls, rather than claiming that every runtime
+container worker inherits the caller's tier.
+
+Matched six-pair candidate screens measured approximately 4% improvement for
+the array factory in both CITM layouts, then 2% additional improvement for
+pretty input from child tier-down. These screens used frozen binaries and the
+old harness; production integration uses explicit factories and reader
+capabilities rather than the diagnostic transform's broad AST substitutions.
+
+Five alternating native/AS process pairs for the integrated candidate:
+
+| Corpus | Layout | AS us | Owning native us | Throughput fraction | 50% floor |
+| --- | --- | ---: | ---: | ---: | --- |
+| Twitter | min | 338.03 | 362.96 | 107.4% | Pass |
+| Twitter | pretty | 429.57 | 374.21 | 87.1% | Pass |
+| Canada | min | 3,600.13 | 2,753.92 | 76.5% | Pass |
+| Canada | pretty | 3,655.13 | 2,876.86 | 78.7% | Pass |
+| CITM | min | 696.51 | 359.29 | 51.6% | Pass |
+| CITM | pretty | 838.15 | 431.47 | 51.5% | Pass |
+
+These three corpora pass the selected-case gate. The subsequent batch covers
+the remaining six with the identical source hash, flags and environment:
+
+| Corpus | Layout | AS us | Owning native us | Throughput fraction | 50% floor |
+| --- | --- | ---: | ---: | ---: | --- |
+| Poet | min | 1,431.48 | 1,690.10 | 118.1% | Pass |
+| Poet | pretty | 1,530.36 | 1,715.52 | 112.1% | Pass |
+| GitHub Events | min | 78.88 | 38.89 | 49.3% | Miss |
+| GitHub Events | pretty | 83.64 | 40.45 | 48.4% | Miss |
+| GSOC | min | 1,606.16 | 1,278.35 | 79.6% | Pass |
+| GSOC | pretty | 1,705.44 | 1,292.72 | 75.8% | Pass |
+| Lottie | min | 276.92 | 169.97 | 61.4% | Pass |
+| Lottie | pretty | 538.71 | 270.60 | 50.2% | Pass |
+| OTFCC | min | 55,702.95 | 34,357.18 | 61.7% | Pass |
+| FGO | min | 26,979.73 | 17,367.33 | 64.4% | Pass |
+
+The combined coverage check verifies all nine classics and all 16 layouts,
+without duplicate cases. Fourteen pass; the two GitHub Events layouts miss,
+so the all-classic 50% stage remains incomplete. Lottie pretty has little margin.
+This AC-powered ARM64 batch held the shared timing lock and recorded concurrent
+correctness builds in its audits; it is not isolated-host release qualification.
+No timing flags, API semantics, validation settings or benchmark harnesses were
+changed. Full retained graph oracles pass for all six measured layouts.
+
+The array storage gate passes 18 backend/runtime/strictness configurations,
+including scalar widths, managed elements, subclass initialization, independent
+growth and collection. The instrumented tier gate passes 12 mode/strict/fast
+configurations, including a compact parse after a pretty parse and manual and
+generic fallbacks. Packed consumers pass 252 operations across 36 configurations.
+The combined full 44-script transform suite passes, including the final
+960-check capability matrix.
+
+Evidence: `build/perf/classic-native/arrays-tier-native-{prepared,samples,result}.json`,
+`arrays-tier-paired.log`, `native-array-tests.log`, `reader-tiers-tests.log`,
+`arrays-tier-packed.log`, and `arrays-tier-transform-tests.log`.
+The remaining batch is recorded in `remaining-floor-native-{prepared,samples,result}.json`
+and `remaining-floor-paired.log`; `all-classic-floor-result.json` checks their
+combined coverage and source identity with the preceding batch.

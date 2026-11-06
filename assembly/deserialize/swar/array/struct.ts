@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { allocateObject } from "../../../util/runtime";
 import { reuseComposite, hasCompositeReuseScope } from "../../parseMode";
 import {
@@ -259,7 +260,7 @@ export function deserializeStructArray_SWAR<T extends unknown[]>(
 ): T {
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
+    dst || changetype<usize>(newNativeArray<T>()),
   );
   const end = deserializeStructArrayBody<T>(srcStart, srcEnd, out);
   if (end == srcEnd) return out;

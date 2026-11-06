@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { isSpace } from "../../../util";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON, JSONMode } from "../../..";
@@ -23,7 +24,7 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
   dst: usize,
 ): T {
   const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
+    dst || changetype<usize>(newNativeArray<T>()),
   );
   // `dst` may arrive pre-sized (e.g. the SWAR fast path presizes then falls
   // back here); we re-parse from scratch via push, so start from empty.

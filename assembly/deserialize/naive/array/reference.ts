@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { JSON } from "../../..";
 import {
   BRACE_LEFT,
@@ -19,7 +20,7 @@ export function deserializeReferenceArray<T extends unknown[]>(
   srcEnd: usize,
   dst: usize,
 ): T {
-  const out = changetype<T>(dst || changetype<usize>(instantiate<T>()));
+  const out = changetype<T>(dst || changetype<usize>(newNativeArray<T>()));
   out.length = 0;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   if (srcStart < srcEnd && load<u16>(srcStart) == BRACKET_LEFT) {

@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { parseDecimalF32, roundDecimalF32 } from "../../../util/parseDecimal";
 import { scientific } from "../../../util/scientific";
 import { deserializeFloatField_NAIVE } from "../../naive/float";
@@ -542,7 +543,7 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
   srcEnd: usize,
   dst: usize,
 ): T {
-  const out = changetype<T>(dst || changetype<usize>(instantiate<T>()));
+  const out = changetype<T>(dst || changetype<usize>(newNativeArray<T>()));
   const next = deserializeFloatArrayBody<T>(srcStart, srcEnd, out, true);
   if (!next || skipFloatArrayWhitespace(next, srcEnd) != srcEnd) {
     takeProductionParseError();

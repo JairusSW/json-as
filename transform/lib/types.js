@@ -84,6 +84,7 @@ export class Schema {
     ownCustomReader = false;
     ownCustomWriter = false;
     fastReader = false;
+    generatedFastReader = false;
     get customReader() {
         return this.ownCustomReader || !!this.parent?.customReader;
     }

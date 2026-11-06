@@ -2926,6 +2926,9 @@ export class JSONTransform extends Visitor {
       !this.schema.members.some((member) => member.generic) &&
       (this.schema.static || supportsFastOptionalPath);
     this.schema.fastReader = useFastPath && !DESERIALIZE_CUSTOM;
+    this.schema.generatedFastReader =
+      this.schema.fastReader &&
+      !node.members.some((member) => member.name.text === "__DESERIALIZE_FAST");
 
     indent = "  ";
 
@@ -3467,11 +3470,16 @@ export class JSONTransform extends Visitor {
       member: Property,
       keyOffset: number = 0,
       fastPath: boolean = false,
+      whitespaceTier: boolean = false,
     ): string[] => {
       // const isLast = this.schema.members.indexOf(member) == this.schema.members.length - 1;
       const out: string[] = [];
       const resolvedType = stripNull(type);
       const resolvedSchema = this.getSchema(resolvedType);
+      const childReader =
+        whitespaceTier && resolvedSchema?.generatedFastReader
+          ? "__DESERIALIZE_WHITESPACE"
+          : "__DESERIALIZE_FAST";
       const fieldOffset = `offsetof<this>(${JSON.stringify(member.name)})`;
       const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
 
@@ -3750,7 +3758,7 @@ export class JSONTransform extends Visitor {
           // just this one object via its own slow path and keep the parent on
           // the fast path - rather than failing the whole document.
           out.push(
-            `  const __fe = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${valuePtr}, srcEnd, value, !__initialized);`,
+            `  const __fe = changetype<nonnull<${resolvedType}>>(value).${childReader}<${resolvedType}>(${valuePtr}, srcEnd, value, !__initialized);`,
           );
           out.push(`  if (__fe) {`);
           out.push(`    ${srcPtr} = __fe;`);
@@ -3813,7 +3821,7 @@ export class JSONTransform extends Visitor {
         out.push("  if (!valueEnd) break;");
         if (fastPath && resolvedSchema.fastReader) {
           out.push(
-            `  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(valueStart, valueEnd, value, !__initialized);`,
+            `  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).${childReader}<${resolvedType}>(valueStart, valueEnd, value, !__initialized);`,
           );
         } else {
           out.push(
@@ -3848,7 +3856,7 @@ export class JSONTransform extends Visitor {
             `  let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`,
           );
           out.push("  if (changetype<usize>(value) == 0) {");
-          out.push(`    value = instantiate<nonnull<${resolvedType}>>();`);
+          out.push(`    value = JSON.__newArray<nonnull<${resolvedType}>>();`);
           out.push(
             `    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
           );
@@ -3935,7 +3943,7 @@ export class JSONTransform extends Visitor {
             `  let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`,
           );
           out.push("  if (changetype<usize>(value) == 0) {");
-          out.push(`    value = instantiate<nonnull<${resolvedType}>>();`);
+          out.push(`    value = JSON.__newArray<nonnull<${resolvedType}>>();`);
           out.push(
             `    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
           );
@@ -4041,7 +4049,7 @@ export class JSONTransform extends Visitor {
           // via its own slow path; the rest of the array stays on the fast path.
           out.push(`    const __es = ${srcPtr};`);
           out.push(
-            `    const __ee = changetype<nonnull<${valueType}>>(item).__DESERIALIZE_FAST<${valueType}>(${srcPtr}, srcEnd, item, !__itemInitialized);`,
+            `    const __ee = changetype<nonnull<${valueType}>>(item).${whitespaceTier && valueSchema.generatedFastReader ? "__DESERIALIZE_WHITESPACE" : "__DESERIALIZE_FAST"}<${valueType}>(${srcPtr}, srcEnd, item, !__itemInitialized);`,
           );
           out.push(`    if (__ee) {`);
           out.push(`      ${srcPtr} = __ee;`);
@@ -4165,6 +4173,7 @@ export class JSONTransform extends Visitor {
       member: Property,
       keyOffset = 0,
       fastPath = false,
+      whitespaceTier = false,
     ): string[] => {
       const body = decodeField(
         type,
@@ -4173,6 +4182,7 @@ export class JSONTransform extends Visitor {
         member,
         keyOffset,
         fastPath,
+        whitespaceTier,
       );
       const schema = this.getSchema(stripNull(type));
       // Composite field helpers may publish a new reference. Link it before
@@ -4519,7 +4529,7 @@ export class JSONTransform extends Visitor {
     // structural token. Minified input never reaches here, so tier 1 keeps its
     // peak speed.
     const tier2Desers = this.schema.members.map((member) =>
-      getDeserializer(member.type, "srcStart", "dst", member, 0, true),
+      getDeserializer(member.type, "srcStart", "dst", member, 0, true, true),
     );
     const tier2Ok = tier2Desers.every(
       (d) => d.length && !(d.length === 1 && d[0].trim() === "break;"),

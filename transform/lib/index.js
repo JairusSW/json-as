@@ -1828,6 +1828,9 @@ export class JSONTransform extends Visitor {
             !this.schema.members.some((member) => member.generic) &&
             (this.schema.static || supportsFastOptionalPath);
         this.schema.fastReader = useFastPath && !DESERIALIZE_CUSTOM;
+        this.schema.generatedFastReader =
+            this.schema.fastReader &&
+                !node.members.some((member) => member.name.text === "__DESERIALIZE_FAST");
         indent = "  ";
         if (this.schema.static == false) {
             if (this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull))) {
@@ -2226,10 +2229,13 @@ export class JSONTransform extends Visitor {
                 return null;
             return stripNull(type.slice(type.indexOf("<") + 1, -1).trim());
         };
-        const decodeField = (type, srcPtr, outPtr, member, keyOffset = 0, fastPath = false) => {
+        const decodeField = (type, srcPtr, outPtr, member, keyOffset = 0, fastPath = false, whitespaceTier = false) => {
             const out = [];
             const resolvedType = stripNull(type);
             const resolvedSchema = this.getSchema(resolvedType);
+            const childReader = whitespaceTier && resolvedSchema?.generatedFastReader
+                ? "__DESERIALIZE_WHITESPACE"
+                : "__DESERIALIZE_FAST";
             const fieldOffset = `offsetof<this>(${JSON.stringify(member.name)})`;
             const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
             if (member.flags.has(PropertyFlags.Lazy)) {
@@ -2427,7 +2433,7 @@ export class JSONTransform extends Visitor {
                         out.push("    __initialized = true;");
                     }
                     out.push("  }");
-                    out.push(`  const __fe = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(${valuePtr}, srcEnd, value, !__initialized);`);
+                    out.push(`  const __fe = changetype<nonnull<${resolvedType}>>(value).${childReader}<${resolvedType}>(${valuePtr}, srcEnd, value, !__initialized);`);
                     out.push(`  if (__fe) {`);
                     out.push(`    ${srcPtr} = __fe;`);
                     out.push(`  } else {`);
@@ -2463,7 +2469,7 @@ export class JSONTransform extends Visitor {
                 out.push(`  const valueEnd = JSON.Util.scanValueEnd<${resolvedType}>(valueStart, srcEnd);`);
                 out.push("  if (!valueEnd) break;");
                 if (fastPath && resolvedSchema.fastReader) {
-                    out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_FAST<${resolvedType}>(valueStart, valueEnd, value, !__initialized);`);
+                    out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).${childReader}<${resolvedType}>(valueStart, valueEnd, value, !__initialized);`);
                 }
                 else {
                     out.push(`  ${srcPtr} = changetype<nonnull<${resolvedType}>>(value).__DESERIALIZE_SLOW<${resolvedType}>(valueStart, valueEnd, value, !__initialized);`);
@@ -2490,7 +2496,7 @@ export class JSONTransform extends Visitor {
                     out.push(`  if (load<u16>(${valuePtr}) != 0x5b) break;`);
                     out.push(`  let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`);
                     out.push("  if (changetype<usize>(value) == 0) {");
-                    out.push(`    value = instantiate<nonnull<${resolvedType}>>();`);
+                    out.push(`    value = JSON.__newArray<nonnull<${resolvedType}>>();`);
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push(`    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`);
                     out.push("  }");
@@ -2548,7 +2554,7 @@ export class JSONTransform extends Visitor {
                     out.push(`  if (load<u16>(${valuePtr}) != 0x5b) break;`);
                     out.push(`  let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`);
                     out.push("  if (changetype<usize>(value) == 0) {");
-                    out.push(`    value = instantiate<nonnull<${resolvedType}>>();`);
+                    out.push(`    value = JSON.__newArray<nonnull<${resolvedType}>>();`);
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push(`    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`);
                     out.push("  }");
@@ -2611,7 +2617,7 @@ export class JSONTransform extends Visitor {
                     out.push("      value.push(item);");
                     out.push("    }");
                     out.push(`    const __es = ${srcPtr};`);
-                    out.push(`    const __ee = changetype<nonnull<${valueType}>>(item).__DESERIALIZE_FAST<${valueType}>(${srcPtr}, srcEnd, item, !__itemInitialized);`);
+                    out.push(`    const __ee = changetype<nonnull<${valueType}>>(item).${whitespaceTier && valueSchema.generatedFastReader ? "__DESERIALIZE_WHITESPACE" : "__DESERIALIZE_FAST"}<${valueType}>(${srcPtr}, srcEnd, item, !__itemInitialized);`);
                     out.push(`    if (__ee) {`);
                     out.push(`      ${srcPtr} = __ee;`);
                     out.push(`    } else {`);
@@ -2693,8 +2699,8 @@ export class JSONTransform extends Visitor {
             }
             return out;
         };
-        const getDeserializer = (type, srcPtr, outPtr, member, keyOffset = 0, fastPath = false) => {
-            const body = decodeField(type, srcPtr, outPtr, member, keyOffset, fastPath);
+        const getDeserializer = (type, srcPtr, outPtr, member, keyOffset = 0, fastPath = false, whitespaceTier = false) => {
+            const body = decodeField(type, srcPtr, outPtr, member, keyOffset, fastPath, whitespaceTier);
             const schema = this.getSchema(stripNull(type));
             if (!member.flags.has(PropertyFlags.Lazy) &&
                 !isString(stripNull(type)) &&
@@ -2932,7 +2938,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE_FAST += indent + "}\n\n";
         }
         fastPrettyTailStart = DESERIALIZE_FAST.length;
-        const tier2Desers = this.schema.members.map((member) => getDeserializer(member.type, "srcStart", "dst", member, 0, true));
+        const tier2Desers = this.schema.members.map((member) => getDeserializer(member.type, "srcStart", "dst", member, 0, true, true));
         const tier2Ok = tier2Desers.every((d) => d.length && !(d.length === 1 && d[0].trim() === "break;"));
         if (tier2Ok && !supportsFastOptionalPath) {
             const i1 = "  ";

@@ -1,5 +1,6 @@
 import { JSON } from "../index";
 import { newEmptyArray } from "../util/emptyArray";
+import { newNativeArray } from "../util/nativeArray";
 
 
 @json
@@ -43,7 +44,16 @@ function scalarStorage<T extends number>(): void {
   assert(b[0] == <T>99);
   __unpin(changetype<usize>(a));
   __unpin(changetype<usize>(b));
+  const native = newNativeArray<Array<T>>();
+  __pin(changetype<usize>(native));
+  assert(native.length == 0);
+  assert(native.byteLength == (<i32>8) << alignof<T>());
+  for (let i = 0; i < 100; i++) native.push(<T>i);
+  __collect();
+  for (let i = 0; i < 100; i++) assert(native[i] == <T>i);
+  __unpin(changetype<usize>(native));
 }
+
 
 @json
 class SubtypeOwner {
@@ -80,9 +90,30 @@ export function verifyStorage(): i32 {
   __unpin(changetype<usize>(b));
   const sub = newEmptyArray<Subtype>();
   assert(sub.tag == 7 && sub.length == 1 && sub[0] == 5);
+  const nativeSub = newNativeArray<Subtype>();
+  assert(nativeSub.tag == 7 && nativeSub.length == 1 && nativeSub[0] == 5);
+  const nativeRefs = newNativeArray<string[]>();
+  __pin(changetype<usize>(nativeRefs));
+  for (let i = 0; i < 128; i++) nativeRefs.push(i.toString().repeat(64));
+  __collect();
+  for (let i = 0; i < 128; i++)
+    assert(nativeRefs[i] == i.toString().repeat(64));
+  __unpin(changetype<usize>(nativeRefs));
   const parsed = JSON.parse<SubtypeOwner>('{"value":[]}');
   assert(parsed.value.tag == 7 && parsed.value.length == 0);
   return 1;
+}
+
+let factoryResult: i64[] | null = null;
+export function allocateNative(): i32 {
+  factoryResult = newNativeArray<i64[]>();
+  return factoryResult!.byteLength;
+}
+export function readNative(): i32 {
+  assert(factoryResult!.length == 0);
+  factoryResult!.push(42);
+  __collect();
+  return <i32>factoryResult![0];
 }
 
 export function verifyReuse(): i32 {

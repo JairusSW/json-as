@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { JSON } from "../../../";
 import { isSpace } from "../../../util";
@@ -10,7 +11,7 @@ export function deserializeArrayArray<T extends unknown[][]>(
   dst: usize,
 ): T {
   const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
+    dst || changetype<usize>(newNativeArray<T>()),
   );
 
   // Keep dynamic inner arrays on their single-pass materialization path.
@@ -53,7 +54,7 @@ export function deserializeArrayArray<T extends unknown[][]>(
       arbitraryInner &&
       load<u16>(srcStart) == BRACKET_LEFT
     ) {
-      const inner = instantiate<nonnull<valueof<T>>>();
+      const inner = newNativeArray<nonnull<valueof<T>>>();
       inner.length = 0;
       srcStart = parseArrayBody(
         changetype<JSON.Value[]>(inner),

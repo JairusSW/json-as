@@ -75,6 +75,15 @@ try {
         );
         instance.exports.start();
         count = 0;
+        assert.equal(instance.exports.allocateNative(), 64);
+        if (runtime === "incremental")
+          assert.equal(
+            count,
+            2,
+            "native array retains its own header and buffer",
+          );
+        assert.equal(instance.exports.readNative(), 42);
+        count = 0;
         assert.equal(instance.exports.parseEmpty(), 0);
         if (runtime === "incremental" && strict === "false")
           assert.equal(
@@ -86,7 +95,9 @@ try {
         try {
           assert.equal(instance.exports.verifyStorage(), 1);
         } catch (error) {
-          throw new Error(`${runtime}/${mode}/${strict}: ${error.stack}`);
+          throw new Error(`${runtime}/${mode}/${strict}: ${error.stack}`, {
+            cause: error,
+          });
         }
         assert.equal(instance.exports.verifyReuse(), 1);
         checked++;

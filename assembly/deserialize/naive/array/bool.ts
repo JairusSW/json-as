@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { isSpace } from "../../../util";
 import {
   COMMA,
@@ -25,7 +26,7 @@ export function deserializeBooleanArray<T extends boolean[]>(
   dst: usize,
 ): T {
   const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
+    dst || changetype<usize>(newNativeArray<T>()),
   );
   out.length = 0; // dst may arrive pre-sized; re-parse from empty via push
 

@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import {
   COMMA,
   BRACKET_LEFT,
@@ -24,7 +25,7 @@ export function deserializeStringArray_NAIVE<T extends (string | null)[]>(
   dst: usize,
   nullable: bool = false,
 ): T {
-  const out = changetype<T>(dst || changetype<usize>(instantiate<T>()));
+  const out = changetype<T>(dst || changetype<usize>(newNativeArray<T>()));
   out.length = 0; // dst may arrive pre-sized; re-parse from empty via push
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;

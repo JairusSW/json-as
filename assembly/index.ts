@@ -1,6 +1,7 @@
 /// <reference path="./index.d.ts" />
 
 import { newEmptyArray } from "./util/emptyArray";
+import { newNativeArray } from "./util/nativeArray";
 import { keyLength, KEY_HEADER_UNITS } from "./util/key-buffer";
 import { NativeMap } from "./util/native-collections";
 import { bs } from "../lib/as-bs";
@@ -302,7 +303,9 @@ export namespace JSON {
     if (CUSTOM_DESERIALIZER_RECEIVERS.has(id)) {
       receiver = changetype<nonnull<T>>(CUSTOM_DESERIALIZER_RECEIVERS.get(id));
     } else {
-      receiver = changetype<nonnull<T>>(allocateObject(offsetof<nonnull<T>>(), id));
+      receiver = changetype<nonnull<T>>(
+        allocateObject(offsetof<nonnull<T>>(), id),
+      );
       memory.fill(changetype<usize>(receiver), 0, offsetof<nonnull<T>>());
       CUSTOM_DESERIALIZER_RECEIVERS.set(id, changetype<Object>(receiver));
     }
@@ -940,7 +943,7 @@ export namespace JSON {
           dataPtr + dataSize,
           changetype<usize>(out) != 0
             ? changetype<usize>(out)
-            : changetype<usize>(instantiate<T>()),
+            : changetype<usize>(newNativeArray<T>()),
         );
         if (changetype<usize>(value) == 0) markProductionParseError();
         return value;
@@ -1628,7 +1631,7 @@ export namespace JSON {
           const ptr = valPtr(w);
           if (ptr == 0) return changetype<T>(0);
           const arr = changetype<JSON.Arr>(ptr);
-          const out = instantiate<nonnull<T>>();
+          const out = newNativeArray<nonnull<T>>();
           out.length = arr.length;
           for (let i = 0; i < arr.length; i++) {
             unchecked((changetype<Array<JSON.Value>>(out)[i] = arr.at(i)));
@@ -3402,6 +3405,7 @@ export namespace JSON {
       type instanceof Float64Array
     )
       return instantiate<nonnull<T>>(0) as T;
+    if (type instanceof Array) return newNativeArray<nonnull<T>>() as T;
     return instantiate<nonnull<T>>() as T;
   }
 
@@ -3562,6 +3566,12 @@ export namespace JSON {
   @inline
   function __allocateObject(size: usize, id: u32): usize {
     return allocateObject(size, id);
+  }
+
+  /** Internal constructor for generated nonempty native-array readers. */
+  @inline
+  function __newArray<T>(): T {
+    return newNativeArray<T>();
   }
 
   /** Fresh empty native array with independent identity and deferred capacity. */

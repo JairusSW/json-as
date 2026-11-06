@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { reuseComposite } from "../../parseMode";
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
@@ -61,12 +62,12 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           );
           const slot = reusableDataStart + <usize>index * elementSize;
           if (!reuseComposite(changetype<usize>(value), slot)) {
-            value = instantiate<valueof<T>>();
+            value = newNativeArray<valueof<T>>();
             store<valueof<T>>(slot, value);
             __link(changetype<usize>(out), changetype<usize>(value), false);
           }
         } else {
-          value = changetype<valueof<T>>(instantiate<valueof<T>>());
+          value = changetype<valueof<T>>(newNativeArray<valueof<T>>());
           changetype<Array<valueof<T>>>(out)[out.length] = value;
         }
         srcStart = deserializeFloatArrayBody<valueof<T>>(
@@ -83,12 +84,12 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           );
           const slot = reusableDataStart + <usize>index * elementSize;
           if (!reuseComposite(changetype<usize>(value), slot)) {
-            value = instantiate<valueof<T>>();
+            value = newNativeArray<valueof<T>>();
             store<valueof<T>>(slot, value);
             __link(changetype<usize>(out), changetype<usize>(value), false);
           }
         } else {
-          value = changetype<valueof<T>>(instantiate<valueof<T>>());
+          value = changetype<valueof<T>>(newNativeArray<valueof<T>>());
           changetype<Array<valueof<T>>>(out)[out.length] = value;
         }
         srcStart = deserializeArrayArrayBody<valueof<T>>(

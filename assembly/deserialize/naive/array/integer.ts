@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { atoi, isSpace } from "../../../util";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { markProductionParseError } from "../../error";
@@ -17,7 +18,7 @@ export function deserializeIntegerArray_NAIVE<T extends number[]>(
   dst: usize,
 ): T {
   const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
+    dst || changetype<usize>(newNativeArray<T>()),
   );
   out.length = 0; // dst may arrive pre-sized; re-parse from empty via push
 

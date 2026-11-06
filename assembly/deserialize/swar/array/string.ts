@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import {
   BRACKET_LEFT,
   BRACKET_RIGHT,
@@ -104,7 +105,7 @@ export function deserializeStringArray_SWAR<T extends string[]>(
   dst: usize,
   nullable: bool = false,
 ): T {
-  const out = changetype<T>(dst || changetype<usize>(instantiate<T>()));
+  const out = changetype<T>(dst || changetype<usize>(newNativeArray<T>()));
   const next = deserializeStringArrayBody<T>(srcStart, srcEnd, out, nullable);
   if (!next || skipStringArrayWhitespace(next, srcEnd) != srcEnd) {
     markProductionParseError();

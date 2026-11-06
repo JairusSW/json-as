@@ -60,6 +60,7 @@ export declare class Schema {
     ownCustomReader: boolean;
     ownCustomWriter: boolean;
     fastReader: boolean;
+    generatedFastReader: boolean;
     get customReader(): boolean;
     get customWriter(): boolean;
     hasCustomCursorLifecycle: boolean;

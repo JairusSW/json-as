@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { reuseComposite } from "../../parseMode";
 import {
   BACK_SLASH,
@@ -19,7 +20,7 @@ export function skipWhitespace(srcStart: usize, srcEnd: usize): usize {
 export function ensureArrayField<T extends Array<any>>(fieldPtr: usize): T {
   let out = changetype<T>(reuseComposite(load<usize>(fieldPtr), fieldPtr));
   if (!changetype<usize>(out)) {
-    out = changetype<T>(instantiate<T>());
+    out = changetype<T>(newNativeArray<T>());
     store<T>(fieldPtr, out);
   }
   return out;
@@ -33,7 +34,7 @@ export function ensureArrayFieldAt<T extends Array<any>>(
     reuseComposite(load<usize>(dstObj, dstOffset), dstObj + dstOffset),
   );
   if (!changetype<usize>(out)) {
-    out = changetype<T>(instantiate<T>());
+    out = changetype<T>(newNativeArray<T>());
     store<T>(dstObj, out, dstOffset);
   }
   return out;

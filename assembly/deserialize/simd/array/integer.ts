@@ -1,3 +1,4 @@
+import { newNativeArray } from "../../../util/nativeArray";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { deserializeIntegerArray_SLOW } from "../../swar/array/integer";
 import { isSpace } from "../../../util";
@@ -216,7 +217,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
     return changetype<T>(0);
   }
   const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
+    dst || changetype<usize>(newNativeArray<T>()),
   );
 
   // See SWAR variant: worst-case sizing is `(srcLen / 4)` elements (1 digit
@@ -406,7 +407,7 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
     return deserializeNarrowIntegerArray_SIMD<T>(srcStart, srcEnd, dst);
   }
   const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
+    dst || changetype<usize>(newNativeArray<T>()),
   );
   const originalSrcStart = srcStart;
   const reusableLength = load<i32>(
