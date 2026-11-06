@@ -77,6 +77,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Extend the library-owned small-block allocation path to decoded strings across all three backends.
 - Specialize ordinary native-array construction while retaining the standard capacity, independent managed buffers, subclass constructors, and runtime fallbacks. Keep known generated children on the whitespace tier once their parent tiers down; each new parse still starts at the compact tier.
 - Accelerate longer indentation runs with bounded four-character whitespace loads while preserving scalar behavior for mixed whitespace and range boundaries.
 - Batch small native backing-block acquisition when free capacity permits, while preserving per-object GC registration and fresh identities. Fall back under pressure and return unassigned tails before heap growth. Keep native allocation events unchanged under RTrace.

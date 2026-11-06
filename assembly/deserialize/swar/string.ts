@@ -1,7 +1,7 @@
 import { invalidateStringFieldTrace, claimStringBuffer } from "../parseMode";
 import { bs } from "../../../lib/as-bs";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
-import { STRING_SIZE_MASK } from "../../util/runtime";
+import { STRING_SIZE_MASK, allocateObject } from "../../util/runtime";
 import { __heap_base } from "memory";
 import { BACK_SLASH, QUOTE } from "../../custom/chars";
 import { DESERIALIZE_ESCAPE_TABLE } from "../../globals/tables";
@@ -47,7 +47,7 @@ import { isValidStringEscape } from "../string-validation";
  */
 function copyStringFromSource(srcStart: usize, byteLength: usize): string {
   if (byteLength == 0) return changetype<string>("");
-  const out = __new(byteLength, idof<string>());
+  const out = allocateObject(byteLength, idof<string>());
   memory.copy(out, srcStart, byteLength);
   return changetype<string>(out);
 }
@@ -248,7 +248,7 @@ function writeStringToField(
       store<usize>(dstFieldPtr, stringPtr);
     }
   } else {
-    stringPtr = __new(byteLength, idof<string>());
+    stringPtr = allocateObject(byteLength, idof<string>());
     store<usize>(dstFieldPtr, stringPtr);
   }
   memory.copy(stringPtr, srcStart, byteLength);

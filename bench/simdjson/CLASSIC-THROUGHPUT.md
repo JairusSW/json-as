@@ -289,3 +289,96 @@ Evidence: `build/perf/classic-native/arrays-tier-native-{prepared,samples,result
 The remaining batch is recorded in `remaining-floor-native-{prepared,samples,result}.json`
 and `remaining-floor-paired.log`; `all-classic-floor-result.json` checks their
 combined coverage and source identity with the preceding batch.
+
+## GitHub Events follow-up candidate
+
+The first complete floor sweep identifies GitHub Events as the remaining miss.
+Two independent six-pair screens find useful work at different layers:
+
+| Change | Control min/pretty us | Candidate min/pretty us |
+| --- | ---: | ---: |
+| Route decoded strings through the scoped allocator | 78.80 / 83.47 | 74.79 / 80.13 |
+| Mark the varying Payload union members optional | 78.94 / 83.47 | 73.69 / 80.92 |
+| Add string allocation to optional-only | 73.49 / 80.72 | 69.64 / 76.74 |
+
+The string change retains the installed allocator's managed registration and
+zeroing. Existing string renewal and reuse still use their normal paths. The
+annotation changes no field types or key order and removes no fields; every
+record is fully decoded and serialized by the retained-output oracle. Native
+classes already default missing fields. The old comment about an optional-union
+corruption workaround is removed after the candidate passes all 12
+mode/strict/fast retained-graph configurations.
+
+Before integration, the string candidate also passes 1,728 string oracle checks,
+the allocation/retention checks, 16,236 construction checks across nine
+runtime/backend configurations, and the 12-configuration fixed-heap stress gate
+with its paired tail-release control. The combined candidate is now integrated.
+The fresh all-classic owning-native comparison passes the 50% floor; the full
+44-script transform suite also passes for this final combination.
+
+Evidence: `whitespace/github-{string,optional,combined}-{samples,summary}.json`,
+`github-combined-matrix.log`, `github-string-tests.log`,
+`github-string-pressure.log`, and `strings-optional-{preparation,transform-tests,packed}.log`
+under `build/perf/classic-native`.
+
+## First complete 50% floor pass
+
+Five alternating fresh-process pairs per corpus, all nine classics and all 16
+layouts, with the same normal `JSON.parse<T>()` API, original timing harnesses,
+owning native models, validation off and string caching off:
+
+| Corpus | Min throughput fraction | Pretty throughput fraction |
+| --- | ---: | ---: |
+| Twitter | 122.4% | 99.0% |
+| Canada | 77.0% | 77.4% |
+| CITM | 52.3% | 52.9% |
+| Poet | 134.5% | 130.3% |
+| GitHub Events | 56.0% | 52.5% |
+| GSOC | 85.8% | 82.7% |
+| Lottie | 61.2% | 51.6% |
+| OTFCC | 59.2% | — |
+| FGO | 63.8% | — |
+
+The gate reports complete coverage and all rows pass. Paired-median ratios also
+exceed 50% for every layout. Lottie pretty retains limited margin: its lowest
+individual pair is 49.5%, while its paired median is 51.7%. These AC-powered
+ARM64 measurements hold the shared timing lock and preserve concurrent-work
+audits; they are not isolated-host release qualification.
+
+Full retained-output oracles pass for every layout. GitHub's new output equals
+the preserved original object/default graph in both layouts; its native
+generated C++ and native binary hashes are unchanged. Packed consumers pass
+252 operations across 36 configurations. The full transform suite passes,
+including the final 960-check capability matrix. This establishes the measured 50%
+milestone, rather than parity or completion of the active objective.
+
+The next 60% stage still misses CITM, GitHub Events, Lottie pretty and OTFCC.
+Following the requested order, CITM is next after the already-passing Twitter
+and Canada cases.
+
+Evidence: `strings-optional-native-{prepared,samples,result}.json`,
+`strings-optional-pair-fractions.json`, and
+`strings-optional-all-classic-paired.log` under `build/perf/classic-native`.
+
+## Next CITM screen: barrier call overhead
+
+Diagnostic-only transforms retain the installed incremental write-barrier body
+but change inlining. The global version affects the ordinary barrier; the scoped
+version leaves that global entry intact and rewrites library/generated parser
+calls to a private inline clone, excluding original application methods.
+Both pass the full retained-output oracle in both CITM layouts.
+
+Six balanced three-way process orderings give:
+
+| Variant | Min us | Pretty us | Wasm bytes | Peak process RSS MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Control | 677.86 | 811.85 | 193,463 | 95.15 |
+| Global inline | 638.00 | 766.79 | 202,272 | 98.55 |
+| Scoped inline | 652.33 | 787.66 | 200,356 | 98.47 |
+
+The scoped version gains 3.8%/3.0% but retains most of the RSS cost. Both remain
+outside production while the next 60% work evaluates the tradeoff and profiles
+remaining CITM costs. These relative screens do not establish a new native floor.
+Evidence: `whitespace/citm-link-scoped-{samples,summary}.json`,
+`citm-link-scoped-paired.log`, `citm-link-oracle.log`, and
+`citm-scoped-link-oracle.log` under `build/perf/classic-native`.

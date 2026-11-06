@@ -197,28 +197,26 @@ class Comment {
   id!: i64;
 }
 
-// `payload` is a tagged union: each event type carries a different subset of
-// these keys, in inconsistent order. It falls back to its own slow path
-// per-event (via the per-class fallback) - localized, so the rest of each event
-// still parses fast. (A fully-@optional payload stays on the fast path but
-// currently trips a per-class-fallback memory-corruption bug - left static.)
+// Each event supplies a different subset of these union fields. Mark them
+// optional so generated readers can preserve missing defaults without
+// replaying fields already decoded before a localized fallback.
 @json
 class Payload {
-  commits!: Commit[];
-  distinct_size!: i32;
-  description!: string;
-  master_branch!: string;
-  ref!: string | null;
-  push_id!: i64;
-  ref_type!: string;
-  head!: string;
-  before!: string;
-  size!: i32;
-  forkee!: Forkee | null;
-  issue!: Issue | null;
-  action!: string;
-  comment!: Comment | null;
-  pages!: Page[];
+  @optional commits!: Commit[];
+  @optional distinct_size!: i32;
+  @optional description!: string;
+  @optional master_branch!: string;
+  @optional ref!: string | null;
+  @optional push_id!: i64;
+  @optional ref_type!: string;
+  @optional head!: string;
+  @optional before!: string;
+  @optional size!: i32;
+  @optional forkee!: Forkee | null;
+  @optional issue!: Issue | null;
+  @optional action!: string;
+  @optional comment!: Comment | null;
+  @optional pages!: Page[];
 }
 
 
