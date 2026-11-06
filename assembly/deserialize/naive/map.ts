@@ -2,7 +2,7 @@ import { allocateObject, linkObject } from "../../util/runtime";
 import { NativeMap } from "../../util/native-collections";
 import { HASH } from "util/hash";
 import { reuseComposite } from "../parseMode";
-import { JSON } from "../..";
+import { JSON, JSONMode } from "../..";
 import {
   COMMA,
   BRACE_LEFT,
@@ -25,6 +25,13 @@ const XXH32_P3: u32 = 3266489917;
 const XXH32_P4: u32 = 668265263;
 const XXH32_P5: u32 = 374761393;
 
+/** The shared Map reader keeps NAIVE scalar and uses the selected scanner in
+ * accelerated builds, including for Raw values with large nested payloads. */
+@inline
+function scanMapValueEnd(start: usize, end: usize): usize {
+  if (JSON_MODE == JSONMode.NAIVE) return scanValueEnd(start, end);
+  return JSON.Util.scanValueEnd(start, end);
+}
 
 @unmanaged
 class ReusableMapEntry<K, V> {
@@ -602,7 +609,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
       );
       srcStart = next;
     } else if (isReference<valueof<T>>() && rawValue) {
-      const valueEnd = scanValueEnd(srcStart, srcEnd);
+      const valueEnd = scanMapValueEnd(srcStart, srcEnd);
       if (!valueEnd || valueEnd <= srcStart) break;
       let raw: JSON.Raw | null = null;
       if (reuseExisting && changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeHas(key)) {
@@ -783,7 +790,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
           }
         }
         if (!next) {
-          const valueEnd = scanValueEnd(valueStart, srcEnd);
+          const valueEnd = scanMapValueEnd(valueStart, srcEnd);
           if (!valueEnd || valueEnd <= valueStart) break;
           // A failed FAST attempt may have partially overwritten fields.
           // @ts-ignore: supplied by the json-as transform
@@ -811,7 +818,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
           setParsedMapValue<T>(out, key, value, packedKey);
         srcStart = next;
       } else {
-        const valueEnd = scanValueEnd(srcStart, srcEnd);
+        const valueEnd = scanMapValueEnd(srcStart, srcEnd);
         if (!valueEnd || valueEnd <= srcStart) break;
         // @ts-ignore: type
         setParsedMapValue<T>(
@@ -823,7 +830,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
         srcStart = valueEnd;
       }
     } else {
-      const valueEnd = scanValueEnd(srcStart, srcEnd);
+      const valueEnd = scanMapValueEnd(srcStart, srcEnd);
       if (!valueEnd || valueEnd <= srcStart) break;
       // @ts-ignore: type
       setParsedMapValue<T>(
