@@ -1,4 +1,6 @@
 import { JSONMode } from "../..";
+import { QUOTE } from "../../custom/chars";
+import { markProductionParseError } from "../error";
 import {
   deserializeString_NAIVE,
   deserializeStringField_NAIVE,
@@ -17,10 +19,16 @@ import {
 import { validateJSONStringToken } from "../../util/validateJson";
 
 export function deserializeString(srcStart: usize, srcEnd: usize): string {
-  // Whole-value decoders strip two UTF-16 code units before entering their
-  // optimized loops. Guard the actual memory-safety invariant here; complete
-  // RFC quote framing remains the strict-mode validator's job.
-  if (srcEnd - srcStart < 4) return changetype<string>(0);
+  // Whole-value decoders require quote-inclusive bounds. Reject malformed
+  // ranges (missing quotes or insufficient length) safely for all backends.
+  if (
+    srcEnd - srcStart < 4 ||
+    load<u16>(srcStart) != QUOTE ||
+    load<u16>(srcEnd - 2) != QUOTE
+  ) {
+    markProductionParseError();
+    return changetype<string>(0);
+  }
   if (JSON_MODE == JSONMode.SIMD) {
     return deserializeString_SIMD(srcStart, srcEnd);
   } else if (JSON_MODE == JSONMode.NAIVE) {
