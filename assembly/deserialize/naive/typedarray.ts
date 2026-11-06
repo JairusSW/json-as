@@ -120,6 +120,8 @@ export function deserializeTypedArray_NAIVE<T extends ArrayLike<number>>(
   srcEnd: usize,
   dst: usize = 0,
 ): T {
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   const count = countTypedArrayElements<T>(srcStart, srcEnd);
   if (count < 0) {
     markProductionParseError();
@@ -136,6 +138,8 @@ export function deserializeArrayBuffer_NAIVE(
   srcEnd: usize,
   dst: usize = 0,
 ): ArrayBuffer {
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   const count = countTypedArrayElements<Uint8Array>(srcStart, srcEnd);
   if (count < 0) {
     markProductionParseError();
