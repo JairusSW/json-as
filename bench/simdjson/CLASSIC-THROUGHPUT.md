@@ -764,3 +764,54 @@ Evidence: `build/perf/classic-native/whitespace/{packed-whitespace,word-whitespa
 `key-allocator-focused.log`, `key-allocator-targeted.log`,
 `key-allocator-qualification-status.json`, and `key-allocator-packed.log`.
 All timing screens use the shared ARM64 lock and retain background-load audits.
+
+
+## Complete Map-key sweep and next bottlenecks
+
+At `77c5f62d`, the complete five-pair sweep clears CITM pretty at 60.9%, but
+GitHub pretty is 59.8%; the all-layout 60% stage therefore still fails. GitHub's
+binary is byte-for-byte unchanged from the previous 60.7% result. This is an
+insufficient performance margin, not evidence of a Map-key code regression in
+GitHub. Retain all sixteen layouts in the gate instead of combining favorable
+rows from separate sweeps. Evidence:
+`build/perf/classic-native/key-allocator-all-60-{prepared,samples,result}.json`.
+
+The current GitHub profile attributes 27.2% minified / 22.8% pretty self samples
+to trusted SIMD string-field decoding. Source order also explains a slow-path
+case: one Forkee object has reordered keys. No model types or input order are
+changed to avoid it. Evidence: `github-current-profile-summary.json`.
+
+A separate FGO probe routes shared Map value-boundary scans to the existing
+SIMD-aware utility. Its six-pair median is 20.233 ms versus 28.042 ms control
+(27.8% lower latency), with retained output equal to the full native model.
+This remains experimental; production must retain the scalar NAIVE policy.
+Evidence: `whitespace/fgo-map-scan-controls-{samples,summary}.json`.
+
+An incremental-only string allocation/copy fusion probe passes its UTF-16,
+escape/null, collection and retained-output checks, plus CITM/GitHub/Lottie
+owning graphs. Minimal and stub binaries are byte-identical to control. The
+large Unicode fixture itself fails on the Minimal control, so it is not claimed
+as a non-incremental runtime pass. Fusion timings, RTrace validation and a proper
+unknown-allocator fallback are still required before production integration.
+Probe sources are hashed in `copy-and-map-scan-probe-hashes.json`.
+
+
+## Copied-string fusion screen (experimental)
+
+Six paired runs give GitHub 63.670 / 68.265 us control versus 59.350 / 64.695 us
+fusion (6.8% / 5.2% lower latency), with peak RSS about 1.5 MiB higher. CITM is
+577.930 / 745.420 versus 584.525 / 743.980 us; Lottie 236.225 / 369.055 versus
+238.335 / 369.120 us. The latter results are essentially flat or mildly worse;
+do not claim a universal win. Evidence:
+`build/perf/classic-native/whitespace/string-copy-fusion-controls-{samples,summary}.json`.
+
+The prototype copies string bytes inside a private allocator clone in place of
+clearing them and then copying them outside. Headers and normal GC bookkeeping
+are preserved; strings are fully initialized before publication. Only the two
+explicit SIMD string-copy call sites are targeted. Production integration still
+needs RTrace validation and a conservative fallback for unknown allocator
+bodies. Minimal/stub are not rewritten and their compiled fixture binaries are
+byte-identical to control. The Unicode fixture's Minimal-control failure remains
+separate characterization, not a candidate regression or passing runtime gate.
+The current production source remains `77c5f62d`; neither this fusion nor the
+FGO Map boundary-scanner route is integrated yet.
