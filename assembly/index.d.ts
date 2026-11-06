@@ -275,6 +275,12 @@ declare const JSON_MODE: JSONMode;
  */
 declare const JSON_STRICT: bool;
 
+/** Retain json-as runtime/generated error diagnostics (default true).
+ * Set JSON_DIAGNOSTICS=false at compilation to trap instead of constructing
+ * library errors. User exceptions and compiler/standard-library checks remain unchanged.
+ */
+declare const JSON_DIAGNOSTICS: bool;
+
 /**
  * Whether the string cache is enabled (default off). Injected from the
  * `JSON_CACHE` build-time environment variable. This controls the experimental

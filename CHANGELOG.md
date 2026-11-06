@@ -6,6 +6,7 @@ This release includes all changes since v1.6.2. The planned v1.7.0 release was n
 
 ### Parsing and validation
 
+- Add opt-in `JSON_DIAGNOSTICS=false` builds that trap on library and generated-reader failures while preserving checks and application errors. Detailed diagnostics remain enabled by default.
 - Correct decimal-power tables and exponent parsing, validate packed narrow-array digit lanes and delimiters, and require complete string quote framing. Preserve legacy empty-run behavior in low-level integer scan helpers.
 - Propagate recursive reader failures to checked parse boundaries, including zero-returning Map and array child readers.
 - Bound vector string suffix copies and array delimiter/fraction probes at source ends.

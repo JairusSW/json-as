@@ -485,6 +485,9 @@ export namespace JSON {
     return <T>0;
   }
 
+  /** Intrinsic trap entry used by generated code without borrowing user bindings. */
+  function __trap<T>(): T { return unreachable(); }
+
   // Primitive readers cannot call user code; this untraced scratch word avoids
   // a managed result box for root numbers and booleans.
   const CURSOR_SCALAR_ROOT: usize = memory.data(8);

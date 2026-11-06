@@ -12,6 +12,7 @@ import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from ".
 import { Visitor } from "./visitor.js";
 import { generateCursorParser } from "./cursor.js";
 import { keyDispatch } from "./key-dispatch.js";
+import { parseDiagnosticsFlag, collectOriginalMethods, diagnosticsRuntimeRoot, lowerDiagnostics } from "./diagnostics.js";
 let indent = "  ";
 let id = 0;
 const WRITE = process.env["JSON_WRITE"]?.trim();
@@ -23,6 +24,7 @@ const DEBUG = rawValue === "true"
         : isNaN(Number(rawValue))
             ? 0
             : Number(rawValue);
+const DIAGNOSTICS = parseDiagnosticsFlag(process.env["JSON_DIAGNOSTICS"]);
 const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
 const DEFAULT_JSON_CACHE_BYTES = 1 << 20;
 export function normalizeJsonAsBaseRel(baseRel) {
@@ -4680,6 +4682,7 @@ export default class Transformer extends Transform {
                 MODE_TEXT +
                 " mode");
         program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE));
+        program.registerConstantInteger("JSON_DIAGNOSTICS", Type.bool, DIAGNOSTICS ? i64_one : i64_zero);
         program.registerConstantInteger("JSON_STRICT", Type.bool, STRICT ? i64_one : i64_zero);
         if (JSON_CACHE_CONFIG.enabled) {
             program.registerConstantInteger("JSON_CACHE", Type.bool, i64_one);
@@ -4688,6 +4691,8 @@ export default class Transformer extends Transform {
     }
     afterParse(parser) {
         const transformer = new JSONTransform();
+        const originalMethods = DIAGNOSTICS ? null : collectOriginalMethods(parser.sources);
+        const runtimeRoot = DIAGNOSTICS ? undefined : diagnosticsRuntimeRoot(parser.sources);
         if (STAGES)
             console.log("[transform]: Walking AST and generating schemas");
         const sources = parser.sources
@@ -4728,6 +4733,8 @@ export default class Transformer extends Transform {
             transformer.imports = [];
             transformer.currentSource = source;
             transformer.visit(source);
+            if (!DIAGNOSTICS)
+                lowerDiagnostics(source, originalMethods, runtimeRoot);
             if (transformer.schemas.has(source.internalPath)) {
                 transformer.addImports(source);
             }

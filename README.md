@@ -671,6 +671,8 @@ Here's a short list:
 
 **JSON_STRICT** (default: false) - Set to `true` when compiling for complete JSON syntax validation through the checked parser or validated fallback.
 
+**JSON_DIAGNOSTICS** (default: true) - Set to `false` when compiling to replace library-owned throws and aborts, including generated readers, with Wasm `unreachable` traps. This removes diagnostic formatting and the host abort call on those failure paths. It preserves checks and does not enable additional fast parsing. Application code and custom codec errors retain their behavior; compiler and standard-library checks remain separate. A trap is not a catchable `try-as` exception. Static error messages may already require no allocation in diagnostic builds, so measure throughput and size before choosing this flag.
+
 **JSON_USE_FAST_PATH** (default: 1) - The transform emits the fast `__DESERIALIZE` implementation for generated structs by default. Set to `0`, `false`, `off`, or `no` to force slow-path-only output.
 
 **JSON_WRITE** (default: "") - Select a series of files to output after transform and optimization passes have completed for easy inspection. Usage: `JSON_WRITE=.path-to-file-a.ts,./path-to-file-b.ts`
