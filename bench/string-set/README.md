@@ -40,7 +40,7 @@ three allocations to one. Empty Sets remain unchanged.
 The full 96-case matrix and raw samples are in [RESULTS.md](./RESULTS.md)
 and `results-{naive,swar,simd}.jsonl`. Short strings consistently improve.
 Long escaped strings have mixed results (0.81–1.27× for nonempty final cases),
-including a 19% slowdown for 1,024 initial entries with tombstones in NAIVE.
+including 23% higher CPU time for 1,024 initial entries with tombstones in NAIVE.
 Other repeated long-string samples reverse direction, so this change should
 be justified by allocation reduction and short-string throughput, not a claim
 of universal speedup. Check long-string workloads on the target runtime.

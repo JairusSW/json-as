@@ -55,7 +55,7 @@ function makeEscaped(count: i32): Set<string> {
 
 describe("String Set traversal preserves live insertion order", () => {
   const values = makeStrings(128);
-  for (let i = 1; i < 38; i += 4) values.delete("item-" + i.toString());
+  for (let i = 1; i < 128; i += 4) values.delete("item-" + i.toString());
   values.delete("item-0");
   values.delete("item-127");
   values.add("item-0");
