@@ -527,3 +527,39 @@ showed no useful speed gain and was rejected.
 Evidence: `build/perf/classic-native/null-reuse-native-{prepared,samples,result}.json`,
 `null-reuse-native-paired.log`, `null-reuse-transform/results.json`,
 `null-reuse-packed.log`, and `whitespace/citm-null-reuse-{samples,summary}.json`.
+
+## Fresh Map defaults
+
+New, unpublished Map values can now use the same conservative default deferral
+as generated child readers. The transform emits an exact-type eligibility
+certificate only for supported generated readers without internal/effectful
+initializers, custom cursor lifecycle hooks, or shared managed defaults.
+Absent optional fields receive their defaults after a successful fast read;
+a miss initializes before the slow reader. Existing mapped values retain the
+reuse/reset path. Ineligible descendants cannot inherit an ancestor's certificate.
+
+All 47 transform scripts and 252 packed-consumer operations pass. The new
+18-configuration backend/runtime/strict matrix checks missing and reordered
+fields, populated destination reuse, getter effects, shared defaults, inherited
+private state, namespace bindings and retained graphs after collection. It also
+verifies fewer allocations against an eager control under incremental/minimal;
+stub has no allocation-event counter. A separate constructor-sensitive control
+matches eager behavior. The integrated CITM binary matches the prototype.
+
+Six matched pairs improve CITM minified 5.0% and pretty 4.7%, reducing peak RSS
+about 1.1 MiB. An initial native gate overlapping correctness builds reports
+60.8% / 59.0%. After our compiler jobs finish, five fresh owning-native pairs
+report 63.4% / 60.2%: 551.44 / 699.36 us versus native 349.39 / 421.10 us.
+Twitter is 127.2% / 101.2%; Canada 76.2% / 78.1%. This selected gate passes,
+but the complete all-classic 60% stage remains unqualified. CITM pretty has a
+small margin and must remain covered by the complete sweep. The first Twitter
+native audit records an external Go compile; CITM's audits show no heavy build.
+All runs use the local ARM64 shared lock and retain the desktop/background audits.
+
+Evidence: `build/perf/classic-native/map-defer-quiet-native-{prepared,samples,result}.json`,
+`map-defer-native-quiet-paired.log`, `map-defer-mixed-native-{prepared,samples,result}.json`,
+`map-defer-transform/results.json`, `map-defer-focused.log`, `map-defer-packed.log`,
+and `whitespace/citm-map-defer-{samples,summary}.json`.
+
+Measured Map-deferral source fingerprint:
+`9fc7ad34e56c65bbe41ba3835516ecb3d204001fc7b09a9b556d709a1bbc6ca8`.

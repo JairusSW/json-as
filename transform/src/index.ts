@@ -6166,6 +6166,16 @@ export class JSONTransform extends Visitor {
             node,
           )
         : null;
+    // Containers may defer safe defaults for a newly allocated, unpublished
+    // value, just as generated child readers do. Keep the certificate tied to
+    // this exact declaration so an ineligible descendant cannot inherit it.
+    const DEFER_DEFAULTS_METHOD =
+      schema.generatedFastReader && this.canDeferFastDefaults(schema)
+        ? SimpleParser.parseClassMember(
+            `__DESERIALIZE_DEFER_DEFAULTS(): u32 { return idof<${node.name.text}>(); }`,
+            node,
+          )
+        : null;
     // Default-heavy response objects are common, and their canonical compact
     // representation is known at transform time. In SIMD builds, compare that
     // source in vector-width chunks and construct the declared default graph on
@@ -6399,6 +6409,11 @@ export class JSONTransform extends Visitor {
       !node.members.find((v) => v.name.text == "__DESERIALIZE_SOURCE_FREE")
     )
       node.members.push(SOURCE_FREE_METHOD);
+    if (
+      DEFER_DEFAULTS_METHOD &&
+      !node.members.some((v) => v.name.text === "__DESERIALIZE_DEFER_DEFAULTS")
+    )
+      node.members.push(DEFER_DEFAULTS_METHOD);
     if (
       FULL_WRITE_METHOD &&
       !node.members.find((v) => v.name.text == "__DESERIALIZE_FULL_WRITE")

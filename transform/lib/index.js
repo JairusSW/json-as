@@ -4201,6 +4201,9 @@ export class JSONTransform extends Visitor {
         const FULL_WRITE_METHOD = useFastPath && !supportsFastOptionalPath
             ? SimpleParser.parseClassMember(`__DESERIALIZE_FULL_WRITE(): u32 { return idof<${node.name.text}>(); }`, node)
             : null;
+        const DEFER_DEFAULTS_METHOD = schema.generatedFastReader && this.canDeferFastDefaults(schema)
+            ? SimpleParser.parseClassMember(`__DESERIALIZE_DEFER_DEFAULTS(): u32 { return idof<${node.name.text}>(); }`, node)
+            : null;
         const defaultObjectJSON = USE_DEFAULT_OBJECT_SPECIALIZATION &&
             this.program.options.hasFeature(16) &&
             useFastPath &&
@@ -4322,6 +4325,9 @@ export class JSONTransform extends Visitor {
         if (SOURCE_FREE_METHOD &&
             !node.members.find((v) => v.name.text == "__DESERIALIZE_SOURCE_FREE"))
             node.members.push(SOURCE_FREE_METHOD);
+        if (DEFER_DEFAULTS_METHOD &&
+            !node.members.some((v) => v.name.text === "__DESERIALIZE_DEFER_DEFAULTS"))
+            node.members.push(DEFER_DEFAULTS_METHOD);
         if (FULL_WRITE_METHOD &&
             !node.members.find((v) => v.name.text == "__DESERIALIZE_FULL_WRITE"))
             node.members.push(FULL_WRITE_METHOD);

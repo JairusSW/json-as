@@ -77,6 +77,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Defer safe defaults for fresh generated Map values until needed, reducing temporary container allocations while preserving effects, shared defaults, inherited state, and reused destinations.
 - Keep null composite destinations on an inline return path before ownership claiming, reducing fresh-parse call overhead.
 - Inline library-owned GC publication in generated readers and container construction, retaining the installed runtime's marking behavior and fallback paths.
 - Match the common colon-space separator directly in generated whitespace readers, retaining general whitespace handling and bounded reads.

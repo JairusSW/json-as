@@ -742,7 +742,14 @@ export function deserializeMapBody<T extends Map<any, any>>(
             allocateObject(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
           );
           // @ts-ignore: supplied by the json-as transform
-          if (isDefined(valueType.__INITIALIZE)) {
+          if (
+            isDefined(valueType.__INITIALIZE) &&
+            !(
+              isDefined(valueType.__DESERIALIZE_DEFER_DEFAULTS) &&
+              changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_DEFER_DEFAULTS() ==
+                idof<nonnull<valueof<T>>>()
+            )
+          ) {
             // @ts-ignore: supplied by the json-as transform
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
             initialized = true;
