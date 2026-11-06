@@ -2,7 +2,7 @@ import { allocateObject, linkObject } from "./runtime";
 
 /** Ordinary zero-length Array construction, specialized for its native layout. */
 @inline
-export function newNativeArray<T>(): T {
+export function newNativeArray<T>(minimumCapacity: usize = 8): T {
   // Subclasses must run their own constructors. Other runtimes retain the
   // standard constructor, including their backing-buffer initialization.
   if (ASC_RUNTIME == 2 && sizeof<usize>() == 4 && isArray<nonnull<T>>()) {
@@ -10,10 +10,11 @@ export function newNativeArray<T>(): T {
       const out = changetype<nonnull<T>>(
         allocateObject(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
       );
-      // Match Array's normal minimum capacity; this is not the empty-array
-      // parser's separate zero-capacity optimization. Both allocations remain
-      // managed roots across allocation/collection and retain distinct identity.
-      const bytes = (<usize>8) << alignof<valueof<nonnull<T>>>();
+      // Ordinary callers keep Array's normal minimum. Generated reference-array
+      // fields can reserve more slots to avoid copying managed storage on early
+      // growth. This is separate from the empty-array zero-capacity path. Both
+      // allocations remain managed roots and retain distinct identity.
+      const bytes = max(minimumCapacity, <usize>8) << alignof<valueof<nonnull<T>>>();
       const buffer = changetype<ArrayBuffer>(
         allocateObject(bytes, idof<ArrayBuffer>()),
       );

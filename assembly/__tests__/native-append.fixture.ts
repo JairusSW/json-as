@@ -85,7 +85,7 @@ export function storage(): i32 {
 }
 
 export function parser(): i32 {
-  const counts = [1, 7, 8, 9, 17, 65];
+  const counts = [1, 7, 8, 9, 15, 16, 17, 31, 32, 33, 65];
   __pin(changetype<usize>(counts));
   for (let c = 0; c < counts.length; c++) {
     const count = counts[c];
@@ -100,6 +100,14 @@ export function parser(): i32 {
       source += (i & 1) == 0 ? "null" : '"text"';
     }
     source += "]}";
+    // Minimal collects only explicit roots; source is used again after the
+    // fresh-output collection below.
+    __pin(changetype<usize>(source));
+    const fresh = JSON.parse<Owner>(source);
+    __pin(changetype<usize>(fresh));
+    __collect();
+    assert(fresh.rows.length == count && fresh.labels.length == count);
+    for (let i = 0; i < count; i++) assert(fresh.rows[i].n == i);
     const owner = new Owner();
     __pin(changetype<usize>(owner));
     owner.rows = new Rows();
@@ -122,9 +130,33 @@ export function parser(): i32 {
     }
     JSON.parse<Owner>('{"rows":[],"labels":[]}', owner);
     assert(owner.rows.length == 0 && owner.labels.length == 0);
+    assert(fresh.rows.length == count && fresh.rows !== rows);
+    for (let i = 0; i < count; i++) assert(fresh.rows[i].n == i);
+    __unpin(changetype<usize>(fresh));
     __unpin(changetype<usize>(owner));
+    __unpin(changetype<usize>(source));
   }
   __unpin(changetype<usize>(counts));
+  return 1;
+}
+
+// Exercise fresh managed storage across the initial capacity and later growth.
+export function managedStorage(): i32 {
+  const rows = newNativeArray<Array<Row | null>>(16);
+  __pin(changetype<usize>(rows));
+  for (let i = 0; i < 65; i++) {
+    const row = new Row(); row.n = i;
+    __pin(changetype<usize>(row));
+    appendNativeArray(rows, row);
+    __unpin(changetype<usize>(row));
+    if ((i & 7) == 0 || i == 15 || i == 16 || i == 31 || i == 32) __collect();
+  }
+  appendNativeArray(rows, changetype<Row | null>(0));
+  appendNativeArray(rows, rows[0]);
+  __collect();
+  assert(rows.length == 67 && rows[65] === null && rows[66] === rows[0]);
+  for (let i = 0; i < 65; i++) assert(rows[i]!.n == i);
+  __unpin(changetype<usize>(rows));
   return 1;
 }
 

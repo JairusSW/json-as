@@ -84,6 +84,7 @@ try {
           "in-capacity append allocates no metadata or storage",
         );
         assert.equal(g.storage(), 1);
+        assert.equal(g.managedStorage(), 1);
         assert.equal(g.parser(), 1);
         checks++;
       }

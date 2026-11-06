@@ -3577,7 +3577,9 @@ export namespace JSON {
   /** Internal constructor for generated nonempty native-array readers. */
   @inline
   function __newArray<T>(): T {
-    return newNativeArray<T>();
+    // Generated fields commonly grow past eight references. Keep ordinary root
+    // arrays and scalar storage on their existing allocation policy.
+    return newNativeArray<T>(isManaged<valueof<nonnull<T>>>() ? 16 : 8);
   }
 
 
