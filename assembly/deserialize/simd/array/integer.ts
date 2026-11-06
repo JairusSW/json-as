@@ -1,6 +1,7 @@
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { deserializeIntegerArray_SLOW } from "../../swar/array/integer";
 import { isSpace } from "../../../util";
+import { markProductionParseError } from "../../error";
 
 const ASCII_LANE_MASK_4: u64 = 0x00ff00ff00ff00ff;
 const ASCII_ZERO_4: u64 = 0x0030003000300030;
@@ -207,6 +208,13 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
   srcEnd: usize,
   dst: usize,
 ): T {
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
+  if (srcEnd - srcStart < 4 || load<u16>(srcStart) != BRACKET_LEFT ||
+      load<u16>(srcEnd - 2) != BRACKET_RIGHT) {
+    markProductionParseError();
+    return changetype<T>(0);
+  }
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(instantiate<T>()),
   );
@@ -220,7 +228,16 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
   const elementSize = sizeof<valueof<T>>();
   let writePtr = dataStart;
 
+  srcStart += 2;
+  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+  if (srcStart + 2 == srcEnd && load<u16>(srcStart) == BRACKET_RIGHT) {
+    out.length = 0;
+    return out;
+  }
   while (srcStart < srcEnd) {
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    if (srcStart >= srcEnd) break;
+
     // Fast path: two packed 3-digit elements in one v128 load. Pattern
     // matches `DDD,DDD,` (commas at lanes 3 and 7) which is the majority of
     // pairs for any payload whose values frequently land in 100..255.
@@ -235,8 +252,10 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
       // to constant-index reads. Ordered roughly by hit-rate on a uniform
       // 0..255 sweep (0x88 ~37%, 0x48/0x44 ~21% each, 0x24 ~12%, 0x28/0x22
       // ~2.4% each).
+      const digitLanes = i16x8.bitmask(i16x8.le_u(i16x8.sub(block, SPLAT_30_8), i16x8.splat(9)));
       switch (bitmask) {
         case 0x88: {
+          if ((digitLanes & 0x77) != 0x77) break;
           const digits = i16x8.sub(block, SPLAT_30_8);
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_3_8);
           const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
@@ -248,6 +267,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           continue;
         }
         case 0x48: {
+          if ((digitLanes & 0x37) != 0x37) break;
           const digits = i16x8.sub(block, SPLAT_30_8);
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_2_8);
           const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
@@ -259,6 +279,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           continue;
         }
         case 0x44: {
+          if ((digitLanes & 0x3b) != 0x3b) break;
           const digits = i16x8.sub(block, SPLAT_30_8);
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_2_3_8);
           const v1 = i32x4.extract_lane(dot, 0);
@@ -270,6 +291,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           continue;
         }
         case 0x24: {
+          if ((digitLanes & 0x1b) != 0x1b) break;
           const digits = i16x8.sub(block, SPLAT_30_8);
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_2_2_8);
           const v1 = i32x4.extract_lane(dot, 0);
@@ -281,6 +303,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           continue;
         }
         case 0x28: {
+          if ((digitLanes & 0x17) != 0x17) break;
           const digits = i16x8.sub(block, SPLAT_30_8);
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_1_8);
           const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
@@ -292,6 +315,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
           continue;
         }
         case 0x22: {
+          if ((digitLanes & 0x1d) != 0x1d) break;
           const digits = i16x8.sub(block, SPLAT_30_8);
           const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_1_3_8);
           const v1 = i32x4.extract_lane(dot, 0);
@@ -310,7 +334,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
       const block64 = load<u64>(srcStart);
       if (((block64 >> 48) & 0xffff) == COMMA) {
         const digits =
-          (block64 & 0x0000_00ff_00ff_00ff) - 0x0000_0030_0030_0030;
+          (block64 & 0x0000_ffff_ffff_ffff) - 0x0000_0030_0030_0030;
         const oor =
           (digits | (digits + 0x0000_0006_0006_0006)) & 0x0000_fff0_fff0_fff0;
         if (oor == 0) {
@@ -324,7 +348,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
         }
       } else if (((block64 >> 32) & 0xffff) == COMMA) {
         const digits =
-          (block64 & 0x0000_0000_00ff_00ff) - 0x0000_0000_0030_0030;
+          (block64 & 0x0000_0000_ffff_ffff) - 0x0000_0000_0030_0030;
         const oor =
           (digits | (digits + 0x0000_0000_0006_0006)) & 0x0000_0000_fff0_fff0;
         if (oor == 0) {
@@ -345,40 +369,35 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
         }
       }
     }
-    const code = load<u16>(srcStart);
-    if (<u32>code - 48 <= 9 || (isSigned<valueof<T>>() && code == 45)) {
-      const lastIndex = srcStart;
+    let negative = false;
+    if (isSigned<valueof<T>>() && load<u16>(srcStart) == 45) {
+      negative = true;
       srcStart += 2;
-      while (srcStart < srcEnd) {
-        const c = load<u16>(srcStart);
-        if (c == COMMA || c == BRACKET_RIGHT || isSpace(c)) {
-          let value: u64 = 0;
-          let p = lastIndex;
-          if (isSigned<valueof<T>>() && load<u16>(p) == 45) {
-            p += 2;
-            while (p < srcStart) {
-              value = value * 10 + (<u32>load<u16>(p) - 48);
-              p += 2;
-            }
-            store<valueof<T>>(writePtr, <valueof<T>>-(<i64>value));
-          } else {
-            while (p < srcStart) {
-              value = value * 10 + (<u32>load<u16>(p) - 48);
-              p += 2;
-            }
-            store<valueof<T>>(writePtr, <valueof<T>>value);
-          }
-          writePtr += elementSize;
-          break;
-        }
-        srcStart += 2;
-      }
     }
+    const digitStart = srcStart;
+    let value: u64 = 0;
+    while (srcStart < srcEnd) {
+      const digit = <u32>load<u16>(srcStart) - 48;
+      if (digit > 9) break;
+      value = value * 10 + digit;
+      srcStart += 2;
+    }
+    if (srcStart == digitStart) break;
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    if (srcStart >= srcEnd) break;
+    const delimiter = load<u16>(srcStart);
+    if (delimiter != COMMA && delimiter != BRACKET_RIGHT) break;
+    store<valueof<T>>(writePtr, negative ? <valueof<T>>-(<i64>value) : <valueof<T>>value);
+    writePtr += elementSize;
     srcStart += 2;
+    if (delimiter == BRACKET_RIGHT) {
+      if (srcStart != srcEnd) break;
+      out.length = i32(<usize>(writePtr - dataStart) / elementSize);
+      return out;
+    }
   }
-
-  out.length = i32(<usize>(writePtr - dataStart) / elementSize);
-  return out;
+  markProductionParseError();
+  return changetype<T>(0);
 }
 
 // @ts-ignore: Decorator valid here
