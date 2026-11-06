@@ -23,6 +23,19 @@ export const CLASSIC = [
   "otfcc",
   "fgo",
 ];
+export const NATIVE_MODELS = {
+  abc: { source: "assembly/__benches__/abc.bench.ts", root: "string" },
+  uuidv4: { source: "assembly/__benches__/uuidv4.bench.ts", root: "string" },
+  vec3: { source: "assembly/__benches__/vec3.bench.ts", root: "Vec3" },
+  token: { source: "assembly/__benches__/token.bench.ts", root: "Token" },
+  small: { source: "assembly/__benches__/small.bench.ts", root: "SmallJSON" },
+  medium: {
+    source: "assembly/__benches__/medium.bench.ts",
+    root: "MediumAPIResponse",
+  },
+  large: { source: "assembly/__benches__/large.bench.ts", root: "Repo" },
+  multilib: { source: "assembly/__benches__/multilib/shared.ts", root: "Repo" },
+};
 export const digest = (bytes) =>
   crypto.createHash("sha256").update(bytes).digest("hex");
 export function literalPayload(source, filename = "benchmark.ts") {
@@ -66,11 +79,14 @@ export function comparisonWorkload(root, suite) {
     source = "assembly/__benches__/payloads/multilib.json";
     text = fs.readFileSync(path.join(root, source), "utf8");
   } else {
-    const name = suite.replace(/-min$/, "");
-    if (!CLASSIC.includes(name) || suite !== `${name}-min`)
+    const name = suite.replace(/-(min|pretty)$/, "");
+    if (
+      !CLASSIC.includes(name) ||
+      ![`${name}-min`, `${name}-pretty`].includes(suite)
+    )
       throw new Error(`Unknown comparison suite ${suite}`);
     group = "classic";
-    source = `assembly/__benches__/payloads/${name}.min.json`;
+    source = `assembly/__benches__/payloads/${suite.replace(/-(min|pretty)$/, ".$1")}.json`;
     text = fs.readFileSync(path.join(root, source), "utf8");
   }
   return {

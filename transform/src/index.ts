@@ -68,7 +68,12 @@ import {
 import { Visitor } from "./visitor.js";
 import { generateCursorParser } from "./cursor.js";
 import { keyDispatch, KeyDispatch } from "./key-dispatch.js";
-import { parseDiagnosticsFlag, collectOriginalMethods, diagnosticsRuntimeRoot, lowerDiagnostics } from "./diagnostics.js";
+import {
+  parseDiagnosticsFlag,
+  collectOriginalMethods,
+  diagnosticsRuntimeRoot,
+  lowerDiagnostics,
+} from "./diagnostics.js";
 
 let indent = "  ";
 
@@ -4076,13 +4081,17 @@ export class JSONTransform extends Visitor {
           out.push("}");
           return out;
         }
-        if (valueType == "i64") {
-          out.push(`  if (load<u32>(${valuePtr}) == 0x005d005b) {`);
+        {
+          out.push(
+            `  if (${valuePtr} + 4 <= srcEnd && load<u32>(${valuePtr}) == 0x005d005b) {`,
+          );
           out.push(
             `    let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`,
           );
           out.push("    if (changetype<usize>(value) == 0) {");
-          out.push(`      value = instantiate<nonnull<${resolvedType}>>();`);
+          out.push(
+            `      value = JSON.__emptyArray<nonnull<${resolvedType}>>();`,
+          );
           out.push(
             `      store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
           );
@@ -4099,11 +4108,6 @@ export class JSONTransform extends Visitor {
           );
           out.push(`    if (!${srcPtr}) break;`);
           out.push("  }");
-        } else {
-          out.push(
-            `  ${srcPtr} = __deserializeArrayField_SWAR<nonnull<${resolvedType}>>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
-          );
-          out.push(`  if (!${srcPtr}) break;`);
         }
         if (member.nullable) {
           out.push("  }");
@@ -4973,7 +4977,9 @@ export class JSONTransform extends Visitor {
     // quote/comma/close is legal. This keeps comma grammar in the already-cold
     // slow fallback: no leading, doubled, or trailing commas, and no adjacent
     // members without a comma.
-    DESERIALIZE += indent + "    if (keyStart != 0 && !isKey && (code == 125 || code == 44)) return JSON.Util.failProductionParse();\n";
+    DESERIALIZE +=
+      indent +
+      "    if (keyStart != 0 && !isKey && (code == 125 || code == 44)) return JSON.Util.failProductionParse();\n";
     DESERIALIZE += indent + "    if (keyStart == 0 && !isKey) {\n";
     DESERIALIZE += indent + "      let prev = srcStart - 2;\n";
     DESERIALIZE +=
@@ -6071,8 +6077,30 @@ export class JSONTransform extends Visitor {
     DESERIALIZE_FAST =
       DESERIALIZE_FAST.slice(0, fastPrettyTailStart) +
       "  return this.__DESERIALIZE_WHITESPACE(start, srcEnd, out, __resetMissing);\n}";
+    // Small leaf readers benefit from caller-local roots and constant field
+    // offsets. Keep optional, lazy, generic and nested-object readers outlined
+    // so their fallback machinery does not multiply the generated code size.
+    const inlineLeafFastReader =
+      schema.members.length > 0 &&
+      schema.members.length <= 4 &&
+      schema.members.every((member) => {
+        if (
+          member.generic ||
+          member.custom ||
+          member.flags.has(PropertyFlags.Optional) ||
+          member.flags.has(PropertyFlags.Lazy)
+        )
+          return false;
+        const type = stripNull(member.type);
+        if (isPrimitive(type) || isString(type)) return true;
+        const element = this.getDefaultElementType(type);
+        return element != null && isPrimitive(stripNull(element));
+      });
     const DESERIALIZE_FAST_METHOD = useFastPath
-      ? SimpleParser.parseClassMember(DESERIALIZE_FAST, node)
+      ? SimpleParser.parseClassMember(
+          (inlineLeafFastReader ? "@inline\n" : "") + DESERIALIZE_FAST,
+          node,
+        )
       : null;
     let DESERIALIZE_FAST_PRETTY_METHOD: MethodDeclaration | null = null;
     const PRETTY_SPECIALIZED_METHOD: MethodDeclaration | null = null;
@@ -7028,7 +7056,11 @@ export default class Transformer extends Transform {
       );
 
     program.registerConstantInteger("JSON_MODE", Type.i32, i64_new(MODE));
-    program.registerConstantInteger("JSON_DIAGNOSTICS", Type.bool, DIAGNOSTICS ? i64_one : i64_zero);
+    program.registerConstantInteger(
+      "JSON_DIAGNOSTICS",
+      Type.bool,
+      DIAGNOSTICS ? i64_one : i64_zero,
+    );
     program.registerConstantInteger(
       "JSON_STRICT",
       Type.bool,
@@ -7046,8 +7078,12 @@ export default class Transformer extends Transform {
 
   afterParse(parser: Parser): void {
     const transformer = new JSONTransform();
-    const originalMethods = DIAGNOSTICS ? null : collectOriginalMethods(parser.sources);
-    const runtimeRoot = DIAGNOSTICS ? undefined : diagnosticsRuntimeRoot(parser.sources);
+    const originalMethods = DIAGNOSTICS
+      ? null
+      : collectOriginalMethods(parser.sources);
+    const runtimeRoot = DIAGNOSTICS
+      ? undefined
+      : diagnosticsRuntimeRoot(parser.sources);
 
     if (STAGES) console.log("[transform]: Walking AST and generating schemas");
     // // Reset singleton state to prevent pollution across compilations

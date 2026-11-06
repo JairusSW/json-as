@@ -162,7 +162,9 @@ export function cppType(type, classes) {
   throw new Error(`Unsupported type ${type}`);
 }
 
-export function nativeSchema(schema, root) {
+export function nativeSchema(schema, root, { unknownFields = "reject" } = {}) {
+  if (!["reject", "ignore"].includes(unknownFields))
+    throw new Error("Unknown field policy");
   const classes = new Set(schema.map((c) => c.name));
   const requiresRawValidation = [
     root,
@@ -226,7 +228,7 @@ template<class T> void tag_invoke(simdjson::serialize_tag, simdjson::builder::st
   const definitions = schema
     .map(
       (c) =>
-        `struct [[=simdjson::deny_unknown_fields]] [[=simdjson::default_value]] ${c.name} {\n${c.fields
+        `struct ${unknownFields === "reject" ? "[[=simdjson::deny_unknown_fields]] " : ""}[[=simdjson::default_value]] ${c.name} {\n${c.fields
           .map((f, i) => {
             const name =
               /^[a-zA-Z_]\w*$/.test(f.name) &&

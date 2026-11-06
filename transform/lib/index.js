@@ -12,7 +12,7 @@ import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from ".
 import { Visitor } from "./visitor.js";
 import { generateCursorParser } from "./cursor.js";
 import { keyDispatch } from "./key-dispatch.js";
-import { parseDiagnosticsFlag, collectOriginalMethods, diagnosticsRuntimeRoot, lowerDiagnostics } from "./diagnostics.js";
+import { parseDiagnosticsFlag, collectOriginalMethods, diagnosticsRuntimeRoot, lowerDiagnostics, } from "./diagnostics.js";
 let indent = "  ";
 let id = 0;
 const WRITE = process.env["JSON_WRITE"]?.trim();
@@ -2640,11 +2640,11 @@ export class JSONTransform extends Visitor {
                     out.push("}");
                     return out;
                 }
-                if (valueType == "i64") {
-                    out.push(`  if (load<u32>(${valuePtr}) == 0x005d005b) {`);
+                {
+                    out.push(`  if (${valuePtr} + 4 <= srcEnd && load<u32>(${valuePtr}) == 0x005d005b) {`);
                     out.push(`    let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`);
                     out.push("    if (changetype<usize>(value) == 0) {");
-                    out.push(`      value = instantiate<nonnull<${resolvedType}>>();`);
+                    out.push(`      value = JSON.__emptyArray<nonnull<${resolvedType}>>();`);
                     out.push(`      store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push(`      if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`);
                     out.push("    } else if (value.length != 0) {");
@@ -2655,10 +2655,6 @@ export class JSONTransform extends Visitor {
                     out.push(`    ${srcPtr} = __deserializeArrayField_SWAR<nonnull<${resolvedType}>>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
                     out.push(`    if (!${srcPtr}) break;`);
                     out.push("  }");
-                }
-                else {
-                    out.push(`  ${srcPtr} = __deserializeArrayField_SWAR<nonnull<${resolvedType}>>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`);
-                    out.push(`  if (!${srcPtr}) break;`);
                 }
                 if (member.nullable) {
                     out.push("  }");
@@ -3336,7 +3332,9 @@ export class JSONTransform extends Visitor {
                 "      if (srcStart >= srcEnd) return JSON.Util.failProductionParse();\n";
         DESERIALIZE += indent + "      code = load<u16>(srcStart);\n";
         DESERIALIZE += indent + "    }\n";
-        DESERIALIZE += indent + "    if (keyStart != 0 && !isKey && (code == 125 || code == 44)) return JSON.Util.failProductionParse();\n";
+        DESERIALIZE +=
+            indent +
+                "    if (keyStart != 0 && !isKey && (code == 125 || code == 44)) return JSON.Util.failProductionParse();\n";
         DESERIALIZE += indent + "    if (keyStart == 0 && !isKey) {\n";
         DESERIALIZE += indent + "      let prev = srcStart - 2;\n";
         DESERIALIZE +=
@@ -4148,8 +4146,22 @@ export class JSONTransform extends Visitor {
         DESERIALIZE_FAST =
             DESERIALIZE_FAST.slice(0, fastPrettyTailStart) +
                 "  return this.__DESERIALIZE_WHITESPACE(start, srcEnd, out, __resetMissing);\n}";
+        const inlineLeafFastReader = schema.members.length > 0 &&
+            schema.members.length <= 4 &&
+            schema.members.every((member) => {
+                if (member.generic ||
+                    member.custom ||
+                    member.flags.has(PropertyFlags.Optional) ||
+                    member.flags.has(PropertyFlags.Lazy))
+                    return false;
+                const type = stripNull(member.type);
+                if (isPrimitive(type) || isString(type))
+                    return true;
+                const element = this.getDefaultElementType(type);
+                return element != null && isPrimitive(stripNull(element));
+            });
         const DESERIALIZE_FAST_METHOD = useFastPath
-            ? SimpleParser.parseClassMember(DESERIALIZE_FAST, node)
+            ? SimpleParser.parseClassMember((inlineLeafFastReader ? "@inline\n" : "") + DESERIALIZE_FAST, node)
             : null;
         let DESERIALIZE_FAST_PRETTY_METHOD = null;
         const PRETTY_SPECIALIZED_METHOD = null;
@@ -4762,8 +4774,12 @@ export default class Transformer extends Transform {
     }
     afterParse(parser) {
         const transformer = new JSONTransform();
-        const originalMethods = DIAGNOSTICS ? null : collectOriginalMethods(parser.sources);
-        const runtimeRoot = DIAGNOSTICS ? undefined : diagnosticsRuntimeRoot(parser.sources);
+        const originalMethods = DIAGNOSTICS
+            ? null
+            : collectOriginalMethods(parser.sources);
+        const runtimeRoot = DIAGNOSTICS
+            ? undefined
+            : diagnosticsRuntimeRoot(parser.sources);
         if (STAGES)
             console.log("[transform]: Walking AST and generating schemas");
         const sources = parser.sources

@@ -25,7 +25,7 @@ const out = "";
 bench(
   "Deserialize FGO (min)",
   () => {
-    blackbox(JSON.parse<Map<string, JSON.Raw>>(minJson, fgo));
+    blackbox(JSON.parse<Map<string, JSON.Raw>>(minJson));
   },
   40,
   utf8ByteLength(minJson),

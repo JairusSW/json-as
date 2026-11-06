@@ -1,5 +1,32 @@
 # simdjson parity qualification
 
+## Current classic deserialization target
+
+Use JSON text → owning native structs for the classic simdjson baseline, and
+`JSON.parse<T>()` with validation disabled for json-as. Progress is measured as
+`native latency / json-as latency` on the same input. First bring every classic
+to at least 50% of simdjson throughput, then 60%, 70%, and onward toward parity,
+in order Twitter, Canada, CITM, then the remaining classics. Both minified and
+pretty layouts count where present. Keep every declared field materialized.
+
+`scripts/run-comparison-benches.mjs --prepare-only --suites=twitter-min,twitter-pretty`
+builds owning native models from the actual AS schemas. The check overwrites and
+destroys the temporary input and reuses the parser before serializing the object;
+the complete output is checked with an integer-preserving JSON oracle. Run timing
+with `--run-only` and the same selection under the shared host timing lock.
+Classic and library objects use owning native structs; overview primitives
+use their native owning types. All current comparison logs identify typed
+values rather than a DOM. Raw fields own their lexemes without an extra DOM validation pass, matching
+json-as compatibility parsing of declared `JSON.Raw` fields. The full input and
+output are validated by the untimed oracle. Those fields remain raw in both
+libraries; they are not a claim of typed decoding inside a raw field.
+
+## Historical strict qualification harness
+
+The older `run.mjs` qualification below uses a different strict/retained-output
+policy. Its target is not the current staged deserialization goal.
+
+
 The target is SIMD json-as latency at most 1.2 times native simdjson, with no
 limit on being faster, for all nine classic corpora (16 layouts). Equivalent
 validation and owned outputs remain required. Fresh owned parsing,

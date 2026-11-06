@@ -224,3 +224,15 @@ test("owned string inputs cover clean, escaped and Unicode text with changing le
   assert.ok(transition.slice(quote + 1).startsWith("中".repeat(24)));
   assert.throws(() => stringPayloads("missing"), /Unknown/);
 });
+
+test("compatibility native models use the normal key-selector reader", () => {
+  const model = schema("@json class Row { value:i32; }");
+  assert.match(nativeSchema(model, "Row"), /deny_unknown_fields/);
+  const cpp = nativeSchema(model, "Row", { unknownFields: "ignore" });
+  assert.doesNotMatch(cpp, /deny_unknown_fields/);
+  assert.match(cpp, /int32_t value/);
+  assert.throws(
+    () => nativeSchema(model, "Row", { unknownFields: "typo" }),
+    /policy/,
+  );
+});

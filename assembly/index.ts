@@ -1,5 +1,6 @@
 /// <reference path="./index.d.ts" />
 
+import { newEmptyArray } from "./util/emptyArray";
 import { keyLength, KEY_HEADER_UNITS } from "./util/key-buffer";
 import { NativeMap } from "./util/native-collections";
 import { bs } from "../lib/as-bs";
@@ -188,6 +189,7 @@ function valIntTag<T>(): u32 {
   if (sizeof<T>() == 4) return isSigned<T>() ? JSON.Types.I32 : JSON.Types.U32;
   return isSigned<T>() ? JSON.Types.I64 : JSON.Types.U64;
 }
+
 
 @inline
 function numericCast<T, V>(value: V): T {
@@ -487,7 +489,9 @@ export namespace JSON {
   }
 
   /** Intrinsic trap entry used by generated code without borrowing user bindings. */
-  function __trap<T>(): T { return unreachable(); }
+  function __trap<T>(): T {
+    return unreachable();
+  }
 
   // Primitive readers cannot call user code; this untraced scratch word avoids
   // a managed result box for root numbers and booleans.
@@ -1482,9 +1486,13 @@ export namespace JSON {
     static slotReference(bits: u64): Object | null {
       if (valBoxed(bits)) {
         const tag = valTag(bits);
-        if (tag != JSON.Types.Lazy &&
-            (tag == JSON.Types.Raw || tag >= JSON.Types.String ||
-             ((tag == JSON.Types.U64 || tag == JSON.Types.I64) && (bits & VAL_BOX64))))
+        if (
+          tag != JSON.Types.Lazy &&
+          (tag == JSON.Types.Raw ||
+            tag >= JSON.Types.String ||
+            ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
+              bits & VAL_BOX64))
+        )
           return changetype<Object>(valPtr(bits));
       }
       return null;
@@ -1596,8 +1604,9 @@ export namespace JSON {
         // The usual exact-width integer read needs no conversion dispatch.
         // Both the mask and expected tag specialize to constants for T.
         if (isInteger<T>() && sizeof<T>() <= 4) {
-          const mask: u64 = VAL_QNAN | (<u64>0x1f << VAL_TAG_SHIFT);
-          const expected: u64 = VAL_QNAN | (<u64>valIntTag<T>() << VAL_TAG_SHIFT);
+          const mask: u64 = VAL_QNAN | ((<u64>0x1f) << VAL_TAG_SHIFT);
+          const expected: u64 =
+            VAL_QNAN | ((<u64>valIntTag<T>()) << VAL_TAG_SHIFT);
           if ((w & mask) == expected) return <T>valPayload(w);
         }
         return JSON.Value.convertNumericBits<T>(w);
@@ -1638,23 +1647,34 @@ export namespace JSON {
       if (!valBoxed(w)) return numericCast<T, f64>(reinterpret<f64>(w));
       const payload = valPayload(w);
       switch (valTag(w)) {
-        case JSON.Types.Null: return <T>0;
-        case JSON.Types.Bool: return numericCast<T, bool>(payload != 0);
-        case JSON.Types.I8: return numericCast<T, i8>(<i8>payload);
-        case JSON.Types.U8: return numericCast<T, u8>(<u8>payload);
-        case JSON.Types.I16: return numericCast<T, i16>(<i16>payload);
-        case JSON.Types.U16: return numericCast<T, u16>(<u16>payload);
-        case JSON.Types.I32: return numericCast<T, i32>(<i32>payload);
-        case JSON.Types.U32: return numericCast<T, u32>(<u32>payload);
+        case JSON.Types.Null:
+          return <T>0;
+        case JSON.Types.Bool:
+          return numericCast<T, bool>(payload != 0);
+        case JSON.Types.I8:
+          return numericCast<T, i8>(<i8>payload);
+        case JSON.Types.U8:
+          return numericCast<T, u8>(<u8>payload);
+        case JSON.Types.I16:
+          return numericCast<T, i16>(<i16>payload);
+        case JSON.Types.U16:
+          return numericCast<T, u16>(<u16>payload);
+        case JSON.Types.I32:
+          return numericCast<T, i32>(<i32>payload);
+        case JSON.Types.U32:
+          return numericCast<T, u32>(<u32>payload);
         case JSON.Types.I64:
-          return numericCast<T, i64>((w & VAL_BOX64)
-            ? load<i64>(valPtr(w)) : ((<i64>(payload << 19)) >> 19));
+          return numericCast<T, i64>(
+            w & VAL_BOX64 ? load<i64>(valPtr(w)) : (<i64>(payload << 19)) >> 19,
+          );
         case JSON.Types.U64:
-          return numericCast<T, u64>((w & VAL_BOX64)
-            ? load<u64>(valPtr(w)) : payload);
+          return numericCast<T, u64>(
+            w & VAL_BOX64 ? load<u64>(valPtr(w)) : payload,
+          );
         case JSON.Types.F32:
           return numericCast<T, f32>(reinterpret<f32>(<u32>payload));
-        default: throw new Error("JSON.Value requires a boolean or numeric value");
+        default:
+          throw new Error("JSON.Value requires a boolean or numeric value");
       }
     }
 
@@ -2016,7 +2036,12 @@ export namespace JSON {
 
     /** Writes a slot and, if it carries a managed pointer, links it for the GC. */
     // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
-    private storeSlot(i: i32, bits: u64, replace: bool = true, root: Object | null = null): void {
+    private storeSlot(
+      i: i32,
+      bits: u64,
+      replace: bool = true,
+      root: Object | null = null,
+    ): void {
       if (replace && JSON.Value.slotIsLazy(unchecked(this._vals[i])))
         this._lazySlots--;
       if (JSON.Value.slotIsLazy(bits)) this._lazySlots++;
@@ -2032,7 +2057,11 @@ export namespace JSON {
             ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
               bits & VAL_BOX64))
         ) {
-          __link(changetype<usize>(this), root ? changetype<usize>(root) : valPtr(bits), false);
+          __link(
+            changetype<usize>(this),
+            root ? changetype<usize>(root) : valPtr(bits),
+            false,
+          );
         }
       }
       if (replace && this._lazySlots == 0 && this._rawEnd == 0) this._src = "";
@@ -2485,8 +2514,10 @@ export namespace JSON {
         // maintenance for every entry in a newly constructed object.
         for (let i = 0; i < len; i++) {
           const storedKey = unchecked(keys[i]);
-          const key = isNullable<indexof<T>>() && changetype<usize>(storedKey) == 0
-            ? "null" : changetype<string>(storedKey);
+          const key =
+            isNullable<indexof<T>>() && changetype<usize>(storedKey) == 0
+              ? "null"
+              : changetype<string>(storedKey);
           const start = changetype<usize>(key);
           out.appendRaw(
             start,
@@ -2593,7 +2624,12 @@ export namespace JSON {
 
     /** Writes a slot and, if it carries a managed pointer, links it for the GC. */
     // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
-    private storeSlot(i: i32, bits: u64, replace: bool = true, root: Object | null = null): void {
+    private storeSlot(
+      i: i32,
+      bits: u64,
+      replace: bool = true,
+      root: Object | null = null,
+    ): void {
       if (replace && JSON.Value.slotIsLazy(unchecked(this._vals[i])))
         this._lazySlots--;
       if (JSON.Value.slotIsLazy(bits)) this._lazySlots++;
@@ -2607,7 +2643,11 @@ export namespace JSON {
             ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
               bits & VAL_BOX64))
         ) {
-          __link(changetype<usize>(this), root ? changetype<usize>(root) : valPtr(bits), false);
+          __link(
+            changetype<usize>(this),
+            root ? changetype<usize>(root) : valPtr(bits),
+            false,
+          );
         }
       }
       if (replace && this._lazySlots == 0) this._src = "";
@@ -2743,9 +2783,14 @@ export namespace JSON {
       for (let k = 0; k < count; k++) {
         let slot = unchecked(this._vals[from + k]);
         if (JSON.Value.slotIsLazy(slot)) {
-          const token = load<u16>(JSON.Value.slotPtr(slot, changetype<usize>(this._src)));
-          if (token == 123 || token == 91 ||
-              (dst._src.length != 0 && dst._src !== this._src)) {
+          const token = load<u16>(
+            JSON.Value.slotPtr(slot, changetype<usize>(this._src)),
+          );
+          if (
+            token == 123 ||
+            token == 91 ||
+            (dst._src.length != 0 && dst._src !== this._src)
+          ) {
             slot = this.materializeSlot(from + k);
           } else if (dst._src.length == 0) {
             // Immutable scalar slices can stay deferred when both owners use
@@ -2861,7 +2906,9 @@ export namespace JSON {
           for (let i = 0; i < count; i++) {
             const slot = unchecked(this._vals[s + i]);
             if (JSON.Value.slotIsLazy(slot)) {
-              const token = load<u16>(JSON.Value.slotPtr(slot, changetype<usize>(this._src)));
+              const token = load<u16>(
+                JSON.Value.slotPtr(slot, changetype<usize>(this._src)),
+              );
               if (token == 123 || token == 91) this.materializeSlot(s + i);
             }
           }
@@ -2878,7 +2925,8 @@ export namespace JSON {
         );
         if (this._src.length != 0) {
           for (let i = 0; i < count; i++)
-            if (JSON.Value.slotIsLazy(unchecked(this._vals[t + i]))) this._lazySlots++;
+            if (JSON.Value.slotIsLazy(unchecked(this._vals[t + i])))
+              this._lazySlots++;
         }
       }
       if (this._lazySlots == 0) this._src = "";
@@ -2905,7 +2953,8 @@ export namespace JSON {
       // Scalar slices can remain deferred after the shallow copy.
       if (this._lazySlots)
         for (let i = s; i < s + d; i++)
-          if (JSON.Value.slotIsLazy(unchecked(this._vals[i]))) this._lazySlots--;
+          if (JSON.Value.slotIsLazy(unchecked(this._vals[i])))
+            this._lazySlots--;
       const tail = n - (s + d);
       if (tail > 0) {
         const base = changetype<usize>(this._vals);
@@ -3509,6 +3558,12 @@ export namespace JSON {
     return bs.offset;
   }
 
+  /** Fresh empty native array with independent identity and deferred capacity. */
+  @inline
+  function __emptyArray<T extends unknown[]>(): T {
+    return newEmptyArray<T>();
+  }
+
   /** Internal direct entry for transform-generated non-nullable array fields. */
   @inline
   function __serializeArray<T extends any[]>(data: T): void {
@@ -3694,7 +3749,11 @@ export namespace JSON {
   }
 
   /** Worker for generated and recursive readers; errors reach the outer boundary. */
-  function __deserializeValue<T>(srcStart: usize, srcEnd: usize, dst: usize = 0): T {
+  function __deserializeValue<T>(
+    srcStart: usize,
+    srcEnd: usize,
+    dst: usize = 0,
+  ): T {
     // Skip leading whitespace once here so every handler below may assume
     // srcStart is at the first non-whitespace char. (Trailing whitespace is
     // left intact - composites self-trim and JSON.Raw preserves it.)
@@ -3796,7 +3855,11 @@ export namespace JSON {
       }
       if (type instanceof StaticArray) {
         // @ts-expect-error: type
-        const value = deserializeStaticArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
+        const value = deserializeStaticArray<nonnull<T>>(
+          srcStart,
+          srcEnd,
+          dst,
+        ) as T;
         if (changetype<usize>(value) == 0) {
           markProductionParseError();
         }

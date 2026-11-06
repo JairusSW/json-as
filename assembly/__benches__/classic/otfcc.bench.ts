@@ -45,7 +45,7 @@ const out = "";
 bench(
   "Deserialize OTFCC (min)",
   () => {
-    blackbox(JSON.parse<Otfcc>(minJson, otfcc));
+    blackbox(JSON.parse<Otfcc>(minJson));
   },
   40,
   utf8ByteLength(minJson),

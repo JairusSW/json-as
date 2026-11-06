@@ -174,5 +174,24 @@
       "stringShape": "fullwidth_transition",
       "layouts": ["min"]
     }
-  ]
+  ],
+  "stagedDeserializationTarget": {
+    "api": "JSON.parse<T>(input)",
+    "strict": false,
+    "nativeRepresentation": "owning native struct",
+    "throughputRatio": "native ns / json-as ns",
+    "stages": [0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+    "order": [
+      "twitter",
+      "canada",
+      "citm_catalog",
+      "poet",
+      "github_events",
+      "gsoc-2018",
+      "lottie",
+      "otfcc",
+      "fgo"
+    ],
+    "coverage": "Every declared classic layout at each stage; fresh results in both implementations"
+  }
 }

@@ -8,6 +8,7 @@ import {
   comparisonWorkload,
   comparisonWorkloads,
   digest,
+  NATIVE_MODELS,
 } from "../lib/comparison-workloads.mjs";
 import { benchProvenanceSubtitle } from "../lib/bench-provenance.mjs";
 
@@ -74,4 +75,19 @@ test("mixed chart captions preserve native, JS, and Wasm runtime identities", ()
   ])
     assert.ok(title.includes(value));
   assert.ok(!title.includes("extra"));
+});
+
+test("classic pretty inputs retain their exact source bytes", () => {
+  const row = comparisonWorkload(process.cwd(), "twitter-pretty");
+  assert.equal(row.source, "assembly/__benches__/payloads/twitter.pretty.json");
+  assert.equal(row.text, fs.readFileSync(row.source, "utf8"));
+  assert.equal(row.inputSha256, digest(row.text));
+});
+
+test("overview and library native baselines name the actual typed models", () => {
+  assert.equal(Object.keys(NATIVE_MODELS).length, 8);
+  assert.equal(NATIVE_MODELS.abc.root, "string");
+  assert.equal(NATIVE_MODELS.multilib.root, "Repo");
+  for (const model of Object.values(NATIVE_MODELS))
+    assert.ok(fs.existsSync(model.source));
 });
