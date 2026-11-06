@@ -1072,8 +1072,51 @@ byte-identical to their measured publication prototypes. Only Twitter, Canada
 and CITM differ from the previous production binaries; the other six are
 unchanged. Source fingerprint:
 `64bd9bca03ccfd94902f56804b8555393c899001c4edd4d87e2c8665761e1b1d`.
-The complete native70 sweep is queued behind another repository's timing hold.
+The complete native70 sweep is recorded below.
 Evidence: `empty-publication-production-qualification.json`,
 `empty-publication-production-transform/results.json`, and
 `empty-publication-production-equivalence.json`. The frozen prior controls are
 preserved with hashes in `empty-publication-control-binaries.json`.
+
+## Complete native sweep after publication deduplication
+
+Production source `6f93cae9` completes the five-pair, sixteen-layout sweep.
+**All layouts retain60%;70% still fails for CITM and GitHub in both layouts.**
+CITM is68.9% /63.1%; GitHub67.9% /65.5%. Six corpus binaries are byte-identical
+to the previous production revision, so changes in their measured ratios are
+variation rather than effects of publication deduplication. The run records
+battery power at83% and background-load audits; do not treat these ratios or
+cross-sweep deltas as isolated normal-power qualification.
+
+| Corpus / layout | json-as GB/s | Native GB/s | AS / native |
+|---|---:|---:|---:|
+| twitter / min | 1.749 | 1.274 | 1.372× |
+| twitter / pretty | 1.800 | 1.657 | 1.086× |
+| canada / min | 0.581 | 0.759 | 0.766× |
+| canada / pretty | 0.794 | 1.020 | 0.779× |
+| citm_catalog / min | 0.934 | 1.356 | 0.689× |
+| citm_catalog / pretty | 1.650 | 2.616 | 0.631× |
+| poet / min | 2.935 | 1.881 | 1.560× |
+| poet / pretty | 2.888 | 1.989 | 1.452× |
+| github_events / min | 0.909 | 1.337 | 0.679× |
+| github_events / pretty | 1.030 | 1.573 | 0.655× |
+| gsoc-2018 / min | 2.375 | 2.211 | 1.074× |
+| gsoc-2018 / pretty | 2.282 | 2.278 | 1.002× |
+| lottie / min | 1.232 | 1.626 | 0.758× |
+| lottie / pretty | 4.027 | 5.168 | 0.779× |
+| otfcc / min | 1.607 | 1.889 | 0.851× |
+| fgo / min | 2.384 | 2.783 | 0.857× |
+
+Evidence: `build/perf/classic-native/empty-publication-production-all-70-{prepared,samples,result}.json`
+and `empty-publication-production-all-70-paired.log`. All90 process samples,
+prepared source/input/binary hashes and the complete16-row result are present.
+The gate exits1 for an unmet70% target, not an incomplete execution. Source
+fingerprint remains
+`64bd9bca03ccfd94902f56804b8555393c899001c4edd4d87e2c8665761e1b1d`.
+
+CITM pretty remains the next bottleneck. Two untested follow-up ideas are a
+mixed-size native small-block stream for allocation/sweep locality, and avoiding
+backing-buffer allocation before generated struct-array readers discover `[]`.
+These are hypotheses, not integrated changes or claimed gains. The normal
+`JSON.parse<T>()` API, existing models, owning outputs and tier-down policy
+remain requirements. No tag, release or push is performed.
