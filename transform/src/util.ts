@@ -71,8 +71,9 @@ export class SimpleParser {
   }
 }
 
+// Match complete core-module prefixes, never substrings of application paths.
 const isStdlibRegex =
-  /~lib\/(?:array|arraybuffer|atomics|builtins|crypto|console|compat|dataview|date|diagnostics|error|function|iterator|map|math|number|object|process|reference|regexp|set|staticarray|string|symbol|table|typedarray|vector|rt\/?|bindings\/|shared\/typeinfo)|util\/|uri|polyfills|memory/;
+  /^~lib\/(?:array|arraybuffer|atomics|builtins|crypto|console|compat|dataview|date|diagnostics|error|function|iterator|map|math|number|object|process|reference|regexp|set|staticarray|string|symbol|table|typedarray|vector|rt|bindings|shared\/typeinfo|util|uri|polyfills|memory)(?:\/|$)/;
 
 export function isStdlib(s: Source | { range: Range }): boolean {
   const source = s instanceof Source ? s : s.range.source;

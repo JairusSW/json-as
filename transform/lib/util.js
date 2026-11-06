@@ -38,7 +38,7 @@ export class SimpleParser {
         return res;
     }
 }
-const isStdlibRegex = /~lib\/(?:array|arraybuffer|atomics|builtins|crypto|console|compat|dataview|date|diagnostics|error|function|iterator|map|math|number|object|process|reference|regexp|set|staticarray|string|symbol|table|typedarray|vector|rt\/?|bindings\/|shared\/typeinfo)|util\/|uri|polyfills|memory/;
+const isStdlibRegex = /^~lib\/(?:array|arraybuffer|atomics|builtins|crypto|console|compat|dataview|date|diagnostics|error|function|iterator|map|math|number|object|process|reference|regexp|set|staticarray|string|symbol|table|typedarray|vector|rt|bindings|shared\/typeinfo|util|uri|polyfills|memory)(?:\/|$)/;
 export function isStdlib(s) {
     const source = s instanceof Source ? s : s.range.source;
     return isStdlibRegex.test(source.internalPath);
