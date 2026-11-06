@@ -2665,7 +2665,11 @@ export class JSONTransform extends Visitor {
                     out.push("    if (changetype<usize>(value) == 0) {");
                     out.push(`      value = JSON.__emptyArray<nonnull<${resolvedType}>>();`);
                     out.push(`      store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
-                    out.push(`      if (isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`);
+                    const emptyFieldSchema = this.getSchema(resolvedType);
+                    const emptyBarrierGuard = emptyFieldSchema && !emptyFieldSchema.customReader
+                        ? ""
+                        : "isDefined(ASC_RTRACE) && ";
+                    out.push(`      if (${emptyBarrierGuard}isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`);
                     out.push("    } else if (value.length != 0) {");
                     out.push("      value.length = 0;");
                     out.push("    }");

@@ -4125,8 +4125,17 @@ export class JSONTransform extends Visitor {
           out.push(
             `      store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
           );
+          // getDeserializer publishes composite fields immediately after this
+          // decoder. Nothing allocates or calls user code between this store
+          // and that common barrier. Retain the duplicate under instrumentation
+          // and when a schema owns publication instead of the common wrapper.
+          const emptyFieldSchema = this.getSchema(resolvedType);
+          const emptyBarrierGuard =
+            emptyFieldSchema && !emptyFieldSchema.customReader
+              ? ""
+              : "isDefined(ASC_RTRACE) && ";
           out.push(
-            `      if (isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`,
+            `      if (${emptyBarrierGuard}isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`,
           );
           out.push("    } else if (value.length != 0) {");
           out.push("      value.length = 0;");
