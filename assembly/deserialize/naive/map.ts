@@ -377,6 +377,7 @@ function deserializeMapKey<T>(
   }
   // @ts-expect-error: exists
   const keyText = JSON.__deserializeValue<string>(start - 2, end + 2);
+  if (changetype<usize>(keyText) == 0) return JSON.__zero<T>();
   if (isString<T>()) return changetype<T>(keyText);
   return JSON.parse<T>(keyText);
 }
@@ -557,6 +558,9 @@ export function deserializeMapBody<T extends Map<any, any>>(
         canReuseKey,
       );
     }
+    // An invalid quoted key returns a null sentinel. Do not send that
+    // pointer into native string hashing while the public boundary unwinds.
+    if (isString<indexof<T>>() && changetype<usize>(key) == 0) break;
     const matchedPreviousKey =
       reuseExisting &&
       previousEntry < previousEntryEnd &&
