@@ -815,3 +815,92 @@ byte-identical to control. The Unicode fixture's Minimal-control failure remains
 separate characterization, not a candidate regression or passing runtime gate.
 The current production source remains `77c5f62d`; neither this fusion nor the
 FGO Map boundary-scanner route is integrated yet.
+
+## Managed string copying and Map boundary dispatch
+
+`b04a87ff` routes the shared Map reader's four value-boundary scans through
+mode-aware scanning. NAIVE retains its scalar scanner; accelerated builds use
+the existing SIMD/SWAR boundary utility. All twelve mode/strict/fast combinations
+pass nested Raw/string/array/class/custom-codec Map checks, including escaped
+keys and destination reuse. The FGO retained owning-output oracle also passes.
+
+`9b676d01` integrates the copied-string factory. For the recognized stock
+incremental allocator, its private library clone copies the string payload
+where the allocator ordinarily clears it. The original global allocator,
+application calls and ordinary `allocateObject` zeroing contract are unchanged.
+The string is fully initialized before the factory returns. Only two explicit
+SIMD string-copy sites use this capability; reused string buffers retain their
+existing path. Unknown allocator bodies fall back without throwing. Minimal
+and stub retain byte-identical control binaries; RTrace callers preserve their
+original allocation/publication order and have identical event counts.
+
+The new allocator unit checks cover unknown implementations, other runtimes,
+name collisions, global/application allocator preservation and idempotence.
+The incremental Unicode/escape/null fixture retains strings across sixteen
+additional parses and an explicit collection. Its existing Minimal-control
+failure remains separate characterization: binary identity is verified there,
+not a passing execution of that stress fixture. The packed-consumer matrix
+executes ordinary workloads under all three runtimes.
+
+On the integrated source, all **53 transform scripts** pass, including the
+new Map-boundary and copied-string tests, and the packed consumer passes
+**252 operations across 36 configurations**. Evidence is retained under
+`build/perf/classic-native/copy-map-production-transform/`,
+`copy-map-production-{transform,packed}.log`, and
+`copy-map-production-qualification.json`. All nine classic retained owning
+graphs also pass against the native models. The prepared source fingerprint is
+`db0e7645a9d9e773f455c97f33f9ff228acada2268ebd9d7d11da70006bbba8a`.
+The completed integrated throughput sweep is recorded below; prototype timing
+gains remain separate from its production measurements.
+
+## Integrated complete 60% gate
+
+The five-pair ARM64 sweep on `9b676d01` clears **60% on every one of the
+sixteen layouts across all nine classic corpora**. The minimum is CITM pretty
+at 61.45%. This uses the old classic AS harness, ordinary fresh
+`JSON.parse<T>()`, existing class models, validation/cache disabled, and native
+simdjson owning structs rather than DOM. GB/s counts the UTF-8 input bytes
+divided by median elapsed nanoseconds; it does not include AS input transcoding.
+
+| Corpus / layout | json-as GB/s | Native GB/s | AS / native |
+|---|---:|---:|---:|
+| twitter / min | 1.757 | 1.274 | 1.379× |
+| twitter / pretty | 1.824 | 1.672 | 1.091× |
+| canada / min | 0.568 | 0.740 | 0.767× |
+| canada / pretty | 0.786 | 1.002 | 0.785× |
+| citm_catalog / min | 0.865 | 1.358 | 0.637× |
+| citm_catalog / pretty | 1.586 | 2.581 | 0.614× |
+| poet / min | 2.873 | 1.876 | 1.531× |
+| poet / pretty | 2.905 | 1.891 | 1.536× |
+| github_events / min | 0.905 | 1.344 | 0.673× |
+| github_events / pretty | 1.016 | 1.592 | 0.638× |
+| gsoc-2018 / min | 2.541 | 2.367 | 1.073× |
+| gsoc-2018 / pretty | 2.610 | 2.414 | 1.081× |
+| lottie / min | 1.280 | 1.683 | 0.761× |
+| lottie / pretty | 4.181 | 5.370 | 0.779× |
+| otfcc / min | 1.635 | 1.915 | 0.853× |
+| fgo / min | 2.394 | 2.771 | 0.864× |
+
+These are shared-lock measurements on AC power with background-process audits,
+not isolated release qualification. The complete raw record has 90 fresh-process
+samples and pins the prepared source fingerprint and all input/binary hashes.
+Evidence: `build/perf/classic-native/copy-map-production-all-60-{prepared,samples,result}.json`
+and `copy-map-production-all-60-paired.log`.
+
+The next floor is **70%**, not completion of the parity goal. Only CITM and
+GitHub (both layouts) miss that floor in this sweep. Current-source CITM
+profiling is the next action; previous prototype timings are kept as separate
+evidence rather than substituted for these integrated results.
+
+The fresh CITM profile (same current class schema and `JSON.parse` API) validates
+both retained owning outputs. TLSF `insertBlock` receives 29.7% minified / 23.8%
+pretty self samples, predominantly below GC `step`/`__free`. The generated
+SeatCategory fast reader receives 19.4% minified samples; Area's whitespace
+reader receives 24.9% pretty samples. These function attributions include
+inlined work and are not proof that key matching alone consumes that time.
+Trusted SIMD string-field decoding is only 1.3% minified samples. The next
+investigation is therefore GC/free-list pressure plus generated Area/SeatCategory
+code and its helpers, rather than another string-decoder change. Evidence:
+`build/perf/classic-native/citm-copy-map-profile-{min,pretty,summary,audit}.json`
+and `citm-copy-map-profile-capture.log`. This profile is attribution evidence,
+not a replacement throughput result.
