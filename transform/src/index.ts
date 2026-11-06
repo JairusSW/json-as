@@ -67,6 +67,7 @@ import {
 } from "./util.js";
 import { Visitor } from "./visitor.js";
 import { specializeObjectAllocator } from "./allocation.js";
+import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
 import { generateCursorParser } from "./cursor.js";
 import { keyDispatch, KeyDispatch } from "./key-dispatch.js";
@@ -7206,6 +7207,7 @@ export default class Transformer extends Transform {
     }
 
     specializeObjectAllocator(parser.sources);
+    specializeCopiedStringAllocator(parser.sources);
     specializeObjectBarrier(parser.sources);
 
     for (const [source, statements] of transformer.simdStatements) {

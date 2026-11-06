@@ -23,6 +23,21 @@ export function allocateObject(size: usize, id: u32): usize {
   return __new(size, id);
 }
 
+// Enabled only after the transform recognizes the installed allocator. Callers
+// preserve their original allocation/publication order under instrumentation.
+@inline
+export function canAllocateCopiedString(): bool {
+  return false;
+}
+
+/** Internal factory: the returned string payload is fully initialized. */
+@inline
+export function allocateCopiedString(source: usize, size: usize): usize {
+  const out = allocateObject(size, idof<string>());
+  memory.copy(out, source, size);
+  return out;
+}
+
 // Library-owned pointer publication. Other runtimes retain their own barrier;
 // the transform can inline the installed incremental implementation here.
 @inline

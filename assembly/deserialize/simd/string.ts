@@ -1,7 +1,7 @@
 import { invalidateStringFieldTrace, claimStringBuffer } from "../parseMode";
 import { bs } from "../../../lib/as-bs";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
-import { STRING_SIZE_MASK, allocateObject } from "../../util/runtime";
+import { STRING_SIZE_MASK, allocateObject, allocateCopiedString, canAllocateCopiedString } from "../../util/runtime";
 import { __heap_base } from "memory";
 import { QUOTE } from "../../custom/chars";
 import { BACK_SLASH } from "../../custom/chars";
@@ -70,6 +70,8 @@ import { probeStringFieldTrace, recordStringFieldTrace } from "../parseMode";
  */
 function copyStringFromSource_SIMD(srcStart: usize, byteLength: usize): string {
   if (byteLength == 0) return changetype<string>("");
+  if (canAllocateCopiedString() && !isDefined(ASC_RTRACE))
+    return changetype<string>(allocateCopiedString(srcStart, byteLength));
   const out = allocateObject(byteLength, idof<string>());
   memory.copy(out, srcStart, byteLength);
   return changetype<string>(out);
@@ -98,6 +100,11 @@ function writeStringToField_SIMD(
       store<usize>(dstFieldPtr, stringPtr);
     }
   } else {
+    if (canAllocateCopiedString() && !isDefined(ASC_RTRACE)) {
+      stringPtr = allocateCopiedString(srcStart, byteLength);
+      store<usize>(dstFieldPtr, stringPtr);
+      return;
+    }
     stringPtr = allocateObject(byteLength, idof<string>());
     store<usize>(dstFieldPtr, stringPtr);
   }

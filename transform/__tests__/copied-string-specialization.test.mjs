@@ -1,0 +1,77 @@
+import assert from "node:assert/strict";
+import "../lib/index.js";
+import { Parser } from "assemblyscript";
+import { specializeObjectAllocator } from "../lib/allocation.js";
+import { specializeCopiedStringAllocator } from "../lib/copied-string.js";
+import { toString } from "../lib/util.js";
+const stock = `if(size>=OBJECT_MAXSIZE)throw new Error(E_ALLOCATION_TOO_LARGE);
+if(total>=threshold)interrupt();
+let obj=changetype<Object>(__alloc(OBJECT_OVERHEAD+size)-BLOCK_OVERHEAD);
+obj.rtId=id;obj.rtSize=<u32>size;obj.linkTo(fromSpace,white);total+=obj.size;
+let ptr=changetype<usize>(obj)+TOTAL_OVERHEAD;memory.fill(ptr,0,size);return ptr;`;
+function fixture(runtime = "itcms", body = stock) {
+  const p = new Parser();
+  for (const [name, text] of [
+    [
+      "assembly/index",
+      "export namespace JSON {export class Value{} export class Obj{} export class Arr{} export class Raw{}}",
+    ],
+    [
+      "assembly/util/runtime",
+      `const __json_as_copy_string=0;
+ export function allocateObject(size:usize,id:u32):usize{return __new(size,id);}
+ export function canAllocateCopiedString():bool{return false;}
+ export function allocateCopiedString(source:usize,size:usize):usize{const out=allocateObject(size,idof<string>());memory.copy(out,source,size);return out;}`,
+    ],
+    [
+      `~lib/rt/${runtime}`,
+      `const __json_as_allocate_copied_string=0; @global @unsafe export function __new(size:usize,id:i32):usize{${body}}`,
+    ],
+    ["app", "export function application():usize{return __new(8,3);}"],
+  ])
+    p.parseFile(text, name + ".ts", false);
+  specializeObjectAllocator(p.sources);
+  return p.sources;
+}
+const sources = fixture();
+const rt = sources.find((s) => s.internalPath === "~lib/rt/itcms");
+const helper = sources.find((s) => s.internalPath === "assembly/util/runtime");
+const app = sources.find((s) => s.internalPath === "app");
+const original = toString(rt.statements.find((s) => s.name?.text === "__new"));
+const application = toString(app);
+specializeCopiedStringAllocator(sources);
+assert.equal(
+  toString(rt.statements.find((s) => s.name?.text === "__new")),
+  original,
+);
+assert.equal(toString(app), application);
+assert.match(toString(helper), /return true/);
+const copy = rt.statements.at(-1);
+assert.equal(copy.name.text, "__json_as_allocate_copied_string0");
+assert.match(toString(copy), /memory.copy\(ptr, __jsonAsStringSource, size\)/);
+assert.doesNotMatch(toString(copy), /memory.fill/);
+assert.match(toString(copy), /obj.linkTo\(fromSpace, white\)/);
+assert.match(
+  toString(helper),
+  /__json_as_copy_string0\(size, idof<string>\(\), source\)/,
+);
+const once = sources.map(toString);
+specializeCopiedStringAllocator(sources);
+assert.deepEqual(sources.map(toString), once);
+for (const [runtime, body] of [
+  [
+    "itcms",
+    stock.replace("memory.fill(ptr,0,size)", "memory.fill(ptr,7,size)"),
+  ],
+  ["tcms", stock],
+  ["stub", stock],
+  ["custom", stock],
+]) {
+  const sources = fixture(runtime, body),
+    before = sources.map(toString);
+  specializeCopiedStringAllocator(sources);
+  assert.deepEqual(sources.map(toString), before, `${runtime} fallback`);
+}
+console.log(
+  "Copied-string allocator: exact stock body, GC bookkeeping, name hygiene, idempotence and unknown/runtime fallbacks passed",
+);

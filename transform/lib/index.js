@@ -11,6 +11,7 @@ import { Property, PropertyFlags, Schema, SourceSet, typeMeaningText, } from "./
 import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from "./util.js";
 import { Visitor } from "./visitor.js";
 import { specializeObjectAllocator } from "./allocation.js";
+import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
 import { generateCursorParser } from "./cursor.js";
 import { keyDispatch } from "./key-dispatch.js";
@@ -4863,6 +4864,7 @@ export default class Transformer extends Transform {
             }
         }
         specializeObjectAllocator(parser.sources);
+        specializeCopiedStringAllocator(parser.sources);
         specializeObjectBarrier(parser.sources);
         for (const [source, statements] of transformer.simdStatements) {
             for (const statement of statements)
