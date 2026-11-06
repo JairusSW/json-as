@@ -113,6 +113,48 @@ function scanCompositeValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
   const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
   let inString = false;
 
+  // Classify 64 UTF-16 code units per bounded batch. Packing before
+  // classification halves the vector comparisons and mask extractions; walk
+  // every event in order so a closing root still stops inside the batch.
+  const srcEnd128 = srcEnd >= 128 ? srcEnd - 128 : 0;
+  while (ptr <= srcEnd128) {
+    let mask: u64 =
+      <u64>packedStructuralOrQuoteMask(load<v128>(ptr), load<v128>(ptr + 16)) |
+      (<u64>packedStructuralOrQuoteMask(load<v128>(ptr + 32), load<v128>(ptr + 48)) << 16) |
+      (<u64>packedStructuralOrQuoteMask(load<v128>(ptr + 64), load<v128>(ptr + 80)) << 32) |
+      (<u64>packedStructuralOrQuoteMask(load<v128>(ptr + 96), load<v128>(ptr + 112)) << 48);
+    while (mask != 0) {
+      const lane = usize(ctz(mask) << 1);
+      mask &= mask - 1;
+      const eventPtr = ptr + lane;
+      const code = load<u16>(eventPtr);
+
+      if (code == QUOTE) {
+        if (!inString) {
+          inString = true;
+        } else {
+          let slash = eventPtr - 2;
+          let escaped = false;
+          while (slash > srcStart && load<u16>(slash) == BACK_SLASH) {
+            escaped = !escaped;
+            slash -= 2;
+          }
+          if (!escaped) inString = false;
+        }
+        continue;
+      }
+      if (inString) continue;
+
+      const folded = code & 0xffdf;
+      if (folded == BRACKET_LEFT) {
+        depth++;
+      } else if (folded == BRACKET_RIGHT && --depth == 0) {
+        return eventPtr + 2;
+      }
+    }
+    ptr += 128;
+  }
+
   while (ptr <= srcEnd16) {
     let mask = structuralOrQuoteMask(load<v128>(ptr));
     while (mask != 0) {
@@ -218,4 +260,21 @@ export function scanValueEnd_SIMD<T>(srcStart: usize, srcEnd: usize): usize {
   if (first == BRACE_LEFT || first == BRACKET_LEFT)
     return scanCompositeValueEnd_SIMD(srcStart, srcEnd);
   return scanScalarValueEnd_SIMD(srcStart, srcEnd);
+}
+
+// Code units outside the byte range narrow to either 0 or 255; other bytes
+// are preserved. Neither saturation result matches a quote or bracket, so this
+// predicate stays exact for all UTF-16 code units, including surrogates.
+function packedStructuralOrQuoteMask(lo: v128, hi: v128): i32 {
+  const packed = i8x16.narrow_i16x8_u(lo, hi);
+  const folded = v128.and(packed, i8x16.splat(<i8>0xdf));
+  return i8x16.bitmask(
+    v128.or(
+      v128.or(
+        i8x16.eq(folded, i8x16.splat(91)),
+        i8x16.eq(folded, i8x16.splat(93)),
+      ),
+      i8x16.eq(packed, i8x16.splat(34)),
+    ),
+  );
 }

@@ -621,3 +621,79 @@ Both screens use the shared ARM64 timing lock, AC power, and preserve process
 audits; background VM activity was present. Evidence:
 `build/perf/classic-native/whitespace/prepared-optimization-controls-{samples,summary}.json`
 and `prepared-optimization-controls-paired.log`.
+
+
+## Complete sweep after array and whitespace improvements
+
+At `4235f863`, all 48 transform scripts pass, all nine retained owning graphs
+pass, and 252 packed-consumer operations pass across 36 configurations. The
+five-pair complete sweep restores the 50% floor across all sixteen layouts;
+the lowest observed fraction is Lottie pretty at 51.3%. The 60% stage still
+fails three pretty layouts: CITM 54.9%, GitHub 58.5%, and Lottie 51.3%.
+Current minified / pretty fractions: Twitter 129.3% / 96.6%; Canada 76.3% /
+78.0%; CITM 62.8% / 54.9%; Poet 150.1% / 134.2%; GitHub 63.2% / 58.5%;
+GSOC 104.4% / 97.7%; Lottie 62.1% / 51.3%; OTFCC 60.2% minified; FGO
+65.5% minified. OTFCC has little margin at 60%; retain it in the next full gate.
+
+The sweep uses the shared ARM64 lock and AC power, with background VM/process
+audits preserved. These are measured thresholds under that load, not an
+isolated release qualification. Evidence:
+`build/perf/classic-native/array-whitespace-all-60-{prepared,samples,result}.json`,
+`array-whitespace-all-60-paired.log`, `array-whitespace-transform/results.json`,
+and `array-whitespace-packed.log`.
+Source fingerprint: `2cc940e31744e314183fb64838609fc2168754a5588ebbb9de01b352f99b3d65`.
+
+A retained-graph-checked profile identifies Lottie's next bottleneck: composite
+Raw boundary scanning accounts for 65.5% / 64.4% of self samples, with another
+18.0% / 15.6% attributed to its typed wrapper. Evidence:
+`build/perf/classic-native/lottie-array-whitespace-profile-summary.json` and
+`lottie-array-whitespace-profile-audit.json`. Wider and packed-mask scanner
+probes are experimental; they are not part of the production source above.
+
+
+## Scanner screen and whitespace rollback
+
+Six paired runs isolate a CITM pretty regression in the whitespace prefix
+change: old `52786767` is 773.660 us, versus 847.240 us with the new helper
+and eager array defaults. Keeping array deferral is 849.625 us; the array
+change is essentially flat in this control. Minified CITM is essentially flat
+across all three variants (611.465 / 614.780 / 610.955 us). Restore the prior
+whitespace helper; the 50% result above remains pinned to `4235f863` until the
+new source completes another full sweep.
+
+The same screen finds a stronger general Lottie optimization. Grouping four
+bounded SIMD masks into one 64-byte scan batch reduces minified / pretty
+medians from 292.060 / 574.765 to 250.725 / 418.300 us (14.2% / 27.2% lower
+latency), with unchanged retained owning graphs. Packed 32-byte masks are
+slower than this 64-byte version. Larger and packed 64/128-byte alternatives
+remain experimental pending their paired comparison. They pass 4,395,072
+scalar-reference, UTF-16 code-unit/lane, randomized, escaped-string and physical
+memory-end checks per variant. No scanner change is adopted by this note.
+Evidence: `build/perf/classic-native/whitespace/scanner-default-controls-{samples,summary}.json`,
+`scanner-default-controls-paired.log`, `large-scan-differential.log`, and
+`prepare-large-scanner.log`.
+
+
+## Larger scanner selection
+
+A six-pair screen with the prior whitespace helper selects the packed
+128-byte scanner: Lottie minified / pretty medians are 233.395 / 367.195 us,
+versus 288.175 / 555.110 us for the original scanner (19.0% / 33.9% lower
+latency). The plain 64-byte version is 239.695 / 401.745 us; plain 128-byte
+238.615 / 403.190 us; packed 64-byte 239.900 / 382.280 us. Median peak RSS is
+essentially unchanged (about 101 MB). The packed 128-byte Wasm adds under 1%.
+The expanded scalar-reference checks pass 4,395,072 cases per candidate,
+including every UTF-16 code unit at every mask position.
+
+Contemporaneous CITM controls confirm the whitespace rollback: pretty is
+759.220 us at old `52786767`, 818.805 us with prefix consumption, and
+739.365 us with the prior helper restored while retaining array deferral.
+Minified medians are 599.235 / 591.805 / 599.855 us. The restored helper avoids
+the repeatable pretty regression; this is not a claim that every compact path
+improves. Evidence:
+`build/perf/classic-native/whitespace/large-scanner-controls-{samples,summary}.json`,
+`large-scanner-controls-paired.log`, `large-scan-differential.log`, and
+`scanner-probe-source-hashes.json`.
+
+The selected scanner and helper rollback are integrated for broad verification.
+They are not yet qualified by a complete owning-native throughput sweep.
