@@ -2511,7 +2511,7 @@ export class JSONTransform extends Visitor {
                     out.push("  } else while (true) {");
                     out.push(`    ${srcPtr} = JSON.Util.skipWhitespace(${srcPtr}, srcEnd);`);
                     if (elementNullable) {
-                        out.push(`    if (index >= reusableLength) value.push(changetype<${valueType} | null>(0));`);
+                        out.push(`    if (index >= reusableLength) JSON.__appendArray(value, changetype<${valueType} | null>(0));`);
                         out.push(`    const slot = index < reusableLength ? reusableDataStart + ((<usize>index) << alignof<${valueType}>()) : value.dataStart + ((<usize>index) << alignof<${valueType}>());`);
                         out.push(`    if (load<u64>(${srcPtr}) == 30399761348886638) {`);
                         out.push("      store<usize>(slot, 0);");
@@ -2521,7 +2521,7 @@ export class JSONTransform extends Visitor {
                         out.push("    }");
                     }
                     else {
-                        out.push('    if (index >= reusableLength) value.push("");');
+                        out.push('    if (index >= reusableLength) JSON.__appendArray(value, "");');
                         out.push(`    const slot = index < reusableLength ? reusableDataStart + ((<usize>index) << alignof<${valueType}>()) : value.dataStart + ((<usize>index) << alignof<${valueType}>());`);
                         out.push(`    ${srcPtr} = ${STRING_FIELD_DESERIALIZER}<${valueType}>(${srcPtr}, srcEnd, slot);`);
                     }
@@ -2614,7 +2614,7 @@ export class JSONTransform extends Visitor {
                         out.push(`      changetype<nonnull<${valueType}>>(item).__INITIALIZE();`);
                         out.push("      __itemInitialized = true;");
                     }
-                    out.push("      value.push(item);");
+                    out.push("      JSON.__appendArray(value, item);");
                     out.push("    }");
                     out.push(`    const __es = ${srcPtr};`);
                     out.push(`    const __ee = changetype<nonnull<${valueType}>>(item).${whitespaceTier && valueSchema.generatedFastReader ? "__DESERIALIZE_WHITESPACE" : "__DESERIALIZE_FAST"}<${valueType}>(${srcPtr}, srcEnd, item, !__itemInitialized);`);

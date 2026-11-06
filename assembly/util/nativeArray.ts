@@ -29,3 +29,28 @@ export function newNativeArray<T>(): T {
   }
   return instantiate<T>();
 }
+
+/** Append through native storage, keeping the common no-growth path local. */
+@inline
+export function appendNativeArray<T extends unknown[]>(
+  out: T,
+  item: valueof<T>,
+): void {
+  const ptr = changetype<usize>(out);
+  // Use base-layout fields even when the instance is a subclass. Its public
+  // accessors and operators do not define the parser's native storage policy.
+  const index = load<i32>(ptr, offsetof<Array<valueof<T>>>("length_"));
+  const shift = alignof<valueof<T>>();
+  const capacity =
+    load<u32>(ptr, offsetof<ArrayBufferView>("byteLength")) >> shift;
+  if (<u32>index < capacity) {
+    const data = load<usize>(ptr, offsetof<ArrayBufferView>("dataStart"));
+    store<valueof<T>>(data + ((<usize>index) << shift), item);
+    if (isManaged<valueof<T>>()) __link(ptr, changetype<usize>(item), true);
+    store<i32>(ptr, index + 1, offsetof<Array<valueof<T>>>("length_"));
+  } else {
+    // The ordinary base setter retains growth, overflow checks, zeroing and
+    // buffer/root barriers. Keep both managed arguments alive through it.
+    changetype<Array<valueof<T>>>(out)[index] = item;
+  }
+}

@@ -77,6 +77,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Keep in-capacity native-array appends local to generated readers, preserving ordinary growth and GC barriers and bypassing subclass mutation hooks consistently.
 - Extend the library-owned small-block allocation path to decoded strings across all three backends.
 - Specialize ordinary native-array construction while retaining the standard capacity, independent managed buffers, subclass constructors, and runtime fallbacks. Keep known generated children on the whitespace tier once their parent tiers down; each new parse still starts at the compact tier.
 - Accelerate longer indentation runs with bounded four-character whitespace loads while preserving scalar behavior for mixed whitespace and range boundaries.

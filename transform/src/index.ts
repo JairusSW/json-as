@@ -3883,7 +3883,7 @@ export class JSONTransform extends Visitor {
           // the slot is overwritten by the per-element parse below.
           if (elementNullable) {
             out.push(
-              `    if (index >= reusableLength) value.push(changetype<${valueType} | null>(0));`,
+              `    if (index >= reusableLength) JSON.__appendArray(value, changetype<${valueType} | null>(0));`,
             );
             out.push(
               `    const slot = index < reusableLength ? reusableDataStart + ((<usize>index) << alignof<${valueType}>()) : value.dataStart + ((<usize>index) << alignof<${valueType}>());`,
@@ -3900,7 +3900,9 @@ export class JSONTransform extends Visitor {
             );
             out.push("    }");
           } else {
-            out.push('    if (index >= reusableLength) value.push("");');
+            out.push(
+              '    if (index >= reusableLength) JSON.__appendArray(value, "");',
+            );
             out.push(
               `    const slot = index < reusableLength ? reusableDataStart + ((<usize>index) << alignof<${valueType}>()) : value.dataStart + ((<usize>index) << alignof<${valueType}>());`,
             );
@@ -4042,7 +4044,7 @@ export class JSONTransform extends Visitor {
             );
             out.push("      __itemInitialized = true;");
           }
-          out.push("      value.push(item);");
+          out.push("      JSON.__appendArray(value, item);");
 
           out.push("    }");
           // Per-element fallback: an element the fast path can't handle parses

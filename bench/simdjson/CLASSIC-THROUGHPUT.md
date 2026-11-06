@@ -382,3 +382,44 @@ remaining CITM costs. These relative screens do not establish a new native floor
 Evidence: `whitespace/citm-link-scoped-{samples,summary}.json`,
 `citm-link-scoped-paired.log`, `citm-link-oracle.log`, and
 `citm-scoped-link-oracle.log` under `build/perf/classic-native`.
+
+## Next 60% stage: in-capacity array append
+
+A same-engine named CITM profile records 25,656 minified and 30,751 pretty
+samples. Aggregated self samples put TLSF insertion at 23.9%/20.6%, the native
+write barrier at 8.4%/6.4%, and integer-field dispatch at 7.1% on minified input.
+Native reference-array push contributes 5.4%/3.7%. These are diagnostic samples,
+not qualified throughput timings; both profiled outputs pass the full oracle.
+
+An explicit native append helper now handles the in-capacity case inside the
+generated reader. It reads base-layout length and capacity, stores the element,
+performs the standard multiple-store barrier, and updates length. Growth uses
+the base setter, retaining overflow checks, buffer growth, zeroing and barriers.
+Managed arguments remain rooted. Constructor state and subtype identity survive;
+public subtype push/index overrides do not alter the wire values.
+
+The isolated six-pair screen improves CITM minified 5.8% and pretty 2.7%, adding
+less than 0.5% Wasm code. The production integration then passes 18
+backend/runtime/strictness configurations, including capacity boundaries,
+nullable references, sharing, collection, subtype storage, reuse, and zero
+allocations on an in-capacity append. Packed consumers pass 252 operations over
+36 configurations, and the full 45-script transform suite passes.
+
+Five fresh owning-native pairs for the integration report CITM at 644.95 us
+minified versus 355.03 us native (55.0%), and 800.08 us pretty versus 428.60 us
+native (53.6%). Twitter and Canada pass the selected 60% gate; CITM still misses.
+This does not complete the all-classic 60% stage. All selected full retained-output
+oracles pass. The same AC-powered ARM64 lock/audit qualification applies.
+
+Rejected screens retain useful controls: force-inlining TLSF insertion and the
+integer dispatcher gives no useful gain; same-bucket TLSF coalescing regresses
+minified 0.8%; leaf whitespace-reader cloning adds 9.6% code without a speed gain.
+A packed-prefix integer tail passes 1,192,776 differential/boundary checks but
+regresses minified 1.8%, so it is not adopted. A bounded colon-space shortcut
+remains diagnostic-only after a 2.4% pretty improvement with minified unchanged.
+
+Evidence under `build/perf/classic-native`: `citm-current-{min,pretty}-profile.json`,
+`citm-current-profile-summary.json`, `whitespace/citm-append-leaf-{samples,summary}.json`,
+`native-append-tests.log`, `append-transform-tests.log`, `append-packed.log`,
+`append-native-{prepared,samples,result}.json`, `append-native-paired.log`,
+`integer-prefix-check.log`, and `whitespace/citm-prefix-colon-{samples,summary}.json`.

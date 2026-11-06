@@ -1,7 +1,7 @@
 /// <reference path="./index.d.ts" />
 
 import { newEmptyArray } from "./util/emptyArray";
-import { newNativeArray } from "./util/nativeArray";
+import { newNativeArray, appendNativeArray } from "./util/nativeArray";
 import { keyLength, KEY_HEADER_UNITS } from "./util/key-buffer";
 import { NativeMap } from "./util/native-collections";
 import { bs } from "../lib/as-bs";
@@ -3572,6 +3572,12 @@ export namespace JSON {
   @inline
   function __newArray<T>(): T {
     return newNativeArray<T>();
+  }
+
+
+  @inline
+  function __appendArray<T extends unknown[]>(out: T, item: valueof<T>): void {
+    appendNativeArray<T>(out, item);
   }
 
   /** Fresh empty native array with independent identity and deferred capacity. */
