@@ -2,7 +2,13 @@
 
 ## Unreleased - v2.0.0
 
-This release includes all changes since v1.6.2. The planned v1.7.0 release was never published; its changes are included in v2.0.0 below.
+This release includes all changes since v1.6.3. The planned v1.7.0 release was never published; its changes are included in v2.0.0 below.
+
+### Upgrading from 1.x
+
+- Reused parse destinations restore omitted fields to their declared defaults. Present members can still reuse their existing buffers; do not rely on a previous document's omitted values being retained.
+- Undecorated built-in subclasses use native JSON storage operations consistently. Overrides of Array indexing/push, Map/Set enumeration and mutation, or Date setters do not redefine their built-in JSON representation. Use custom codecs when a subtype needs a different wire format.
+- Dynamic composite assignment preserves sharing consistently, including previously deferred values. Nullable dynamic-array elements remain actual null references.
 
 ### Parsing and validation
 
@@ -21,6 +27,7 @@ This release includes all changes since v1.6.2. The planned v1.7.0 release was n
 
 ### Types, inheritance, and decorators
 
+- Restrict standard-library exclusions to their actual library paths, so application files named `security.ts`, `memory.ts`, or under `util/` still receive generated codecs.
 - Resolve aliases using declaration identity and lexical context. Preserve caller bindings for supplied generic arguments, keep class type parameters bound, apply default generic arguments, and accept finite nested uses of the same alias while retaining definition-cycle protection. Fix `f32` fields being serialized as integer bit patterns after alias expansion.
 - Follow renamed imports, namespace imports, named and wildcard re-exports, and barrel modules when resolving classes, enums, custom codecs, and lazy markers. Preserve consumer exports and canonical runtime imports across relative, virtual, pnpm, workspace, linked, and package-entry layouts ([#246](https://github.com/JairusSW/json-as/pull/246)).
 - Preserve private implementation types behind public aliases, including arrays, enums, generic classes, and lazy aliases. Generate legal type bindings for inherited fields across modules and namespace scopes instead of reinterpreting their names in the child context. Keep chained aliases classified by their resolved declarations even when renamed imports share an implementation name.
@@ -45,6 +52,9 @@ This release includes all changes since v1.6.2. The planned v1.7.0 release was n
 
 ### Reuse, collections, and dynamic values
 
+- Allocate writable output when a supplied stringify destination is a static literal, including scalar and internal stringify paths. Keep shared boolean/null literals unchanged.
+- Preserve shallow reference sharing in dynamic-array `slice`, `concat`, `copyWithin`, and `splice`, regardless of whether a deferred child was read before copying.
+- Clear constructor-seeded Map entries through native size accessors when parsing Array and StaticArray elements, bypassing overridden public size getters.
 - Track composite ownership across each public parse so shared child objects, Maps, native arrays, StaticArrays, nested rows/planes, and Raw wrappers cannot overwrite another logical destination. Retain normal repeated-key behavior and avoid allocating ownership bookkeeping on unrelated scalar parses.
 - Preserve supported container subtype identity and construction across fresh/reused parsing, fields, nested containers, and dynamic typed getters. Cover Array, Map, Set, typed-array, Date, Raw, and Box subclasses; replace constructor-seeded collection contents with the supplied JSON. Preserve typed-array element kind, signedness, length, and subviews through dynamic boxing.
 - Construct omitted generic defaults through the shared type-aware factory, preserving Date calendar fields, typed-array buffers, and collection subclass initializers. Pass the actual parsed element count to typed-array subclass constructors instead of an input-length capacity estimate.
@@ -67,8 +77,12 @@ This release includes all changes since v1.6.2. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Keep concrete generic built-ins such as nullable `JSON.Box<i64>` on generated fast readers instead of disabling an entire schema through an unresolved declaration lookup. Accept absent `@optional` fields in the compact tier without replaying already decoded children.
+- Start each generated compatibility fast-reader invocation at the compact tier, then fall through to whitespace-tolerant and keyed readers locally. Separate compact and whitespace code without remembering a demotion across calls. Commit omitted-field defaults only after a tier succeeds, preserving present containers during fallback. Defer default child graphs in eligible fresh fast parses until a field is absent, retaining initialization on fallback and for effectful or shared-reference defaults. Retain GC write barriers for newly decoded references.
+- Delay SIMD exact-source trace recording until the same input/destination pair repeats, avoiding discarded cache metadata for changing requests while retaining subsequent cache hits.
+- Reduce reuse bookkeeping with a fixed 128-claim ownership table, constant-time generation resets, and a Map fallback for larger graphs. Keep active input protection and shared-destination checks across nested parses. Avoid empty trace-array resets and the root ownership Map entry.
+- Keep serializer pause depth in a scalar and separate owned-output allocation from its common entry checks, reducing small-output overhead without changing nested callback behavior.
 - Upgrade the float-formatting backend to `xjb-as` 1.0.0.
-
 - Optimize SIMD/SWAR clean-string classification, copying, escapes, short/medium strings, and exact-end stores while preserving BMP characters, surrogate pairs, and Unicode boundaries. Reuse safe clean-string classifications and invalidate them on output mutation.
 - Keep generated serialization cursors local, dispatch strings/arrays/objects directly by pointer, inline primitive formatter selection, combine field reservations, and fuse integer-array and composite-array output loops. Use a single separator shape for Map and composite-array serialization.
 - Write large and medium outputs directly into owned strings with bounded growth/slack. Avoid clearing pointer-free string payloads that are immediately overwritten, and reduce over-reservation for floating-point output and empty arrays.
@@ -83,12 +97,23 @@ This release includes all changes since v1.6.2. The planned v1.7.0 release was n
 ### Benchmarks, testing, and release tooling
 
 - Add owned-output simdjson/native comparisons, retained-output checks, changing-input workloads, classic corpus screens, and independent backend checks. Keep native-parity results separate from classic charts and distinguish validation, fresh/reused parsing, lazy access, materialized serialization, and untouched dynamic forwarding.
-- Record benchmark source hashes, compiler/standard-library provenance, strict/fast settings, input/workload identity, and the selected runtime executable/version. Build chart labels from recorded provenance rather than the current checkout, and reject stale, incomplete, or mismatched captures ([#235](https://github.com/JairusSW/json-as/pull/235)).
-- Remove JavaScript per-operation `eval`/exception overhead from benchmark loops, retain observable results, preserve sub-millisecond timings, reject zero-operation runs, and guarantee progress for small or oversized frame counts.
+- Record benchmark source hashes, compiler/standard-library provenance, strict/fast settings, input/workload identity, and the selected runtime executable/version. Build chart labels from recorded provenance rather than the current checkout, keep captions readable across source snapshots and runtime version banners, and reject stale, incomplete, or mismatched captures ([#235](https://github.com/JairusSW/json-as/pull/235)).
+- Add pinned simdjson 5.0.4 native DOM comparisons to classic, library, and overview charts, plus built-in JS on classic datasets. Check input hashes and output oracles, preserve raw samples and runtime provenance, and identify Raw-backed classic schemas.
+- Refresh ARM64 benchmark charts with the v1.6.1 JS and AssemblyScript harnesses for historical comparison, including the JS per-operation microtask-checkpoint `eval` overhead and the original timing floor. Retain zero-operation and frame-progress guards. Keep lazy/source forwarding outside full-serialization comparisons.
 - Add V8 JSON/Date differential oracles, exact `f32` midpoint checks, malformed-input and RFC matrices, GC/allocation budgets, and composition regressions across modes, strictness, fast paths, imports, inheritance, callbacks, and reused destinations.
 - Execute packed npm artifacts in isolated consumers across both import entry points and incremental, minimal, and stub runtimes. Include that consumer gate in release CI alongside fast/slow tests, strict public/RFC tests, transform/oracle suites, lint/type checks, and benchmark-tooling tests.
 - Commit the reproducible dependency graph, refresh development dependencies and patched transitive versions, and support published AssemblyScript runtime capabilities in CI. Validate package contents and tag/package-version agreement, and generate GitHub release notes from the exact versioned changelog section.
 - Remove obsolete implementation-reference documents and broken README references; clarify strict parsing and dynamic numeric access in the primary API documentation.
+
+## 2026-11-04 - v1.6.3
+
+- Fix generated runtime imports in virtual-source builds, including relative imports and nested `@json` classes ([#246](https://github.com/JairusSW/json-as/pull/246)).
+- Correct composite reuse across nested arrays, nullable struct arrays, StaticArrays, typed-array views, and Date decoding.
+- Preserve dynamic-array callback mutation semantics, typed access bounds, native-array materialization, and source-anchor lifetimes.
+- Decode escaped dynamic-object keys consistently and delete all occurrences of duplicate parsed keys.
+- Fix nullable string, Raw, and custom-codec collection parsing and serialization, trailing whitespace handling, and extended Date years.
+- Preserve string escape parity and Unicode boundaries when output buffers are reused; improve dynamic string scanning, wide-key dispatch, and primitive-slot serialization.
+- Improve runtime benchmark isolation and provenance.
 
 ## 2026-10-15 - v1.6.2
 

@@ -96,7 +96,7 @@ const objSeries: ChartPoint[] = payloads.map((p) => {
 });
 chartData["jsonobj-simd"] = objSeries;
 datasets.push({
-  label: "JSON.Obj (SIMD)",
+  label: "JSON.Obj (deferred, SIMD)",
   data: objSeries,
   borderColor: `rgba(${colors["obj"]},0.95)`,
   backgroundColor: `rgba(${colors["obj"]},0.3)`,

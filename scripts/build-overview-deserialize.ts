@@ -1,17 +1,18 @@
 import {
   getBenchResults,
   readObjBenchResult,
+  readComparisonResult,
   createBarChart,
   generateChart,
   type BenchKind,
   BenchResult,
 } from "./lib/bench-utils";
-import { MODE_BARS, OBJ_BAR } from "./lib/palette";
+import { MODE_BARS, OBJ_BAR, SIMDJSON_BAR } from "./lib/palette";
 
 // A zero bar for payloads with no JSON.Obj variant (primitives) or unrun benches.
 const ZERO_OBJ: BenchResult = {
   language: "as",
-  description: "JSON.Obj",
+  description: "JSON.Obj (deferred)",
   elapsed: 0,
   bytes: 0,
   operations: 0,
@@ -42,6 +43,7 @@ for (const payload of Object.keys(PAYLOADS)) {
   chartData[payload] = [
     ...allResults[payload][KIND],
     readObjBenchResult(payload, KIND) ?? ZERO_OBJ,
+    readComparisonResult(payload, KIND, allResults[payload][KIND][3]),
   ];
 }
 
@@ -54,9 +56,10 @@ const config = createBarChart(chartData, PAYLOADS, {
     "JSON-AS (NAIVE)",
     "JSON-AS (SWAR)",
     "JSON-AS (SIMD)",
-    "JSON-AS (JSON.Obj)",
+    "JSON.Obj (deferred)",
+    "simdjson native DOM",
   ],
-  colors: [...MODE_BARS, OBJ_BAR],
+  colors: [...MODE_BARS, OBJ_BAR, SIMDJSON_BAR],
   // Stand the value labels up off each bar top so adjacent ones don't collide.
   labelRotation: -90,
 });

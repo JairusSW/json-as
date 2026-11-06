@@ -70,7 +70,7 @@ function source(root) {
 function logs(root) {
   return Object.fromEntries(
     filesBelow(path.join(root, "build/logs"))
-      .filter((file) => /\.(as|js|wavm|wazero|wago)\.json$/.test(file))
+      .filter((file) => /\.(as|js|native|wavm|wazero|wago)\.json$/.test(file))
       .map((file) => {
         const stat = fs.statSync(file, { bigint: true });
         return [
@@ -188,7 +188,34 @@ export function benchProvenanceSubtitle(records, runtime = "v8") {
   if (!records.length || records.some((record) => !record))
     return "Unrecorded benchmark provenance • rerun benchmarks to record source and runtime";
   const distinct = (get) => [...new Set(records.map(get))].join(" / ");
-  return `${distinct((r) => r.startedAt.slice(0, 10))} • ${distinct((r) => "v" + r.source.packageVersion)} • ${distinct((r) => r.source.commit.slice(0, 8) + "/" + r.source.treeHash.slice(0, 8))} • ${distinct((r) => (runtime === "v8" ? (r.settings.language === "js" && r.settings.source?.includes("multilib/") ? r.tools.node : r.tools.v8) : r.tools.runtime || runtime))} • strict ${distinct((r) => r.settings.strict)} • fast ${distinct((r) => r.settings.fastPath)}`;
+  const snapshots = [
+    ...new Set(
+      records.map(
+        (r) =>
+          r.source.commit.slice(0, 8) + "/" + r.source.treeHash.slice(0, 8),
+      ),
+    ),
+  ];
+  const source =
+    snapshots[0] +
+    (snapshots.length > 1
+      ? ` (+${snapshots.length - 1} source snapshots)`
+      : "");
+  const engine = (r) => {
+    const version =
+      r.settings.language === "native"
+        ? r.tools.runtime
+        : r.settings.language === "js"
+          ? r.settings.runtime === "node" ||
+            r.settings.source?.includes("multilib/")
+            ? r.tools.node
+            : r.tools.v8
+          : runtime === "v8"
+            ? r.tools.v8
+            : r.tools.runtime || runtime;
+    return String(version).split(/\r?\n/, 1)[0];
+  };
+  return `${distinct((r) => r.startedAt.slice(0, 10))} • ${distinct((r) => "v" + r.source.packageVersion)} • ${source} • ${distinct((r) => r.host?.arch ?? "unknown arch")} • ${distinct(engine)} • strict ${distinct((r) => r.settings.strict)} • fast ${distinct((r) => r.settings.fastPath)}`;
 }
 if (
   process.argv[1] &&

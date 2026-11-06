@@ -102,11 +102,11 @@ function formatDurationPerOp(nsPerOp) {
   return `${nsPerOp.toFixed(2)} ns/op`;
 }
 
-let resultSink;
 export function blackbox(x) {
-  resultSink = x;
+  try {
+    (0, eval)("%PerformMicrotaskCheckpoint();");
+  } catch {
+    // Not running in d8 with natives syntax enabled.
+  }
   return x;
-}
-export function readBlackbox() {
-  return resultSink;
 }

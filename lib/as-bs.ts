@@ -55,6 +55,7 @@ export namespace bs {
   let stagingBuffer: usize = 0;
   let stagingBufferSize: usize = 0;
 
+  let pauseDepth: i32 = 0;
   let pauseOffsets = new Array<usize>();
   let pauseStackSizes = new Array<usize>();
 
@@ -121,13 +122,18 @@ export namespace bs {
    * sample through the established staging path. Later calls write directly
    * into a GC-rooted string while the ordinary staging block is parked.
    */
+  @inline
   export function beginOwned(): void {
-    if (ownedOutput || pauseOffsets.length != 0) return;
+    if (ownedOutput || pauseDepth != 0) return;
     if (ownedHint == 0) {
       learnOwnedHint = true;
       return;
     }
 
+    beginOwnedAllocation();
+  }
+
+  function beginOwnedAllocation(): void {
     stagingBuffer = buffer;
     stagingBufferSize = bufferSize;
     const capacity = max<usize>(ownedHint, MIN_BUFFER_SIZE);
@@ -201,7 +207,7 @@ export namespace bs {
 
 
   @inline export function isPaused(): bool {
-    return pauseOffsets.length != 0;
+    return pauseDepth != 0;
   }
 
   /**
@@ -210,6 +216,7 @@ export namespace bs {
   export function saveState(): void {
     pauseOffsets.push(offset - buffer);
     pauseStackSizes.push(stackSize);
+    pauseDepth++;
   }
 
   /**
@@ -224,6 +231,7 @@ export namespace bs {
     stackSize = unchecked(pauseStackSizes[index]);
     pauseOffsets.length = index;
     pauseStackSizes.length = index;
+    pauseDepth = index;
   }
 
   /**
@@ -245,6 +253,7 @@ export namespace bs {
     learnOwnedHint = false;
     cacheOutput = 0;
     cacheOutputLen = 0;
+    pauseDepth = 0;
     pauseOffsets.length = 0;
     pauseStackSizes.length = 0;
   }
@@ -461,6 +470,12 @@ export namespace bs {
     return changetype<T>(out);
   }
 
+  /** Static/interned strings are shared data, never writable output buffers. */
+  @inline
+  export function canReuseOutput(target: usize): bool {
+    return target >= __heap_base;
+  }
+
   /**
    * Like `out<T>()`, but writes the finished bytes into the existing object
    * `target`, reusing its allocation: an in-place overwrite when the size
@@ -470,7 +485,7 @@ export namespace bs {
    * policy of `toField`, but for the top-level return value.
    */
   export function outTo<T>(target: usize): T {
-    if (target < __heap_base) return out<T>();
+    if (!canReuseOutput(target)) return out<T>();
     let len: usize;
     let src: usize;
     if (cacheOutput === 0) {

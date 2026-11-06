@@ -84,7 +84,11 @@ function sizeChart(kind: string, title: string, file: string) {
   );
 }
 
-sizeChart("serialize", "Serialize: eager vs lazy", `${OUT}/lazy-serialize.svg`);
+sizeChart(
+  "serialize",
+  "Serialize: eager vs lazy source forwarding",
+  `${OUT}/lazy-serialize.svg`,
+);
 sizeChart(
   "deserialize",
   "Deserialize: eager vs lazy (deferred fields not read)",

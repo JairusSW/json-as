@@ -1219,6 +1219,47 @@ export class JSONTransform extends Visitor {
     return true;
   }
 
+  /** Skip only defaults that cannot expose or seed shared managed storage. */
+  private canDeferFastDefaults(
+    schema: Schema,
+    visiting = new Set<Schema>(),
+  ): boolean {
+    if (
+      !schema.fastReader ||
+      schema.hasInternalInitializers ||
+      schema.hasInitializerEffects ||
+      this.hasCustomCursorLifecycle(schema) ||
+      visiting.has(schema)
+    )
+      return false;
+    visiting.add(schema);
+    for (const member of schema.members) {
+      const init = member.node.initializer;
+      if (
+        init &&
+        !isPrimitive(stripNull(member.type)) &&
+        !(
+          toString(init) === "null" ||
+          (init.kind === NodeKind.Literal &&
+            ((init as LiteralExpression).literalKind === LiteralKind.String ||
+              toString(init) === "[]"))
+        )
+      ) {
+        visiting.delete(schema);
+        return false;
+      }
+      if (!init && !member.nullable) {
+        const nested = this.getDefaultSchema(schema, member.type);
+        if (nested && !this.canDeferFastDefaults(nested, visiting)) {
+          visiting.delete(schema);
+          return false;
+        }
+      }
+    }
+    visiting.delete(schema);
+    return true;
+  }
+
   private hasCustomCursorInitializer(schema: Schema): boolean {
     for (
       let current: Schema | null = schema;
@@ -2647,7 +2688,10 @@ export class JSONTransform extends Visitor {
       );
       const writtenDeclaration =
         source.getClassInContext(stripNull(mem.type), node) ||
-        source.getImportedClass(stripNull(mem.type), this.parser) ||
+        source.getImportedClass(
+          stripNull(mem.type).replace(/<.*>$/, "").trim(),
+          this.parser,
+        ) ||
         source.getEnum(stripNull(mem.type)) ||
         source.getImportedEnum(stripNull(mem.type), this.parser);
       if (
@@ -3410,7 +3454,7 @@ export class JSONTransform extends Visitor {
       return stripNull(type.slice(type.indexOf("<") + 1, -1).trim());
     };
 
-    const getDeserializer = (
+    const decodeField = (
       type: string,
       srcPtr: string,
       outPtr: string,
@@ -3678,12 +3722,22 @@ export class JSONTransform extends Visitor {
           out.push(
             `    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
           );
-          // Fresh struct: default-initialize before the fast pass writes fields
-          // in place (the fast path may leave some fields unwritten).
           out.push(
-            `    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`,
+            `    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`,
           );
-          out.push("    __initialized = true;");
+          // A generated fast reader assigns present fields and restores omitted
+          // defaults. Start with safe zeroed reference slots, rather than build
+          // a default graph that this successful parse immediately replaces.
+          if (this.canDeferFastDefaults(resolvedSchema)) {
+            out.push(
+              `    memory.fill(changetype<usize>(value), 0, offsetof<nonnull<${resolvedType}>>());`,
+            );
+          } else {
+            out.push(
+              `    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`,
+            );
+            out.push("    __initialized = true;");
+          }
           out.push("  }");
           // Per-class fallback: if this nested object can't be handled on the
           // fast path (out-of-order keys, an unmodeled/extra key, etc.), parse
@@ -3739,6 +3793,9 @@ export class JSONTransform extends Visitor {
           `    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
         );
         out.push(
+          `    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`,
+        );
+        out.push(
           `    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`,
         );
         out.push("    __initialized = true;");
@@ -3788,6 +3845,9 @@ export class JSONTransform extends Visitor {
           out.push(`    value = instantiate<nonnull<${resolvedType}>>();`);
           out.push(
             `    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
+          );
+          out.push(
+            `    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`,
           );
           out.push("  }");
           out.push("  let index = 0;");
@@ -3873,6 +3933,9 @@ export class JSONTransform extends Visitor {
           out.push(
             `    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
           );
+          out.push(
+            `    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`,
+          );
           out.push("  }");
           out.push("  let index = 0;");
           // The steady-state parse reuses the same object graph. Cache the
@@ -3935,24 +3998,38 @@ export class JSONTransform extends Visitor {
           out.push(
             `        item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`,
           );
+          if (this.canDeferFastDefaults(valueSchema)) {
+            out.push(
+              `        memory.fill(changetype<usize>(item), 0, offsetof<nonnull<${valueType}>>());`,
+            );
+          } else {
+            out.push(
+              `        changetype<nonnull<${valueType}>>(item).__INITIALIZE();`,
+            );
+            out.push("        __itemInitialized = true;");
+          }
           out.push(`        store<${valueType}>(itemSlot, item);`);
           out.push(
             "        __link(changetype<usize>(value), changetype<usize>(item), false);",
           );
-          out.push(
-            `        changetype<nonnull<${valueType}>>(item).__INITIALIZE();`,
-          );
-          out.push("        __itemInitialized = true;");
+
           out.push("      }");
           out.push("    } else {");
           out.push(
             `      item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`,
           );
+          if (this.canDeferFastDefaults(valueSchema)) {
+            out.push(
+              `      memory.fill(changetype<usize>(item), 0, offsetof<nonnull<${valueType}>>());`,
+            );
+          } else {
+            out.push(
+              `      changetype<nonnull<${valueType}>>(item).__INITIALIZE();`,
+            );
+            out.push("      __itemInitialized = true;");
+          }
           out.push("      value.push(item);");
-          out.push(
-            `      changetype<nonnull<${valueType}>>(item).__INITIALIZE();`,
-          );
-          out.push("      __itemInitialized = true;");
+
           out.push("    }");
           // Per-element fallback: an element the fast path can't handle parses
           // via its own slow path; the rest of the array stays on the fast path.
@@ -4008,6 +4085,9 @@ export class JSONTransform extends Visitor {
           out.push(`      value = instantiate<nonnull<${resolvedType}>>();`);
           out.push(
             `      store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
+          );
+          out.push(
+            `      if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`,
           );
           out.push("    } else if (value.length != 0) {");
           out.push("      value.length = 0;");
@@ -4071,6 +4151,38 @@ export class JSONTransform extends Visitor {
         out.push("break;");
       }
       return out;
+    };
+
+    const getDeserializer = (
+      type: string,
+      srcPtr: string,
+      outPtr: string,
+      member: Property,
+      keyOffset = 0,
+      fastPath = false,
+    ): string[] => {
+      const body = decodeField(
+        type,
+        srcPtr,
+        outPtr,
+        member,
+        keyOffset,
+        fastPath,
+      );
+      const schema = this.getSchema(stripNull(type));
+      // Composite field helpers may publish a new reference. Link it before
+      // leaving the decoder; strings and generated object allocations already
+      // publish through their own barriers. Lazy slots contain source ranges.
+      if (
+        !member.flags.has(PropertyFlags.Lazy) &&
+        !isString(stripNull(type)) &&
+        (!schema || schema.customReader)
+      ) {
+        body.push(
+          `if (isManaged<${member.type}>()) __link(${outPtr}, load<usize>(${outPtr}, offsetof<this>(${JSON.stringify(member.name)})), false);`,
+        );
+      }
+      return body;
     };
 
     indent = "  ";
@@ -4143,8 +4255,46 @@ export class JSONTransform extends Visitor {
       return `{ ${body} }`;
     };
 
-    const traceOptionalObject =
-      supportsFastOptionalPath && this.schema.members.length <= 63;
+    const missingIndex = new Map(
+      initializationMembers.map((member, index) => [member, index]),
+    );
+    const missingDeclarations = (pad: string): string =>
+      Array.from(
+        { length: Math.ceil(initializationMembers.length / 64) },
+        (_, group) => `${pad}let __missing${group}: u64 = 0;\n`,
+      ).join("");
+    const markMissing = (member: Property): string => {
+      const index = missingIndex.get(member)!;
+      return `__missing${index >>> 6} |= <u64>1 << ${index & 63};`;
+    };
+    const commitMissing = (pad: string, optionalOnly: boolean): string => {
+      let body = "";
+      for (let group = 0; group * 64 < initializationMembers.length; group++) {
+        body += `${pad}if (__missing${group} != 0) {\n`;
+        for (
+          let index = group * 64;
+          index < Math.min((group + 1) * 64, initializationMembers.length);
+          index++
+        ) {
+          const member = initializationMembers[index];
+          if (
+            optionalOnly &&
+            ![
+              PropertyFlags.Optional,
+              PropertyFlags.OmitIf,
+              PropertyFlags.OmitNull,
+            ].some((flag) => member.flags.has(flag))
+          )
+            continue;
+          body += `${pad}  if ((__missing${group} & (<u64>1 << ${index & 63})) != 0) ${resetField(member, "dst")}\n`;
+        }
+        body += `${pad}}\n`;
+      }
+      return body;
+    };
+
+    // Tier selection is local to each invocation: always enter tier 1.
+    const traceOptionalObject = false;
     const objectTraceHeader = traceOptionalObject
       ? "  const __traceToken = JSON.Util.beginObjectTrace(dst, start, " +
         JSON.stringify(this.schema.name) +
@@ -4168,6 +4318,7 @@ export class JSONTransform extends Visitor {
     indent += "  ";
 
     if (supportsFastOptionalPath) {
+      DESERIALIZE_FAST += missingDeclarations(indent);
       DESERIALIZE_FAST +=
         indent + "if (load<u16>(srcStart) !== 0x7b) break; // {\n";
       DESERIALIZE_FAST += indent + "srcStart += 2;\n";
@@ -4210,7 +4361,8 @@ export class JSONTransform extends Visitor {
         );
         const isOptional =
           member.flags.has(PropertyFlags.OmitNull) ||
-          member.flags.has(PropertyFlags.OmitIf);
+          member.flags.has(PropertyFlags.OmitIf) ||
+          member.flags.has(PropertyFlags.Optional);
         const traceBit = `<u64>1 << ${i}`;
         const firstMismatch = getComparisions(
           firstKeySection,
@@ -4239,7 +4391,7 @@ export class JSONTransform extends Visitor {
         blk += indent + `if (${firstAbsent}) {\n`;
         indent += "  ";
         if (isOptional) {
-          blk += indent + `if (__resetMissing) ${resetField(member, "dst")}\n`;
+          blk += indent + `if (__resetMissing) ${markMissing(member)}\n`;
         } else {
           blk += indent + "break;\n";
         }
@@ -4264,7 +4416,7 @@ export class JSONTransform extends Visitor {
         blk += indent + `if (${nextAbsent}) {\n`;
         indent += "  ";
         if (isOptional) {
-          blk += indent + `if (__resetMissing) ${resetField(member, "dst")}\n`;
+          blk += indent + `if (__resetMissing) ${markMissing(member)}\n`;
         } else {
           blk += indent + "break;\n";
         }
@@ -4341,6 +4493,8 @@ export class JSONTransform extends Visitor {
       DESERIALIZE_FAST +=
         indent +
         "if (__traceActive) JSON.Util.saveObjectTrace(__traceSlot, __tracePresent, 1);\n";
+    if (supportsFastOptionalPath)
+      DESERIALIZE_FAST += commitMissing(indent, true);
     DESERIALIZE_FAST += indent + "return srcStart;\n";
     indent = indent.slice(0, -2);
     DESERIALIZE_FAST += indent + "} while (false);\n\n";
@@ -4424,6 +4578,7 @@ export class JSONTransform extends Visitor {
       const i3 = "      ";
       DESERIALIZE_FAST += i1 + "srcStart = start;\n";
       DESERIALIZE_FAST += i1 + "do {\n";
+      DESERIALIZE_FAST += missingDeclarations(i2);
       if (traceOptionalObject) {
         DESERIALIZE_FAST += i2 + "__tracePresent = 0;\n";
         DESERIALIZE_FAST +=
@@ -4523,15 +4678,20 @@ export class JSONTransform extends Visitor {
           blk += i3 + "}\n";
         } else {
           blk += i3 + `kp += ${keyBytes};\n`;
+          blk +=
+            i3 + "if (kp + 4 <= srcEnd && load<u32>(kp) == 0x0020003a) {\n";
+          blk +=
+            i3 + "  srcStart = JSON.Util.skipWhitespace(kp + 4, srcEnd);\n";
+          blk += i3 + "} else {\n";
           blk += i3 + "kp = JSON.Util.skipWhitespace(kp, srcEnd);\n";
           blk += i3 + "if (load<u16>(kp) != 0x3a) break; // :\n";
           blk += i3 + "srcStart = JSON.Util.skipWhitespace(kp + 2, srcEnd);\n";
+          blk += i3 + "}\n";
         }
         blk += i3 + tier2Desers[i].join("\n" + i3) + "\n";
         if (traceOptionalObject) blk += i3 + `__tracePresent |= ${traceBit};\n`;
         if (multi) blk += i3 + "seenAny = true;\n";
-        blk +=
-          i2 + `} else if (__resetMissing) { ${resetField(member, "dst")} }\n`;
+        blk += i2 + `} else if (__resetMissing) { ${markMissing(member)} }\n`;
         t2opt.push(blk);
       }
       DESERIALIZE_FAST += chunkFastBlocksOptional(t2opt, "T2O", i2, true);
@@ -4544,6 +4704,7 @@ export class JSONTransform extends Visitor {
         DESERIALIZE_FAST +=
           i2 +
           "if (__traceActive) JSON.Util.saveObjectTrace(__traceSlot, __tracePresent, __traceHit ? __traceTier : (__traceCanonicalPretty && __traceSeparatorSeen ? 3 : 2), __traceHit ? __traceSeparator : __traceCandidateSeparator);\n";
+      DESERIALIZE_FAST += commitMissing(i2, false);
       DESERIALIZE_FAST += i2 + "return srcStart;\n";
       DESERIALIZE_FAST += i1 + "} while (false);\n\n";
     }
@@ -5898,79 +6059,24 @@ export class JSONTransform extends Visitor {
       DESERIALIZE,
       node,
     );
+    const WHITESPACE_METHOD = useFastPath
+      ? SimpleParser.parseClassMember(
+          "__DESERIALIZE_WHITESPACE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n" +
+            lazySourceHeader +
+            "  const start = srcStart;\n  const dst = changetype<usize>(out);\n" +
+            DESERIALIZE_FAST.slice(fastPrettyTailStart),
+          node,
+        )
+      : null;
+    DESERIALIZE_FAST =
+      DESERIALIZE_FAST.slice(0, fastPrettyTailStart) +
+      "  return this.__DESERIALIZE_WHITESPACE(start, srcEnd, out, __resetMissing);\n}";
     const DESERIALIZE_FAST_METHOD = useFastPath
       ? SimpleParser.parseClassMember(DESERIALIZE_FAST, node)
       : null;
-    const mapHeavySource = source
-      .getClasses()
-      .some((candidate) =>
-        candidate.members.some(
-          (member) =>
-            member.kind == NodeKind.FieldDeclaration &&
-            toString((member as FieldDeclaration).type).includes("Map<"),
-        ),
-      );
     let DESERIALIZE_FAST_PRETTY_METHOD: MethodDeclaration | null = null;
-    let PRETTY_SPECIALIZED_METHOD: MethodDeclaration | null = null;
-    if (
-      this.program.options.hasFeature(Feature.Simd) &&
-      useFastPath &&
-      mapHeavySource
-    ) {
-      let prettyTail = DESERIALIZE_FAST.slice(fastPrettyTailStart);
-      prettyTail = prettyTail.replaceAll(
-        "    if (load<u16>(srcStart) != 0x3a) break; // :\n" +
-          "    srcStart += 2;\n" +
-          "    srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n",
-        "    if (load<u16>(srcStart) != 0x3a) break; // :\n" +
-          "    srcStart += 2;\n" +
-          "    if (load<u16>(srcStart) == 0x20) srcStart += 2;\n" +
-          "    else srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n",
-      );
-      const prettyFast = (
-        "__DESERIALIZE_FAST_PRETTY<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n" +
-        lazySourceHeader +
-        "  const start = srcStart;\n" +
-        "  const dst = changetype<usize>(out);\n" +
-        objectTraceHeader +
-        prettyTail
-      )
-        .replaceAll(
-          "JSON.Util.skipWhitespace(",
-          "JSON.Util.skipPrettyWhitespace(",
-        )
-        .replaceAll(".__DESERIALIZE_FAST<", ".__DESERIALIZE_FAST_PRETTY<")
-        .replaceAll(".__DESERIALIZE_FAST(", ".__DESERIALIZE_FAST_PRETTY(");
-      DESERIALIZE_FAST_PRETTY_METHOD = SimpleParser.parseClassMember(
-        prettyFast,
-        node,
-      ) as MethodDeclaration;
-      PRETTY_SPECIALIZED_METHOD = SimpleParser.parseClassMember(
-        "__DESERIALIZE_PRETTY_SPECIALIZED(): void {}",
-        node,
-      ) as MethodDeclaration;
-    } else if (this.program.options.hasFeature(Feature.Simd) && useFastPath) {
-      // Struct arrays can identify pretty input once at the opening `[` and
-      // then call this entry for every element. Start directly at tier 2 so
-      // each record does not first fail the compact byte template. Keep the
-      // ordinary scalar whitespace skipper here: shallow arrays such as Poet
-      // have only a few spaces per boundary, below the SIMD skipper's break-
-      // even point.
-      const prettyTail = DESERIALIZE_FAST.slice(fastPrettyTailStart);
-      DESERIALIZE_FAST_PRETTY_METHOD = SimpleParser.parseClassMember(
-        "__DESERIALIZE_FAST_PRETTY<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n" +
-          lazySourceHeader +
-          "  const start = srcStart;\n" +
-          "  const dst = changetype<usize>(out);\n" +
-          objectTraceHeader +
-          prettyTail +
-          "}",
-        node,
-      ) as MethodDeclaration;
-    } else if (useFastPath) {
-      // The generic struct-array body has one compile-time method surface in
-      // every backend. SWAR never selects the pretty branch, so its wrapper is
-      // reduced away while keeping generic instantiation type-correct.
+    const PRETTY_SPECIALIZED_METHOD: MethodDeclaration | null = null;
+    if (useFastPath) {
       DESERIALIZE_FAST_PRETTY_METHOD = SimpleParser.parseClassMember(
         "__DESERIALIZE_FAST_PRETTY<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n" +
           "  return this.__DESERIALIZE_FAST(srcStart, srcEnd, out, __resetMissing);\n" +
@@ -5978,6 +6084,7 @@ export class JSONTransform extends Visitor {
         node,
       ) as MethodDeclaration;
     }
+
     const sourceFreeDeserialize =
       !DESERIALIZE_CUSTOM &&
       this.schema.members.every((member) => {
@@ -6220,6 +6327,8 @@ export class JSONTransform extends Visitor {
       !node.members.find((v) => v.name.text == "__DESERIALIZE_FAST")
     )
       node.members.push(DESERIALIZE_FAST_METHOD);
+    if (!DESERIALIZE_CUSTOM && WHITESPACE_METHOD)
+      node.members.push(WHITESPACE_METHOD);
     if (
       !DESERIALIZE_CUSTOM &&
       DESERIALIZE_FAST_PRETTY_METHOD &&

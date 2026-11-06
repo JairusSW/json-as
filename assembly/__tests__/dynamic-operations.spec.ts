@@ -42,16 +42,16 @@ function concatShared(): JSON.Arr {
   return left.concat(left.slice());
 }
 
-describe("Concatenation preserves shared-source lazy slots and mutation isolation", () => {
+describe("Concatenation preserves shared composite identity independent of prior reads", () => {
   const out = concatShared();
   expect(out.length).toBe(12);
-  expect(JSON.Value.slotIsLazy(unchecked(out._vals[0]))).toBe(true);
-  expect(JSON.Value.slotIsLazy(unchecked(out._vals[6]))).toBe(true);
+  expect(JSON.Value.slotIsLazy(unchecked(out._vals[0]))).toBe(false);
+  expect(JSON.Value.slotIsLazy(unchecked(out._vals[6]))).toBe(false);
   __collect();
   out.getAs<JSON.Obj>(0).set("n", 9);
-  expect(out.getAs<JSON.Obj>(6).getAs<f64>("n")).toBe(1.0);
+  expect(out.getAs<JSON.Obj>(6).getAs<f64>("n")).toBe(9.0);
   expect(JSON.stringify(out)).toBe(
-    '[{"n":9},[2],"text",true,null,42,{"n":1},[2],"text",true,null,42]',
+    '[{"n":9},[2],"text",true,null,42,{"n":9},[2],"text",true,null,42]',
   );
 });
 

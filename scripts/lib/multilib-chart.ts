@@ -3,6 +3,7 @@ import type { ChartConfiguration } from "chart.js";
 import {
   benchLogPath,
   readBenchLog,
+  readComparisonResult,
   subtitle,
   generateChart,
   type BenchKind,
@@ -50,14 +51,27 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
     return v.reduce((a, b) => a + b, 0) / v.length;
   };
   entries.push(["json-as struct", avgModes("multilib-json-as-struct")]);
-  entries.push([
-    "json-as struct lazy",
-    avgModes("multilib-json-as-struct-lazy"),
-  ]);
-  entries.push(["json-as JSON.Obj", avgModes("multilib-json-obj")]);
+  if (kind === "deserialize") {
+    entries.push([
+      "json-as struct lazy (deferred)",
+      avgModes("multilib-json-as-struct-lazy"),
+    ]);
+    entries.push([
+      "json-as JSON.Obj (deferred)",
+      avgModes("multilib-json-obj"),
+    ]);
+  }
   entries.push([
     "assemblyscript-json",
     avgModes("multilib-assemblyscript-json"),
+  ]);
+
+  const reference = readBenchLog(
+    benchLogPath("multilib-json-as-struct", kind, "as", "simd"),
+  );
+  entries.push([
+    "simdjson native DOM",
+    readComparisonResult("multilib", kind, reference).mbps,
   ]);
 
   entries.sort((a, b) => b[1] - a[1]);

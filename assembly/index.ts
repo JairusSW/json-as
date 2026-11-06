@@ -356,6 +356,7 @@ export namespace JSON {
    * @returns string
    */
   export function stringify<T>(data: T, out: string | null = null): string {
+    if (!bs.canReuseOutput(changetype<usize>(out))) out = null;
     // Public calls reached through callbacks share the scoped buffer protocol.
     // Scalar writers do not touch it and retain their direct fast path.
     if (!isBoolean<T>() && !isInteger<T>() && !isFloat<T>() && bs.isPaused())
@@ -2726,33 +2727,32 @@ export namespace JSON {
     // ---- Array-like API: slot-optimized ports of the AssemblyScript stdlib ----
     // Slot-shuffling ops (reverse/fill/copyWithin/pop/shift/unshift/slice/splice)
     // move the raw u64 slots directly - no per-element JSON.Value - and keep any
-    // managed pointers linked to the same owner. New single-source results share
-    // `_src`, so copied deferred ranges stay lazy. Callbacks get a JSON.Value view
+    // managed pointers linked to the same owner. Copying operations cache
+    // immediate references before sharing them; descendants stay lazy.
+    // Callbacks get a JSON.Value view
     // of each element via `at(i)`. Forward callbacks observe replacements and
     // shrinking length, but never visit indices beyond the initial length.
 
-    /** Concrete, source-independent bits for slot `i` (resolves a deferred slot
-     *  without caching it back into this array - used by cross-source ops). */
-    private resolvedBits(i: i32): u64 {
-      const slot = unchecked(this._vals[i]);
-      if (!JSON.Value.slotIsLazy(slot)) return slot;
-      const base = changetype<usize>(this._src);
-      const start = JSON.Value.slotPtr(slot, base);
-      const end = JSON.Value.slotEnd(slot, base, this.srcEnd());
-      return JSON.Value.parseSliceBits(start, end, this._src);
-    }
-
-    /** Appends `count` raw slots from `this[from..]` into `dst`, sharing `_src`
-     *  only when a copied deferred range needs it. Concrete children retain
-     *  their own source, and scalar-only copies need no source anchor. */
+    /** Copy immediate values shallowly. Cache deferred references in the
+     * original before sharing their bits, so earlier reads cannot change
+     * sharing. A materialized child's own descendants remain deferred. */
     private copyInto(dst: JSON.Arr, from: i32, count: i32): void {
       if (count <= 0) return;
       const at = dst._vused;
       dst.ensureValCap(at + count);
       for (let k = 0; k < count; k++) {
-        const slot = unchecked(this._vals[from + k]);
-        // Do not clear an anchor needed by slots already appended to dst.
-        if (JSON.Value.slotIsLazy(slot)) dst._src = this._src;
+        let slot = unchecked(this._vals[from + k]);
+        if (JSON.Value.slotIsLazy(slot)) {
+          const token = load<u16>(JSON.Value.slotPtr(slot, changetype<usize>(this._src)));
+          if (token == 123 || token == 91 ||
+              (dst._src.length != 0 && dst._src !== this._src)) {
+            slot = this.materializeSlot(from + k);
+          } else if (dst._src.length == 0) {
+            // Immutable scalar slices can stay deferred when both owners use
+            // the same source. Only mutable composites need shared identity.
+            dst._src = this._src;
+          }
+        }
         dst.storeSlot(at + k, slot, false);
       }
       dst._vused = at + count;
@@ -2856,12 +2856,19 @@ export namespace JSON {
       const count = min(e - s, n - t);
       if (count > 0) {
         if (this._lazySlots) {
-          let delta = 0;
+          // Snapshot the source references before overlapping writes replace
+          // any source slots. materializeSlot updates this array's lazy count.
           for (let i = 0; i < count; i++) {
-            if (JSON.Value.slotIsLazy(unchecked(this._vals[s + i]))) delta++;
-            if (JSON.Value.slotIsLazy(unchecked(this._vals[t + i]))) delta--;
+            const slot = unchecked(this._vals[s + i]);
+            if (JSON.Value.slotIsLazy(slot)) {
+              const token = load<u16>(JSON.Value.slotPtr(slot, changetype<usize>(this._src)));
+              if (token == 123 || token == 91) this.materializeSlot(s + i);
+            }
           }
-          this._lazySlots += delta;
+          for (let i = 0; i < count; i++) {
+            if (JSON.Value.slotIsLazy(unchecked(this._vals[t + i])))
+              this._lazySlots--;
+          }
         }
         const base = changetype<usize>(this._vals);
         memory.copy(
@@ -2869,12 +2876,16 @@ export namespace JSON {
           base + ((<usize>s) << 3),
           (<usize>count) << 3,
         );
+        if (this._src.length != 0) {
+          for (let i = 0; i < count; i++)
+            if (JSON.Value.slotIsLazy(unchecked(this._vals[t + i]))) this._lazySlots++;
+        }
       }
       if (this._lazySlots == 0) this._src = "";
       return this;
     }
 
-    /** Returns a new JSON.Arr with the elements in `[start, end)` (lazy-preserving). */
+    /** Returns a shallow copy of the elements in `[start, end)`. */
     slice(start: i32 = 0, end: i32 = i32.MAX_VALUE): JSON.Arr {
       const n = this._vused;
       const s = start < 0 ? max(n + start, 0) : min(start, n);
@@ -2889,12 +2900,12 @@ export namespace JSON {
       const n = this._vused;
       const s = start < 0 ? max(n + start, 0) : min(start, n);
       const d = max(min(deleteCount, n - s), 0);
-      let removedLazy = 0;
-      if (this._lazySlots)
-        for (let i = s; i < s + d; i++)
-          if (JSON.Value.slotIsLazy(unchecked(this._vals[i]))) removedLazy++;
       const removed = new JSON.Arr();
       this.copyInto(removed, s, d);
+      // Scalar slices can remain deferred after the shallow copy.
+      if (this._lazySlots)
+        for (let i = s; i < s + d; i++)
+          if (JSON.Value.slotIsLazy(unchecked(this._vals[i]))) this._lazySlots--;
       const tail = n - (s + d);
       if (tail > 0) {
         const base = changetype<usize>(this._vals);
@@ -2905,29 +2916,19 @@ export namespace JSON {
         );
       }
       this._vused = n - d;
-      this._lazySlots -= removedLazy;
+      // References materialized by copyInto and removed scalar slices are accounted for.
       if (this._lazySlots == 0) this._src = "";
       return removed;
     }
 
-    /** Returns a new JSON.Arr = this followed by `other` (resolves deferred slots
-     *  when the two sources cannot share one `_src`). */
+    /** Returns a shallow concatenation, sharing cached nested references. */
     concat(other: JSON.Arr): JSON.Arr {
       const out = new JSON.Arr();
       const a = this._vused;
       const b = other._vused;
       out.ensureValCap(a + b);
-      if (
-        changetype<usize>(this._src) == changetype<usize>(other._src) ||
-        this._src.length == 0 ||
-        other._src.length == 0
-      ) {
-        this.copyInto(out, 0, a);
-        other.copyInto(out, 0, b);
-        return out;
-      }
-      for (let i = 0; i < a; i++) out.pushRawSlot(this.resolvedBits(i));
-      for (let i = 0; i < b; i++) out.pushRawSlot(other.resolvedBits(i));
+      this.copyInto(out, 0, a);
+      other.copyInto(out, 0, b);
       return out;
     }
 
@@ -4077,6 +4078,7 @@ export namespace JSON {
      * @returns - string
      */
     export function stringify<T>(data: T, out: string | null = null): string {
+      if (!bs.canReuseOutput(changetype<usize>(out))) out = null;
       if (out) invalidateStringFieldTrace(changetype<usize>(out), true);
       bs.saveState();
       JSON.__serialize<T>(data);

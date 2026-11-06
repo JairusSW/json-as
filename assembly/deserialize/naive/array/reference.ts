@@ -10,6 +10,7 @@ import { isSpace } from "../../../util";
 import { markProductionParseError } from "../../error";
 import { deserializeMapBody } from "../map";
 import { parseObjectBody } from "../object";
+import { NativeMap } from "../../../util/native-collections";
 
 // Maps and dynamic objects report their own end cursor, preserving the direct
 // single-pass path while sharing framing, null handling and output replacement.
@@ -42,11 +43,14 @@ export function deserializeReferenceArray<T extends unknown[]>(
           value = changetype<valueof<T>>(object);
         } else {
           const map = instantiate<nonnull<valueof<T>>>();
+          const native = changetype<
+            NativeMap<indexof<nonnull<valueof<T>>>, valueof<nonnull<valueof<T>>>>
+          >(map);
           srcStart = deserializeMapBody<nonnull<valueof<T>>>(
             srcStart,
             srcEnd,
             map,
-            map.size != 0,
+            native.nativeSize() != 0,
           );
           value = changetype<valueof<T>>(map);
         }

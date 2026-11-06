@@ -281,6 +281,8 @@ async function main(): Promise<void> {
   const image = await loadImage(Buffer.from(svg));
   const canvas = createCanvas(width * scale, height * scale);
   const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
   context.scale(scale, scale);
   context.drawImage(image, 0, 0, width, height);
   fs.writeFileSync(PNG_FILE, canvas.toBuffer("image/png"));

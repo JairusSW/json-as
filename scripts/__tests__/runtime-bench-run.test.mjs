@@ -313,6 +313,15 @@ test("chart configuration uses only the selected run and original subtitle", (t)
     path.join(repo, "scripts/lib/runtime-version.mjs"),
     path.join(renderer, "scripts/lib/runtime-version.mjs"),
   );
+  fs.copyFileSync(
+    path.join(repo, "scripts/lib/comparison-workloads.mjs"),
+    path.join(renderer, "scripts/lib/comparison-workloads.mjs"),
+  );
+  fs.symlinkSync(
+    path.join(repo, "node_modules"),
+    path.join(renderer, "node_modules"),
+    "dir",
+  );
   // Capture the actual chart configuration, without a native canvas dependency.
   fs.writeFileSync(
     path.join(renderer, "scripts/lib/canvas-fixture.mjs"),

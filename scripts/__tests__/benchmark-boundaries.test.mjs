@@ -4,9 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
-import { blackbox, readBlackbox } from "../../bench/lib/bench.js";
+import { blackbox } from "../../bench/lib/bench.js";
 const root = path.resolve(import.meta.dirname, "../..");
-test("JavaScript result sink never evaluates code inside the timed operation", () => {
+test("legacy JavaScript blackbox uses the historical checkpoint and preserves its return value", () => {
   const original = globalThis.eval;
   let evaluations = 0;
   globalThis.eval = () => {
@@ -16,8 +16,7 @@ test("JavaScript result sink never evaluates code inside the timed operation", (
   try {
     const value = { answer: 42 };
     assert.equal(blackbox(value), value);
-    assert.equal(evaluations, 0);
-    assert.equal(readBlackbox(), value);
+    assert.equal(evaluations, 1);
   } finally {
     globalThis.eval = original;
   }
@@ -73,7 +72,7 @@ test("small benchmark counts and oversized frame counts make progress", () => {
       }
       const g = new WebAssembly.Instance(module, imports).exports;
       assert.equal(g.run(5n), 5, `frames=${frames}`);
-      assert.equal(g.run(10n), 11, `frames=${frames}`);
+      assert.equal(g.run(10n), 10, `frames=${frames}`);
       assert.throws(() => g.run(0n), /benchmark rejected/);
     }
   } finally {

@@ -8,9 +8,10 @@ import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import type { ChartConfiguration } from "chart.js";
 import { MODE_BARS, INK } from "./palette";
 import { withAdaptiveLogScale } from "./chart-outliers";
+import { comparisonWorkload } from "./comparison-workloads.mjs";
 
 export interface BenchResult {
-  language: "as" | "js";
+  language: "as" | "js" | "native";
   description: string;
   elapsed: number;
   bytes: number;
@@ -18,6 +19,7 @@ export interface BenchResult {
   features: string[];
   mbps: number;
   gbps: number;
+  inputSha256?: string;
 }
 
 export type BenchKind = "serialize" | "deserialize";
@@ -44,6 +46,10 @@ const BENCH_RUNTIME: ASBenchRuntime = ((): ASBenchRuntime => {
 })();
 
 const measuredProvenance: unknown[] = [];
+const artifactProvenance = new WeakMap<
+  object,
+  { source: { files: Record<string, string> } }
+>();
 export function subtitle(runtime: string = BENCH_RUNTIME) {
   return benchProvenanceSubtitle(measuredProvenance, runtime);
 }
@@ -51,6 +57,7 @@ export function subtitle(runtime: string = BENCH_RUNTIME) {
 export function readBenchLog(filePath: string): BenchResult {
   const { result, provenance } = readBenchArtifact(filePath);
   measuredProvenance.push(provenance);
+  artifactProvenance.set(result, provenance);
   return result as BenchResult;
 }
 
@@ -116,6 +123,35 @@ export function readObjBenchResult(
       throw error;
     return null;
   }
+}
+
+// Comparison inputs must match the measured AS payload, not just its name.
+export function readComparisonResult(
+  suite: string,
+  kind: BenchKind,
+  reference: BenchResult,
+  engine: "simdjson" | "js-classic" = "simdjson",
+): BenchResult {
+  const descriptor = comparisonWorkload(process.cwd(), suite);
+  const source = artifactProvenance.get(reference);
+  if (
+    !source ||
+    source.source.files[descriptor.source] !== descriptor.sourceSha256
+  )
+    throw new Error(
+      `AS comparison input changed for ${suite}; rerun its benchmark`,
+    );
+  const file =
+    engine === "simdjson"
+      ? path.join(LOGS_DIR, "native/simdjson", `${suite}.${kind}.native.json`)
+      : path.join(LOGS_DIR, "js", `classic-${suite}.${kind}.js.json`);
+  const result = readBenchLog(file);
+  if (
+    result.inputSha256 !== descriptor.inputSha256 ||
+    result.bytes !== reference.bytes
+  )
+    throw new Error(`Comparison input mismatch for ${suite}`);
+  return result;
 }
 
 export function createBarChart(
@@ -208,7 +244,8 @@ export function createBarChart(
           align: "end",
           rotation: options.labelRotation ?? 0,
           font: { weight: "bold", size: options.labelFontSize ?? 12 },
-          formatter: (v: number) => Math.round(v).toLocaleString("en-US"),
+          formatter: (v: number) =>
+            v === 0 ? "" : Math.round(v).toLocaleString("en-US"),
         },
         subtitle: {
           display: true,
@@ -331,6 +368,36 @@ export function generateChart(
 
   config = withAdaptiveLogScale(config);
 
+  // Provenance belongs in a horizontal footer, not a cramped vertical axis.
+  const caption = config.options?.plugins?.subtitle;
+  if (caption?.display) {
+    caption.position = "bottom";
+    caption.font = { size: 10 };
+    caption.padding = 10;
+    // Keep long mixed-runtime provenance readable inside the canvas width.
+    const limit = Math.floor(((dims?.width ?? 1000) - 40) / 6);
+    const lines =
+      typeof caption.text === "string" ? [caption.text] : (caption.text ?? []);
+    const wrapped: string[] = [];
+    for (const line of lines) {
+      let current = "";
+      for (const part of line.split(" • ")) {
+        if (current && current.length + part.length + 3 > limit) {
+          wrapped.push(current);
+          current = part;
+        } else current += (current ? " • " : "") + part;
+      }
+      if (current) wrapped.push(current);
+    }
+    caption.text = wrapped.length === 1 ? wrapped[0] : wrapped;
+  }
+  // Axes and legends identify line series; per-point labels overlap on curves.
+  if (config.type === "line") {
+    config.options ??= {};
+    config.options.plugins ??= {};
+    config.options.plugins.datalabels = { display: false };
+  }
+
   // SVG is resolution-independent (dpr 1); PNG renders at 3x density so the
   // logical 1000x600 layout becomes a crisp 3000x1800 raster.
   config = {
@@ -352,6 +419,7 @@ export function generateChart(
     width: dims?.width ?? 1000,
     height: dims?.height ?? 600,
     type: isSvg ? "svg" : "png",
+    backgroundColour: "white",
     // Register chartjs-plugin-datalabels through the `modern` option so
     // chartjs-node-canvas freshRequire()s a CLEAN copy of the plugin per render.
     // The plugin holds mutable module-level state that, reused across renders in

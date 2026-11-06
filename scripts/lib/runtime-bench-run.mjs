@@ -182,7 +182,7 @@ export function readRuntimeRun(root = process.cwd(), id = "") {
 
 export function runtimeRunSubtitle(manifest) {
   const { source } = manifest;
-  return `${manifest.startedAt} • v${source.packageVersion} • ${manifest.runtimes.length} runtimes · NAIVE • ${source.commit?.slice(0, 7) ?? "unknown commit"} • ${source.branch ?? "unknown branch"}${source.dirty ? " (dirty)" : ""}`;
+  return `${manifest.startedAt} • v${source.packageVersion} • ${manifest.host?.arch ?? "unknown arch"} • ${manifest.runtimes.length} runtimes · NAIVE • ${source.commit?.slice(0, 7) ?? "unknown commit"} • ${source.branch ?? "unknown branch"}${source.dirty ? " (dirty)" : ""}`;
 }
 
 if (

@@ -20,6 +20,7 @@
   - [Real-World Throughput](#real-world-throughput)
   - [Comparison to JavaScript](#comparison-to-javascript)
   - [Library Comparison](#library-comparison)
+  - [Runtime Comparison](#runtime-comparison)
   - [Lazy Fields](#lazy-fields)
   - [Performance Tuning](#performance-tuning)
   - [Running Benchmarks Locally](#running-benchmarks-locally)
@@ -37,6 +38,8 @@
 ```bash
 npm install json-as
 ```
+
+Upgrading from 1.x? See the [2.0.0 upgrade notes and changelog](./CHANGELOG.md).
 
 Add the `--transform` to your `asc` command (e.g. in package.json)
 
@@ -533,74 +536,74 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 - **SWAR** — *SIMD-Within-A-Register*: processes 8 bytes at a time with ordinary 64-bit integer math. The default.
 - **SIMD** — true 128-bit vector scanning. Fastest on large and string-heavy payloads; enable with `--enable simd`.
 
-📊 **[Browse the full chart set for this release →](https://github.com/JairusSW/json-as/tree/docs/charts/v1.7.0)**
+📊 **[Browse the full chart set for this release →](https://github.com/JairusSW/json-as/tree/docs/charts/v2.0.0)**
 
 ### Real-World Throughput
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/classic-payload-deserialize-v8.svg" alt="Deserialization throughput across nine classic JSON payloads">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/classic-payload-deserialize-v8.svg" alt="Deserialization throughput across nine classic JSON payloads">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/classic-payload-serialize-v8.svg" alt="Serialization throughput across nine classic JSON payloads">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/classic-payload-serialize-v8.svg" alt="Serialization throughput across nine classic JSON payloads">
 
 ### Comparison to JavaScript
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/overview-serialize.svg" alt="Performance Chart 1">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/overview-serialize.svg" alt="Performance Chart 1">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/overview-deserialize.svg" alt="Performance Chart 2">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/overview-deserialize.svg" alt="Performance Chart 2">
 
 <details>
 <summary>String serialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/string-serialize.svg" alt="Performance Chart 3">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-serialize.svg" alt="Performance Chart 3">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/string-serialize-1mb.svg" alt="Performance Chart 7">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-serialize-1mb.svg" alt="Performance Chart 7">
 </details>
 
 <details>
 <summary>String deserialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/string-deserialize.svg" alt="Performance Chart 4">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-deserialize.svg" alt="Performance Chart 4">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/string-deserialize-1mb.svg" alt="Performance Chart 8">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-deserialize-1mb.svg" alt="Performance Chart 8">
 </details>
 
 <details>
 <summary>Object serialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/object-serialize.svg" alt="Performance Chart 5">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-serialize.svg" alt="Performance Chart 5">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/object-serialize-1mb.svg" alt="Performance Chart 9">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-serialize-1mb.svg" alt="Performance Chart 9">
 </details>
 
 <details>
 <summary>Object deserialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/object-deserialize.svg" alt="Performance Chart 6">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-deserialize.svg" alt="Performance Chart 6">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/object-deserialize-1mb.svg" alt="Performance Chart 10">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-deserialize-1mb.svg" alt="Performance Chart 10">
 </details>
 
 <details>
 <summary>Primitive (de)serialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/primitive-serialize.svg" alt="Primitive serialization performance">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/primitive-serialize.svg" alt="Primitive serialization performance">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/primitive-deserialize.svg" alt="Primitive deserialization performance">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/primitive-deserialize.svg" alt="Primitive deserialization performance">
 </details>
 
 ### Library Comparison
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/library-deserialize.svg" alt="Library comparison - deserialize throughput">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/library-deserialize.svg" alt="Library comparison - deserialize throughput">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/library-serialize.svg" alt="Library comparison - serialize throughput">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/library-serialize.svg" alt="Library comparison - serialize throughput">
 
 ### Runtime Comparison
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/runtimes-deserialize.svg" alt="Deserialization throughput across WebAssembly runtimes">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/runtimes-deserialize.svg" alt="Deserialization throughput across WebAssembly runtimes">
 
 <details>
 <summary>Serialization throughput (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/runtimes-serialize.svg" alt="Serialization throughput across WebAssembly runtimes">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/runtimes-serialize.svg" alt="Serialization throughput across WebAssembly runtimes">
 </details>
 
 Reproduce locally (requires Go for the Wago host; the other engines are auto-detected):
@@ -640,22 +643,22 @@ Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "a
 
 Skipping the deferred fields makes deserialization several times faster, and the win grows with payload size:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/lazy-deserialize.svg" alt="Lazy deserialize: eager vs lazy by payload size">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/lazy-deserialize.svg" alt="Lazy deserialize: eager vs lazy by payload size">
 
 The proxy / filter / forward case - parse then re-serialize without reading the deferred fields - copies their raw bytes straight through:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/lazy-roundtrip.svg" alt="Lazy round-trip: eager vs lazy by payload size">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/lazy-roundtrip.svg" alt="Lazy round-trip: eager vs lazy by payload size">
 
 Re-emitting a parsed object forwards the untouched fields' raw bytes instead of rebuilding them:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/lazy-serialize.svg" alt="Lazy serialize: eager vs lazy by payload size">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/lazy-serialize.svg" alt="Lazy serialize: eager vs lazy by payload size">
 
 <details>
 <summary>Access-pattern comparison (click to expand)</summary>
 
 Lazy cost scales with how much you actually read. For each payload (vec3 → large) the chart compares a lazy parse that reads none, one, half, or all of its deferred fields against the eager full-parse baseline. Reading nothing or a single field is far faster than eager; reading everything approaches it (the work is deferred, not removed). SWAR only, since that's the mode the lazy fast-path is showcased in:
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v1.7.0/lazy-access-pattern.svg" alt="Lazy mode access patterns: deferred-field reads vs eager baseline">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/lazy-access-pattern.svg" alt="Lazy mode access patterns: deferred-field reads vs eager baseline">
 </details>
 
 ### Performance Tuning
@@ -676,6 +679,10 @@ Here's a short list:
 **JSON_USE_FAST_PATH** (default: 1) - The transform emits the fast `__DESERIALIZE` implementation for generated structs by default. Set to `0`, `false`, `off`, or `no` to force slow-path-only output.
 
 **JSON_WRITE** (default: "") - Select a series of files to output after transform and optimization passes have completed for easy inspection. Usage: `JSON_WRITE=.path-to-file-a.ts,./path-to-file-b.ts`
+
+For allocation-heavy workloads, AssemblyScript's incremental GC settings also matter. For example, `--use ASC_GC_GRANULARITY=65536` raises the runtime's minimum allocation budget between automatic collections to 64 KB. This trades more temporary heap space for less frequent collection; measure it with your application's live heap and workload. It is an explicit compiler option, not a json-as default.
+
+When comparing against v1.6.1, use identical explicit GC settings as well as the same harness. That release allocated a 1 MB cache arena even with caching disabled. The extra live allocation increased the incremental collector's budget; removing it saves memory but can increase collection frequency in tiny standalone benchmarks. Do not enable the unused cache just to reproduce that effect.
 
 ### Running Benchmarks Locally
 
@@ -718,13 +725,20 @@ bun run bench:as -- medium.bench.ts --wago --wazero --mode simd
 
 Runtime flags can be combined with `--v8` and `--wavm`; V8 remains the default when no runtime flag is supplied. Wago builds its host from pinned dependencies and requires Go; wazero requires the `wazero` CLI in `PATH` (or `WAZERO_BIN`). Each selected WASI runtime executes the same compiled module per mode, with separate `.wago.json`, `.wazero.json`, or `.wavm.json` result files under `build/logs/as/<mode>/`.
 
-The AS suite includes **lazy variants** - `small.lazy.bench.ts`, `medium.lazy.bench.ts`, `large.lazy.bench.ts`, `token.lazy.bench.ts`, and `vec3.lazy.bench.ts` - which mark their structs `@json({ lazy: "auto" })` and dump to `<name>-lazy` logs, so eager and lazy can be compared side by side. Run one on its own with:
+The AS suite includes eager/lazy comparisons for deserialization, serialization, round trips, and access patterns under `assembly/__benches__/lazy/`. Classic datasets also have `*.lazy.bench.ts` variants alongside their eager and dynamic-object workloads.
 
 ```bash
-bun run bench:as medium.lazy --mode simd
+bun run bench:as lazy/ --mode simd
+bun run bench:as classic/twitter.lazy --mode simd
 ```
 
-> Note: `large.lazy.bench.ts` stresses the optimizer - `lazy: "auto"` on the ~150-field `Repo` generates a getter and serialize branch per field, which can overrun **stock** Binaryen (it crashes during optimize). Build it with a patched/larger-budget Binaryen, or prefer per-field `@lazy` on very wide schemas.
+Prepare and run the native simdjson/classic-JS references before building their charts:
+
+```bash
+node scripts/run-comparison-benches.mjs
+```
+
+This uses the pinned simdjson sources and a C++26 reflection-capable compiler (default: `/opt/homebrew/bin/g++-16`; override with `PARITY_CXX`). Input oracles run before timing, and raw process samples are retained under `build/comparison-baselines/`. Coordinate timed runs through your host's shared benchmark lock.
 
 5. Build charts from the latest local logs:
 

@@ -50,7 +50,9 @@ describe("JSON.Arr: deferred copies retain the source they still need", () => {
     const result = lazyCopy(splice != 0);
     expect(result._src.length > 0).toBe(true);
     __collect();
-    expect(JSON.stringify(result)).toBe('["text",[2.0],{"key":3.0}]');
+    // Shallow copies materialize mutable children to share identity. The
+    // eager scalar array canonicalizes 2.0 to 2; its numeric value is intact.
+    expect(JSON.stringify(result)).toBe('["text",[2],{"key":3.0}]');
     expect(result.getAs<string>(0)).toBe("text");
     expect(result.getAs<JSON.Arr>(1).getAs<f64>(0)).toBe(2.0);
     expect(result.getAs<JSON.Obj>(2).getAs<f64>("key")).toBe(3.0);

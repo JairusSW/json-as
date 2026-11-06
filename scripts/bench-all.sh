@@ -64,6 +64,9 @@ run_both "prim" "prim/" "$@"
 run "classic (AS)" bash "$AS" "classic/" "$@"
 run "lazy (AS)" bash "$AS" "lazy/" "$@"
 
+# References used by overview, library, and classic charts.
+run "simdjson native DOM and classic JS" node ./scripts/run-comparison-benches.mjs
+
 echo
 echo "═══════════════════════════════════════════════════════════════"
 if [[ ${#FAILED[@]} -eq 0 ]]; then

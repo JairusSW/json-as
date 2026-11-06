@@ -1,24 +1,12 @@
 import {
   getBenchResults,
-  readObjBenchResult,
+  readComparisonResult,
   createBarChart,
   generateChart,
   type BenchKind,
   BenchResult,
 } from "./lib/bench-utils";
-import { MODE_BARS, OBJ_BAR } from "./lib/palette";
-
-// A zero bar for payloads with no JSON.Obj variant (primitives) or unrun benches.
-const ZERO_OBJ: BenchResult = {
-  language: "as",
-  description: "JSON.Obj",
-  elapsed: 0,
-  bytes: 0,
-  operations: 0,
-  features: [],
-  mbps: 0,
-  gbps: 0,
-};
+import { MODE_BARS, SIMDJSON_BAR } from "./lib/palette";
 
 const PAYLOADS: Record<string, string> = {
   abc: "Alphabet\n   (52b)",
@@ -38,10 +26,10 @@ const allResults = getBenchResults(Object.keys(PAYLOADS));
 const chartData: Record<string, BenchResult[]> = {};
 
 for (const payload of Object.keys(PAYLOADS)) {
-  // Append the dynamic JSON.Obj (SIMD) result as a fifth series.
+  // Full serialization only; untouched source forwarding is a separate workload.
   chartData[payload] = [
     ...allResults[payload][KIND],
-    readObjBenchResult(payload, KIND) ?? ZERO_OBJ,
+    readComparisonResult(payload, KIND, allResults[payload][KIND][3]),
   ];
 }
 
@@ -54,9 +42,9 @@ const config = createBarChart(chartData, PAYLOADS, {
     "JSON-AS (NAIVE)",
     "JSON-AS (SWAR)",
     "JSON-AS (SIMD)",
-    "untouched JSON.Obj forwarding",
+    "simdjson native DOM",
   ],
-  colors: [...MODE_BARS, OBJ_BAR],
+  colors: [...MODE_BARS, SIMDJSON_BAR],
   // Stand the value labels up off each bar top so adjacent ones don't collide.
   labelRotation: -90,
 });

@@ -61,6 +61,11 @@ export const OBJ_BAR = {
   border: BASE.fadedCopper,
 };
 
+export const SIMDJSON_BAR = {
+  bg: rgba("atomicTangerine", 0.85),
+  border: BASE.atomicTangerine,
+};
+
 // Eager vs lazy (build-lazy). Lazy shares the multi-library lazy hue (jungle green).
 export const EAGER = { bg: rgba("sandDune", 0.85), border: BASE.sandDune };
 export const LAZY = { bg: rgba("jungleGreen", 0.85), border: BASE.jungleGreen };
@@ -74,9 +79,12 @@ export const MULTILIB_COLORS: Record<string, string> = {
   "fast-json-parse (JS)": BASE.mutedTeal,
   "fast-json-stringify (JS)": BASE.mutedTeal,
   "assemblyscript-json": BASE.strawberryRed,
+  "simdjson native DOM": BASE.atomicTangerine,
   "json-as struct": BASE.pacificBlue,
   "json-as struct lazy": BASE.jungleGreen,
+  "json-as struct lazy (deferred)": BASE.jungleGreen,
   "json-as JSON.Obj": BASE.orange,
+  "json-as JSON.Obj (deferred)": BASE.orange,
 };
 
 // Shared neutral inks (axis ticks, subtitle, value labels, gridlines).

@@ -52,7 +52,7 @@ const series: SeriesSpec[] = [
   // logs the JSON.Obj bench cases dump.
   {
     key: "obj",
-    label: "JSON.Obj (SIMD)",
+    label: "JSON.Obj (deferred, SIMD)",
     language: "as",
     engine: "simd",
     payloadTransform: (p) => `${p}-obj`,

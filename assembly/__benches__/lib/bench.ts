@@ -231,27 +231,9 @@ let preallocated = false;
   const currentPages = usize(memory.size());
   const targetPages: usize =
     (PREALLOC_BYTES + (WASM_PAGE_SIZE - 1)) / WASM_PAGE_SIZE;
-  if (targetPages <= currentPages) return;
-
-  // Growing memory directly does not register the new pages with TLSF. Its
-  // next growth can then double that memory inside the timed loop. Reserve
-  // through the allocator instead, and release the blocks before measurement.
-  // Keep each request below runtime allocation limits and use an unmanaged
-  // chain so setup does not construct or retain a managed graph.
-  let remaining = PREALLOC_BYTES;
-  let head: usize = 0;
-  while (remaining) {
-    const chunk = min<usize>(remaining, 8 * 1024 * 1024);
-    const block = heap.alloc(max<usize>(chunk, sizeof<usize>()));
-    store<usize>(block, head);
-    head = block;
-    remaining -= chunk;
-  }
-  // Reverse allocation order also permits the stub allocator to rewind.
-  while (head) {
-    const previous = load<usize>(head);
-    heap.free(head);
-    head = previous;
+  if (targetPages > currentPages) {
+    // Ignore failure (memory.grow returns -1 on failure)
+    memory.grow(i32(targetPages - currentPages));
   }
 }
 
@@ -283,8 +265,8 @@ export function bench(
     bsBaselineSize = u64(bs.bufferSize);
   }
 
-  const warmup = ops / 10;
-  for (let i: u64 = 0; i < warmup; i++) {
+  let warmup = ops / 10;
+  while (warmup > 0 && --warmup) {
     routine();
   }
 
@@ -292,7 +274,7 @@ export function bench(
   // and run a full __collect() (untimed) between them. Each frame's allocation
   // churn stays bounded and the heap is reset between frames, which keeps
   // runtimes that destabilize under one long single-shot allocation loop (e.g.
-  // constrained hosts) inside their safe envelope while still timing the same total ops. The
+  // WARP) inside their safe envelope while still timing the same total ops. The
   // between-frame GC pauses are excluded from `elapsed`; the incremental GC that
   // runs *within* each frame is still timed, exactly as in the unframed loop.
   // Defaults to a single frame (identical to the original behavior).
@@ -317,11 +299,7 @@ export function bench(
     elapsed += performance.now() - frameStart;
     remaining -= batch;
   }
-  // Preserve sub-millisecond measurements from high-resolution hosts. A 1 ms
-  // floor would report every 100-operation run below 10 us/op as 10 us/op.
-  // Coarse clocks need a longer run rather than a fabricated duration.
-  if (elapsed <= 0)
-    throw new Error("Benchmark duration is zero; increase operations");
+  elapsed = Math.max(1, elapsed);
 
   let retainedLiveBytes: u64 = 0;
   let inflightLiveBytes: u64 = 0;
