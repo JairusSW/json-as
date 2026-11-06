@@ -697,3 +697,70 @@ improves. Evidence:
 
 The selected scanner and helper rollback are integrated for broad verification.
 They are not yet qualified by a complete owning-native throughput sweep.
+
+
+## Complete packed-scanner sweep
+
+At `999e838f`, all 49 transform scripts pass, the scanner's four-runtime
+zero-allocation differential test passes, all nine retained owning graphs pass,
+and all 252 packed-consumer operations pass. The integrated Lottie binary is
+byte-for-byte identical to the winning timed probe.
+
+The complete five-pair owning-native sweep has one remaining 60% miss: CITM
+pretty at 59.9%. Minified / pretty fractions are Twitter 130.1% / 103.6%;
+Canada 75.3% / 76.6%; CITM 62.3% / 59.9%; Poet 145.0% / 136.2%; GitHub
+64.0% / 60.7%; GSOC 97.5% / 93.0%; Lottie 77.1% / 79.0%; OTFCC 87.0%
+minified; FGO 63.7% minified. Do not round the CITM miss into a 60% pass.
+
+The current CITM profile places 24.9% of pretty self samples in Area's generated
+whitespace reader; allocator insertBlock remains 23.8% pretty / 29.7% minified.
+This motivates a matched whitespace scan probe before revisiting allocation.
+
+Evidence: `build/perf/classic-native/packed-scan-all-60-{prepared,samples,result}.json`,
+`packed-scan-all-60-paired.log`, `packed-scan-transform/results.json`,
+`packed-scan-packed.log`, and `citm-packed-profile-summary.json`. Source fingerprint:
+`586849cbb946fb502f2740bb99ee253eed064e4eac0aaf722584cc4985c71654`.
+Measurements use the shared ARM64 lock, AC power and preserved process audits;
+background VM work remains present, so these are not isolated release timings.
+
+
+## CITM whitespace probes and fresh Map-key allocation
+
+Reject the packed whitespace helper: six-pair medians are 738.790 us pretty
+for current CITM versus 953.585 us for the candidate, despite passing scanner
+and owning-graph checks. A direct existing pretty-helper route fails the
+all-whitespace end-bound test and is also rejected. Scalar end-limit hoisting
+and four-code-unit unrolling do not reliably improve CITM pretty (754.145 /
+739.055 us versus 734.225 us control). Production keeps the existing helper.
+The exhaustive whitespace fixture now checks each UTF-16 code unit at every
+four-code-unit word position through the actual long-run entry.
+
+Fresh unescaped Map keys still used global `__new`. Routing that one call to
+the already qualified library-owned `allocateObject` preserves zeroing,
+managed headers, GC behavior, and other-runtime fallbacks. The six-pair screen
+reports CITM minified / pretty 588.655 / 733.640 us control versus 574.450 /
+727.805 us candidate; GSOC 1360.175 / 1478.075 versus 1325.855 / 1406.415 us;
+FGO 28026.815 versus 27814.315 us. Peak RSS increases about 0.5 / 0.8 / 1.2 MiB.
+A ten-pair CITM confirmation has minified within noise (575.520 versus
+578.805 us), and pretty 740.525 versus 731.405 us; seven of ten pretty pairs
+improve. Treat this as a modest gain, not a settled large CITM improvement.
+
+The permanent control/current fixture passes eight runtime/strict configurations
+with varied key lengths across allocation size classes. It forces collections
+inside custom value decoders under incremental GC, and retains completed Maps
+and keys through explicit roots when collecting in the other runtimes. The
+initial fixture's forced in-decoder Minimal collection also failed on control;
+that failure is not attributed to this allocation change.
+
+Current-source targeted whitespace, allocation-policy, ownership/reuse and
+reader-tier checks pass, all nine retained owning graphs pass, and all 252
+packed-consumer operations pass. This call-site change has not rerun the full
+50-script transform command; the previous complete 49-script gate belongs to
+`999e838f`. Source fingerprint for this targeted qualification:
+`ec97876a392734f8efbc7897e8f8fada0c16af468ecfa1a9fcdb129068a0c886`.
+
+Evidence: `build/perf/classic-native/whitespace/{packed-whitespace,word-whitespace,map-key-allocator}-controls-{samples,summary}.json`,
+`whitespace/map-key-confirmation-confirmation-{samples,summary}.json`,
+`key-allocator-focused.log`, `key-allocator-targeted.log`,
+`key-allocator-qualification-status.json`, and `key-allocator-packed.log`.
+All timing screens use the shared ARM64 lock and retain background-load audits.

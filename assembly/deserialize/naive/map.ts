@@ -116,7 +116,7 @@ function deserializeFreshStringMapKey(start: usize, end: usize): u64 {
 
   let keyPtr = changetype<usize>("");
   if (byteLength != 0) {
-    keyPtr = __new(byteLength, idof<string>());
+    keyPtr = allocateObject(byteLength, idof<string>());
     memory.copy(keyPtr, start, byteLength);
   }
   return ((<u64>hash) << 32) | keyPtr;
