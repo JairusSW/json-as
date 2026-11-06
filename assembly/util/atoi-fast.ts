@@ -49,7 +49,11 @@ export function atouScan<T extends number>(
   srcEnd: usize,
   dstPtr: usize,
 ): usize {
-  return deserializeUnsignedField_SWAR<T>(srcStart, srcEnd, dstPtr, 0);
+  const next = deserializeUnsignedField_SWAR<T>(srcStart, srcEnd, dstPtr, 0);
+  if (next != 0) return next;
+  // The legacy scan API accepts an empty run; JSON field readers reject it.
+  store<T>(dstPtr, <T>0);
+  return srcStart;
 }
 
 /**
@@ -67,5 +71,8 @@ export function atoiScan<T extends number>(
   srcEnd: usize,
   dstPtr: usize,
 ): usize {
-  return deserializeIntegerField_SWAR<T>(srcStart, srcEnd, dstPtr, 0);
+  const next = deserializeIntegerField_SWAR<T>(srcStart, srcEnd, dstPtr, 0);
+  if (next != 0) return next;
+  store<T>(dstPtr, <T>0);
+  return srcStart < srcEnd && load<u16>(srcStart) == 45 ? srcStart + 2 : srcStart;
 }

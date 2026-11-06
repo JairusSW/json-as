@@ -162,6 +162,7 @@ export function deserializeIntegerField_SWAR<T extends number>(
     negative = true;
     srcStart += 2;
   }
+  const digitStart = srcStart;
   let value: u64 = 0;
   // Signed scan uses parse4 + scalar only (see file header).
   while (srcStart + 6 < srcEnd) {
@@ -176,6 +177,7 @@ export function deserializeIntegerField_SWAR<T extends number>(
     value = value * 10 + digit;
     srcStart += 2;
   }
+  if (srcStart == digitStart) return 0;
   storeSignedToField<T>(dstObj + dstOffset, negative ? 0 - value : value);
   return srcStart;
 }
@@ -250,6 +252,7 @@ export function deserializeUnsignedField_SWAR<T extends number>(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
+  const digitStart = srcStart;
   let value: u64 = 0;
   // Unsigned scan uses parse8 + scalar only (see file header).
   while (srcStart + 14 < srcEnd) {
@@ -267,6 +270,7 @@ export function deserializeUnsignedField_SWAR<T extends number>(
     value = value * 10 + digit;
     srcStart += 2;
   }
+  if (srcStart == digitStart) return 0;
   storeUnsignedToField<T>(dstObj + dstOffset, value);
   return srcStart;
 }
