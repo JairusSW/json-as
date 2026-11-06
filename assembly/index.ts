@@ -4068,8 +4068,16 @@ export namespace JSON {
     // the same compatibility classification as the scalar reader.
     function skipWhitespaceRun(ptr: usize, end: usize): usize {
       while (ptr < end) {
-        while (end - ptr >= 8 && load<u64>(ptr) == 0x0020_0020_0020_0020)
-          ptr += 8;
+        if (end - ptr >= 8) {
+          const block = load<u64>(ptr);
+          if (block == 0x0020_0020_0020_0020) {
+            ptr += 8;
+            continue;
+          }
+          // Consume the leading space code units from this same load. Testing
+          // overlapping words again for each trailing space repeats the work.
+          ptr += (<usize>ctz<u64>(block ^ 0x0020_0020_0020_0020) >> 4) << 1;
+        }
         if (ptr >= end || !isSpace(load<u16>(ptr))) return ptr;
         ptr += 2;
       }
