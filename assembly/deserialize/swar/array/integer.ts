@@ -208,7 +208,10 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
     if (srcStart >= srcEnd) break;
 
     let code = load<u16>(srcStart);
-    if (code == BRACKET_RIGHT) return out;
+    if (code == BRACKET_RIGHT) {
+      if (index != 0) break; // Only the initial empty array may close here.
+      return out;
+    }
 
     if (isSigned<valueof<T>>()) {
       let negative = false;
@@ -488,139 +491,9 @@ export function deserializeIntegerArray_SWAR<T extends number[]>(
   srcEnd: usize,
   dst: usize,
 ): T {
-  // u8/i8 elements use a dedicated two-pass SWAR path: a 4-char-stride
-  // comma counter pre-sizes the array so the parse pass can drop the
-  // per-push capacity check and write through a direct pointer. The
-  // wider-lane SWAR kernel never amortizes itself for narrow elements
-  // (u8 max 3 digits) so we skip it entirely here.
-  if (sizeof<valueof<T>>() <= 1) {
-    return deserializeNarrowIntegerArray_SWAR<T>(srcStart, srcEnd, dst);
-  }
+  // The shared scalar/SWAR reader is as fast for narrow elements and keeps
+  // framing, digit and delimiter handling on one path.
   return deserializeIntegerArrayImpl<T>(srcStart, srcEnd, dst, true);
-}
-
-/**
- * Narrow-lane (u8/i8) integer-array deserializer.
- *
- * Two passes:
- *   1) SWAR comma counter (4 chars per stride, popcnt over the lane mask)
- *      sizes the array exactly so the parse pass can use unchecked stores.
- *   2) Walks the input NAIVE-style (skip non-digits, scan to separator,
- *      fold digits) but writes through a direct pointer, eliminating
- *      `Array.push`'s per-element capacity check and length write.
- *
- * V8 already auto-SIMDs NAIVE's scalar scan loop tighter than a hand-rolled
- * SWAR scan in pass 2, so we keep that pattern there and only pay SWAR cost
- * on the pre-count - which is a tight load-mask-popcnt loop where V8's
- * scalar code can't compete with the explicit 4-lane stride.
- */
-function deserializeNarrowIntegerArray_SWAR<T extends number[]>(
-  srcStart: usize,
-  srcEnd: usize,
-  dst: usize,
-): T {
-  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-  while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
-  if (srcEnd - srcStart < 4 || load<u16>(srcStart) != BRACKET_LEFT ||
-      load<u16>(srcEnd - 2) != BRACKET_RIGHT) {
-    markProductionParseError();
-    return changetype<T>(0);
-  }
-  const out = changetype<nonnull<T>>(
-    dst || changetype<usize>(instantiate<T>()),
-  );
-
-  // Worst-case sizing: every element is at least 1 digit + 1 delimiter = 2
-  // UTF-16 chars = 4 bytes, so the body inside `[...]` can't hold more than
-  // `(srcEnd - srcStart) / 4` elements. AS skips zero-fill on `length=` for
-  // unmanaged element types, so over-allocation is essentially free here
-  // and saves a full SWAR pass over the input.
-  const maxElements = i32((<usize>(srcEnd - srcStart)) >> 2);
-  if (maxElements > 0) out.length = maxElements;
-  const dataStart = out.dataStart;
-  const elementSize = sizeof<valueof<T>>();
-  let writePtr = dataStart;
-
-  srcStart += 2;
-  while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-  if (srcStart + 2 == srcEnd && load<u16>(srcStart) == BRACKET_RIGHT) {
-    out.length = 0;
-    return out;
-  }
-  while (srcStart < srcEnd) {
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-    if (srcStart >= srcEnd) break;
-
-    // Fast paths: 1-, 2-, or 3-digit unsigned element followed by `,` packs
-    // into one u64 load (covers ~100% of the typical 0..255 cycle). Ordered
-    // 3 -> 2 -> 1 because 3-digit values dominate any wide-range payload;
-    // the 2- and 1-digit branches cover the rest of `out`.
-    if (!isSigned<valueof<T>>() && srcStart + 6 < srcEnd) {
-      const block = load<u64>(srcStart);
-      if (((block >> 48) & 0xffff) == COMMA) {
-        const digits = (block & 0x0000_ffff_ffff_ffff) - 0x0000_0030_0030_0030;
-        const oor =
-          (digits | (digits + 0x0000_0006_0006_0006)) & 0x0000_fff0_fff0_fff0;
-        if (oor == 0) {
-          const d0 = <u32>(digits & 0xffff);
-          const d1 = <u32>((digits >> 16) & 0xffff);
-          const d2 = <u32>((digits >> 32) & 0xffff);
-          store<valueof<T>>(writePtr, <valueof<T>>(d0 * 100 + d1 * 10 + d2));
-          writePtr += elementSize;
-          srcStart += 8;
-          continue;
-        }
-      } else if (((block >> 32) & 0xffff) == COMMA) {
-        const digits = (block & 0x0000_0000_ffff_ffff) - 0x0000_0000_0030_0030;
-        const oor =
-          (digits | (digits + 0x0000_0000_0006_0006)) & 0x0000_0000_fff0_fff0;
-        if (oor == 0) {
-          const d0 = <u32>(digits & 0xffff);
-          const d1 = <u32>((digits >> 16) & 0xffff);
-          store<valueof<T>>(writePtr, <valueof<T>>(d0 * 10 + d1));
-          writePtr += elementSize;
-          srcStart += 6;
-          continue;
-        }
-      } else if (((block >> 16) & 0xffff) == COMMA) {
-        const d0 = <u32>(block & 0xffff) - 48;
-        if (d0 <= 9) {
-          store<valueof<T>>(writePtr, <valueof<T>>d0);
-          writePtr += elementSize;
-          srcStart += 4;
-          continue;
-        }
-      }
-    }
-    let negative = false;
-    if (isSigned<valueof<T>>() && load<u16>(srcStart) == 45) {
-      negative = true;
-      srcStart += 2;
-    }
-    const digitStart = srcStart;
-    let value: u64 = 0;
-    while (srcStart < srcEnd) {
-      const digit = <u32>load<u16>(srcStart) - 48;
-      if (digit > 9) break;
-      value = value * 10 + digit;
-      srcStart += 2;
-    }
-    if (srcStart == digitStart) break;
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-    if (srcStart >= srcEnd) break;
-    const delimiter = load<u16>(srcStart);
-    if (delimiter != COMMA && delimiter != BRACKET_RIGHT) break;
-    store<valueof<T>>(writePtr, negative ? <valueof<T>>-(<i64>value) : <valueof<T>>value);
-    writePtr += elementSize;
-    srcStart += 2;
-    if (delimiter == BRACKET_RIGHT) {
-      if (srcStart != srcEnd) break;
-      out.length = i32(<usize>(writePtr - dataStart) / elementSize);
-      return out;
-    }
-  }
-  markProductionParseError();
-  return changetype<T>(0);
 }
 
 function deserializeIntegerArrayBody<T extends number[]>(

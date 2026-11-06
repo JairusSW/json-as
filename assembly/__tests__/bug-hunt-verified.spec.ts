@@ -234,6 +234,7 @@ describe("Narrow integer kernels preserve values and reject missing delimiters",
   expect(JSON.stringify(JSON.parse<u8[]>(input, out))).toBe(input);
   expect(JSON.stringify(JSON.parse<i8[]>('[-128,-1,0,127]'))).toBe('[-128,-1,0,127]');
   expect((): void => { JSON.parse<u8[]>('[1,]'); }).toThrow();
+  expect((): void => { JSON.parse<i32[]>('[1,]'); }).toThrow();
   expect((): void => { JSON.parse<i8[]>('[-]'); }).toThrow();
   expect((): void => { JSON.parse<u8[]>('[1,,2]'); }).toThrow();
 });

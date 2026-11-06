@@ -199,9 +199,9 @@ function parseUnsignedIntegerSIMD<T extends number[]>(
  *
  * The 8-digit SIMD kernel (`tryParseEightDigitsSIMD`) can't fire for u8/i8
  * (max 3 digits), so we skip it entirely and instead pay SIMD cost where
- * it's a strict win: pre-counting commas with a v128 stride. The exact
- * pre-size lets the parse pass use unchecked pointer stores in place of
- * `Array.push`, eliminating its per-element capacity check / length write.
+ * it's a strict win: parsing packed comma-separated pairs. A conservative
+ * capacity bound permits direct pointer stores; scalar tails validate their
+ * digits and delimiters without a second input scan.
  */
 function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
   srcStart: usize,
@@ -235,8 +235,6 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
     return out;
   }
   while (srcStart < srcEnd) {
-    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-    if (srcStart >= srcEnd) break;
 
     // Fast path: two packed 3-digit elements in one v128 load. Pattern
     // matches `DDD,DDD,` (commas at lanes 3 and 7) which is the majority of
@@ -246,85 +244,78 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
     // both values without per-element scalar loops.
     if (!isSigned<valueof<T>>() && srcStart + 14 < srcEnd) {
       const block = load<v128>(srcStart);
-      const bitmask = i16x8.bitmask(i16x8.eq(block, COMMA_SPLAT_8));
+      const commas = i16x8.eq(block, COMMA_SPLAT_8);
+      const bitmask = i16x8.bitmask(commas);
       // Switch on the comma layout. Each branch is a single i32x4.dot with
       // its own (a, b) weight vector, plus 2-3 lane extracts that AS lowers
       // to constant-index reads. Ordered roughly by hit-rate on a uniform
       // 0..255 sweep (0x88 ~37%, 0x48/0x44 ~21% each, 0x24 ~12%, 0x28/0x22
       // ~2.4% each).
-      const digitLanes = i16x8.bitmask(i16x8.le_u(i16x8.sub(block, SPLAT_30_8), i16x8.splat(9)));
-      switch (bitmask) {
-        case 0x88: {
-          if ((digitLanes & 0x77) != 0x77) break;
-          const digits = i16x8.sub(block, SPLAT_30_8);
-          const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_3_8);
-          const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
-          const v2 = i32x4.extract_lane(dot, 2) + i32x4.extract_lane(dot, 3);
-          store<valueof<T>>(writePtr, <valueof<T>>v1);
-          store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
-          writePtr += elementSize << 1;
-          srcStart += 16;
-          continue;
-        }
-        case 0x48: {
-          if ((digitLanes & 0x37) != 0x37) break;
-          const digits = i16x8.sub(block, SPLAT_30_8);
-          const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_2_8);
-          const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
-          const v2 = i32x4.extract_lane(dot, 2);
-          store<valueof<T>>(writePtr, <valueof<T>>v1);
-          store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
-          writePtr += elementSize << 1;
-          srcStart += 14;
-          continue;
-        }
-        case 0x44: {
-          if ((digitLanes & 0x3b) != 0x3b) break;
-          const digits = i16x8.sub(block, SPLAT_30_8);
-          const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_2_3_8);
-          const v1 = i32x4.extract_lane(dot, 0);
-          const v2 = i32x4.extract_lane(dot, 1) + i32x4.extract_lane(dot, 2);
-          store<valueof<T>>(writePtr, <valueof<T>>v1);
-          store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
-          writePtr += elementSize << 1;
-          srcStart += 14;
-          continue;
-        }
-        case 0x24: {
-          if ((digitLanes & 0x1b) != 0x1b) break;
-          const digits = i16x8.sub(block, SPLAT_30_8);
-          const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_2_2_8);
-          const v1 = i32x4.extract_lane(dot, 0);
-          const v2 = i32x4.extract_lane(dot, 1) + i32x4.extract_lane(dot, 2);
-          store<valueof<T>>(writePtr, <valueof<T>>v1);
-          store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
-          writePtr += elementSize << 1;
-          srcStart += 12;
-          continue;
-        }
-        case 0x28: {
-          if ((digitLanes & 0x17) != 0x17) break;
-          const digits = i16x8.sub(block, SPLAT_30_8);
-          const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_1_8);
-          const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
-          const v2 = i32x4.extract_lane(dot, 2);
-          store<valueof<T>>(writePtr, <valueof<T>>v1);
-          store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
-          writePtr += elementSize << 1;
-          srcStart += 12;
-          continue;
-        }
-        case 0x22: {
-          if ((digitLanes & 0x1d) != 0x1d) break;
-          const digits = i16x8.sub(block, SPLAT_30_8);
-          const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_1_3_8);
-          const v1 = i32x4.extract_lane(dot, 0);
-          const v2 = i32x4.extract_lane(dot, 1) + i32x4.extract_lane(dot, 2);
-          store<valueof<T>>(writePtr, <valueof<T>>v1);
-          store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
-          writePtr += elementSize << 1;
-          srcStart += 12;
-          continue;
+      const digits = i16x8.sub(block, SPLAT_30_8);
+      // Commas are the only allowed non-digits in a packed block. One shared
+      // mask check validates every lane before any dot-product writes.
+      if (i16x8.all_true(v128.or(commas, i16x8.le_u(digits, i16x8.splat(9))))) {
+        switch (bitmask) {
+          case 0x88: {
+            const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_3_8);
+            const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
+            const v2 = i32x4.extract_lane(dot, 2) + i32x4.extract_lane(dot, 3);
+            store<valueof<T>>(writePtr, <valueof<T>>v1);
+            store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
+            writePtr += elementSize << 1;
+            srcStart += 16;
+            continue;
+          }
+          case 0x48: {
+            const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_2_8);
+            const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
+            const v2 = i32x4.extract_lane(dot, 2);
+            store<valueof<T>>(writePtr, <valueof<T>>v1);
+            store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
+            writePtr += elementSize << 1;
+            srcStart += 14;
+            continue;
+          }
+          case 0x44: {
+            const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_2_3_8);
+            const v1 = i32x4.extract_lane(dot, 0);
+            const v2 = i32x4.extract_lane(dot, 1) + i32x4.extract_lane(dot, 2);
+            store<valueof<T>>(writePtr, <valueof<T>>v1);
+            store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
+            writePtr += elementSize << 1;
+            srcStart += 14;
+            continue;
+          }
+          case 0x24: {
+            const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_2_2_8);
+            const v1 = i32x4.extract_lane(dot, 0);
+            const v2 = i32x4.extract_lane(dot, 1) + i32x4.extract_lane(dot, 2);
+            store<valueof<T>>(writePtr, <valueof<T>>v1);
+            store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
+            writePtr += elementSize << 1;
+            srcStart += 12;
+            continue;
+          }
+          case 0x28: {
+            const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_3_1_8);
+            const v1 = i32x4.extract_lane(dot, 0) + i32x4.extract_lane(dot, 1);
+            const v2 = i32x4.extract_lane(dot, 2);
+            store<valueof<T>>(writePtr, <valueof<T>>v1);
+            store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
+            writePtr += elementSize << 1;
+            srcStart += 12;
+            continue;
+          }
+          case 0x22: {
+            const dot = i32x4.dot_i16x8_s(digits, PAIR_WEIGHTS_1_3_8);
+            const v1 = i32x4.extract_lane(dot, 0);
+            const v2 = i32x4.extract_lane(dot, 1) + i32x4.extract_lane(dot, 2);
+            store<valueof<T>>(writePtr, <valueof<T>>v1);
+            store<valueof<T>>(writePtr + elementSize, <valueof<T>>v2);
+            writePtr += elementSize << 1;
+            srcStart += 12;
+            continue;
+          }
         }
       }
     }
@@ -369,6 +360,8 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
         }
       }
     }
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    if (srcStart >= srcEnd) break;
     let negative = false;
     if (isSigned<valueof<T>>() && load<u16>(srcStart) == 45) {
       negative = true;
