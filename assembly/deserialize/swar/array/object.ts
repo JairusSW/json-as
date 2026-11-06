@@ -49,6 +49,7 @@ function deserializeObjectArrayBody<T extends unknown[]>(
       srcStart = valueEnd;
 
       srcStart = skipWhitespace(srcStart, srcEnd);
+      if (srcStart >= srcEnd) break;
       const code = load<u16>(srcStart);
       if (code == COMMA) {
         srcStart += 2;

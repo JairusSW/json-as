@@ -122,9 +122,11 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
         srcStart = valueEnd;
       }
 
+      if (srcStart >= srcEnd) break;
       let code = load<u16>(srcStart);
       if (code != COMMA && code != BRACKET_RIGHT) {
         srcStart = skipWhitespace(srcStart, srcEnd);
+        if (srcStart >= srcEnd) break;
         code = load<u16>(srcStart);
       }
       if (code == COMMA) {

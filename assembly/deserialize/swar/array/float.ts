@@ -151,20 +151,20 @@ function parseFixed14Pair<E>(
     negative0 = true;
     p0 += 2;
   }
-  if (p0 + 36 >= srcEnd) return 0;
+  if (p0 + 36 > srcEnd) return 0;
   const first0 = <u32>load<u16>(p0) - 48;
   if (first0 > 9 || (JSON_STRICT && first0 == 0)) return 0;
   let intDigits0 = 0;
   if (load<u16>(p0, 4) == 46) {
     intDigits0 = 2;
-  } else if (load<u16>(p0, 6) == 46) {
+  } else if (p0 + 38 <= srcEnd && load<u16>(p0, 6) == 46) {
     intDigits0 = 3;
   } else {
     return 0;
   }
   const frac0 = p0 + <usize>((intDigits0 + 1) << 1);
   const term0 = frac0 + 28;
-  if (load<u16>(term0) != COMMA) return 0;
+  if (term0 + 2 > srcEnd || load<u16>(term0) != COMMA) return 0;
 
   let p1 = term0 + 2;
   if (p1 >= srcEnd) return 0;
@@ -177,20 +177,20 @@ function parseFixed14Pair<E>(
     negative1 = true;
     p1 += 2;
   }
-  if (p1 + 36 >= srcEnd) return 0;
+  if (p1 + 36 > srcEnd) return 0;
   const first1 = <u32>load<u16>(p1) - 48;
   if (first1 > 9 || (JSON_STRICT && first1 == 0)) return 0;
   let intDigits1 = 0;
   if (load<u16>(p1, 4) == 46) {
     intDigits1 = 2;
-  } else if (load<u16>(p1, 6) == 46) {
+  } else if (p1 + 38 <= srcEnd && load<u16>(p1, 6) == 46) {
     intDigits1 = 3;
   } else {
     return 0;
   }
   const frac1 = p1 + <usize>((intDigits1 + 1) << 1);
   const term1 = frac1 + 28;
-  if (load<u16>(term1) != BRACKET_RIGHT) return 0;
+  if (term1 + 2 > srcEnd || load<u16>(term1) != BRACKET_RIGHT) return 0;
 
   const a0 = parse8Digits_PairMul(load<u64>(frac0), load<u64>(frac0, 8));
   const c0 = parse4Digits_PairMul(load<u64>(frac0, 16));
@@ -315,11 +315,11 @@ export function parseFloatElementSWAR<E>(
   // guaranteed failing parse4 probe at the fraction terminator). Each parse4
   // still validates its lanes; malformed or exponent-bearing values fall
   // through unchanged to the fully general parser below.
-  if (ASC_FEATURE_SIMD && p + 36 < srcEnd) {
+  if (ASC_FEATURE_SIMD && p + 36 <= srcEnd) {
     let intDigitsFast = 0;
     if (load<u16>(p, 4) == 46) {
       intDigitsFast = 2;
-    } else if (load<u16>(p, 6) == 46) {
+    } else if (p + 38 <= srcEnd && load<u16>(p, 6) == 46) {
       intDigitsFast = 3;
     }
     if (intDigitsFast != 0) {
