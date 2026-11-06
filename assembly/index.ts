@@ -1761,8 +1761,12 @@ export namespace JSON {
      * @returns The encapsulated value.
      */
     get<T>(): T {
-      this.materialize();
-      return JSON.Value.decodeBits<T>(this.bits);
+      let bits = this.bits;
+      if (valLazy(bits)) {
+        this.materialize();
+        bits = this.bits;
+      }
+      return JSON.Value.decodeBits<T>(bits);
     }
 
     /**

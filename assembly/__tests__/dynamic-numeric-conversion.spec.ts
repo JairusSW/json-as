@@ -54,3 +54,14 @@ describe("Numeric edge cases preserve signs and special values", () => {
   expect(JSON.Value.from<f64>(Infinity).get<f32>() == <f32>Infinity).toBe(true);
   expect(JSON.Value.empty().get<i64>()).toBe(0);
 });
+
+describe("Getter shortcuts retain deferred materialization and mutable tags", () => {
+  const root = JSON.parse<JSON.Value>('{"n":7.5}');
+  expect(root.get<JSON.Obj>().getAs<i32>("n")).toBe(7);
+  const value = JSON.Value.from<i32>(9);
+  expect(value.get<i32>()).toBe(9);
+  value.set<f64>(2.5);
+  expect(value.get<i32>()).toBe(2);
+  const object = new JSON.Obj();
+  expect(JSON.Value.from(object).get<JSON.Obj>() === object).toBe(true);
+});
