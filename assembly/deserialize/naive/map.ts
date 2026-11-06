@@ -783,11 +783,12 @@ export function deserializeMapBody<T extends Map<any, any>>(
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
           }
           // @ts-ignore: supplied by the json-as transform
-          changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW(
+          const slowRes = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW(
             valueStart,
             valueEnd,
             value,
           );
+          if (!slowRes) break;
           next = valueEnd;
         }
 

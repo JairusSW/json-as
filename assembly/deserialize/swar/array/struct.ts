@@ -208,11 +208,12 @@ export function deserializeStructArrayBody<T>(
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
           }
           // @ts-ignore: supplied by transform
-          changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW(
+          const slowRes = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW(
             valueStart,
             valueEnd,
             value,
           );
+          if (!slowRes) break;
           next = valueEnd;
         }
       }
