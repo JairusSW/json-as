@@ -3996,7 +3996,9 @@ export namespace JSON {
     export function hasCompositeReuseScope(): bool {
       return compositeReuseScopeActive();
     }
+    @inline
     export function reuseCompositeBuffer(value: usize, field: usize): usize {
+      if (value == 0) return 0;
       return reuseComposite(value, field);
     }
     /** Source owner for range-backed fields in generated deserializers. */

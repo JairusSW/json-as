@@ -509,3 +509,21 @@ Evidence: `build/perf/classic-native/owned-barrier-native-{prepared,samples,resu
 All 46 transform scripts pass on the integrated helper, including the final
 960-check capability matrix. Measured production fingerprint:
 `bfbf20053d9daba1cc56f50873737532cb7c82b1c9406f95a152e0a0682f4bdd`.
+
+## Inline null composite claims
+
+The composite-reuse wrapper now returns null destinations inline, before calling
+ownership claiming. Non-null destinations retain the existing claim logic.
+Six alternating CITM pairs improve minified latency 2.2%; pretty pairs are mixed
+and roughly flat (0.5% slower median). Both full retained layouts, all 46
+transform scripts, and 252 packed-consumer operations pass. The integrated
+CITM binary matches the screened prototype.
+
+Five owning-native pairs put CITM at 60.5% minified and 58.4% pretty. The selected
+60% gate still fails. The same local ARM64 shared-lock/background-audit
+qualification applies. A duplicate fresh-zeroing probe passed both oracles but
+showed no useful speed gain and was rejected.
+
+Evidence: `build/perf/classic-native/null-reuse-native-{prepared,samples,result}.json`,
+`null-reuse-native-paired.log`, `null-reuse-transform/results.json`,
+`null-reuse-packed.log`, and `whitespace/citm-null-reuse-{samples,summary}.json`.
