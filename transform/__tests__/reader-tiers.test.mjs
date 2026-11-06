@@ -93,6 +93,7 @@ try {
           "next parse restarts at tier 1",
         );
         assert.equal(instance.exports.fallbacks(+fast), 1);
+        assert.equal(instance.exports.separators(), 1);
         checked++;
       }
   console.log(`Generated child tiers: ${checked} configurations passed`);

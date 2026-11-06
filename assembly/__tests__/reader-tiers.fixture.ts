@@ -89,3 +89,26 @@ export function fallbacks(expectFast: bool): i32 {
   if (expectFast) assert(manualCalls == 1);
   return 1;
 }
+
+@json
+class SeparatorRow {
+  @alias("return srcStart;") first: i32 = 0;
+  second: string = "";
+}
+
+export function separators(): i32 {
+  const before = ["", " ", "\t", "\r\n  "];
+  const after = ["", " ", "  ", "\t\r\n  "];
+  const destination = new SeparatorRow();
+  for (let i = 0; i < before.length; i++) {
+    for (let j = 0; j < after.length; j++) {
+      const text = '{ "return srcStart;"' + before[i] + ':' + after[j] +
+        '7, "second"' + before[i] + ':' + after[j] + '"ok" }';
+      const fresh = JSON.parse<SeparatorRow>(text);
+      assert(fresh.first == 7 && fresh.second == "ok");
+      const reused = JSON.parse<SeparatorRow>(text, destination);
+      assert(reused.first == 7 && reused.second == "ok");
+    }
+  }
+  return 1;
+}

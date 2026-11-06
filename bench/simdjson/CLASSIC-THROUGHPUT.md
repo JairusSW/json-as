@@ -415,11 +415,61 @@ Rejected screens retain useful controls: force-inlining TLSF insertion and the
 integer dispatcher gives no useful gain; same-bucket TLSF coalescing regresses
 minified 0.8%; leaf whitespace-reader cloning adds 9.6% code without a speed gain.
 A packed-prefix integer tail passes 1,192,776 differential/boundary checks but
-regresses minified 1.8%, so it is not adopted. A bounded colon-space shortcut
-remains diagnostic-only after a 2.4% pretty improvement with minified unchanged.
+regresses minified 1.8%, so it is not adopted. The initial bounded colon-space screen improves pretty 2.4% with minified
+unchanged; its subsequent integration is recorded below.
 
 Evidence under `build/perf/classic-native`: `citm-current-{min,pretty}-profile.json`,
 `citm-current-profile-summary.json`, `whitespace/citm-append-leaf-{samples,summary}.json`,
 `native-append-tests.log`, `append-transform-tests.log`, `append-packed.log`,
 `append-native-{prepared,samples,result}.json`, `append-native-paired.log`,
 `integer-prefix-check.log`, and `whitespace/citm-prefix-colon-{samples,summary}.json`.
+
+## Bounded pretty separators and next barrier screen
+
+Generated required-field whitespace readers now match the common UTF-16 `: `
+separator with one bounded word comparison. All other spellings retain the
+original whitespace path, and whitespace after that word is still consumed.
+The change is emitted at the separator construction site, without replacing
+text inside aliases, comments, copied expressions, or application methods.
+The 12 mode/strict/fast reader-tier configurations cover all combinations of
+empty, space, tab and newline whitespace around colons, both fresh and populated
+destinations, and an alias containing return-statement text. The production
+CITM binary is identical to the previously screened separator prototype.
+Packed consumers pass 252 operations across 36 configurations.
+
+Five owning-native pairs on AC-powered local ARM64 report Twitter at 122.6%
+minified / 99.8% pretty, Canada at 76.1% / 79.0%, and CITM at 55.1% / 55.3%.
+CITM takes 639.74 / 779.06 us versus native 352.40 / 430.85 us. The selected
+60% gate exits unsuccessfully, as expected. Full retained outputs pass for
+both layouts of all three selected corpora. This is partial classic coverage,
+with concurrent correctness work recorded in the audits, not an isolated
+release qualification or completion of the all-classic 60% stage.
+
+A separate library-scoped barrier prototype checks the parent's GC color before
+loading the child color. It preserves the standard black/white and pinned-parent
+transitions and leaves the global runtime barrier and application calls intact.
+Two balanced six-round screens favor this prototype: 5.3% / 3.4% lower CITM
+latency alone, and 6.7% / 5.0% with the separator change. Peak RSS increases
+approximately 3 MiB. Full retained graphs and 12 fixed-heap pressure/GC
+configurations pass. This remains a diagnostic prototype, pending explicit
+library-helper integration and broader validation. Requesting the runtime's
+multi-store barrier from generated readers passes the same correctness controls
+but is slightly slower than the parent-first prototype, so it is rejected.
+
+Evidence: `build/perf/classic-native/colon-native-{prepared,samples,result}.json`,
+`colon-native-paired.log`, `colon-separators-tests.log`, `colon-packed-tests.log`,
+`whitespace/citm-parent-first-{samples,summary}.json`,
+`whitespace/citm-multiple-link-{samples,summary}.json`,
+`parent-first-pressure.log`, and `multiple-link-pressure.log`.
+
+An additional SIMD signed-field eight-digit prefix passes 1,120,676 differential
+checks and both full CITM graphs, but the six-round screen is effectively flat
+for minified input (0.3%) and regresses pretty input 1.4%. It is not adopted.
+The production four-digit signed scan remains unchanged. Raw samples and
+checks are in `whitespace/citm-signed-eight-{samples,summary}.json` and
+`signed-eight-check.log`.
+
+The full 45-script `npm run test:transform` command also passes on the integrated
+separator source, including the final 960-check capability matrix.
+Measured source fingerprint:
+`deb610dccb019d91e6c6c0bb84b45339f40774574f3bea953eb089a1acd152ba`.
