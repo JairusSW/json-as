@@ -73,12 +73,14 @@ export function deserializeFloat_NAIVE<T>(srcStart: usize, srcEnd: usize): T {
       return <T>0;
     }
   }
-  // @ts-ignore
-  const type: T = 0;
-  // @ts-ignore
-  if (type instanceof f64) return parseDecimalF64(srcStart, srcEnd);
-  // @ts-ignore
-  return parseDecimalF32(srcStart, srcEnd);
+  return deserializeValidatedFloat_NAIVE<T>(srcStart, srcEnd);
+}
+
+/** Caller has already checked the complete token grammar. */
+@inline
+export function deserializeValidatedFloat_NAIVE<T>(srcStart: usize, srcEnd: usize): T {
+  if (sizeof<T>() == 8) return <T>parseDecimalF64(srcStart, srcEnd);
+  return <T>parseDecimalF32(srcStart, srcEnd);
 }
 
 function scanFloatEnd(srcStart: usize, srcEnd: usize): usize {

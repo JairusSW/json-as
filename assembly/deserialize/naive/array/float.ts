@@ -1,6 +1,7 @@
 import { isSpace } from "../../../util";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
-import { JSON } from "../../..";
+import { JSON, JSONMode } from "../../..";
+import { deserializeValidatedFloat_NAIVE } from "../float";
 import { markProductionParseError } from "../../error";
 import {
   validateJSONNumberToken,
@@ -65,9 +66,9 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
       markProductionParseError();
       return changetype<T>(0);
     }
-    changetype<Array<valueof<T>>>(out)[out.length] = JSON.__deserializeValue<
-      valueof<T>
-    >(tokenStart, srcStart);
+    changetype<Array<valueof<T>>>(out)[out.length] = (JSON_MODE == JSONMode.NAIVE
+      ? deserializeValidatedFloat_NAIVE<valueof<T>>(tokenStart, srcStart)
+      : JSON.__deserializeValue<valueof<T>>(tokenStart, srcStart));
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break; // end of array body
