@@ -982,7 +982,48 @@ are byte-identical to the measured field-only prototype. Poet, FGO, GSOC and
 OTFCC additionally remain identical to the previous production binaries.
 The source fingerprint is
 `e9dffd225739d8b6237b56486f913c3f4b5b5c00351815f6d01278f46ab9db55`.
-The complete native70 gate is queued. Evidence:
+The complete native70 gate is recorded below. Qualification evidence:
 `reference-field-production-final-qualification.json`,
 `reference-capacity-production-targeted/repaired-results.json`, and
 `reference-field-production-probe-equivalence.json`.
+
+## Complete native sweep after field-capacity integration
+
+The five-pair sweep on production source `1c0899f4` (measurement HEAD
+`59377df9`) completes all sixteen layouts / ninety process samples. All layouts
+retain the 60% floor; **70% still fails for both CITM and both GitHub layouts**.
+CITM is 67.6% / 62.5%; GitHub 68.8% / 65.1%. This is progress toward the next
+floor, not native parity. The run records AC power with background-process
+audits; the earlier paired policy screens were on battery power. Cross-sweep
+deltas should not replace the paired controls or be treated as isolated results.
+
+| Corpus / layout | json-as GB/s | Native GB/s | AS / native |
+|---|---:|---:|---:|
+| twitter / min | 1.717 | 1.268 | 1.354× |
+| twitter / pretty | 1.771 | 1.628 | 1.088× |
+| canada / min | 0.569 | 0.742 | 0.767× |
+| canada / pretty | 0.781 | 0.998 | 0.782× |
+| citm_catalog / min | 0.928 | 1.373 | 0.676× |
+| citm_catalog / pretty | 1.649 | 2.638 | 0.625× |
+| poet / min | 2.937 | 1.855 | 1.583× |
+| poet / pretty | 2.817 | 1.939 | 1.453× |
+| github_events / min | 0.924 | 1.343 | 0.688× |
+| github_events / pretty | 1.037 | 1.593 | 0.651× |
+| gsoc-2018 / min | 2.469 | 2.268 | 1.089× |
+| gsoc-2018 / pretty | 2.337 | 2.330 | 1.003× |
+| lottie / min | 1.263 | 1.650 | 0.766× |
+| lottie / pretty | 4.149 | 5.313 | 0.781× |
+| otfcc / min | 1.616 | 1.875 | 0.862× |
+| fgo / min | 2.394 | 2.786 | 0.859× |
+
+Source fingerprint:
+`e9dffd225739d8b6237b56486f913c3f4b5b5c00351815f6d01278f46ab9db55`.
+Evidence: `build/perf/classic-native/reference-field-production-all-70-{prepared,samples,result}.json`
+and `reference-field-production-all-70-paired.log`. The gate exits1 because the
+70% target fails; it is a complete result, not a truncated measurement.
+
+The fourteen targeted allocation/lifetime/construction scripts, packed consumer
+(252 operations / 36 configurations), all nine retained owning outputs, and
+production/prototype binary equivalence pass. The last full 53-script transform
+run remains the previous `9b676d01` qualification. No release, tag or push is
+performed. CITM pretty remains the first remaining bottleneck.
