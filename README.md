@@ -316,6 +316,25 @@ console.log(boxed !== null ? boxed!.toString() : "null");
 // 123
 ```
 
+Numeric dynamic getters (`Value.get<T>()`, `Value.as<T>()`, `Obj.getAs<T>()`,
+and `Arr.getAs<T>()`) convert stored booleans and numbers to the requested
+numeric type using AssemblyScript casts, without allocating a wrapper:
+
+```ts
+const value = JSON.parse<JSON.Value>("7.5");
+value.get<i32>(); // 7
+value.get<f32>(); // 7.5
+
+const wide = JSON.Value.from<u64>(9007199254740993);
+wide.get<u64>(); // 9007199254740993, exact
+wide.get<f64>(); // 9007199254740992, rounded to f64 precision
+```
+
+Narrowing and floating-point conversion follow native casts. Boolean reads
+compare the stored numeric value with zero; null retains the zero/false result.
+Strings and objects are not coerced to numbers. `Box.fromValue<T>()` remains
+available when a nullable boxed result is needed.
+
 ### Using Raw JSON strings
 
 Sometimes its necessary to simply copy a string instead of serializing it.
