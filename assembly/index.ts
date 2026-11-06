@@ -22,7 +22,7 @@ import {
 } from "./deserialize/cursor";
 
 import { OBJECT, OBJECT_MAXSIZE, TOTAL_OVERHEAD } from "rt/common";
-import { STRING_SIZE_MASK } from "./util/runtime";
+import { STRING_SIZE_MASK, allocateObject } from "./util/runtime";
 import {
   serializeArray,
   serializeArrayPointer,
@@ -302,7 +302,7 @@ export namespace JSON {
     if (CUSTOM_DESERIALIZER_RECEIVERS.has(id)) {
       receiver = changetype<nonnull<T>>(CUSTOM_DESERIALIZER_RECEIVERS.get(id));
     } else {
-      receiver = changetype<nonnull<T>>(__new(offsetof<nonnull<T>>(), id));
+      receiver = changetype<nonnull<T>>(allocateObject(offsetof<nonnull<T>>(), id));
       memory.fill(changetype<usize>(receiver), 0, offsetof<nonnull<T>>());
       CUSTOM_DESERIALIZER_RECEIVERS.set(id, changetype<Object>(receiver));
     }
@@ -619,7 +619,7 @@ export namespace JSON {
               : 0;
             beginCursorFreshGraph();
             const obj = changetype<nonnull<T>>(
-              __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
+              allocateObject(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
             );
             const start = changetype<usize>(data);
             const end = start + ((<usize>data.length) << 1);
@@ -836,7 +836,7 @@ export namespace JSON {
         const obj = reuse
           ? changetype<nonnull<T>>(changetype<usize>(out))
           : changetype<nonnull<T>>(
-              __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
+              allocateObject(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
             );
         // A successful generated full-write path assigns every field. Zeroing a
         // fresh payload is enough to make its reference slots safe while
@@ -1265,7 +1265,7 @@ export namespace JSON {
      */
     static empty(): JSON.Value {
       const out = changetype<JSON.Value>(
-        __new(offsetof<JSON.Value>(), idof<JSON.Value>()),
+        allocateObject(offsetof<JSON.Value>(), idof<JSON.Value>()),
       );
       out.bits = VAL_NULL;
       return out;
@@ -1279,7 +1279,7 @@ export namespace JSON {
     static from<T>(value: T): JSON.Value {
       if (value instanceof JSON.Value) return value;
       const out = changetype<JSON.Value>(
-        __new(offsetof<JSON.Value>(), idof<JSON.Value>()),
+        allocateObject(offsetof<JSON.Value>(), idof<JSON.Value>()),
       );
       out.set<T>(value);
       return out;
@@ -1302,7 +1302,7 @@ export namespace JSON {
       ref.lz = ((<u64>sliceStart) << 32) | (<u64>(<u32>sliceEnd));
       ref.src = src;
       const out = changetype<JSON.Value>(
-        __new(offsetof<JSON.Value>(), idof<JSON.Value>()),
+        allocateObject(offsetof<JSON.Value>(), idof<JSON.Value>()),
       );
       out.bits = valBox(JSON.Types.Lazy, <u64>changetype<usize>(ref));
       return out;
@@ -1503,7 +1503,7 @@ export namespace JSON {
     static fromBits(w: u64): JSON.Value {
       const root = JSON.Value.slotReference(w);
       const out = changetype<JSON.Value>(
-        __new(offsetof<JSON.Value>(), idof<JSON.Value>()),
+        allocateObject(offsetof<JSON.Value>(), idof<JSON.Value>()),
       );
       out.bits = w;
       if (root) __link(changetype<usize>(out), changetype<usize>(root), false);
@@ -2035,11 +2035,11 @@ export namespace JSON {
     }
 
     /** Writes a slot and, if it carries a managed pointer, links it for the GC. */
-    // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
     private storeSlot(
       i: i32,
       bits: u64,
       replace: bool = true,
+      // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
       root: Object | null = null,
     ): void {
       if (replace && JSON.Value.slotIsLazy(unchecked(this._vals[i])))
@@ -2623,11 +2623,11 @@ export namespace JSON {
     }
 
     /** Writes a slot and, if it carries a managed pointer, links it for the GC. */
-    // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
     private storeSlot(
       i: i32,
       bits: u64,
       replace: bool = true,
+      // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
       root: Object | null = null,
     ): void {
       if (replace && JSON.Value.slotIsLazy(unchecked(this._vals[i])))
@@ -3558,6 +3558,12 @@ export namespace JSON {
     return bs.offset;
   }
 
+  /** Internal allocation entry for generated schema objects. */
+  @inline
+  function __allocateObject(size: usize, id: u32): usize {
+    return allocateObject(size, id);
+  }
+
   /** Fresh empty native array with independent identity and deferred capacity. */
   @inline
   function __emptyArray<T extends unknown[]>(): T {
@@ -3812,7 +3818,7 @@ export namespace JSON {
       ) {
         const fresh = dst == 0;
         const out = changetype<nonnull<T>>(
-          dst || __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
+          dst || allocateObject(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
         );
         let canFast = isDefined(type.__DESERIALIZE_FAST);
         // @ts-expect-error: supplied by transform
@@ -4027,8 +4033,23 @@ export namespace JSON {
     /** Advance past JSON whitespace (space, tab, LF, VT, FF, CR). */
     @inline
     export function skipWhitespace(srcStart: usize, srcEnd: usize): usize {
-      while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
-      return srcStart;
+      if (srcStart >= srcEnd || !isSpace(load<u16>(srcStart))) return srcStart;
+      srcStart += 2;
+      if (srcStart >= srcEnd || !isSpace(load<u16>(srcStart))) return srcStart;
+      return skipWhitespaceRun(srcStart, srcEnd);
+    }
+    // Keep the no-whitespace and single-character cases short. Longer runs
+    // commonly contain indentation spaces; consume four UTF-16 spaces at once
+    // without reading outside the supplied range. Mixed whitespace stays on
+    // the same compatibility classification as the scalar reader.
+    function skipWhitespaceRun(ptr: usize, end: usize): usize {
+      while (ptr < end) {
+        while (end - ptr >= 8 && load<u64>(ptr) == 0x0020_0020_0020_0020)
+          ptr += 8;
+        if (ptr >= end || !isSpace(load<u16>(ptr))) return ptr;
+        ptr += 2;
+      }
+      return ptr;
     }
     /** Advance a whitespace run using the SIMD pretty-document scanner. */
     @inline

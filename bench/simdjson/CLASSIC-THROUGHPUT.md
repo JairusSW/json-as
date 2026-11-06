@@ -97,3 +97,124 @@ RSS is whole-process peak resident memory, not retained AS heap bytes.
 The gains are modest; even the higher-memory idle setting does not reach the
 50% CITM floor. Raw samples, executable hashes, flags, load/power audits and
 process RSS are under `build/perf/classic-native/gc-probes/`.
+
+## Scoped allocation specialization, 2026-11-06
+
+The transform exposes constant schema allocation sizes to a private inlined
+copy of the installed incremental runtime's allocation entry. The runtime body
+is preserved: zeroing, GC interruption, links and accounting remain intact.
+Only explicit json-as allocation sites use the helper. Application allocation
+calls and the standard global allocator are unchanged; minimal, stub and custom
+runtimes retain their normal entry.
+
+Four alternating fresh-process pairs against committed `2f411cdf`, with the
+same classic harness and flags as above:
+
+| Corpus | Layout | Control us | Candidate us | Latency change |
+| --- | --- | ---: | ---: | ---: |
+| Twitter | min | 332.49 | 334.20 | +0.5% |
+| Twitter | pretty | 447.51 | 446.36 | -0.3% |
+| Canada | min | 5,028.81 | 5,039.10 | +0.2% |
+| Canada | pretty | 5,071.42 | 5,090.99 | +0.4% |
+| CITM | min | 872.16 | 833.53 | -4.4% |
+| CITM | pretty | 1,121.39 | 1,068.38 | -4.7% |
+
+This screen shows a CITM gain and no major regression in Twitter/Canada;
+sub-percent differences are not established improvements or regressions.
+CITM Wasm grows from 143,165 to 148,249 bytes (+3.6%). Median peak process RSS
+rises from 90.18 to 90.57 MiB. The deeper allocator probe remains experimental:
+its additional gain came with much greater code growth.
+
+All 40 existing transform scripts passed, plus the new allocation-specialization
+regression. Packed consumers passed 252 operations across 36 configurations.
+Full Twitter, Canada and CITM output graphs survived additional parses,
+input-root release and collection before serialization. The AST regression
+checks that runtime operations and application calls remain unchanged and that
+other runtimes fall back normally.
+
+CITM's allocation probe reports about 25,200 allocations per fresh parse,
+including 8,685 Area objects and 9,057 integer-array objects. This points to
+per-object allocator/collector cost as the next major opportunity while
+preserving the requested class graph and independent array identities.
+The redundant-zeroing probe (about 0.5%) was dropped; the empty-array visitor
+probe (about 1–2%) remains outside production.
+
+Matched samples, binary hashes, power/load audits and RSS:
+`build/perf/classic-native/whitespace/scoped-all-{samples,summary}.json`.
+Full validation: `build/perf/classic-native/scoped-transform-tests.log`,
+`scoped-packed-consumer.log` and `scoped-preparation-final.log`.
+Allocation counts: `build/perf/classic-native/allocation-counts.json`.
+
+Five alternating native/AS process pairs for the scoped candidate give:
+
+| Corpus | Layout | AS us | Native us | Throughput fraction | 50% floor |
+| --- | --- | ---: | ---: | ---: | --- |
+| Twitter | min | 329.64 | 341.55 | 103.6% | Pass |
+| Twitter | pretty | 440.55 | 356.09 | 80.8% | Pass |
+| Canada | min | 5,018.64 | 2,614.17 | 52.1% | Pass |
+| Canada | pretty | 5,076.63 | 2,683.84 | 52.9% | Pass |
+| CITM | min | 830.42 | 347.99 | 41.9% | Miss |
+| CITM | pretty | 1,063.54 | 420.54 | 39.5% | Miss |
+
+The selected-case gate correctly exits 1: CITM misses the floor, and this
+selection does not establish complete classic coverage. The six remaining
+corpora are still outstanding. The shared timing lock covered each batch;
+background-load and AC-power evidence accompany the samples. No GC scheduling
+flags or deeper backend/visitor probes are used in these results.
+Artifacts: `build/perf/classic-native/scoped-native-{prepared,samples,result}.json`
+and `scoped-native-paired.log`.
+
+## Guarded small-block batching candidate
+
+The next candidate acquires small raw allocator blocks in bounded batches.
+Every parsed object still receives its own managed header, zeroing and GC
+registration through the installed incremental runtime. The standard global
+allocator and reclamation path remain in use. No live result graphs are pooled.
+Batch lookup requires ample existing free capacity, never grows memory, and
+falls back to one ordinary allocation under pressure. Unassigned tails are
+returned before native heap growth. RTrace keeps the original physical-block
+allocation stream by using the ordinary path.
+
+The largest unfinished raw reservation is bounded by one batch per small size
+class (roughly 70 KiB on wasm32). Heap-inspection GC-link words are cleared in
+unassigned tails. Unsupported layouts and other runtimes keep their normal
+allocation path.
+
+Six alternating fresh-process pairs, current integrated candidate versus the
+preceding allocator specialization, AC-powered ARM64 with concurrent correctness
+compilation recorded in the sample audits:
+
+| Layout | Previous us | Integrated us | Latency change |
+| --- | ---: | ---: | ---: |
+| CITM min | 858.35 | 731.86 | -14.7% |
+| CITM pretty | 1,099.06 | 965.58 | -12.1% |
+
+Median whole-process peak RSS changes from 90.59 to 92.00 MiB. This is a matched
+exploratory screen, not isolated-host release qualification or a refreshed
+native-throughput verdict. The raw batching prototype's larger gains are not
+substituted for these guarded integration results.
+
+The dedicated stress gate passes 12 mode/strict/fast configurations with live
+graphs, multiple object sizes, native neighbors, growth, cycles and collection
+under a fixed heap limit. Paired fixed-memory controls establish individual
+fallback and required tail release. Packed consumers pass all 252 operations
+across 36 configurations; full Twitter/Canada/CITM retained-output oracles pass.
+The full 42-script transform suite passed for the batching candidate.
+
+Rejected probes: caching already-freed blocks regressed latency by 8–15% and
+increased RSS. The existing SIMD whitespace scanner regressed pretty parsing by
+about 4%. A separate bounded SWAR object-whitespace probe improved pretty CITM
+by about 9% in a matched screen. The bounded object-whitespace helper is now
+integrated: 104,432 scalar/reference and 258 memory-boundary checks pass per
+configuration across ten backend/runtime/RTrace configurations. Packed consumers
+also pass all 252 operations across 36 configurations for the combined changes.
+The combined changes pass the full 43-script transform suite.
+The native-throughput gate has not yet been refreshed for this combination.
+The earlier no-gain packed-whitespace experiment affected the
+shared array scanner, rather than this object-helper path.
+
+Evidence: `build/perf/classic-native/whitespace/integrated-batch-{samples,summary}.json`,
+`object-whitespace-{samples,summary}.json`, `pool-{samples,summary}.json`;
+`build/perf/classic-native/integrated-batch-stress.log`,
+`batched-packed-consumer.log`, `batched-preparation.log`, and
+`batched-transform-tests.log`.

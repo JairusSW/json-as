@@ -1,3 +1,5 @@
+import { allocateObject } from "./runtime";
+
 // A zero-capacity buffer has no mutable bytes. Each array still has its own
 // header and identity. The ordinary Array grow path renews this static buffer
 // into an independent heap allocation before the first element is stored.
@@ -15,7 +17,7 @@ export function newEmptyArray<T extends unknown[]>(): T {
   if (sizeof<usize>() != 4 || idof<T>() != idof<Array<valueof<T>>>()) {
     return instantiate<T>();
   }
-  const result = changetype<T>(__new(offsetof<T>(), idof<T>()));
+  const result = changetype<T>(allocateObject(offsetof<T>(), idof<T>()));
   const ptr = changetype<usize>(result);
   store<usize>(ptr, EMPTY_ARRAY_BUFFER, offsetof<ArrayBufferView>("buffer"));
   store<usize>(ptr, EMPTY_ARRAY_BUFFER, offsetof<ArrayBufferView>("dataStart"));

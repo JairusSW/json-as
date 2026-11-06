@@ -66,6 +66,7 @@ import {
   toString,
 } from "./util.js";
 import { Visitor } from "./visitor.js";
+import { specializeObjectAllocator } from "./allocation.js";
 import { generateCursorParser } from "./cursor.js";
 import { keyDispatch, KeyDispatch } from "./key-dispatch.js";
 import {
@@ -1464,7 +1465,7 @@ export class JSONTransform extends Visitor {
       return (
         `@inline __DESERIALIZE_DEFAULT(srcStart: usize, srcEnd: usize, knownMatch: bool = false): this {\n` +
         `  if (!knownMatch && !JSON.Util.matchesLiteral(srcStart, srcEnd, ${literal})) return changetype<this>(0);\n` +
-        `  return changetype<this>(__new(offsetof<this>(), idof<this>())).__INITIALIZE();\n` +
+        `  return changetype<this>(JSON.__allocateObject(offsetof<this>(), idof<this>())).__INITIALIZE();\n` +
         `}`
       );
 
@@ -1526,7 +1527,7 @@ export class JSONTransform extends Visitor {
         .replaceAll("  ", "    ")
         .replaceAll("return false;", "return changetype<this>(0);") +
       `\n  }` +
-      `\n  return changetype<this>(__new(offsetof<this>(), idof<this>())).__INITIALIZE();\n}`
+      `\n  return changetype<this>(JSON.__allocateObject(offsetof<this>(), idof<this>())).__INITIALIZE();\n}`
     );
   }
 
@@ -3722,7 +3723,7 @@ export class JSONTransform extends Visitor {
           );
           out.push(`  if (changetype<usize>(value) == 0) {`);
           out.push(
-            `    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`,
+            `    value = changetype<${resolvedType}>(JSON.__allocateObject(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`,
           );
           out.push(
             `    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
@@ -3792,7 +3793,7 @@ export class JSONTransform extends Visitor {
         );
         out.push(`  if (changetype<usize>(value) == 0) {`);
         out.push(
-          `    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`,
+          `    value = changetype<${resolvedType}>(JSON.__allocateObject(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`,
         );
         out.push(
           `    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`,
@@ -4001,7 +4002,7 @@ export class JSONTransform extends Visitor {
           );
           out.push("      if (changetype<usize>(item) == 0) {");
           out.push(
-            `        item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`,
+            `        item = changetype<${valueType}>(JSON.__allocateObject(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`,
           );
           if (this.canDeferFastDefaults(valueSchema)) {
             out.push(
@@ -4021,7 +4022,7 @@ export class JSONTransform extends Visitor {
           out.push("      }");
           out.push("    } else {");
           out.push(
-            `      item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`,
+            `      item = changetype<${valueType}>(JSON.__allocateObject(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`,
           );
           if (this.canDeferFastDefaults(valueSchema)) {
             out.push(
@@ -4776,7 +4777,7 @@ export class JSONTransform extends Visitor {
         if (this.getSchema(member.type))
           return (
             `store<${member.type}>(dst, ` +
-            `changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), ${offset});`
+            `changetype<nonnull<${member.type}>>(JSON.__allocateObject(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), ${offset});`
           );
         if (["string", "String"].includes(member.type))
           return `store<${member.type}>(dst, "", ${offset});`;
@@ -6172,7 +6173,7 @@ export class JSONTransform extends Visitor {
     const DEFAULT_OBJECT_FACTORY_METHOD = defaultObjectJSON
       ? SimpleParser.parseClassMember(
           "@inline __DESERIALIZE_DEFAULT_NEW(): this {\n" +
-            "  return changetype<this>(__new(offsetof<this>(), idof<this>())).__INITIALIZE();\n" +
+            "  return changetype<this>(JSON.__allocateObject(offsetof<this>(), idof<this>())).__INITIALIZE();\n" +
             "}",
           node,
         )
@@ -7147,6 +7148,8 @@ export default class Transformer extends Transform {
         );
       }
     }
+
+    specializeObjectAllocator(parser.sources);
 
     for (const [source, statements] of transformer.simdStatements) {
       for (const statement of statements)

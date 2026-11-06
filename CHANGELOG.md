@@ -77,6 +77,9 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Accelerate longer indentation runs with bounded four-character whitespace loads while preserving scalar behavior for mixed whitespace and range boundaries.
+- Batch small native backing-block acquisition when free capacity permits, while preserving per-object GC registration and fresh identities. Fall back under pressure and return unassigned tails before heap growth. Keep native allocation events unchanged under RTrace.
+- Specialize library-owned schema allocations with the installed incremental runtime allocator body, exposing constant sizes while retaining its GC operations. Keep application calls and other runtime allocation paths unchanged.
 - Avoid backing-buffer allocations for empty native-array fields. Preserve independent array identities, constructor behavior for subtypes, normal growth, and GC ownership across all runtimes.
 
 - Keep concrete generic built-ins such as nullable `JSON.Box<i64>` on generated fast readers instead of disabling an entire schema through an unresolved declaration lookup. Accept absent `@optional` fields in the compact tier without replaying already decoded children.

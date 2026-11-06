@@ -10,6 +10,7 @@ import { NodeKind } from "./types.js";
 import { Property, PropertyFlags, Schema, SourceSet, typeMeaningText, } from "./types.js";
 import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from "./util.js";
 import { Visitor } from "./visitor.js";
+import { specializeObjectAllocator } from "./allocation.js";
 import { generateCursorParser } from "./cursor.js";
 import { keyDispatch } from "./key-dispatch.js";
 import { parseDiagnosticsFlag, collectOriginalMethods, diagnosticsRuntimeRoot, lowerDiagnostics, } from "./diagnostics.js";
@@ -918,7 +919,7 @@ export class JSONTransform extends Visitor {
         if (defaultJSON.length > 256)
             return (`@inline __DESERIALIZE_DEFAULT(srcStart: usize, srcEnd: usize, knownMatch: bool = false): this {\n` +
                 `  if (!knownMatch && !JSON.Util.matchesLiteral(srcStart, srcEnd, ${literal})) return changetype<this>(0);\n` +
-                `  return changetype<this>(__new(offsetof<this>(), idof<this>())).__INITIALIZE();\n` +
+                `  return changetype<this>(JSON.__allocateObject(offsetof<this>(), idof<this>())).__INITIALIZE();\n` +
                 `}`);
         const bytes = [];
         for (let i = 0; i < defaultJSON.length; i++) {
@@ -961,7 +962,7 @@ export class JSONTransform extends Visitor {
                 .replaceAll("  ", "    ")
                 .replaceAll("return false;", "return changetype<this>(0);") +
             `\n  }` +
-            `\n  return changetype<this>(__new(offsetof<this>(), idof<this>())).__INITIALIZE();\n}`);
+            `\n  return changetype<this>(JSON.__allocateObject(offsetof<this>(), idof<this>())).__INITIALIZE();\n}`);
     }
     visitClassDeclaration(node) {
         if (!node.decorators?.length)
@@ -2415,7 +2416,7 @@ export class JSONTransform extends Visitor {
                     out.push("  let __initialized = false;");
                     out.push(`  let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`);
                     out.push(`  if (changetype<usize>(value) == 0) {`);
-                    out.push(`    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
+                    out.push(`    value = changetype<${resolvedType}>(JSON.__allocateObject(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push(`    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`);
                     if (this.canDeferFastDefaults(resolvedSchema)) {
@@ -2452,7 +2453,7 @@ export class JSONTransform extends Visitor {
                 out.push("  let __initialized = false;");
                 out.push(`  let value = changetype<${resolvedType}>(JSON.Util.reuseCompositeBuffer(load<usize>(${outPtr}, ${fieldOffset}), ${outPtr} + ${fieldOffset}));`);
                 out.push(`  if (changetype<usize>(value) == 0) {`);
-                out.push(`    value = changetype<${resolvedType}>(__new(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
+                out.push(`    value = changetype<${resolvedType}>(JSON.__allocateObject(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
                 out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                 out.push(`    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`);
                 out.push(`    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`);
@@ -2587,7 +2588,7 @@ export class JSONTransform extends Visitor {
                         valueType +
                         ">(JSON.Util.reuseCompositeBuffer(changetype<usize>(item), itemSlot));");
                     out.push("      if (changetype<usize>(item) == 0) {");
-                    out.push(`        item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
+                    out.push(`        item = changetype<${valueType}>(JSON.__allocateObject(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
                     if (this.canDeferFastDefaults(valueSchema)) {
                         out.push(`        memory.fill(changetype<usize>(item), 0, offsetof<nonnull<${valueType}>>());`);
                     }
@@ -2599,7 +2600,7 @@ export class JSONTransform extends Visitor {
                     out.push("        __link(changetype<usize>(value), changetype<usize>(item), false);");
                     out.push("      }");
                     out.push("    } else {");
-                    out.push(`      item = changetype<${valueType}>(__new(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
+                    out.push(`      item = changetype<${valueType}>(JSON.__allocateObject(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
                     if (this.canDeferFastDefaults(valueSchema)) {
                         out.push(`      memory.fill(changetype<usize>(item), 0, offsetof<nonnull<${valueType}>>());`);
                     }
@@ -3159,7 +3160,7 @@ export class JSONTransform extends Visitor {
                     return `store<${member.type}>(dst, null, ${offset});`;
                 if (this.getSchema(member.type))
                     return (`store<${member.type}>(dst, ` +
-                        `changetype<nonnull<${member.type}>>(__new(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), ${offset});`);
+                        `changetype<nonnull<${member.type}>>(JSON.__allocateObject(offsetof<nonnull<${member.type}>>(), idof<nonnull<${member.type}>>())).__INITIALIZE(), ${offset});`);
                 if (["string", "String"].includes(member.type))
                     return `store<${member.type}>(dst, "", ${offset});`;
                 if (member.type.endsWith("[]")) {
@@ -4206,7 +4207,7 @@ export class JSONTransform extends Visitor {
             : null;
         const DEFAULT_OBJECT_FACTORY_METHOD = defaultObjectJSON
             ? SimpleParser.parseClassMember("@inline __DESERIALIZE_DEFAULT_NEW(): this {\n" +
-                "  return changetype<this>(__new(offsetof<this>(), idof<this>())).__INITIALIZE();\n" +
+                "  return changetype<this>(JSON.__allocateObject(offsetof<this>(), idof<this>())).__INITIALIZE();\n" +
                 "}", node)
             : null;
         if (STRICT) {
@@ -4829,6 +4830,7 @@ export default class Transformer extends Transform {
                 writeFileSync(path.join(process.cwd(), this.baseDir, removeExtension(source.normalizedPath) + ".tmp.ts"), toString(source));
             }
         }
+        specializeObjectAllocator(parser.sources);
         for (const [source, statements] of transformer.simdStatements) {
             for (const statement of statements)
                 source.statements.unshift(SimpleParser.parseTopLevelStatement(statement));

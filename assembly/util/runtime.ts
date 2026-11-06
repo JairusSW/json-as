@@ -15,3 +15,92 @@ export function allocateUninitialized(size: usize, id: u32): usize {
   if (isDefined(__newUninitialized)) return __newUninitialized(size, id);
   return __new(size, id);
 }
+
+// The transform specializes this library-owned allocation entry without
+// rewriting application calls or changing the allocator's GC semantics.
+@inline
+export function allocateObject(size: usize, id: u32): usize {
+  return __new(size, id);
+}
+
+// One unfinished batch per native small-block size. Each returned piece gets
+// its own ordinary managed header and is reclaimed by the standard runtime.
+// The unassigned tails remain raw allocator storage, not managed objects.
+// @ts-expect-error: @lazy is a valid decorator
+@lazy const SMALL_BLOCK_HEADS: usize = memory.data(9 * sizeof<usize>(), 16);
+
+/** Internal backing allocator used only by the transformed incremental entry. */
+@inline
+export function allocateSmallBlock(size: usize): usize {
+  // Preserve the native physical-block event stream when RTrace is enabled.
+  if (sizeof<usize>() == 4 && !isDefined(ASC_RTRACE) && size <= 124) {
+    const payload =
+      ((size + runtime.BLOCK_OVERHEAD + runtime.AL_MASK) & ~runtime.AL_MASK) -
+      runtime.BLOCK_OVERHEAD;
+    const span = payload + runtime.BLOCK_OVERHEAD;
+    const slot =
+      SMALL_BLOCK_HEADS + ((span >> runtime.AL_BITS) << alignof<usize>());
+    let ptr = load<usize>(slot);
+    if (!ptr) {
+      // Never grow memory to obtain a batch. Under pressure, an individual
+      // allocation can still fit where the larger reservation would fail.
+      ptr = trySmallBatch(span * 128 - runtime.BLOCK_OVERHEAD);
+      if (!ptr) return __alloc(size);
+    }
+    const block = changetype<runtime.BLOCK>(ptr - runtime.BLOCK_OVERHEAD);
+    const info = block.mmInfo;
+    const remaining = (info & ~3) - payload;
+    if (remaining >= 16) {
+      const spare = ptr + payload;
+      // Both pieces stay allocator-used. Preserve the native LEFTFREE tag;
+      // the preceding assigned piece can have been collected between calls.
+      block.mmInfo = payload | (info & 2);
+      changetype<runtime.BLOCK>(spare).mmInfo =
+        remaining - runtime.BLOCK_OVERHEAD;
+      // Distinguish the raw tail from a managed object in native heap walks.
+      store<u64>(spare + runtime.BLOCK_OVERHEAD, 0);
+      store<usize>(slot, spare + runtime.BLOCK_OVERHEAD);
+    } else {
+      store<usize>(slot, 0);
+    }
+    return ptr;
+  }
+  return __alloc(size);
+}
+
+// Rebound to a stock TLSF free-list lookup by the transform when available.
+// Unsupported runtimes keep the regular per-object allocation fallback.
+@inline
+function trySmallBatch(_size: usize): usize {
+  return 0;
+}
+
+/** Return unassigned pieces before the native allocator grows the heap. */
+@inline
+export function releaseSmallBatches(): bool {
+  if (sizeof<usize>() != 4 || isDefined(ASC_RTRACE)) return false;
+  let released = false;
+  for (let index: usize = 1; index <= 8; index++) {
+    const slot = SMALL_BLOCK_HEADS + (index << alignof<usize>());
+    const ptr = load<usize>(slot);
+    if (ptr) {
+      store<usize>(slot, 0);
+      __free(ptr);
+      released = true;
+    }
+  }
+  return released;
+}
+
+/** Physical bytes still reserved in unfinished native small-block batches. */
+export function smallBatchReservedBytes(): usize {
+  let total: usize = 0;
+  for (let index: usize = 1; index <= 8; index++) {
+    const ptr = load<usize>(SMALL_BLOCK_HEADS + (index << alignof<usize>()));
+    if (ptr)
+      total +=
+        (load<usize>(ptr - runtime.BLOCK_OVERHEAD) & ~3) +
+        runtime.BLOCK_OVERHEAD;
+  }
+  return total;
+}

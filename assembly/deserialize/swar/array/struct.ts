@@ -1,3 +1,4 @@
+import { allocateObject } from "../../../util/runtime";
 import { reuseComposite, hasCompositeReuseScope } from "../../parseMode";
 import {
   BRACE_LEFT,
@@ -136,7 +137,7 @@ export function deserializeStructArrayBody<T>(
         let initialized = false;
         if (changetype<usize>(value) == 0) {
           value = changetype<valueof<T>>(
-            __new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
+            allocateObject(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
           );
           // @ts-ignore: supplied by transform
           if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {

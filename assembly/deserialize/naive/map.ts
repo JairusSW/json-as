@@ -1,3 +1,4 @@
+import { allocateObject } from "../../util/runtime";
 import { NativeMap } from "../../util/native-collections";
 import { HASH } from "util/hash";
 import { reuseComposite } from "../parseMode";
@@ -738,7 +739,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
         let initialized = false;
         if (changetype<usize>(value) == 0) {
           value = changetype<valueof<T>>(
-            __new(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
+            allocateObject(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
           );
           // @ts-ignore: supplied by the json-as transform
           if (isDefined(valueType.__INITIALIZE)) {
