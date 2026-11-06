@@ -805,6 +805,15 @@ export class JSONTransform extends Visitor {
         }
         return false;
     }
+    hasCustomParseLifecycle(schema, seen = new Set()) {
+        if (seen.has(schema))
+            return false;
+        seen.add(schema);
+        return (schema.hasCustomReaderLifecycle ||
+            this.hasCustomCursorLifecycle(schema) ||
+            (!!schema.parent && this.hasCustomParseLifecycle(schema.parent, seen)) ||
+            schema.deps.some((dep) => dep && this.hasCustomParseLifecycle(dep, seen)));
+    }
     getDefaultElementType(type) {
         const value = stripNull(type).trim();
         if (value.startsWith("Array<") && value.endsWith(">"))
@@ -1159,6 +1168,7 @@ export class JSONTransform extends Visitor {
             "__INITIALIZE_DEFAULT_FRESH",
             "__FINALIZE_CURSOR",
         ].includes(member.name.text));
+        schema.hasCustomReaderLifecycle = node.members.some((member) => member.name.text.startsWith("__DESERIALIZE"));
         if (node.extendsType) {
             this.collectInheritedFieldMembers(node, source, members);
             const extendsName = source.resolveExtendsName(node);
@@ -4201,7 +4211,9 @@ export class JSONTransform extends Visitor {
         const FULL_WRITE_METHOD = useFastPath && !supportsFastOptionalPath
             ? SimpleParser.parseClassMember(`__DESERIALIZE_FULL_WRITE(): u32 { return idof<${node.name.text}>(); }`, node)
             : null;
-        const DEFER_DEFAULTS_METHOD = schema.generatedFastReader && this.canDeferFastDefaults(schema)
+        const DEFER_DEFAULTS_METHOD = schema.generatedFastReader &&
+            !this.hasCustomParseLifecycle(schema) &&
+            this.canDeferFastDefaults(schema)
             ? SimpleParser.parseClassMember(`__DESERIALIZE_DEFER_DEFAULTS(): u32 { return idof<${node.name.text}>(); }`, node)
             : null;
         const defaultObjectJSON = USE_DEFAULT_OBJECT_SPECIALIZATION &&

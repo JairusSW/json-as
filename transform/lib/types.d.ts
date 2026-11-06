@@ -64,6 +64,7 @@ export declare class Schema {
     get customReader(): boolean;
     get customWriter(): boolean;
     hasCustomCursorLifecycle: boolean;
+    hasCustomReaderLifecycle: boolean;
     hasInternalInitializers: boolean;
     hasInitializerEffects: boolean;
     private _custom;

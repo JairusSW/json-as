@@ -145,6 +145,7 @@ export class Schema {
     return this.ownCustomWriter || !!this.parent?.customWriter;
   }
   public hasCustomCursorLifecycle: boolean = false;
+  public hasCustomReaderLifecycle: boolean = false;
   public hasInternalInitializers: boolean = false;
   public hasInitializerEffects: boolean = false;
   private _custom: boolean = false;

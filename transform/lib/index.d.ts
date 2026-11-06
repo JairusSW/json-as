@@ -45,6 +45,7 @@ export declare class JSONTransform extends Visitor {
     private canDeferFastDefaults;
     private hasCustomCursorInitializer;
     private hasCustomCursorLifecycle;
+    private hasCustomParseLifecycle;
     private getDefaultElementType;
     private getDefaultExpressionJSON;
     private getImplicitDefaultJSON;

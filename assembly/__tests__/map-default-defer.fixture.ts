@@ -32,6 +32,21 @@ class Shared {
   @optional tail: i32 = 0;
 }
 
+let readerState: i32 = 0;
+@json
+class Manual {
+  n: i32 = 0;
+  __DESERIALIZE_FAST<T>(start: usize, end: usize, out: T, reset: bool): usize {
+    readerState++;
+    return 0;
+  }
+}
+@json
+class ObservedDefault {
+  @optional saved: i32 = readerState;
+  @optional child: Manual | null = null;
+}
+
 namespace Model {
   @json
   export class Named {
@@ -85,6 +100,12 @@ export function verify(): i32 {
   assert(sharing.get("x").child === shared);
   const named = JSON.parse<Map<string, Model.Named>>('{"x":{"tail":9}}', new Map<string, Model.Named>());
   assert(named.get("x").value == 13);
+  readerState = 0;
+  const observed = JSON.parse<Map<string, ObservedDefault>>(
+    '{"x":{"child":{"n":7}}}', new Map<string, ObservedDefault>(),
+  );
+  assert(readerState == 1 && observed.get("x").saved == 0);
+  assert(observed.get("x").child!.n == 7);
   __collect();
   assert(kept!.get("x").n == 9 && kept!.get("x").text == "new");
   return 1;

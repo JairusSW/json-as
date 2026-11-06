@@ -1295,6 +1295,20 @@ export class JSONTransform extends Visitor {
     return false;
   }
 
+  private hasCustomParseLifecycle(
+    schema: Schema,
+    seen = new Set<Schema>(),
+  ): boolean {
+    if (seen.has(schema)) return false;
+    seen.add(schema);
+    return (
+      schema.hasCustomReaderLifecycle ||
+      this.hasCustomCursorLifecycle(schema) ||
+      (!!schema.parent && this.hasCustomParseLifecycle(schema.parent, seen)) ||
+      schema.deps.some((dep) => dep && this.hasCustomParseLifecycle(dep, seen))
+    );
+  }
+
   /** Extract the element type from the normalized collection spellings we emit. */
   private getDefaultElementType(type: string): string | null {
     const value = stripNull(type).trim();
@@ -1902,6 +1916,9 @@ export class JSONTransform extends Visitor {
         "__INITIALIZE_DEFAULT_FRESH",
         "__FINALIZE_CURSOR",
       ].includes(member.name.text),
+    );
+    schema.hasCustomReaderLifecycle = node.members.some((member) =>
+      member.name.text.startsWith("__DESERIALIZE"),
     );
 
     if (node.extendsType) {
@@ -6170,7 +6187,9 @@ export class JSONTransform extends Visitor {
     // value, just as generated child readers do. Keep the certificate tied to
     // this exact declaration so an ineligible descendant cannot inherit it.
     const DEFER_DEFAULTS_METHOD =
-      schema.generatedFastReader && this.canDeferFastDefaults(schema)
+      schema.generatedFastReader &&
+      !this.hasCustomParseLifecycle(schema) &&
+      this.canDeferFastDefaults(schema)
         ? SimpleParser.parseClassMember(
             `__DESERIALIZE_DEFER_DEFAULTS(): u32 { return idof<${node.name.text}>(); }`,
             node,

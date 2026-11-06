@@ -563,3 +563,15 @@ and `whitespace/citm-map-defer-{samples,summary}.json`.
 
 Measured Map-deferral source fingerprint:
 `9fc7ad34e56c65bbe41ba3835516ecb3d204001fc7b09a9b556d709a1bbc6ca8`.
+
+The fresh-Map certificate additionally excludes manual parse entry points and
+cursor lifecycle hooks anywhere in the parent/dependency graph. A targeted
+regression first fails: a manual child FAST reader increments shared state,
+and a previously initialized `saved = state` default changes from 0 to 1 when
+deferred. With the graph guard, eager and optimized results both preserve 0.
+The regression is included in the 18-configuration Map fixture. The guard does
+not disable manual readers or change their calls; it only denies default
+deferral around them. All nine classic benchmark binaries remain identical.
+The expanded 18-configuration test, all 47 transform scripts and 252 packed
+consumer operations pass with this dependency guard. A fresh rebuild verifies
+all nine classic binaries are byte-for-byte unchanged by the guard.

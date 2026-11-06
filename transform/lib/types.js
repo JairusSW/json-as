@@ -92,6 +92,7 @@ export class Schema {
         return this.ownCustomWriter || !!this.parent?.customWriter;
     }
     hasCustomCursorLifecycle = false;
+    hasCustomReaderLifecycle = false;
     hasInternalInitializers = false;
     hasInitializerEffects = false;
     _custom = false;
