@@ -152,10 +152,21 @@ function deserializeEscapedStringField_NAIVE(
     }
 
     if (block != BACK_SLASH) {
+      if (block < 0x20) {
+        bs.offset = bs.buffer;
+        markProductionParseError();
+        return 0;
+      }
       store<u16>(bs.offset, block);
       bs.offset += 2;
       srcStart += 2;
       continue;
+    }
+
+    if (!isValidStringEscape(srcStart, srcEnd)) {
+      bs.offset = bs.buffer;
+      markProductionParseError();
+      return 0;
     }
 
     const code = load<u16>(srcStart, 2);
@@ -171,6 +182,7 @@ function deserializeEscapedStringField_NAIVE(
     bs.offset += 2;
   }
 
+  bs.offset = bs.buffer;
   markProductionParseError();
   return 0;
 }
