@@ -473,3 +473,39 @@ The full 45-script `npm run test:transform` command also passes on the integrate
 separator source, including the final 960-check capability matrix.
 Measured source fingerprint:
 `deb610dccb019d91e6c6c0bb84b45339f40774574f3bea953eb089a1acd152ba`.
+
+## Library-owned write-barrier integration
+
+Generated reader stores and manual publication sites in the library now use
+`linkObject`. The transform creates a private inline copy of the installed
+incremental runtime barrier and binds only this helper to it. The original
+global entry and application calls retain their original code. The recognized
+stock body checks the parent color first; black-to-white and pinned-parent
+marking actions remain equivalent. An unrecognized body is copied unchanged,
+and other runtimes retain the normal helper fallback. No source-wide rewriting
+of user expressions is involved. Unit checks cover selection, unknown-body and
+runtime fallbacks, alias collisions, idempotence, and unchanged global/application
+calls. The integrated CITM Wasm is identical to the parent-first prototype.
+
+The integrated five-pair owning-native screen reports Twitter at 124.9%
+minified / 104.2% pretty, Canada at 76.5% / 77.0%, and CITM at 57.7% / 57.0%.
+CITM takes 625.30 / 766.66 us versus native 361.06 / 437.04 us. The selected
+60% gate still fails; this does not qualify the complete classic stage.
+Full retained-output oracles and 252 packed-consumer operations pass.
+
+A second six-pair comparison restores the stock barrier on otherwise matching
+sources. CITM improves in every pair for both layouts: median latency falls
+6.5% minified and 4.6% pretty, with 2.77 MiB higher peak RSS. Canada is roughly
+flat to 1% better, with 0.85 MiB higher RSS; it does not reproduce a consistent
+regression. Both controls retain the owning output. These AC-powered local ARM64
+runs use the shared timing lock; concurrent correctness work is recorded in the
+audits. They are screens, not isolated release qualification.
+
+Evidence: `build/perf/classic-native/owned-barrier-native-{prepared,samples,result}.json`,
+`owned-barrier-native-paired.log`, `owned-barrier-transform/results.json`,
+`owned-barrier-packed.log`, `canada-stock-link-oracle.log`, and
+`whitespace/owned-controls-{samples,summary}.json`.
+
+All 46 transform scripts pass on the integrated helper, including the final
+960-check capability matrix. Measured production fingerprint:
+`bfbf20053d9daba1cc56f50873737532cb7c82b1c9406f95a152e0a0682f4bdd`.

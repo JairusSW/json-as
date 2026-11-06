@@ -1,4 +1,4 @@
-import { allocateObject } from "../../util/runtime";
+import { allocateObject, linkObject } from "../../util/runtime";
 import { NativeMap } from "../../util/native-collections";
 import { HASH } from "util/hash";
 import { reuseComposite } from "../parseMode";
@@ -197,7 +197,7 @@ function setFreshMapValuePrehashed<T extends Map<any, any>>(
         offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value"),
       );
       if (isManaged<valueof<T>>())
-        __link(mapPtr, changetype<usize>(value), true);
+        linkObject(mapPtr, changetype<usize>(value), true);
       return true;
     }
     entry = taggedNext & ~(<usize>1);
@@ -223,13 +223,13 @@ function setFreshMapValuePrehashed<T extends Map<any, any>>(
     key,
     offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("key"),
   );
-  if (isManaged<indexof<T>>()) __link(mapPtr, changetype<usize>(key), true);
+  if (isManaged<indexof<T>>()) linkObject(mapPtr, changetype<usize>(key), true);
   store<valueof<T>>(
     entry,
     value,
     offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value"),
   );
-  if (isManaged<valueof<T>>()) __link(mapPtr, changetype<usize>(value), true);
+  if (isManaged<valueof<T>>()) linkObject(mapPtr, changetype<usize>(value), true);
   store<usize>(
     entry,
     load<usize>(bucketPtr),

@@ -1,3 +1,4 @@
+import { linkObject } from "../util/runtime";
 let SIMD_PRETTY_PARSE = false;
 const ENABLE_EXACT_SOURCE_TRACES = true;
 // The generated cursor path builds a new, unpublished object graph entirely
@@ -25,7 +26,7 @@ export function cursorLink(
   child: usize,
   expectMultiple: bool = false,
 ): void {
-  if (CURSOR_FRESH_GRAPH_DEPTH == 0) __link(parent, child, expectMultiple);
+  if (CURSOR_FRESH_GRAPH_DEPTH == 0) linkObject(parent, child, expectMultiple);
 }
 
 // Steady-state SIMD string-field trace. JSON source strings and parsed field

@@ -1,3 +1,4 @@
+import { linkObject } from "../../util/runtime";
 // SWAR-mode TypedArray / ArrayBuffer deserializer.
 //
 // The naive variant in `../naive/typedarray.ts` does two scalar passes
@@ -205,7 +206,7 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
       i32(actualBytes),
       offsetof<ArrayBufferView>("byteLength"),
     );
-    __link(changetype<usize>(out), newBuffer, false);
+    linkObject(changetype<usize>(out), newBuffer, false);
   }
 
   return out;

@@ -1,3 +1,4 @@
+import { linkObject } from "../../../util/runtime";
 import { newNativeArray } from "../../../util/nativeArray";
 import { reuseComposite } from "../../parseMode";
 import { JSON } from "../../..";
@@ -64,7 +65,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           if (!reuseComposite(changetype<usize>(value), slot)) {
             value = newNativeArray<valueof<T>>();
             store<valueof<T>>(slot, value);
-            __link(changetype<usize>(out), changetype<usize>(value), false);
+            linkObject(changetype<usize>(out), changetype<usize>(value), false);
           }
         } else {
           value = changetype<valueof<T>>(newNativeArray<valueof<T>>());
@@ -86,7 +87,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           if (!reuseComposite(changetype<usize>(value), slot)) {
             value = newNativeArray<valueof<T>>();
             store<valueof<T>>(slot, value);
-            __link(changetype<usize>(out), changetype<usize>(value), false);
+            linkObject(changetype<usize>(out), changetype<usize>(value), false);
           }
         } else {
           value = changetype<valueof<T>>(newNativeArray<valueof<T>>());

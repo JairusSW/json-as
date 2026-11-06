@@ -11,6 +11,7 @@ import { Property, PropertyFlags, Schema, SourceSet, typeMeaningText, } from "./
 import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from "./util.js";
 import { Visitor } from "./visitor.js";
 import { specializeObjectAllocator } from "./allocation.js";
+import { specializeObjectBarrier } from "./barrier.js";
 import { generateCursorParser } from "./cursor.js";
 import { keyDispatch } from "./key-dispatch.js";
 import { parseDiagnosticsFlag, collectOriginalMethods, diagnosticsRuntimeRoot, lowerDiagnostics, } from "./diagnostics.js";
@@ -2424,7 +2425,7 @@ export class JSONTransform extends Visitor {
                     out.push(`  if (changetype<usize>(value) == 0) {`);
                     out.push(`    value = changetype<${resolvedType}>(JSON.__allocateObject(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
-                    out.push(`    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`);
+                    out.push(`    if (isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`);
                     if (this.canDeferFastDefaults(resolvedSchema)) {
                         out.push(`    memory.fill(changetype<usize>(value), 0, offsetof<nonnull<${resolvedType}>>());`);
                     }
@@ -2461,7 +2462,7 @@ export class JSONTransform extends Visitor {
                 out.push(`  if (changetype<usize>(value) == 0) {`);
                 out.push(`    value = changetype<${resolvedType}>(JSON.__allocateObject(offsetof<nonnull<${resolvedType}>>(), idof<nonnull<${resolvedType}>>()));`);
                 out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
-                out.push(`    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`);
+                out.push(`    if (isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`);
                 out.push(`    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`);
                 out.push("    __initialized = true;");
                 out.push("  }");
@@ -2498,7 +2499,7 @@ export class JSONTransform extends Visitor {
                     out.push("  if (changetype<usize>(value) == 0) {");
                     out.push(`    value = JSON.__newArray<nonnull<${resolvedType}>>();`);
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
-                    out.push(`    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`);
+                    out.push(`    if (isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`);
                     out.push("  }");
                     out.push("  let index = 0;");
                     out.push("  const reusableLength = value.length;");
@@ -2556,7 +2557,7 @@ export class JSONTransform extends Visitor {
                     out.push("  if (changetype<usize>(value) == 0) {");
                     out.push(`    value = JSON.__newArray<nonnull<${resolvedType}>>();`);
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
-                    out.push(`    if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`);
+                    out.push(`    if (isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`);
                     out.push("  }");
                     out.push("  let index = 0;");
                     out.push("  const reusableLength = value.length;");
@@ -2603,7 +2604,7 @@ export class JSONTransform extends Visitor {
                         out.push("        __itemInitialized = true;");
                     }
                     out.push(`        store<${valueType}>(itemSlot, item);`);
-                    out.push("        __link(changetype<usize>(value), changetype<usize>(item), false);");
+                    out.push("        JSON.__linkObject(changetype<usize>(value), changetype<usize>(item), false);");
                     out.push("      }");
                     out.push("    } else {");
                     out.push(`      item = changetype<${valueType}>(JSON.__allocateObject(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
@@ -2653,7 +2654,7 @@ export class JSONTransform extends Visitor {
                     out.push("    if (changetype<usize>(value) == 0) {");
                     out.push(`      value = JSON.__emptyArray<nonnull<${resolvedType}>>();`);
                     out.push(`      store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
-                    out.push(`      if (isManaged<${resolvedType}>()) __link(${outPtr}, changetype<usize>(value), false);`);
+                    out.push(`      if (isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`);
                     out.push("    } else if (value.length != 0) {");
                     out.push("      value.length = 0;");
                     out.push("    }");
@@ -2705,7 +2706,7 @@ export class JSONTransform extends Visitor {
             if (!member.flags.has(PropertyFlags.Lazy) &&
                 !isString(stripNull(type)) &&
                 (!schema || schema.customReader)) {
-                body.push(`if (isManaged<${member.type}>()) __link(${outPtr}, load<usize>(${outPtr}, offsetof<this>(${JSON.stringify(member.name)})), false);`);
+                body.push(`if (isManaged<${member.type}>()) JSON.__linkObject(${outPtr}, load<usize>(${outPtr}, offsetof<this>(${JSON.stringify(member.name)})), false);`);
             }
             return body;
         };
@@ -2735,14 +2736,14 @@ export class JSONTransform extends Visitor {
             let body = initializationFragments.get(member)?.trim()
                 ? `changetype<this>(${destination}).__JSON_INITIALIZE_FIELD_${member.name}();`
                 : `store<${member.type}>(${destination}, JSON.__zero<${member.type}>(), ${offset});`;
-            body += ` if (isManaged<${member.type}>()) __link(${destination}, load<usize>(${destination}, ${offset}), false);`;
+            body += ` if (isManaged<${member.type}>()) JSON.__linkObject(${destination}, load<usize>(${destination}, ${offset}), false);`;
             if (member.flags.has(PropertyFlags.Lazy) && !member.lazyPacked) {
                 const backing = member.name.slice(0, -3) + "_val";
                 if (!__lazyValInits.has(member.name)) {
                     const type = this.lazyMetadata.get(member.node)?.valueType || member.lazyInner;
                     body += ` store<${type}>(${destination}, JSON.__zero<${type}>(), offsetof<this>(${JSON.stringify(backing)}));`;
                 }
-                body += ` if (isManaged<${member.lazyInner}>()) __link(${destination}, load<usize>(${destination}, offsetof<this>(${JSON.stringify(backing)})), false);`;
+                body += ` if (isManaged<${member.lazyInner}>()) JSON.__linkObject(${destination}, load<usize>(${destination}, offsetof<this>(${JSON.stringify(backing)})), false);`;
             }
             return `{ ${body} }`;
         };
@@ -4844,6 +4845,7 @@ export default class Transformer extends Transform {
             }
         }
         specializeObjectAllocator(parser.sources);
+        specializeObjectBarrier(parser.sources);
         for (const [source, statements] of transformer.simdStatements) {
             for (const statement of statements)
                 source.statements.unshift(SimpleParser.parseTopLevelStatement(statement));

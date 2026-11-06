@@ -1,4 +1,4 @@
-import { allocateObject } from "./runtime";
+import { allocateObject, linkObject } from "./runtime";
 
 /** Ordinary zero-length Array construction, specialized for its native layout. */
 @inline
@@ -23,7 +23,7 @@ export function newNativeArray<T>(): T {
       store<usize>(ptr, data, offsetof<ArrayBufferView>("dataStart"));
       store<i32>(ptr, <i32>bytes, offsetof<ArrayBufferView>("byteLength"));
       store<i32>(ptr, 0, offsetof<nonnull<T>>("length_"));
-      __link(ptr, data, false);
+      linkObject(ptr, data, false);
       return changetype<T>(out);
     }
   }
@@ -46,7 +46,7 @@ export function appendNativeArray<T extends unknown[]>(
   if (<u32>index < capacity) {
     const data = load<usize>(ptr, offsetof<ArrayBufferView>("dataStart"));
     store<valueof<T>>(data + ((<usize>index) << shift), item);
-    if (isManaged<valueof<T>>()) __link(ptr, changetype<usize>(item), true);
+    if (isManaged<valueof<T>>()) linkObject(ptr, changetype<usize>(item), true);
     store<i32>(ptr, index + 1, offsetof<Array<valueof<T>>>("length_"));
   } else {
     // The ordinary base setter retains growth, overflow checks, zeroing and

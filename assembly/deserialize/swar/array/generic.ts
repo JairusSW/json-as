@@ -1,3 +1,4 @@
+import { linkObject } from "../../../util/runtime";
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import {
@@ -42,7 +43,7 @@ export function deserializeGenericArrayBody<T extends unknown[]>(
     const value = JSON.__deserializeValue<valueof<T>>(srcStart, valueEnd);
     store<valueof<T>>(slot, value);
     if (isManaged<valueof<T>>())
-      __link(changetype<usize>(out), changetype<usize>(value), false);
+      linkObject(changetype<usize>(out), changetype<usize>(value), false);
     srcStart = valueEnd;
 
     srcStart = skipWhitespace(srcStart, srcEnd);

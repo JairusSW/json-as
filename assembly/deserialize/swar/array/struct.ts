@@ -1,5 +1,5 @@
 import { newNativeArray } from "../../../util/nativeArray";
-import { allocateObject } from "../../../util/runtime";
+import { allocateObject, linkObject } from "../../../util/runtime";
 import { reuseComposite, hasCompositeReuseScope } from "../../parseMode";
 import {
   BRACE_LEFT,
@@ -147,7 +147,7 @@ export function deserializeStructArrayBody<T>(
             initialized = true;
           }
           store<valueof<T>>(slot, value);
-          __link(changetype<usize>(out), changetype<usize>(value), false);
+          linkObject(changetype<usize>(out), changetype<usize>(value), false);
         }
 
         const valueStart = srcStart;

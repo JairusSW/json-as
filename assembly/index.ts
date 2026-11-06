@@ -23,7 +23,7 @@ import {
 } from "./deserialize/cursor";
 
 import { OBJECT, OBJECT_MAXSIZE, TOTAL_OVERHEAD } from "rt/common";
-import { STRING_SIZE_MASK, allocateObject } from "./util/runtime";
+import { STRING_SIZE_MASK, allocateObject, linkObject } from "./util/runtime";
 import {
   serializeArray,
   serializeArrayPointer,
@@ -1336,7 +1336,7 @@ export namespace JSON {
           ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
             (w & VAL_BOX64) != 0)
         ) {
-          __link(changetype<usize>(this), valPtr(w), false);
+          linkObject(changetype<usize>(this), valPtr(w), false);
         }
       }
     }
@@ -1509,7 +1509,7 @@ export namespace JSON {
         allocateObject(offsetof<JSON.Value>(), idof<JSON.Value>()),
       );
       out.bits = w;
-      if (root) __link(changetype<usize>(out), changetype<usize>(root), false);
+      if (root) linkObject(changetype<usize>(out), changetype<usize>(root), false);
       return out;
     }
     /** Concrete NaN-boxed bits for a value of type T (materializing if lazy). */
@@ -2060,7 +2060,7 @@ export namespace JSON {
             ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
               bits & VAL_BOX64))
         ) {
-          __link(
+          linkObject(
             changetype<usize>(this),
             root ? changetype<usize>(root) : valPtr(bits),
             false,
@@ -2646,7 +2646,7 @@ export namespace JSON {
             ((tag == JSON.Types.U64 || tag == JSON.Types.I64) &&
               bits & VAL_BOX64))
         ) {
-          __link(
+          linkObject(
             changetype<usize>(this),
             root ? changetype<usize>(root) : valPtr(bits),
             false,
@@ -3566,6 +3566,12 @@ export namespace JSON {
   @inline
   function __allocateObject(size: usize, id: u32): usize {
     return allocateObject(size, id);
+  }
+
+  /** Internal publication entry for generated readers. */
+  @inline
+  function __linkObject(parent: usize, child: usize, expectMultiple: bool = false): void {
+    linkObject(parent, child, expectMultiple);
   }
 
   /** Internal constructor for generated nonempty native-array readers. */

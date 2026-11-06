@@ -1,3 +1,4 @@
+import { linkObject } from "../../../util/runtime";
 import { scanJSONString } from "../../../util/validateJson";
 import { isSpace } from "../../../util";
 import { NULL_WORD_U64 } from "../../../custom/chars";
@@ -57,7 +58,7 @@ export function deserializeStaticArrayString<T extends StaticArray<any>>(
     } else {
       cursor = deserializeStringField_SWAR<valueof<T>>(cursor, last, slot);
       if (!cursor) return fail<T>();
-      __link(changetype<usize>(out), load<usize>(slot), false);
+      linkObject(changetype<usize>(out), load<usize>(slot), false);
     }
     while (cursor < last && isSpace(load<u16>(cursor))) cursor += 2;
     if (index + 1 < length) cursor += 2; // Commas were checked in the first pass.

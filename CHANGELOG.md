@@ -77,6 +77,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Inline library-owned GC publication in generated readers and container construction, retaining the installed runtime's marking behavior and fallback paths.
 - Match the common colon-space separator directly in generated whitespace readers, retaining general whitespace handling and bounded reads.
 - Keep in-capacity native-array appends local to generated readers, preserving ordinary growth and GC barriers and bypassing subclass mutation hooks consistently.
 - Extend the library-owned small-block allocation path to decoded strings across all three backends.

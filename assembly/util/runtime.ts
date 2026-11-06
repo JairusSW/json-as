@@ -23,6 +23,13 @@ export function allocateObject(size: usize, id: u32): usize {
   return __new(size, id);
 }
 
+// Library-owned pointer publication. Other runtimes retain their own barrier;
+// the transform can inline the installed incremental implementation here.
+@inline
+export function linkObject(parent: usize, child: usize, expectMultiple: bool = false): void {
+  __link(parent, child, expectMultiple);
+}
+
 // One unfinished batch per native small-block size. Each returned piece gets
 // its own ordinary managed header and is reclaimed by the standard runtime.
 // The unassigned tails remain raw allocator storage, not managed objects.
