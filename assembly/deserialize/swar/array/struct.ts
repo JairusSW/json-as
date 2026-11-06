@@ -140,8 +140,20 @@ export function deserializeStructArrayBody<T>(
           value = changetype<valueof<T>>(
             allocateObject(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
           );
+          // Use the same exact-type certificate as Map values. The generated
+          // reader restores omitted defaults on success; a slow retry below
+          // initializes normally. Never defer defaults for reused rows.
           // @ts-ignore: supplied by transform
-          if (isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE)) {
+          if (
+            isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE) &&
+            !(
+              isDefined(
+                changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_DEFER_DEFAULTS,
+              ) &&
+              changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_DEFER_DEFAULTS() ==
+                idof<nonnull<valueof<T>>>()
+            )
+          ) {
             // @ts-ignore: supplied by transform
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
             initialized = true;

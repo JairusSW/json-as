@@ -575,3 +575,49 @@ deferral around them. All nine classic benchmark binaries remain identical.
 The expanded 18-configuration test, all 47 transform scripts and 252 packed
 consumer operations pass with this dependency guard. A fresh rebuild verifies
 all nine classic binaries are byte-for-byte unchanged by the guard.
+
+## Complete sweep after Map deferral
+
+The complete nine-corpus / sixteen-layout five-pair gate does not pass 60%.
+It also catches a Lottie pretty floor regression (48.6%, versus 51.6% in the
+previous complete sweep). Current fractions, minified / pretty:
+Twitter 125.8% / 100.7%; Canada 74.4% / 75.5%; CITM 61.4% / 58.5%;
+Poet 136.4% / 129.2%; GitHub Events 54.0% / 51.3%; GSOC 99.8% / 95.5%;
+Lottie 58.2% / 48.6%; OTFCC 57.3% minified; FGO 60.6% minified.
+
+The earlier 50% milestone remains evidence for its pinned source, not proof that
+this newer source retains that floor. Restore Lottie before accepting another
+stage. The native binaries and V8 version (15.2.20) match the earlier sweep;
+same-source stock/scoped barrier comparisons are retained to isolate recent
+changes from run-to-run host variation. Evidence:
+`build/perf/classic-native/map-hook-fix-all-60-{prepared,samples,result}.json`
+and `map-hook-fix-all-60-paired.log`.
+
+
+## Matched baseline and prepared optimization screens
+
+Six alternating process pairs compare the pinned first-50%-passing source
+(`48d63586`) with `52786767`, using the same current harness, inputs and V8.
+Both pinned retained-graph oracles pass. Lottie latency is 299.645 / 577.145 us
+at the baseline versus 303.800 / 581.100 us at current (minified / pretty).
+GitHub is 73.680 / 81.560 versus 75.675 / 81.895 us. These same-batch controls
+show a smaller source regression than comparing absolute latencies across the
+older and newer complete sweeps. They do not restore the current 50% gate.
+Evidence: `build/perf/classic-native/whitespace/pinned-regression-controls-{samples,summary}.json`.
+
+A second six-pair screen changes one mechanism per corpus. Bounded whitespace
+prefix consumption reduces Lottie medians from 305.055 / 588.205 to
+297.110 / 572.615 us (2.6% lower latency in each layout); all six individual
+pairs improve. It consumes the leading UTF-16 spaces from the already loaded
+word instead of repeating overlapping wide probes. Exhaustive code-unit,
+mixed-run, reversed/odd-bound and physical-end scanner checks pass in ten
+runtime/backend configurations without allocations; retained Lottie graphs pass.
+
+Deferring safe fresh array-row defaults, using the existing exact-type Map
+certificate, reduces GitHub medians from 75.430 / 80.420 to 64.995 / 71.845 us
+(13.8% / 10.7% lower latency); all six pairs improve. Retained GitHub graphs pass.
+These are optimization screens, not a newly qualified all-corpus threshold.
+Both screens use the shared ARM64 timing lock, AC power, and preserve process
+audits; background VM activity was present. Evidence:
+`build/perf/classic-native/whitespace/prepared-optimization-controls-{samples,summary}.json`
+and `prepared-optimization-controls-paired.log`.
