@@ -130,11 +130,11 @@ export function serializeArbitrary(src: JSON.Value): void {
       break;
     case JSON.Types.TypedArray:
     case JSON.Types.ArrayBuffer:
-      serializeDynamic(src.type, src.get<usize>());
+      serializeDynamic(src.type, changetype<usize>(src.get<Object>()));
       break;
     default: {
       const fn = JSON.Value.METHODS.get(src.type - JSON.Types.Struct);
-      const ptr = src.get<usize>();
+      const ptr = changetype<usize>(src.get<Object>());
       call_indirect<void>(fn, ptr, ptr);
       break;
     }

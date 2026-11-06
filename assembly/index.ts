@@ -189,6 +189,12 @@ function valIntTag<T>(): u32 {
   return isSigned<T>() ? JSON.Types.I64 : JSON.Types.U64;
 }
 
+@inline
+function numericCast<T, V>(value: V): T {
+  if (isBoolean<T>()) return <T>(value != 0);
+  return <T>value;
+}
+
 function hashUtf16(ptr: usize, len: i32): u32 {
   let h: u32 = 2166136261;
   for (let i = 0; i < len; i++) {
@@ -1189,7 +1195,7 @@ export namespace JSON {
    * console.log(arr[0].get<string>());  // "string"
    * console.log(arr[1].get<f64>().toString());  // 42 (parsed numbers are f64)
    *
-   * // get<T>() reads the stored representation. Box.fromValue<T>() converts numeric types.
+   * // get<T>() converts numeric values using AssemblyScript casts without allocating a Box.
    * // Create dynamic values
    * const val = JSON.Value.from<i32>(42);
    * val.set<string>("now a string");
@@ -1580,18 +1586,17 @@ export namespace JSON {
     }
     /** Decodes NaN-boxed bits into T (the body of the instance `get<T>`). */
     static decodeBits<T>(w: u64): T {
-      if (isFloat<T>()) {
-        if (sizeof<T>() == 4) return <T>reinterpret<f32>(<u32>valPayload(w));
-        return <T>reinterpret<f64>(w);
-      } else if (isInteger<T>()) {
-        if (sizeof<T>() == 8) {
-          if (w & VAL_BOX64) return load<T>(valPtr(w));
-          if (isSigned<T>()) return <T>((<i64>(valPayload(w) << 19)) >> 19);
-          return <T>valPayload(w);
+      if (isFloat<T>() || isInteger<T>() || isBoolean<T>()) {
+        if (isFloat<T>() && sizeof<T>() == 8 && !valBoxed(w))
+          return <T>reinterpret<f64>(w);
+        // The usual exact-width integer read needs no conversion dispatch.
+        // Both the mask and expected tag specialize to constants for T.
+        if (isInteger<T>() && sizeof<T>() <= 4) {
+          const mask: u64 = VAL_QNAN | (<u64>0x1f << VAL_TAG_SHIFT);
+          const expected: u64 = VAL_QNAN | (<u64>valIntTag<T>() << VAL_TAG_SHIFT);
+          if ((w & mask) == expected) return <T>valPayload(w);
         }
-        return <T>valPayload(w);
-      } else if (isBoolean<T>()) {
-        return <T>valPayload(w);
+        return JSON.Value.convertNumericBits<T>(w);
       } else if (isReference<T>()) {
         // A generated/custom representation stores the instance itself. This
         // compile-time branch must precede native-array construction requirements.
@@ -1620,6 +1625,33 @@ export namespace JSON {
         return changetype<T>(valPtr(w));
       }
       return unreachable();
+    }
+
+    /** Conversion fallback; keep tag dispatch out of exact-type getter paths. */
+    private static convertNumericBits<T>(w: u64): T {
+      // T specializes at compile time. Only the stored representation needs
+      // runtime dispatch; never route wide integers through f64.
+      if (!valBoxed(w)) return numericCast<T, f64>(reinterpret<f64>(w));
+      const payload = valPayload(w);
+      switch (valTag(w)) {
+        case JSON.Types.Null: return <T>0;
+        case JSON.Types.Bool: return numericCast<T, bool>(payload != 0);
+        case JSON.Types.I8: return numericCast<T, i8>(<i8>payload);
+        case JSON.Types.U8: return numericCast<T, u8>(<u8>payload);
+        case JSON.Types.I16: return numericCast<T, i16>(<i16>payload);
+        case JSON.Types.U16: return numericCast<T, u16>(<u16>payload);
+        case JSON.Types.I32: return numericCast<T, i32>(<i32>payload);
+        case JSON.Types.U32: return numericCast<T, u32>(<u32>payload);
+        case JSON.Types.I64:
+          return numericCast<T, i64>((w & VAL_BOX64)
+            ? load<i64>(valPtr(w)) : ((<i64>(payload << 19)) >> 19));
+        case JSON.Types.U64:
+          return numericCast<T, u64>((w & VAL_BOX64)
+            ? load<u64>(valPtr(w)) : payload);
+        case JSON.Types.F32:
+          return numericCast<T, f32>(reinterpret<f32>(<u32>payload));
+        default: throw new Error("JSON.Value requires a boolean or numeric value");
+      }
     }
 
     /**
