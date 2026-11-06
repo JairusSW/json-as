@@ -4697,6 +4697,7 @@ export class JSONTransform extends Visitor {
       }
       DESERIALIZE_FAST += i3 + "}\n";
 
+      DESERIALIZE_FAST += i3 + "if (!srcStart) break;\n";
       DESERIALIZE_FAST += i3 + "if (!matched) {\n";
       if (STRICT) {
         DESERIALIZE_FAST += i3 + "  break;\n";
@@ -4808,6 +4809,7 @@ export class JSONTransform extends Visitor {
     // quote/comma/close is legal. This keeps comma grammar in the already-cold
     // slow fallback: no leading, doubled, or trailing commas, and no adjacent
     // members without a comma.
+    DESERIALIZE += indent + "    if (keyStart != 0 && !isKey && (code == 125 || code == 44)) return JSON.Util.failProductionParse();\n";
     DESERIALIZE += indent + "    if (keyStart == 0 && !isKey) {\n";
     DESERIALIZE += indent + "      let prev = srcStart - 2;\n";
     DESERIALIZE +=
@@ -4817,13 +4819,13 @@ export class JSONTransform extends Visitor {
     DESERIALIZE += indent + "      if (code == 125) {\n";
     DESERIALIZE +=
       indent +
-      "        if (prevCode == 44) return JSON.Util.failProductionParse();\n";
+      "        if (prevCode == 44 || prevCode == 58) return JSON.Util.failProductionParse();\n";
     DESERIALIZE += slowReset + indent + "        return srcStart + 2;\n";
     DESERIALIZE += indent + "      }\n";
     DESERIALIZE += indent + "      if (code == 44) {\n";
     DESERIALIZE +=
       indent +
-      "        if (prevCode == 123 || prevCode == 44) return JSON.Util.failProductionParse();\n";
+      "        if (prevCode == 123 || prevCode == 44 || prevCode == 58) return JSON.Util.failProductionParse();\n";
     DESERIALIZE += indent + "      } else if (code == 34) {\n";
     DESERIALIZE +=
       indent +
