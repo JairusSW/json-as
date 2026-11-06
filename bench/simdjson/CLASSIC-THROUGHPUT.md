@@ -904,3 +904,85 @@ code and its helpers, rather than another string-decoder change. Evidence:
 `build/perf/classic-native/citm-copy-map-profile-{min,pretty,summary,audit}.json`
 and `citm-copy-map-profile-capture.log`. This profile is attribution evidence,
 not a replacement throughput result.
+
+## CITM allocation policy screens (not integrated)
+
+Inspection of the current generated readers confirms deferred initialization
+already applies to fresh Area rows. CITM contains 8,685 empty `blockIds` arrays;
+non-empty `areas` arrays are predominantly 10–16 elements. The empty-array path
+already preserves separate array identities with an immutable zero-capacity
+buffer, so these probes do not share mutable arrays or change the model.
+
+A six-round CITM-only screen compares the frozen current binary with separate
+allocator batch-size and reference-array capacity probes:
+
+| Policy | Minified us | Pretty us | Peak RSS MiB |
+|---|---:|---:|---:|
+| Current: batch128 / capacity8 | 580.630 | 732.320 | 98.90 |
+| Batch32 | 639.305 | 790.595 | 97.72 |
+| Batch256 | 564.415 | 710.815 | 98.59 |
+| Managed-reference capacity16 | 538.495 | 695.320 | 97.66 |
+
+The combined batch256/capacity16 probe passes all nine retained owning-output
+oracles. Its six-round all-corpus comparison improves CITM throughput by
+11.2% minified / 9.9% pretty, but regresses GitHub by 3.5% / 4.6%. It is not
+retained as a production optimization. Evidence:
+`build/perf/classic-native/whitespace/{citm-allocation,allocation-combined}-controls-{samples,summary}.json`.
+
+A separate six-round GitHub isolation confirms batch256 is responsible for the
+regression: 61.390 / 67.170 us versus 58.680 / 63.900 us control. Reference
+capacity16 alone gives 57.235 / 63.505 us, with slightly lower peak RSS. The
+allocator batch-size change is rejected. The capacity-only probe now passes all
+nine retained owning-output oracles and its all-corpus comparison is running;
+it is not yet integrated. Numeric arrays retain capacity8, subclasses run their
+constructors, and the proposed capacity choice folds at compile time.
+Evidence: `whitespace/github-allocation-isolation-controls-{samples,summary}.json`
+and `reference-capacity-all-preparation.json`.
+
+These screens ran on battery power, with that state and background-process
+audits preserved. They do not replace the complete native throughput gate on
+the committed implementation.
+
+## Generated-field capacity policy
+
+The blanket capacity16 probe's complete six-round comparison preserves FGO,
+GSOC and OTFCC binaries, but Poet pretty throughput falls 4.0%, so that blanket
+policy is not integrated. A narrower prototype leaves the ordinary root-array
+factory alone and changes only the transform's internal array-field factory.
+Poet is then byte-identical too. All nine retained-output oracles pass.
+
+The field-only six-round comparison gives CITM 7.7% / 6.4% higher throughput
+with about 1.2 MiB lower peak RSS. GitHub is essentially flat (+0.3% / +0.6%);
+Twitter is 0.9% / 1.3% slower, Canada is flat with about 4 MiB higher peak RSS,
+and Lottie is flat. These small differences remain background-load measurements,
+not isolated qualification. Evidence:
+`build/perf/classic-native/whitespace/field-reference16-all-controls-{samples,summary}.json`.
+FGO, GSOC, OTFCC and Poet have exact unchanged-binary hashes and were not timed
+redundantly in this screen.
+
+The production integration keeps normal root capacity8 and allocator batch128.
+Only generated reference-array fields request sixteen slots; scalar fields keep
+eight, subclasses run their constructors, and the empty-array path is unchanged.
+The selection folds at compile time. It uses a shared internal factory parameter
+rather than duplicating the allocator implementation. Expanded tests cover
+fresh and reused fields, growth at 8/16/32 boundaries, alias/null preservation,
+retained outputs and forced collections across three runtimes.
+
+Initial expanded testing exposed an unrooted fixture source string across its
+new explicit Minimal collection. The old-policy control reproduced the same
+failure. After explicitly pinning the source across its later reuse, both
+old-policy and candidate controls pass. The initial failure is retained in
+`native-append-minimal-control-first.log`; rooted controls are separate files.
+At `1c0899f4`, all fourteen targeted scripts pass (including the repaired
+eighteen-configuration growth test), the packed consumer passes 252 operations
+across 36 configurations, and all nine retained owning-output oracles pass.
+The previous full 53-script gate belongs to `9b676d01`; it was not rerun for
+this allocation-policy change. The production binaries for all nine corpora
+are byte-identical to the measured field-only prototype. Poet, FGO, GSOC and
+OTFCC additionally remain identical to the previous production binaries.
+The source fingerprint is
+`e9dffd225739d8b6237b56486f913c3f4b5b5c00351815f6d01278f46ab9db55`.
+The complete native70 gate is queued. Evidence:
+`reference-field-production-final-qualification.json`,
+`reference-capacity-production-targeted/repaired-results.json`, and
+`reference-field-production-probe-equivalence.json`.
