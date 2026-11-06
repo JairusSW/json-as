@@ -1027,3 +1027,53 @@ The fourteen targeted allocation/lifetime/construction scripts, packed consumer
 production/prototype binary equivalence pass. The last full 53-script transform
 run remains the previous `9b676d01` qualification. No release, tag or push is
 performed. CITM pretty remains the first remaining bottleneck.
+
+## Eight-space scans and empty-field publication probes
+
+The whitespace regression now checks every UTF-16 code unit in all eight lanes
+(524,288 lane/code-unit checks per configuration), in addition to mixed runs,
+tails, reversed/odd bounds and the physical memory end. Control and both probes
+pass ten runtime/mode configurations with zero allocations. The tests are
+committed at `62e5c64c`; parser behavior is unchanged by that test-only commit.
+
+Two bounded eight-space prefixes were measured: full-UTF16 SIMD equality and a
+pair of u64 all-space comparisons, both retaining the existing four-space/scalar
+tail. All retained-output checks pass for CITM/GitHub/Lottie. Six paired rounds
+reject both: CITM pretty throughput falls 6.6% / 8.2%, GitHub pretty 2.7% / 4.0%,
+and Lottie pretty 2.9% / 2.1%. These results are separate from the earlier
+rejected 32-lane packed-classification and ctz-prefix approaches. Neither new
+scan is integrated. Evidence: `whitespace-eight-qualification.json`,
+`whitespace-eight-preparation.json`, and
+`whitespace/whitespace-eight-controls-{samples,summary}.json`.
+
+A separate code-generation probe suppresses a duplicate empty-array publication
+barrier only when the common composite-field wrapper will publish that same
+reference immediately afterward. No allocation or user callback occurs between
+the store and common barrier. Instrumented paths and schema-owned publication
+retain their earlier barrier. Six-round controls show CITM throughput +1.4% min
+/ +1.7% pretty, GitHub near flat and Lottie min about1% lower. The three retained
+owning-output oracles pass. Explicit old-owner/allocation-pressure/collection
+controls pass in SWAR and SIMD, strict off/on, for old and candidate transforms.
+The first callback-based fixture was ineligible for fast parsing and was replaced
+with a fixture that asserts fast-reader eligibility; that initial control failure
+is not a library defect. Evidence: `empty-field-link-gc-fast-controls.log`,
+`empty-field-link-preparation.json`, and
+`whitespace/empty-field-link-controls-{samples,summary}.json`.
+
+The publication change is now uncommitted in the worktree with a permanent GC
+fixture and is running the complete **54-script** transform gate, followed by
+packed-consumer and owning-output checks. It is not yet qualified as production
+or included in the completed native70 result above.
+
+At `6f93cae9`, the publication change passes the full **54-script transform
+gate**, 252 packed-consumer operations across 36 configurations, and all nine
+retained owning-output oracles. CITM, GitHub and Lottie production binaries are
+byte-identical to their measured publication prototypes. Only Twitter, Canada
+and CITM differ from the previous production binaries; the other six are
+unchanged. Source fingerprint:
+`64bd9bca03ccfd94902f56804b8555393c899001c4edd4d87e2c8665761e1b1d`.
+The complete native70 sweep is queued behind another repository's timing hold.
+Evidence: `empty-publication-production-qualification.json`,
+`empty-publication-production-transform/results.json`, and
+`empty-publication-production-equivalence.json`. The frozen prior controls are
+preserved with hashes in `empty-publication-control-binaries.json`.
