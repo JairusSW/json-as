@@ -265,13 +265,21 @@ export function serializeStringRangeReservedAt_SIMD(
           const dstIdx = bs.offset + laneIdx;
           store<u64>(dstIdx, U00_MARKER);
           store<u32>(dstIdx, escaped, 8);
-          store<v128>(dstIdx, load<v128>(srcIdx, 2), 12);
+          if (srcIdx + 18 <= srcEnd) {
+            store<v128>(dstIdx, load<v128>(srcIdx, 2), 12);
+          } else if (srcIdx + 2 < srcEnd) {
+            memory.copy(dstIdx + 12, srcIdx + 2, srcEnd - (srcIdx + 2));
+          }
           bs.offset += 10;
         } else {
           bs.addSize(2);
           const dstIdx = bs.offset + laneIdx;
           store<u32>(dstIdx, escaped);
-          store<v128>(dstIdx, load<v128>(srcIdx, 2), 4);
+          if (srcIdx + 18 <= srcEnd) {
+            store<v128>(dstIdx, load<v128>(srcIdx, 2), 4);
+          } else if (srcIdx + 2 < srcEnd) {
+            memory.copy(dstIdx + 4, srcIdx + 2, srcEnd - (srcIdx + 2));
+          }
           // memory.copy(dstIdx + 4, srcIdx + 2, 14 - laneIdx);
           bs.offset += 2;
         }
@@ -309,7 +317,11 @@ export function serializeStringRangeReservedAt_SIMD(
       store<u32>(dstIdx, U_MARKER); // \u
       store<u64>(dstIdx, u16_to_hex4_swar(code), 4);
       // memory.copy(dstIdx + 12, srcIdx + 1, 15 - laneIdx);
-      store<v128>(dstIdx, load<v128>(srcIdx, 1), 12);
+      if (srcIdx + 17 <= srcEnd) {
+        store<v128>(dstIdx, load<v128>(srcIdx, 1), 12);
+      } else if (srcIdx + 1 < srcEnd) {
+        memory.copy(dstIdx + 12, srcIdx + 1, srcEnd - (srcIdx + 1));
+      }
       bs.offset += 10;
     } while (mask !== 0);
 

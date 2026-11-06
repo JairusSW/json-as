@@ -149,13 +149,21 @@ export function serializeStringRangeReserved_SWAR(
           const dstIdx = bs.offset + laneIdx;
           store<u64>(dstIdx, U00_MARKER);
           store<u32>(dstIdx, escaped, 8);
-          store<u64>(dstIdx, load<u64>(srcIdx, 2), 12);
+          if (srcIdx + 10 <= srcEnd) {
+            store<u64>(dstIdx, load<u64>(srcIdx, 2), 12);
+          } else if (srcIdx + 2 < srcEnd) {
+            memory.copy(dstIdx + 12, srcIdx + 2, srcEnd - (srcIdx + 2));
+          }
           bs.offset += 10;
         } else {
           bs.addSize(2);
           const dstIdx = bs.offset + laneIdx;
           store<u32>(dstIdx, escaped);
-          store<u64>(dstIdx, load<u64>(srcIdx, 2), 4);
+          if (srcIdx + 10 <= srcEnd) {
+            store<u64>(dstIdx, load<u64>(srcIdx, 2), 4);
+          } else if (srcIdx + 2 < srcEnd) {
+            memory.copy(dstIdx + 4, srcIdx + 2, srcEnd - (srcIdx + 2));
+          }
           bs.offset += 2;
         }
         continue;
@@ -188,7 +196,11 @@ export function serializeStringRangeReserved_SWAR(
       const dstIdx = bs.offset + laneIdx - 1;
       store<u32>(dstIdx, U_MARKER); // \u
       store<u64>(dstIdx, u16_to_hex4_swar(code), 4);
-      store<u64>(dstIdx, load<u64>(srcIdx, 1), 12);
+      if (srcIdx + 9 <= srcEnd) {
+        store<u64>(dstIdx, load<u64>(srcIdx, 1), 12);
+      } else if (srcIdx + 1 < srcEnd) {
+        memory.copy(dstIdx + 12, srcIdx + 1, srcEnd - (srcIdx + 1));
+      }
       bs.offset += 10;
     } while (mask !== 0);
 
