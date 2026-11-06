@@ -40,7 +40,7 @@ function deserializeObjectArrayBody<T extends unknown[]>(
       const valueEnd = scanValueEnd(valueStart, srcEnd);
       if (!valueEnd) break;
 
-      const value = JSON.__deserialize<valueof<T>>(
+      const value = JSON.__deserializeValue<valueof<T>>(
         valueStart,
         valueEnd,
         reuseComposite(load<usize>(slot), slot),

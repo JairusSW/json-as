@@ -1,5 +1,5 @@
 import { deserializeString } from "../index/string";
-import { takeProductionParseError } from "../error";
+import { markProductionParseError } from "../error";
 import { isSpace } from "../../util";
 
 // A sentinel outside Date's representable millisecond range.
@@ -144,8 +144,8 @@ export function deserializeDate<T extends Date = Date>(
   if (time == NON_CANONICAL_DATE) {
     const text = deserializeString(srcStart, srcEnd);
     if (changetype<usize>(text) == 0) {
-      takeProductionParseError();
-      throw new Error("Expected a JSON date string");
+      markProductionParseError();
+      return changetype<T>(0);
     }
     time = parseDateTime(text);
   }

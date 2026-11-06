@@ -65,7 +65,7 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
       markProductionParseError();
       return changetype<T>(0);
     }
-    changetype<Array<valueof<T>>>(out)[out.length] = JSON.__deserialize<
+    changetype<Array<valueof<T>>>(out)[out.length] = JSON.__deserializeValue<
       valueof<T>
     >(tokenStart, srcStart);
 

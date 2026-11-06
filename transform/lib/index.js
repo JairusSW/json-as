@@ -2272,7 +2272,7 @@ export class JSONTransform extends Visitor {
                 out.push("    dateEnd += 2;");
                 out.push("  }");
                 out.push("  if (dateEnd >= srcEnd) break;");
-                out.push(`  store<${resolvedType}>(${outPtr}, JSON.__deserialize<${resolvedType}>(${valuePtr}, dateEnd + 2), ${fieldOffset});`);
+                out.push(`  store<${resolvedType}>(${outPtr}, JSON.__deserializeValue<${resolvedType}>(${valuePtr}, dateEnd + 2), ${fieldOffset});`);
                 out.push(`  ${srcPtr} = dateEnd + 2;`);
                 if (member.nullable) {
                     out.push("  }");
@@ -2312,7 +2312,7 @@ export class JSONTransform extends Visitor {
                     out.push("      boxEnd += 2;");
                     out.push("    }");
                     out.push(`    if (boxEnd <= ${valuePtr}) break;`);
-                    out.push(`    store<${resolvedType}>(${outPtr}, changetype<${resolvedType}>(JSON.Box.from<${innerType}>(JSON.__deserialize<${innerType}>(${valuePtr}, boxEnd))), ${fieldOffset});`);
+                    out.push(`    store<${resolvedType}>(${outPtr}, changetype<${resolvedType}>(JSON.Box.from<${innerType}>(JSON.__deserializeValue<${innerType}>(${valuePtr}, boxEnd))), ${fieldOffset});`);
                     out.push(`    ${srcPtr} = boxEnd;`);
                 }
                 if (member.nullable) {
@@ -3277,7 +3277,7 @@ export class JSONTransform extends Visitor {
             indent + "            if (load<u16>(keyPtr) != 92) continue;\n";
         DESERIALIZE +=
             indent +
-                "            decodedKey = JSON.__deserialize<string>(keyStart - 2, keyEnd + 2);\n";
+                "            decodedKey = JSON.__deserializeValue<string>(keyStart - 2, keyEnd + 2);\n";
         DESERIALIZE +=
             indent +
                 "            keyStart = changetype<usize>(decodedKey); keyEnd = keyStart + ((<usize>decodedKey.length) << 1); break;\n";
@@ -3420,10 +3420,10 @@ export class JSONTransform extends Visitor {
             }
             if (needsReferenceLoad(member.type)) {
                 return (prefix +
-                    `store<${member.type}>(changetype<usize>(out), JSON.__deserialize<${member.type}>(${valueStart}, ${valueEnd}, JSON.Util.reuseCompositeBuffer(load<usize>(changetype<usize>(out), offsetof<this>(${offset})), changetype<usize>(out) + offsetof<this>(${offset}))), offsetof<this>(${offset}));\n`);
+                    `store<${member.type}>(changetype<usize>(out), JSON.__deserializeValue<${member.type}>(${valueStart}, ${valueEnd}, JSON.Util.reuseCompositeBuffer(load<usize>(changetype<usize>(out), offsetof<this>(${offset})), changetype<usize>(out) + offsetof<this>(${offset}))), offsetof<this>(${offset}));\n`);
             }
             return (prefix +
-                `store<${member.type}>(changetype<usize>(out), JSON.__deserialize<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n`);
+                `store<${member.type}>(changetype<usize>(out), JSON.__deserializeValue<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n`);
         };
         const getSlowBooleanStore = (member, value, valueStart, valueEnd, prefix) => {
             if (member.flags.has(PropertyFlags.Lazy))

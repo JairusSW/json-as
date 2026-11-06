@@ -56,7 +56,7 @@ export function deserializeStaticArrayStruct<T extends StaticArray<any>>(
       lastIndex = srcStart;
     } else if (code == BRACE_RIGHT && --depth == 0) {
       unchecked(
-        (out[index++] = JSON.__deserialize<valueof<T>>(
+        (out[index++] = JSON.__deserializeValue<valueof<T>>(
           lastIndex,
           (srcStart += 2),
         )),

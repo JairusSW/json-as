@@ -376,7 +376,7 @@ function deserializeMapKey<T>(
     return changetype<T>(reusableKey);
   }
   // @ts-expect-error: exists
-  const keyText = JSON.__deserialize<string>(start - 2, end + 2);
+  const keyText = JSON.__deserializeValue<string>(start - 2, end + 2);
   if (isString<T>()) return changetype<T>(keyText);
   return JSON.parse<T>(keyText);
 }
@@ -805,7 +805,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
         setParsedMapValue<T>(
           out,
           key,
-          JSON.__deserialize<valueof<T>>(srcStart, valueEnd),
+          JSON.__deserializeValue<valueof<T>>(srcStart, valueEnd),
           packedKey,
         );
         srcStart = valueEnd;
@@ -817,7 +817,7 @@ export function deserializeMapBody<T extends Map<any, any>>(
       setParsedMapValue<T>(
         out,
         key,
-        JSON.__deserialize<valueof<T>>(srcStart, valueEnd),
+        JSON.__deserializeValue<valueof<T>>(srcStart, valueEnd),
         packedKey,
       );
       srcStart = valueEnd;

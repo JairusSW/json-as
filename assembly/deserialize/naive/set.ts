@@ -73,7 +73,7 @@ function deserializeSetDirect<T extends Set<any>>(
         const end = scanStringEnd(srcStart, srcEnd);
         if (end >= srcEnd) break;
         // @ts-ignore: type
-        changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserialize<indexof<T>>(srcStart, end + 2));
+        changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserializeValue<indexof<T>>(srcStart, end + 2));
         srcStart = end + 2;
       } else if (
         // @ts-ignore: type
@@ -106,7 +106,7 @@ function deserializeSetDirect<T extends Set<any>>(
         ptr += 2;
       }
       // @ts-ignore: type
-      changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserialize<indexof<T>>(srcStart, ptr));
+      changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserializeValue<indexof<T>>(srcStart, ptr));
       srcStart = ptr;
       // @ts-ignore: type
     } else if (isFloat<indexof<T>>()) {
@@ -118,14 +118,14 @@ function deserializeSetDirect<T extends Set<any>>(
         ptr += 2;
       }
       // @ts-ignore: type
-      changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserialize<indexof<T>>(srcStart, ptr));
+      changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserializeValue<indexof<T>>(srcStart, ptr));
       srcStart = ptr;
       // @ts-ignore: type
     } else if (isManaged<indexof<T>>() || isReference<indexof<T>>()) {
       const end = scanSetElementEnd(srcStart, srcEnd);
       if (!end) break;
       // @ts-ignore: type
-      changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserialize<indexof<T>>(srcStart, end));
+      changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserializeValue<indexof<T>>(srcStart, end));
       srcStart = end;
     } else {
       break;

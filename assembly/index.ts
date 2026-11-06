@@ -3663,7 +3663,7 @@ export namespace JSON {
     // the original owner while decoding, then restore any surrounding parse.
     const previous = getParseSrc();
     setParseSrc(source);
-    const value = __deserialize<T>(srcStart, srcEnd);
+    const value = __deserializeValue<T>(srcStart, srcEnd);
     setParseSrc(previous);
     if (takeProductionParseError())
       throw new Error("Malformed lazy JSON value");
@@ -3679,6 +3679,14 @@ export namespace JSON {
    * @returns T
    */
   function __deserialize<T>(srcStart: usize, srcEnd: usize, dst: usize = 0): T {
+    const value = __deserializeValue<T>(srcStart, srcEnd, dst);
+    if (takeProductionParseError())
+      throw new Error("Incomplete or malformed JSON value");
+    return value;
+  }
+
+  /** Worker for generated and recursive readers; errors reach the outer boundary. */
+  function __deserializeValue<T>(srcStart: usize, srcEnd: usize, dst: usize = 0): T {
     // Skip leading whitespace once here so every handler below may assume
     // srcStart is at the first non-whitespace char. (Trailing whitespace is
     // left intact - composites self-trim and JSON.Raw preserves it.)
@@ -3714,15 +3722,15 @@ export namespace JSON {
       // materialization, which routes every slot value through `__deserialize`.
       return null;
     } else if (isString<T>()) {
-      if (srcEnd - srcStart < 4)
-        throw new Error(
-          "Cannot parse data as string because it was formatted incorrectly!",
-        );
+      if (srcEnd - srcStart < 4) {
+        markProductionParseError();
+        return changetype<T>(0);
+      }
 
       const value = deserializeString(srcStart, srcEnd);
       if (changetype<usize>(value) == 0) {
-        takeProductionParseError();
-        throw new Error("Invalid JSON string: missing surrounding quotes");
+        markProductionParseError();
+        return changetype<T>(0);
       }
       return value as T;
     } else {
@@ -3767,18 +3775,24 @@ export namespace JSON {
           // @ts-expect-error: Defined by transform
           const slowEnd = out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
           if (slowEnd == 0) {
-            takeProductionParseError();
-            throw new Error("Malformed JSON object");
+            markProductionParseError();
+            return changetype<T>(0);
           }
-          if (takeProductionParseError())
-            throw new Error("Malformed nested JSON value");
+          if (takeProductionParseError()) {
+            markProductionParseError();
+            return changetype<T>(0);
+          }
           return out;
         }
         throw new Error(`No deserialize method defined for type ${type}`);
       }
       if (type instanceof StaticArray) {
         // @ts-expect-error: type
-        return deserializeStaticArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
+        const value = deserializeStaticArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
+        if (changetype<usize>(value) == 0) {
+          markProductionParseError();
+        }
+        return value;
       } else if (type instanceof Array) {
         // @ts-expect-error: type
         const value = deserializeArray<nonnull<T>>(srcStart, srcEnd, dst) as T;
@@ -3807,31 +3821,36 @@ export namespace JSON {
           dst,
         ) as T;
         if (changetype<usize>(value) == 0) {
-          takeProductionParseError();
-          throw new Error("Malformed JSON typed array");
+          markProductionParseError();
         }
         return value;
       } else if (type instanceof ArrayBuffer) {
         const value = deserializeArrayBuffer(srcStart, srcEnd, dst) as T;
         if (changetype<usize>(value) == 0) {
-          takeProductionParseError();
-          throw new Error("Malformed JSON ArrayBuffer");
+          markProductionParseError();
         }
         return value;
       } else if (type instanceof Set) {
         // @ts-expect-error: type
-        return deserializeSet<T>(srcStart, srcEnd, dst);
+        const value = deserializeSet<T>(srcStart, srcEnd, dst);
+        if (changetype<usize>(value) == 0) {
+          markProductionParseError();
+        }
+        return value;
       } else if (type instanceof Map) {
         // @ts-expect-error: type
         const value = deserializeMap<T>(srcStart, srcEnd, dst);
         if (changetype<usize>(value) == 0) {
-          takeProductionParseError();
-          throw new Error("Malformed JSON map");
+          markProductionParseError();
         }
         return value;
       } else if (type instanceof Date) {
         // @ts-expect-error: type
-        return deserializeDate<nonnull<T>>(srcStart, srcEnd, dst);
+        const value = deserializeDate<nonnull<T>>(srcStart, srcEnd, dst);
+        if (changetype<usize>(value) == 0) {
+          markProductionParseError();
+        }
+        return value;
       } else if (type instanceof JSON.Raw) {
         // @ts-expect-error: type
         return deserializeRaw<nonnull<T>>(srcStart, srcEnd, dst);
@@ -3839,24 +3858,21 @@ export namespace JSON {
         // @ts-expect-error: type
         const value = deserializeArbitrary(srcStart, srcEnd, dst);
         if (changetype<usize>(value) == 0) {
-          takeProductionParseError();
-          throw new Error("Incomplete JSON value");
+          markProductionParseError();
         }
         return value;
       } else if (type instanceof JSON.Obj) {
         // @ts-expect-error: type
         const value = deserializeObject(srcStart, srcEnd, dst);
         if (changetype<usize>(value) == 0) {
-          takeProductionParseError();
-          throw new Error("Unterminated object in JSON");
+          markProductionParseError();
         }
         return value;
       } else if (type instanceof JSON.Arr) {
         // @ts-expect-error: type
         const value = deserializeJsonArray(srcStart, srcEnd, dst);
         if (changetype<usize>(value) == 0) {
-          takeProductionParseError();
-          throw new Error("Unterminated array in JSON");
+          markProductionParseError();
         }
         return value;
       } else if (type instanceof JSON.Box) {
@@ -4110,7 +4126,7 @@ function deserializeBox<T, U extends JSON.Box<T>>(
   ty: T,
   _box: U,
 ): U {
-  const value = JSON.__deserialize<T>(srcStart, srcEnd);
+  const value = JSON.__deserializeValue<T>(srcStart, srcEnd);
   if (dst) {
     const out = changetype<U>(dst);
     out.value = value;

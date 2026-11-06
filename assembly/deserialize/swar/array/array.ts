@@ -106,7 +106,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           const slot = reusableDataStart + <usize>index * elementSize;
           valuePtr = reuseComposite(load<usize>(slot), slot);
         }
-        const value = JSON.__deserialize<valueof<T>>(
+        const value = JSON.__deserializeValue<valueof<T>>(
           srcStart,
           valueEnd,
           valuePtr,

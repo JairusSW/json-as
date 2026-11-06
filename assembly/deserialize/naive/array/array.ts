@@ -68,7 +68,7 @@ export function deserializeArrayArray<T extends unknown[][]>(
       // quotes/backslashes, instead of counting every '[' and ']' byte.
       const valueEnd = scanValueEnd(srcStart, srcEnd);
       if (!valueEnd || valueEnd <= srcStart) break;
-      value = JSON.__deserialize<valueof<T>>(srcStart, valueEnd);
+      value = JSON.__deserializeValue<valueof<T>>(srcStart, valueEnd);
       srcStart = valueEnd;
     }
 
