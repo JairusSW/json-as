@@ -1,3 +1,6 @@
+import { isSpace } from "../../util/isSpace";
+import { markProductionParseError } from "../error";
+import { validateJSONNumberTokenLoose } from "../../util/validateJson";
 import { parseDecimalF32, roundDecimalF32 } from "../../util/parseDecimal";
 // SIMD float deserializers. Same Eisel-Lemire / `scientific()` / `f*.parse`
 // cascade as `swar/float.ts`, but the fractional digit loop starts with a
@@ -30,6 +33,12 @@ const ASCII_E_UP: u16 = 69;
 const ASCII_E_LO: u16 = 101;
 
 function fallback<T>(srcStart: usize, srcEnd: usize): T {
+  let tokenEnd = srcEnd;
+  while (tokenEnd > srcStart && isSpace(load<u16>(tokenEnd - 2))) tokenEnd -= 2;
+  if (!validateJSONNumberTokenLoose(srcStart, tokenEnd)) {
+    markProductionParseError();
+    return <T>0;
+  }
   // @ts-ignore
   const type: T = 0;
   // @ts-ignore
@@ -112,7 +121,7 @@ export function deserializeFloat_SIMD<T>(srcStart: usize, srcEnd: usize): T {
     if (c == ASCII_E_LO || c == ASCII_E_UP) {
       const expStart = p;
       p += 2;
-      if (p >= srcEnd) return fallback<T>(origStart, expStart);
+      if (p >= srcEnd) return fallback<T>(origStart, srcEnd);
       let expNeg = false;
       const sc = load<u16>(p);
       if (sc == ASCII_MINUS) {
@@ -121,7 +130,7 @@ export function deserializeFloat_SIMD<T>(srcStart: usize, srcEnd: usize): T {
       } else if (sc == ASCII_PLUS) {
         p += 2;
       }
-      if (p >= srcEnd) return fallback<T>(origStart, expStart);
+      if (p >= srcEnd) return fallback<T>(origStart, srcEnd);
       let exp: i32 = 0;
       let expDigits: i32 = 0;
       while (p < srcEnd) {
@@ -132,11 +141,16 @@ export function deserializeFloat_SIMD<T>(srcStart: usize, srcEnd: usize): T {
         if (expDigits > 4) return fallback<T>(origStart, srcEnd);
         p += 2;
       }
-      if (expDigits == 0) return fallback<T>(origStart, expStart);
+      if (expDigits == 0) return fallback<T>(origStart, srcEnd);
       exponent += expNeg ? -exp : exp;
     }
   }
 
+  while (p < srcEnd && isSpace(load<u16>(p))) p += 2;
+  if (p != srcEnd) {
+    markProductionParseError();
+    return <T>0;
+  }
   let result: f64;
   if (
     mantDigits <= 19 &&

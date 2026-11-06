@@ -1,3 +1,4 @@
+import { markProductionParseError } from "../error";
 import { parseDecimalF32, roundDecimalF32 } from "../../util/parseDecimal";
 // SWAR float deserializers. Lemire-style fast path with parse4 SWAR digit
 // folding on the fractional accumulator. Output is correctly rounded on the
@@ -42,6 +43,12 @@ export function loadPow10(exp: u32): f64 {
 }
 
 function fallback<T>(srcStart: usize, srcEnd: usize): T {
+  let tokenEnd = srcEnd;
+  while (tokenEnd > srcStart && isSpace(load<u16>(tokenEnd - 2))) tokenEnd -= 2;
+  if (!validateJSONNumberTokenLoose(srcStart, tokenEnd)) {
+    markProductionParseError();
+    return <T>0;
+  }
   // @ts-ignore
   const type: T = 0;
   // @ts-ignore
@@ -132,7 +139,7 @@ export function deserializeFloat_SWAR<T>(srcStart: usize, srcEnd: usize): T {
     if (c == ASCII_E_LO || c == ASCII_E_UP) {
       const expStart = p;
       p += 2;
-      if (p >= srcEnd) return fallback<T>(origStart, expStart);
+      if (p >= srcEnd) return fallback<T>(origStart, srcEnd);
       let expNeg = false;
       const sc = load<u16>(p);
       if (sc == ASCII_MINUS) {
@@ -141,7 +148,7 @@ export function deserializeFloat_SWAR<T>(srcStart: usize, srcEnd: usize): T {
       } else if (sc == ASCII_PLUS) {
         p += 2;
       }
-      if (p >= srcEnd) return fallback<T>(origStart, expStart);
+      if (p >= srcEnd) return fallback<T>(origStart, srcEnd);
       let exp: i32 = 0;
       let expDigits: i32 = 0;
       while (p < srcEnd) {
@@ -152,7 +159,7 @@ export function deserializeFloat_SWAR<T>(srcStart: usize, srcEnd: usize): T {
         if (expDigits > 4) return fallback<T>(origStart, srcEnd);
         p += 2;
       }
-      if (expDigits == 0) return fallback<T>(origStart, expStart);
+      if (expDigits == 0) return fallback<T>(origStart, srcEnd);
       exponent += expNeg ? -exp : exp;
     }
   }
@@ -160,6 +167,11 @@ export function deserializeFloat_SWAR<T>(srcStart: usize, srcEnd: usize): T {
   // Lemire fast path when fully in range; `scientific` for u64-fitting
   // mantissas that exceed 2^53 or |exp| > 22; the shared decimal parser handles
   // inputs above 19 significant digits with an exact midpoint comparison.
+  while (p < srcEnd && isSpace(load<u16>(p))) p += 2;
+  if (p != srcEnd) {
+    markProductionParseError();
+    return <T>0;
+  }
   let result: f64;
   if (
     mantDigits <= 19 &&

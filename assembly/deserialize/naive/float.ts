@@ -1,5 +1,7 @@
 import { parseDecimalF32 } from "../../util/parseDecimal";
 import { isSpace } from "../../util";
+import { validateJSONNumberTokenLoose } from "../../util/validateJson";
+import { markProductionParseError } from "../error";
 import { parseDecimalF64 } from "../../util/parseDecimal";
 
 // Strict RFC 8259 number-grammar check over [srcStart, srcEnd) (surrounding
@@ -63,6 +65,14 @@ function validateJSONNumber(srcStart: usize, srcEnd: usize): void {
 
 export function deserializeFloat_NAIVE<T>(srcStart: usize, srcEnd: usize): T {
   if (JSON_STRICT) validateJSONNumber(srcStart, srcEnd);
+  else {
+    while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
+    while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
+    if (!validateJSONNumberTokenLoose(srcStart, srcEnd)) {
+      markProductionParseError();
+      return <T>0;
+    }
+  }
   // @ts-ignore
   const type: T = 0;
   // @ts-ignore
@@ -74,21 +84,27 @@ export function deserializeFloat_NAIVE<T>(srcStart: usize, srcEnd: usize): T {
 function scanFloatEnd(srcStart: usize, srcEnd: usize): usize {
   let ptr = srcStart;
   if (ptr < srcEnd && load<u16>(ptr) == 45) ptr += 2; // optional minus
-
+  const intStart = ptr;
   while (ptr < srcEnd) {
     const code = load<u16>(ptr);
     if (<u32>code - 48 > 9) break;
     ptr += 2;
   }
+  const intDigits = ptr > intStart;
+  let fracDigits = false;
 
   if (ptr < srcEnd && load<u16>(ptr) == 46) {
     ptr += 2;
+    const fracStart = ptr;
     while (ptr < srcEnd) {
       const code = load<u16>(ptr);
       if (<u32>code - 48 > 9) break;
       ptr += 2;
     }
+    fracDigits = ptr > fracStart;
   }
+
+  if (!intDigits && !fracDigits) return 0;
 
   if (ptr < srcEnd) {
     const code = load<u16>(ptr);
@@ -115,8 +131,9 @@ export function deserializeFloatField_NAIVE<T extends number>(
   dstObj: usize,
   dstOffset: usize = 0,
 ): usize {
-  const fieldPtr = dstObj + dstOffset;
   const end = scanFloatEnd(srcStart, srcEnd);
+  if (!end) return 0;
+  const fieldPtr = dstObj + dstOffset;
 
   if (sizeof<T>() == sizeof<f32>()) {
     store<f32>(fieldPtr, parseDecimalF32(srcStart, end));
