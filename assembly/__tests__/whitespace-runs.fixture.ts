@@ -72,3 +72,16 @@ export function boundary(): i32 {
     }
   return count;
 }
+
+export function codeUnits(): i32 {
+  const p = changetype<usize>(buffer);
+  let count = 0;
+  for (let code: u32 = 0; code <= 65535; code++) for (let lane = 0; lane < 4; lane++) {
+    for (let i = 0; i < 5; i++) store<u16>(p + (i << 1), 32);
+    store<u16>(p + 2 + (lane << 1), code);
+    store<u16>(p + 10, 123);
+    assert(JSON.Util.skipWhitespace(p, p + 12) == reference(p, p + 12));
+    count++;
+  }
+  return count;
+}
