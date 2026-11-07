@@ -1323,3 +1323,58 @@ the lock. CITM pretty was flat (-0.14%), Canada pretty -0.89%, and GitHub pretty
 whole-key duplication proposal. Production remains unchanged. Evidence:
 `whitespace/fused-pretty-key-awake-controls-{samples,summary}.json` and
 `fused-pretty-key-awake-paired.log` under `build/perf/classic-native/`.
+
+
+## Verified allocator clears: production `c0752adb` passes 80%
+
+The fresh five-pair native sweep **passes 80% for all 16 layouts**, with all
+90 process samples and nine corpora present. CITM reaches 97.92% minified /
+82.41% pretty. The next 90% threshold misses CITM pretty (82.41%), GitHub
+minified (89.36%) and GitHub pretty (81.83%); corpus-wide parity remains open.
+
+The change removes only redundant fresh-object payload clearing after a verified
+zeroing allocation entry. Unknown allocators and other runtimes keep explicit
+clears, as do instrumentation and alternate pointer layouts. Reused-object
+initialization is unchanged. All 58 transform scripts, 252 packed-consumer
+operations across 36 configurations and all nine complete retained owning-output
+oracles passed. The 18-setting fresh-clear test verifies poisoned minimal-runtime
+reuse and a failing negative control; ABI/body guard tests preserve fallback
+when the actual allocator differs. Eight corpus binaries match the measured
+prototype. Canada's independent production/control check is effectively flat
+(-0.12% / -0.22%). See the allocation probe report for the paired controls.
+
+This run uses local ARM64, records AC power at 100%, and retains per-process
+background-load audits. It is not isolated-machine qualification. Differences
+between native sweeps for unchanged binaries are variation, not effects of this
+change. Ordinary fresh `JSON.parse<T>()`, unchanged classic models/harness,
+validation/cache off and the incremental runtime remain in use. Native simdjson
+materializes owning structs. GB/s uses UTF-8 input bytes, with AS receiving
+predecoded UTF-16 as before.
+
+| Corpus / layout | json-as GB/s | Native GB/s | AS / native |
+|---|---:|---:|---:|
+| twitter / min | 2.430 | 1.359 | 1.788× |
+| twitter / pretty | 2.343 | 1.762 | 1.330× |
+| canada / min | 0.767 | 0.797 | 0.962× |
+| canada / pretty | 1.057 | 1.067 | 0.991× |
+| citm_catalog / min | 1.384 | 1.414 | 0.979× |
+| citm_catalog / pretty | 2.218 | 2.692 | 0.824× |
+| poet / min | 4.439 | 2.033 | 2.184× |
+| poet / pretty | 4.223 | 2.117 | 1.995× |
+| github_events / min | 1.262 | 1.412 | 0.894× |
+| github_events / pretty | 1.369 | 1.673 | 0.818× |
+| gsoc-2018 / min | 3.187 | 2.513 | 1.268× |
+| gsoc-2018 / pretty | 3.070 | 2.602 | 1.180× |
+| lottie / min | 2.494 | 1.698 | 1.469× |
+| lottie / pretty | 5.228 | 5.530 | 0.946× |
+| otfcc / min | 3.250 | 2.044 | 1.590× |
+| fgo / min | 4.491 | 2.856 | 1.572× |
+
+Source fingerprint: `4030c5bc96afe7ad88a7258ba57b8279c5424ea32a798a84f8904f34de238c81`.
+Evidence under `build/perf/classic-native/`:
+`clear-production-all-80-{prepared,samples,result}.json`, its paired log,
+`clear-production-qualification.json`, `clear-production-transform/results.json`,
+`clear-production-equivalence.json` and the Canada production-control artifacts.
+The threshold run exited zero and released its shared host lock. Next work is
+the three remaining 90% misses and then the remaining parity gaps; this is an
+80% milestone, not completion of the overall parity goal.
