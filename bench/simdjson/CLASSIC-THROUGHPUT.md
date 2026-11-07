@@ -1120,3 +1120,61 @@ backing-buffer allocation before generated struct-array readers discover `[]`.
 These are hypotheses, not integrated changes or claimed gains. The normal
 `JSON.parse<T>()` API, existing models, owning outputs and tier-down policy
 remain requirements. No tag, release or push is performed.
+
+
+## Two-slot floating-point arrays: production `fe007a1b`
+
+The production change passes all **55 transform scripts**, 252 packed-consumer
+operations across 36 configurations, and all nine retained owning-output
+oracles. Its new regression covers all 36 runtime/backend/strict/fast settings.
+Canada's binary matches the measured two-slot prototype exactly. Seven other
+corpus binaries are unchanged; Twitter's focused six-pair check is effectively
+flat (+0.10% minified, -0.32% pretty). The old/new Canada comparison measures
++13.46% / +12.55% throughput with approximately 10 MiB more peak RSS.
+
+The fresh five-pair owning-native sweep below contains all 90 process samples
+and 16 layouts. **Every layout passes 60%; 70% still misses CITM and GitHub
+Events in both layouts.** Canada now reaches 85.9% / 87.7% of native throughput.
+This is still ordinary fresh `JSON.parse<T>()` into unchanged classic classes,
+with validation and caching disabled and the incremental runtime. Native
+simdjson materializes owning structs, rather than retaining a DOM.
+
+The run records local ARM64, AC power at 97% charging, and per-process
+background-load audits. It is not isolated-machine qualification; changes
+between sweeps for byte-identical corpora are measurement variation. GB/s uses
+UTF-8 input bytes; the AS harness receives predecoded UTF-16 as before.
+
+| Corpus / layout | json-as GB/s | Native GB/s | AS / native |
+|---|---:|---:|---:|
+| twitter / min | 1.711 | 1.246 | 1.373× |
+| twitter / pretty | 1.758 | 1.623 | 1.083× |
+| canada / min | 0.643 | 0.748 | 0.859× |
+| canada / pretty | 0.874 | 0.996 | 0.877× |
+| citm_catalog / min | 0.930 | 1.355 | 0.686× |
+| citm_catalog / pretty | 1.655 | 2.627 | 0.630× |
+| poet / min | 2.825 | 1.752 | 1.612× |
+| poet / pretty | 2.754 | 1.863 | 1.478× |
+| github_events / min | 0.919 | 1.322 | 0.695× |
+| github_events / pretty | 1.027 | 1.546 | 0.664× |
+| gsoc-2018 / min | 2.506 | 2.315 | 1.082× |
+| gsoc-2018 / pretty | 2.401 | 2.372 | 1.012× |
+| lottie / min | 1.270 | 1.661 | 0.765× |
+| lottie / pretty | 4.180 | 5.369 | 0.779× |
+| otfcc / min | 1.627 | 1.920 | 0.847× |
+| fgo / min | 2.385 | 2.791 | 0.855× |
+
+Source fingerprint: `888b76936949c769df55e7570b6a1b9cf1aedb8fdafddfc8de6dead25bb999ca`.
+Evidence under `build/perf/classic-native/`:
+`float-capacity-production-qualification.json`,
+`float-capacity-production-transform/results.json`,
+`float-capacity-production-equivalence.json`,
+`float-capacity-production-committed-source.json`, and
+`float-capacity-production-all-70-{prepared,samples,result}.json` plus its paired
+log. The measurement exits 1 because the 70% target is unmet, with complete
+coverage and no missing samples.
+
+The broad mixed-allocation prototype remains unintegrated; its gains and
+regressions are recorded in [the allocation probe report](ALLOCATION-LOCALITY-PROBES.md).
+The empty-array proposal was rejected after its GitHub timing check. Next work
+remains CITM/GitHub's 70% gate, followed by the higher corpus-wide thresholds
+and eventual parity.
