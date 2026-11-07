@@ -77,6 +77,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Classify quote parity across bounded SIMD composite-scan batches, skipping structural events inside strings without walking every quote. Preserve escape-run handling across batch boundaries, short tails, range limits, and allocation-free scanning.
+
 - Improve small-object allocation locality and coalesce adjacent dead native blocks during library-triggered incremental sweeps. Keep per-object GC registration, flush pending frees before returning to application code, and retain existing paths for unknown runtime layouts, instrumentation, finalizers, allocator overrides, and other collectors.
 
 - Reduce initial backing storage for newly allocated floating-point arrays in accelerated readers to two slots, including nested arrays. Preserve ordinary growth, destination reuse, subtype constructors, and independent managed storage.

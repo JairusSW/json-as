@@ -67,6 +67,25 @@ export function verify(): i32 {
     check(base, base + 256);
     checks++;
   }
+  // Long odd/even escape runs can straddle several packed batches. Compare
+  // both complete ranges and truncated tails without allocating test strings.
+  for (let pad = 0; pad <= 128; pad++) for (let slashes = 0; slashes <= 256; slashes++) {
+    let ptr = base;
+    store<u16>(ptr, 91); ptr += 2;
+    store<u16>(ptr, 34); ptr += 2;
+    for (let i = 0; i < pad; i++) { store<u16>(ptr, 120); ptr += 2; }
+    for (let i = 0; i < slashes; i++) { store<u16>(ptr, 92); ptr += 2; }
+    store<u16>(ptr, 34); ptr += 2;
+    store<u16>(ptr, 123); ptr += 2;
+    store<u16>(ptr, 91); ptr += 2;
+    store<u16>(ptr, 93); ptr += 2;
+    store<u16>(ptr, 125); ptr += 2;
+    store<u16>(ptr, 34); ptr += 2;
+    store<u16>(ptr, 93); ptr += 2;
+    check(base, ptr);
+    check(base, ptr - 2);
+    checks += 2;
+  }
   assert(memory.grow(1) >= 0);
   const physicalEnd = <usize>memory.size() << 16;
   for (let len = 1; len <= 192; len++) for (let odd = 0; odd < 2; odd++) {

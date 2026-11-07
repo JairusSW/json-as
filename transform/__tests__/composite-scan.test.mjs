@@ -66,11 +66,11 @@ try {
     );
     instance.exports.start();
     allocations = 0;
-    assert.equal(instance.exports.verify(), 4395072);
+    assert.equal(instance.exports.verify(), 4461378);
     assert.equal(allocations, 0, "composite boundary scanning does not allocate");
   }
   console.log(
-    `Composite scanner: randomized structure, every UTF-16 code unit in every wide lane, escapes, truncation and physical memory end passed (${configs.length} configurations); zero allocations`,
+    `Composite scanner: randomized structure, every UTF-16 code unit in every wide lane, cross-batch escape runs, truncation and physical memory end passed (${configs.length} configurations); zero allocations`,
   );
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });

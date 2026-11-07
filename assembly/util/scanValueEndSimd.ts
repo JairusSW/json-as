@@ -103,11 +103,9 @@ function scanQuotedValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
 }
 
 function scanCompositeValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
-  // Walk every structural event in a loaded block before advancing. This is
-  // substantially cheaper for object-heavy values than restarting a SIMD hunt
-  // after every short key: one v128 load now covers all quotes and brackets in
-  // its eight UTF-16 lanes. Brackets inside strings are ignored, and a closing
-  // quote is active only when preceded by an even-length backslash run.
+  // Classify bounded batches, then visit structural events in source order.
+  // Quote parity removes brackets inside strings without visiting every quote.
+  // Escaped batches retain the scalar backslash-parity check.
   let depth: i32 = 1;
   let ptr = srcStart + 2;
   const srcEnd16 = srcEnd >= 16 ? srcEnd - 16 : 0;
@@ -118,39 +116,100 @@ function scanCompositeValueEnd_SIMD(srcStart: usize, srcEnd: usize): usize {
   // every event in order so a closing root still stops inside the batch.
   const srcEnd128 = srcEnd >= 128 ? srcEnd - 128 : 0;
   while (ptr <= srcEnd128) {
+    const packed0 = i8x16.narrow_i16x8_u(load<v128>(ptr), load<v128>(ptr + 16));
+    const packed1 = i8x16.narrow_i16x8_u(
+      load<v128>(ptr + 32),
+      load<v128>(ptr + 48),
+    );
+    const packed2 = i8x16.narrow_i16x8_u(
+      load<v128>(ptr + 64),
+      load<v128>(ptr + 80),
+    );
+    const packed3 = i8x16.narrow_i16x8_u(
+      load<v128>(ptr + 96),
+      load<v128>(ptr + 112),
+    );
     let mask: u64 =
-      <u64>packedStructuralOrQuoteMask(load<v128>(ptr), load<v128>(ptr + 16)) |
-      (<u64>packedStructuralOrQuoteMask(load<v128>(ptr + 32), load<v128>(ptr + 48)) << 16) |
-      (<u64>packedStructuralOrQuoteMask(load<v128>(ptr + 64), load<v128>(ptr + 80)) << 32) |
-      (<u64>packedStructuralOrQuoteMask(load<v128>(ptr + 96), load<v128>(ptr + 112)) << 48);
+      (<u64>packedStructuralOrQuoteMask(packed0)) |
+      ((<u64>packedStructuralOrQuoteMask(packed1)) << 16) |
+      ((<u64>packedStructuralOrQuoteMask(packed2)) << 32) |
+      ((<u64>packedStructuralOrQuoteMask(packed3)) << 48);
+    const quotes: u64 =
+      (<u64>i8x16.bitmask(i8x16.eq(packed0, i8x16.splat(34)))) |
+      ((<u64>i8x16.bitmask(i8x16.eq(packed1, i8x16.splat(34)))) << 16) |
+      ((<u64>i8x16.bitmask(i8x16.eq(packed2, i8x16.splat(34)))) << 32) |
+      ((<u64>i8x16.bitmask(i8x16.eq(packed3, i8x16.splat(34)))) << 48);
+    // Quote-free batches retain the carry state. Otherwise a prefix XOR
+    // identifies all lanes inside strings, including a string from the prior batch.
+    if (quotes == 0) {
+      if (inString) mask = 0;
+    } else {
+      const slashes = i8x16.bitmask(
+        v128.or(
+          v128.or(
+            i8x16.eq(packed0, i8x16.splat(92)),
+            i8x16.eq(packed1, i8x16.splat(92)),
+          ),
+          v128.or(
+            i8x16.eq(packed2, i8x16.splat(92)),
+            i8x16.eq(packed3, i8x16.splat(92)),
+          ),
+        ),
+      );
+      // Escapes need the scalar parity check, including a run ending in the
+      // previous batch. Keep its exact behavior before resuming the wide loop.
+      if (slashes || (inString && load<u16>(ptr - 2) == BACK_SLASH)) {
+        while (mask != 0) {
+          const lane = usize(ctz(mask) << 1);
+          mask &= mask - 1;
+          const eventPtr = ptr + lane;
+          const code = load<u16>(eventPtr);
+
+          if (code == QUOTE) {
+            if (!inString) {
+              inString = true;
+            } else {
+              let slash = eventPtr - 2;
+              let escaped = false;
+              while (slash > srcStart && load<u16>(slash) == BACK_SLASH) {
+                escaped = !escaped;
+                slash -= 2;
+              }
+              if (!escaped) inString = false;
+            }
+            continue;
+          }
+          if (inString) continue;
+
+          const folded = code & 0xffdf;
+          if (folded == BRACKET_LEFT) {
+            depth++;
+          } else if (folded == BRACKET_RIGHT && --depth == 0) {
+            return eventPtr + 2;
+          }
+        }
+
+        ptr += 128;
+        continue;
+      }
+      let inside = quotes;
+      inside ^= inside << 1;
+      inside ^= inside << 2;
+      inside ^= inside << 4;
+      inside ^= inside << 8;
+      inside ^= inside << 16;
+      inside ^= inside << 32;
+      if (inString) inside = ~inside;
+      inString = <i64>inside < 0;
+      mask &= ~inside & ~quotes;
+    }
     while (mask != 0) {
       const lane = usize(ctz(mask) << 1);
       mask &= mask - 1;
       const eventPtr = ptr + lane;
-      const code = load<u16>(eventPtr);
-
-      if (code == QUOTE) {
-        if (!inString) {
-          inString = true;
-        } else {
-          let slash = eventPtr - 2;
-          let escaped = false;
-          while (slash > srcStart && load<u16>(slash) == BACK_SLASH) {
-            escaped = !escaped;
-            slash -= 2;
-          }
-          if (!escaped) inString = false;
-        }
-        continue;
-      }
-      if (inString) continue;
-
-      const folded = code & 0xffdf;
-      if (folded == BRACKET_LEFT) {
-        depth++;
-      } else if (folded == BRACKET_RIGHT && --depth == 0) {
-        return eventPtr + 2;
-      }
+      const folded = load<u16>(eventPtr) & 0xffdf;
+      if (folded == BRACKET_LEFT) depth++;
+      else if (folded == BRACKET_RIGHT && --depth == 0) return eventPtr + 2;
     }
     ptr += 128;
   }
@@ -265,8 +324,7 @@ export function scanValueEnd_SIMD<T>(srcStart: usize, srcEnd: usize): usize {
 // Code units outside the byte range narrow to either 0 or 255; other bytes
 // are preserved. Neither saturation result matches a quote or bracket, so this
 // predicate stays exact for all UTF-16 code units, including surrogates.
-function packedStructuralOrQuoteMask(lo: v128, hi: v128): i32 {
-  const packed = i8x16.narrow_i16x8_u(lo, hi);
+function packedStructuralOrQuoteMask(packed: v128): i32 {
   const folded = v128.and(packed, i8x16.splat(<i8>0xdf));
   return i8x16.bitmask(
     v128.or(
