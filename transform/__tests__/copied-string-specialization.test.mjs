@@ -3,7 +3,7 @@ import "../lib/index.js";
 import { Parser } from "assemblyscript";
 import { specializeObjectAllocator } from "../lib/allocation.js";
 import { specializeCopiedStringAllocator } from "../lib/copied-string.js";
-import { toString } from "../lib/util.js";
+import { SimpleParser, toString } from "../lib/util.js";
 const stock = `if(size>=OBJECT_MAXSIZE)throw new Error(E_ALLOCATION_TOO_LARGE);
 if(total>=threshold)interrupt();
 let obj=changetype<Object>(__alloc(OBJECT_OVERHEAD+size)-BLOCK_OVERHEAD);
@@ -20,6 +20,7 @@ function fixture(runtime = "itcms", body = stock) {
       "assembly/util/runtime",
       `const __json_as_copy_string=0;
  export function allocateObject(size:usize,id:u32):usize{return __new(size,id);}
+ export function clearAllocatedObject(ptr:usize,size:usize):void{memory.fill(ptr,0,size);}
  export function canAllocateCopiedString():bool{return false;}
  export function allocateCopiedString(source:usize,size:usize):usize{const out=allocateObject(size,idof<string>());memory.copy(out,source,size);return out;}`,
     ],
@@ -55,6 +56,12 @@ assert.match(
   toString(helper),
   /__json_as_copy_string0\(size, idof<string>\(\), source\)/,
 );
+const clear = helper.statements.find(
+  (s) => s.name?.text === "clearAllocatedObject",
+);
+assert.match(toString(clear.body), /ASC_RUNTIME != 2/);
+assert.match(toString(clear.body), /sizeof<usize>\(\) != 4/);
+assert.match(toString(clear.body), /isDefined\(ASC_RTRACE\)/);
 const once = sources.map(toString);
 specializeCopiedStringAllocator(sources);
 assert.deepEqual(sources.map(toString), once);
@@ -74,4 +81,31 @@ for (const [runtime, body] of [
 }
 console.log(
   "Copied-string allocator: exact stock body, GC bookkeeping, name hygiene, idempotence and unknown/runtime fallbacks passed",
+);
+
+// A known original is insufficient if another transform changes the actual
+// allocation helper. The clear must remain for a modified scoped allocator.
+const altered = fixture();
+const alteredRt = altered.find((s) => s.internalPath === "~lib/rt/itcms");
+const scoped = alteredRt.statements.find((s) =>
+  s.name?.text.startsWith("__json_as_allocate_object"),
+);
+scoped.body.statements.unshift(SimpleParser.parseStatement("size = 0;"));
+const alteredHelper = altered.find(
+  (s) => s.internalPath === "assembly/util/runtime",
+);
+const originalClear = alteredHelper.statements.find(
+  (s) => s.name?.text === "clearAllocatedObject",
+);
+const beforeClear = toString(originalClear.body);
+const beforeScoped = toString(scoped.body);
+specializeCopiedStringAllocator(altered);
+assert.equal(toString(originalClear.body), beforeClear);
+assert.equal(
+  toString(scoped.body),
+  beforeScoped,
+  "canonical proof must not change the allocator",
+);
+console.log(
+  "Fresh-object clear: zeroing proof, actual scoped allocator, instrumentation and unknown-runtime fallback passed",
 );

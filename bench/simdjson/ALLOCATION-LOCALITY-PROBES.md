@@ -206,3 +206,45 @@ Evidence: `sweep-production-qualification.json`,
 `sweep-production-transform/results.json`, `sweep-production-equivalence.json`,
 and the pressure/runtime/packed/prepare logs. A fresh paired native gate follows
 this integration; the earlier screen alone does not establish native parity.
+
+
+## Verified fresh-object clearing
+
+Generated deferrable child/array-item readers issued an explicit payload clear
+after their allocation helper. The installed incremental allocator already
+zeroes that payload, so the extra clear survives compilation as redundant work.
+The minimal allocator does not make the same guarantee; unconditional removal
+would be unsafe. Production instead uses a clear helper whose default is the
+original memory fill. Only an exact verification of the actual library-owned
+zeroing allocator permits elision. Unknown bodies and other runtimes retain the
+clear; RTrace and alternate pointer layouts retain it as well. Reused-object
+initialization remains unchanged.
+
+The first six-pair CITM screen measured +2.85% minified / +1.10% pretty
+throughput. The six-changed-corpus confirmation (72 processes; FGO, OTFCC and
+Poet byte-identical) measured +3.49% / +2.06% for CITM, with other changes between
+-1.34% and +1.00%. Every process completed within six seconds and the largest
+between-process gap was 27 ms, unlike the sleep-interrupted earlier key probe.
+Eight integrated binaries match this prototype exactly. Canada differs by two
+bytes of local-variable scheduling; its independent six-round three-way
+confirmation is effectively flat versus the qualified control (-0.12% minified,
+-0.22% pretty), and +0.44% / -0.02% versus the prototype.
+
+Functional qualification passed all **58 transform scripts**, the packed
+artifact's 252 operations/36 configurations, and all nine complete retained
+owning-output oracles. The new test passes 18 runtime/backend/strict settings,
+exercises poisoned recycled minimal-runtime memory, and verifies that removing
+the fallback fails its negative control. The allocator-proof unit also declines
+optimization when the actual scoped allocator was changed despite an unchanged
+original allocator. The 12-configuration allocation-pressure matrix and its
+fixed-memory controls passed.
+
+Source fingerprint:
+`4030c5bc96afe7ad88a7258ba57b8279c5424ea32a798a84f8904f34de238c81`.
+Evidence under `build/perf/classic-native/`: `clear-production-qualification.json`,
+`clear-production-transform/results.json`, `clear-production-equivalence.json`,
+`no-double-clear-all-preparation.json`,
+`whitespace/no-double-clear-all-controls-{samples,summary}.json` and
+`whitespace/clear-production-canada-controls-{samples,summary}.json`, plus their
+paired logs. These screens precede a fresh full owning-native threshold sweep;
+they alone do not establish an 80% milestone or parity.

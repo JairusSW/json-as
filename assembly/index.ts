@@ -23,7 +23,7 @@ import {
 } from "./deserialize/cursor";
 
 import { OBJECT, OBJECT_MAXSIZE, TOTAL_OVERHEAD } from "rt/common";
-import { STRING_SIZE_MASK, allocateObject, linkObject } from "./util/runtime";
+import { STRING_SIZE_MASK, allocateObject, clearAllocatedObject, linkObject } from "./util/runtime";
 import {
   serializeArray,
   serializeArrayPointer,
@@ -3566,6 +3566,12 @@ export namespace JSON {
   @inline
   function __allocateObject(size: usize, id: u32): usize {
     return allocateObject(size, id);
+  }
+
+  /** Preserve an explicit fresh-object clear unless allocation supplies it. */
+  @inline
+  function __clearAllocatedObject(ptr: usize, size: usize): void {
+    clearAllocatedObject(ptr, size);
   }
 
   /** Internal publication entry for generated readers. */

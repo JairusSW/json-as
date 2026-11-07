@@ -2439,7 +2439,7 @@ export class JSONTransform extends Visitor {
                     out.push(`    store<${resolvedType}>(${outPtr}, value, ${fieldOffset});`);
                     out.push(`    if (isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`);
                     if (this.canDeferFastDefaults(resolvedSchema)) {
-                        out.push(`    memory.fill(changetype<usize>(value), 0, offsetof<nonnull<${resolvedType}>>());`);
+                        out.push(`    JSON.__clearAllocatedObject(changetype<usize>(value), offsetof<nonnull<${resolvedType}>>());`);
                     }
                     else {
                         out.push(`    changetype<nonnull<${resolvedType}>>(value).__INITIALIZE();`);
@@ -2609,7 +2609,7 @@ export class JSONTransform extends Visitor {
                     out.push("      if (changetype<usize>(item) == 0) {");
                     out.push(`        item = changetype<${valueType}>(JSON.__allocateObject(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
                     if (this.canDeferFastDefaults(valueSchema)) {
-                        out.push(`        memory.fill(changetype<usize>(item), 0, offsetof<nonnull<${valueType}>>());`);
+                        out.push(`        JSON.__clearAllocatedObject(changetype<usize>(item), offsetof<nonnull<${valueType}>>());`);
                     }
                     else {
                         out.push(`        changetype<nonnull<${valueType}>>(item).__INITIALIZE();`);
@@ -2621,7 +2621,7 @@ export class JSONTransform extends Visitor {
                     out.push("    } else {");
                     out.push(`      item = changetype<${valueType}>(JSON.__allocateObject(offsetof<nonnull<${valueType}>>(), idof<nonnull<${valueType}>>()));`);
                     if (this.canDeferFastDefaults(valueSchema)) {
-                        out.push(`      memory.fill(changetype<usize>(item), 0, offsetof<nonnull<${valueType}>>());`);
+                        out.push(`      JSON.__clearAllocatedObject(changetype<usize>(item), offsetof<nonnull<${valueType}>>());`);
                     }
                     else {
                         out.push(`      changetype<nonnull<${valueType}>>(item).__INITIALIZE();`);

@@ -3764,7 +3764,7 @@ export class JSONTransform extends Visitor {
           // a default graph that this successful parse immediately replaces.
           if (this.canDeferFastDefaults(resolvedSchema)) {
             out.push(
-              `    memory.fill(changetype<usize>(value), 0, offsetof<nonnull<${resolvedType}>>());`,
+              `    JSON.__clearAllocatedObject(changetype<usize>(value), offsetof<nonnull<${resolvedType}>>());`,
             );
           } else {
             out.push(
@@ -4036,7 +4036,7 @@ export class JSONTransform extends Visitor {
           );
           if (this.canDeferFastDefaults(valueSchema)) {
             out.push(
-              `        memory.fill(changetype<usize>(item), 0, offsetof<nonnull<${valueType}>>());`,
+              `        JSON.__clearAllocatedObject(changetype<usize>(item), offsetof<nonnull<${valueType}>>());`,
             );
           } else {
             out.push(
@@ -4056,7 +4056,7 @@ export class JSONTransform extends Visitor {
           );
           if (this.canDeferFastDefaults(valueSchema)) {
             out.push(
-              `      memory.fill(changetype<usize>(item), 0, offsetof<nonnull<${valueType}>>());`,
+              `      JSON.__clearAllocatedObject(changetype<usize>(item), offsetof<nonnull<${valueType}>>());`,
             );
           } else {
             out.push(

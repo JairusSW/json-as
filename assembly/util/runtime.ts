@@ -23,6 +23,13 @@ export function allocateObject(size: usize, id: u32): usize {
   return __new(size, id);
 }
 
+// Generated readers keep this clear unless their actual allocation entry is
+// verified to zero the full payload. Other runtimes retain their normal clear.
+@inline
+export function clearAllocatedObject(ptr: usize, size: usize): void {
+  memory.fill(ptr, 0, size);
+}
+
 // Enabled only after the transform recognizes the installed allocator. Callers
 // preserve their original allocation/publication order under instrumentation.
 @inline

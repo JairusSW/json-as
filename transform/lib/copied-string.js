@@ -92,6 +92,38 @@ export function specializeCopiedStringAllocator(sources) {
     new Fill().visit(copy.body);
     if (fills !== 1)
         return;
+    const canonical = cloneNode(scoped);
+    const backingNames = new Set(runtime.statements
+        .filter((s) => s.kind === NodeKind.Import &&
+        s.internalPath === target.internalPath)
+        .flatMap((s) => s.declarations ?? [])
+        .filter((d) => d.foreignName.text === "allocateSmallBlock")
+        .map((d) => d.name.text));
+    class CanonicalBacking extends Visitor {
+        visitCallExpression(node, parent) {
+            if (node.expression.kind === NodeKind.Identifier &&
+                backingNames.has(node.expression.text))
+                node.expression = Node.createIdentifierExpression("__alloc", node.expression.range);
+            super.visitCallExpression(node, parent);
+        }
+    }
+    new CanonicalBacking().visit(canonical.body);
+    const clear = fn(target, "clearAllocatedObject");
+    if (clear?.body &&
+        normalized(clear.body) === "{memory.fill(ptr,0,size);}" &&
+        normalized(canonical.body) === normalized(expected.body)) {
+        const replacement = SimpleParser.parseTopLevelStatement(`function clear(ptr: usize, size: usize): void {
+      if (ASC_RUNTIME != 2 || sizeof<usize>() != 4 || isDefined(ASC_RTRACE)) memory.fill(ptr, 0, size);
+    }`);
+        class ClearBind extends Visitor {
+            _visit(node, parent) {
+                node.range = clear.range;
+                super._visit(node, parent);
+            }
+        }
+        new ClearBind().visit(replacement.body);
+        clear.body = replacement.body;
+    }
     runtime.statements.push(copy);
     const imported = Node.createImportStatement([
         Node.createImportDeclaration(Node.createIdentifierExpression(name, target.range), Node.createIdentifierExpression(local, target.range), target.range),

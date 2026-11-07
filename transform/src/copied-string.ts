@@ -114,6 +114,54 @@ export function specializeCopiedStringAllocator(sources: Source[]): void {
   }
   new Fill().visit(copy.body!);
   if (fills !== 1) return;
+  // Reuse the zeroing proof, not the copied-string capability: generated
+  // object clears have their own conservative fallback. Canonicalize only
+  // the library-owned native backing call before comparing the entire body.
+  const canonical = cloneNode(scoped) as FunctionDeclaration;
+  const backingNames = new Set(
+    runtime.statements
+      .filter(
+        (s) =>
+          s.kind === NodeKind.Import &&
+          (s as ImportStatement).internalPath === target.internalPath,
+      )
+      .flatMap((s) => (s as ImportStatement).declarations ?? [])
+      .filter((d) => d.foreignName.text === "allocateSmallBlock")
+      .map((d) => d.name.text),
+  );
+  class CanonicalBacking extends Visitor {
+    visitCallExpression(node: CallExpression, parent: Node | null): void {
+      if (
+        node.expression.kind === NodeKind.Identifier &&
+        backingNames.has((node.expression as IdentifierExpression).text)
+      )
+        node.expression = Node.createIdentifierExpression(
+          "__alloc",
+          node.expression.range,
+        );
+      super.visitCallExpression(node, parent);
+    }
+  }
+  new CanonicalBacking().visit(canonical.body!);
+  const clear = fn(target, "clearAllocatedObject");
+  if (
+    clear?.body &&
+    normalized(clear.body) === "{memory.fill(ptr,0,size);}" &&
+    normalized(canonical.body!) === normalized(expected.body!)
+  ) {
+    const replacement =
+      SimpleParser.parseTopLevelStatement(`function clear(ptr: usize, size: usize): void {
+      if (ASC_RUNTIME != 2 || sizeof<usize>() != 4 || isDefined(ASC_RTRACE)) memory.fill(ptr, 0, size);
+    }`) as FunctionDeclaration;
+    class ClearBind extends Visitor {
+      _visit(node: Node, parent: Node | null): void {
+        node.range = clear!.range;
+        super._visit(node, parent);
+      }
+    }
+    new ClearBind().visit(replacement.body!);
+    clear.body = replacement.body;
+  }
   runtime.statements.push(copy);
   const imported = Node.createImportStatement(
     [
