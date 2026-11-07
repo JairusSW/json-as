@@ -4588,8 +4588,8 @@ export class JSONTransform extends Visitor {
           i2 +
           `if (${getComparisions(key, "srcStart", "!=").join(" || ")}) break;\n`;
         blk += i2 + `srcStart += ${keyBytes};\n`;
-        // Pretty JSON commonly has exactly ': '. Match both UTF-16 units
-        // together; retain the general whitespace path for every other form.
+        // Preserve the original read sequence under instrumentation.
+        blk += i2 + "if (isDefined(ASC_RTRACE)) {\n";
         blk +=
           i2 +
           "if (srcStart <= srcEnd && srcEnd - srcStart >= 4 && load<u32>(srcStart) == 0x0020003a) {\n";
@@ -4601,6 +4601,21 @@ export class JSONTransform extends Visitor {
         blk += i2 + "  srcStart += 2;\n";
         blk += i2 + "}\n";
         blk += skip;
+        blk += i2 + "} else {\n";
+        // After ': ', a code unit above U+0020 cannot be JSON whitespace.
+        // Prove that here instead of running another whitespace scan. Extra
+        // whitespace and every other separator spelling keep the general path.
+        blk +=
+          i2 +
+          "if (srcStart <= srcEnd && srcEnd - srcStart >= 6 && load<u32>(srcStart) == 0x0020003a && load<u16>(srcStart, 4) > 0x20) {\n";
+        blk += i2 + "  srcStart += 4;\n";
+        blk += i2 + "} else {\n";
+        blk += skip;
+        blk += i2 + "  if (load<u16>(srcStart) != 0x3a) break; // :\n";
+        blk += i2 + "  srcStart += 2;\n";
+        blk += skip;
+        blk += i2 + "}\n";
+        blk += i2 + "}\n";
         blk += i2 + tier2Desers[i].join("\n" + i2) + "\n";
         if (i < this.schema.members.length - 1) {
           blk += skip;

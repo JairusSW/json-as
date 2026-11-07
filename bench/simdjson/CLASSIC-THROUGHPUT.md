@@ -1615,3 +1615,74 @@ Full-gate evidence: `build/perf/classic-native/single-tail-all-90-`
 `{prepared,samples,result}.json` and `single-tail-all-90-paired.log`.
 Measured source fingerprint:
 `6f9d6608ae996131636275bbf7d8bae159cabda51ff91ae270aba057a9a8b8c9`.
+
+### Fused separator and value-start check
+
+The generated required-field whitespace reader can establish that the code unit
+following `: ` is above U+0020. Such a code unit cannot be whitespace, so the
+reader advances directly to its typed decoder. Other spacing retains the
+general before/after-colon scans. RTrace builds retain the original read
+sequence. No validation, allocation, tracing or result-ownership checks are
+removed.
+
+The independent six-pair ARM64 screen uses the unchanged classic harness,
+fresh `JSON.parse<T>()`, incremental runtime and validation/cache off. Power and
+process audits are retained; these are shared-host screens, not an isolated
+release floor. Results show a modest tradeoff:
+
+| Corpus | Minified throughput change | Pretty throughput change |
+| --- | ---: | ---: |
+| CITM | −0.52% | +1.36% |
+| Canada | +1.35% | +0.76% |
+| GitHub | +0.21% | +1.65% |
+| Lottie | −1.53% | −0.55% |
+
+The integrated CITM Wasm matches the measured prototype byte for byte. The
+permanent regression covers 37 runtime/mode/strict/fast/tracing configurations,
+asserting actual shortcut execution and tracing fallback, plus extra whitespace,
+Unicode keys, fresh/reused destinations, nullable Raw fields and exactly one
+custom-codec call. All nine retained owning models and the packed consumer's
+252 operations over 36 configurations pass. All 60 transform scripts passed, including 960 capability-edge checks. The
+renewed native comparison is complete below.
+
+Evidence under `build/perf/classic-native/`: `colon-value-start-confirm-paired.log`,
+`whitespace/colon-value-start-confirm-controls-{samples,summary}.json`,
+`colon-value-start-manifest.json`, `separator-value-start-permanent.log`,
+`separator-value-start-transform.log`, `separator-value-start-packed.log` and
+`separator-value-start-all-preparation.log`.
+
+The renewed five-pair all-classic gate contains 90 fresh processes. All 16
+layouts clear 80%; 15 clear 90%. CITM pretty is the remaining miss at 87.9%
+versus 85.7% in the preceding full run. This cross-run ratio includes machine
+variation: the code's independent paired CITM estimate is +1.36%, with the
+Lottie tradeoff shown above. Absolute latencies should not be compared across
+these separate shared-host batches as if the machine were isolated.
+
+Decimal GB/s uses the same logical UTF-8 payload byte count divided by parse
+latency. The respective APIs still receive UTF-16 AS strings and padded native
+UTF-8, and native results are owning structs rather than DOM values.
+
+| Corpus | Layout | AS us | Native us | AS GB/s | Native GB/s | Native throughput reached |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| twitter | min | 202.00 | 369.49 | 2.311 | 1.264 | 182.9% |
+| twitter | pretty | 283.10 | 385.66 | 2.231 | 1.637 | 136.2% |
+| canada | min | 2,808.77 | 2,784.26 | 0.744 | 0.751 | 99.1% |
+| canada | pretty | 2,848.79 | 2,882.09 | 1.011 | 0.999 | 101.2% |
+| citm_catalog | min | 377.39 | 361.66 | 1.326 | 1.383 | 95.8% |
+| citm_catalog | pretty | 497.49 | 437.09 | 2.315 | 2.635 | 87.9% |
+| poet | min | 760.83 | 1,723.32 | 4.335 | 1.914 | 226.5% |
+| poet | pretty | 842.51 | 1,741.63 | 4.170 | 2.017 | 206.7% |
+| github_events | min | 39.41 | 39.44 | 1.353 | 1.352 | 100.1% |
+| github_events | pretty | 41.40 | 40.51 | 1.572 | 1.607 | 97.9% |
+| gsoc-2018 | min | 1,070.48 | 1,326.59 | 2.868 | 2.314 | 123.9% |
+| gsoc-2018 | pretty | 1,155.65 | 1,323.25 | 2.784 | 2.432 | 114.5% |
+| lottie | min | 125.09 | 174.20 | 2.310 | 1.659 | 139.3% |
+| lottie | pretty | 294.06 | 272.46 | 5.065 | 5.466 | 92.7% |
+| otfcc | min | 20,961.53 | 34,408.55 | 3.168 | 1.930 | 164.2% |
+| fgo | min | 10,664.35 | 16,655.72 | 4.573 | 2.928 | 156.2% |
+
+Full evidence: `build/perf/classic-native/separator-value-start-all-90-`
+`{prepared,samples,result}.json` and `separator-value-start-all-90-paired.log`.
+Measured source fingerprint:
+`5c7539d111b03415fd815622ab3b795ade01aa46bedd1ebc381848c60cfa6f73`.
+The parity goal remains active.
