@@ -1178,3 +1178,54 @@ regressions are recorded in [the allocation probe report](ALLOCATION-LOCALITY-PR
 The empty-array proposal was rejected after its GitHub timing check. Next work
 remains CITM/GitHub's 70% gate, followed by the higher corpus-wide thresholds
 and eventual parity.
+
+
+## Scoped sweep integration: production `a97c0585`
+
+The complete five-pair fresh native sweep now **passes 70% for every classic
+layout**: nine corpora, 16 layouts, all 90 process samples present. The weakest
+layout is Lottie minified at 77.96%. The next 80% gate misses only CITM pretty
+(79.95%), Lottie minified (77.96%) and Lottie pretty (78.86%); parity remains
+incomplete. Ratios below come directly from this paired native run, not from
+applying prototype gains to a previous native baseline.
+
+All 57 transform scripts, 252 packed-consumer operations/36 configurations and
+all nine retained owning-output oracles passed. Every production benchmark
+binary matches the selected prototype byte for byte. The optimization couples
+mixed small-block allocation with coalescing of adjacent already-dead native
+blocks inside library-triggered collector interrupts. Application allocation and
+explicit collection retain their original collector functions; each managed
+object retains ordinary registration and identity.
+
+The local ARM64 run records AC power at 100% and per-process background-load
+audits. It is not isolated-machine qualification. Models, the original classic
+AS harness, validation/cache-off settings, fresh `JSON.parse<T>()` calls and the
+incremental runtime remain unchanged. simdjson produces owning native structs;
+GB/s counts UTF-8 input bytes, while AS receives predecoded UTF-16.
+
+| Corpus / layout | json-as GB/s | Native GB/s | AS / native |
+|---|---:|---:|---:|
+| twitter / min | 2.389 | 1.315 | 1.817× |
+| twitter / pretty | 2.268 | 1.698 | 1.336× |
+| canada / min | 0.763 | 0.782 | 0.976× |
+| canada / pretty | 1.040 | 1.043 | 0.997× |
+| citm_catalog / min | 1.315 | 1.413 | 0.930× |
+| citm_catalog / pretty | 2.166 | 2.710 | 0.799× |
+| poet / min | 4.236 | 1.892 | 2.238× |
+| poet / pretty | 4.024 | 1.957 | 2.056× |
+| github_events / min | 1.217 | 1.373 | 0.886× |
+| github_events / pretty | 1.312 | 1.599 | 0.820× |
+| gsoc-2018 / min | 2.964 | 2.332 | 1.271× |
+| gsoc-2018 / pretty | 2.756 | 2.476 | 1.113× |
+| lottie / min | 1.306 | 1.675 | 0.780× |
+| lottie / pretty | 4.324 | 5.483 | 0.789× |
+| otfcc / min | 1.716 | 2.004 | 0.856× |
+| fgo / min | 2.512 | 2.849 | 0.882× |
+
+Source fingerprint: `fe8ce1728ffa56c340c61027a35801785811aea7e2352cb2e1a649de47800b79`.
+Evidence: `build/perf/classic-native/sweep-production-all-70-{prepared,samples,result}.json`,
+`sweep-production-all-70-paired.log`, `sweep-production-qualification.json`,
+`sweep-production-transform/results.json` and `sweep-production-equivalence.json`.
+The measurement exited zero and released its shared timing lock. The next
+work is the remaining 80% misses, then the higher thresholds and corpus-wide
+parity; this sweep does not establish completion of that goal.
