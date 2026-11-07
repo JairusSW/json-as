@@ -1313,3 +1313,13 @@ audits and logs are retained under `build/perf/classic-native/whitespace/`
 as `fused-pretty-key-all-controls-{samples,summary}.json`, with the paired log
 and 18-step owning-output preparation record one directory above. This screen
 does not change the qualified production table or its unmet CITM-pretty 80% gate.
+
+
+The subsequent short awake-host confirmation completed all 36 processes across
+CITM, Canada and GitHub (six alternating pairs) from 06:25:02 to 06:27:30 UTC.
+It exceeded its two-minute plan by 28 seconds, finished normally and released
+the lock. CITM pretty was flat (-0.14%), Canada pretty -0.89%, and GitHub pretty
+-1.66%, with GitHub peak RSS +2.74 MiB. This does not support promoting the
+whole-key duplication proposal. Production remains unchanged. Evidence:
+`whitespace/fused-pretty-key-awake-controls-{samples,summary}.json` and
+`fused-pretty-key-awake-paired.log` under `build/perf/classic-native/`.
