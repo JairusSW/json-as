@@ -4073,14 +4073,17 @@ export namespace JSON {
     // Keep the no-whitespace and single-character cases short. Longer runs
     // commonly contain indentation spaces; consume four UTF-16 spaces at once
     // without reading outside the supplied range. Mixed whitespace stays on
-    // the same compatibility classification as the scalar reader.
+    // the same compatibility classification as the scalar reader. Once a
+    // word is not all spaces, finish with a scalar tail instead of retrying
+    // that same word load for each remaining whitespace character.
     function skipWhitespaceRun(ptr: usize, end: usize): usize {
-      while (ptr < end) {
-        while (end - ptr >= 8 && load<u64>(ptr) == 0x0020_0020_0020_0020)
-          ptr += 8;
-        if (ptr >= end || !isSpace(load<u16>(ptr))) return ptr;
-        ptr += 2;
-      }
+      while (
+        ptr <= end &&
+        end - ptr >= 8 &&
+        load<u64>(ptr) == 0x0020_0020_0020_0020
+      )
+        ptr += 8;
+      while (ptr < end && isSpace(load<u16>(ptr))) ptr += 2;
       return ptr;
     }
     /** Advance a whitespace run using the SIMD pretty-document scanner. */

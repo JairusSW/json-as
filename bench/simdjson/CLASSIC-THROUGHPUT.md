@@ -1550,3 +1550,68 @@ None of these experiments changes production or the latest full native gate:
 Evidence under `build/perf/classic-native/`: `decode-first-{correctness,controls}.log`,
 `{newline-prefix,newline-gated,outline-all-whitespace}-correctness.log`, retained
 `citm-*-oracle.log` files and `whitespace/<experiment>-controls-{samples,summary}.json`.
+
+### Single scalar whitespace tail
+
+A candidate changes only the long whitespace helper: consume full four-space
+words, then finish the remaining mixed/short run with one scalar loop. The
+previous outer loop retried a wide load for every residual whitespace character.
+The bounded reads and existing whitespace classification remain unchanged.
+
+An independent six-pair/four-corpus confirmation followed the initial CITM
+screen. Old classic harnesses and models, fresh `JSON.parse<T>()`, incremental
+GC, validation/cache off and ARM64 were retained. AC power was at 100%; process
+audits are retained, and this is not an isolated-host qualification.
+
+| Corpus | Minified throughput change | Pretty throughput change |
+| --- | ---: | ---: |
+| CITM | −0.18% | +5.14% |
+| Canada | +0.20% | −0.76% |
+| GitHub | −0.58% | +3.76% |
+| Lottie | −1.13% | +1.13% |
+
+All four retained owning graphs and ten exhaustive whitespace configurations
+passed before confirmation. After integration, all nine classic retained graphs
+passed and the CITM production binary matched the measured prototype exactly.
+Packed consumption passed 252 operation checks over 36 configurations. All 59 transform scripts passed, including 960 capability-edge checks. The
+renewed native comparison is complete below.
+
+Evidence: `build/perf/classic-native/whitespace-single-tail-correctness.log`,
+`single-tail-confirm-paired.log`, `whitespace/single-tail-confirm-controls-`
+`{samples,summary}.json`, `single-tail-all-preparation.log`,
+`single-tail-production-transform.log` and `single-tail-packed.log`.
+
+The renewed five-pair, all-nine-corpus gate contains 90 fresh process samples.
+All 16 layouts clear 80%; 15 clear 90%. CITM pretty remains the only 90% miss,
+at 85.7% versus 79.8% in the preceding full run. That cross-run change includes
+machine/run variation; the independent paired CITM estimate for the code change
+is +5.14%. The goal remains active.
+
+Throughput uses the same logical UTF-8 payload byte count divided by parse time
+(decimal GB/s); the AS API still receives UTF-16 strings and native simdjson
+receives padded UTF-8, as described above. These medians are audited shared-host
+measurements, not an isolated-host release floor.
+
+| Corpus | Layout | AS us | Native us | AS GB/s | Native GB/s | Native throughput reached |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| twitter | min | 191.88 | 352.84 | 2.433 | 1.323 | 183.9% |
+| twitter | pretty | 268.32 | 370.13 | 2.354 | 1.706 | 137.9% |
+| canada | min | 2,727.35 | 2,665.51 | 0.766 | 0.784 | 97.7% |
+| canada | pretty | 2,728.23 | 2,716.72 | 1.055 | 1.060 | 99.6% |
+| citm_catalog | min | 361.21 | 348.05 | 1.385 | 1.437 | 96.4% |
+| citm_catalog | pretty | 490.09 | 420.18 | 2.350 | 2.742 | 85.7% |
+| poet | min | 745.45 | 1,640.67 | 4.425 | 2.010 | 220.1% |
+| poet | pretty | 820.36 | 1,672.39 | 4.282 | 2.101 | 203.9% |
+| github_events | min | 38.82 | 37.99 | 1.374 | 1.404 | 97.9% |
+| github_events | pretty | 41.51 | 38.99 | 1.568 | 1.670 | 93.9% |
+| gsoc-2018 | min | 992.64 | 1,234.12 | 3.093 | 2.488 | 124.3% |
+| gsoc-2018 | pretty | 1,032.32 | 1,257.98 | 3.117 | 2.558 | 121.9% |
+| lottie | min | 117.69 | 168.95 | 2.455 | 1.710 | 143.6% |
+| lottie | pretty | 283.36 | 263.19 | 5.256 | 5.659 | 92.9% |
+| otfcc | min | 20,422.72 | 33,511.67 | 3.252 | 1.982 | 164.1% |
+| fgo | min | 10,599.50 | 17,065.29 | 4.601 | 2.858 | 161.0% |
+
+Full-gate evidence: `build/perf/classic-native/single-tail-all-90-`
+`{prepared,samples,result}.json` and `single-tail-all-90-paired.log`.
+Measured source fingerprint:
+`6f9d6608ae996131636275bbf7d8bae159cabda51ff91ae270aba057a9a8b8c9`.
