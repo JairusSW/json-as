@@ -63,12 +63,12 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           );
           const slot = reusableDataStart + <usize>index * elementSize;
           if (!reuseComposite(changetype<usize>(value), slot)) {
-            value = newNativeArray<valueof<T>>();
+            value = newNativeArray<valueof<T>>(2);
             store<valueof<T>>(slot, value);
             linkObject(changetype<usize>(out), changetype<usize>(value), false);
           }
         } else {
-          value = changetype<valueof<T>>(newNativeArray<valueof<T>>());
+          value = changetype<valueof<T>>(newNativeArray<valueof<T>>(2));
           changetype<Array<valueof<T>>>(out)[out.length] = value;
         }
         srcStart = deserializeFloatArrayBody<valueof<T>>(

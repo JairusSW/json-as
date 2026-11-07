@@ -77,6 +77,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Reduce initial backing storage for newly allocated floating-point arrays in accelerated readers to two slots, including nested arrays. Preserve ordinary growth, destination reuse, subtype constructors, and independent managed storage.
 - Defer safe defaults for fresh generated Map values until needed, reducing temporary container allocations while preserving effects, shared defaults, inherited state, and reused destinations.
 - Preserve default initialization before manual reader and cursor lifecycle hooks throughout a schema's dependency graph, including defaults that read shared state changed by a child reader.
 - Keep null composite destinations on an inline return path before ownership claiming, reducing fresh-parse call overhead.
@@ -84,7 +85,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 - Match the common colon-space separator directly in generated whitespace readers, retaining general whitespace handling and bounded reads.
 - Keep in-capacity native-array appends local to generated readers, preserving ordinary growth and GC barriers and bypassing subclass mutation hooks consistently.
 - Extend the library-owned small-block allocation path to decoded strings across all three backends.
-- Specialize ordinary native-array construction while retaining the standard capacity, independent managed buffers, subclass constructors, and runtime fallbacks. Keep known generated children on the whitespace tier once their parent tiers down; each new parse still starts at the compact tier.
+- Specialize ordinary native-array construction while retaining ordinary growth, independent managed buffers, subclass constructors, and runtime fallbacks. Keep known generated children on the whitespace tier once their parent tiers down; each new parse still starts at the compact tier.
 - Accelerate longer indentation runs with bounded four-character whitespace loads while preserving scalar behavior for mixed whitespace and range boundaries.
 - Batch small native backing-block acquisition when free capacity permits, while preserving per-object GC registration and fresh identities. Fall back under pressure and return unassigned tails before heap growth. Keep native allocation events unchanged under RTrace.
 - Specialize library-owned schema allocations with the installed incremental runtime allocator body, exposing constant sizes while retaining its GC operations. Keep application calls and other runtime allocation paths unchanged.

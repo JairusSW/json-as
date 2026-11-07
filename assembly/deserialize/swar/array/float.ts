@@ -543,7 +543,7 @@ export function deserializeFloatArray_SWAR<T extends number[]>(
   srcEnd: usize,
   dst: usize,
 ): T {
-  const out = changetype<T>(dst || changetype<usize>(newNativeArray<T>()));
+  const out = changetype<T>(dst || changetype<usize>(newNativeArray<T>(2)));
   const next = deserializeFloatArrayBody<T>(srcStart, srcEnd, out, true);
   if (!next || skipFloatArrayWhitespace(next, srcEnd) != srcEnd) {
     takeProductionParseError();

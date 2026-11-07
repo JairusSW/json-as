@@ -10,11 +10,13 @@ export function newNativeArray<T>(minimumCapacity: usize = 8): T {
       const out = changetype<nonnull<T>>(
         allocateObject(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
       );
-      // Ordinary callers keep Array's normal minimum. Generated reference-array
-      // fields can reserve more slots to avoid copying managed storage on early
-      // growth. This is separate from the empty-array zero-capacity path. Both
-      // allocations remain managed roots and retain distinct identity.
-      const bytes = max(minimumCapacity, <usize>8) << alignof<valueof<nonnull<T>>>();
+      // Ordinary callers keep Array's normal default. Numeric readers can start
+      // with two slots; generated reference-array fields can reserve more to
+      // avoid copying managed storage on early growth. The ordinary base setter
+      // grows smaller buffers as needed. This is separate from empty arrays.
+      // Both allocations remain managed roots and retain distinct identity.
+      const bytes =
+        max(minimumCapacity, <usize>2) << alignof<valueof<nonnull<T>>>();
       const buffer = changetype<ArrayBuffer>(
         allocateObject(bytes, idof<ArrayBuffer>()),
       );

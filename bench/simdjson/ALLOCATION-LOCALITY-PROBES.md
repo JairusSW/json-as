@@ -116,3 +116,38 @@ three modes, strict on/off, and fast on/off. Checks cover f32/f64 lengths
 outputs; retained values after collection and growth; and subtype identity,
 initialization and constructor count. Full corpus builds/oracles and timing
 for these actual nested allocation sites are still pending.
+
+## Nested float-buffer measurement
+
+The actual nested allocation changes passed all four Canada/Lottie complete
+owning-output oracles. Lottie's binaries were unchanged, so only Canada needed
+timing: six alternating process pairs for each variant, 18 process samples.
+
+| Variant | Minified us/parse | Pretty us/parse | Throughput delta min / pretty | Median peak RSS |
+|---|---:|---:|---:|---:|
+| Production control | 3662.345 | 3688.830 | — | 325.73 MiB |
+| Two initial slots | 3227.755 | 3277.440 | +13.46% / +12.55% | 335.76 MiB |
+| Four initial slots | 3505.775 | 3570.200 | +4.47% / +3.32% | 343.77 MiB |
+
+Smaller per-array backing buffers did not reduce peak process RSS in this
+workload: allocation/sweep scheduling matters as well. The two-slot variant
+improved throughput with approximately 10.0 MiB more median peak RSS.
+
+The production candidate applies that initial capacity to the root float-array
+helper and the two float-child allocation sites in the nested array reader.
+The general factory still defaults to eight slots, generated reference fields
+retain their existing reservation, and subclasses/other runtimes retain their
+constructor fallback. The permanent regression covers all 36 combinations of
+runtime, backend, strictness and fast-path setting; those configurations passed.
+Production qualification passed all 55 transform scripts, 252 packed-consumer
+operations across 36 configurations, and all nine retained owning-output
+oracles. The production Canada binary exactly matches the measured two-slot
+prototype. Seven other corpus binaries are byte-identical to production control.
+Twitter also changed; its six-pair check was effectively flat (+0.10% minified,
+-0.32% pretty). Source fingerprint:
+`888b76936949c769df55e7570b6a1b9cf1aedb8fdafddfc8de6dead25bb999ca`.
+The broad mixed-allocation policies remain unintegrated.
+
+Evidence: `whitespace/nested-float-capacity-controls-{samples,summary}.json`,
+`nested-float-capacity-preparation.json`, `nested-float-capacity-growth-controls.log`,
+and the production qualification logs under `build/perf/classic-native/`.
