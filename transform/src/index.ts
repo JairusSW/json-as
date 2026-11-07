@@ -69,6 +69,7 @@ import { Visitor } from "./visitor.js";
 import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
+import { specializeSweepRuns } from "./sweep.js";
 import { generateCursorParser } from "./cursor.js";
 import { keyDispatch, KeyDispatch } from "./key-dispatch.js";
 import {
@@ -7218,6 +7219,7 @@ export default class Transformer extends Transform {
     specializeObjectAllocator(parser.sources);
     specializeCopiedStringAllocator(parser.sources);
     specializeObjectBarrier(parser.sources);
+    specializeSweepRuns(parser.sources, this.program.options.globalAliases);
 
     for (const [source, statements] of transformer.simdStatements) {
       for (const statement of statements)

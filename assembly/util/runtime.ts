@@ -45,28 +45,51 @@ export function linkObject(parent: usize, child: usize, expectMultiple: bool = f
   __link(parent, child, expectMultiple);
 }
 
-// One unfinished batch per native small-block size. Each returned piece gets
+// One unfinished batch per native small-block size, or one mixed-size stream
+// when the matching collector specialization is available. Each piece gets
 // its own ordinary managed header and is reclaimed by the standard runtime.
 // The unassigned tails remain raw allocator storage, not managed objects.
 // @ts-expect-error: @lazy is a valid decorator
 @lazy const SMALL_BLOCK_HEADS: usize = memory.data(9 * sizeof<usize>(), 16);
 
+/** Enabled together with the matching library-owned collector entry. */
+@inline
+export function canCoalesceSweepRuns(): bool {
+  return false;
+}
+
 /** Internal backing allocator used only by the transformed incremental entry. */
 @inline
 export function allocateSmallBlock(size: usize): usize {
+  const mixed = canCoalesceSweepRuns();
   // Preserve the native physical-block event stream when RTrace is enabled.
-  if (sizeof<usize>() == 4 && !isDefined(ASC_RTRACE) && size <= 124) {
+  if (
+    sizeof<usize>() == 4 &&
+    !isDefined(ASC_RTRACE) &&
+    size <= (mixed ? 508 : 124)
+  ) {
     const payload =
       ((size + runtime.BLOCK_OVERHEAD + runtime.AL_MASK) & ~runtime.AL_MASK) -
       runtime.BLOCK_OVERHEAD;
     const span = payload + runtime.BLOCK_OVERHEAD;
-    const slot =
-      SMALL_BLOCK_HEADS + ((span >> runtime.AL_BITS) << alignof<usize>());
+    const slot = mixed
+      ? SMALL_BLOCK_HEADS + sizeof<usize>()
+      : SMALL_BLOCK_HEADS + ((span >> runtime.AL_BITS) << alignof<usize>());
     let ptr = load<usize>(slot);
+    // A mixed stream can end with a tail smaller than its next request.
+    if (
+      mixed &&
+      ptr &&
+      (load<usize>(ptr - runtime.BLOCK_OVERHEAD) & ~(<usize>3)) < payload
+    ) {
+      store<usize>(slot, 0);
+      __free(ptr);
+      ptr = 0;
+    }
     if (!ptr) {
       // Never grow memory to obtain a batch. Under pressure, an individual
       // allocation can still fit where the larger reservation would fail.
-      ptr = trySmallBatch(span * 128 - runtime.BLOCK_OVERHEAD);
+      ptr = trySmallBatch((mixed ? 8192 : span * 128) - runtime.BLOCK_OVERHEAD);
       if (!ptr) return __alloc(size);
     }
     const block = changetype<runtime.BLOCK>(ptr - runtime.BLOCK_OVERHEAD);

@@ -151,3 +151,58 @@ The broad mixed-allocation policies remain unintegrated.
 Evidence: `whitespace/nested-float-capacity-controls-{samples,summary}.json`,
 `nested-float-capacity-preparation.json`, `nested-float-capacity-growth-controls.log`,
 and the production qualification logs under `build/perf/classic-native/`.
+
+
+## Mixed stream plus scoped sweep coalescing: integration candidate
+
+A complete six-pair screen (162 processes: nine corpora, production control,
+128-byte policy and 512-byte policy) selects the 512-byte mixed stream coupled
+to a library-owned incremental sweep. It preserves ordinary per-object managed
+registration and identity. Only physically adjacent, already-dead native blocks
+are merged, and pending runs are returned to TLSF before each collector interrupt
+returns. Application allocation and explicit collection retain their original
+collector functions. The pool reserves 8 KiB only from existing free capacity.
+
+| Corpus | Minified throughput change | Pretty throughput change |
+|---|---:|---:|
+| Twitter | +32.96% | +26.79% |
+| Canada | +14.08% | +14.67% |
+| CITM | +31.89% | +22.85% |
+| Poet | +37.47% | +32.41% |
+| GitHub Events | +30.06% | +25.60% |
+| GSOC | +12.53% | +13.65% |
+| Lottie | +2.20% | +3.58% |
+| OTFCC | -0.56% | — |
+| FGO | +0.94% | — |
+
+These are paired AS-versus-AS screens under background load, not a fresh native
+parity gate. The production integration is still under qualification; do not
+apply these gains to a native baseline as if that were a measured paired result.
+The 128-byte alternative improved Canada slightly more but lost substantial
+Twitter, Poet and GSOC gains. Neither policy changes models or the parse API.
+
+The integrated transform enables the mixed stream only with recognized stock
+collector/common/TLSF source hashes, unchanged collector function bodies and
+library-owned allocation clones. Unknown layouts and allocator aliases fall
+back. RTrace, collector tracing/profiling and finalizer builds keep the original
+allocation/sweep policy. Permanent tests check these guards, both interrupt
+flush exits, activation under GC pressure, retained owning outputs and binary
+identity for disabled configurations.
+
+Screen evidence: `build/perf/classic-native/whitespace/sweep-run-all-controls-{samples,summary}.json`
+and `sweep-run-all-controls-paired.log`. Integrated qualification evidence is
+written separately under the `sweep-production-` prefix.
+
+Integrated functional qualification passed all **57 transform scripts**, including
+960 capability checks, the 12-configuration allocation-pressure matrix and
+fixed-heap controls. All 24 instrumented/other-runtime/finalizer comparisons
+preserved exact binaries and runtime events/counts. The untimed observer records
+96,800 reclaimed objects in 21,542 native frees while retained outputs remain
+correct. The packed artifact passed 252 operations across 36 configurations,
+and all nine complete owning-output oracles passed. Every optimized production
+benchmark binary is byte-identical to the selected measured prototype.
+
+Evidence: `sweep-production-qualification.json`,
+`sweep-production-transform/results.json`, `sweep-production-equivalence.json`,
+and the pressure/runtime/packed/prepare logs. A fresh paired native gate follows
+this integration; the earlier screen alone does not establish native parity.
