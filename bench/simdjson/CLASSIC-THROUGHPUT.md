@@ -1306,8 +1306,9 @@ proposal remains experimental and was not applied to production.
 
 The confirmation wrapper records a wall-clock overrun from 04:55:14 to 05:58:40
 UTC on November 7, 2026, against a five-minute plan. It finished rather than
-being cancelled and released the lock. The gap's cause is not established in
-this evidence; it further limits confidence in small differences. Raw samples,
+being cancelled and released the lock. The host power-management log confirms repeated sleep/dark-wake intervals
+overlapping this batch, including a full wake at 05:58:32 UTC. This is not
+a continuous awake-host confirmation, so its small differences are provisional. Raw samples,
 audits and logs are retained under `build/perf/classic-native/whitespace/`
 as `fused-pretty-key-all-controls-{samples,summary}.json`, with the paired log
 and 18-step owning-output preparation record one directory above. This screen
