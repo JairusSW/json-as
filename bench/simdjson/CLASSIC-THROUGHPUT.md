@@ -1229,3 +1229,65 @@ Evidence: `build/perf/classic-native/sweep-production-all-70-{prepared,samples,r
 The measurement exited zero and released its shared timing lock. The next
 work is the remaining 80% misses, then the higher thresholds and corpus-wide
 parity; this sweep does not establish completion of that goal.
+
+
+## Quote-parity composite scanning: production `a112b74b`
+
+The next full paired native sweep records all **90 process samples and 16
+layouts**. Fifteen layouts exceed 80%; **CITM pretty alone misses, at 79.61%**.
+All layouts retain the 70% milestone. Lottie now reaches 143.0% / 93.0% of
+owning native throughput, OTFCC 163.5% and FGO 158.9%. These are measured ratios
+from this run, replacing the earlier projections.
+
+The change classifies quote parity across bounded 64-code-unit batches. A
+prefix XOR removes bracket events inside strings without visiting every quote.
+Backslashes within a batch or at its incoming boundary retain the scalar
+escape-parity walk. Short tails and physical range limits remain unchanged;
+scanning does not allocate. Models, the parse API and harness remain unchanged.
+
+Before integration, a properly alternating six-pair comparison (108 processes)
+measured +84.4% / +19.0% throughput for Lottie, +87.8% for OTFCC and +77.1% for
+FGO. Other corpus/layout changes ranged from -1.5% to +4.1%. An earlier
+control-first exploratory run is retained separately; decisions use the balanced
+confirmation. All nine production binaries match its prototype byte for byte.
+
+Production qualification passed seven relevant suites: expanded composite
+scanning (4,461,378 differential/boundary checks per configuration, four runtime/
+instrumentation configurations), V8 oracle, traversal, ownership, reader tiers,
+API composition (738 checks) and capability edges (960 checks). The packed
+artifact passed 252 operations across 36 configurations, and all nine complete
+retained owning-output oracles passed. The earlier full 57-script gate belongs
+to the preceding sweep integration, not this newer source snapshot.
+
+The local ARM64 native sweep records battery power at 100% and per-process
+background-load audits. It is not isolated normal-power qualification. AS uses
+fresh `JSON.parse<T>()`, validation/cache off and the incremental runtime;
+GB/s counts UTF-8 input bytes, with predecoded UTF-16 supplied to AS as before.
+
+| Corpus / layout | json-as GB/s | Native GB/s | AS / native |
+|---|---:|---:|---:|
+| twitter / min | 2.407 | 1.335 | 1.803× |
+| twitter / pretty | 2.280 | 1.732 | 1.316× |
+| canada / min | 0.771 | 0.786 | 0.981× |
+| canada / pretty | 1.048 | 1.056 | 0.992× |
+| citm_catalog / min | 1.320 | 1.415 | 0.933× |
+| citm_catalog / pretty | 2.160 | 2.713 | 0.796× |
+| poet / min | 4.384 | 1.992 | 2.201× |
+| poet / pretty | 4.151 | 2.074 | 2.001× |
+| github_events / min | 1.243 | 1.382 | 0.900× |
+| github_events / pretty | 1.343 | 1.652 | 0.813× |
+| gsoc-2018 / min | 2.840 | 2.370 | 1.198× |
+| gsoc-2018 / pretty | 2.773 | 2.389 | 1.161× |
+| lottie / min | 2.411 | 1.685 | 1.430× |
+| lottie / pretty | 5.135 | 5.519 | 0.930× |
+| otfcc / min | 3.186 | 1.949 | 1.635× |
+| fgo / min | 4.437 | 2.793 | 1.589× |
+
+Source fingerprint: `bd416c749e5c8ecf7c97cdfe126d0afd7c81c474929bff07a2284e112c0e6c06`.
+Evidence: `build/perf/classic-native/quote-parity-production-all-80-{prepared,samples,result}.json`
+and its paired log, `quote-parity-production-qualification.json`,
+`quote-parity-production-equivalence.json`, and
+`whitespace/quote-parity-confirm-controls-{samples,summary}.json`.
+The native measurement completed and exited 1 for the unmet 80% threshold;
+coverage is complete and the shared timing lock was released. Next work is
+CITM pretty, followed by the remaining 90% and parity gaps.
