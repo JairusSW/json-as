@@ -1291,3 +1291,24 @@ and its paired log, `quote-parity-production-qualification.json`,
 The native measurement completed and exited 1 for the unmet 80% threshold;
 coverage is complete and the shared timing lock was released. Next work is
 CITM pretty, followed by the remaining 90% and parity gaps.
+
+
+### Follow-up: combined pretty-key comparison not promoted
+
+A prototype matched a complete key plus `": "` together, retaining the existing
+general whitespace path. Its 12 reader-tier configurations and all nine complete
+owning-output oracles passed. An unmodified copy of the experimental transform
+produced the exact production control binary. The initial six-pair CITM check
+showed +2.06% pretty throughput, but the eight-changed-corpus confirmation
+(96 processes, six alternating pairs; FGO byte-identical) measured only +0.51%
+for CITM pretty, -2.05% for Canada pretty and -1.62% for GitHub pretty. The
+proposal remains experimental and was not applied to production.
+
+The confirmation wrapper records a wall-clock overrun from 04:55:14 to 05:58:40
+UTC on November 7, 2026, against a five-minute plan. It finished rather than
+being cancelled and released the lock. The gap's cause is not established in
+this evidence; it further limits confidence in small differences. Raw samples,
+audits and logs are retained under `build/perf/classic-native/whitespace/`
+as `fused-pretty-key-all-controls-{samples,summary}.json`, with the paired log
+and 18-step owning-output preparation record one directory above. This screen
+does not change the qualified production table or its unmet CITM-pretty 80% gate.
