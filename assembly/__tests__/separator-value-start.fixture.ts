@@ -1,10 +1,19 @@
 import { JSON } from "../index";
 
 let shortcuts: i32 = 0;
+let commas: i32 = 0;
 let decodes: i32 = 0;
 
 function recordSeparatorShortcut(): void {
   shortcuts++;
+}
+
+function recordCommaShortcut(): void {
+  commas++;
+}
+
+export function commaCount(): i32 {
+  return commas;
 }
 
 export function shortcutCount(): i32 {
@@ -54,6 +63,7 @@ export function verify(): i32 {
     '{ "values":[1,2], "value":7 }',
     '{ "value": 7, "values": [] }',
     '{ "value": \n\t 7, "values":  \n [1,2] }',
+    '{ "value":7 \n\t , "values":[] }',
   ];
   for (let i = 0; i < cases.length; i++) {
     const expected = i == 2 || i == 4 ? 2 : 0;

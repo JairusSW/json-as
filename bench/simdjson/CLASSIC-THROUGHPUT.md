@@ -1686,3 +1686,72 @@ Full evidence: `build/perf/classic-native/separator-value-start-all-90-`
 Measured source fingerprint:
 `5c7539d111b03415fd815622ab3b795ade01aa46bedd1ebc381848c60cfa6f73`.
 The parity goal remains active.
+
+### Direct comma matching before whitespace scanning
+
+Generated ordered whitespace readers now consume an already-present comma
+directly. A comma cannot be whitespace; other input retains the original
+scan/check/advance sequence. RTrace builds retain that original sequence too.
+The permanent separator regression now independently counts both shortcuts and
+covers whitespace before commas, codecs, reuse, Unicode and tracing fallback.
+All 37 configurations pass.
+
+The independent six-pair ARM64 screen retained the old harness, fresh
+`JSON.parse<T>()`, validation/cache off and owning class models:
+
+| Corpus | Minified throughput change | Pretty throughput change |
+| --- | ---: | ---: |
+| CITM | +0.86% | +1.93% |
+| Canada | −0.54% | −0.82% |
+| GitHub prototype | −0.17% | −0.69% |
+| Lottie | −1.19% | +0.85% |
+
+Integrated CITM, Canada and Lottie binaries exactly match their prototypes.
+GitHub also receives the same check in wide-reader helpers, so its actual
+production binary was measured independently in all six orders against both
+the previous source and prototype. Production was +1.40% minified and +0.11%
+pretty versus the previous source. No material regression was established in
+that screen.
+
+Current validation: seven relevant transform scripts pass (reader tiers,
+parser regressions, API composition, key dispatch, ownership allocation,
+diagnostics and scalar composition), along with the extended 37-configuration
+regression, all nine retained owning graphs and 252 packed-consumer operations
+over 36 configurations. The preceding source passed all 60 transform scripts;
+the entire 60-script gate was not repeated for this change.
+
+The renewed native gate has 90 fresh-process samples. All 16 layouts clear 80%,
+and 15 clear 90%. CITM pretty remains the miss, at 88.8% versus the preceding
+run's 87.9%. Cross-run ratios include machine variation; +1.93% above is the
+paired estimate for this code change. Power/process audits and all samples,
+including an outlying GSOC launch, are retained. This is a shared-host result,
+not an isolated release floor. Logical UTF-8 bytes normalize decimal GB/s;
+the respective APIs continue to receive AS UTF-16 and padded native UTF-8.
+
+| Corpus | Layout | AS us | Native us | AS GB/s | Native GB/s | Native throughput reached |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| twitter | min | 190.72 | 341.79 | 2.448 | 1.366 | 179.2% |
+| twitter | pretty | 264.36 | 355.49 | 2.389 | 1.776 | 134.5% |
+| canada | min | 2,732.26 | 2,704.29 | 0.765 | 0.773 | 99.0% |
+| canada | pretty | 2,766.52 | 2,758.02 | 1.041 | 1.044 | 99.7% |
+| citm_catalog | min | 364.75 | 350.47 | 1.372 | 1.428 | 96.1% |
+| citm_catalog | pretty | 475.67 | 422.56 | 2.422 | 2.726 | 88.8% |
+| poet | min | 751.27 | 1,647.77 | 4.391 | 2.002 | 219.3% |
+| poet | pretty | 832.15 | 1,684.68 | 4.221 | 2.085 | 202.4% |
+| github_events | min | 38.53 | 37.99 | 1.384 | 1.404 | 98.6% |
+| github_events | pretty | 40.70 | 39.09 | 1.600 | 1.665 | 96.0% |
+| gsoc-2018 | min | 1,049.05 | 1,286.36 | 2.926 | 2.387 | 122.6% |
+| gsoc-2018 | pretty | 1,104.60 | 1,301.48 | 2.913 | 2.472 | 117.8% |
+| lottie | min | 122.21 | 172.70 | 2.364 | 1.673 | 141.3% |
+| lottie | pretty | 287.44 | 270.61 | 5.181 | 5.503 | 94.1% |
+| otfcc | min | 20,548.30 | 33,525.57 | 3.232 | 1.981 | 163.2% |
+| fgo | min | 10,694.88 | 16,806.86 | 4.560 | 2.901 | 157.1% |
+
+Evidence under `build/perf/classic-native/`: `comma-shortcut-confirm-paired.log`,
+`comma-github-production-paired.log`, corresponding `whitespace/*-controls-`
+`{samples,summary}.json`, `comma-targeted/results.json`,
+`comma-production-correctness.log`, `comma-packed.log`, `comma-all-preparation.log`
+and `comma-all-90-{prepared,samples,result}.json` / `comma-all-90-paired.log`.
+Measured source fingerprint:
+`9e3e148899402edb36a9df3998c5e1b72b2b81a0c5058067b151a78a72ee5dd9`.
+The parity goal remains active.

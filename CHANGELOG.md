@@ -88,7 +88,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 - Preserve default initialization before manual reader and cursor lifecycle hooks throughout a schema's dependency graph, including defaults that read shared state changed by a child reader.
 - Keep null composite destinations on an inline return path before ownership claiming, reducing fresh-parse call overhead.
 - Inline library-owned GC publication in generated readers and container construction, retaining the installed runtime's marking behavior and fallback paths.
-- Match the common colon-space separator directly in generated whitespace readers. When a bounded lookahead proves the value starts without more whitespace, proceed directly to its typed decoder; retain general spacing and the original tracing read sequence.
+- Match common colon-space separators and already-present commas directly in generated whitespace readers. When a bounded lookahead proves the value starts without more whitespace, proceed directly to its typed decoder. Retain general spacing and the original tracing read sequence.
 - Keep in-capacity native-array appends local to generated readers, preserving ordinary growth and GC barriers and bypassing subclass mutation hooks consistently.
 - Extend the library-owned small-block allocation path to decoded strings across all three backends.
 - Specialize ordinary native-array construction while retaining ordinary growth, independent managed buffers, subclass constructors, and runtime fallbacks. Keep known generated children on the whitespace tier once their parent tiers down; each new parse still starts at the compact tier.

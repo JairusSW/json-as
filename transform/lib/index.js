@@ -3003,9 +3003,21 @@ export class JSONTransform extends Visitor {
                 blk += i2 + "}\n";
                 blk += i2 + tier2Desers[i].join("\n" + i2) + "\n";
                 if (i < this.schema.members.length - 1) {
+                    blk += i2 + "if (isDefined(ASC_RTRACE)) {\n";
                     blk += skip;
                     blk += i2 + "if (load<u16>(srcStart) != 0x2c) break; // ,\n";
                     blk += i2 + "srcStart += 2;\n";
+                    blk += i2 + "} else {\n";
+                    blk +=
+                        i2 +
+                            "if (srcStart < srcEnd && load<u16>(srcStart) == 0x2c) {\n";
+                    blk += i2 + "  srcStart += 2;\n";
+                    blk += i2 + "} else {\n";
+                    blk += skip;
+                    blk += i2 + "if (load<u16>(srcStart) != 0x2c) break; // ,\n";
+                    blk += i2 + "srcStart += 2;\n";
+                    blk += i2 + "}\n";
+                    blk += i2 + "}\n";
                 }
                 t2blocks.push(blk);
             }

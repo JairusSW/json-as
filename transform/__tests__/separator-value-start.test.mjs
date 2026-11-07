@@ -31,6 +31,11 @@ try {
               call.range = node.range;
               node.ifTrue.statements.unshift(call);
             }
+            if (this.active && toString(node.condition).includes('load<u16>(srcStart) == 44')) {
+              const call = SimpleParser.parseStatement('recordCommaShortcut();');
+              call.range = node.range;
+              node.ifTrue.statements.unshift(call);
+            }
             super.visitIfStatement(node, parent);
           }
         }
@@ -115,9 +120,13 @@ try {
     });
     instance.exports.start();
     assert.equal(instance.exports.verify(), 1);
-    if (config.fast === "1" && !config.trace)
+    if (config.fast === "1" && !config.trace) {
       assert.ok(instance.exports.shortcutCount() > 0, "shortcut must execute");
-    else assert.equal(instance.exports.shortcutCount(), 0);
+      assert.ok(instance.exports.commaCount() > 0, "comma shortcut must execute");
+    } else {
+      assert.equal(instance.exports.shortcutCount(), 0);
+      assert.equal(instance.exports.commaCount(), 0);
+    }
   }
   console.log(
     `Separator value starts: ${configs.length} configurations passed; shortcut, extra whitespace, codecs, reuse, Unicode and tracing fallback`,
