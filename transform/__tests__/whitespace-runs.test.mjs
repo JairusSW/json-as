@@ -71,6 +71,12 @@ try {
     assert.equal(instance.exports.verify(), 104432);
     assert.equal(instance.exports.boundary(), 258);
     assert.equal(instance.exports.codeUnits(), 524288);
+    if (mode === "SIMD") {
+      instance.exports.selectPrettyScanner();
+      assert.equal(instance.exports.verify(), 104432);
+      assert.equal(instance.exports.boundary(), 258);
+      assert.equal(instance.exports.codeUnits(), 524288);
+    }
     assert.equal(allocations, 0, "whitespace scanning does not allocate");
   }
   console.log(

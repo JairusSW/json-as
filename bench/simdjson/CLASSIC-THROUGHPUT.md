@@ -1462,3 +1462,30 @@ production pacing: cost 5 improved pretty throughput 1.3% but regressed minified
 whitespace experiment was byte-identical to production and needed no timing run.
 Evidence: `sweep-cost-confirm-paired.log`,
 `whitespace/sweep-cost-confirm-controls-{samples,summary}.json`.
+
+
+### Whitespace follow-up: retained hot path, corrected SIMD tail
+
+Two further CITM experiments did not justify changing the production scanner.
+Replacing the long-run scanner with SIMD mixed-whitespace masks reduced pretty
+throughput 20.7%. A partial four-space prefix / `ctz` probe reduced pretty
+throughput 0.9% while improving minified 0.8%. Both remain unpromoted.
+
+The investigation exposed a correctness defect in the existing SIMD helper:
+its scalar tail advanced before checking the first unit after a full vector,
+including when the vector ended exactly at the supplied bound. The helper now
+checks that position before advancing. Existing exhaustive whitespace tests
+were extended to select both public scanners. The old helper fails; the fixed
+helper passes code-unit, mixed-run, reversed/odd-bound, and physical-memory-end
+checks with zero allocations across the runtime/mode configurations.
+
+All nine retained owning graph oracles passed. Only Canada's classic binary
+changes. Its preceding binary was rebuilt exactly for a six-pair comparison:
+minified 2662.455 → 2665.315 µs/op (−0.1% throughput), pretty 2722.520 →
+2713.140 µs/op (+0.3%), effectively flat; median peak RSS differs by 8 KiB.
+The change repairs bounds handling rather than claiming a throughput gain.
+
+Evidence under `build/perf/classic-native/`: `pretty-whitespace-tail-{red,green}.log`,
+`pretty-whitespace-tail-all-preparation.log`, `pretty-whitespace-tail-prepared.json`,
+`mixed-whitespace-paired.log`, `whitespace-scalar-paired.log` and
+`whitespace/{mixed-whitespace,whitespace-scalar}-controls-{samples,summary}.json`.

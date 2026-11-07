@@ -1,4 +1,14 @@
 import { JSON } from "../index";
+let prettyScanner = false;
+export function selectPrettyScanner(): void {
+  prettyScanner = true;
+}
+
+@inline function scan(start: usize, end: usize): usize {
+  if (ASC_FEATURE_SIMD && prettyScanner)
+    return JSON.Util.skipPrettyWhitespace(start, end);
+  return JSON.Util.skipWhitespace(start, end);
+}
 const buffer = new ArrayBuffer(512);
 function reference(p: usize, e: usize): usize {
   while (p < e && JSON.Util.isSpace(load<u16>(p))) p += 2;
@@ -6,12 +16,12 @@ function reference(p: usize, e: usize): usize {
 }
 export function verify(): i32 {
   const p = changetype<usize>(buffer);
-  assert(JSON.Util.skipWhitespace(p + 2, p) == p + 2);
+  assert(scan(p + 2, p) == p + 2);
   let count = 0;
   for (let code: u32 = 0; code <= 65535; code++) {
     store<u16>(p, code);
     store<u16>(p + 2, 123);
-    assert(JSON.Util.skipWhitespace(p, p + 4) == reference(p, p + 4));
+    assert(scan(p, p + 4) == reference(p, p + 4));
     count++;
   }
   let seed: u32 = 12345;
@@ -37,7 +47,7 @@ export function verify(): i32 {
     const start = p + ((run & 3) << 1);
     const end = p + (((run * 17) & 255) << 1);
     if (end >= start) {
-      assert(JSON.Util.skipWhitespace(start, end) == reference(start, end));
+      assert(scan(start, end) == reference(start, end));
       count++;
     }
   }
@@ -46,7 +56,7 @@ export function verify(): i32 {
     for (let start = 0; start < n; start++) {
       const s = p + (start << 1),
         e = p + (n << 1);
-      assert(JSON.Util.skipWhitespace(s, e) == e);
+      assert(scan(s, e) == e);
       count++;
     }
   }
@@ -62,11 +72,11 @@ export function boundary(): i32 {
       const limit = end - odd;
       const p = end - (len << 1);
       for (let i = 0; i < len; i++) store<u16>(p + (i << 1), 32);
-      assert(JSON.Util.skipWhitespace(p, limit) == reference(p, limit));
+      assert(scan(p, limit) == reference(p, limit));
       count++;
       if (len) {
         store<u16>(end - 2, 123);
-        assert(JSON.Util.skipWhitespace(p, limit) == reference(p, limit));
+        assert(scan(p, limit) == reference(p, limit));
         count++;
       }
     }
@@ -76,12 +86,13 @@ export function boundary(): i32 {
 export function codeUnits(): i32 {
   const p = changetype<usize>(buffer);
   let count = 0;
-  for (let code: u32 = 0; code <= 65535; code++) for (let lane = 0; lane < 8; lane++) {
-    for (let i = 0; i < 9; i++) store<u16>(p + (i << 1), 32);
-    store<u16>(p + 2 + (lane << 1), code);
-    store<u16>(p + 18, 123);
-    assert(JSON.Util.skipWhitespace(p, p + 20) == reference(p, p + 20));
-    count++;
-  }
+  for (let code: u32 = 0; code <= 65535; code++)
+    for (let lane = 0; lane < 8; lane++) {
+      for (let i = 0; i < 9; i++) store<u16>(p + (i << 1), 32);
+      store<u16>(p + 2 + (lane << 1), code);
+      store<u16>(p + 18, 123);
+      assert(scan(p, p + 20) == reference(p, p + 20));
+      count++;
+    }
   return count;
 }

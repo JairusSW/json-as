@@ -60,10 +60,12 @@ export function skipPrettyWhitespace_SIMD(
     srcStart += (<usize>ctz(~mask & 0xff)) << 1;
     return srcStart;
   }
-  do {
-    srcStart += 2;
-    if (srcStart >= srcEnd) return srcStart;
+  // A full vector can leave either the end pointer or a non-whitespace
+  // scalar tail. Inspect that position before advancing it.
+  while (srcStart < srcEnd) {
     code = load<u16>(srcStart);
-  } while (code == 0x20 || code - 9 <= 4);
+    if (code != 0x20 && code - 9 > 4) return srcStart;
+    srcStart += 2;
+  }
   return srcStart;
 }
