@@ -1378,3 +1378,38 @@ Evidence under `build/perf/classic-native/`:
 The threshold run exited zero and released its shared host lock. Next work is
 the three remaining 90% misses and then the remaining parity gaps; this is an
 80% milestone, not completion of the overall parity goal.
+
+
+## Wider keyed fallback for required schemas (ARM64)
+
+The GitHub model has a 64-field object whose keys are reordered in one event.
+The previous 24-field keyed fallback limit sent it through the token-scanning
+slow reader. Required schemas with 25–64 unique fields and no explicit defaults
+now retain typed keyed dispatch. The missing-field mask uses `u64` above 32
+fields; optional and lazy schemas retain their existing eligibility rules.
+
+A six-pair, alternating-order comparison against the preceding production binary
+used the unchanged classic harness, fresh `JSON.parse<T>()`, validation and cache
+disabled, incremental GC, and owning class output. The shared host timing lock
+was held for the batch. The recorded power state was battery/100%; process
+audits are retained. This is a paired screen, not normal-power qualification
+or a claim of an otherwise idle machine.
+
+| GitHub layout | Previous µs/op | Wider keyed µs/op | Throughput change |
+| --- | ---: | ---: | ---: |
+| min | 42.700 | 38.545 | +10.8% |
+| pretty | 47.830 | 43.750 | +9.3% |
+
+Median peak process RSS increased from 85.73 to 93.98 MiB (+8.26 MiB), including
+V8's compiled-code and runtime overhead. The candidate and production GitHub
+binaries are identical. All eight other classic benchmark binaries are unchanged
+from the preceding qualified revision. Complete retained owning outputs passed
+for all nine corpora. A regression matrix covers 24/25/32/33/64/65-field schemas,
+reordered keys, duplicate keys, sparse inputs, reused destinations, and typed
+scalar/string/nullable/nested defaults across 12 configurations. Its slow-reader
+instrumentation fails on the preceding transform and passes with the change.
+
+Evidence under `build/perf/classic-native/`: `wide-keyed-paired.log`,
+`whitespace/wide-keyed-controls-{samples,summary}.json`,
+`wide-keyed-production-{prepared,equivalence}.json`, and the red/green regression
+logs. This controlled comparison is separate from a fresh native parity gate.

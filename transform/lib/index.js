@@ -3168,7 +3168,16 @@ export class JSONTransform extends Visitor {
                 type.startsWith("Map<") ||
                 type.startsWith("Set<"));
         });
-        const keyedFallbackEnabled = tier2Ok &&
+        const wideKeyedFallback = tier2Ok &&
+            !hasLazyMembers &&
+            !hasOptionalMembers &&
+            structKeyedSchema &&
+            this.schema.members.length > 24 &&
+            this.schema.members.length <= 64 &&
+            !this.schema.members.some((member) => member.value) &&
+            new Set(this.schema.members.map((member) => member.alias ?? member.name))
+                .size === this.schema.members.length;
+        const keyedFallbackEnabled = (tier2Ok &&
             !hasLazyMembers &&
             this.schema.members.length > 0 &&
             this.schema.members.length <= 24 &&
@@ -3177,8 +3186,10 @@ export class JSONTransform extends Visitor {
                     (this.schema.members.length <= 6 ||
                         this.schema.members.length >= 12)) ||
                 (structKeyedSchema && hasExplicitOptionalMembers) ||
-                (hasCollectionMembers && this.schema.members.length <= 12));
+                (hasCollectionMembers && this.schema.members.length <= 12))) ||
+            wideKeyedFallback;
         if (keyedFallbackEnabled) {
+            const keyedSeenType = this.schema.members.length > 32 ? "u64" : "u32";
             const i1 = "  ";
             const i2 = "    ";
             const i3 = "      ";
@@ -3213,7 +3224,7 @@ export class JSONTransform extends Visitor {
                 i2 + "srcStart = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
             DESERIALIZE_FAST += i2 + "if (load<u16>(srcStart) != 0x7b) break; // {\n";
             DESERIALIZE_FAST += i2 + "srcStart += 2;\n";
-            DESERIALIZE_FAST += i2 + "let seen: u32 = 0;\n";
+            DESERIALIZE_FAST += i2 + `let seen: ${keyedSeenType} = 0;\n`;
             DESERIALIZE_FAST += i2 + "let complete = false;\n";
             DESERIALIZE_FAST += i2 + "let afterComma = false;\n";
             DESERIALIZE_FAST += i2 + "while (true) {\n";
@@ -3266,7 +3277,8 @@ export class JSONTransform extends Visitor {
                     DESERIALIZE_FAST += i3 + "      matched = true;\n";
                     DESERIALIZE_FAST +=
                         i3 + "      " + tier2Desers[i].join("\n" + i3 + "      ") + "\n";
-                    DESERIALIZE_FAST += i3 + `      seen |= <u32>1 << ${i};\n`;
+                    DESERIALIZE_FAST +=
+                        i3 + `      seen |= <${keyedSeenType}>1 << ${i};\n`;
                     DESERIALIZE_FAST += i3 + "    }\n";
                 }
                 DESERIALIZE_FAST += i3 + "    break;\n";
@@ -3301,7 +3313,8 @@ export class JSONTransform extends Visitor {
             DESERIALIZE_FAST += i2 + "if (!complete) break;\n";
             for (let i = 0; i < keyedResets.length; i++) {
                 DESERIALIZE_FAST +=
-                    i2 + `if ((seen & (<u32>1 << ${i})) == 0) ${keyedResets[i]}\n`;
+                    i2 +
+                        `if ((seen & (<${keyedSeenType}>1 << ${i})) == 0) ${keyedResets[i]}\n`;
             }
             DESERIALIZE_FAST += i2 + "return srcStart;\n";
             DESERIALIZE_FAST += i1 + "} while (false);\n\n";
