@@ -1489,3 +1489,34 @@ Evidence under `build/perf/classic-native/`: `pretty-whitespace-tail-{red,green}
 `pretty-whitespace-tail-all-preparation.log`, `pretty-whitespace-tail-prepared.json`,
 `mixed-whitespace-paired.log`, `whitespace-scalar-paired.log` and
 `whitespace/{mixed-whitespace,whitespace-scalar}-controls-{samples,summary}.json`.
+
+### CITM attribution and code-layout probes
+
+Production remains `3cdf1720`; the following diagnostic builds were not
+promoted. Retained owning outputs passed for both instrumented profiles. They
+exposed allocation/publication and decoding as separate call targets to separate
+costs hidden by inlining. Empty-array creation accounted for roughly 8% of
+samples in the first diagnostic; object allocation roughly 5%; publication
+roughly 1.5%. The second diagnostic exposed whitespace at roughly 16.5% and
+integer decoding at roughly 5.1%. Indirect-call instrumentation affects these
+fractions: they are attribution clues, not production throughput percentages.
+
+Two six-pair old-harness screens retained actual allocation, GC and output
+semantics. They held the shared host lock and recorded power/process audits:
+
+| CITM experiment | Minified throughput change | Pretty throughput change | Decision |
+| --- | ---: | ---: | --- |
+| Separate keyed fallback for plain required small structs | −0.04% | +0.76% | Unpromoted; essentially flat |
+| Shared library object allocator instead of forced inlining | −17.7% | −13.6% | Rejected |
+
+The keyed split retained three separate cold methods after adding a real compact
+empty-object entry. Its 24 regression/control configurations covered empty,
+reordered, duplicate, sparse and reused values. Merely removing the refill
+wrapper's inline annotation produced identical Wasm and was not timed.
+
+Evidence under `build/perf/classic-native/`: `citm-outline-{costs,decoders}-*`,
+`cold-keyed-correctness.log`, `cold-keyed-paired.log`,
+`outline-object-allocator-paired.log` and corresponding `whitespace/*-controls-`
+`samples.json` / `summary.json`. A separate machine-code capture attempt stalled
+in the OS debugger attach operation before benchmark execution; it produced no
+instruction disassembly and was ended without restarting the benchmark.
