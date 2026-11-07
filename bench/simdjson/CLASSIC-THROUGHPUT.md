@@ -1520,3 +1520,33 @@ Evidence under `build/perf/classic-native/`: `citm-outline-{costs,decoders}-*`,
 `samples.json` / `summary.json`. A separate machine-code capture attempt stalled
 in the OS debugger attach operation before benchmark execution; it produced no
 instruction disassembly and was ended without restarting the benchmark.
+
+### Additional CITM architectural screens
+
+Production remains `3cdf1720`. Four further six-pair ARM64 screens used the
+unchanged classic harness, fresh `JSON.parse<T>()`, validation/cache off and the
+shared timing lock. Power was AC at 100%; per-process audits are retained, so
+these remain paired screens rather than isolated-host release qualification.
+
+| Experiment | Minified throughput change | Pretty throughput change | Decision |
+| --- | ---: | ---: | --- |
+| Decode pure small children before allocating their normal owning graph | +1.61% | −5.26% | Rejected |
+| Bounded newline/indentation prefix | +0.20% | −7.37% | Rejected |
+| Same prefix after the existing no-whitespace exit | −0.86% | −8.64% | Rejected |
+| Outline the whole whitespace helper | −3.11% | −7.18% | Rejected |
+
+The decode-first prototype preserved actual class identity, independent mutable
+array headers and normal publication barriers. Both the unmodified control and
+prototype passed 36 runtime/mode/strict/fast configurations, including bounded
+GC pressure, integer extremes, fallback and reuse. This does not qualify its
+experimental runtime capability guards for production.
+
+Each scanner variant passed ten exhaustive whitespace configurations and both
+retained owning CITM graphs. Whole-helper outlining reduced Wasm from 209,602
+to 168,138 bytes and peak process RSS by about 10.4 MiB, but lost throughput.
+None of these experiments changes production or the latest full native gate:
+15 of 16 layouts pass the 90% threshold; CITM pretty remains the miss.
+
+Evidence under `build/perf/classic-native/`: `decode-first-{correctness,controls}.log`,
+`{newline-prefix,newline-gated,outline-all-whitespace}-correctness.log`, retained
+`citm-*-oracle.log` files and `whitespace/<experiment>-controls-{samples,summary}.json`.
