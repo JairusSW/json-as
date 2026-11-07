@@ -4909,7 +4909,8 @@ export default class Transformer extends Transform {
         specializeObjectAllocator(parser.sources);
         specializeCopiedStringAllocator(parser.sources);
         specializeObjectBarrier(parser.sources);
-        specializeSweepRuns(parser.sources, this.program.options.globalAliases);
+        const hasStaticI64ArraySchema = [...transformer.schemas.values()].some((schemas) => schemas.some((schema) => schema.members.some((member) => /(?:^|[<,])Array<i64>(?:$|[>,|])/.test(member.type.replace(/\s/g, "")))));
+        specializeSweepRuns(parser.sources, this.program.options.globalAliases, hasStaticI64ArraySchema);
         for (const [source, statements] of transformer.simdStatements) {
             for (const statement of statements)
                 source.statements.unshift(SimpleParser.parseTopLevelStatement(statement));

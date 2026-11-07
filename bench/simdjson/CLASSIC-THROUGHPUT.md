@@ -1755,3 +1755,71 @@ and `comma-all-90-{prepared,samples,result}.json` / `comma-all-90-paired.log`.
 Measured source fingerprint:
 `9e3e148899402edb36a9df3998c5e1b72b2b81a0c5058067b151a78a72ee5dd9`.
 The parity goal remains active.
+
+
+### Eliding a proven static numeric-array edge
+
+The scoped incremental marker now skips the native member visitor for exact
+`Array<i64>` instances backed by static storage. The stock visitor's only edge
+for that type is its buffer, and a static buffer cannot require marking.
+Heap-backed buffers and subclass fields retain the original visitor. Collector
+colors, pacing, registration, publication and explicit collection are unchanged.
+The transform enables this only when schema metadata already proves use of the
+array type, the installed Array source and AST match the recognized layout, and
+no global Array/scalar alias overrides the meaning. Existing instrumentation,
+finalizer, runtime and allocator guards remain in force.
+
+The integrated CITM binary exactly matches the measured prototype. All eight
+other classic binaries are byte-identical to the preceding production source;
+the schema gate avoids adding otherwise-unused type machinery to them.
+A twelve-pair CITM confirmation measured 364.700 -> 359.315 us minified
+(+1.50% throughput) and 474.640 -> 472.605 us pretty (+0.43%). Eleven minified
+pairs and ten pretty pairs improved; paired median gains were +1.52%/+0.78%.
+This is a modest improvement, not the larger first-screen estimate.
+
+All 60 transform scripts passed on the integrated implementation. After adding
+conservative global-alias guards, the transform was rebuilt and the expanded
+activation/source/AST/alias tests, 12 mode/strict/fast pressure configurations,
+24 exact-binary fallback/finalizer configurations, all nine retained owning
+model oracles, and the packed consumer (252 operations / 36 configurations)
+passed again. The untimed observer proves 2,220 visitor elisions while retaining
+growing heap-backed arrays and a subclass's managed field. The full 60-script
+matrix was not repeated after those final guard-only additions.
+
+The fresh native gate completed 90 processes and passes 90% on all 16 layouts.
+CITM pretty reaches only 90.1%, so this is a narrow milestone, not a stable
+normal-power floor or proof that the remaining parity work is complete.
+The gate started on battery at 100%; process audits and every sample are
+retained. Ratios vary across shared-host batches, including unchanged binaries;
+the paired AS-vs-AS figures above are the estimate for the code change.
+The old harness, fresh JSON.parse-to-class API, owning native structs,
+validation/cache-off settings, and logical UTF-8 normalization are unchanged.
+
+| Corpus | Layout | AS us | Native us | AS GB/s | Native GB/s | Native throughput reached |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| twitter | min | 198.06 | 361.90 | 2.357 | 1.290 | 182.7% |
+| twitter | pretty | 276.86 | 376.83 | 2.281 | 1.676 | 136.1% |
+| canada | min | 2,764.41 | 2,685.86 | 0.756 | 0.778 | 97.2% |
+| canada | pretty | 2,800.30 | 2,765.57 | 1.028 | 1.041 | 98.8% |
+| citm_catalog | min | 371.10 | 364.10 | 1.348 | 1.374 | 98.1% |
+| citm_catalog | pretty | 488.47 | 440.11 | 2.358 | 2.617 | 90.1% |
+| poet | min | 757.36 | 1,660.94 | 4.355 | 1.986 | 219.3% |
+| poet | pretty | 829.63 | 1,699.16 | 4.234 | 2.067 | 204.8% |
+| github_events | min | 38.91 | 38.29 | 1.371 | 1.393 | 98.4% |
+| github_events | pretty | 41.06 | 39.51 | 1.586 | 1.648 | 96.2% |
+| gsoc-2018 | min | 1,005.31 | 1,261.85 | 3.054 | 2.433 | 125.5% |
+| gsoc-2018 | pretty | 1,052.33 | 1,264.26 | 3.058 | 2.545 | 120.1% |
+| lottie | min | 120.53 | 172.25 | 2.397 | 1.677 | 142.9% |
+| lottie | pretty | 287.21 | 270.32 | 5.185 | 5.509 | 94.1% |
+| otfcc | min | 20,340.97 | 32,910.72 | 3.265 | 2.018 | 161.8% |
+| fgo | min | 10,650.42 | 16,920.26 | 4.579 | 2.882 | 158.9% |
+
+Evidence under `build/perf/classic-native/`: `scoped-static-array-visit-long-`
+`paired.log` and corresponding `whitespace/*-controls-{samples,summary}.json`,
+`static-array-scan-transform/results.json`, `static-array-scan-final-`
+`{qualification,runtime,guards,preparation,packed}.log`,
+`static-array-scan-final-binary-proof.json`, and `static-array-scan-all-90-`
+`{prepared,samples,result}.json` / `static-array-scan-all-90-paired.log`.
+Measured source fingerprint:
+`c173cfc5b3e1d92a426cdb0b8d6963fb41e69f79d9c41486df688f1939fdb593`.
+The parity goal remains active.

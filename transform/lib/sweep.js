@@ -32,7 +32,7 @@ const ALLOCATOR_ALIASES = new Set([
     "__heap_base",
     "__stack_pointer",
 ]);
-export function specializeSweepRuns(sources, aliases) {
+export function specializeSweepRuns(sources, aliases, hasStaticI64ArraySchema = false) {
     if (aliases &&
         [...aliases.keys()].some((name) => ALLOCATOR_ALIASES.has(name)))
         return;
@@ -170,6 +170,35 @@ export function specializeSweepRuns(sources, aliases) {
     const freeCopy = parse(`function ${freeName}(obj: Object): void ${toString(free.body)}`);
     const stepCopy = parse(`function ${stepName}(): usize ${toString(step.body)}`);
     const interruptCopy = parse(`function ${interruptName}(): void ${toString(interrupt.body)}`);
+    const arraySource = sources.find((s) => s.internalPath === "~lib/array");
+    if (hasStaticI64ArraySchema &&
+        !aliases?.has("Array") &&
+        !aliases?.has("i64") &&
+        arraySource &&
+        createHash("sha256").update(arraySource.text).digest("hex") ===
+            "b219355bec6fc830bf9b41662986aa81e657a701f71ea472749746779ee951cc" &&
+        createHash("sha256").update(toString(arraySource)).digest("hex") ===
+            "772b61ebcbc0d53c44b14082751c1d7f9e855c31b2b7aa1bc6b5bf541e56c017") {
+        class SkipStaticBuffer extends Visitor {
+            visitExpressionStatement(node, parent) {
+                const expression = node.expression;
+                if (parent?.kind === NodeKind.Block &&
+                    expression.kind === NodeKind.Call &&
+                    expression.expression.kind ===
+                        NodeKind.Identifier &&
+                    expression.expression
+                        .text === "__visit_members") {
+                    const guard = bind(SimpleParser.parseStatement("if (!(obj.rtId == idof<Array<i64>>() && load<usize>(changetype<usize>(obj) + TOTAL_OVERHEAD) < __heap_base)) {}"));
+                    const block = parent;
+                    guard.ifTrue.statements = [node];
+                    block.statements[block.statements.indexOf(node)] = guard;
+                    return;
+                }
+                super.visitExpressionStatement(node, parent);
+            }
+        }
+        new SkipStaticBuffer().visit(stepCopy);
+    }
     const redirect = (body, from, to) => {
         let count = 0;
         class Redirect extends Visitor {

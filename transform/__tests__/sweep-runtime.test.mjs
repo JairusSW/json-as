@@ -14,7 +14,15 @@ fs.writeFileSync(
   `import Base from ${JSON.stringify(transform)};export default class extends Base {afterParse(parser){const rt=parser.sources.find(s=>s.internalPath==='~lib/rt/itcms');if(rt)rt.text+=' // specialization disabled by control';super.afterParse(parser);}}`,
 );
 
-function compile(fixture, selected, runtime, mode, strict, extra = []) {
+function compile(
+  fixture,
+  selected,
+  runtime,
+  mode,
+  strict,
+  extra = [],
+  fast = "1",
+) {
   const output = path.join(dir, "fixture.wasm");
   execFileSync(
     process.execPath,
@@ -42,7 +50,7 @@ function compile(fixture, selected, runtime, mode, strict, extra = []) {
         ...process.env,
         JSON_MODE: mode,
         JSON_STRICT: strict,
-        JSON_USE_FAST_PATH: "1",
+        JSON_USE_FAST_PATH: fast,
         JSON_CACHE: "0",
       },
     },
@@ -54,6 +62,7 @@ async function execute(bytes) {
   const hooks = {};
   let items = 0,
     runs = 0,
+    staticScans = 0,
     memory;
   for (const name of [
     "oninit",
@@ -83,6 +92,9 @@ async function execute(bytes) {
   const { instance } = await WebAssembly.instantiate(bytes, {
     rtrace: hooks,
     env: {
+      jsonStaticArrayScan() {
+        staticScans++;
+      },
       jsonSweepItem() {
         items++;
       },
@@ -98,12 +110,14 @@ async function execute(bytes) {
   instance.exports.start();
   items = 0;
   runs = 0;
+  staticScans = 0;
   const result = instance.exports.verify();
   return {
     result,
     events,
     items,
     runs,
+    staticScans,
     pages: memory.buffer.byteLength / 65536,
     finalized: instance.exports.finalizedCount?.(),
   };
@@ -131,13 +145,53 @@ try {
     observed.runs,
     "native frees; retained outputs passed",
   );
+  const staticObserved = await execute(
+    compile(
+      "assembly/__tests__/static-array-scan.fixture.ts",
+      observer,
+      "incremental",
+      "SIMD",
+      "false",
+      ["--maximumMemory", "16"],
+    ),
+  );
+  assert.equal(staticObserved.result, 1);
+  assert.ok(
+    staticObserved.staticScans > 0,
+    "must exercise static-buffer visit elision",
+  );
+  console.log(
+    "Observed",
+    staticObserved.staticScans,
+    "static-buffer visits elided; growth, subclass and retained graph passed",
+  );
+  for (const mode of ["NAIVE", "SWAR", "SIMD"])
+    for (const strict of ["false", "true"])
+      for (const fast of ["0", "1"]) {
+        const result = await execute(
+          compile(
+            "assembly/__tests__/static-array-scan.fixture.ts",
+            transform,
+            "incremental",
+            mode,
+            strict,
+            ["--maximumMemory", "16"],
+            fast,
+          ),
+        );
+        assert.equal(result.result, 1);
+        assert.ok(result.pages <= 16);
+      }
+  console.log(
+    "Static numeric-array scanning: 12 mode/strict/fast pressure configurations passed",
+  );
   let checks = 0;
   for (const runtime of ["incremental", "minimal", "stub"])
     for (const mode of ["NAIVE", "SWAR", "SIMD"])
       for (const strict of ["false", "true"]) {
         const flags =
           runtime === "incremental" ? ["--use", "ASC_RTRACE=1"] : [];
-        const fixture = "assembly/__tests__/sweep-runs.fixture.ts";
+        const fixture = "assembly/__tests__/static-array-scan.fixture.ts";
         const control = compile(
             fixture,
             disabled,

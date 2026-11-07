@@ -28,6 +28,14 @@ function fixture(kind = "stock") {
     parser.parseFile(text, `~lib/rt/${name}.ts`, false);
   }
   parser.parseFile(
+    fs.readFileSync(
+      "node_modules/assemblyscript/std/assembly/array.ts",
+      "utf8",
+    ),
+    "~lib/array.ts",
+    false,
+  );
+  parser.parseFile(
     "export function application():usize { __collect(); return __new(8,3); }",
     "app.ts",
     false,
@@ -117,4 +125,48 @@ for (const kind of [
 }
 console.log(
   "Sweep specialization: activation, untouched globals, flush exits, idempotence, three ABI guards, AST and allocator-hook fallbacks passed",
+);
+
+// A proven numeric-array schema may omit its already-static buffer edge.
+// An unrecognized Array layout must retain member scanning independently of
+// the existing native-block coalescing capability.
+for (const kind of [
+  "enabled",
+  "unused",
+  "array-source",
+  "array-ast",
+  "array-alias",
+  "scalar-alias",
+]) {
+  const sources = fixture();
+  const array = sources.find((s) => s.internalPath === "~lib/array");
+  if (kind === "array-source") array.text += "\n// unknown array layout\n";
+  if (kind === "array-ast")
+    array.statements.unshift(SimpleParser.parseStatement("trace('changed');"));
+  const rt = sources.find((s) => s.internalPath === "~lib/rt/itcms");
+  const original = ["step", "interrupt", "__collect"].map((name) =>
+    toString(find(rt, name)),
+  );
+  specializeSweepRuns(
+    sources,
+    kind === "array-alias"
+      ? new Map([["Array", "CustomArray"]])
+      : kind === "scalar-alias"
+        ? new Map([["i64", "CustomScalar"]])
+        : null,
+    kind !== "unused",
+  );
+  assert.deepEqual(
+    ["step", "interrupt", "__collect"].map((name) => toString(find(rt, name))),
+    original,
+  );
+  const step = toString(find(rt, "__json_as_sweep_step"));
+  assert.equal(
+    (step.match(/idof<Array<i64>>/g) ?? []).length,
+    kind === "enabled" ? 2 : 0,
+    kind,
+  );
+}
+console.log(
+  "Static numeric-array scanning: schema activation, source and AST layout fallbacks, untouched global collector passed",
 );

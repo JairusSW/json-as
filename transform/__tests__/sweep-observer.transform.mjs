@@ -1,6 +1,6 @@
 // Untimed observer only: callbacks count reclaimed objects and native frees.
 import Base from "../lib/index.js";
-import { SimpleParser } from "../lib/util.js";
+import { SimpleParser, toString } from "../lib/util.js";
 import { Visitor } from "../lib/visitor.js";
 export default class extends Base {
   afterParse(parser) {
@@ -45,5 +45,26 @@ export default class extends Base {
     held.ifTrue.statements.unshift(
       bind(SimpleParser.parseStatement(`${run}();`)),
     );
+    const step = rt.statements.find(
+      (n) => n.name?.text === "__json_as_sweep_step",
+    );
+    rt.statements.push(
+      bind(
+        SimpleParser.parseTopLevelStatement(
+          '@external("env", "jsonStaticArrayScan") declare function __json_as_observe_static_scan(): void;',
+        ),
+      ),
+    );
+    class ObserveStaticScan extends Visitor {
+      visitIfStatement(node, parent) {
+        if (toString(node.condition).includes("idof<Array<i64>>")) {
+          node.ifFalse = bind(
+            SimpleParser.parseStatement("{ __json_as_observe_static_scan(); }"),
+          );
+        }
+        super.visitIfStatement(node, parent);
+      }
+    }
+    new ObserveStaticScan().visit(step);
   }
 }

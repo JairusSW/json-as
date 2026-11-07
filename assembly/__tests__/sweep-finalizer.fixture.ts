@@ -1,5 +1,5 @@
 import {JSON} from "../index";
-@json class Item { n:i32=0; label:string=''; }
+@json class Item { n:i32=0; label:string=''; values:i64[]=[]; }
 @json class Owner { names:(string|null)[]|null=null; items:Item[]|null=null; tail:i32=0; }
 let target:Owner|null=null;
 const namesKept=new Array<Array<string|null>>();

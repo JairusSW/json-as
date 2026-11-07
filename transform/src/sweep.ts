@@ -3,6 +3,8 @@ import {
   BlockStatement,
   CallExpression,
   FunctionDeclaration,
+  ExpressionStatement,
+  IfStatement,
   IdentifierExpression,
   ImportStatement,
   Node,
@@ -51,6 +53,7 @@ const ALLOCATOR_ALIASES = new Set([
 export function specializeSweepRuns(
   sources: Source[],
   aliases: Map<string, string> | null,
+  hasStaticI64ArraySchema = false,
 ): void {
   if (
     aliases &&
@@ -219,6 +222,51 @@ export function specializeSweepRuns(
   const interruptCopy = parse(
     `function ${interruptName}(): void ${toString(interrupt.body)}`,
   ) as FunctionDeclaration;
+  // For this exact native Array layout, a numeric array's only managed edge
+  // is its backing buffer. A static buffer needs no marking. Keep this local
+  // to library-triggered work and avoid introducing Array<i64> in programs
+  // whose schemas do not already use it. Unknown or modified Array code keeps
+  // the original visitor, independently of native-block coalescing.
+  const arraySource = sources.find((s) => s.internalPath === "~lib/array");
+  if (
+    hasStaticI64ArraySchema &&
+    !aliases?.has("Array") &&
+    !aliases?.has("i64") &&
+    arraySource &&
+    createHash("sha256").update(arraySource.text).digest("hex") ===
+      "b219355bec6fc830bf9b41662986aa81e657a701f71ea472749746779ee951cc" &&
+    createHash("sha256").update(toString(arraySource)).digest("hex") ===
+      "772b61ebcbc0d53c44b14082751c1d7f9e855c31b2b7aa1bc6b5bf541e56c017"
+  ) {
+    class SkipStaticBuffer extends Visitor {
+      visitExpressionStatement(
+        node: ExpressionStatement,
+        parent: Node | null,
+      ): void {
+        const expression = node.expression;
+        if (
+          parent?.kind === NodeKind.Block &&
+          expression.kind === NodeKind.Call &&
+          (expression as CallExpression).expression.kind ===
+            NodeKind.Identifier &&
+          ((expression as CallExpression).expression as IdentifierExpression)
+            .text === "__visit_members"
+        ) {
+          const guard = bind(
+            SimpleParser.parseStatement(
+              "if (!(obj.rtId == idof<Array<i64>>() && load<usize>(changetype<usize>(obj) + TOTAL_OVERHEAD) < __heap_base)) {}",
+            ),
+          ) as IfStatement;
+          const block = parent as BlockStatement;
+          (guard.ifTrue as BlockStatement).statements = [node];
+          block.statements[block.statements.indexOf(node)] = guard;
+          return;
+        }
+        super.visitExpressionStatement(node, parent);
+      }
+    }
+    new SkipStaticBuffer().visit(stepCopy);
+  }
   const redirect = (body: BlockStatement, from: string, to: string): number => {
     let count = 0;
     class Redirect extends Visitor {
