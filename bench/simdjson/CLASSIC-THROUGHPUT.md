@@ -1413,3 +1413,52 @@ Evidence under `build/perf/classic-native/`: `wide-keyed-paired.log`,
 `whitespace/wide-keyed-controls-{samples,summary}.json`,
 `wide-keyed-production-{prepared,equivalence}.json`, and the red/green regression
 logs. This controlled comparison is separate from a fresh native parity gate.
+
+
+## Owning-native refresh after wider keyed readers
+
+At runtime revision `98fc3be8`, five process pairs per corpus (90 samples total)
+covered all nine corpora and 16 layouts on ARM64. The staged 90% gate completed
+with **15/16 passing** and exited 1 for the remaining CITM pretty miss. This is
+not completion of the parity goal. The recorded power state was AC/100%.
+Per-process audits include concurrent non-timing compilation during parts of
+the run; the timing lock does not establish an otherwise idle host. CITM pretty
+measured 79.8% here versus 82.4% in the preceding complete run with the identical
+CITM binary, so the earlier 80% milestone is not a universal performance floor.
+GitHub pretty is only narrowly over 90% and should be retained in later gates.
+
+Both implementations use owning typed models. AS uses the original classic
+harness, fresh `JSON.parse<T>()`, incremental runtime, validation/cache disabled;
+native simdjson parses the JSON string into owning native structs.
+
+| Corpus / layout | AS GB/s | Native GB/s | AS / native |
+| --- | ---: | ---: | ---: |
+| twitter / min | 2.410 | 1.327 | 1.816× |
+| twitter / pretty | 2.299 | 1.722 | 1.335× |
+| canada / min | 0.775 | 0.789 | 0.982× |
+| canada / pretty | 1.049 | 1.053 | 0.996× |
+| citm_catalog / min | 1.358 | 1.402 | 0.969× |
+| citm_catalog / pretty | 2.133 | 2.673 | 0.798× |
+| poet / min | 4.398 | 1.993 | 2.207× |
+| poet / pretty | 4.191 | 2.084 | 2.011× |
+| github_events / min | 1.390 | 1.411 | 0.985× |
+| github_events / pretty | 1.500 | 1.666 | 0.900× |
+| gsoc-2018 / min | 3.127 | 2.496 | 1.253× |
+| gsoc-2018 / pretty | 3.024 | 2.588 | 1.169× |
+| lottie / min | 2.411 | 1.703 | 1.416× |
+| lottie / pretty | 5.166 | 5.626 | 0.918× |
+| otfcc / min | 3.180 | 1.959 | 1.623× |
+| fgo / min | 4.576 | 2.877 | 1.591× |
+
+Source fingerprint: `f457892bcf17ab17bb2fa0d3a2089fad17d3bc8735a7217f6c33c8215c6d49d9`. Evidence:
+`wide-keyed-all-90-{prepared,samples,result}.json` and
+`wide-keyed-all-90-paired.log` under `build/perf/classic-native/`. All 59 transform
+scripts and 252 packed-consumer operations / 36 configurations passed before
+committing the runtime change.
+
+A separate six-round CITM sweep-cost confirmation did not justify changing
+production pacing: cost 5 improved pretty throughput 1.3% but regressed minified
+1.5%; cost 2 improved pretty 0.4% and regressed minified 1.8%. The inlining-only
+whitespace experiment was byte-identical to production and needed no timing run.
+Evidence: `sweep-cost-confirm-paired.log`,
+`whitespace/sweep-cost-confirm-controls-{samples,summary}.json`.
