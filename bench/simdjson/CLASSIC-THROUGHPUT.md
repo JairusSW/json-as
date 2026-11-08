@@ -1981,3 +1981,38 @@ and `optional-motion-all-95-paired.log`. Measured source fingerprint:
 `7948143e9735708d3183fe3ac5743401fee998dfee0e651e0781678b556f6b9f`. Cross-batch ratios include shared-host variability;
 use the independent paired AS-vs-AS figures above for the change estimate.
 The parity goal remains active.
+
+### Empty-array publication locals
+
+The required ordered readers keep a newly created scalar-array pointer in a
+local until the existing common publication barrier. Reused arrays and the
+nonempty reader reload the actual field after callbacks. Nullable fields,
+manual readers, optional/keyed dispatch, tracing, profiling and finalizers keep
+their previous publication arguments. No allocation or GC barrier is removed.
+
+The source emitter produces exactly the measured prototype binary for every
+classic corpus. All nine retained owning-model oracles pass. Independent
+12-pair ARM64 candidate/control measurements give:
+
+| Corpus | Min throughput change | Pretty throughput change |
+|---|---:|---:|
+| Twitter | +0.19% | +0.73% |
+| Canada | -0.34% | +0.29% |
+| CITM | +1.64% | +0.81% |
+
+The other six corpus binaries are identical to the control. RSS is essentially
+unchanged in these paired samples. These small shared-host changes are not an
+isolated performance floor; they do not establish all-corpus parity.
+
+Evidence: `whitespace/empty-phi-neighbors-controls-{samples,summary}.json`,
+`empty-phi-production-all-preparation.json`, and the corresponding per-corpus
+preparation logs under `build/perf/classic-native`. The new publication test
+observes actual publication arguments and field reloads for fresh/reused empty
+arrays, nonempty arrays, callbacks, compact/whitespace input, all three runtimes
+and modes, strict/fast switches, and trace/profile builds.
+
+Qualification: all 63 commands in `test:transform` pass, including the
+38-configuration publication regression and the full capability matrix.
+The packed artifact passes 252 operations across 36 configurations. The full
+ordinary/RFC suites were not rerun for this change. Current source fingerprint:
+`6bbde3e32998b1602ebb2d492fdbd16b4f29313dc826522a016f7befa63dcd80`.

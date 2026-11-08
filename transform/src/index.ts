@@ -3483,6 +3483,7 @@ export class JSONTransform extends Visitor {
       return stripNull(type.slice(type.indexOf("<") + 1, -1).trim());
     };
 
+    let publicationLocalIndex = 0;
     const decodeField = (
       type: string,
       srcPtr: string,
@@ -3491,6 +3492,7 @@ export class JSONTransform extends Visitor {
       keyOffset: number = 0,
       fastPath: boolean = false,
       whitespaceTier: boolean = false,
+      publication?: { name?: string; condition: string },
     ): string[] => {
       // const isLast = this.schema.members.indexOf(member) == this.schema.members.length - 1;
       const out: string[] = [];
@@ -4113,6 +4115,19 @@ export class JSONTransform extends Visitor {
           return out;
         }
         {
+          // Keep the freshly stored child in a local until the common barrier.
+          // Reused arrays and decoders may call user code, so those arms reload
+          // the actual field after their callbacks instead.
+          if (publication) {
+            let name = `__JSON_LOCAL_ARRAY_PUBLICATION_${publicationLocalIndex++}`;
+            while (this.parser.sources.some((source) => source.text.includes(name)))
+              name += "_";
+            publication.name = name;
+          }
+          const rememberPublication = (value: string): void => {
+            if (publication?.name)
+              out.push(`    if (${publication.condition}) ${publication.name} = ${value};`);
+          };
           out.push(
             `  if (${valuePtr} + 4 <= srcEnd && load<u32>(${valuePtr}) == 0x005d005b) {`,
           );
@@ -4138,8 +4153,15 @@ export class JSONTransform extends Visitor {
           out.push(
             `      if (${emptyBarrierGuard}isManaged<${resolvedType}>()) JSON.__linkObject(${outPtr}, changetype<usize>(value), false);`,
           );
-          out.push("    } else if (value.length != 0) {");
-          out.push("      value.length = 0;");
+          rememberPublication("changetype<usize>(value)");
+          if (publication) {
+            out.push("    } else {");
+            out.push("      if (value.length != 0) value.length = 0;");
+            rememberPublication(`load<usize>(${outPtr}, ${fieldOffset})`);
+          } else {
+            out.push("    } else if (value.length != 0) {");
+            out.push("      value.length = 0;");
+          }
           out.push("    }");
           out.push(`    ${srcPtr} = ${valuePtr} + 4;`);
           out.push("  } else {");
@@ -4147,6 +4169,7 @@ export class JSONTransform extends Visitor {
             `    ${srcPtr} = __deserializeArrayField_SWAR<nonnull<${resolvedType}>>(${valuePtr}, srcEnd, ${outPtr}, ${fieldOffset});`,
           );
           out.push(`    if (!${srcPtr}) break;`);
+          rememberPublication(`load<usize>(${outPtr}, ${fieldOffset})`);
           out.push("  }");
         }
         if (member.nullable) {
@@ -4205,7 +4228,17 @@ export class JSONTransform extends Visitor {
       keyOffset = 0,
       fastPath = false,
       whitespaceTier = false,
+      cacheArrayPublication = false,
     ): string[] => {
+      const schema = this.getSchema(stripNull(type));
+      const publishes =
+        !member.flags.has(PropertyFlags.Lazy) &&
+        !isString(stripNull(type)) &&
+        (!schema || schema.customReader);
+      const publication: { name?: string; condition: string } | undefined =
+        cacheArrayPublication && publishes && !member.nullable
+          ? { condition: `!isDefined(ASC_RTRACE) && !isDefined(ASC_PROFILE) && !isDefined(__finalize) && !isNullable<${member.type}>()` }
+          : undefined;
       const body = decodeField(
         type,
         srcPtr,
@@ -4214,18 +4247,19 @@ export class JSONTransform extends Visitor {
         keyOffset,
         fastPath,
         whitespaceTier,
+        publication,
       );
-      const schema = this.getSchema(stripNull(type));
+      if (publication?.name) body.unshift(`let ${publication.name}: usize = 0;`);
       // Composite field helpers may publish a new reference. Link it before
       // leaving the decoder; strings and generated object allocations already
       // publish through their own barriers. Lazy slots contain source ranges.
-      if (
-        !member.flags.has(PropertyFlags.Lazy) &&
-        !isString(stripNull(type)) &&
-        (!schema || schema.customReader)
-      ) {
+      if (publishes) {
+        const field = `load<usize>(${outPtr}, offsetof<this>(${JSON.stringify(member.name)}))`;
+        const child = publication?.name
+          ? `(${publication.condition}) ? ${publication.name} : (${field})`
+          : field;
         body.push(
-          `if (isManaged<${member.type}>()) JSON.__linkObject(${outPtr}, load<usize>(${outPtr}, offsetof<this>(${JSON.stringify(member.name)})), false);`,
+          `if (isManaged<${member.type}>()) JSON.__linkObject(${outPtr}, ${child}, false);`,
         );
       }
       return body;
@@ -4511,6 +4545,8 @@ export class JSONTransform extends Visitor {
           member,
           inlineStringValue ? valueOffset : 0,
           true,
+          false,
+          true,
         );
         if (!deserializer.length) {
           blk += indent + "break;\n\n";
@@ -4616,7 +4652,9 @@ export class JSONTransform extends Visitor {
         blk += skip;
         blk += i2 + "}\n";
         blk += i2 + "}\n";
-        blk += i2 + tier2Desers[i].join("\n" + i2) + "\n";
+        blk += i2 + getDeserializer(
+          member.type, "srcStart", "dst", member, 0, true, true, true,
+        ).join("\n" + i2) + "\n";
         if (i < this.schema.members.length - 1) {
           // A comma is not whitespace. Match it before the general scanner,
           // while preserving the original read sequence under instrumentation.
