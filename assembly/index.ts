@@ -4086,6 +4086,34 @@ export namespace JSON {
       while (ptr < end && isSpace(load<u16>(ptr))) ptr += 2;
       return ptr;
     }
+    /** Internal ordered-reader specialization for small numeric rows. */
+    @inline
+    export function __skipNumericRowWhitespace(
+      srcStart: usize,
+      srcEnd: usize,
+    ): usize {
+      if (
+        sizeof<usize>() != 4 ||
+        isDefined(ASC_RTRACE) ||
+        isDefined(ASC_PROFILE)
+      ) return skipWhitespace(srcStart, srcEnd);
+      if (srcStart >= srcEnd || !isSpace(load<u16>(srcStart))) return srcStart;
+      srcStart += 2;
+      if (srcStart >= srcEnd || !isSpace(load<u16>(srcStart))) return srcStart;
+      return __skipNumericRowWhitespaceRun(srcStart, srcEnd);
+    }
+    function __skipNumericRowWhitespaceRun(ptr: usize, end: usize): usize {
+      // On wasm32 both addresses extend to nonnegative i64 values. A negative
+      // limit rejects ranges shorter than a word, including an end below 8.
+      // Keeping the last legal load address avoids subtracting ptr each trip.
+      const wordEnd = <i64>end - 8;
+      while (
+        <i64>ptr <= wordEnd &&
+        load<u64>(ptr) == 0x0020_0020_0020_0020
+      ) ptr += 8;
+      while (ptr < end && isSpace(load<u16>(ptr))) ptr += 2;
+      return ptr;
+    }
     /** Advance a whitespace run using the SIMD pretty-document scanner. */
     @inline
     export function skipPrettyWhitespace(

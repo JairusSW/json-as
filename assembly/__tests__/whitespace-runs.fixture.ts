@@ -1,10 +1,16 @@
 import { JSON } from "../index";
 let prettyScanner = false;
+let numericRowScanner = false;
+export function selectNumericRowScanner(): void {
+  numericRowScanner = true;
+}
 export function selectPrettyScanner(): void {
   prettyScanner = true;
 }
 
 @inline function scan(start: usize, end: usize): usize {
+  if (numericRowScanner)
+    return JSON.Util.__skipNumericRowWhitespace(start, end);
   if (ASC_FEATURE_SIMD && prettyScanner)
     return JSON.Util.skipPrettyWhitespace(start, end);
   return JSON.Util.skipWhitespace(start, end);

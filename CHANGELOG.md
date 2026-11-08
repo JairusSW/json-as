@@ -77,6 +77,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Hoist the bounded word-scan limit in generated whitespace readers for small numeric rows. Keep the general scanner and instrumentation paths unchanged; preserve mixed whitespace and source-end behavior.
+
 - Reduce SIMD composite-scanner bracket classification with an exact subtraction/mask predicate. Preserve UTF-16, escape, nesting and source-boundary behavior; paired ARM64 runs improve raw-heavy corpus parsing without adding speculative branches.
 
 - Keep newly created empty-array references in generated reader locals until their existing GC publication barrier. Reload reused fields after callbacks and preserve instrumentation paths; no allocation or barrier is removed.

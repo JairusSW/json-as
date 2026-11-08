@@ -4254,6 +4254,44 @@ export class JSONTransform extends Visitor {
                 "  const start = srcStart;\n  const dst = changetype<usize>(out);\n" +
                 DESERIALIZE_FAST.slice(fastPrettyTailStart), node)
             : null;
+        const numericRowArray = (member) => {
+            const type = member.type;
+            const element = type.startsWith("Array<")
+                ? this.getDefaultElementType(type)
+                : null;
+            return element != null && !member.nullable && isPrimitive(element);
+        };
+        if (WHITESPACE_METHOD &&
+            schema.generatedFastReader &&
+            !node.extendsType &&
+            !node.typeParameters?.length &&
+            schema.members.length >= 2 &&
+            schema.members.length <= 3 &&
+            !this.hasCustomParseLifecycle(schema) &&
+            this.canDeferFastDefaults(schema) &&
+            schema.members.filter(numericRowArray).length == 1 &&
+            schema.members.every((member) => !member.node.initializer &&
+                !member.node.decorators?.length &&
+                !member.nullable &&
+                !member.flags.has(PropertyFlags.Optional) &&
+                !member.flags.has(PropertyFlags.Lazy) &&
+                (isPrimitive(member.type) || numericRowArray(member)))) {
+            const body = WHITESPACE_METHOD.body;
+            const ordered = body.statements.find((statement) => statement.kind == NodeKind.Do);
+            class NumericRowWhitespace extends Visitor {
+                visitCallExpression(expression) {
+                    if (expression.expression.kind == NodeKind.PropertyAccess) {
+                        const callee = expression.expression;
+                        if (callee.property.text == "skipWhitespace" &&
+                            toString(callee.expression) == "JSON.Util")
+                            callee.property.text = "__skipNumericRowWhitespace";
+                    }
+                    super.visitCallExpression(expression);
+                }
+            }
+            if (ordered)
+                new NumericRowWhitespace().visit(ordered);
+        }
         DESERIALIZE_FAST =
             DESERIALIZE_FAST.slice(0, fastPrettyTailStart) +
                 "  return this.__DESERIALIZE_WHITESPACE(start, srcEnd, out, __resetMissing);\n}";
