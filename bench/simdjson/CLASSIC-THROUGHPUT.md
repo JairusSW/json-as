@@ -2083,3 +2083,37 @@ scanner differential suite and capability matrix. The packed artifact passes
 252 operation checks across 36 configurations. The full ordinary/RFC suites
 were not rerun for this isolated classifier change. Current source fingerprint:
 `87ddc83ee9e170522ae0e20240d19d53d7a7df91256ec25a504fc71e1144f878`.
+
+### Simplified-classifier full native comparison (`d2814638`)
+
+All 90 processes completed with full classic coverage on ARM64, AC power,
+unchanged native class models and fresh `JSON.parse<T>()` results. Validation
+and caching remain disabled; simdjson constructs owning structs. Fifteen of
+16 layouts meet 95%. Pretty Lottie reaches 98.6%; pretty CITM remains at 93.2%,
+so the all-layout target and parity objective remain open. Exit 1 reports that
+remaining threshold miss, rather than an incomplete run.
+
+| Corpus | Layout | json-as GB/s | simdjson GB/s | Throughput delta |
+|---|---|---:|---:|---:|
+| twitter | min | 2.431 | 1.332 | +82.4% |
+| twitter | pretty | 2.411 | 1.729 | +39.4% |
+| canada | min | 0.792 | 0.791 | +0.1% |
+| canada | pretty | 1.071 | 1.058 | +1.2% |
+| citm_catalog | min | 1.436 | 1.435 | +0.1% |
+| citm_catalog | pretty | 2.562 | 2.748 | -6.8% |
+| poet | min | 4.289 | 1.993 | +115.2% |
+| poet | pretty | 4.229 | 2.077 | +103.6% |
+| github_events | min | 1.399 | 1.406 | -0.5% |
+| github_events | pretty | 1.649 | 1.672 | -1.3% |
+| gsoc-2018 | min | 3.170 | 2.489 | +27.4% |
+| gsoc-2018 | pretty | 3.144 | 2.585 | +21.6% |
+| lottie | min | 2.526 | 1.706 | +48.0% |
+| lottie | pretty | 5.459 | 5.539 | -1.4% |
+| otfcc | min | 3.341 | 2.018 | +65.5% |
+| fgo | min | 4.714 | 2.910 | +62.0% |
+
+Evidence: `composite-subtract-production-all-95-{prepared,samples,result}.json`
+and `composite-subtract-production-all-95-paired.log`. Source fingerprint:
+`87ddc83ee9e170522ae0e20240d19d53d7a7df91256ec25a504fc71e1144f878`.
+As before, shared-host cross-batch ratio changes do not measure the isolated
+change. The independent paired CITM confirmation above was essentially flat.
