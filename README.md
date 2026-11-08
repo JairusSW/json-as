@@ -1,6 +1,6 @@
-<h1 align="center"><pre> ╦╔═╗╔═╗╔╗╔  ╔═╗╔═╗
- ║╚═╗║ ║║║║══╠═╣╚═╗
-╚╝╚═╝╚═╝╝╚╝  ╩ ╩╚═╝</pre></h1>
+<h1 align="center"><pre> ╦╔═╗╔═╗╔╗╔ ╔═╗╔═╗
+ ║╚═╗║ ║║║║═╠═╣╚═╗
+╚╝╚═╝╚═╝╝╚╝ ╩ ╩╚═╝</pre></h1>
 
 <details>
 <summary>Table of Contents</summary>
