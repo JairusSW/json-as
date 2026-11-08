@@ -70,7 +70,7 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
     benchLogPath("multilib-json-as-struct", kind, "as", "simd"),
   );
   entries.push([
-    "simdjson native DOM",
+    "simdjson (owning)",
     readComparisonResult("multilib", kind, reference).mbps,
   ]);
 

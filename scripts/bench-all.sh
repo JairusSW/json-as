@@ -65,7 +65,7 @@ run "classic (AS)" bash "$AS" "classic/" "$@"
 run "lazy (AS)" bash "$AS" "lazy/" "$@"
 
 # References used by overview, library, and classic charts.
-run "simdjson native DOM and classic JS" node ./scripts/run-comparison-benches.mjs
+run "simdjson (owning) and classic JS" node ./scripts/run-comparison-benches.mjs
 
 echo
 echo "═══════════════════════════════════════════════════════════════"

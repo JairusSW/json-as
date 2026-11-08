@@ -1,5 +1,5 @@
-// API-level classic workload charts, including native DOM and JS references.
-// Matched owned typed-model parity remains a separate benchmark harness.
+// API-level classic workload charts, including owning native and JS references.
+// The paired classic parity gate remains a separate benchmark harness.
 //
 // Populate the logs first (v8 and wavm), e.g.:
 //   for rt in "" "--wavm"; do for m in naive swar simd; do \
@@ -162,7 +162,7 @@ for (const runtime of [ISOLATED_RUNTIME]) {
                 "NAIVE",
                 "SWAR",
                 "SIMD",
-                "simdjson native DOM",
+                "simdjson (owning)",
                 "Built-in JSON (JS/V8)",
               ]
             : [
@@ -173,7 +173,7 @@ for (const runtime of [ISOLATED_RUNTIME]) {
                 kind === "serialize"
                   ? "untouched JSON.Obj forwarding"
                   : "JSON.Obj (subset read)",
-                "simdjson native DOM",
+                "simdjson (owning)",
                 "Built-in JSON (JS/V8)",
               ],
         colors:

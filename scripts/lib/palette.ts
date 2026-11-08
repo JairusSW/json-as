@@ -79,7 +79,7 @@ export const MULTILIB_COLORS: Record<string, string> = {
   "fast-json-parse (JS)": BASE.mutedTeal,
   "fast-json-stringify (JS)": BASE.mutedTeal,
   "assemblyscript-json": BASE.strawberryRed,
-  "simdjson native DOM": BASE.atomicTangerine,
+  "simdjson (owning)": BASE.atomicTangerine,
   "json-as struct": BASE.pacificBlue,
   "json-as struct lazy": BASE.jungleGreen,
   "json-as struct lazy (deferred)": BASE.jungleGreen,

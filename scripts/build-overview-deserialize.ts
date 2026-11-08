@@ -57,7 +57,7 @@ const config = createBarChart(chartData, PAYLOADS, {
     "JSON-AS (SWAR)",
     "JSON-AS (SIMD)",
     "JSON.Obj (deferred)",
-    "simdjson native DOM",
+    "simdjson (owning)",
   ],
   colors: [...MODE_BARS, OBJ_BAR, SIMDJSON_BAR],
   // Stand the value labels up off each bar top so adjacent ones don't collide.
