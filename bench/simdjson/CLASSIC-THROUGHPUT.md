@@ -22,6 +22,10 @@ input is overwritten/destroyed and the parser is reused. AS results are
 retained through additional parses and collection before full serialization.
 Timing is separate from those oracles.
 
+Latest complete ARM64 result: **all 16 classic layouts reach at least 95% of
+simdjson owning-struct throughput** at `18f4d460`. See the
+[final table and qualification](#numeric-row-whitespace-limit-full-native-comparison-18f4d460).
+
 ## First ARM64 screen, 2026-11-06
 
 Five alternating fresh-process pairs per layout, Apple M4 Max, GCC 16.2.0,
@@ -2117,3 +2121,69 @@ and `composite-subtract-production-all-95-paired.log`. Source fingerprint:
 `87ddc83ee9e170522ae0e20240d19d53d7a7df91256ec25a504fc71e1144f878`.
 As before, shared-host cross-batch ratio changes do not measure the isolated
 change. The independent paired CITM confirmation above was essentially flat.
+
+### Numeric-row whitespace limit: full native comparison (18f4d460)
+
+The complete ARM64 run passes the 95% throughput gate on **all 16 classic
+layouts**. CITM pretty reaches **95.34%**, and Lottie pretty reaches **95.52%**.
+This meets the requested around-parity target for the measured classic cases.
+These are shared-host point estimates, with recorded background load and AC
+power; the two narrowest margins should not be treated as stable performance
+floors across machines or host conditions.
+
+Both engines produce fresh owning native class/struct graphs. The AS side still
+uses the existing classic `JSON.parse<T>()` harness, incremental runtime, SIMD,
+validation disabled, and caching disabled. The native side uses simdjson's
+On-Demand reader into owning C++ models, including copied strings and raw lexemes.
+Preparation checks complete AS graphs after further parses and collection, and
+complete native graphs after input destruction and parser reuse.
+
+Five alternating repetitions per corpus produced 90 engine sample groups:
+45 AS processes and 80 native layout processes, or 125 timed engine launches.
+Throughput uses UTF-8 payload bytes per second for both engines; AS receives
+pre-decoded UTF-16 strings, preserving the existing respective string APIs.
+
+| Corpus | Layout | json-as GB/s | simdjson GB/s | Throughput delta |
+|---|---|---:|---:|---:|
+| twitter | min | 2.486 | 1.390 | +78.8% |
+| twitter | pretty | 2.456 | 1.786 | +37.5% |
+| canada | min | 0.791 | 0.799 | -0.9% |
+| canada | pretty | 1.072 | 1.066 | +0.6% |
+| citm_catalog | min | 1.441 | 1.433 | +0.5% |
+| citm_catalog | pretty | 2.601 | 2.728 | -4.7% |
+| poet | min | 4.443 | 2.012 | +120.8% |
+| poet | pretty | 4.227 | 2.101 | +101.2% |
+| github_events | min | 1.398 | 1.411 | -0.9% |
+| github_events | pretty | 1.646 | 1.670 | -1.5% |
+| gsoc-2018 | min | 3.201 | 2.519 | +27.1% |
+| gsoc-2018 | pretty | 3.143 | 2.602 | +20.8% |
+| lottie | min | 2.472 | 1.690 | +46.3% |
+| lottie | pretty | 5.409 | 5.662 | -4.5% |
+| otfcc | min | 3.333 | 1.952 | +70.7% |
+| fgo | min | 4.681 | 2.934 | +59.5% |
+
+The isolated change hoists the last legal word-load address in ordered whitespace
+readers for small numeric rows with one primitive-array field. The general
+scanner, keyed fallback, and instrumentation paths retain their previous code.
+Independent paired CITM confirmation shows +1.57% pretty throughput (11/12 wins),
+with minified essentially flat (-0.17%, 6/12 wins). All eight other corpus
+binaries remain byte-identical, so their cross-batch ratio changes are run
+variation rather than effects of this change. The integrated production binaries
+match the tested prototypes exactly for all nine corpora.
+
+Qualification passes all 63 transform scripts, including 960 capability checks,
+and 252 packed-consumer operations across 36 configurations. Extended whitespace
+checks cover every UTF-16 code unit, mixed runs, reversed and odd bounds, physical
+memory ends, and zero allocations across ten runtime/mode/instrumentation
+configurations. All nine retained owning-model oracles pass. The full ordinary
+and RFC suites were not rerun for this isolated loop change.
+
+Evidence under `build/perf/classic-native`:
+`numeric-row-wide-whitespace-production-all-95-{prepared,samples,result}.json`,
+`numeric-row-wide-whitespace-production-all-95-paired.log`,
+`whitespace/numeric-row-wide-whitespace-confirm-controls-{samples,summary}.json`,
+`numeric-row-wide-whitespace-production-qualification.json`,
+`numeric-row-wide-whitespace-production-equivalence.json`, and
+`numeric-row-wide-whitespace-prepared-equivalence.json`. Measured source commit:
+`18f4d46015882925798896f4669e2a8774fe1ef3`; source fingerprint:
+`eb7a7c1b832cf8de332888edfc76297b361949827c6017b44370e6c8472ae934`.
