@@ -77,6 +77,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Add bounded nine-digit integer-field shortcuts in SWAR and SIMD, preserving typed stores and source-end checks. Paired ARM64 classic runs improve CITM by about 2–4%; five unaffected corpus binaries remain identical.
+
 - Avoid clearing newly allocated generated objects twice when the actual library-owned allocator is verified to zero its full payload. Retain explicit clearing for unknown allocators, other runtimes, instrumentation, and alternate pointer layouts; preserve reused-object initialization.
 
 - Classify quote parity across bounded SIMD composite-scan batches, skipping structural events inside strings without walking every quote. Preserve escape-run handling across batch boundaries, short tails, range limits, and allocation-free scanning.

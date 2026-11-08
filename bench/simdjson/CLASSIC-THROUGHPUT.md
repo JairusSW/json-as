@@ -1823,3 +1823,78 @@ Evidence under `build/perf/classic-native/`: `scoped-static-array-visit-long-`
 Measured source fingerprint:
 `c173cfc5b3e1d92a426cdb0b8d6963fb41e69f79d9c41486df688f1939fdb593`.
 The parity goal remains active.
+
+
+## Bounded nine-digit integer fields
+
+The signed SWAR/SIMD field scanners recognize an exact nine-digit run before
+entering the general four-digit/scalar loop. A bounded ten-code-unit window
+proves that the ninth character is a digit and the tenth is a terminator;
+only then is the eight-digit prefix validated and folded. SWAR uses the
+existing pair-multiply helper, SIMD its existing eight-digit helper. Other
+lengths retain the general scan, and RTrace retains its original load sequence.
+Typed truncation, signs, default initialization, tiers, models and allocation
+policy are unchanged.
+
+The first pair-multiply-only prototype improved CITM but introduced small
+neighbor costs. The SIMD variant reproduced CITM gains in two independent
+balanced four-corpus comparisons. Its complete nine-corpus, six-pair
+confirmation (108 processes) measured the following throughput changes against
+the preceding production binaries:
+
+| Changed corpus | Minified | Pretty |
+| --- | ---: | ---: |
+| Twitter | -0.34% | -0.36% |
+| CITM | +2.58% | +3.52% |
+| GitHub | -0.69% | +0.58% |
+| Lottie | +0.02% | -0.44% |
+
+Canada, Poet, GSOC, OTFCC and FGO binaries are byte-for-byte unchanged.
+Their observed timing differences illustrate host variability. The alternate
+first-four-digit-reuse prototype was not promoted: its CITM gains were smaller.
+Both successful prototypes passed 3,814,216 differential checks, including
+every UTF-16 code unit in each prefix/tail position, signed inputs, widths,
+offsets, long runs and physical memory boundaries.
+
+The integrated implementation passes an independent ASCII/BigInt oracle with
+2,765,490 checks and twelve mode/strict/fast API configurations, parser
+regressions, the scalar-composition oracle, boundary checks and the packed
+consumer (252 operations across 36 configurations). All nine full owning-graph
+oracles pass; the production binaries match the measured SIMD prototype
+exactly. The complete transform/RFC suites were not repeated for this change.
+
+Evidence under `build/perf/classic-native/`: `integer-nine-simd-neighbors-`
+`paired.log`, corresponding `whitespace/*-controls-{samples,summary}.json`,
+`integer-nine-production-tests.json`, `integer-nine-final-binary-proof.json`,
+and `integer-nine-host.json`. The paired run started on AC power at 100% on
+Apple M4 Max ARM64. These are shared-host results, not an isolated floor.
+
+The final exact-source native gate completed 90 processes and again passes
+90% on all 16 layouts. The lowest fraction is Lottie pretty at 92.5%;
+95% and full parity remain open. The old classic harness, fresh `JSON.parse`
+to classes, validation/cache-off settings, owning native structs and logical
+UTF-8 normalization are unchanged. Cross-batch ratios include host variation;
+use the paired figures above to estimate this change.
+
+| Corpus | Layout | AS us | Native us | AS GB/s | Native GB/s | Native throughput reached |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| twitter | min | 202.70 | 366.75 | 2.303 | 1.273 | 180.9% |
+| twitter | pretty | 280.58 | 383.58 | 2.251 | 1.646 | 136.7% |
+| canada | min | 2,686.41 | 2,637.16 | 0.778 | 0.793 | 98.2% |
+| canada | pretty | 2,718.43 | 2,724.97 | 1.059 | 1.056 | 100.2% |
+| citm_catalog | min | 348.54 | 347.24 | 1.435 | 1.441 | 99.6% |
+| citm_catalog | pretty | 452.76 | 421.69 | 2.544 | 2.732 | 93.1% |
+| poet | min | 745.15 | 1,638.18 | 4.427 | 2.013 | 219.8% |
+| poet | pretty | 816.58 | 1,671.61 | 4.302 | 2.101 | 204.7% |
+| github_events | min | 38.74 | 38.25 | 1.377 | 1.394 | 98.7% |
+| github_events | pretty | 40.98 | 39.49 | 1.589 | 1.648 | 96.4% |
+| gsoc-2018 | min | 981.45 | 1,236.26 | 3.128 | 2.483 | 126.0% |
+| gsoc-2018 | pretty | 1,032.04 | 1,247.98 | 3.118 | 2.578 | 120.9% |
+| lottie | min | 117.18 | 169.73 | 2.466 | 1.702 | 144.8% |
+| lottie | pretty | 284.08 | 262.79 | 5.242 | 5.667 | 92.5% |
+| otfcc | min | 20,309.05 | 34,843.60 | 3.270 | 1.906 | 171.6% |
+| fgo | min | 10,607.55 | 16,594.76 | 4.597 | 2.939 | 156.4% |
+
+Final native evidence: `integer-nine-all-90-{prepared,samples,result}.json`
+and `integer-nine-all-90-paired.log`. Measured source fingerprint:
+`e7682776d5f733eeedd618df08c43b1ab055aec390ab57616769000ff70530a3`.

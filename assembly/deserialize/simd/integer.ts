@@ -10,9 +10,9 @@
 // Scan paths use the same asymmetric tuning as the SWAR version:
 //
 // - Unsigned scan: parse8_SIMD + scalar (no parse4).
-// - Signed scan: parse4_SWAR + scalar (no parse8). After the leading
-//   minus, the digit run lands in parse8's "terminator-in-load" boundary
-//   zone.
+// - Signed scan: exact nine-digit shortcut, then parse4_SWAR + scalar.
+//   For other lengths, parse4 avoids expensive parse8 validation failures
+//   when a terminator falls within the wide load.
 //
 // Requires `--enable simd` at compile time. Dead-code-eliminated when
 // JSON_MODE != SIMD.
@@ -149,9 +149,28 @@ export function deserializeIntegerField_SIMD<T extends number>(
     negative = true;
     srcStart += 2;
   }
+  // Check the terminator first so longer runs keep the general scan.
+  // The complete ten-code-unit window is bounded before any wide load.
+  if (
+    !isDefined(ASC_RTRACE) &&
+    srcStart <= srcEnd &&
+    srcEnd - srcStart >= 20
+  ) {
+    const tail = load<u32>(srcStart, 16);
+    const last = <u32><u16>tail - ASCII_ZERO;
+    const next = <u32>(tail >> 16) - ASCII_ZERO;
+    if (last <= 9 && next > 9) {
+      const prefix = parse8Digits_SIMD(srcStart);
+      if (prefix != U32.MAX_VALUE) {
+        const value = <u64>prefix * 10 + last;
+        storeSignedToField<T>(dstObj + dstOffset, negative ? 0 - value : value);
+        return srcStart + 18;
+      }
+    }
+  }
   const digitStart = srcStart;
   let value: u64 = 0;
-  // Signed scan uses parse4 + scalar only (see file header).
+  // Remaining signed runs use parse4 + scalar (see file header).
   while (srcStart + 6 < srcEnd) {
     const parsed = parse4Digits_PairMul(load<u64>(srcStart));
     if (parsed == U32.MAX_VALUE) break;

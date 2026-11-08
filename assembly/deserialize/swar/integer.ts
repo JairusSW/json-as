@@ -13,9 +13,9 @@
 //   digit run is aligned, so parse8 either succeeds cleanly or terminates
 //   early. The intermediate parse4 stride costs more in wasted-validate
 //   than it saves in successful work.
-// - Signed scan: parse4 + scalar (no parse8). The leading minus consumes
-//   2 bytes, shifting the digit run into parse8's "terminator-in-load"
-//   zone where validate-fail is common. parse4 is a smaller failure unit.
+// - Signed scan: exact nine-digit shortcut, then parse4 + scalar.
+//   For other lengths, parse4 avoids expensive parse8 validation failures
+//   when a terminator falls within the wide load.
 //
 // parse16 is omitted from scan entirely: a 16-character digit run plus
 // terminator fits in its 32-byte load, so the terminator triggers a wasted
@@ -162,9 +162,31 @@ export function deserializeIntegerField_SWAR<T extends number>(
     negative = true;
     srcStart += 2;
   }
+  // Check the terminator first so longer runs keep the general scan.
+  // The complete ten-code-unit window is bounded before any wide load.
+  if (
+    !isDefined(ASC_RTRACE) &&
+    srcStart <= srcEnd &&
+    srcEnd - srcStart >= 20
+  ) {
+    const tail = load<u32>(srcStart, 16);
+    const last = <u32><u16>tail - ASCII_ZERO;
+    const next = <u32>(tail >> 16) - ASCII_ZERO;
+    if (last <= 9 && next > 9) {
+      const prefix = parse8Digits_PairMul(
+        load<u64>(srcStart),
+        load<u64>(srcStart, 8),
+      );
+      if (prefix != U32.MAX_VALUE) {
+        const value = <u64>prefix * 10 + last;
+        storeSignedToField<T>(dstObj + dstOffset, negative ? 0 - value : value);
+        return srcStart + 18;
+      }
+    }
+  }
   const digitStart = srcStart;
   let value: u64 = 0;
-  // Signed scan uses parse4 + scalar only (see file header).
+  // Remaining signed runs use parse4 + scalar (see file header).
   while (srcStart + 6 < srcEnd) {
     const parsed = parse4Digits_PairMul(load<u64>(srcStart));
     if (parsed == U32.MAX_VALUE) break;
