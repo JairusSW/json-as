@@ -3092,12 +3092,16 @@ export class JSONTransform extends Visitor {
                     blk += i2 + "}\n";
                 }
                 else {
+                    if (i > 0)
+                        blk += i2 + "if (isDefined(ASC_RTRACE)) {\n";
                     blk += i2 + "kp = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
                     if (multi && i > 0) {
                         blk +=
                             i2 +
                                 "if (seenAny && load<u16>(kp) == 0x2c) kp = JSON.Util.skipWhitespace(kp + 2, srcEnd);\n";
                     }
+                    if (i > 0)
+                        blk += i2 + "}\n";
                 }
                 blk += i2 + `if (${presentCondition}) {\n`;
                 if (traceOptionalObject) {
@@ -3152,6 +3156,14 @@ export class JSONTransform extends Visitor {
                     blk += i3 + `__tracePresent |= ${traceBit};\n`;
                 if (multi)
                     blk += i3 + "seenAny = true;\n";
+                if (!traceOptionalObject && i + 1 < this.schema.members.length) {
+                    blk += i3 + "if (!isDefined(ASC_RTRACE)) {\n";
+                    blk += i3 + "  kp = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
+                    blk +=
+                        i3 +
+                            "  if (seenAny && load<u16>(kp) == 0x2c) kp = JSON.Util.skipWhitespace(kp + 2, srcEnd);\n";
+                    blk += i3 + "}\n";
+                }
                 blk += i2 + `} else if (__resetMissing) { ${markMissing(member)} }\n`;
                 t2opt.push(blk);
             }

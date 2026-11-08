@@ -4651,8 +4651,9 @@ export class JSONTransform extends Visitor {
       // Fields are still matched in declaration order, but each is optional: we
       // probe the next key with `kp`, and only commit `srcStart` past the
       // separator + key + `:` when that field's key actually matches. A field
-      // whose key isn't next is skipped without consuming input, so the
-      // following field re-probes the same position (and re-consumes the comma).
+      // whose key isn't next keeps the normalized lookahead for the following
+      // field. Refresh it only after a present field consumes a value. Traced
+      // builds retain the original per-field probes and their load sequence.
       // `seenAny` tracks whether a prior field was emitted, so we know when a
       // leading comma must precede the key. Unknown/extra keys aren't handled
       // here - they leave a non-`}` token after the last field and fall to slow.
@@ -4716,6 +4717,7 @@ export class JSONTransform extends Visitor {
           }
           blk += i2 + "}\n";
         } else {
+          if (i > 0) blk += i2 + "if (isDefined(ASC_RTRACE)) {\n";
           blk += i2 + "kp = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
           // Only fields after the first can be preceded by a comma, and only
           // when something was already emitted (seenAny).
@@ -4724,6 +4726,7 @@ export class JSONTransform extends Visitor {
               i2 +
               "if (seenAny && load<u16>(kp) == 0x2c) kp = JSON.Util.skipWhitespace(kp + 2, srcEnd);\n";
           }
+          if (i > 0) blk += i2 + "}\n";
         }
         blk += i2 + `if (${presentCondition}) {\n`;
         if (traceOptionalObject) {
@@ -4775,6 +4778,14 @@ export class JSONTransform extends Visitor {
         blk += i3 + tier2Desers[i].join("\n" + i3) + "\n";
         if (traceOptionalObject) blk += i3 + `__tracePresent |= ${traceBit};\n`;
         if (multi) blk += i3 + "seenAny = true;\n";
+        if (!traceOptionalObject && i + 1 < this.schema.members.length) {
+          blk += i3 + "if (!isDefined(ASC_RTRACE)) {\n";
+          blk += i3 + "  kp = JSON.Util.skipWhitespace(srcStart, srcEnd);\n";
+          blk +=
+            i3 +
+            "  if (seenAny && load<u16>(kp) == 0x2c) kp = JSON.Util.skipWhitespace(kp + 2, srcEnd);\n";
+          blk += i3 + "}\n";
+        }
         blk += i2 + `} else if (__resetMissing) { ${markMissing(member)} }\n`;
         t2opt.push(blk);
       }

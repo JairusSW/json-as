@@ -77,6 +77,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Reuse normalized key lookahead across omitted fields in generated whitespace readers. Refresh it after a present field, avoiding repeated comma/indentation scans without extra runtime flags; preserve traced load sequences.
+
 - Add bounded nine-digit integer-field shortcuts in SWAR and SIMD, preserving typed stores and source-end checks. Paired ARM64 classic runs improve CITM by about 2–4%; five unaffected corpus binaries remain identical.
 
 - Avoid clearing newly allocated generated objects twice when the actual library-owned allocator is verified to zero its full payload. Retain explicit clearing for unknown allocators, other runtimes, instrumentation, and alternate pointer layouts; preserve reused-object initialization.

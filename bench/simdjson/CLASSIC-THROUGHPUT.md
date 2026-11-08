@@ -1898,3 +1898,86 @@ use the paired figures above to estimate this change.
 Final native evidence: `integer-nine-all-90-{prepared,samples,result}.json`
 and `integer-nine-all-90-paired.log`. Measured source fingerprint:
 `e7682776d5f733eeedd618df08c43b1ab055aec390ab57616769000ff70530a3`.
+
+
+## Optional-field lookahead motion
+
+Whitespace readers normalize the next key once and keep that position when a
+field is absent. After a present field finishes decoding, its arm prepares the
+next lookahead. This removes repeated whitespace/comma scans without a dynamic
+validity flag, extra tier, persistent cache or changes to value readers. The
+first lookahead remains unconditional. RTrace retains the original per-field
+preparations and load sequence. Missing-field bits and default evaluation
+remain in their original order.
+
+The earlier pointer-comparison guard was not promoted because of its
+minified/pretty tradeoff. The new code-motion prototype passed 37 mode/runtime/
+strict/fast/instrumentation configurations and all nine retained owning-graph
+oracles. Production binaries match the timed prototype exactly. Only Twitter,
+GitHub and Lottie change; the other six corpus binaries are identical.
+
+An independent twelve-pair, three-corpus confirmation (72 fresh processes)
+measured the following throughput changes against the preceding production
+binaries, with essentially flat RSS:
+
+| Changed corpus | Minified | Pretty |
+| --- | ---: | ---: |
+| Twitter | +0.35% | +1.75% |
+| GitHub | +0.54% | +2.67% |
+| Lottie | -0.73% | +1.50% |
+
+The permanent preparation-count regression fails on the prior implementation:
+a reused six-field object with no supplied fields performs six lookahead
+preparations instead of one. The new implementation passes 37 configurations,
+including all 64 presence masks in minified and pretty layouts, fresh and
+reused destinations, direct value assertions, nested arrays, reordered and
+duplicate keys, nullable Raw fields, effects, and traced preparation counts.
+
+The two-space whitespace-tail prototype was also checked but rejected: it
+passed the whitespace/property/ownership oracles yet measured -0.31% minified
+and -0.78% pretty on CITM. Its smaller code footprint did not establish a win.
+
+Raw evidence is under `build/perf/classic-native/`: `optional-motion-confirm-`
+`paired.log`, `whitespace/optional-motion-confirm-controls-{samples,summary}.json`,
+`optional-motion-permanent-red.log`, `optional-motion-production-green.log`,
+`optional-motion-production-binary-proof.json` and
+`optional-motion-production-qualification.log`. These are shared-host ARM64
+measurements, not an isolated floor.
+
+All 62 commands from the package's transform-test list passed on the integrated
+implementation, including 960 capability checks and both new scanner/lookahead
+regressions. Packed-consumer verification passed 252 operations across
+36 configurations. The transform rebuild passed. The full ordinary/RFC suites
+were not repeated for this change.
+
+The final native gate completed all 90 processes. All 16 layouts remain above
+90%, and 14 clear 95%. Pretty CITM and pretty Lottie still miss the 95% target,
+so the gate exits 1 as expected for that open performance target. This is a
+completed measurement, not an incomplete run or a correctness-test failure.
+The original fresh-class API, old harness, validation/cache-off settings,
+owning native structs and logical UTF-8 normalization are unchanged.
+
+| Corpus | Layout | AS us | Native us | AS GB/s | Native GB/s | Native throughput reached |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| twitter | min | 193.08 | 351.84 | 2.418 | 1.327 | 182.2% |
+| twitter | pretty | 264.94 | 367.65 | 2.384 | 1.718 | 138.8% |
+| canada | min | 2,680.32 | 2,661.98 | 0.780 | 0.785 | 99.3% |
+| canada | pretty | 2,760.44 | 2,764.18 | 1.043 | 1.041 | 100.1% |
+| citm_catalog | min | 348.31 | 349.85 | 1.436 | 1.430 | 100.4% |
+| citm_catalog | pretty | 451.48 | 422.75 | 2.551 | 2.725 | 93.6% |
+| poet | min | 742.40 | 1,637.67 | 4.443 | 2.014 | 220.6% |
+| poet | pretty | 816.44 | 1,665.81 | 4.303 | 2.109 | 204.0% |
+| github_events | min | 38.19 | 37.86 | 1.396 | 1.408 | 99.1% |
+| github_events | pretty | 39.56 | 38.96 | 1.646 | 1.671 | 98.5% |
+| gsoc-2018 | min | 968.72 | 1,222.39 | 3.169 | 2.511 | 126.2% |
+| gsoc-2018 | pretty | 1,024.04 | 1,248.47 | 3.142 | 2.577 | 121.9% |
+| lottie | min | 118.06 | 172.07 | 2.447 | 1.679 | 145.7% |
+| lottie | pretty | 280.63 | 262.80 | 5.307 | 5.667 | 93.6% |
+| otfcc | min | 20,158.80 | 32,572.86 | 3.294 | 2.039 | 161.6% |
+| fgo | min | 10,592.90 | 16,587.44 | 4.604 | 2.940 | 156.6% |
+
+Final native evidence: `optional-motion-all-95-{prepared,samples,result}.json`
+and `optional-motion-all-95-paired.log`. Measured source fingerprint:
+`7948143e9735708d3183fe3ac5743401fee998dfee0e651e0781678b556f6b9f`. Cross-batch ratios include shared-host variability;
+use the independent paired AS-vs-AS figures above for the change estimate.
+The parity goal remains active.
