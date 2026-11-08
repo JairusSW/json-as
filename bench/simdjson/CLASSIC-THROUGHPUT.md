@@ -2016,3 +2016,36 @@ Qualification: all 63 commands in `test:transform` pass, including the
 The packed artifact passes 252 operations across 36 configurations. The full
 ordinary/RFC suites were not rerun for this change. Current source fingerprint:
 `6bbde3e32998b1602ebb2d492fdbd16b4f29313dc826522a016f7befa63dcd80`.
+
+### Publication-local full native comparison (`7f99285a`)
+
+All 90 comparison processes completed on ARM64, AC power at 100%, with the
+same classic class models, fresh `JSON.parse<T>()` results, validation/cache
+disabled, and simdjson owning structs. All 16 layouts exceed 90%; 14 meet 95%.
+CITM pretty (93.9%) and Lottie pretty (94.1%) still miss the 95% target. The
+runner exits 1 for that unmet target; the run itself is complete.
+
+| Corpus | Layout | json-as GB/s | simdjson GB/s | Throughput delta |
+|---|---|---:|---:|---:|
+| twitter | min | 2.462 | 1.374 | +79.1% |
+| twitter | pretty | 2.476 | 1.778 | +39.3% |
+| canada | min | 0.792 | 0.805 | -1.6% |
+| canada | pretty | 1.078 | 1.075 | +0.3% |
+| citm_catalog | min | 1.465 | 1.434 | +2.2% |
+| citm_catalog | pretty | 2.579 | 2.747 | -6.1% |
+| poet | min | 4.409 | 2.031 | +117.2% |
+| poet | pretty | 4.286 | 2.126 | +101.6% |
+| github_events | min | 1.399 | 1.430 | -2.2% |
+| github_events | pretty | 1.651 | 1.686 | -2.1% |
+| gsoc-2018 | min | 3.193 | 2.521 | +26.6% |
+| gsoc-2018 | pretty | 3.142 | 2.618 | +20.0% |
+| lottie | min | 2.430 | 1.696 | +43.3% |
+| lottie | pretty | 5.327 | 5.661 | -5.9% |
+| otfcc | min | 3.297 | 2.054 | +60.5% |
+| fgo | min | 4.551 | 2.923 | +55.7% |
+
+Evidence: `empty-phi-production-all-95-{prepared,samples,result}.json` and
+`empty-phi-production-all-95-paired.log`. Source fingerprint remains
+`6bbde3e32998b1602ebb2d492fdbd16b4f29313dc826522a016f7befa63dcd80`.
+These are shared-host measurements; use the paired AS/control results above
+to estimate the optimization itself, rather than cross-batch ratio changes.
