@@ -1,5 +1,7 @@
 import {JSON} from '../../assembly/index';
 let preparations:i32=0;
+// Called by generated instrumentation rather than a source-level reference.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function recordLookahead():void{preparations++;}
 export function lookaheadCount():i32{return preparations;}
 @json class Row {

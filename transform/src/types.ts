@@ -62,6 +62,8 @@ export class Property {
   public alias: string | null = null;
   public type: string = "";
   public nullable: boolean = false;
+  // Built-in dispatch follows the resolved declaration, not a user model's name.
+  public builtinDate: boolean = false;
   public value: string | null = null;
   public flags: Map<PropertyFlags, Expression | null> = new Map<
     PropertyFlags,

@@ -30,6 +30,7 @@ export declare class Property {
     alias: string | null;
     type: string;
     nullable: boolean;
+    builtinDate: boolean;
     value: string | null;
     flags: Map<PropertyFlags, Expression | null>;
     node: FieldDeclaration;

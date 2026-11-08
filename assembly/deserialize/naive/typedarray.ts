@@ -1,3 +1,4 @@
+import { claimTypedArrayStorage } from "../parseMode";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../custom/chars";
 import { deserializeFloat_NAIVE } from "./float";
 import { atoi, isSpace } from "../../util";
@@ -128,7 +129,8 @@ export function deserializeTypedArray_NAIVE<T extends ArrayLike<number>>(
     return changetype<T>(0);
   }
   let out = changetype<T>(dst || changetype<usize>(instantiate<T>(count)));
-  if (out.length != count) out = changetype<T>(instantiate<T>(count));
+  if (out.length != count || !claimTypedArrayStorage(changetype<usize>(out)))
+    out = changetype<T>(instantiate<T>(count));
   populateTypedArray<T>(srcStart, srcEnd, out, count);
   return out;
 }

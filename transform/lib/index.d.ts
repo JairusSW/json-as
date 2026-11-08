@@ -32,7 +32,9 @@ export declare class JSONTransform extends Visitor {
     private inheritedAliasId;
     private inheritedTypeBinding;
     private lazyMetadata;
+    private logicalFieldName;
     private collectInheritedFieldMembers;
+    private inheritedOmissionHelpers;
     private inheritedDefaultHelpers;
     private inheritedOrigins;
     private isCodecStringType;

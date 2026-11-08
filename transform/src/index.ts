@@ -835,6 +835,7 @@ export class JSONTransform extends Visitor {
     FieldDeclaration,
     {
       inner: string;
+      propertyName: string;
       valueType: string;
       omitNull: boolean;
       omitIf: Expression | null;
@@ -843,6 +844,10 @@ export class JSONTransform extends Visitor {
       scalar?: boolean;
     }
   >();
+
+  private logicalFieldName(field: FieldDeclaration): string {
+    return this.lazyMetadata.get(field)?.propertyName || field.name.text;
+  }
 
   private collectInheritedFieldMembers(
     node: ClassDeclaration,
@@ -913,7 +918,7 @@ export class JSONTransform extends Visitor {
             member.kind === NodeKind.FieldDeclaration &&
             !member.is(CommonFlags.Static),
         )
-        .map((member) => member.name.text),
+        .map((member) => this.logicalFieldName(member as FieldDeclaration)),
     );
     const localNames = new Set(
       node.members
@@ -922,7 +927,7 @@ export class JSONTransform extends Visitor {
             member.kind === NodeKind.FieldDeclaration &&
             !member.is(CommonFlags.Static),
         )
-        .map((member) => member.name.text),
+        .map((member) => this.logicalFieldName(member as FieldDeclaration)),
     );
 
     const inheritedMembers = decoratedSchema
@@ -984,14 +989,19 @@ export class JSONTransform extends Visitor {
     }
     // Local declarations shadow their inherited logical fields.
     const fields = [
-      ...ancestors.filter((field) => !ownNames.has(field.name.text)),
+      ...ancestors.filter(
+        (field) => !ownNames.has(this.logicalFieldName(field)),
+      ),
       ...inheritedMembers,
     ];
     for (let i = fields.length - 1; i >= 0; i--) {
       const original = fields[i];
       if (
-        !localNames.has(original.name.text) &&
-        !members.some((member) => member.name.text == original.name.text)
+        !localNames.has(this.logicalFieldName(original)) &&
+        !members.some(
+          (member) =>
+            this.logicalFieldName(member) === this.logicalFieldName(original),
+        )
       ) {
         const inherited = cloneNode(original) as FieldDeclaration;
         instantiate.visit(inherited);
@@ -1059,11 +1069,75 @@ export class JSONTransform extends Visitor {
             `this.${helper}()`,
           );
         }
+        // Undecorated ancestors have no schema-owned omission helper. Keep
+        // predicate evaluation in their declaration scope, then let the child's
+        // normal omission wrapper save/restore the serialization state.
+        const omit = inherited.decorators?.find(
+          (decorator) =>
+            (decorator.name as IdentifierExpression).text === "omitif",
+        );
+        if (omit && !origin?.omitIfMethod) {
+          let helper = this.inheritedOmissionHelpers.get(original);
+          if (!helper) {
+            const expression = omit.args[0];
+            if (expression.kind === NodeKind.Function) {
+              const signature = (expression as FunctionExpression).declaration
+                .signature;
+              if (signature.parameters.length)
+                signature.parameters[0].type = Node.createNamedType(
+                  Node.createSimpleTypeName("this", baseDecl.range),
+                  null,
+                  false,
+                  baseDecl.range,
+                );
+              signature.returnType = Node.createNamedType(
+                Node.createSimpleTypeName("bool", baseDecl.range),
+                null,
+                false,
+                baseDecl.range,
+              );
+            }
+            const rendered =
+              expression.kind === NodeKind.Literal &&
+              (expression as LiteralExpression).literalKind ===
+                LiteralKind.String
+                ? (expression as StringLiteralExpression).value
+                : toString(expression);
+            helper = this.unusedMemberName(
+              baseDecl,
+              "__JSON_DECLARED_OMIT_" + original.name.text,
+            );
+            const evalName = this.unusedMemberName(baseDecl, helper + "_EVAL");
+            const zeroParameters =
+              expression.kind === NodeKind.Function &&
+              !(expression as FunctionExpression).declaration.signature
+                .parameters.length;
+            if (!zeroParameters)
+              baseDecl.members.push(
+                SimpleParser.parseClassMember(
+                  `${evalName}<T>(condition: T): bool { if (isFunction<T>()) return condition(this); return bool(condition); }`,
+                  baseDecl,
+                ),
+              );
+            baseDecl.members.push(
+              SimpleParser.parseClassMember(
+                `${helper}(): bool { return ${zeroParameters ? `(${rendered})()` : `this.${evalName}(${rendered})`}; }`,
+                baseDecl,
+              ),
+            );
+            this.inheritedOmissionHelpers.set(original, helper);
+          }
+          omit.args[0] = Node.createStringLiteralExpression(
+            `this.${helper}()`,
+            inherited.range,
+          );
+        }
         members.unshift(inherited);
       }
     }
   }
 
+  private inheritedOmissionHelpers = new Map<FieldDeclaration, string>();
   private inheritedDefaultHelpers = new Map<FieldDeclaration, string>();
   private inheritedOrigins = new Map<FieldDeclaration, Property>();
 
@@ -1574,6 +1648,7 @@ export class JSONTransform extends Visitor {
       string,
       {
         inner: string;
+        propertyName: string;
         valueType: string;
         omitNull: boolean;
         omitIf: Expression | null;
@@ -1769,6 +1844,7 @@ export class JSONTransform extends Visitor {
       );
       lazyInner.set(slotName, {
         inner: T,
+        propertyName: fname,
         valueType,
         scalar: storesScalar,
         omitNull: hasDeco("omitnull"),
@@ -2084,11 +2160,19 @@ export class JSONTransform extends Visitor {
             node.members.some(
               (m) =>
                 m.kind === NodeKind.FieldDeclaration &&
-                m.name.text === inherited.name,
+                this.logicalFieldName(m as FieldDeclaration) ===
+                  this.logicalFieldName(inherited.node),
             )
           )
             continue;
-          if (members.some((m) => m.name.text === inherited.name)) continue;
+          if (
+            members.some(
+              (m) =>
+                this.logicalFieldName(m) ===
+                this.logicalFieldName(inherited.node),
+            )
+          )
+            continue;
           let declaration = inherited.node;
           const parameters = schema.parent.node.typeParameters;
           const arguments_ = effectiveTypeArguments(
@@ -2713,6 +2797,9 @@ export class JSONTransform extends Visitor {
         this.parser,
         source.classTypeParameters(node),
       );
+      mem.builtinDate =
+        meaning.name === "Date" &&
+        (!meaning.declaration || isStdlib(meaning.declaration));
       const writtenDeclaration =
         source.getClassInContext(stripNull(mem.type), node) ||
         source.getImportedClass(
@@ -3378,7 +3465,8 @@ export class JSONTransform extends Visitor {
         if (member.nullable) sortedMembers.null.push(member);
       } else {
         if (member.nullable) sortedMembers.null.push(member);
-        if (isString(type) || type == "Date") sortedMembers.string.push(member);
+        if (isString(type) || member.builtinDate)
+          sortedMembers.string.push(member);
         else if (type == "JSON.Raw") sortedMembers.object.push(member);
         else if (isBoolean(type) || type.startsWith("JSON.Box<bool"))
           sortedMembers.boolean.push(member);
@@ -3595,7 +3683,7 @@ export class JSONTransform extends Visitor {
         }
         out.push("}");
         out.push(`if (JSON_STRICT && !${srcPtr}) break;`);
-      } else if (resolvedType == "Date") {
+      } else if (member.builtinDate) {
         out.push("{");
         if (member.nullable) {
           out.push(`  if (load<u64>(${valuePtr}) == 30399761348886638) {`);
@@ -4121,13 +4209,17 @@ export class JSONTransform extends Visitor {
           // the actual field after their callbacks instead.
           if (publication) {
             let name = `__JSON_LOCAL_ARRAY_PUBLICATION_${publicationLocalIndex++}`;
-            while (this.parser.sources.some((source) => source.text.includes(name)))
+            while (
+              this.parser.sources.some((source) => source.text.includes(name))
+            )
               name += "_";
             publication.name = name;
           }
           const rememberPublication = (value: string): void => {
             if (publication?.name)
-              out.push(`    if (${publication.condition}) ${publication.name} = ${value};`);
+              out.push(
+                `    if (${publication.condition}) ${publication.name} = ${value};`,
+              );
           };
           out.push(
             `  if (${valuePtr} + 4 <= srcEnd && load<u32>(${valuePtr}) == 0x005d005b) {`,
@@ -4238,7 +4330,9 @@ export class JSONTransform extends Visitor {
         (!schema || schema.customReader);
       const publication: { name?: string; condition: string } | undefined =
         cacheArrayPublication && publishes && !member.nullable
-          ? { condition: `!isDefined(ASC_RTRACE) && !isDefined(ASC_PROFILE) && !isDefined(__finalize) && !isNullable<${member.type}>()` }
+          ? {
+              condition: `!isDefined(ASC_RTRACE) && !isDefined(ASC_PROFILE) && !isDefined(__finalize) && !isNullable<${member.type}>()`,
+            }
           : undefined;
       const body = decodeField(
         type,
@@ -4250,7 +4344,8 @@ export class JSONTransform extends Visitor {
         whitespaceTier,
         publication,
       );
-      if (publication?.name) body.unshift(`let ${publication.name}: usize = 0;`);
+      if (publication?.name)
+        body.unshift(`let ${publication.name}: usize = 0;`);
       // Composite field helpers may publish a new reference. Link it before
       // leaving the decoder; strings and generated object allocations already
       // publish through their own barriers. Lazy slots contain source ranges.
@@ -4653,9 +4748,19 @@ export class JSONTransform extends Visitor {
         blk += skip;
         blk += i2 + "}\n";
         blk += i2 + "}\n";
-        blk += i2 + getDeserializer(
-          member.type, "srcStart", "dst", member, 0, true, true, true,
-        ).join("\n" + i2) + "\n";
+        blk +=
+          i2 +
+          getDeserializer(
+            member.type,
+            "srcStart",
+            "dst",
+            member,
+            0,
+            true,
+            true,
+            true,
+          ).join("\n" + i2) +
+          "\n";
         if (i < this.schema.members.length - 1) {
           // A comma is not whitespace. Match it before the general scanner,
           // while preserving the original read sequence under instrumentation.
@@ -4665,8 +4770,7 @@ export class JSONTransform extends Visitor {
           blk += i2 + "srcStart += 2;\n";
           blk += i2 + "} else {\n";
           blk +=
-            i2 +
-            "if (srcStart < srcEnd && load<u16>(srcStart) == 0x2c) {\n";
+            i2 + "if (srcStart < srcEnd && load<u16>(srcStart) == 0x2c) {\n";
           blk += i2 + "  srcStart += 2;\n";
           blk += i2 + "} else {\n";
           blk += skip;
@@ -6112,8 +6216,11 @@ export class JSONTransform extends Visitor {
     }
 
     DESERIALIZE += " else {\n";
-    DESERIALIZE += "   srcStart += 2;\n";
-    DESERIALIZE += "   keyStart = 0;\n";
+    if (STRICT) DESERIALIZE += "   return JSON.Util.failProductionParse();\n";
+    else {
+      DESERIALIZE += "   srcStart += 2;\n";
+      DESERIALIZE += "   keyStart = 0;\n";
+    }
     DESERIALIZE += "}\n";
     DESERIALIZE += "\n    }\n"; // Close value portion
 
@@ -6249,7 +6356,8 @@ export class JSONTransform extends Visitor {
           (isPrimitive(member.type) || numericRowArray(member)),
       )
     ) {
-      const body = (WHITESPACE_METHOD as MethodDeclaration).body as BlockStatement;
+      const body = (WHITESPACE_METHOD as MethodDeclaration)
+        .body as BlockStatement;
       const ordered = body.statements.find(
         (statement) => statement.kind == NodeKind.Do,
       );
@@ -7231,7 +7339,9 @@ const STAGES = process.env["JSON_STAGES"] !== undefined;
 
 export default class Transformer extends Transform {
   afterInitialize(program: Program): void | Promise<void> {
-    if (program.options.hasFeature(Feature.Simd)) MODE = JSONMode.SIMD;
+    MODE = program.options.hasFeature(Feature.Simd)
+      ? JSONMode.SIMD
+      : JSONMode.SWAR;
     if (process.env["JSON_MODE"]) {
       switch (process.env["JSON_MODE"].toLowerCase().trim()) {
         case "simd": {

@@ -1,3 +1,4 @@
+import { claimTypedArrayStorage } from "../parseMode";
 import { linkObject } from "../../util/runtime";
 // SWAR-mode TypedArray / ArrayBuffer deserializer.
 //
@@ -125,7 +126,10 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   let out = changetype<T>(
     dst || changetype<usize>(instantiate<T>(maxElements)),
   );
-  if (out.length != maxElements) {
+  if (
+    out.length != maxElements ||
+    !claimTypedArrayStorage(changetype<usize>(out))
+  ) {
     out = changetype<T>(instantiate<T>(maxElements));
   }
 

@@ -44,10 +44,14 @@ let fieldReads: i32 = 0;
 let callbacks: i32 = 0;
 
 // Called only by the test transform; never part of a timing module.
+// Called by generated instrumentation rather than a source-level reference.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function readArrayField(parent: usize, offset: usize): usize {
   fieldReads++;
   return load<usize>(parent + offset);
 }
+// Called by generated instrumentation rather than a source-level reference.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function recordPublication(parent: usize, child: usize, multiple: bool = false): void {
   trace("[DEBUG-array-publication]", 2, parent, child);
   JSON.__linkObject(parent, child, multiple);

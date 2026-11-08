@@ -12,6 +12,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Parsing and validation
 
+- Reject incompatible field-value kinds consistently in strict parsing with fresh and reused destinations, including object values supplied to scalar fields.
 - Add opt-in `JSON_DIAGNOSTICS=false` builds that trap on library and generated-reader failures while preserving checks and application errors. Detailed diagnostics remain enabled by default.
 - Correct decimal-power tables and exponent parsing, validate packed narrow-array digit lanes and delimiters, and require complete string quote framing. Preserve legacy empty-run behavior in low-level integer scan helpers.
 - Propagate recursive reader failures to checked parse boundaries, including zero-returning Map and array child readers.
@@ -27,6 +28,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Types, inheritance, and decorators
 
+- Distinguish user schemas named `Date` from the native Date type in nested readers. Reset inferred backend selection for each programmatic compiler invocation, so SIMD and fallback builds can share one Node process.
 - Restrict standard-library exclusions to their actual library paths, so application files named `security.ts`, `memory.ts`, or under `util/` still receive generated codecs.
 - Resolve aliases using declaration identity and lexical context. Preserve caller bindings for supplied generic arguments, keep class type parameters bound, apply default generic arguments, and accept finite nested uses of the same alias while retaining definition-cycle protection. Fix `f32` fields being serialized as integer bit patterns after alias expansion.
 - Follow renamed imports, namespace imports, named and wildcard re-exports, and barrel modules when resolving classes, enums, custom codecs, and lazy markers. Preserve consumer exports and canonical runtime imports across relative, virtual, pnpm, workspace, linked, and package-entry layouts ([#246](https://github.com/JairusSW/json-as/pull/246)).
@@ -40,6 +42,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Lazy fields and custom codecs
 
+- Apply lazy-over-lazy inheritance shadowing by the original property identity, preserving overriding defaults, parsed values, and changed wire aliases across undecorated intermediates.
 - Preserve lazy aliases, omission/optional metadata, defaults, scalar classification, nullability, source anchors, and materialized values through dependency revisits and generic inheritance. Propagate lazy source ownership through undecorated intermediate classes. Handle eager/lazy override combinations and distinguish the library's `JSON.Lazy` marker from unrelated classes named `Lazy`.
 - Resolve lazy markers through the same scope-aware alias machinery as ordinary types, preserving namespace arguments and class type parameters instead of capturing unrelated outer aliases.
 - Use the same type-aware implicit-default construction for `@lazy`, `JSON.Lazy<T>`, and class-level lazy modes. Support Date, Raw, Box, typed-array, and dynamic-value defaults and preserve requested Date/Raw subclass identity.
@@ -52,6 +55,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Reuse, collections, and dynamic values
 
+- Claim typed-array backing allocations as well as wrappers before reuse, preventing distinct or overlapping views and ArrayBuffer/view defaults from overwriting earlier fields.
+- Share numeric-to-boolean normalization between dynamic getters and `Box.fromValue`/`asBox`, including nonzero integers whose low byte is zero.
 - Allocate writable output when a supplied stringify destination is a static literal, including scalar and internal stringify paths. Keep shared boolean/null literals unchanged.
 - Preserve shallow reference sharing in dynamic-array `slice`, `concat`, `copyWithin`, and `splice`, regardless of whether a deferred child was read before copying.
 - Clear constructor-seeded Map entries through native size accessors when parsing Array and StaticArray elements, bypassing overridden public size getters.
@@ -133,6 +138,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 - Refresh ARM64 benchmark charts with the v1.6.1 JS and AssemblyScript harnesses for historical comparison, including the JS per-operation microtask-checkpoint `eval` overhead and the original timing floor. Retain zero-operation and frame-progress guards. Keep lazy/source forwarding outside full-serialization comparisons.
 - Add V8 JSON/Date differential oracles, exact `f32` midpoint checks, malformed-input and RFC matrices, GC/allocation budgets, and composition regressions across modes, strictness, fast paths, imports, inheritance, callbacks, and reused destinations.
 - Execute packed npm artifacts in isolated consumers across both import entry points and incremental, minimal, and stub runtimes. Include that consumer gate in release CI alongside fast/slow tests, strict public/RFC tests, transform/oracle suites, lint/type checks, and benchmark-tooling tests.
+- Keep the development self-link on v2 while locking the compatible nested json-as 1.x and xjb-as 0.x dependencies required by wipc-js, so clean `npm ci` and release CI can install the full graph.
 - Commit the reproducible dependency graph, refresh development dependencies and patched transitive versions, and support published AssemblyScript runtime capabilities in CI. Validate package contents and tag/package-version agreement, and generate GitHub release notes from the exact versioned changelog section.
 - Remove obsolete implementation-reference documents and broken README references; clarify strict parsing and dynamic numeric access in the primary API documentation.
 

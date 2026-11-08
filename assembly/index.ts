@@ -3324,27 +3324,27 @@ export namespace JSON {
       if (value.type === JSON.Types.Null) return null;
       switch (value.type) {
         case JSON.Types.Bool:
-          return new Box<T>(<T>value.get<bool>());
+          return new Box<T>(numericCast<T, bool>(value.get<bool>()));
         case JSON.Types.I8:
-          return new Box<T>(<T>value.get<i8>());
+          return new Box<T>(numericCast<T, i8>(value.get<i8>()));
         case JSON.Types.U8:
-          return new Box<T>(<T>value.get<u8>());
+          return new Box<T>(numericCast<T, u8>(value.get<u8>()));
         case JSON.Types.I16:
-          return new Box<T>(<T>value.get<i16>());
+          return new Box<T>(numericCast<T, i16>(value.get<i16>()));
         case JSON.Types.U16:
-          return new Box<T>(<T>value.get<u16>());
+          return new Box<T>(numericCast<T, u16>(value.get<u16>()));
         case JSON.Types.I32:
-          return new Box<T>(<T>value.get<i32>());
+          return new Box<T>(numericCast<T, i32>(value.get<i32>()));
         case JSON.Types.U32:
-          return new Box<T>(<T>value.get<u32>());
+          return new Box<T>(numericCast<T, u32>(value.get<u32>()));
         case JSON.Types.I64:
-          return new Box<T>(<T>value.get<i64>());
+          return new Box<T>(numericCast<T, i64>(value.get<i64>()));
         case JSON.Types.U64:
-          return new Box<T>(<T>value.get<u64>());
+          return new Box<T>(numericCast<T, u64>(value.get<u64>()));
         case JSON.Types.F32:
-          return new Box<T>(<T>value.get<f32>());
+          return new Box<T>(numericCast<T, f32>(value.get<f32>()));
         case JSON.Types.F64:
-          return new Box<T>(<T>value.get<f64>());
+          return new Box<T>(numericCast<T, f64>(value.get<f64>()));
         default:
           throw new Error("JSON.Box requires a boolean or numeric value");
       }

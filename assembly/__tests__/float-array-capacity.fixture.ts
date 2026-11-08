@@ -62,6 +62,7 @@ class Floats extends Array<f64> {
     constructions++;
   }
 }
+// eslint-disable-next-line @typescript-eslint/no-wrapper-object-types -- AssemblyScript native type
 function subtype(value: Object): bool {
   return value instanceof Floats;
 }

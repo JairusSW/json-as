@@ -186,6 +186,17 @@ export function reuseComposite(value: usize, field: usize): usize {
   return value != 0 && claimStringBuffer(value, field) ? value : 0;
 }
 
+/** Distinct views can still alias one writable backing allocation. Claim that
+ * allocation as well as the wrapper before decoding into existing storage. */
+@inline
+export function claimTypedArrayStorage(value: usize): bool {
+  if (!hasCompositeReuseScope()) return true;
+  return claimStringBuffer(
+    load<usize>(value, offsetof<ArrayBufferView>("buffer")),
+    value,
+  );
+}
+
 /** Drop the optional exact-source cache without changing active parse nesting. */
 @inline
 export function clearStringFieldTrace(): void {

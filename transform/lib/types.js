@@ -26,6 +26,7 @@ export class Property {
     alias = null;
     type = "";
     nullable = false;
+    builtinDate = false;
     value = null;
     flags = new Map();
     node;

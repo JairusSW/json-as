@@ -130,10 +130,12 @@ export function serializeArbitrary(src: JSON.Value): void {
       break;
     case JSON.Types.TypedArray:
     case JSON.Types.ArrayBuffer:
+      // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types -- AssemblyScript native type
       serializeDynamic(src.type, changetype<usize>(src.get<Object>()));
       break;
     default: {
       const fn = JSON.Value.METHODS.get(src.type - JSON.Types.Struct);
+      // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types -- AssemblyScript native type
       const ptr = changetype<usize>(src.get<Object>());
       call_indirect<void>(fn, ptr, ptr);
       break;

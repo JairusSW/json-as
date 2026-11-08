@@ -79,7 +79,9 @@ function prepare(workloads) {
   let prior;
   try {
     prior = JSON.parse(fs.readFileSync(path.join(base, "manifest.json")));
-  } catch {}
+  } catch {
+    // A missing prior manifest is expected on the first comparison run.
+  }
 
   for (const name of ["inputs", "oracles", "logs", "generated"])
     fs.mkdirSync(path.join(base, name), { recursive: true });
