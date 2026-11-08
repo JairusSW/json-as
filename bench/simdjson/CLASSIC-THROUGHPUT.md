@@ -2049,3 +2049,37 @@ Evidence: `empty-phi-production-all-95-{prepared,samples,result}.json` and
 `6bbde3e32998b1602ebb2d492fdbd16b4f29313dc826522a016f7befa63dcd80`.
 These are shared-host measurements; use the paired AS/control results above
 to estimate the optimization itself, rather than cross-batch ratio changes.
+
+### Exact SIMD bracket classification
+
+The packed composite scanner recognizes the four brackets with the exact byte
+predicate `((byte - '[') & 0xdd) == 0`, using wrapping byte subtraction. The four
+accepted offsets are 0, 2, 32 and 34; all other bits must be clear. Quotes retain
+their separate comparison. Saturated non-ASCII lanes cannot match. This removes
+a vector comparison/merge from each packed classifier without adding a branch,
+changing escape handling, or changing the nesting walk.
+
+Independent 12-pair Lottie confirmation improves min throughput by 2.21% and
+pretty by 2.51% using ratios of median times. Pretty wins all 12 pairs (median
+paired gain 2.62%). The all-nine-corpus six-pair screen also improves OTFCC by
+1.91% and FGO by 2.79%. An independent 12-pair check of neighboring corpora is
+essentially flat for CITM and Poet; GitHub pretty is about 0.1–0.2% lower.
+These small neighboring differences remain subject to shared-host variability.
+
+The four-configuration scanner differential suite passes randomized structures,
+every UTF-16 code unit in every wide lane, escape runs, truncation and physical
+memory ends with zero allocations. All nine retained owning-model oracles pass,
+and production binaries exactly match their measured prototypes in every corpus.
+The earlier bulk-depth and singleton-guard experiments remain unpromoted because
+they slow pretty input.
+
+Evidence under `build/perf/classic-native`: `composite-subtract-confirm-paired.log`,
+`composite-subtract-all-paired.log`, `composite-subtract-neighbors-paired.log`,
+`whitespace/composite-subtract-{confirm,all,neighbors}-controls-{samples,summary}.json`,
+and `composite-subtract-production-all-preparation.json`.
+
+Production qualification: all 63 transform scripts pass, including the exhaustive
+scanner differential suite and capability matrix. The packed artifact passes
+252 operation checks across 36 configurations. The full ordinary/RFC suites
+were not rerun for this isolated classifier change. Current source fingerprint:
+`87ddc83ee9e170522ae0e20240d19d53d7a7df91256ec25a504fc71e1144f878`.

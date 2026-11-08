@@ -77,6 +77,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Performance and allocation
 
+- Reduce SIMD composite-scanner bracket classification with an exact subtraction/mask predicate. Preserve UTF-16, escape, nesting and source-boundary behavior; paired ARM64 runs improve raw-heavy corpus parsing without adding speculative branches.
+
 - Keep newly created empty-array references in generated reader locals until their existing GC publication barrier. Reload reused fields after callbacks and preserve instrumentation paths; no allocation or barrier is removed.
 
 - Reuse normalized key lookahead across omitted fields in generated whitespace readers. Refresh it after a present field, avoiding repeated comma/indentation scans without extra runtime flags; preserve traced load sequences.

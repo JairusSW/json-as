@@ -325,14 +325,15 @@ export function scanValueEnd_SIMD<T>(srcStart: usize, srcEnd: usize): usize {
 // are preserved. Neither saturation result matches a quote or bracket, so this
 // predicate stays exact for all UTF-16 code units, including surrogates.
 function packedStructuralOrQuoteMask(packed: v128): i32 {
-  const folded = v128.and(packed, i8x16.splat(<i8>0xdf));
+  // Relative to '[', the four brackets have byte offsets 0, 2, 32 and 34.
+  // Clearing just those two bits after subtraction matches exactly that set,
+  // including with wrapping byte subtraction. Saturated non-ASCII lanes still
+  // cannot match. This replaces folding plus two bracket comparisons.
+  const brackets = i8x16.eq(
+    v128.and(i8x16.sub(packed, i8x16.splat(91)), i8x16.splat(<i8>0xdd)),
+    i8x16.splat(0),
+  );
   return i8x16.bitmask(
-    v128.or(
-      v128.or(
-        i8x16.eq(folded, i8x16.splat(91)),
-        i8x16.eq(folded, i8x16.splat(93)),
-      ),
-      i8x16.eq(packed, i8x16.splat(34)),
-    ),
+    v128.or(brackets, i8x16.eq(packed, i8x16.splat(34))),
   );
 }
