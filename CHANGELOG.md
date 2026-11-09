@@ -141,6 +141,10 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 - Keep function-local type aliases out of the module alias index, align omitted lazy-override planning with lowering, and rewrite custom-codec calls only when their receiver binds to the json-as runtime.
 - Correct the nullable/dynamic example, debug environment variable, and exact-byte cache-size example.
 
+- Preserve embedded NUL characters and Unicode line separators when regenerating string defaults, including direct property reads after parsing.
+- Read native array length consistently during serialization and dynamic conversion, preserving stored elements when subclasses override the public getter.
+- Re-export `JSONMode`, `toRaw`, `fromRaw`, and `toBox` from the package root to match the advertised type entrypoint; exercise both entrypoints in the packed-consumer matrix.
+
 ### Benchmarks, testing, and release tooling
 
 - Keep compiler warnings enabled instead of globally suppressing them with an empty warning list. Fix pointer-width conversions in ownership metadata, Raw reuse, native-array appends, generated allocator code, and benchmark helpers; initialize generic cursor slots explicitly and type null test inputs. Ignore only intentional recursive/virtual-inlining and type-export diagnostics (AS217/AS228/AS235), including WASI builds, and external as-test definite-assignment hints (AS906) in test builds. Add a compiler-warning regression gate.

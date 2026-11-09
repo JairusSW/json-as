@@ -38,13 +38,14 @@ try {
   for (const entry of ["json-as", "json-as/assembly"]) {
     fs.writeFileSync(
       path.join(dir, "consumer.ts"),
-      `import {JSON as Json} from "${entry}";
+      `import {JSON as Json, JSONMode, toRaw, fromRaw, toBox} from "${entry}";
 let calls:i32=0;
 @json class Codec { value:i32=-9; @deserializer("number") decode(_source:string):Codec { calls++; const out=new Codec();out.value=99;return out; } }
 @json class Generic<T> { value!:T; }
 @json class Owner { value:Set<i32>|null=null; }
 class Values extends Array<Json.Value> { constructor() { super(); } }
 export function run():string {
+ assert(fromRaw(toRaw('{"x":1}'))=='{"x":1}'&&toBox<i32>(7).value==7&&JSONMode.SWAR==0&&JSONMode.SIMD==1&&JSONMode.NAIVE==2);
  calls=0;const generic=Json.parse<Generic<Codec>>('{"value":7}');assert(generic.value.value==99&&calls==1);
  const owner=new Owner();owner.value=new Set<i32>();assert(Json.parse<Owner>('{"value":null}',owner).value==null);
  const buffers=Json.parse<ArrayBuffer[]>('[[1,2],[3]]',new Array<ArrayBuffer>());assert(buffers.length==2&&load<u8>(changetype<usize>(buffers[0])+1)==2);
@@ -106,7 +107,7 @@ export function run():string {
             },
           ).exports;
           assert.equal(read(g.run()), JSON.stringify(99));
-          checks += 7;
+          checks += 8;
           console.log(
             `Packed consumer: ${entry}/${mode}/${runtime}/strict=${strict}`,
           );

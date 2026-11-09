@@ -435,11 +435,18 @@ export class ASTBuilder extends Visitor {
     const sb = this.sb;
     let off = 0;
     let i = 0;
-    for (let k = str.length; i < k; ) {
+    for (let k = str.length; i < k;) {
       switch (str.charCodeAt(i)) {
         case util.CharCode.Null: {
-          if (i > off) sb.push(str.substring(off, (off = i + 1)));
-          sb.push("\\0");
+          if (i > off) sb.push(str.substring(off, i));
+          sb.push("\\u0000");
+          off = ++i;
+          break;
+        }
+        case 0x2028:
+        case 0x2029: {
+          if (i > off) sb.push(str.substring(off, i));
+          sb.push(str.charCodeAt(i) === 0x2028 ? "\\u2028" : "\\u2029");
           off = ++i;
           break;
         }

@@ -339,8 +339,16 @@ export class ASTBuilder extends Visitor {
             switch (str.charCodeAt(i)) {
                 case 0: {
                     if (i > off)
-                        sb.push(str.substring(off, (off = i + 1)));
-                    sb.push("\\0");
+                        sb.push(str.substring(off, i));
+                    sb.push("\\u0000");
+                    off = ++i;
+                    break;
+                }
+                case 0x2028:
+                case 0x2029: {
+                    if (i > off)
+                        sb.push(str.substring(off, i));
+                    sb.push(str.charCodeAt(i) === 0x2028 ? "\\u2028" : "\\u2029");
                     off = ++i;
                     break;
                 }

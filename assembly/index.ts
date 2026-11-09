@@ -1,7 +1,7 @@
 /// <reference path="./index.d.ts" />
 
 import { newEmptyArray } from "./util/emptyArray";
-import { newNativeArray, appendNativeArray } from "./util/nativeArray";
+import { newNativeArray, appendNativeArray, nativeArrayLength } from "./util/nativeArray";
 import { keyLength, KEY_HEADER_UNITS } from "./util/key-buffer";
 import { NativeMap } from "./util/native-collections";
 import { bs } from "../lib/as-bs";
@@ -2751,7 +2751,7 @@ export namespace JSON {
         const out = new JSON.Arr();
         // @ts-expect-error: T is JSON.Value[] here
         const arr = changetype<Array<valueof<T>>>(value);
-        const len = arr.length;
+        const len = nativeArrayLength<valueof<T>>(changetype<usize>(arr));
         for (let i = 0; i < len; i++) {
           const element = unchecked(arr[i]);
           out.pushRawSlot(

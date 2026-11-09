@@ -33,6 +33,12 @@ export function newNativeArray<T>(minimumCapacity: usize = 8): T {
   return instantiate<T>();
 }
 
+/** Read the native slot even when a subclass overrides the public getter. */
+@inline
+export function nativeArrayLength<T>(ptr: usize): i32 {
+  return load<i32>(ptr, offsetof<Array<T>>("length_"));
+}
+
 /** Append through native storage, keeping the common no-growth path local. */
 @inline
 export function appendNativeArray<T extends unknown[]>(

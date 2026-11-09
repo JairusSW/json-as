@@ -1,3 +1,4 @@
+import { nativeArrayLength } from "../../util/nativeArray";
 import { bs } from "../../../lib/as-bs";
 import { COMMA, BRACKET_RIGHT, BRACKET_LEFT } from "../../custom/chars";
 import { JSON } from "../..";
@@ -124,7 +125,7 @@ const FALSE_COMMA_LO: u64 = 0x0073_006c_0061_0066;
 const FALSE_COMMA_HI: u32 = 0x002c_0065;
 
 function serializeBoolArrayFast(src: bool[]): void {
-  const len = src.length;
+  const len = nativeArrayLength<bool>(changetype<usize>(src));
   // Worst case: every element is `"false,"` = 12 bytes; plus 4 for `[]`.
   bs.proposeSize(4 + <u32>len * 12);
   store<u16>(bs.offset, BRACKET_LEFT);
@@ -192,7 +193,7 @@ function ensureU8Lut(): void {
 }
 
 function serializeU8ArrayFast(src: u8[]): void {
-  const len = src.length;
+  const len = nativeArrayLength<u8>(changetype<usize>(src));
   // Worst case: every element is 3 digits + comma = 8 bytes; plus 4 for `[]`.
   bs.proposeSize(4 + <u32>len * 8);
   store<u16>(bs.offset, BRACKET_LEFT);
@@ -224,7 +225,7 @@ function serializeU8ArrayFast(src: u8[]): void {
 // uniform loop body inlines better and the trailing `]` is a single fixed
 // overwrite outside the loop.
 function serializeF64ArrayFast(src: f64[]): void {
-  const len = src.length;
+  const len = nativeArrayLength<f64>(changetype<usize>(src));
   // Worst case per element: a 21-char fixed integer (e.g. 1e20) or a ~24-char
   // exponent form, + comma = ~52 bytes; plus the writer's SIMD stores can
   // overshoot the logical end by up to 16 bytes. 80 covers both comfortably.
@@ -266,7 +267,7 @@ function serializeF64ArrayFast(src: f64[]): void {
 }
 
 function serializeF32ArrayFast(src: f32[]): void {
-  const len = src.length;
+  const len = nativeArrayLength<f32>(changetype<usize>(src));
   // Worst case for f32 is a 21-char fixed integer (e.g. 1e20 rounds to a
   // 21-digit value), + comma = ~44 bytes, plus up to 16 bytes of SIMD store
   // overshoot. 64 covers it.
@@ -304,7 +305,7 @@ function serializeF32ArrayFast(src: f32[]): void {
 }
 
 function serializeI8ArrayFast(src: i8[]): void {
-  const len = src.length;
+  const len = nativeArrayLength<i8>(changetype<usize>(src));
   // Worst case: every element is `-DDD,` = 5 chars = 10 bytes; plus 4 for `[]`.
   bs.proposeSize(4 + <u32>len * 10);
   store<u16>(bs.offset, BRACKET_LEFT);
@@ -385,7 +386,7 @@ export function serializeIntegerArrayPointerReservedAt<T extends number[]>(
 }
 
 function serializeStringArrayFast(src: string[]): void {
-  const len = src.length;
+  const len = nativeArrayLength<string>(changetype<usize>(src));
   // String serialization reserves its own payload; reserve delimiters here.
   bs.proposeSize(4 + (len > 0 ? <u32>(len - 1) * 2 : 0));
   store<u16>(bs.offset, BRACKET_LEFT);
@@ -458,7 +459,7 @@ export function serializeArray<T extends any[]>(src: T): void {
     return;
   }
 
-  const len = src.length;
+  const len = nativeArrayLength<valueof<T>>(changetype<usize>(src));
   if (len == 0) {
     bs.proposeSize(4);
     store<u32>(bs.offset, 6094939);
