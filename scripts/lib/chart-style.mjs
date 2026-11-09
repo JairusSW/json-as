@@ -87,6 +87,13 @@ export function overviewStyle(config, sidebar) {
 export function hardwareModel(host) {
   const model = host?.cpu || host?.model;
   if (!model) return "unknown model";
+  const apple = model.trim().match(/^Apple\s+(M\d+)(?:\s+(Max|Pro|Ultra))?$/i);
+  if (apple)
+    return (
+      "Apple " +
+      apple[1].toUpperCase() +
+      (apple[2] ? " " + apple[2].toUpperCase() : "")
+    );
   return model
     .replace(/\(R\)|\(TM\)|[®™]/gi, "")
     .replace(/^Apple\s+/i, "")
@@ -164,4 +171,31 @@ export function compactSidebar(records, fallback = "json-as") {
   ]
     .filter(Boolean)
     .join(" • ");
+}
+
+/** Deserialization uses linear numeric axes, including horizontal bar charts. */
+export function linearDeserializationScale(config) {
+  const options = (config.options ??= {});
+  const scales = (options.scales ??= {});
+  const measured = options.indexAxis === "y" ? "x" : "y";
+  scales[measured] ??= {};
+  for (const [key, axis] of Object.entries(scales)) {
+    const wasLogarithmic = axis.type === "logarithmic";
+    if (key !== measured && !wasLogarithmic) continue;
+    axis.type = "linear";
+    axis.beginAtZero = true;
+    if (typeof axis.title?.text === "string")
+      axis.title.text = axis.title.text.replace(
+        /\s*·\s*log(?:2|10) scale/gi,
+        "",
+      );
+    if (wasLogarithmic) {
+      if (axis.ticks) delete axis.ticks.callback;
+      delete axis.min;
+      delete axis.max;
+      delete axis.suggestedMin;
+      delete axis.suggestedMax;
+    }
+  }
+  return config;
 }

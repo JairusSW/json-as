@@ -16,7 +16,11 @@ import type { ChartConfiguration } from "chart.js";
 import { MODE_BARS, INK } from "./palette";
 import { withAdaptiveLogScale } from "./chart-outliers";
 import { orderBenchmarkSeries } from "./chart-order";
-import { overviewStyle, compactSidebar } from "./chart-style.mjs";
+import {
+  overviewStyle,
+  compactSidebar,
+  linearDeserializationScale,
+} from "./chart-style.mjs";
 import { comparisonWorkload } from "./comparison-workloads.mjs";
 
 export interface BenchResult {
@@ -415,7 +419,10 @@ export function generateChart(
 ) {
   const isSvg = outfile.endsWith(".svg");
 
-  config = withAdaptiveLogScale(orderBenchmarkSeries(config));
+  config = orderBenchmarkSeries(config);
+  config = outfile.includes("deserialize")
+    ? linearDeserializationScale(config)
+    : withAdaptiveLogScale(config);
 
   const fullCaption = config.options?.plugins?.subtitle?.text ?? "";
   config = overviewStyle(

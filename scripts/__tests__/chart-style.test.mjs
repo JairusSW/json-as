@@ -12,6 +12,7 @@ import {
   compactSidebar,
   hardwareModel,
   CHART_FONT,
+  linearDeserializationScale,
 } from "../lib/chart-style.mjs";
 
 test("all plots retain their body data and callbacks under the overview style", () => {
@@ -62,7 +63,7 @@ test("sidebar uses the recorded hardware model instead of revision and architect
       record,
       { ...record, settings: { language: "native", runtime: "native" } },
     ]),
-    "2026-11-09 • v2.0.0 • v8 15.2.20 • main • m4 max",
+    "2026-11-09 • v2.0.0 • v8 15.2.20 • main • Apple M4 MAX",
   );
   assert.equal(compactSidebar([]), "json-as");
   assert.equal(
@@ -70,12 +71,15 @@ test("sidebar uses the recorded hardware model instead of revision and architect
       [],
       "2026-11-09 • v2.0.0 • arm64 • 6 runtimes · NAIVE • hash • main • Apple M4 Max",
     ),
-    "2026-11-09 • v2.0.0 • 6 runtimes • main • m4 max",
+    "2026-11-09 • v2.0.0 • 6 runtimes • main • Apple M4 MAX",
   );
 });
 
 test("models come from captured host metadata, with an honest missing-model fallback", () => {
-  assert.equal(hardwareModel({ cpu: "Apple M4 Max", arch: "arm64" }), "m4 max");
+  assert.equal(
+    hardwareModel({ cpu: "Apple M4 Max", arch: "arm64" }),
+    "Apple M4 MAX",
+  );
   assert.equal(
     hardwareModel({ cpu: "AMD Ryzen 9 9950X 16-Core Processor" }),
     "amd ryzen 9 9950x",
@@ -98,4 +102,38 @@ test("visible engine labels consistently use lowercase v8", () => {
   assert.equal(config.data.labels[0], "v8");
   assert.equal(config.data.datasets[0].label, "Built-in JSON (JS/v8)");
   assert.equal(config.options.plugins.title.text, "Throughput (v8)");
+});
+
+test("deserialization has linear numeric axes without logarithmic ticks or labels", () => {
+  const data = { datasets: [{ data: [1, 10000] }] };
+  const config = linearDeserializationScale({
+    type: "bar",
+    data,
+    options: {
+      indexAxis: "y",
+      scales: {
+        x: {
+          type: "logarithmic",
+          min: 1,
+          suggestedMax: 20000,
+          title: { text: "Throughput · log10 scale" },
+          ticks: { callback: () => "log" },
+        },
+        y: { type: "category" },
+      },
+    },
+  });
+  assert.strictEqual(config.data, data);
+  assert.equal(config.options.scales.x.type, "linear");
+  assert.equal(config.options.scales.x.beginAtZero, true);
+  assert.equal(config.options.scales.x.title.text, "Throughput");
+  assert.equal(config.options.scales.x.ticks.callback, undefined);
+  assert.equal(config.options.scales.x.min, undefined);
+  assert.equal(config.options.scales.y.type, "category");
+  const vertical = linearDeserializationScale({
+    type: "line",
+    data,
+    options: { scales: { x: { type: "linear" }, y: {} } },
+  });
+  assert.equal(vertical.options.scales.y.type, "linear");
 });

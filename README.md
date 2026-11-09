@@ -573,8 +573,9 @@ JSON document. Larger inputs add rows to that object's `records` array; each
 measured operation parses or serializes the whole document once. The schema
 does not switch at 1 MiB. Each object and string chart has ten samples from
 about 100 KiB to 8 MiB. The x-axis is actual UTF-8 document size, not aggregate
-bytes from repeated independent calls. Wide throughput ranges use an explicitly
-labeled logarithmic axis. Built-in JSON appears first and SIMD/native references
+bytes from repeated independent calls. Deserialization charts use linear axes.
+Serialization charts use an explicitly labeled logarithmic axis for wide throughput
+ranges. Built-in JSON appears first and SIMD/native references
 appear last. Charts share overview typography and a one-line sidebar; detailed run provenance is retained in companion `.metadata.json` files.
 
 <details>

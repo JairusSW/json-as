@@ -12,7 +12,6 @@ import {
   subtitle,
   generateChart,
 } from "./bench-utils";
-import { withAdaptiveLogScale } from "./chart-outliers";
 import { MODE_RGB, INK } from "./palette";
 import { PAYLOAD_LABELS } from "../../bench/throughput/payload-sizes";
 
@@ -112,8 +111,7 @@ export function throughputChart(
       },
     },
   };
-  const presentation = withAdaptiveLogScale(config);
   const base = `./build/charts/${kind}-${operation}`;
-  generateChart(presentation, base + ".svg", { width: 1200, height: 700 });
-  generateChart(presentation, base + ".png", { width: 1200, height: 700 });
+  generateChart(config, base + ".svg", { width: 1200, height: 700 });
+  generateChart(config, base + ".png", { width: 1200, height: 700 });
 }

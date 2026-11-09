@@ -373,6 +373,10 @@ export class ChartJSNodeCanvas {
         `${selected.manifest.startedAt.slice(0, 10)} • v1.6.2 • 1 runtime • ${selected.manifest.source.branch}${selected.manifest.source.dirty ? " (dirty)" : ""} • ${hardwareModel(selected.manifest.host)}`,
       );
       assert.equal(config.options.plugins.subtitle.position, "right");
+      if (kind === "deserialize") {
+        assert.equal(config.options.scales.y.type, "linear");
+        assert.equal(config.options.scales.y.beginAtZero, true);
+      }
     }
   }
   const metadata = JSON.parse(
