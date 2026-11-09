@@ -361,7 +361,7 @@ export class ChartJSNodeCanvas {
       assert.deepEqual(config.data.datasets[0].data, [123, 123, 123]);
       assert.equal(
         config.options.plugins.subtitle.text,
-        `${selected.manifest.host.arch.toUpperCase()} · 1 runtime · v1.6.2`,
+        `${selected.manifest.startedAt.slice(0, 10)} • v1.6.2 • 1 runtime • ${selected.manifest.source.commit.slice(0, 7)} • ${selected.manifest.source.branch}${selected.manifest.source.dirty ? " (dirty)" : ""} • ${selected.manifest.host.arch.toUpperCase()}`,
       );
       assert.equal(config.options.plugins.subtitle.position, "right");
     }

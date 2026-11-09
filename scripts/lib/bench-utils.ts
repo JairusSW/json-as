@@ -57,7 +57,13 @@ const BENCH_RUNTIME: ASBenchRuntime = ((): ASBenchRuntime => {
 type ChartProvenance = {
   id: string;
   startedAt: string;
-  source: { commit: string; treeHash: string; packageVersion: string };
+  source: {
+    commit: string;
+    treeHash: string;
+    packageVersion: string;
+    branch?: string;
+  };
+  tools?: { v8?: string; node?: string; runtime?: string };
   host?: { arch?: string };
   settings?: Record<string, unknown>;
 };
@@ -431,8 +437,14 @@ export function generateChart(
               commit: record.source.commit,
               treeHash: record.source.treeHash,
               version: record.source.packageVersion,
+              branch: record.source.branch,
             },
             architecture: record.host?.arch,
+            engines: {
+              v8: record.tools?.v8,
+              node: record.tools?.node,
+              runtime: record.tools?.runtime,
+            },
             settings: {
               language: record.settings?.language,
               runtime: record.settings?.runtime,

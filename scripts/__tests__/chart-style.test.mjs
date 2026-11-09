@@ -48,9 +48,11 @@ test("all plots retain their body data and callbacks under the overview style", 
     assert.equal(font.weight, "bold");
   }
 });
-test("sidebar omits detailed provenance and does not confuse native references with the Wasm engine", () => {
+test("sidebar uses recorded date, revision and engine without confusing native references", () => {
   const record = {
-    source: { packageVersion: "2.0.0", commit: "secret-hash" },
+    startedAt: "2026-11-09T12:00:00Z",
+    source: { packageVersion: "2.0.0", commit: "abcdef012345", branch: "main" },
+    tools: { v8: "V8 version 15.2.20" },
     host: { arch: "arm64" },
     settings: { language: "as", runtime: "v8", strict: "false", fastPath: "1" },
   };
@@ -59,7 +61,7 @@ test("sidebar omits detailed provenance and does not confuse native references w
       record,
       { ...record, settings: { language: "native", runtime: "native" } },
     ]),
-    "ARM64 · V8 · v2.0.0",
+    "2026-11-09 • v2.0.0 • V8 15.2.20 • abcdef0 • main • ARM64",
   );
   assert.equal(compactSidebar([]), "json-as");
   assert.equal(
@@ -67,6 +69,6 @@ test("sidebar omits detailed provenance and does not confuse native references w
       [],
       "2026-11-09 • v2.0.0 • arm64 • 6 runtimes · NAIVE • hash",
     ),
-    "ARM64 · 6 runtimes · v2.0.0",
+    "2026-11-09 • v2.0.0 • 6 runtimes • hash • ARM64",
   );
 });
