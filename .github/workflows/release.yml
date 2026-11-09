@@ -116,6 +116,9 @@ jobs:
       - name: Generate Release Notes
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          if [ -f ".github/release-notes/${VERSION}.md" ]; then
+            cp ".github/release-notes/${VERSION}.md" RELEASE_NOTES.md
+          else
           awk -v suffix=" - v${VERSION}" '
             /^## / {
               if (printing) exit
@@ -125,6 +128,7 @@ jobs:
             printing { print }
             END { if (!printing) exit 1 }
           ' CHANGELOG.md > RELEASE_NOTES.md
+          fi
           test -s RELEASE_NOTES.md
 
       - name: Create GitHub Release
