@@ -1079,7 +1079,13 @@ export class JSONTransform extends Visitor {
         if (omit && !origin?.omitIfMethod) {
           let helper = this.inheritedOmissionHelpers.get(original);
           if (!helper) {
-            const expression = omit.args[0];
+            // The shared helper belongs to the declaration, not to whichever
+            // child first requested it. Never cache a child-specialized body.
+            const declarationOmit = original.decorators!.find(
+              (decorator) =>
+                (decorator.name as IdentifierExpression).text === "omitif",
+            )!;
+            const expression = cloneNode(declarationOmit.args[0]) as Expression;
             if (expression.kind === NodeKind.Function) {
               const signature = (expression as FunctionExpression).declaration
                 .signature;
@@ -1244,7 +1250,27 @@ export class JSONTransform extends Visitor {
     // Public aliases remain the emitted spelling for class/enum representations;
     // their resolved identity is metadata, not a foreign identifier to re-emit.
     if (preserveClassAliases && hasDeclaration(meaning)) return type;
-    return typeMeaningText(meaning);
+    const canonical = typeMeaningText(meaning);
+    if (preserveClassAliases && canonical !== type) {
+      // Native references may have no indexed declaration. Expand an alias only
+      // when the resulting spelling still binds to the same type at this use.
+      const rebound = source.resolveTypeMeaning(
+        canonical,
+        scope,
+        this.parser,
+        owner ? source.classTypeParameters(owner) : undefined,
+      );
+      const same = (left: TypeMeaning, right: TypeMeaning): boolean =>
+        left.name === right.name &&
+        left.declaration === right.declaration &&
+        left.nullable === right.nullable &&
+        left.arguments.length === right.arguments.length &&
+        left.arguments.every((argument, index) =>
+          same(argument, right.arguments[index]),
+        );
+      if (!same(meaning, rebound)) return type;
+    }
+    return canonical;
   }
 
   /** Resolve a struct type reachable from `owner` for default-value codegen. */

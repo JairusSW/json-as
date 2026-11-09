@@ -663,7 +663,8 @@ export class JSONTransform extends Visitor {
                 if (omit && !origin?.omitIfMethod) {
                     let helper = this.inheritedOmissionHelpers.get(original);
                     if (!helper) {
-                        const expression = omit.args[0];
+                        const declarationOmit = original.decorators.find((decorator) => decorator.name.text === "omitif");
+                        const expression = cloneNode(declarationOmit.args[0]);
                         if (expression.kind === NodeKind.Function) {
                             const signature = expression.declaration
                                 .signature;
@@ -752,7 +753,18 @@ export class JSONTransform extends Visitor {
         const hasDeclaration = (value) => !!value.declaration || value.arguments.some(hasDeclaration);
         if (preserveClassAliases && hasDeclaration(meaning))
             return type;
-        return typeMeaningText(meaning);
+        const canonical = typeMeaningText(meaning);
+        if (preserveClassAliases && canonical !== type) {
+            const rebound = source.resolveTypeMeaning(canonical, scope, this.parser, owner ? source.classTypeParameters(owner) : undefined);
+            const same = (left, right) => left.name === right.name &&
+                left.declaration === right.declaration &&
+                left.nullable === right.nullable &&
+                left.arguments.length === right.arguments.length &&
+                left.arguments.every((argument, index) => same(argument, right.arguments[index]));
+            if (!same(meaning, rebound))
+                return type;
+        }
+        return canonical;
     }
     getDefaultSchema(owner, type) {
         const name = stripNull(type).trim();

@@ -28,6 +28,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Types, inheritance, and decorators
 
+- Preserve native-reference aliases when expanding them would bind to a different declaration in the consumer, including native Date aliases alongside user-defined Date models.
 - Distinguish user schemas named `Date` from the native Date type in nested readers. Reset inferred backend selection for each programmatic compiler invocation, so SIMD and fallback builds can share one Node process.
 - Restrict standard-library exclusions to their actual library paths, so application files named `security.ts`, `memory.ts`, or under `util/` still receive generated codecs.
 - Resolve aliases using declaration identity and lexical context. Preserve caller bindings for supplied generic arguments, keep class type parameters bound, apply default generic arguments, and accept finite nested uses of the same alias while retaining definition-cycle protection. Fix `f32` fields being serialized as integer bit patterns after alias expansion.
@@ -37,6 +38,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 - Apply shadowing before filtering wire fields: an overriding `@omit` still suppresses the ancestor's field. Preserve empty `@alias("")` keys and correctly escape unusual keys and generated comments. Emit slow-reader resets directly at successful return sites so alias text cannot alter generated control flow.
 - Separate object initialization from JSON field participation. Preserve omitted, private, and protected defaults through the full ancestry, including undecorated bases, in compatibility and checked-cursor parsing; retain declaration order and declaring-module bindings. Reinitialize reused Map values for each parse without evaluating fresh defaults twice. Restore omitted fields to their declared defaults on reused roots and nested children, including cached lazy values, while retaining buffers for present fields.
 - Propagate initializer effects through the full inheritance chain. Prevent speculative fallback from replaying observable function calls, constructors, getters, overloaded indexing, binary operators, or unary operators.
+- Build inherited omission helpers from untouched declaration decorators, preserving generic parameters across child specializations, declaration orders, and intermediate generic bases.
 - Evaluate inherited omission predicates in their declaring scope. Support named predicates, zero-parameter arrows, combined omission conditions, and quoted string expressions; preserve outer serialization state when a predicate performs nested JSON operations.
 - Allocate generated runtime imports and lazy backing fields without colliding with application declarations, inherited members, renamed `JSON` imports, or namespace-local helpers. Rebind generated runtime references in initialization, omission, and backing-field expressions while preserving copied user expressions.
 
