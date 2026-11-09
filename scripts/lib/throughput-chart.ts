@@ -45,9 +45,9 @@ export function throughputChart(
       const result = readBenchLog(
         benchLogPath(payload, operation, spec.language, spec.mode),
       );
-      if (!(result.bytes > 0) || !(result.gbps > 0))
+      if (!(result.bytes > 0) || !(result.mbps > 0))
         throw Error("Invalid throughput result: " + payload);
-      return { x: result.bytes / 1048576, y: result.gbps };
+      return { x: result.bytes / 1048576, y: result.mbps / 1000 };
     }),
     borderColor: `rgba(${MODE_RGB[spec.key]},0.9)`,
     backgroundColor: `rgba(${MODE_RGB[spec.key]},0.3)`,

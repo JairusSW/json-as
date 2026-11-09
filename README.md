@@ -555,14 +555,14 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/overview-deserialize.svg" alt="Performance Chart 2">
 
 <details>
-<summary>String serialize charts (click to expand)</summary>
+<summary>String serialization chart (click to expand)</summary>
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-serialize.svg" alt="Performance Chart 3">
 
 </details>
 
 <details>
-<summary>String deserialize charts (click to expand)</summary>
+<summary>String deserialization chart (click to expand)</summary>
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-deserialize.svg" alt="Performance Chart 4">
 
@@ -578,14 +578,14 @@ labeled logarithmic axis. Built-in JSON appears first and SIMD/native references
 appear last.
 
 <details>
-<summary>Object serialize charts (click to expand)</summary>
+<summary>Object serialization chart (click to expand)</summary>
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-serialize.svg" alt="Performance Chart 5">
 
 </details>
 
 <details>
-<summary>Object deserialize charts (click to expand)</summary>
+<summary>Object deserialization chart (click to expand)</summary>
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-deserialize.svg" alt="Performance Chart 6">
 
