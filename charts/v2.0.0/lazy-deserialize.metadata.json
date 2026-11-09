@@ -11,6 +11,7 @@
         "branch": "main"
       },
       "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
       "engines": {
         "v8": "V8 version 15.2.20",
         "node": "v26.4.0",
@@ -35,6 +36,7 @@
         "branch": "main"
       },
       "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
       "engines": {
         "v8": "V8 version 15.2.20",
         "node": "v26.4.0",
