@@ -132,7 +132,7 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "Object Deserialization Throughput vs Payload Size",
+        text: "Complex-object deserialization · repeated 1,049 B records",
         font: { size: 20, weight: "bold" },
       },
       legend: {
@@ -162,7 +162,7 @@ const config: ChartConfiguration<"line"> = {
         max: maxX + 7,
         title: {
           display: true,
-          text: "Payload Size (KB)",
+          text: "Aggregate bytes parsed per iteration (KiB)",
           font: { size: 16, weight: "bold" },
         },
         type: "linear",

@@ -129,7 +129,9 @@ export function withAdaptiveLogScale(
       .filter((value): value is number => value !== null && value > 0),
   );
   if (values.length === 0) return config;
-  if (!force && !detectExtremeUpperTail(values)) return config;
+  // Dense mixed populations can hide entire series even without a sparse tail.
+  const wideRange = Math.max(...values) / Math.min(...values) >= 20;
+  if (!force && !wideRange && !detectExtremeUpperTail(values)) return config;
 
   const scales = objectRecord(options.scales);
   const axisKey = horizontal ? "x" : "y";

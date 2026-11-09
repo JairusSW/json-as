@@ -1,3 +1,5 @@
+import { withAdaptiveLogScale } from "./lib/chart-outliers";
+import { splitRepeatedObjectWorkloads } from "./lib/object-workloads";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
 import {
@@ -108,14 +110,16 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "Object Serialization Throughput vs Payload Size (<=1MB)",
+        text: "Object serialization · distinct repeated-record workloads",
         font: { size: 20, weight: "bold" },
       },
       legend: {
         position: "top",
         labels: {
-          font: { size: 16, weight: "bold" },
-          padding: 20,
+          usePointStyle: true,
+          boxWidth: 16,
+          font: { size: 12, weight: "bold" },
+          padding: 12,
         },
       },
       datalabels: { display: false },
@@ -130,10 +134,10 @@ const config: ChartConfiguration<"line"> = {
     },
     scales: {
       x: {
-        max: maxX + 7,
+        max: Math.ceil(maxX / 100) * 100,
         title: {
           display: true,
-          text: "Payload Size (KB)",
+          text: "Aggregate bytes serialized per iteration (KiB)",
           font: { size: 16, weight: "bold" },
         },
         type: "linear",
@@ -163,6 +167,8 @@ const config: ChartConfiguration<"line"> = {
 
 // SVG (vector, fast-loading) + PNG (3x density) so the README can
 // reference the SVG while the PNG stays available for other uses.
-const dims = { width: 1200, height: 700 };
-generateChart(config, "./build/charts/object-serialize-1mb.svg", dims);
-generateChart(config, "./build/charts/object-serialize-1mb.png", dims);
+config.data.datasets = splitRepeatedObjectWorkloads(config.data.datasets);
+const presentation = withAdaptiveLogScale(config, true);
+const dims = { width: 1400, height: 800 };
+generateChart(presentation, "./build/charts/object-serialize-1mb.svg", dims);
+generateChart(presentation, "./build/charts/object-serialize-1mb.png", dims);

@@ -566,6 +566,13 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-deserialize-1mb.svg" alt="Performance Chart 8">
 </details>
 
+The legacy object curves measure repeated-record batches, not a single growing
+JSON document: batches below 1 MiB repeat a 55-byte simple record, while batches
+from 1 MiB repeat a 1,049-byte complex record. The zoomed charts separate these
+workloads instead of connecting them; a change at that boundary is not a payload
+size threshold. Wide throughput ranges use an explicitly labeled logarithmic axis.
+Built-in JSON appears first and SIMD/native references appear last.
+
 <details>
 <summary>Object serialize charts (click to expand)</summary>
 

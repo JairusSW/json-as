@@ -74,13 +74,11 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
     readComparisonResult("multilib", kind, reference).mbps,
   ]);
 
-  entries.sort((a, b) => b[1] - a[1]);
-
   const payloadBytes = readBenchLog(
     benchLogPath("multilib-native-json", kind, "js"),
   ).bytes;
   const KiB = (payloadBytes / 1024).toFixed(0);
-  const top = entries[0][1];
+  const top = Math.max(...entries.map(([, value]) => value));
 
   const config: ChartConfiguration<"bar"> = {
     type: "bar",

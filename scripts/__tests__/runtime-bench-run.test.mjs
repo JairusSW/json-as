@@ -280,6 +280,7 @@ test("chart configuration uses only the selected run and original subtitle", (t)
     "scripts/lib/bench-utils.ts",
     "scripts/lib/palette.ts",
     "scripts/lib/chart-outliers.ts",
+    "scripts/lib/chart-order.ts",
   ]) {
     let source = fs.readFileSync(path.join(repo, file), "utf8");
     source = source.replace(/from "(\.[^"]+)"/g, (all, target) =>

@@ -8,6 +8,7 @@ import { ChartJSNodeCanvas } from "chartjs-node-canvas";
 import type { ChartConfiguration } from "chart.js";
 import { MODE_BARS, INK } from "./palette";
 import { withAdaptiveLogScale } from "./chart-outliers";
+import { orderBenchmarkSeries } from "./chart-order";
 import { comparisonWorkload } from "./comparison-workloads.mjs";
 
 export interface BenchResult {
@@ -366,7 +367,7 @@ export function generateChart(
 ) {
   const isSvg = outfile.endsWith(".svg");
 
-  config = withAdaptiveLogScale(config);
+  config = withAdaptiveLogScale(orderBenchmarkSeries(config));
 
   // Provenance belongs in a horizontal footer, not a cramped vertical axis.
   const caption = config.options?.plugins?.subtitle;

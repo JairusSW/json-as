@@ -89,3 +89,17 @@ describe("withAdaptiveLogScale", () => {
     expect(forced.options?.scales?.y?.type).toBe("logarithmic");
   });
 });
+
+test("uses logarithmic throughput for dense populations spanning 20x", () => {
+  const source: ChartConfiguration<"line"> = {
+    type: "line",
+    data: { datasets: [{ data: [10, 11, 12, 250, 260, 270] }] },
+    options: { scales: { y: {} } },
+  };
+  expect(withAdaptiveLogScale(source).options?.scales?.y?.type).toBe(
+    "logarithmic",
+  );
+  expect(withAdaptiveLogScale(source).data.datasets[0].data).toEqual(
+    source.data.datasets[0].data,
+  );
+});

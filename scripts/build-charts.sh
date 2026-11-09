@@ -45,7 +45,7 @@ JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-library-serialize.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-library-deserialize.ts
 # Lazy-fields charts (eager vs @json({ lazy: "auto" }))
 bun ./scripts/build-lazy.ts
-# Classic-dataset mode comparison (NAIVE/SWAR/SIMD + lazy, no JS baseline)
+# Classic payloads with built-in JS, json-as modes/lazy, and owning simdjson.
 bun ./scripts/build-chart-classic.ts
 # Per-fixture RFC matrix coverage (custom cell grid, no benchmark logs needed).
 bun ./scripts/build-rfc-coverage.ts
