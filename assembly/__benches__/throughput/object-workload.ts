@@ -6,11 +6,12 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { JSON } from "../..";
+import { bs } from "../../../lib/as-bs";
+import { RECORD_JSON } from "../../../bench/throughput/object-workload";
 export {
   OBJECT_SIZES,
   OBJECT_LABELS,
   RECORD_JSON,
-  makeObjectJson,
 } from "../../../bench/throughput/object-workload";
 
 
@@ -42,4 +43,22 @@ class ObjectRow {
 @json
 export class GrowingObject {
   records: ObjectRow[] = [];
+}
+
+// Build one document in the output buffer, flushing only after every row.
+// Setup is outside the timed parser operation; JS uses the same exact bytes.
+export function makeObjectJson(targetBytes: i32): string {
+  const row = new JSON.Raw(RECORD_JSON);
+  const comma = new JSON.Raw(",");
+  JSON.__serialize<JSON.Raw>(new JSON.Raw('{"records":['));
+  let bytes = 14;
+  let count = 0;
+  while (bytes < targetBytes) {
+    if (count) JSON.__serialize<JSON.Raw>(comma);
+    JSON.__serialize<JSON.Raw>(row);
+    bytes += RECORD_JSON.length + (count > 0 ? 1 : 0);
+    count++;
+  }
+  JSON.__serialize<JSON.Raw>(new JSON.Raw("]}"));
+  return bs.out<string>();
 }

@@ -559,7 +559,6 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-serialize.svg" alt="Performance Chart 3">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-serialize-1mb.svg" alt="Performance Chart 7">
 </details>
 
 <details>
@@ -567,13 +566,13 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-deserialize.svg" alt="Performance Chart 4">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-deserialize-1mb.svg" alt="Performance Chart 8">
 </details>
 
-Both object chart ranges use the same 1,024-byte row fixture inside one growing
+The combined object charts use the same 1,024-byte row fixture inside one growing
 JSON document. Larger inputs add rows to that object's `records` array; each
 measured operation parses or serializes the whole document once. The schema
-does not switch at 1 MiB. The x-axis is actual UTF-8 document size, not aggregate
+does not switch at 1 MiB. Each object and string chart has ten samples from
+about 100 KiB to 8 MiB. The x-axis is actual UTF-8 document size, not aggregate
 bytes from repeated independent calls. Wide throughput ranges use an explicitly
 labeled logarithmic axis. Built-in JSON appears first and SIMD/native references
 appear last.
@@ -583,7 +582,6 @@ appear last.
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-serialize.svg" alt="Performance Chart 5">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-serialize-1mb.svg" alt="Performance Chart 9">
 </details>
 
 <details>
@@ -591,7 +589,6 @@ appear last.
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-deserialize.svg" alt="Performance Chart 6">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-deserialize-1mb.svg" alt="Performance Chart 10">
 </details>
 
 <details>

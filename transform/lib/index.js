@@ -248,6 +248,8 @@ export class JSONTransform extends Visitor {
     imports = [];
     simdStatements = new Map();
     visitedClasses = new Set();
+    pureNumericConstants = new Set();
+    numericConstantShadows = new Set();
     eagerOverrides = new Set();
     lazySourceFields = new Map();
     lazySourceInstalled = new Set();
@@ -731,10 +733,22 @@ export class JSONTransform extends Visitor {
         if (seen.has(node))
             return false;
         seen.add(node);
+        const namespaces = this.sources
+            .get(node.range.source)
+            .getNamespaces(node)
+            .map((part) => part.name.text);
+        const pureConstants = new Set([...this.pureNumericConstants].filter((constant) => {
+            const root = constant.slice(0, constant.indexOf("."));
+            for (let depth = namespaces.length; depth >= 0; depth--) {
+                if (this.numericConstantShadows.has([...namespaces.slice(0, depth), root].join(".")))
+                    return false;
+            }
+            return true;
+        }));
         if (node.members.some((member) => member.kind === NodeKind.FieldDeclaration &&
             !member.is(32) &&
             !!member.initializer &&
-            initializerHasEffects(member.initializer)))
+            initializerHasEffects(member.initializer, pureConstants)))
             return true;
         if (!node.extendsType)
             return false;
@@ -5060,6 +5074,9 @@ export default class Transformer extends Transform {
         transformer.baseCWD = path.join(process.cwd(), this.baseDir);
         transformer.program = this.program;
         transformer.parser = parser;
+        const numericConstants = pureNumericConstants(parser.sources);
+        transformer.pureNumericConstants = numericConstants.constants;
+        transformer.numericConstantShadows = numericConstants.shadowed;
         transformer.prepareLazyOverrides(sources);
         for (const source of sources) {
             transformer.imports = [];
@@ -5353,7 +5370,77 @@ function estimatedSerializedByteSize(type, source, parser) {
 function hasManualSerializer(node) {
     return node.members.some((member) => member.name.text === "__SERIALIZE");
 }
-function initializerHasEffects(expression) {
+function pureNumericConstants(sources) {
+    const constants = new Set();
+    const shadowed = new Set();
+    const numberSource = sources.find((source) => source.internalPath === "~lib/number");
+    if (!numberSource)
+        return { constants, shadowed };
+    const scalarNames = new Set([...INTEGER_TYPES, ...FLOAT_TYPES]);
+    for (const statement of numberSource.statements) {
+        if (statement.kind !== NodeKind.ClassDeclaration)
+            continue;
+        const declaration = statement;
+        const scalar = declaration.name.text.toLowerCase();
+        if (!scalarNames.has(scalar))
+            continue;
+        for (const member of declaration.members) {
+            if (member.kind !== NodeKind.FieldDeclaration ||
+                !member.is(32) ||
+                !member.is(64))
+                continue;
+            const field = member;
+            if (!["MIN_VALUE", "MAX_VALUE", "EPSILON", "MIN_NORMAL_VALUE"].includes(field.name.text) ||
+                !field.initializer ||
+                toString(field.initializer) !== scalar + "." + field.name.text)
+                continue;
+            constants.add(declaration.name.text + "." + field.name.text);
+            constants.add(scalar + "." + field.name.text);
+        }
+    }
+    const bindingKinds = new Set([
+        NodeKind.ClassDeclaration,
+        NodeKind.EnumDeclaration,
+        NodeKind.FunctionDeclaration,
+        NodeKind.NamespaceDeclaration,
+        NodeKind.InterfaceDeclaration,
+        NodeKind.TypeDeclaration,
+        NodeKind.VariableDeclaration,
+        NodeKind.ImportDeclaration,
+        NodeKind.Parameter,
+        NodeKind.TypeParameter,
+    ]);
+    class Bindings extends Visitor {
+        namespaces = [];
+        _visit(node, parent) {
+            if (bindingKinds.has(node.kind)) {
+                const name = node.name;
+                if (name) {
+                    shadowed.add([...this.namespaces, name.text].join("."));
+                    if (node.decorators?.some((decorator) => toString(decorator.name) === "global"))
+                        shadowed.add(name.text);
+                }
+            }
+            if (node.kind === NodeKind.Import) {
+                const namespace = node.namespaceName;
+                if (namespace)
+                    shadowed.add([...this.namespaces, namespace.text].join("."));
+            }
+            const namespace = node.kind === NodeKind.NamespaceDeclaration;
+            if (namespace)
+                this.namespaces.push(node.name.text);
+            super._visit(node, parent);
+            if (namespace)
+                this.namespaces.pop();
+        }
+    }
+    const bindings = new Bindings();
+    for (const source of sources)
+        if (!isStdlib(source))
+            bindings.visit(source);
+    return { constants, shadowed };
+}
+function initializerHasEffects(expression, pureConstants = new Set()) {
     class Effects extends Visitor {
         effect = false;
         visitNewExpression(node) {
@@ -5361,7 +5448,8 @@ function initializerHasEffects(expression) {
             super.visitNewExpression(node);
         }
         visitPropertyAccessExpression(node) {
-            this.effect = true;
+            if (!pureConstants.has(toString(node)))
+                this.effect = true;
             super.visitPropertyAccessExpression(node);
         }
         visitCallExpression(node) {

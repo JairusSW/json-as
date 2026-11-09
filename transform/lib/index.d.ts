@@ -25,6 +25,8 @@ export declare class JSONTransform extends Visitor {
     imports: ImportStatement[];
     simdStatements: Map<Source, string[]>;
     visitedClasses: Set<string>;
+    pureNumericConstants: Set<string>;
+    numericConstantShadows: Set<string>;
     private eagerOverrides;
     private lazySourceFields;
     private lazySourceInstalled;

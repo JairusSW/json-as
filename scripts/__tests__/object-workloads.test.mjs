@@ -18,17 +18,27 @@ const source = fs.readFileSync(
   path.join(root, "bench/throughput/object-workload.ts"),
   "utf8",
 );
-const js = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.ESNext },
-}).outputText;
+const sizesJS = ts.transpileModule(
+  fs.readFileSync(path.join(root, "bench/throughput/payload-sizes.ts"), "utf8"),
+  { compilerOptions: { module: ts.ModuleKind.ESNext } },
+).outputText;
+const sizesURL =
+  "data:text/javascript;base64," + Buffer.from(sizesJS).toString("base64");
+const js = ts
+  .transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext },
+  })
+  .outputText.replaceAll("./payload-sizes", sizesURL);
 const { RECORD_JSON, OBJECT_SIZES, OBJECT_LABELS, makeObjectJson } =
   await import(
     "data:text/javascript;base64," + Buffer.from(js).toString("base64")
   );
 
-test("both object chart ranges grow one document from the same 1 KiB row", () => {
+test("ten object samples grow one document from the same 1 KiB row", () => {
   assert.equal(Buffer.byteLength(RECORD_JSON), 1024);
-  assert.equal(OBJECT_SIZES.length, 20);
+  assert.equal(OBJECT_SIZES.length, 10);
+  assert.equal(OBJECT_SIZES[0], 104858);
+  assert.equal(OBJECT_SIZES.at(-1), 8 * 1024 * 1024);
   assert.equal(OBJECT_LABELS.length, OBJECT_SIZES.length);
   let previous = 0;
   for (const target of OBJECT_SIZES) {
@@ -83,12 +93,8 @@ test(
             },
           },
         );
-        for (const target of [
-          1024,
-          900 * 1024,
-          1024 * 1024,
-          10 * 1024 * 1024,
-        ]) {
+        for (const target of [1024, 900 * 1024, 1024 * 1024, 8 * 1024 * 1024]) {
+          assert.equal(instance.exports.verifyString(target), target);
           assert.equal(
             instance.exports.verify(target),
             JSON.parse(makeObjectJson(target)).records.length,
@@ -100,3 +106,31 @@ test(
     }
   },
 );
+
+test("strings share ten exact encoded document sizes across implementations", async () => {
+  const text = fs.readFileSync(
+    path.join(root, "bench/throughput/string-workload.ts"),
+    "utf8",
+  );
+  const js = ts
+    .transpileModule(text, {
+      compilerOptions: { module: ts.ModuleKind.ESNext },
+    })
+    .outputText.replaceAll("./payload-sizes", sizesURL);
+  const { makeString, PAYLOAD_SIZES } = await import(
+    "data:text/javascript;base64," + Buffer.from(js).toString("base64")
+  );
+  for (const size of PAYLOAD_SIZES) {
+    const value = makeString(size);
+    assert.equal(Buffer.byteLength(JSON.stringify(value)), size);
+    assert.equal(JSON.parse(JSON.stringify(value)), value);
+  }
+  const builders = fs.readFileSync(
+    path.join(root, "scripts/build-charts.sh"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    builders,
+    /build-(?:object|string)-(?:serialize|deserialize)-1mb/,
+  );
+});

@@ -14,6 +14,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Parsing and validation
 
+- Recognize unshadowed standard-library numeric constants in field defaults at compile time, retaining generated fast readers without treating application getters as pure.
+
 - Use native array storage when parsing subclasses with overridden length accessors, preserving fresh/reused contents, constructor state, growth, and managed-reference barriers across backends.
 - Clear deferred object slots when the allocator does not guarantee zeroed memory, including minimal-runtime array and Map parsing after collection.
 - Reject incompatible field-value kinds consistently in strict parsing with fresh and reused destinations, including object values supplied to scalar fields.
@@ -156,6 +158,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 - Keep the publish helper compatible with macOS system Bash and classify preview tags as GitHub prereleases.
 
 ### Benchmarks, testing, and release tooling
+
+- Combine each object/string throughput sweep into one chart with ten single-document sizes from about 100 KiB to 8 MiB. Build growing-object input with repeated serialization into one output buffer, retain identical JS/AS bytes, and display actual encoded sizes and GB/s.
 
 - Use log axes for wide or mixed throughput ranges, keep built-in JSON first and SIMD/native references last, and use one growing JSON object with the same 1,024-byte row fixture across both object chart ranges, replacing the legacy switch between repeated 55-byte and 1,049-byte records.
 

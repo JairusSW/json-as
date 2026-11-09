@@ -35,15 +35,12 @@ mkdir -p ./build/charts
 # json-as vs JavaScript, small synthetic payloads (overview).
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-overview-serialize.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-overview-deserialize.ts
-# String / object throughput vs payload size (full range + <=1MB zoom).
+# String / object throughput: ten single-document sizes, one chart per operation.
+rm -f ./build/charts/{string,object}-{serialize,deserialize}-1mb.{svg,png}
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-string-serialize.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-string-deserialize.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-object-serialize.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-object-deserialize.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-string-serialize-1mb.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-string-deserialize-1mb.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-object-serialize-1mb.ts
-JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-object-deserialize-1mb.ts
 # Primitive (de)serialize.
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-primitive-serialize.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-primitive-deserialize.ts

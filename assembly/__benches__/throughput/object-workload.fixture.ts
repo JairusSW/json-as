@@ -6,6 +6,7 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { JSON } from "../..";
+import { makeString } from "../../../bench/throughput/string-workload";
 import { GrowingObject, makeObjectJson } from "./object-workload";
 
 export function verify(target: i32): i32 {
@@ -13,4 +14,12 @@ export function verify(target: i32): i32 {
   const value = JSON.parse<GrowingObject>(input);
   if (JSON.stringify(value) != input) unreachable();
   return value.records.length;
+}
+
+export function verifyString(target: i32): i32 {
+  const value = makeString(target);
+  const input = JSON.stringify(value);
+  if (JSON.parse<string>(input) != value) unreachable();
+  if (String.UTF8.byteLength(input) != target) unreachable();
+  return input.length;
 }
