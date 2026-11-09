@@ -32,7 +32,13 @@ try {
     }),
   );
   npmRun(
-    ["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund"],
+    [
+      "install",
+      "--prefer-offline",
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+    ],
     dir,
   );
   for (const entry of ["json-as", "json-as/assembly"]) {

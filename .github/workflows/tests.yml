@@ -5,6 +5,11 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
 
     steps:
       - name: Checkout the repository
@@ -22,30 +27,41 @@ jobs:
         run: npm ci
 
       - name: Test Benchmark Tooling
+        if: matrix.shard == 0
         run: bun run test:bench
 
       - name: Build Transform
         run: bun run build:transform
 
       - name: Test pnpm Packed Consumers
+        if: matrix.shard == 0
         run: npm run test:package:pnpm
 
+      - name: Test Packed Consumer
+        if: matrix.shard == 0
+        run: npm run test:package
+
       - name: Test Transform
-        run: bun run test:transform
+        run: node scripts/run-transform-shard.mjs ${{ matrix.shard }} 8
 
       - name: Test Runtime Compatibility
+        if: matrix.shard == 0
         run: |
           JSON_USE_FAST_PATH=0 bun run test -- assembly/__tests__/string-clean-classification.spec.ts --mode simd --no-cache --show-logs
           JSON_USE_FAST_PATH=1 bun run test -- assembly/__tests__/string-clean-classification.spec.ts --mode simd --no-cache --show-logs
 
       - name: Run Tests (Slow)
+        if: matrix.shard == 1
         run: JSON_USE_FAST_PATH=0 bun run test:ci -- --no-cache
 
       - name: Run Tests (Fast)
+        if: matrix.shard == 2
         run: JSON_USE_FAST_PATH=1 bun run test:ci -- --no-cache
 
       - name: Run Strict Public Tests (Slow)
+        if: matrix.shard == 3
         run: JSON_USE_FAST_PATH=0 bun run test:rfc:public -- --no-cache
 
       - name: Run Strict Tests (Fast)
+        if: matrix.shard == 4
         run: JSON_USE_FAST_PATH=1 bun run test:rfc -- --no-cache
