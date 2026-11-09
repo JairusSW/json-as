@@ -141,20 +141,21 @@ function isReservedPrimitive(type) {
 function syncSerializeCursor(code) {
     return `bs.offset = __dst;\n${code}__dst = bs.offset;\n`;
 }
-function getSerializeCall(type, realName) {
-    if (isReservedPrimitive(type)) {
+function getSerializeCall(type, realName, native) {
+    if (native && isReservedPrimitive(type)) {
         return `__dst = JSON.__serializePrimitiveAt<${type}>(__dst, load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
     }
-    if (type.startsWith("Array<") && !type.includes("| null")) {
+    if (native && type.startsWith("Array<") && !type.includes("| null")) {
         return syncSerializeCursor(`JSON.__serializeArrayPointer<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
     }
-    if (type == "string" ||
-        type == "String" ||
-        type == "string | null" ||
-        type == "String | null") {
+    if (native &&
+        (type == "string" ||
+            type == "String" ||
+            type == "string | null" ||
+            type == "String | null")) {
         return syncSerializeCursor(`JSON.__serializeStringPointer(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
     }
-    if (type == "ArrayBuffer") {
+    if (native && type == "ArrayBuffer") {
         return syncSerializeCursor(`JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
     }
     return syncSerializeCursor(needsReferenceLoad(type)
@@ -1430,6 +1431,13 @@ export class JSONTransform extends Visitor {
         const getUnknownTypes = (type, types = []) => {
             type = stripNull(type);
             type = this.resolveType(type, source, new Set(), source.getQualifiedName(node).split(".").slice(0, -1).join("."), true, node);
+            const schemaDeclaration = source.resolveClass(type, node, this.parser);
+            if (schemaDeclaration &&
+                !this.usesBuiltinRepresentation(schemaDeclaration)) {
+                if (schemaDeclaration !== node)
+                    types.push(type);
+                return types;
+            }
             if (type.startsWith("Array<")) {
                 return getUnknownTypes(type.slice(6, -1));
             }
@@ -1910,9 +1918,10 @@ export class JSONTransform extends Visitor {
         const isPure = this.schema.static;
         let isRegular = isPure;
         let isFirst = true;
-        const canReserveDynamicPayloads = this.schema.members.every((member) => isReservedPrimitive(member.type) ||
-            isString(member.type) ||
-            /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type));
+        const canReserveDynamicPayloads = this.schema.members.every((member) => !this.getSchema(member.type) &&
+            (isReservedPrimitive(member.type) ||
+                isString(member.type) ||
+                /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type)));
         const directStringMembers = this.schema.static && canReserveDynamicPayloads
             ? this.schema.members.filter((member) => !member.flags.has(PropertyFlags.Lazy) &&
                 isString(member.type) &&
@@ -1967,7 +1976,7 @@ export class JSONTransform extends Visitor {
                     !member.nullable) {
                     return syncSerializeCursor(`JSON.__serializeObject<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
                 }
-                return getSerializeCall(member.type, realName);
+                return getSerializeCall(member.type, realName, !resolvedSchema);
             }
             const T = member.lazyInner;
             const baseName = realName.slice(0, -3);
@@ -2210,9 +2219,8 @@ export class JSONTransform extends Visitor {
         };
         for (const member of this.schema.members) {
             const type = stripNull(member.type);
-            const customDep = this.getSchema(type)?.customReader
-                ? this.getSchema(type)
-                : null;
+            const memberSchema = this.getSchema(type);
+            const customDep = memberSchema?.customReader ? memberSchema : null;
             const isCustomType = member.custom || !!customDep;
             if (isCustomType ||
                 member.generic ||
@@ -2225,7 +2233,9 @@ export class JSONTransform extends Visitor {
             else {
                 if (member.nullable)
                     sortedMembers.null.push(member);
-                if (isString(type) || member.builtinDate)
+                if (memberSchema)
+                    sortedMembers.object.push(member);
+                else if (isString(type) || member.builtinDate)
                     sortedMembers.string.push(member);
                 else if (type == "JSON.Raw")
                     sortedMembers.object.push(member);
@@ -4543,33 +4553,13 @@ export class JSONTransform extends Visitor {
         super.visitClassDeclaration(node);
     }
     getSchema(name) {
-        name = stripNull(name);
         const source = this.sources.get(this.schema.node.range.source);
-        const declaration = source.getClassInContext(name, this.schema.node);
-        if (declaration) {
-            return (this.schemas
-                .get(source.internalPath)
-                ?.find((s) => s.node === declaration) || null);
-        }
-        const imported = source.getImportedClass(name, this.parser);
-        if (imported) {
-            const importedSource = this.sources.get(imported.range.source);
-            const schema = this.schemas
-                .get(importedSource.internalPath)
-                ?.find((s) => s.node === imported);
-            if (schema)
-                return schema;
-        }
-        const local = this.schemas
-            .get(this.schema.node.range.source.internalPath)
-            .find((s) => s.name == name) || null;
-        if (local)
-            return local;
-        const exact = this.schema.deps.filter((schema) => schema && schema.name == name);
-        if (exact.length == 1)
-            return exact[0];
-        const qualified = this.schema.deps.filter((schema) => schema && schema.name.endsWith("." + name));
-        return qualified.length == 1 ? qualified[0] : null;
+        const declaration = source.resolveClass(name, this.schema.node, this.parser);
+        if (!declaration)
+            return null;
+        return (this.schemas
+            .get(declaration.range.source.internalPath)
+            ?.find((schema) => schema.node === declaration) || null);
     }
     explicitFieldInitializer(field) {
         if (!field.initializer)

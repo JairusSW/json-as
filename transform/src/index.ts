@@ -284,29 +284,34 @@ function syncSerializeCursor(code: string): string {
   return `bs.offset = __dst;\n${code}__dst = bs.offset;\n`;
 }
 
-function getSerializeCall(type: string, realName: string): string {
-  if (isReservedPrimitive(type)) {
+function getSerializeCall(
+  type: string,
+  realName: string,
+  native: boolean,
+): string {
+  if (native && isReservedPrimitive(type)) {
     return `__dst = JSON.__serializePrimitiveAt<${type}>(__dst, load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
   }
 
-  if (type.startsWith("Array<") && !type.includes("| null")) {
+  if (native && type.startsWith("Array<") && !type.includes("| null")) {
     return syncSerializeCursor(
       `JSON.__serializeArrayPointer<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
     );
   }
 
   if (
-    type == "string" ||
-    type == "String" ||
-    type == "string | null" ||
-    type == "String | null"
+    native &&
+    (type == "string" ||
+      type == "String" ||
+      type == "string | null" ||
+      type == "String | null")
   ) {
     return syncSerializeCursor(
       `JSON.__serializeStringPointer(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
     );
   }
 
-  if (type == "ArrayBuffer") {
+  if (native && type == "ArrayBuffer") {
     return syncSerializeCursor(
       `JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
     );
@@ -2324,6 +2329,16 @@ export class JSONTransform extends Visitor {
         true,
         node,
       );
+      // Discover schema dependencies before interpreting native spellings, so
+      // a user Array<T> declared later receives codecs before its owner does.
+      const schemaDeclaration = source.resolveClass(type, node, this.parser);
+      if (
+        schemaDeclaration &&
+        !this.usesBuiltinRepresentation(schemaDeclaration)
+      ) {
+        if (schemaDeclaration !== node) types.push(type);
+        return types;
+      }
       if (type.startsWith("Array<")) {
         return getUnknownTypes(type.slice(6, -1));
       } else if (type.startsWith("StaticArray<")) {
@@ -3089,9 +3104,10 @@ export class JSONTransform extends Visitor {
     // Reservations cannot span callbacks that can change later field sizes.
     const canReserveDynamicPayloads = this.schema.members.every(
       (member) =>
-        isReservedPrimitive(member.type) ||
-        isString(member.type) ||
-        /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type),
+        !this.getSchema(member.type) &&
+        (isReservedPrimitive(member.type) ||
+          isString(member.type) ||
+          /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type)),
     );
     const directStringMembers =
       this.schema.static && canReserveDynamicPayloads
@@ -3176,7 +3192,7 @@ export class JSONTransform extends Visitor {
             `JSON.__serializeObject<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`,
           );
         }
-        return getSerializeCall(member.type, realName);
+        return getSerializeCall(member.type, realName, !resolvedSchema);
       }
       const T = member.lazyInner!;
       const baseName = realName.slice(0, -3); // "__x_lz" -> "__x"
@@ -3473,9 +3489,8 @@ export class JSONTransform extends Visitor {
 
     for (const member of this.schema.members) {
       const type = stripNull(member.type);
-      const customDep = this.getSchema(type)?.customReader
-        ? this.getSchema(type)
-        : null;
+      const memberSchema = this.getSchema(type);
+      const customDep = memberSchema?.customReader ? memberSchema : null;
       const isCustomType = member.custom || !!customDep;
       if (
         isCustomType ||
@@ -3491,7 +3506,11 @@ export class JSONTransform extends Visitor {
         if (member.nullable) sortedMembers.null.push(member);
       } else {
         if (member.nullable) sortedMembers.null.push(member);
-        if (isString(type) || member.builtinDate)
+        // A generated schema owns its representation even when its declaration
+        // shares a spelling with a native container (e.g. Uint8Array or Array<T>).
+        // Custom readers and generic dispatch have already been handled above.
+        if (memberSchema) sortedMembers.object.push(member);
+        else if (isString(type) || member.builtinDate)
           sortedMembers.string.push(member);
         else if (type == "JSON.Raw") sortedMembers.object.push(member);
         else if (isBoolean(type) || type.startsWith("JSON.Box<bool"))
@@ -6746,43 +6765,22 @@ export class JSONTransform extends Visitor {
     super.visitClassDeclaration(node);
   }
   getSchema(name: string): Schema | null {
-    name = stripNull(name);
     const source = this.sources.get(this.schema.node.range.source);
-    const declaration = source.getClassInContext(name, this.schema.node);
-    if (declaration) {
-      return (
-        this.schemas
-          .get(source.internalPath)
-          ?.find((s) => s.node === declaration) || null
-      );
-    }
-    const imported = source.getImportedClass(name, this.parser);
-    if (imported) {
-      const importedSource = this.sources.get(imported.range.source);
-      const schema = this.schemas
-        .get(importedSource.internalPath)
-        ?.find((s) => s.node === imported);
-      if (schema) return schema;
-    }
-    const local =
+    // A dependency's short name is not a binding in the current scope. Resolve
+    // aliases, namespaces and generic uses before selecting generated methods.
+    const declaration = source.resolveClass(
+      name,
+      this.schema.node,
+      this.parser,
+    );
+    if (!declaration) return null;
+    return (
       this.schemas
-        .get(this.schema.node.range.source.internalPath)
-        .find((s) => s.name == name) || null;
-    if (local) return local;
-
-    const exact = this.schema.deps.filter(
-      (schema) => schema && schema.name == name,
+        .get(declaration.range.source.internalPath)
+        ?.find((schema) => schema.node === declaration) || null
     );
-    if (exact.length == 1) return exact[0];
-
-    // A short type spelling can refer to a namespaced dependency. Accept that
-    // fallback only when it identifies one schema; selecting the first suffix
-    // match could silently call an unrelated type's custom deserializer.
-    const qualified = this.schema.deps.filter(
-      (schema) => schema && schema.name.endsWith("." + name),
-    );
-    return qualified.length == 1 ? qualified[0] : null;
   }
+
   private explicitFieldInitializer(field: FieldDeclaration): string {
     if (!field.initializer) return "";
     const type = toString(field.type);

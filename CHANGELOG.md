@@ -28,6 +28,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Types, inheritance, and decorators
 
+- Classify generated schema fields by their resolved declaration before applying native container rules. Preserve object parsing and serialization for user classes named `Uint8Array` or `Array<T>`, including custom writers, while keeping native array fast paths unchanged.
 - Preserve native-reference aliases when expanding them would bind to a different declaration in the consumer, including native Date aliases alongside user-defined Date models.
 - Distinguish user schemas named `Date` from the native Date type in nested readers. Reset inferred backend selection for each programmatic compiler invocation, so SIMD and fallback builds can share one Node process.
 - Restrict standard-library exclusions to their actual library paths, so application files named `security.ts`, `memory.ts`, or under `util/` still receive generated codecs.
