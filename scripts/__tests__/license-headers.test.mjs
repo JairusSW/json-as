@@ -137,6 +137,11 @@ test("source audit, publish hook and dedicated CI gate stay in sync", () => {
   assert.equal(pkg.license, "MPL-2.0");
   assert.equal(lock.packages[""].license, "MPL-2.0");
   assert.equal(pkg.scripts.prepublishOnly, "npm run license:check");
+  assert(pkg.files.includes("NOTICE"));
+  assert(!pkg.files.includes("THIRD_PARTY_NOTICES.md"));
+  assert(
+    fs.readFileSync(path.join(root, "NOTICE"), "utf8").includes("Hypermode"),
+  );
   const workflow = fs.readFileSync(
     path.join(root, ".github/workflows/license.yml"),
     "utf8",

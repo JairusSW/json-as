@@ -1,0 +1,42 @@
+json-as is distributed under the licensing terms detailed in LICENSE.
+
+Authors and contributors:
+
+* Jairus Tanaka <me@jairus.dev>
+* DogWhich
+* Romdotdog
+* Derek Barrera
+* Frankk Taylor
+* lekiano
+* Florian Guitton
+* Matt Johnson-Pint
+* Tomáš Hromada
+* Loredana Cirstea
+* Accipiter Nisus
+* Deon Groenewald
+* Guillermo Diez
+* yoyo837
+
+Additional contributors are recorded in the version-control history.
+
+Portions of this software are derived from third-party works licensed under
+the following terms:
+
+* Hypermode AssemblyScript lint helpers
+
+    Copyright Hypermode Inc. <hello@hypermode.com>
+    Apache License, Version 2.0 (LICENSES/Apache-2.0.txt)
+    tools/assemblyscript-eslint.js and tools/assemblyscript-eslint-local.js
+
+* xjb-as formatter (bundled in the npm package)
+
+    Copyright (c) 2026 Jairus
+    MIT License (node_modules/xjb-as/LICENSE)
+
+    Includes material derived from xjb: https://github.com/xjb714/xjb
+    Copyright (c) 2026 xjb714 and contributors
+    Apache License, Version 2.0 (node_modules/xjb-as/LICENSE.Apache-2.0)
+    The upstream notice is retained in node_modules/xjb-as/NOTICE.
+
+Benchmark corpora and external comparison libraries retain their upstream
+terms. Project license notices do not relicense those inputs or libraries.

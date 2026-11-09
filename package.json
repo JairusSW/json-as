@@ -70,7 +70,7 @@
     "CHANGELOG.md",
     "LICENSE",
     "LICENSES/",
-    "THIRD_PARTY_NOTICES.md"
+    "NOTICE"
   ],
   "keywords": [
     "assemblyscript",

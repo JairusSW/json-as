@@ -824,7 +824,7 @@ A few companies and open-source projects use json-as!
 
 ## License
 
-json-as is licensed under the **Mozilla Public License 2.0 (SPDX: MPL-2.0)**. Third-party components retain their own licenses; see [Third-party notices](./THIRD_PARTY_NOTICES.md). Work on this project is done by passion, but if you want to support it financially, you can do so by making a donation to the project's [GitHub Sponsors](https://github.com/sponsors/JairusSW) page.
+json-as is licensed under the **Mozilla Public License 2.0 (SPDX: MPL-2.0)**. Third-party components retain their own licenses; see [Third-party notices](./NOTICE). Work on this project is done by passion, but if you want to support it financially, you can do so by making a donation to the project's [GitHub Sponsors](https://github.com/sponsors/JairusSW) page.
 
 You can view the full license using the following link: [License](./LICENSE)
 
