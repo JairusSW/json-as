@@ -10,6 +10,7 @@ import test from "node:test";
 import {
   overviewStyle,
   compactSidebar,
+  hardwareModel,
   CHART_FONT,
 } from "../lib/chart-style.mjs";
 
@@ -48,12 +49,12 @@ test("all plots retain their body data and callbacks under the overview style", 
     assert.equal(font.weight, "bold");
   }
 });
-test("sidebar uses recorded date, revision and engine without confusing native references", () => {
+test("sidebar uses the recorded hardware model instead of revision and architecture", () => {
   const record = {
     startedAt: "2026-11-09T12:00:00Z",
     source: { packageVersion: "2.0.0", commit: "abcdef012345", branch: "main" },
     tools: { v8: "V8 version 15.2.20" },
-    host: { arch: "arm64" },
+    host: { arch: "arm64", cpu: "Apple M4 Max" },
     settings: { language: "as", runtime: "v8", strict: "false", fastPath: "1" },
   };
   assert.equal(
@@ -61,35 +62,25 @@ test("sidebar uses recorded date, revision and engine without confusing native r
       record,
       { ...record, settings: { language: "native", runtime: "native" } },
     ]),
-    "2026-11-09 • v2.0.0 • v8 15.2.20 • abcdef0 • main • arm64",
+    "2026-11-09 • v2.0.0 • v8 15.2.20 • main • m4 max",
   );
   assert.equal(compactSidebar([]), "json-as");
   assert.equal(
     compactSidebar(
       [],
-      "2026-11-09 • v2.0.0 • arm64 • 6 runtimes · NAIVE • hash",
+      "2026-11-09 • v2.0.0 • arm64 • 6 runtimes · NAIVE • hash • main • Apple M4 Max",
     ),
-    "2026-11-09 • v2.0.0 • 6 runtimes • hash • arm64",
+    "2026-11-09 • v2.0.0 • 6 runtimes • main • m4 max",
   );
 });
 
-test("architecture aliases use lowercase arm64 and amd64 labels", () => {
-  const record = {
-    source: { packageVersion: "2.0.0", commit: "abcdef0" },
-    settings: { language: "as", runtime: "v8" },
-  };
-  for (const arch of ["x64", "x86_64", "amd64", "AMD64"]) {
-    assert.match(
-      compactSidebar([{ ...record, host: { arch } }]),
-      /v8.* • amd64$/,
-    );
-  }
-  for (const arch of ["arm64", "aarch64", "ARM64"]) {
-    assert.match(
-      compactSidebar([{ ...record, host: { arch } }]),
-      /v8.* • arm64$/,
-    );
-  }
+test("models come from captured host metadata, with an honest missing-model fallback", () => {
+  assert.equal(hardwareModel({ cpu: "Apple M4 Max", arch: "arm64" }), "m4 max");
+  assert.equal(
+    hardwareModel({ cpu: "AMD Ryzen 9 9950X 16-Core Processor" }),
+    "amd ryzen 9 9950x",
+  );
+  assert.equal(hardwareModel({ arch: "arm64" }), "unknown model");
 });
 
 test("visible engine labels consistently use lowercase v8", () => {

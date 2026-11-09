@@ -64,7 +64,7 @@ type ChartProvenance = {
     branch?: string;
   };
   tools?: { v8?: string; node?: string; runtime?: string };
-  host?: { arch?: string };
+  host?: { arch?: string; cpu?: string; model?: string };
   settings?: Record<string, unknown>;
 };
 const measuredProvenance: (ChartProvenance | null)[] = [];
@@ -440,6 +440,7 @@ export function generateChart(
               branch: record.source.branch,
             },
             architecture: record.host?.arch,
+            hardwareModel: record.host?.cpu || record.host?.model,
             engines: {
               v8: record.tools?.v8,
               node: record.tools?.node,

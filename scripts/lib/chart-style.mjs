@@ -84,13 +84,16 @@ export function overviewStyle(config, sidebar) {
 }
 
 // Keep full provenance in the accompanying metadata, not on the chart canvas.
-function architectureLabel(value) {
-  const name = value?.toLowerCase();
-  return name === "x64" || name === "x86_64"
-    ? "amd64"
-    : name === "aarch64"
-      ? "arm64"
-      : name;
+export function hardwareModel(host) {
+  const model = host?.cpu || host?.model;
+  if (!model) return "unknown model";
+  return model
+    .replace(/\(R\)|\(TM\)|[®™]/gi, "")
+    .replace(/^Apple\s+/i, "")
+    .replace(/\s+\d+-Core Processor$/i, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 export function compactSidebar(records, fallback = "json-as") {
@@ -99,23 +102,14 @@ export function compactSidebar(records, fallback = "json-as") {
     const parts = String(fallback)
       .split(/[\n•]/)
       .map((part) => part.trim());
-    const architecture = parts.find((part) =>
-      /^(?:arm64|amd64|x64|x86_64|aarch64)$/i.test(part),
-    );
+    const model = parts[6] ? hardwareModel({ cpu: parts[6] }) : "unknown model";
     const version = parts.find((part) => /^v\d/.test(part));
     const runtimes = parts
       .find((part) => /^\d+ runtimes/.test(part))
       ?.split(" · ")[0]
       .replace(/^1 runtimes$/, "1 runtime");
-    return architecture || version
-      ? [
-          parts[0].slice(0, 10),
-          version,
-          runtimes,
-          parts[4],
-          parts[5],
-          architectureLabel(architecture),
-        ]
+    return version
+      ? [parts[0].slice(0, 10), version, runtimes, parts[5], model]
           .filter(Boolean)
           .join(" • ")
       : "json-as";
@@ -131,9 +125,8 @@ export function compactSidebar(records, fallback = "json-as") {
         ? dates[0].slice(5) + "–" + dates.at(-1).slice(5)
         : null;
   const versions = unique((r) => r.source?.packageVersion);
-  const commits = unique((r) => r.source?.commit);
   const branches = unique((r) => r.source?.branch);
-  const architectures = unique((r) => architectureLabel(r.host?.arch));
+  const models = unique((r) => hardwareModel(r.host));
   const asRecords = measured.filter((r) => r.settings?.language === "as");
   const primary = asRecords.length
     ? asRecords
@@ -162,13 +155,12 @@ export function compactSidebar(records, fallback = "json-as") {
       : engines.length
         ? "mixed engines"
         : "Native",
-    commits.length === 1 ? commits[0].slice(0, 7) : "mixed revs",
     branches.length === 1
       ? branches[0]
       : branches.length
         ? "mixed branches"
         : null,
-    architectures.length === 1 ? architectures[0] : "mixed hosts",
+    models.length === 1 ? models[0] : "mixed models",
   ]
     .filter(Boolean)
     .join(" • ");

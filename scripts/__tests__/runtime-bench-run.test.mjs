@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath, URL } from "node:url";
 import { test } from "node:test";
 import ts from "typescript";
+import { hardwareModel } from "../lib/chart-style.mjs";
 import {
   readRuntimeRun,
   runtimeRunSubtitle,
@@ -369,7 +370,7 @@ export class ChartJSNodeCanvas {
       assert.deepEqual(config.data.datasets[0].data, [123, 123, 123]);
       assert.equal(
         config.options.plugins.subtitle.text,
-        `${selected.manifest.startedAt.slice(0, 10)} • v1.6.2 • 1 runtime • ${selected.manifest.source.commit.slice(0, 7)} • ${selected.manifest.source.branch}${selected.manifest.source.dirty ? " (dirty)" : ""} • ${selected.manifest.host.arch === "x64" ? "amd64" : selected.manifest.host.arch.toLowerCase()}`,
+        `${selected.manifest.startedAt.slice(0, 10)} • v1.6.2 • 1 runtime • ${selected.manifest.source.branch}${selected.manifest.source.dirty ? " (dirty)" : ""} • ${hardwareModel(selected.manifest.host)}`,
       );
       assert.equal(config.options.plugins.subtitle.position, "right");
     }
