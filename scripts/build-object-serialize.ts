@@ -107,7 +107,7 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "Complex-object serialization · repeated 1,049 B records",
+        text: "Growing-object serialization · 1 KiB rows, one JSON document",
         font: { size: 20, weight: "bold" },
       },
       legend: {
@@ -137,7 +137,7 @@ const config: ChartConfiguration<"line"> = {
         max: maxX + 7,
         title: {
           display: true,
-          text: "Aggregate bytes serialized per iteration (KiB)",
+          text: "Single JSON document size (KiB)",
           font: { size: 16, weight: "bold" },
         },
         type: "linear",

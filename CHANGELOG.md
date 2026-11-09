@@ -153,7 +153,7 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Benchmarks, testing, and release tooling
 
-- Use log axes for wide or mixed throughput ranges, keep built-in JSON first and SIMD/native references last, and separate the legacy object harness's 55-byte and 1,049-byte record workloads instead of drawing a misleading continuous curve.
+- Use log axes for wide or mixed throughput ranges, keep built-in JSON first and SIMD/native references last, and use one growing JSON object with the same 1,024-byte row fixture across both object chart ranges, replacing the legacy switch between repeated 55-byte and 1,049-byte records.
 
 - Keep compiler warnings enabled instead of globally suppressing them with an empty warning list. Fix pointer-width conversions in ownership metadata, Raw reuse, native-array appends, generated allocator code, and benchmark helpers; initialize generic cursor slots explicitly and type null test inputs. Ignore only intentional recursive/virtual-inlining and type-export diagnostics (AS217/AS228/AS235), including WASI builds, and external as-test definite-assignment hints (AS906) in test builds. Add a compiler-warning regression gate.
 - Add owned-output simdjson/native comparisons, retained-output checks, changing-input workloads, classic corpus screens, and independent backend checks. Keep native-parity results separate from classic charts and distinguish validation, fresh/reused parsing, lazy access, materialized serialization, and untouched dynamic forwarding.

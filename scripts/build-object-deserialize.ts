@@ -44,7 +44,7 @@ type SeriesSpec = {
 };
 
 const series: SeriesSpec[] = [
-  { key: "js", label: "JS", language: "js", engine: "" },
+  { key: "js", label: "Built-in JSON (JS)", language: "js", engine: "" },
   { key: "naive", label: "NAIVE", language: "as", engine: "naive" },
   { key: "swar", label: "SWAR", language: "as", engine: "swar" },
   { key: "simd", label: "SIMD", language: "as", engine: "simd" },
@@ -132,7 +132,7 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "Complex-object deserialization · repeated 1,049 B records",
+        text: "Growing-object deserialization · 1 KiB rows, one JSON document",
         font: { size: 20, weight: "bold" },
       },
       legend: {
@@ -162,7 +162,7 @@ const config: ChartConfiguration<"line"> = {
         max: maxX + 7,
         title: {
           display: true,
-          text: "Aggregate bytes parsed per iteration (KiB)",
+          text: "Single JSON document size (KiB)",
           font: { size: 16, weight: "bold" },
         },
         type: "linear",

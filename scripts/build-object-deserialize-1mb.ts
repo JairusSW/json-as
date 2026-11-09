@@ -1,5 +1,4 @@
 import { withAdaptiveLogScale } from "./lib/chart-outliers";
-import { splitRepeatedObjectWorkloads } from "./lib/object-workloads";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import type { ChartConfiguration } from "chart.js";
 import {
@@ -77,7 +76,7 @@ for (const mode of modes) {
       (p) => chartData[`${p}-${engine}-${mode}`][0],
     );
     datasets.push({
-      label: `${engine.toUpperCase()}`,
+      label: engine === "js" ? "Built-in JSON (JS)" : engine.toUpperCase(),
       data,
       borderColor: `rgba(${colors[engine + "-" + mode] || colors[engine]},0.9)`,
       backgroundColor: `rgba(${colors[engine + "-" + mode] || colors[engine]},0.3)`,
@@ -127,7 +126,7 @@ const config: ChartConfiguration<"line"> = {
     plugins: {
       title: {
         display: true,
-        text: "Object deserialization · distinct repeated-record workloads",
+        text: "Growing-object deserialization · same schema, one JSON document",
         font: { size: 20, weight: "bold" },
       },
       legend: {
@@ -154,7 +153,7 @@ const config: ChartConfiguration<"line"> = {
         max: Math.ceil(maxX / 100) * 100,
         title: {
           display: true,
-          text: "Aggregate bytes parsed per iteration (KiB)",
+          text: "Single JSON document size (KiB)",
           font: { size: 16, weight: "bold" },
         },
         type: "linear",
@@ -184,7 +183,6 @@ const config: ChartConfiguration<"line"> = {
 
 // SVG (vector, fast-loading) + PNG (3x density) so the README can
 // reference the SVG while the PNG stays available for other uses.
-config.data.datasets = splitRepeatedObjectWorkloads(config.data.datasets);
 const presentation = withAdaptiveLogScale(config, true);
 const dims = { width: 1400, height: 800 };
 generateChart(presentation, "./build/charts/object-deserialize-1mb.svg", dims);
