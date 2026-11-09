@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 // Direct decimal-to-f64 conversion from a `(u64 mantissa, i32 decimal exp)`
 // pair. Small exact values use Clinger's fast path; the rest use a wide
 // Eisel-Lemire product so inputs above 2^53 and wide exponents remain correctly

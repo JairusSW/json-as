@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 // Fast, correctly-rounded conversion of `mantissa * 10^power` for the common
 // decimal-exponent range [-22, 22]. This is the Eisel-Lemire conversion used by
 // simdjson's number parser, specialized to the range where json-as previously

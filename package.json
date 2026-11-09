@@ -43,7 +43,7 @@
     "lekiano",
     "Florian Guitton",
     "Matt Johnson-Pint",
-    "Tom\u00e1\u0161 Hromada",
+    "Tomáš Hromada",
     "Loredana Cirstea",
     "Accipiter Nisus",
     "Deon Groenewald",
@@ -68,7 +68,9 @@
     "index.ts",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "LICENSES/",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "keywords": [
     "assemblyscript",
@@ -85,7 +87,7 @@
     "fast",
     "algorithm"
   ],
-  "license": "MIT",
+  "license": "MPL-2.0",
   "publishConfig": {
     "@JairusSW:registry": "https://npm.pkg.github.com"
   },
@@ -120,7 +122,7 @@
     "build:test:wine": "JSON_AS_LIBRARY_SOURCE=assembly/index JSON_DEBUG=1 JSON_WRITE=assembly/test.ts NODE_SKIP_PLATFORM_CHECK=1 wineconsole --backend=curses ~/.win-bin/node/node.exe ./node_modules/assemblyscript/bin/asc.js assembly/test.ts --transform ./transform -o ./build/test.wasm --textFile ./build/test.wat --debug --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
     "test:wasmtime": "wasmtime ./build/test.wasm",
     "test:wasmer": "wasmer ./build/test.wasm",
-    "build:transform": "tsc -p ./transform",
+    "build:transform": "tsc -p ./transform && node ./scripts/license-headers.mjs --generated",
     "build:playground": "npm run build:transform && JSON_AS_LIBRARY_SOURCE=assembly/index JSON_DEBUG=0 JSON_WRITE=assembly/playground.ts asc assembly/playground.ts --transform ./transform -o ./build/playground.wasm --textFile ./build/playground.wat --enable simd --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
     "build:playground:nosimd": "npm run build:transform && JSON_AS_LIBRARY_SOURCE=assembly/index JSON_DEBUG=0 JSON_WRITE=assembly/playground.ts asc assembly/playground.ts --transform ./transform -o ./build/playground.wasm --textFile ./build/playground.wat --disable simd --config ./node_modules/@assemblyscript/wasi-shim/asconfig.json",
     "build:pg": "npm run build:playground",
@@ -147,7 +149,9 @@
     "check": "npm run typecheck && npm run lint",
     "prepare": "husky",
     "bench:comparisons": "node ./scripts/run-comparison-benches.mjs",
-    "test:package:pnpm": "npm run build:transform && npm exec --yes --package=pnpm@11.15.1 -- node transform/__tests__/pnpm-consumer.test.mjs"
+    "test:package:pnpm": "npm run build:transform && npm exec --yes --package=pnpm@11.15.1 -- node transform/__tests__/pnpm-consumer.test.mjs",
+    "license:check": "node ./scripts/license-headers.mjs --check",
+    "prepublishOnly": "npm run license:check"
   },
   "type": "module",
   "types": "assembly/index.ts",

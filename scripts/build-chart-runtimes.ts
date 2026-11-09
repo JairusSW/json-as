@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 // Cross-runtime throughput chart for the classic payloads. Compares how fast the
 // SAME json-as NAIVE-mode bench deserializes the minified payloads under six
 // WebAssembly runtimes (Wago / wasmtime / wavm / wazero / v8 / bun). Every bar is

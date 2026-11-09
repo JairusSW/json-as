@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 import fs from'node:fs';import os from'node:os';import path from'node:path';import{execFileSync}from'node:child_process';import assert from'node:assert/strict';import {pathToFileURL}from'node:url';
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'json-as-map-key-'));
 try{

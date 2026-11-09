@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 // Back-compat shim. The canonical fast SWAR atoi/atou implementations live
 // in `deserialize/swar/integer.ts`, using the full tiered stride hierarchy
 // (parse16 -> parse8 -> parse4 -> scalar). These thin wrappers preserve the

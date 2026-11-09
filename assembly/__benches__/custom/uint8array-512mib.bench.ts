@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 // Round-trip throughput at ~512 MiB of JSON (UTF-8 byte size).
 //
 // AS's incremental GC caps single allocations at BLOCK_MAXSIZE = (1 << 30)

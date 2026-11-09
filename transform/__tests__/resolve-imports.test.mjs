@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 // End-to-end resolution test: for every dev environment / package-manager
 // layout, build a real on-disk tree, compute the specifiers the transform
 // would emit (baseRel + each injected subpath), and assert each one resolves

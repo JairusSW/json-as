@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 import { ArrayLiteralExpression, AssertionExpression, BinaryExpression, CallExpression, ElementAccessExpression, FloatLiteralExpression, FunctionTypeNode, IdentifierExpression, NamedTypeNode, Node, ObjectLiteralExpression, Source, TypeParameterNode, BlockStatement, BreakStatement, ClassDeclaration, ClassExpression, CommaExpression, ContinueStatement, DecoratorNode, DoStatement, EmptyStatement, EnumDeclaration, EnumValueDeclaration, ExportDefaultStatement, ExportImportStatement, ExportMember, ExportStatement, ExpressionStatement, FieldDeclaration, ForStatement, FunctionDeclaration, FunctionExpression, IfStatement, ImportDeclaration, ImportStatement, IndexSignatureNode, InstanceOfExpression, IntegerLiteralExpression, InterfaceDeclaration, LiteralExpression, MethodDeclaration, NamespaceDeclaration, NewExpression, ParameterNode, ParenthesizedExpression, PropertyAccessExpression, RegexpLiteralExpression, ReturnStatement, StringLiteralExpression, SwitchCase, SwitchStatement, TemplateLiteralExpression, TernaryExpression, ThrowStatement, TryStatement, TypeDeclaration, TypeName, UnaryPostfixExpression, UnaryPrefixExpression, VariableDeclaration, VariableStatement, WhileStatement, TypeNode, UnaryExpression, SuperExpression, FalseExpression, TrueExpression, ThisExpression, NullExpression, ConstructorExpression, Statement, VoidStatement, CompiledExpression, CommentNode, OmittedExpression, ForOfStatement, ModuleDeclaration } from "assemblyscript/dist/assemblyscript.js";
 export declare class Visitor {
     currentSource: Source | null;

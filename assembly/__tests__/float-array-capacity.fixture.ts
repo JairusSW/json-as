@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 import { JSON } from "../index";
 const counts: i32[] = [0, 1, 2, 3, 4, 7, 8, 9, 15, 16, 17, 64, 129];
 function check<T extends number>(values: T[], n: i32): void {

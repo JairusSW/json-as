@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 // Head-to-head: AS std `itoa_buffered` vs a jeaiii-style forward-writing
 // `u32_to_utf16`. The jeaiii algorithm (James Edward Anhalt III's
 // integer-to-string) collapses `decimalCount` + backward-write into a

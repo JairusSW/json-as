@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 // Head-to-head: the (blockA << 8) | blockB merge trick.
 //
 // User's question: instead of the 22-op SWAR packing of 2× UTF-16 u64 → 1×

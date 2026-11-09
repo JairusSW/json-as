@@ -6,6 +6,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Upgrading from 1.x
 
+- License project code under MPL-2.0, with SPDX notices in source and generated transform files. Preserve third-party licenses and attribution.
+
 - Reused parse destinations restore omitted fields to their declared defaults. Present members can still reuse their existing buffers; do not rely on a previous document's omitted values being retained.
 - Undecorated built-in subclasses use native JSON storage operations consistently. Overrides of Array indexing/push, Map/Set enumeration and mutation, or Date setters do not redefine their built-in JSON representation. Use custom codecs when a subtype needs a different wire format.
 - Dynamic composite assignment preserves sharing consistently, including previously deferred values. Nullable dynamic-array elements remain actual null references.

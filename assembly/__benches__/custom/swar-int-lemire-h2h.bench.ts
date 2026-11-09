@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 // SWAR head-to-head: my PairMul kernel vs a Lemire-style mul-then-mask.
 //
 // Insight from Lemire's 8-byte ASCII algorithm: apply `val * 10 + (val >> 8)`

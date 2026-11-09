@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 /** Return the first non-ASCII-digit cursor within a UTF-16 input range.
  * Full 16-bit lanes matter: a non-ASCII code unit with a digit's low byte is
  * still a delimiter. All lanes preceding the first failure are in [0,9], so

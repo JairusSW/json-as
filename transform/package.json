@@ -1,4 +1,5 @@
 {
   "main": "./lib/index.js",
-  "type": "module"
+  "type": "module",
+  "license": "MPL-2.0"
 }

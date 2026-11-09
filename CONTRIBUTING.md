@@ -241,4 +241,6 @@ If your change affects performance:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the Mozilla Public License 2.0 (SPDX: MPL-2.0).
+
+Add the project license notice to new source files and run `npm run license:check`. Preserve upstream notices when incorporating third-party code; list those components in `THIRD_PARTY_NOTICES.md`.

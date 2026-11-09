@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 import {JSON} from "../index";
 @json class Item { n:i32=0; label:string=''; values:i64[]=[]; }
 @json class Owner { names:(string|null)[]|null=null; items:Item[]|null=null; tail:i32=0; }

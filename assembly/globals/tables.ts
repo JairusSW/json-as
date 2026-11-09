@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 export const SERIALIZE_ESCAPE_TABLE = memory.data<u16>([
   48,  48,  48,  49,  48,  50,  48,  51,   // Pair 0-3
   48,  52,  48,  53,  48,  54,  48,  55,   // Pair 4-7

@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 import { ArrayLiteralExpression, AssertionExpression, BinaryExpression, BlockStatement, BreakStatement, CallExpression, ClassDeclaration, ClassExpression, CommaExpression, ContinueStatement, DeclarationStatement, DecoratorNode, DoStatement, ElementAccessExpression, EmptyStatement, EnumDeclaration, EnumValueDeclaration, ExportDefaultStatement, ExportImportStatement, ExportMember, ExportStatement, Expression, ExpressionStatement, FalseExpression, FieldDeclaration, FloatLiteralExpression, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionTypeNode, IdentifierExpression, IfStatement, ImportDeclaration, ImportStatement, IndexSignatureNode, InstanceOfExpression, IntegerLiteralExpression, InterfaceDeclaration, LiteralExpression, MethodDeclaration, NamedTypeNode, NamespaceDeclaration, NewExpression, Node, NullExpression, ObjectLiteralExpression, ParameterNode, ParenthesizedExpression, PropertyAccessExpression, RegexpLiteralExpression, ReturnStatement, Source, StringLiteralExpression, SwitchCase, SwitchStatement, TemplateLiteralExpression, TernaryExpression, ThrowStatement, TrueExpression, TryStatement, TypeDeclaration, TypeName, TypeNode, TypeParameterNode, UnaryExpression, UnaryPostfixExpression, UnaryPrefixExpression, VariableDeclaration, VariableStatement, WhileStatement } from "assemblyscript/dist/assemblyscript.js";
 import { ThisExpression } from "types:assemblyscript/src/ast";
 import { Visitor } from "./visitor.js";

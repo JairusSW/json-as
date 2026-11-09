@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 // Focused tuning bench for the scan path. Compares several variants within
 // a single process for stable noise. Tests sweep widths 4, 8, 10, 16, 19,
 // 20, 32 across u32/u64 unsigned and i32/i64 signed.

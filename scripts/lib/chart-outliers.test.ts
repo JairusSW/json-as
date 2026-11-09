@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jairus Tanaka
+
 import { describe, expect, test } from "bun:test";
 import type { ChartConfiguration } from "chart.js";
 import { detectExtremeUpperTail, withAdaptiveLogScale } from "./chart-outliers";
