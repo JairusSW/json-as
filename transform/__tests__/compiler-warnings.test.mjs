@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { stripVTControlCharacters } from "node:util";
 const root = path.resolve(import.meta.dirname, "../..");
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-warnings-"));
 const allowed = [217, 228, 235];
@@ -45,7 +46,7 @@ function compile(entry, output, extra = [], env = {}) {
     { cwd: root, env: { ...process.env, ...env }, encoding: "utf8" },
   );
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  return result.stderr + result.stdout;
+  return stripVTControlCharacters(result.stderr + result.stdout);
 }
 function decode(g, p) {
   return Buffer.from(
@@ -62,7 +63,7 @@ try {
     "export function narrow(value:usize):i32 { return value; }",
   );
   assert.match(
-    compile(probe, path.join(dir, "probe.wasm")),
+    compile(probe, path.join(dir, "probe.wasm"), [], { CI: "true" }),
     /WARNING AS201:/,
     "AS201 must remain enabled",
   );

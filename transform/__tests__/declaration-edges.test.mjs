@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { stripVTControlCharacters } from "node:util";
 const root = path.resolve(import.meta.dirname, "../..");
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-declarations-"));
 const failures = [];
@@ -65,7 +66,7 @@ try {
             );
             assert.equal(result.status, 0, result.stderr || result.stdout);
             assert.doesNotMatch(
-              result.stderr + result.stdout,
+              stripVTControlCharacters(result.stderr + result.stdout),
               /(?:WARNING|PEDANTIC) AS\d+:/,
               label + "/diagnostics",
             );
@@ -131,7 +132,7 @@ try {
         );
         assert.ifError(result.error && Error(result.stderr.toString()));
         assert.doesNotMatch(
-          result.stderr.toString(),
+          stripVTControlCharacters(result.stderr.toString()),
           /(?:WARNING|PEDANTIC) AS\d+:/,
           mode + "/configuration diagnostics",
         );

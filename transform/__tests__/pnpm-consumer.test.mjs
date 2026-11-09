@@ -41,7 +41,11 @@ export function verify():string {
  assert(J.parse<Row>('${model ? '{"n":11,"lazy":4,"values":[1,2],"map":{"x":3},"token":8}' : '{"n":11}'}',out).n==11);
  ${model ? 'assert(out.lazy==4&&out.values.length==2&&out.map.get("x")==3&&out.token.value==8);' : ""}
  assert(fromRaw(toRaw('{"x":1}'))=='{"x":1}');assert(toBox<i32>(7).value==7);assert(JSONMode.SWAR==0);
- assert(J.stringify(out).includes('"n":11')); return J.stringify(out.n);
+ assert(J.stringify(out).includes('"n":11'));
+ assert(J.stringify<f32>(1.25)=="1.25");
+ assert(J.stringify<f64[]>([1.5,2.5])=="[1.5,2.5]");
+ const floats=new Map<string,f64>();floats.set("f",1.5);assert(J.stringify(floats)=='{"f":1.5}');
+ return J.stringify(out.n);
 }`;
 }
 function execute(wasm) {
@@ -60,7 +64,7 @@ function execute(wasm) {
     },
   }).exports;
   assert.equal(decode(g.verify()), "11");
-  operations += 7;
+  operations += 10;
 }
 function compile(cwd, app, name, entry, mode, strict) {
   const compiler = path.join(app, "node_modules/assemblyscript/bin/asc.js");
