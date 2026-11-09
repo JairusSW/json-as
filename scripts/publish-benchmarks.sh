@@ -112,13 +112,13 @@ fi
 test -d ./build/charts
 compgen -G "./build/charts/*" > /dev/null
 if [[ "$RUNTIMES_ONLY" == "1" ]]; then
-  cp ./build/charts/runtimes-{deserialize,serialize}.{svg,png} ./build/charts/runtimes-results.json "$TMP_CHARTS_DIR/"
+  cp ./build/charts/runtimes-{deserialize,serialize}.{svg,png} ./build/charts/runtimes-{deserialize,serialize}.metadata.json ./build/charts/runtimes-results.json "$TMP_CHARTS_DIR/"
 else
   cp -R ./build/charts/. "$TMP_CHARTS_DIR/"
   # Runtime results have their own provenance-pinned publication path. Never
   # let an unrelated regular chart refresh replace them with whatever local
   # run happened to be selected when build-charts.sh ran.
-  rm -f "$TMP_CHARTS_DIR"/runtimes-{deserialize,serialize}.{svg,png} "$TMP_CHARTS_DIR/runtimes-results.json"
+  rm -f "$TMP_CHARTS_DIR"/runtimes-{deserialize,serialize}.{svg,png} "$TMP_CHARTS_DIR"/runtimes-{deserialize,serialize}.metadata.json "$TMP_CHARTS_DIR/runtimes-results.json"
 fi
 
 echo "Preparing ${DOCS_BRANCH} worktree..."
@@ -148,7 +148,7 @@ if [[ "$RUNTIMES_ONLY" != "1" ]]; then
   # Preserve the release's already-published runtime artifacts while replacing
   # the rest of its chart set. `--runtimes` is the only mode allowed to update
   # these files.
-  for file in runtimes-{deserialize,serialize}.{svg,png} runtimes-results.json; do
+  for file in runtimes-{deserialize,serialize}.{svg,png} runtimes-{deserialize,serialize}.metadata.json runtimes-results.json; do
     if [[ -f "$TMP_DOCS_DIR/charts/${DEST}/$file" ]]; then
       cp "$TMP_DOCS_DIR/charts/${DEST}/$file" "$TMP_PINNED_RUNTIME_DIR/"
     fi

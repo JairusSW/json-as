@@ -229,6 +229,7 @@ const { manifest, results } = readRuntimeRun(process.cwd(), process.env.JSON_RUN
 fs.mkdirSync('build/charts', { recursive: true });
 for (const kind of ['deserialize', 'serialize']) {
   for (const ext of ['svg', 'png']) fs.writeFileSync('build/charts/runtimes-' + kind + '.' + ext, runtimeRunSubtitle(manifest));
+  fs.writeFileSync('build/charts/runtimes-' + kind + '.metadata.json', JSON.stringify({caption:runtimeRunSubtitle(manifest)}));
 }
 fs.writeFileSync('build/charts/runtimes-results.json', JSON.stringify({ manifest, results }));
 JS`,
@@ -269,6 +270,13 @@ JS`,
       path.join(publishedDir, "charts/v1.6.2/runtimes-results.json"),
     ),
   );
+  const publishedMetadata = JSON.parse(
+    fs.readFileSync(
+      path.join(publishedDir, "charts/v1.6.2/runtimes-serialize.metadata.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(publishedMetadata.caption, originalSubtitle);
   assert.ok(!fs.existsSync(path.join(publishedDir, "charts/v9.9.9")));
 });
 
