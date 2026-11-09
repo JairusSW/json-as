@@ -575,8 +575,7 @@ does not switch at 1 MiB. Each object and string chart has ten samples from
 about 100 KiB to 8 MiB. The x-axis is actual UTF-8 document size, not aggregate
 bytes from repeated independent calls. Deserialization charts use linear axes.
 Serialization charts use an explicitly labeled logarithmic axis for wide throughput
-ranges. Built-in JSON appears first and SIMD/native references
-appear last. Charts share overview typography and a one-line sidebar; detailed run provenance is retained in companion `.metadata.json` files.
+ranges. Series follow JS, NAIVE, SWAR, SIMD, Obj, Lazy, and simdjson where present. Charts share overview typography and a one-line sidebar; detailed run provenance is retained in companion `.metadata.json` files.
 
 <details>
 <summary>Object serialization chart (click to expand)</summary>

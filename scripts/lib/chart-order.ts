@@ -13,8 +13,13 @@ export function orderBenchmarkSeries(
 ): ChartConfiguration {
   const rank = (label: string): number => {
     if (/^(built-in json|native json|js(?:$|\s|·))/i.test(label)) return -1;
-    if (/simdjson/i.test(label)) return 2;
-    if (/^(?:json-as\s*\(?simd\)?|simd)(?:$|\s|·)/i.test(label)) return 1;
+    if (/simdjson/i.test(label)) return 5;
+    // Representation takes precedence over a backend suffix, e.g. Obj (SIMD).
+    if (/\b(?:JSON\.Obj|Obj)\b/i.test(label)) return 3;
+    if (/\blazy\b/i.test(label)) return 4;
+    if (/\bNAIVE\b/i.test(label)) return 0;
+    if (/\bSWAR\b/i.test(label)) return 1;
+    if (/\bSIMD\b/i.test(label)) return 2;
     return 0;
   };
   return {

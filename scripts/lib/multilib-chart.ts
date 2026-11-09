@@ -60,12 +60,12 @@ export function buildMultilibChart(kind: BenchKind, outfile: string): void {
   entries.push(["json-as struct", avgModes("multilib-json-as-struct")]);
   if (kind === "deserialize") {
     entries.push([
-      "json-as struct lazy (deferred)",
-      avgModes("multilib-json-as-struct-lazy"),
-    ]);
-    entries.push([
       "json-as JSON.Obj (deferred)",
       avgModes("multilib-json-obj"),
+    ]);
+    entries.push([
+      "json-as struct lazy (deferred)",
+      avgModes("multilib-json-as-struct-lazy"),
     ]);
   }
   entries.push([
