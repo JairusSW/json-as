@@ -110,7 +110,7 @@ const OWNER_BUCKET_BITS: i32 = 8;
 const OWNER_BUCKET_COUNT: i32 = 1 << OWNER_BUCKET_BITS;
 const OWNER_INLINE_LIMIT: i32 = OWNER_BUCKET_COUNT / 2;
 const OWNER_SLOT_BYTES: usize = 3 * sizeof<usize>();
-const SMALL_OWNERS: usize = memory.data(OWNER_BUCKET_COUNT * OWNER_SLOT_BYTES);
+const SMALL_OWNERS: usize = memory.data(<i32>(<usize>OWNER_BUCKET_COUNT * OWNER_SLOT_BYTES));
 let SMALL_OWNER_COUNT: i32 = 0;
 // Zero denotes an unused bucket, including before any public parse scope.
 let OWNER_GENERATION: u32 = 1;
@@ -120,7 +120,7 @@ function resetBufferOwners(): void {
   SMALL_OWNER_COUNT = 0;
   // Invalidate all buckets in O(1); clear tags only when the epoch wraps.
   if (++OWNER_GENERATION == 0) {
-    memory.fill(SMALL_OWNERS, 0, OWNER_BUCKET_COUNT * OWNER_SLOT_BYTES);
+    memory.fill(SMALL_OWNERS, 0, <usize>OWNER_BUCKET_COUNT * OWNER_SLOT_BYTES);
     OWNER_GENERATION = 1;
   }
   if (!STRING_BUFFER_OWNERS) return;

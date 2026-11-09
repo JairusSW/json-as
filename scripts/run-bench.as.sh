@@ -303,7 +303,9 @@ build_v8_mode() {
 
   # asc codegen flags. --converge re-runs asc's own optimizer until it reaches a
   # fixpoint (no further improvements), squeezing out the last bit of perf.
-  local asc_flags=(-O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime)
+  # Recursive/virtual-dispatch inlining hints and type-only exports are intentional.
+  # AS201 and every other diagnostic remain enabled.
+  local asc_flags=(--disableWarning 217 --disableWarning 228 --disableWarning 235 -O3 --noAssert --uncheckedBehavior always --runtime "$runtime" --enable bulk-memory --exportStart start --exportRuntime)
 
   # wasm-opt max-performance set:
   #   -O4          flatten + the full -O3 pass pipeline
@@ -340,7 +342,7 @@ build_wasi_mode() {
   local runtime="$4"
   local mode="$5"
   local out_wasm="$6"
-  local features=(--enable bulk-memory --enable sign-extension)
+  local features=(--disableWarning 217 --disableWarning 228 --disableWarning 235 --enable bulk-memory --enable sign-extension)
   if [[ "$mode" == "SIMD" ]]; then
     features+=(--enable simd)
   fi

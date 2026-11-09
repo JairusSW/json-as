@@ -24,14 +24,14 @@ const LARGE_ESCAPED_BASE = "ab\\\\ncd\\\\tEFG\\\\u0041HIJ\\\\u263A\\\\\\\\KLM";
 
 function makePlainJsonString(targetBytes: usize): string {
   const targetLen = targetBytes >> 1;
-  const repeats = targetLen / LARGE_PLAIN_BASE.length;
+  const repeats = <i32>(targetLen / <usize>LARGE_PLAIN_BASE.length);
   const payload = LARGE_PLAIN_BASE.repeat(repeats);
   return `"${payload}"`;
 }
 
 function makeEscapedJsonString(targetBytes: usize): string {
   const targetLen = targetBytes >> 1;
-  const repeats = targetLen / LARGE_ESCAPED_BASE.length;
+  const repeats = <i32>(targetLen / <usize>LARGE_ESCAPED_BASE.length);
   const payload = LARGE_ESCAPED_BASE.repeat(repeats);
   return `"${payload}"`;
 }

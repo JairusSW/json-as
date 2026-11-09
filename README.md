@@ -778,6 +778,16 @@ and bounded discard traversal as cursor parsing.
 
 ## Contributing
 
+Compiler diagnostics remain enabled. The project ignores only AS217 (recursive
+inlining cannot inline a function into itself), AS228 (forced inlining cannot
+apply to intentional virtual dispatch), and AS235 (AssemblyScript class/namespace
+exports are type exports, not Wasm exports). Test runners also
+ignore AS906 from unnecessary definite assignments in the external as-test fuzz
+helpers. AS201 pointer-width conversion warnings must be fixed with intentional, width-correct arithmetic or
+explicit casts; never add AS201 or an empty `disableWarning` list to the config.
+An empty list disables **all** compiler warnings. `npm run test:transform` checks
+this policy and compiles the warning regression across backends and runtimes.
+
 We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines on:
 
 - Setting up your development environment

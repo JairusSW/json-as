@@ -23,7 +23,7 @@ export function deserializeRaw<T extends JSON.Raw = JSON.Raw>(
     ) {
       invalidateStringFieldTrace(current, true);
       const object = changetype<OBJECT>(current - TOTAL_OVERHEAD);
-      if ((object.rtSize & STRING_SIZE_MASK) == size) {
+      if (<usize>(object.rtSize & STRING_SIZE_MASK) == size) {
         object.rtSize = <u32>size;
         data = out.data;
       } else data = changetype<string>(__renew(current, size));

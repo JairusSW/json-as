@@ -9,7 +9,7 @@ class MaybeData {
 }
 
 describe("Should serialize null", () => {
-  expect(JSON.stringify(null)).toBe("null");
+  expect(JSON.stringify<string | null>(null)).toBe("null");
 });
 
 describe("Should serialize nullable classes", () => {

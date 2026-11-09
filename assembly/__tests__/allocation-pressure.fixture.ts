@@ -20,7 +20,7 @@ let retained: Small | null = null;
 
 export function verify(after: bool, reserve: i32, view: bool): i32 {
   if (after) retained = JSON.parse<Small>('{"value":7}');
-  const bytes = (memory.size() << 16) - __heap_base - reserve;
+  const bytes = <i32>((<usize>memory.size() << 16) - __heap_base) - reserve;
   before = smallBatchReservedBytes();
   if (view) ballast = new Uint8Array(bytes);
   else buffer = new ArrayBuffer(bytes);

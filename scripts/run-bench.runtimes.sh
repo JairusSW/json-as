@@ -33,7 +33,8 @@ mkdir -p "$WASM_DIR"
 # Common NAIVE-mode feature set. Each timed run uses the same number of
 # frames, with untimed full GC between frames on every runtime.
 BENCH_FRAMES="${BENCH_FRAMES:-40}"
-COMMON_FLAGS=(-O3 --noAssert --uncheckedBehavior always --runtime incremental
+# Match asconfig's intentional inlining/type-export exceptions; AS201 stays on.
+COMMON_FLAGS=(--disableWarning 217 --disableWarning 228 --disableWarning 235 -O3 --noAssert --uncheckedBehavior always --runtime incremental
   --disable nontrapping-f2i --disable bulk-memory --use "BENCH_FRAMES=$BENCH_FRAMES")
 
 PAYLOADS=("twitter" "citm_catalog" "canada")

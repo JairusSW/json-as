@@ -20,7 +20,12 @@ import {
 } from "./cursor";
 
 export class CursorSlot<T> {
-  value!: T;
+  value: T;
+
+  constructor() {
+    if (isReference<T>() || isManaged<T>()) this.value = changetype<T>(0);
+    else this.value = <T>0;
+  }
 }
 
 // Type capabilities are immutable module metadata, not a validation cache for

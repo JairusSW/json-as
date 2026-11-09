@@ -92,7 +92,7 @@ export function specializeObjectAllocator(sources) {
       if (!ROOT) return 0;
       // Require a free-capacity class at least eight times the batch size.
       // This keeps speculative reservations out of tightly constrained heaps.
-      const pressureLevel = (32 - clz<usize>(size * 8 - 1)) - (SB_BITS - 1);
+      const pressureLevel = (<usize>32 - clz<usize>(size * 8 - 1)) - (SB_BITS - 1);
       if (!(ROOT.flMap & (~<usize>0 << pressureLevel))) return 0;
       const payload = prepareSize(size);
       const block = searchBlock(ROOT, payload);

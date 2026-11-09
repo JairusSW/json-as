@@ -70,7 +70,7 @@ const largeEscaped = makeEscapedPayload(1024 * 1024);
 // @ts-expect-error: @inline is a valid decorator
 @inline function copyRawUtf16(src: usize, bytes: usize): void {
   if (bytes == 0) return;
-  bs.growSize(bytes);
+  bs.growSize(<u32>bytes);
 
   let cur = src;
   let rem = bytes;

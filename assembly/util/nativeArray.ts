@@ -43,7 +43,7 @@ export function appendNativeArray<T extends unknown[]>(
   // Use base-layout fields even when the instance is a subclass. Its public
   // accessors and operators do not define the parser's native storage policy.
   const index = load<i32>(ptr, offsetof<Array<valueof<T>>>("length_"));
-  const shift = alignof<valueof<T>>();
+  const shift = <u32>alignof<valueof<T>>();
   const capacity =
     load<u32>(ptr, offsetof<ArrayBufferView>("byteLength")) >> shift;
   if (<u32>index < capacity) {
