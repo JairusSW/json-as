@@ -11,6 +11,17 @@ export const CHART_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif";
 export function overviewStyle(config, sidebar) {
   const options = (config.options ??= {});
   const plugins = (options.plugins ??= {});
+  const labelCase = (value) =>
+    Array.isArray(value)
+      ? value.map(labelCase)
+      : typeof value === "string"
+        ? value.replace(/\bV8\b/g, "v8")
+        : value;
+  if (config.data?.labels)
+    config.data.labels = config.data.labels.map(labelCase);
+  for (const dataset of config.data?.datasets ?? [])
+    dataset.label = labelCase(dataset.label);
+  if (plugins.title) plugins.title.text = labelCase(plugins.title.text);
   options.font = { ...options.font, family: CHART_FONT };
   plugins.title = {
     ...plugins.title,
@@ -73,6 +84,15 @@ export function overviewStyle(config, sidebar) {
 }
 
 // Keep full provenance in the accompanying metadata, not on the chart canvas.
+function architectureLabel(value) {
+  const name = value?.toLowerCase();
+  return name === "x64" || name === "x86_64"
+    ? "amd64"
+    : name === "aarch64"
+      ? "arm64"
+      : name;
+}
+
 export function compactSidebar(records, fallback = "json-as") {
   const measured = records.filter(Boolean);
   if (!measured.length) {
@@ -80,7 +100,7 @@ export function compactSidebar(records, fallback = "json-as") {
       .split(/[\n•]/)
       .map((part) => part.trim());
     const architecture = parts.find((part) =>
-      /^(?:arm64|x64|x86_64|aarch64)$/.test(part),
+      /^(?:arm64|amd64|x64|x86_64|aarch64)$/i.test(part),
     );
     const version = parts.find((part) => /^v\d/.test(part));
     const runtimes = parts
@@ -94,7 +114,7 @@ export function compactSidebar(records, fallback = "json-as") {
           runtimes,
           parts[4],
           parts[5],
-          architecture?.toUpperCase(),
+          architectureLabel(architecture),
         ]
           .filter(Boolean)
           .join(" • ")
@@ -113,7 +133,7 @@ export function compactSidebar(records, fallback = "json-as") {
   const versions = unique((r) => r.source?.packageVersion);
   const commits = unique((r) => r.source?.commit);
   const branches = unique((r) => r.source?.branch);
-  const architectures = unique((r) => r.host?.arch?.toUpperCase());
+  const architectures = unique((r) => architectureLabel(r.host?.arch));
   const asRecords = measured.filter((r) => r.settings?.language === "as");
   const primary = asRecords.length
     ? asRecords
@@ -121,12 +141,12 @@ export function compactSidebar(records, fallback = "json-as") {
   const engines = unique((r) => {
     const family =
       r.settings?.runtime === "v8"
-        ? "V8"
+        ? "v8"
         : r.settings?.runtime === "node"
           ? "Node"
           : r.settings?.runtime?.toUpperCase();
     const raw =
-      family === "V8"
+      family === "v8"
         ? r.tools?.v8
         : family === "Node"
           ? r.tools?.node

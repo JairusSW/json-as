@@ -30,7 +30,7 @@ test("all plots retain their body data and callbacks under the overview style", 
       },
     },
   };
-  const styled = overviewStyle(config, "ARM64 · V8 · v2.0.0");
+  const styled = overviewStyle(config, "arm64 · v8 · v2.0.0");
   assert.strictEqual(styled.data, data);
   assert.strictEqual(styled.options.scales.x.ticks.callback, format);
   assert.strictEqual(styled.options.plugins.datalabels.formatter, format);
@@ -61,7 +61,7 @@ test("sidebar uses recorded date, revision and engine without confusing native r
       record,
       { ...record, settings: { language: "native", runtime: "native" } },
     ]),
-    "2026-11-09 • v2.0.0 • V8 15.2.20 • abcdef0 • main • ARM64",
+    "2026-11-09 • v2.0.0 • v8 15.2.20 • abcdef0 • main • arm64",
   );
   assert.equal(compactSidebar([]), "json-as");
   assert.equal(
@@ -69,6 +69,42 @@ test("sidebar uses recorded date, revision and engine without confusing native r
       [],
       "2026-11-09 • v2.0.0 • arm64 • 6 runtimes · NAIVE • hash",
     ),
-    "2026-11-09 • v2.0.0 • 6 runtimes • hash • ARM64",
+    "2026-11-09 • v2.0.0 • 6 runtimes • hash • arm64",
   );
+});
+
+test("architecture aliases use lowercase arm64 and amd64 labels", () => {
+  const record = {
+    source: { packageVersion: "2.0.0", commit: "abcdef0" },
+    settings: { language: "as", runtime: "v8" },
+  };
+  for (const arch of ["x64", "x86_64", "amd64", "AMD64"]) {
+    assert.match(
+      compactSidebar([{ ...record, host: { arch } }]),
+      /v8.* • amd64$/,
+    );
+  }
+  for (const arch of ["arm64", "aarch64", "ARM64"]) {
+    assert.match(
+      compactSidebar([{ ...record, host: { arch } }]),
+      /v8.* • arm64$/,
+    );
+  }
+});
+
+test("visible engine labels consistently use lowercase v8", () => {
+  const config = overviewStyle(
+    {
+      type: "bar",
+      data: {
+        labels: ["V8"],
+        datasets: [{ label: "Built-in JSON (JS/V8)", data: [1] }],
+      },
+      options: { plugins: { title: { text: "Throughput (V8)" } } },
+    },
+    "v8",
+  );
+  assert.equal(config.data.labels[0], "v8");
+  assert.equal(config.data.datasets[0].label, "Built-in JSON (JS/v8)");
+  assert.equal(config.options.plugins.title.text, "Throughput (v8)");
 });
