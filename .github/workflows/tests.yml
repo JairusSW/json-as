@@ -17,7 +17,11 @@ jobs:
 
       - name: Install Wasmtime
         run: |
-          curl https://wasmtime.dev/install.sh -sSf | bash
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            https://wasmtime.dev/install.sh -o "$RUNNER_TEMP/install-wasmtime.sh"
+          bash "$RUNNER_TEMP/install-wasmtime.sh" --version v50.0.1
+          "$HOME/.wasmtime/bin/wasmtime" --version
           echo "$HOME/.wasmtime/bin" >> "$GITHUB_PATH"
 
       - name: Setup Bun

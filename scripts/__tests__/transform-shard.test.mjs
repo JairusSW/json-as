@@ -97,6 +97,20 @@ test("main and release CI retain every runtime and package gate", () => {
     );
     assert.match(source, /shard: \[0, 1, 2, 3, 4, 5, 6, 7\]/);
     assert.match(source, /fail-fast: false/);
+    assert(
+      source.includes("set -euo pipefail"),
+      `${file}: installer fail-fast`,
+    );
+    assert(
+      source.includes(
+        'bash "$RUNNER_TEMP/install-wasmtime.sh" --version v50.0.1',
+      ),
+      `${file}: tested Wasmtime version`,
+    );
+    assert(
+      source.includes('"$HOME/.wasmtime/bin/wasmtime" --version'),
+      `${file}: verify installed runtime before tests`,
+    );
     assert.match(
       source,
       /- name: Test Transform\n {8}run: node scripts\/run-transform-shard\.mjs \$\{\{ matrix\.shard \}\} 8/,
