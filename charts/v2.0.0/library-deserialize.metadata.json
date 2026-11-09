@@ -1,0 +1,274 @@
+{
+  "caption": "2026-11-09 • v2.0.0 • 9229aac9/d2ea74ee (+1 source snapshots) • arm64 • v26.4.0 / V8 version 15.2.20 / simdjson 5.0.4 native typed value • strict false / typed fields; raw lexeme boundaries • fast 1 / n/a",
+  "records": [
+    {
+      "id": "005b217b-db29-4ff1-9f1a-fcb4ee5b41e8",
+      "measuredAt": "2026-11-09T07:42:59.030Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "node",
+        "mode": "all",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "fe8e04ef-5a8b-4e52-9fae-d7bce2d329d8",
+      "measuredAt": "2026-11-09T07:42:54.466Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "node",
+        "mode": "all",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "1767b004-166d-479c-9866-7e32dfd9bda4",
+      "measuredAt": "2026-11-09T07:38:16.578Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "0ba250ff-64fc-4353-8efd-f079ac6d3f0f",
+      "measuredAt": "2026-11-09T07:38:26.251Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "480d9cfd-16cb-4446-a388-89080d134096",
+      "measuredAt": "2026-11-09T07:38:55.898Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "f9a81076-192e-4d41-a9b7-b7efe9b3d831",
+      "measuredAt": "2026-11-09T07:39:28.692Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "e79f8d8e-ff86-4162-ad1b-d7149ca1c3d6",
+      "measuredAt": "2026-11-09T07:39:37.517Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "b119ade8-e5df-4458-891c-a1957d10a4c6",
+      "measuredAt": "2026-11-09T07:40:03.478Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "2d637fa2-e621-433b-a41a-1b66c46df8bb",
+      "measuredAt": "2026-11-09T07:42:10.689Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "d87bc02f-2deb-4b97-8044-4f477c84363d",
+      "measuredAt": "2026-11-09T07:42:18.670Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "87ac87f3-8792-4dda-8324-e2f5f1c89bea",
+      "measuredAt": "2026-11-09T07:42:26.646Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "48203435-e122-48f4-842b-6f8fb4324a6a",
+      "measuredAt": "2026-11-09T07:36:12.060Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "e0f1cbc5-b33d-4d7f-8b10-4d4700a35ba9",
+      "measuredAt": "2026-11-09T07:36:20.365Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "aff8774a-fdfc-49cd-a171-2825c76c4e88",
+      "measuredAt": "2026-11-09T07:36:28.799Z",
+      "source": {
+        "commit": "9229aac9117dbd0489ef9877709d21f47fd98fbf",
+        "treeHash": "d2ea74ee09b6a321b9b63fb4dfc97be3dc03cd3a2273d97eb813952e51ca05af",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "fc37e7c9-38a6-4177-bd5c-149b8eaa66a7",
+      "measuredAt": "2026-11-09T09:03:22.154Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    }
+  ]
+}

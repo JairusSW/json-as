@@ -1,0 +1,23 @@
+{
+  "caption": "2026-11-09 • v2.0.0 • f182ca18/78787d97 • arm64 • V8 version 15.2.20 • strict false • fast 1",
+  "records": [
+    {
+      "id": "97ca7f68-2d8b-4358-ac57-b09b980b3ff9",
+      "measuredAt": "2026-11-09T09:02:41.353Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    }
+  ]
+}

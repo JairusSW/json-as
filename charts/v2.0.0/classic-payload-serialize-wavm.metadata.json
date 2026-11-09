@@ -1,0 +1,1121 @@
+{
+  "caption": "2026-11-09 • v2.0.0 • f182ca18/78787d97 (+8 source snapshots) • arm64 • WAVM version 0.0.0-prerelease / simdjson 5.0.4 native typed value / V8 version 15.2.20 • strict false / typed fields; raw lexeme boundaries / full validation • fast 1 / n/a",
+  "records": [
+    {
+      "id": "c2c5138d-7d4f-4a8c-a559-fc66ff26b9e4",
+      "measuredAt": "2026-11-09T08:58:09.129Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "a2c8ff2c-54ab-4afe-bd0f-011697f03a3f",
+      "measuredAt": "2026-11-09T08:46:30.992Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "b19fd5c4-9e65-4187-b72c-f1f2cc649cf0",
+      "measuredAt": "2026-11-09T08:47:59.541Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "a38f78b2-9cb9-4e55-98d3-6f1ebe05b91b",
+      "measuredAt": "2026-11-09T08:54:52.573Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "2ddf8a61-f0e5-486e-b512-8ce490f50244",
+      "measuredAt": "2026-11-09T08:51:15.349Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "c3c8286a-1779-4b97-882e-c9908a7c5c77",
+      "measuredAt": "2026-11-09T08:52:16.386Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "ba2108d1-ac36-4f62-b21f-b77116305f93",
+      "measuredAt": "2026-11-09T08:53:31.135Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "692ed868-16a8-463c-9227-d4d33beb5f28",
+      "measuredAt": "2026-11-09T08:54:18.764Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "cc0f1f2f-f402-41f8-a319-52724d38ae5d",
+      "measuredAt": "2026-11-09T08:48:42.495Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "96588ef7-b399-4354-b689-3084956f7c7c",
+      "measuredAt": "2026-11-09T08:56:05.619Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "6317b6f820a0f4c54479e0c24ee0de15a026cf9afc2999273bd3dcfe0668c570",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "1db692d6-2cb3-4977-b167-bbe5c7c0e83b",
+      "measuredAt": "2026-11-09T08:57:07.305Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "6317b6f820a0f4c54479e0c24ee0de15a026cf9afc2999273bd3dcfe0668c570",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "35997596-bd2f-412f-85fe-8c7a9a61e717",
+      "measuredAt": "2026-11-09T08:58:22.579Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "bf6bd09a-7f57-46a2-ad20-36517d8c0cb3",
+      "measuredAt": "2026-11-09T08:58:36.094Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "1d64cfab-b2a8-42c6-b05c-33bc7b77e057",
+      "measuredAt": "2026-11-09T09:03:23.311Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "cc557ce8-5424-4b14-9ef1-a400d6b6713e",
+      "measuredAt": "2026-11-09T09:03:24.711Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "strict": "full validation",
+        "fastPath": "n/a",
+        "outputPolicy": "built-in JSON.parse/stringify; fresh results; v1.6.1 JS checkpoint blackbox"
+      }
+    },
+    {
+      "id": "2bfcaf63-a88a-4179-b9fe-531acadb5fa0",
+      "measuredAt": "2026-11-09T08:46:04.621Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "511e8583358ed8d034663ed0b48d41cd11e39a9d6ef3595d67454d03ccf432cb",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "0d5f7f10-2474-4702-be05-7a688dba9ba0",
+      "measuredAt": "2026-11-09T08:46:17.851Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "511e8583358ed8d034663ed0b48d41cd11e39a9d6ef3595d67454d03ccf432cb",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "e34c1465-0f4f-4112-b2b2-a5ec51c2430e",
+      "measuredAt": "2026-11-09T08:46:42.805Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "4f06cc7c-f69b-43a7-8300-e14779bd6038",
+      "measuredAt": "2026-11-09T08:46:51.152Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "9f97cf98-f812-4c25-865c-0733a4b31729",
+      "measuredAt": "2026-11-09T09:03:26.559Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "e6a6cd67-2d29-4d94-bb71-7a1553f2e3ea",
+      "measuredAt": "2026-11-09T09:03:29.507Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "strict": "full validation",
+        "fastPath": "n/a",
+        "outputPolicy": "built-in JSON.parse/stringify; fresh results; v1.6.1 JS checkpoint blackbox"
+      }
+    },
+    {
+      "id": "60fd7ae8-a4ee-4e8b-821b-f38cac313bb7",
+      "measuredAt": "2026-11-09T08:47:12.133Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "d4318fe2c0285889047c80e64507160da4916c952d7c7230fe58132a9dc20d6e",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "007425a0-3821-4892-891a-df0d96b49666",
+      "measuredAt": "2026-11-09T08:47:35.781Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "d4318fe2c0285889047c80e64507160da4916c952d7c7230fe58132a9dc20d6e",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "965d1772-9d8d-42b7-ae91-f5f4a4695cf0",
+      "measuredAt": "2026-11-09T08:48:11.996Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "7850b1e1-a9f6-41bb-95c3-67f1f7204299",
+      "measuredAt": "2026-11-09T08:48:20.886Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "02cb5e4d-fe83-419f-bf33-aed19afd4f8c",
+      "measuredAt": "2026-11-09T09:03:32.455Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "b6a20b36-a5d5-4187-9cef-6f96694b17a7",
+      "measuredAt": "2026-11-09T09:03:33.901Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "strict": "full validation",
+        "fastPath": "n/a",
+        "outputPolicy": "built-in JSON.parse/stringify; fresh results; v1.6.1 JS checkpoint blackbox"
+      }
+    },
+    {
+      "id": "13d63a62-0b9c-403a-8239-3e5bcb114ebe",
+      "measuredAt": "2026-11-09T08:54:38.463Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "910dacdff7d546f7b08e6740194c136152a60826fc83edc20f59052e9f8023d7",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "707dcca3-7900-4c3b-a22f-078e191e95cb",
+      "measuredAt": "2026-11-09T08:54:45.692Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "910dacdff7d546f7b08e6740194c136152a60826fc83edc20f59052e9f8023d7",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "9f167f90-7498-49d5-8258-9168421fc03e",
+      "measuredAt": "2026-11-09T08:54:58.304Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "4f7be837-4ce3-4617-97d3-38ccf7c4d66c",
+      "measuredAt": "2026-11-09T08:55:04.845Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "770d0293-7a9a-4f68-83eb-f1761536e2f3",
+      "measuredAt": "2026-11-09T09:03:37.292Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "634eefc8-e53f-49ad-b749-754d8299721c",
+      "measuredAt": "2026-11-09T09:03:38.531Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "strict": "full validation",
+        "fastPath": "n/a",
+        "outputPolicy": "built-in JSON.parse/stringify; fresh results; v1.6.1 JS checkpoint blackbox"
+      }
+    },
+    {
+      "id": "6e945654-70c3-40f3-aa27-9dfdc3bad62f",
+      "measuredAt": "2026-11-09T08:49:36.244Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "99691e1a0930423f7d7f13035b6a8cf23f0a2dfd8780d597b20171247d7a17e6",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "d001fcc6-547c-4e12-824f-ee6218547ed4",
+      "measuredAt": "2026-11-09T08:50:27.674Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "99691e1a0930423f7d7f13035b6a8cf23f0a2dfd8780d597b20171247d7a17e6",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "6bf254b8-1609-490b-9542-cb231e93780d",
+      "measuredAt": "2026-11-09T08:51:29.003Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "9792fbdf-12eb-4344-9dd4-86bb6de5de9a",
+      "measuredAt": "2026-11-09T08:51:38.392Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "08f55c1d-6ff9-45e7-a022-e2bdeca44f13",
+      "measuredAt": "2026-11-09T09:03:39.772Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "1b36f9d1-70a2-470b-bd5b-3e6dca56edaa",
+      "measuredAt": "2026-11-09T09:03:41.060Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "strict": "full validation",
+        "fastPath": "n/a",
+        "outputPolicy": "built-in JSON.parse/stringify; fresh results; v1.6.1 JS checkpoint blackbox"
+      }
+    },
+    {
+      "id": "b348db49-07ba-454a-aec8-af3e938bcc5a",
+      "measuredAt": "2026-11-09T08:51:51.829Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "aac79b414184ece59d57974d862c783c5242b69e74525788ba7f3be2e19e4874",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "411150be-4c9e-4f08-b4be-bcaa637aa42b",
+      "measuredAt": "2026-11-09T08:52:05.823Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "aac79b414184ece59d57974d862c783c5242b69e74525788ba7f3be2e19e4874",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "1c5d049f-2d85-493f-a947-4e9f105baa3f",
+      "measuredAt": "2026-11-09T08:52:24.675Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "9627cd0b-4ee1-4434-b3bd-7ee6b6287b97",
+      "measuredAt": "2026-11-09T08:52:32.968Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "a4fb9b83-4c4d-40a2-bb3c-906db90e909a",
+      "measuredAt": "2026-11-09T09:03:42.538Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "ff400529-bd6a-490b-9b6a-43d0b447043e",
+      "measuredAt": "2026-11-09T09:03:43.666Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "strict": "full validation",
+        "fastPath": "n/a",
+        "outputPolicy": "built-in JSON.parse/stringify; fresh results; v1.6.1 JS checkpoint blackbox"
+      }
+    },
+    {
+      "id": "ed2e6010-aeda-4a08-85ef-74d88f4b88ad",
+      "measuredAt": "2026-11-09T08:52:52.091Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "3a041448fd3e322eda99e8bf713ab2d5702a828c5f3e683afb19ac9015959dbe",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "6348ea98-bada-42f0-b155-8ce57ea642ec",
+      "measuredAt": "2026-11-09T08:53:11.497Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "3a041448fd3e322eda99e8bf713ab2d5702a828c5f3e683afb19ac9015959dbe",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "1275f473-b448-473b-be77-37d2072bead1",
+      "measuredAt": "2026-11-09T08:53:40.886Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "73bae62d-42b5-4f8d-b35b-f2a20e058c79",
+      "measuredAt": "2026-11-09T08:53:55.113Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "9613fe58-e431-4243-b0b8-19990b222322",
+      "measuredAt": "2026-11-09T09:03:45.725Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "c10fa6de-6b7a-449c-aade-31f98f12d0ab",
+      "measuredAt": "2026-11-09T09:03:46.966Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "strict": "full validation",
+        "fastPath": "n/a",
+        "outputPolicy": "built-in JSON.parse/stringify; fresh results; v1.6.1 JS checkpoint blackbox"
+      }
+    },
+    {
+      "id": "f6027d0c-c7fc-4a05-87fe-895caddcad4e",
+      "measuredAt": "2026-11-09T08:54:04.626Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "d21e21b2761a771f3fb1c98c0f9db4ebfc22658983ca798cf03b0c0bc9025866",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "2ba23bbe-c3b4-42de-90be-133f78ef57e9",
+      "measuredAt": "2026-11-09T08:54:11.204Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "d21e21b2761a771f3fb1c98c0f9db4ebfc22658983ca798cf03b0c0bc9025866",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "47fcd75f-9b38-4f9f-817c-574f57eab03b",
+      "measuredAt": "2026-11-09T08:54:24.825Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "87c6510f-89de-4950-a80f-ad2f2f337bab",
+      "measuredAt": "2026-11-09T08:54:29.847Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "5682c004-b622-46cf-82dd-5bb81eea0f2e",
+      "measuredAt": "2026-11-09T09:03:52.045Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "e17c8967-a473-4021-849f-c1733aff9ad7",
+      "measuredAt": "2026-11-09T09:04:06.900Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "strict": "full validation",
+        "fastPath": "n/a",
+        "outputPolicy": "built-in JSON.parse/stringify; fresh results; v1.6.1 JS checkpoint blackbox"
+      }
+    },
+    {
+      "id": "1662c363-5a4b-45f0-b217-ac32dce4c9b1",
+      "measuredAt": "2026-11-09T08:48:29.582Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "c245cc05-534f-4558-80f2-5f1b5c696edd",
+      "measuredAt": "2026-11-09T08:48:35.953Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "4b60ae69-7417-4990-9292-9b66e2383dde",
+      "measuredAt": "2026-11-09T08:48:48.295Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "42f8283e-6b21-4505-8b15-0bd324ac55c2",
+      "measuredAt": "2026-11-09T08:48:52.812Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "as",
+        "runtime": "wavm",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "5ebbef59-69de-4381-bd6e-e5e6813cbb24",
+      "measuredAt": "2026-11-09T09:04:22.785Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "de534971-70ff-4aac-a069-5f1c6fe3c9ea",
+      "measuredAt": "2026-11-09T09:04:29.881Z",
+      "source": {
+        "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
+        "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
+        "version": "2.0.0"
+      },
+      "architecture": "arm64",
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "strict": "full validation",
+        "fastPath": "n/a",
+        "outputPolicy": "built-in JSON.parse/stringify; fresh results; v1.6.1 JS checkpoint blackbox"
+      }
+    }
+  ]
+}
