@@ -14,7 +14,7 @@ if ! npm run build:transform; then
 fi
 
 read -r -p "✨ Do you want to format the code before publishing? [Y/n] " FORMAT_RESP
-FORMAT_RESP=${FORMAT_RESP,,}
+FORMAT_RESP=$(printf '%s' "$FORMAT_RESP" | tr '[:upper:]' '[:lower:]')
 
 if [[ "$FORMAT_RESP" =~ ^(yes|y| ) || -z "$FORMAT_RESP" ]]; then
     echo "🧹 Formatting code..."
@@ -42,7 +42,7 @@ fi
 echo ""
 
 read -r -p "✅ All checks passed. Ready to publish $PACKAGE_NAME@$VERSION with tag '$TAG'? [Y/n] " PUBLISH_RESP
-PUBLISH_RESP=${PUBLISH_RESP,,}
+PUBLISH_RESP=$(printf '%s' "$PUBLISH_RESP" | tr '[:upper:]' '[:lower:]')
 
 if [[ "$PUBLISH_RESP" =~ ^(n|no)$ ]]; then
     echo "❌ Publish canceled by user. Exiting."

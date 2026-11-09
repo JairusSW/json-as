@@ -41,6 +41,9 @@ jobs:
       - name: Build Transform
         run: bun run build:transform
 
+      - name: Test pnpm Packed Consumers
+        run: npm run test:package:pnpm
+
       - name: Test Transform
         run: bun run test:transform
 
@@ -103,6 +106,6 @@ jobs:
         with:
           body_path: RELEASE_NOTES.md
           draft: false
-          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') || contains(github.ref, '-preview') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

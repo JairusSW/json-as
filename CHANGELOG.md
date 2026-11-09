@@ -145,6 +145,12 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 - Read native array length consistently during serialization and dynamic conversion, preserving stored elements when subclasses override the public getter.
 - Re-export `JSONMode`, `toRaw`, `fromRaw`, and `toBox` from the package root to match the advertised type entrypoint; exercise both entrypoints in the packed-consumer matrix.
 
+### Package-manager and publishing compatibility
+
+- Bundle the required `xjb-as` sources and licenses so AssemblyScript can resolve them in pnpm installations without consumer hoisting or direct implementation dependencies.
+- Declare the supported AssemblyScript compiler as a peer dependency and exercise actual tarballs in default pnpm projects and isolated linked workspaces, including renamed package installations.
+- Keep the publish helper compatible with macOS system Bash and classify preview tags as GitHub prereleases.
+
 ### Benchmarks, testing, and release tooling
 
 - Use log axes for wide or mixed throughput ranges, keep built-in JSON first and SIMD/native references last, and separate the legacy object harness's 55-byte and 1,049-byte record workloads instead of drawing a misleading continuous curve.

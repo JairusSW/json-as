@@ -39,6 +39,10 @@
 npm install json-as
 ```
 
+Declare AssemblyScript (`^0.28.18`) in your application's development dependencies;
+json-as uses that compiler as a peer. The required xjb-as sources and licenses are
+bundled with json-as, including for pnpm's isolated dependency layout.
+
 Upgrading from 1.x? See the [2.0.0 upgrade notes and changelog](./CHANGELOG.md).
 
 Add the `--transform` to your `asc` command (e.g. in package.json)

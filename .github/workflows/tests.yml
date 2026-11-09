@@ -27,6 +27,9 @@ jobs:
       - name: Build Transform
         run: bun run build:transform
 
+      - name: Test pnpm Packed Consumers
+        run: npm run test:package:pnpm
+
       - name: Test Transform
         run: bun run test:transform
 

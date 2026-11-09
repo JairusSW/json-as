@@ -43,7 +43,7 @@
     "lekiano",
     "Florian Guitton",
     "Matt Johnson-Pint",
-    "Tomáš Hromada",
+    "Tom\u00e1\u0161 Hromada",
     "Loredana Cirstea",
     "Accipiter Nisus",
     "Deon Groenewald",
@@ -146,7 +146,8 @@
     "pretest": "npm run build:transform",
     "check": "npm run typecheck && npm run lint",
     "prepare": "husky",
-    "bench:comparisons": "node ./scripts/run-comparison-benches.mjs"
+    "bench:comparisons": "node ./scripts/run-comparison-benches.mjs",
+    "test:package:pnpm": "npm run build:transform && npm exec --yes --package=pnpm@11.15.1 -- node transform/__tests__/pnpm-consumer.test.mjs"
   },
   "type": "module",
   "types": "assembly/index.ts",
@@ -160,5 +161,11 @@
     "serve": {
       "compression": "1.8.2"
     }
+  },
+  "bundledDependencies": [
+    "xjb-as"
+  ],
+  "peerDependencies": {
+    "assemblyscript": "^0.28.18"
   }
 }
