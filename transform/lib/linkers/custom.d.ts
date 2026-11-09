@@ -1,9 +1,18 @@
-import { CallExpression, Node } from "assemblyscript/dist/assemblyscript.js";
+import { BlockStatement, CallExpression, FunctionDeclaration, FunctionExpression, ForStatement, ForOfStatement, MethodDeclaration, Node, TryStatement } from "assemblyscript/dist/assemblyscript.js";
 import { Visitor } from "../visitor.js";
 export declare class CustomTransform extends Visitor {
-    static SN: CustomTransform;
-    private modify;
+    private runtimeReceiver;
+    private scopes;
+    private constructor();
+    private names;
+    visitBlockStatement(node: BlockStatement): void;
+    visitForStatement(node: ForStatement): void;
+    visitForOfStatement(node: ForOfStatement): void;
+    visitTryStatement(node: TryStatement): void;
+    private callable;
+    visitMethodDeclaration(node: MethodDeclaration): void;
+    visitFunctionDeclaration(node: FunctionDeclaration): void;
+    visitFunctionExpression(node: FunctionExpression): void;
     visitCallExpression(node: CallExpression): void;
-    static visit(node: Node | Node[], ref?: Node | null): void;
-    static hasCall(node: Node | Node[]): boolean;
+    static visit(node: MethodDeclaration, runtimeReceiver: (name: string) => boolean, scopes: Node[][]): void;
 }

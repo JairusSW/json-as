@@ -304,7 +304,7 @@ declare const JSON_CACHE: bool;
  *
  * @example
  * ```sh
- * JSON_CACHE=1mb asc app.ts --transform json-as/transform # JSON_CACHE_SIZE == 1048576
+ * JSON_CACHE=1048576 asc app.ts --transform json-as/transform # JSON_CACHE_SIZE == 1048576
  * ```
  */
 declare const JSON_CACHE_SIZE: usize;

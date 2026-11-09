@@ -13,6 +13,7 @@ import {
   CommonFlags,
   EnumDeclaration,
   ExportStatement,
+  ExportDefaultStatement,
 } from "assemblyscript/dist/assemblyscript.js";
 import { TypeAlias } from "./linkers/alias.js";
 import { stripNull } from "./index.js";
@@ -284,6 +285,7 @@ export class Src {
   public exports: Schema[] = [];
   public imports: ImportStatement[] = [];
   private exportStatements: ExportStatement[] = [];
+  private defaultDeclaration: DeclarationStatement | null = null;
   private nodeMap: Map<Node, NamespaceDeclaration[]> = new Map<
     Node,
     NamespaceDeclaration[]
@@ -317,6 +319,12 @@ export class Src {
             namespaceDeclaration,
           ]);
           break;
+        case NodeKind.ExportDefault: {
+          const declaration = (node as ExportDefaultStatement).declaration;
+          this.defaultDeclaration = declaration;
+          this.traverse([declaration], path);
+          break;
+        }
         case NodeKind.ClassDeclaration:
           // eslint-disable-next-line no-case-declarations
           const classDeclaration = node as ClassDeclaration;
@@ -340,6 +348,10 @@ export class Src {
       }
       this.nodeMap.set(node, path);
     }
+  }
+
+  getNamespaces(node: DeclarationStatement): NamespaceDeclaration[] {
+    return this.nodeMap.get(node) ?? [];
   }
 
   /**
@@ -670,6 +682,11 @@ export class Src {
     parser: Parser,
     visited: Set<string>,
   ): { source: Src; name: string } | null {
+    if (name === "default" && this.defaultDeclaration)
+      return {
+        source: this,
+        name: this.getQualifiedName(this.defaultDeclaration),
+      };
     const identity = this.internalPath + ":export:" + name;
     if (visited.has(identity)) return null;
     visited.add(identity);

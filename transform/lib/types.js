@@ -201,6 +201,7 @@ export class Src {
     exports = [];
     imports = [];
     exportStatements = [];
+    defaultDeclaration = null;
     nodeMap = new Map();
     classes = {};
     enums = {};
@@ -221,6 +222,12 @@ export class Src {
                         namespaceDeclaration,
                     ]);
                     break;
+                case NodeKind.ExportDefault: {
+                    const declaration = node.declaration;
+                    this.defaultDeclaration = declaration;
+                    this.traverse([declaration], path);
+                    break;
+                }
                 case NodeKind.ClassDeclaration:
                     const classDeclaration = node;
                     this.classes[this.qualifiedName(classDeclaration, path)] =
@@ -241,6 +248,9 @@ export class Src {
             }
             this.nodeMap.set(node, path);
         }
+    }
+    getNamespaces(node) {
+        return this.nodeMap.get(node) ?? [];
     }
     getQualifiedName(node) {
         return this.qualifiedName(node, this.nodeMap.get(node));
@@ -457,6 +467,11 @@ export class Src {
         return null;
     }
     getExportedBinding(name, parser, visited) {
+        if (name === "default" && this.defaultDeclaration)
+            return {
+                source: this,
+                name: this.getQualifiedName(this.defaultDeclaration),
+            };
         const identity = this.internalPath + ":export:" + name;
         if (visited.has(identity))
             return null;

@@ -133,6 +133,14 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 - Bound fresh numeric-array capacity, count reusable numeric elements with exact SWAR masks, and avoid redundant validation scans for built-in reference arrays. Sample top-level keys for `JSON.Obj` reservations so large values do not imply large metadata buffers.
 - Keep string metadata, uninitialized allocation, and allocation-batching optimizations optional, with fallbacks for published AssemblyScript runtimes. Disabled experimental string caches allocate no arena; regular `JSON.stringify` does not use that cache.
 
+### Declaration and compiler integration fixes
+
+- Discover default-exported schema declarations and preserve their inherited fields and custom-codec type identities through default imports and re-exports.
+- Exclude function-valued fields before planning serializers and initialization; function-only schemas emit `{}`, and omitted callback initializers survive parsing.
+- Refresh strictness, diagnostics, fast-path, cache, and debug configuration for every compiler invocation, including repeated programmatic builds in one Node process.
+- Keep function-local type aliases out of the module alias index, align omitted lazy-override planning with lowering, and rewrite custom-codec calls only when their receiver binds to the json-as runtime.
+- Correct the nullable/dynamic example, debug environment variable, and exact-byte cache-size example.
+
 ### Benchmarks, testing, and release tooling
 
 - Keep compiler warnings enabled instead of globally suppressing them with an empty warning list. Fix pointer-width conversions in ownership metadata, Raw reuse, native-array appends, generated allocator code, and benchmark helpers; initialize generic cursor slots explicitly and type null test inputs. Ignore only intentional recursive/virtual-inlining and type-export diagnostics (AS217/AS228/AS235), including WASI builds, and external as-test definite-assignment hints (AS906) in test builds. Add a compiler-warning regression gate.

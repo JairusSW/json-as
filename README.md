@@ -65,7 +65,7 @@ Alternatively, add it to your `asconfig.json`
 }
 ```
 
-If you'd like to see the code that the transform generates, run the build step with `DEBUG=true`
+If you'd like to see the code that the transform generates, run the build step with `JSON_DEBUG=true`
 
 ## Docs
 
@@ -310,12 +310,12 @@ console.log(JSON.stringify(obj)); // {"id":1,"name":"Example","data":"a string"}
 const box = JSON.Box.from<i32>(123);
 const value = JSON.Value.from<JSON.Box<i32> | null>(box);
 const reboxed = JSON.Box.fromValue<i32>(value); // Box<i32> | null
-console.log(reboxed !== null ? reboxed!.toString() : "null");
+console.log(reboxed !== null ? reboxed.toString() : "null");
 // 123
 
-const value = JSON.parse<JSON.Value>("123");
-const boxed = JSON.Box.fromValue<i32>(value);
-console.log(boxed !== null ? boxed!.toString() : "null");
+const parsedValue = JSON.parse<JSON.Value>("123");
+const boxed = JSON.Box.fromValue<i32>(parsedValue);
+console.log(boxed !== null ? boxed.toString() : "null");
 // 123
 ```
 

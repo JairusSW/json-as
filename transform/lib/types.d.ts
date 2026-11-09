@@ -89,11 +89,13 @@ export declare class Src {
     exports: Schema[];
     imports: ImportStatement[];
     private exportStatements;
+    private defaultDeclaration;
     private nodeMap;
     private classes;
     private enums;
     constructor(source: Source, sourceSet: SourceSet);
     private traverse;
+    getNamespaces(node: DeclarationStatement): NamespaceDeclaration[];
     getQualifiedName(node: DeclarationStatement): string;
     getClass(qualifiedName: string): ClassDeclaration | null;
     getClassInContext(name: string, owner: DeclarationStatement, visited?: Set<string>): ClassDeclaration | null;

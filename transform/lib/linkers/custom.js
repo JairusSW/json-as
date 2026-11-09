@@ -2,36 +2,93 @@ import { Node, } from "assemblyscript/dist/assemblyscript.js";
 import { NodeKind } from "../types.js";
 import { Visitor } from "../visitor.js";
 export class CustomTransform extends Visitor {
-    static SN = new CustomTransform();
-    modify = false;
+    runtimeReceiver;
+    scopes = [];
+    constructor(runtimeReceiver) {
+        super();
+        this.runtimeReceiver = runtimeReceiver;
+    }
+    names(nodes) {
+        const names = new Set();
+        for (let node of nodes) {
+            if (node.kind === NodeKind.ExportDefault)
+                node = node.declaration;
+            if (node.kind === NodeKind.Variable) {
+                for (const declaration of node.declarations)
+                    names.add(declaration.name.text);
+            }
+            else {
+                const name = node.name;
+                if (name)
+                    names.add(name.text);
+            }
+        }
+        return names;
+    }
+    visitBlockStatement(node) {
+        this.scopes.push(this.names(node.statements));
+        super.visitBlockStatement(node);
+        this.scopes.pop();
+    }
+    visitForStatement(node) {
+        this.scopes.push(this.names(node.initializer ? [node.initializer] : []));
+        super.visitForStatement(node);
+        this.scopes.pop();
+    }
+    visitForOfStatement(node) {
+        this.scopes.push(this.names([node.variable]));
+        super.visitForOfStatement(node);
+        this.scopes.pop();
+    }
+    visitTryStatement(node) {
+        for (const [statements, variable] of [
+            [node.bodyStatements, null],
+            [node.catchStatements, node.catchVariable],
+            [node.finallyStatements, null],
+        ]) {
+            if (!statements)
+                continue;
+            const scope = this.names(statements);
+            if (variable)
+                scope.add(variable.text);
+            this.scopes.push(scope);
+            this.visit(statements, node);
+            this.scopes.pop();
+        }
+    }
+    callable(node) {
+        this.scopes.push(new Set(node.signature.parameters.map((p) => p.name.text)));
+        this.visit(node.body, node);
+        this.scopes.pop();
+    }
+    visitMethodDeclaration(node) {
+        this.callable(node);
+    }
+    visitFunctionDeclaration(node) {
+        this.callable(node);
+    }
+    visitFunctionExpression(node) {
+        this.visit(node.declaration, node);
+    }
     visitCallExpression(node) {
-        super.visit(node.args, node);
-        if (node.expression.kind != NodeKind.PropertyAccess)
+        super.visitCallExpression(node);
+        if (node.expression.kind !== NodeKind.PropertyAccess)
             return;
         const expression = node.expression;
-        const property = expression.property.text;
-        if (property != "stringify" && property != "parse")
+        if (!["stringify", "parse"].includes(expression.property.text))
             return;
-        if (expression.expression.kind != NodeKind.Identifier ||
-            expression.expression.text != "JSON")
+        const receiver = expression.expression;
+        if (receiver.kind !== NodeKind.Identifier)
             return;
-        if (this.modify) {
-            expression.expression = Node.createPropertyAccessExpression(Node.createIdentifierExpression("JSON", node.expression.range), Node.createIdentifierExpression("internal", node.expression.range), node.expression.range);
-        }
-        this.modify = true;
+        const name = receiver.text;
+        if (this.scopes.some((scope) => scope.has(name)) ||
+            !this.runtimeReceiver(name))
+            return;
+        expression.expression = Node.createPropertyAccessExpression(receiver, Node.createIdentifierExpression("internal", node.expression.range), node.expression.range);
     }
-    static visit(node, ref = null) {
-        if (!node)
-            return;
-        CustomTransform.SN.modify = true;
-        CustomTransform.SN.visit(node, ref);
-        CustomTransform.SN.modify = false;
-    }
-    static hasCall(node) {
-        if (!node)
-            return false;
-        CustomTransform.SN.modify = false;
-        CustomTransform.SN.visit(node);
-        return CustomTransform.SN.modify;
+    static visit(node, runtimeReceiver, scopes) {
+        const visitor = new CustomTransform(runtimeReceiver);
+        visitor.scopes = scopes.map((nodes) => visitor.names(nodes));
+        visitor.visit(node);
     }
 }

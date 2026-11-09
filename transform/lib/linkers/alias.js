@@ -33,6 +33,10 @@ export function effectiveTypeArguments(parameters, supplied = []) {
 }
 class AliasFinder extends Visitor {
     namespace = [];
+    visitFunctionDeclaration(_node) { }
+    visitMethodDeclaration(_node) { }
+    visitFunctionExpression(_node) { }
+    visitBlockStatement(_node) { }
     visitNamespaceDeclaration(node) {
         this.namespace.push(node.name.text);
         super.visitNamespaceDeclaration(node);

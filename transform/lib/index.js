@@ -19,17 +19,17 @@ import { keyDispatch } from "./key-dispatch.js";
 import { parseDiagnosticsFlag, collectOriginalMethods, diagnosticsRuntimeRoot, lowerDiagnostics, } from "./diagnostics.js";
 let indent = "  ";
 let id = 0;
-const WRITE = process.env["JSON_WRITE"]?.trim();
-const rawValue = process.env["JSON_DEBUG"]?.trim();
-const DEBUG = rawValue === "true"
+let WRITE = process.env["JSON_WRITE"]?.trim();
+let rawValue = process.env["JSON_DEBUG"]?.trim();
+let DEBUG = rawValue === "true"
     ? 1
     : rawValue === "false" || rawValue === ""
         ? 0
         : isNaN(Number(rawValue))
             ? 0
             : Number(rawValue);
-const DIAGNOSTICS = parseDiagnosticsFlag(process.env["JSON_DIAGNOSTICS"]);
-const STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
+let DIAGNOSTICS = parseDiagnosticsFlag(process.env["JSON_DIAGNOSTICS"]);
+let STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
 const DEFAULT_JSON_CACHE_BYTES = 1 << 20;
 export function normalizeJsonAsBaseRel(baseRel) {
     if (baseRel.endsWith("json-as")) {
@@ -58,8 +58,8 @@ function envFlagDefaultTrue(value) {
             return true;
     }
 }
-const USE_FAST_PATH = envFlagDefaultTrue(process.env["JSON_USE_FAST_PATH"]);
-const THROW_FAST_PATH = process.env["JSON_FAST_PATH_THROW"]?.trim() === "1";
+let USE_FAST_PATH = envFlagDefaultTrue(process.env["JSON_USE_FAST_PATH"]);
+let THROW_FAST_PATH = process.env["JSON_FAST_PATH_THROW"]?.trim() === "1";
 const USE_DEFAULT_OBJECT_SPECIALIZATION = true;
 function parseJSONCacheConfig(value) {
     if (!value)
@@ -107,7 +107,7 @@ function parseJSONCacheConfig(value) {
     }
     return { enabled: true, bytes: Math.floor(bytes) };
 }
-const JSON_CACHE_CONFIG = parseJSONCacheConfig(process.env["JSON_CACHE"]);
+let JSON_CACHE_CONFIG = parseJSONCacheConfig(process.env["JSON_CACHE"]);
 function needsReferenceLoad(type) {
     return (type == "ArrayBuffer" ||
         type == "Int8Array" ||
@@ -345,6 +345,7 @@ export class JSONTransform extends Visitor {
                         source: src,
                         inner,
                         lazy: decorated &&
+                            !has(field, "omit") &&
                             !custom &&
                             (inner !== null || has(field, "lazy") || auto),
                     });
@@ -1568,6 +1569,14 @@ export class JSONTransform extends Visitor {
         this.schemas.get(source.internalPath).push(schema);
         this.schema = schema;
         this.visitedClasses.add(fullClassPath);
+        const callbackField = (field, owner) => {
+            const origin = this.sources.get(owner.range.source);
+            const type = this.resolveType(toString(field.type), origin, new Set(), origin.getQualifiedName(owner).split(".").slice(0, -1).join("."), true, owner);
+            return type.startsWith("(") && type.includes("=>");
+        };
+        for (let index = members.length - 1; index >= 0; index--)
+            if (callbackField(members[index], node))
+                members.splice(index, 1);
         const wireNodes = new Set(members);
         const generatedBacking = (field) => (__hasLazy && field.name.text === sourceField) ||
             members.some((member) => this.lazyMetadata.has(member) &&
@@ -1577,7 +1586,8 @@ export class JSONTransform extends Visitor {
                 ancestors.some((ancestor) => ancestor.members.some((field) => field.kind === NodeKind.FieldDeclaration &&
                     !field.is(32) &&
                     !!field.initializer &&
-                    (field.is(512) ||
+                    (callbackField(field, ancestor) ||
+                        field.is(512) ||
                         field.is(1024) ||
                         field.decorators?.some((decorator) => toString(decorator.name) === "omit")))) ||
                 node.members.some((field) => field.kind === NodeKind.FieldDeclaration &&
@@ -1631,7 +1641,18 @@ export class JSONTransform extends Visitor {
             const serializer = serializers[0];
             const serializerJsonKind = parseCustomJsonKind(serializer, "serializer");
             this.schema.customJsonKind = serializerJsonKind;
-            CustomTransform.visit(serializer);
+            const runtimeRoot = diagnosticsRuntimeRoot(this.parser.sources);
+            CustomTransform.visit(serializer, (name) => {
+                const binding = source.getImportedBinding(name + ".Value", this.parser);
+                if (binding)
+                    return (binding.source.internalPath === runtimeRoot + "assembly/index");
+                return (name === "JSON" &&
+                    !source.imports.some((statement) => statement.namespaceName?.text === name ||
+                        statement.declarations?.some((item) => item.name.text === name)));
+            }, [
+                node.range.source.statements,
+                ...source.getNamespaces(node).map((namespace) => namespace.members),
+            ]);
             if (serializer.signature.parameters.length > 1)
                 throwError("Found too many parameters in custom serializer for " +
                     this.schema.name +
@@ -4935,7 +4956,7 @@ var JSONMode;
 })(JSONMode || (JSONMode = {}));
 let MODE = JSONMode.SWAR;
 let MODE_TEXT = "SWAR";
-const STAGES = process.env["JSON_STAGES"] !== undefined;
+let STAGES = process.env["JSON_STAGES"] !== undefined;
 export default class Transformer extends Transform {
     afterInitialize(program) {
         MODE = program.options.hasFeature(16)
@@ -4981,6 +5002,15 @@ export default class Transformer extends Transform {
         }
     }
     afterParse(parser) {
+        WRITE = process.env["JSON_WRITE"]?.trim();
+        rawValue = process.env["JSON_DEBUG"]?.trim();
+        DEBUG = rawValue === "true" ? 1 : Number(rawValue) || 0;
+        DIAGNOSTICS = parseDiagnosticsFlag(process.env["JSON_DIAGNOSTICS"]);
+        STRICT = process.env["JSON_STRICT"] === "true";
+        USE_FAST_PATH = envFlagDefaultTrue(process.env["JSON_USE_FAST_PATH"]);
+        THROW_FAST_PATH = process.env["JSON_FAST_PATH_THROW"]?.trim() === "1";
+        JSON_CACHE_CONFIG = parseJSONCacheConfig(process.env["JSON_CACHE"]);
+        STAGES = process.env["JSON_STAGES"] !== undefined;
         const transformer = new JSONTransform();
         const originalMethods = DIAGNOSTICS
             ? null

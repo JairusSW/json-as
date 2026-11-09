@@ -1,49 +1,123 @@
 import {
+  BlockStatement,
   CallExpression,
+  FunctionDeclaration,
+  FunctionExpression,
+  ForStatement,
+  ForOfStatement,
   IdentifierExpression,
+  MethodDeclaration,
   Node,
   PropertyAccessExpression,
+  VariableStatement,
+  TryStatement,
+  ExportDefaultStatement,
 } from "assemblyscript/dist/assemblyscript.js";
 import { NodeKind } from "../types.js";
 import { Visitor } from "../visitor.js";
 
+/** Rewrite runtime calls without changing application-owned receiver bindings. */
 export class CustomTransform extends Visitor {
-  static SN: CustomTransform = new CustomTransform();
-  private modify: boolean = false;
-  visitCallExpression(node: CallExpression) {
-    super.visit(node.args, node);
-    if (node.expression.kind != NodeKind.PropertyAccess) return;
+  private scopes: Set<string>[] = [];
+
+  private constructor(private runtimeReceiver: (name: string) => boolean) {
+    super();
+  }
+
+  private names(nodes: Node[]): Set<string> {
+    const names = new Set<string>();
+    for (let node of nodes) {
+      if (node.kind === NodeKind.ExportDefault)
+        node = (node as ExportDefaultStatement).declaration;
+      if (node.kind === NodeKind.Variable) {
+        for (const declaration of (node as VariableStatement).declarations)
+          names.add(declaration.name.text);
+      } else {
+        const name = (node as unknown as { name?: IdentifierExpression }).name;
+        if (name) names.add(name.text);
+      }
+    }
+    return names;
+  }
+
+  visitBlockStatement(node: BlockStatement): void {
+    this.scopes.push(this.names(node.statements));
+    super.visitBlockStatement(node);
+    this.scopes.pop();
+  }
+
+  visitForStatement(node: ForStatement): void {
+    this.scopes.push(this.names(node.initializer ? [node.initializer] : []));
+    super.visitForStatement(node);
+    this.scopes.pop();
+  }
+
+  visitForOfStatement(node: ForOfStatement): void {
+    this.scopes.push(this.names([node.variable]));
+    super.visitForOfStatement(node);
+    this.scopes.pop();
+  }
+
+  visitTryStatement(node: TryStatement): void {
+    for (const [statements, variable] of [
+      [node.bodyStatements, null],
+      [node.catchStatements, node.catchVariable],
+      [node.finallyStatements, null],
+    ] as [Node[] | null, IdentifierExpression | null][]) {
+      if (!statements) continue;
+      const scope = this.names(statements);
+      if (variable) scope.add(variable.text);
+      this.scopes.push(scope);
+      this.visit(statements, node);
+      this.scopes.pop();
+    }
+  }
+
+  private callable(node: MethodDeclaration | FunctionDeclaration): void {
+    this.scopes.push(
+      new Set(node.signature.parameters.map((p) => p.name.text)),
+    );
+    this.visit(node.body, node);
+    this.scopes.pop();
+  }
+
+  visitMethodDeclaration(node: MethodDeclaration): void {
+    this.callable(node);
+  }
+  visitFunctionDeclaration(node: FunctionDeclaration): void {
+    this.callable(node);
+  }
+  visitFunctionExpression(node: FunctionExpression): void {
+    this.visit(node.declaration, node);
+  }
+
+  visitCallExpression(node: CallExpression): void {
+    super.visitCallExpression(node);
+    if (node.expression.kind !== NodeKind.PropertyAccess) return;
     const expression = node.expression as PropertyAccessExpression;
-    const property = expression.property.text;
-    if (property != "stringify" && property != "parse") return;
+    if (!["stringify", "parse"].includes(expression.property.text)) return;
+    const receiver = expression.expression;
+    if (receiver.kind !== NodeKind.Identifier) return;
+    const name = (receiver as IdentifierExpression).text;
     if (
-      expression.expression.kind != NodeKind.Identifier ||
-      (expression.expression as IdentifierExpression).text != "JSON"
+      this.scopes.some((scope) => scope.has(name)) ||
+      !this.runtimeReceiver(name)
     )
       return;
-
-    if (this.modify) {
-      expression.expression = Node.createPropertyAccessExpression(
-        Node.createIdentifierExpression("JSON", node.expression.range),
-        Node.createIdentifierExpression("internal", node.expression.range),
-        node.expression.range,
-      );
-    }
-    this.modify = true;
-
-    // console.log(toString(node));
-    // console.log(SimpleParser.parseStatement("JSON.internal.stringify").expression.expression)
+    expression.expression = Node.createPropertyAccessExpression(
+      receiver,
+      Node.createIdentifierExpression("internal", node.expression.range),
+      node.expression.range,
+    );
   }
-  static visit(node: Node | Node[], ref: Node | null = null): void {
-    if (!node) return;
-    CustomTransform.SN.modify = true;
-    CustomTransform.SN.visit(node, ref);
-    CustomTransform.SN.modify = false;
-  }
-  static hasCall(node: Node | Node[]): boolean {
-    if (!node) return false;
-    CustomTransform.SN.modify = false;
-    CustomTransform.SN.visit(node);
-    return CustomTransform.SN.modify;
+
+  static visit(
+    node: MethodDeclaration,
+    runtimeReceiver: (name: string) => boolean,
+    scopes: Node[][],
+  ): void {
+    const visitor = new CustomTransform(runtimeReceiver);
+    visitor.scopes = scopes.map((nodes) => visitor.names(nodes));
+    visitor.visit(node);
   }
 }

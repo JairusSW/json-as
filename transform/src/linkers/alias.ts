@@ -6,6 +6,10 @@ import {
   TypeParameterNode,
   NamedTypeNode,
   NamespaceDeclaration,
+  FunctionDeclaration,
+  MethodDeclaration,
+  FunctionExpression,
+  BlockStatement,
 } from "assemblyscript/dist/assemblyscript.js";
 import { Visitor } from "../visitor.js";
 import { toString, cloneNode, SimpleParser } from "../util.js";
@@ -43,6 +47,11 @@ export function effectiveTypeArguments(
 
 class AliasFinder extends Visitor {
   private namespace: string[] = [];
+  // Schema aliases are module/namespace declarations, never function locals.
+  visitFunctionDeclaration(_node: FunctionDeclaration): void {}
+  visitMethodDeclaration(_node: MethodDeclaration): void {}
+  visitFunctionExpression(_node: FunctionExpression): void {}
+  visitBlockStatement(_node: BlockStatement): void {}
   visitNamespaceDeclaration(node: NamespaceDeclaration): void {
     this.namespace.push(node.name.text);
     super.visitNamespaceDeclaration(node);
