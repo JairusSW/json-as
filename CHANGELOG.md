@@ -14,6 +14,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Parsing and validation
 
+- Use native array storage when parsing subclasses with overridden length accessors, preserving fresh/reused contents, constructor state, growth, and managed-reference barriers across backends.
+- Clear deferred object slots when the allocator does not guarantee zeroed memory, including minimal-runtime array and Map parsing after collection.
 - Reject incompatible field-value kinds consistently in strict parsing with fresh and reused destinations, including object values supplied to scalar fields.
 - Add opt-in `JSON_DIAGNOSTICS=false` builds that trap on library and generated-reader failures while preserving checks and application errors. Detailed diagnostics remain enabled by default.
 - Correct decimal-power tables and exponent parsing, validate packed narrow-array digit lanes and delimiters, and require complete string quote framing. Preserve legacy empty-run behavior in low-level integer scan helpers.

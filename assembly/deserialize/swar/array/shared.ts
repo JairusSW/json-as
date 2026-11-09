@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import { newNativeArray, nativeArrayLength } from "../../../util/nativeArray";
 import { reuseComposite } from "../../parseMode";
 import {
   BACK_SLASH,
@@ -61,7 +61,7 @@ export function ensureArrayElementSlot<T extends Array<any>>(
   index: i32,
 ): usize {
   const nextLength = index + 1;
-  if (out.length < nextLength) {
+  if (nativeArrayLength<valueof<T>>(changetype<usize>(out)) < nextLength) {
     // The base Array index setter grows geometrically and links references.
     // It cannot invoke an overridden push method or alter the decoded value.
     const storage = changetype<Array<valueof<T>>>(out);

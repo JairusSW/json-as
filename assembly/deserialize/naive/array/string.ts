@@ -5,7 +5,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+  appendNativeArray,
+} from "../../../util/nativeArray";
 import {
   COMMA,
   BRACKET_LEFT,
@@ -33,7 +37,7 @@ export function deserializeStringArray_NAIVE<T extends (string | null)[]>(
   nullable: bool = false,
 ): T {
   const out = changetype<T>(dst || changetype<usize>(newNativeArray<T>()));
-  out.length = 0; // dst may arrive pre-sized; re-parse from empty via push
+  setNativeArrayLength<T>(out, 0); // dst may arrive pre-sized; re-parse from empty via push
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   if (
@@ -60,8 +64,7 @@ export function deserializeStringArray_NAIVE<T extends (string | null)[]>(
       }
       const value = deserializeString(srcStart, closing + 2);
       if (changetype<usize>(value) == 0) return changetype<T>(0);
-      changetype<Array<valueof<T>>>(out)[out.length] =
-        changetype<valueof<T>>(value);
+      appendNativeArray<T>(out, changetype<valueof<T>>(value));
       srcStart = closing + 2;
     } else if (srcStart + 8 <= srcEnd && load<u64>(srcStart) == NULL_WORD_U64) {
       if (!nullable) {
@@ -69,8 +72,7 @@ export function deserializeStringArray_NAIVE<T extends (string | null)[]>(
         return changetype<T>(0);
       }
       // `(string | null)[]` element
-      changetype<Array<valueof<T>>>(out)[out.length] =
-        changetype<valueof<T>>(0);
+      appendNativeArray<T>(out, changetype<valueof<T>>(0));
       srcStart += 8;
     } else {
       markProductionParseError();

@@ -5,7 +5,10 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+} from "../../../util/nativeArray";
 import { parseDecimalF32, roundDecimalF32 } from "../../../util/parseDecimal";
 import { scientific } from "../../../util/scientific";
 import { deserializeFloatField_NAIVE } from "../../naive/float";
@@ -591,7 +594,7 @@ export function deserializeFloatArrayBody<T extends number[]>(
     srcStart = skipFloatArrayWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
-      out.length = 0;
+      setNativeArrayLength<T>(out, 0);
       return srcStart + 2;
     }
 
@@ -600,7 +603,7 @@ export function deserializeFloatArrayBody<T extends number[]>(
     // reused pairs. Other lengths fall back to the general loop and are trimmed
     // at the closing bracket.
     if (reusableLength == 0) {
-      out.length = 2;
+      setNativeArrayLength<T>(out, 2);
       reusableLength = 2;
       reusableDataStart = out.dataStart;
     }
@@ -675,7 +678,7 @@ export function deserializeFloatArrayBody<T extends number[]>(
         // pairs across thousands of geometries) the length is unchanged
         // and the AS runtime's `ensureCapacity` call is pure overhead.
         const nextLen = index + 1;
-        if (reusableLength != nextLen) out.length = nextLen;
+        if (reusableLength != nextLen) setNativeArrayLength<T>(out, nextLen);
         return srcStart + 2;
       }
       break;

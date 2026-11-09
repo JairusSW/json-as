@@ -5,7 +5,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { allocateObject, linkObject } from "../../util/runtime";
+import {
+  allocateObject,
+  clearAllocatedObject,
+  linkObject,
+} from "../../util/runtime";
 import { NativeMap } from "../../util/native-collections";
 import { HASH } from "util/hash";
 import { reuseComposite } from "../parseMode";
@@ -39,6 +43,7 @@ function scanMapValueEnd(start: usize, end: usize): usize {
   if (JSON_MODE == JSONMode.NAIVE) return scanValueEnd(start, end);
   return JSON.Util.scanValueEnd(start, end);
 }
+
 
 @unmanaged
 class ReusableMapEntry<K, V> {
@@ -243,7 +248,8 @@ function setFreshMapValuePrehashed<T extends Map<any, any>>(
     value,
     offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value"),
   );
-  if (isManaged<valueof<T>>()) linkObject(mapPtr, changetype<usize>(value), true);
+  if (isManaged<valueof<T>>())
+    linkObject(mapPtr, changetype<usize>(value), true);
   store<usize>(
     entry,
     load<usize>(bucketPtr),
@@ -266,6 +272,7 @@ function setFreshMapValuePrehashed<T extends Map<any, any>>(
   );
   return true;
 }
+
 
 @inline
 function setParsedMapValue<T extends Map<any, any>>(
@@ -419,7 +426,8 @@ function removeStaleMapKeys<T extends Map<any, any>>(
   }
   for (let i = 0; i < previousKeys.length; i++) {
     const key = unchecked(previousKeys[i]);
-    if (!seenKeys.has(key)) changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeDelete(key);
+    if (!seenKeys.has(key))
+      changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeDelete(key);
   }
 }
 
@@ -432,7 +440,9 @@ export function deserializeMap<T extends Map<any, any>>(
     dst || changetype<usize>(instantiate<T>()),
   );
 
-  const reuseExisting = dst != 0 || changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeSize() != 0;
+  const reuseExisting =
+    dst != 0 ||
+    changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeSize() != 0;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
   if (srcStart - srcEnd == 0) return changetype<T>(0);
@@ -496,7 +506,9 @@ export function deserializeMapBody<T extends Map<any, any>>(
       ) *
         previousEntrySize
     : 0;
-  const previousCount = reuseExisting ? changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeSize() : 0;
+  const previousCount = reuseExisting
+    ? changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeSize()
+    : 0;
   while (
     previousEntry < previousEntryEnd &&
     (load<usize>(
@@ -523,7 +535,8 @@ export function deserializeMapBody<T extends Map<any, any>>(
     srcStart = skipMapWhitespace(srcStart, srcEnd);
   if (srcStart >= srcEnd) return 0;
   if (load<u16>(srcStart) == BRACE_RIGHT) {
-    if (reuseExisting) changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeClear();
+    if (reuseExisting)
+      changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeClear();
     return srcStart + 2;
   }
 
@@ -586,7 +599,8 @@ export function deserializeMapBody<T extends Map<any, any>>(
         );
     if (reuseExisting) {
       if (changetype<usize>(seenKeys) == 0 && !matchedPreviousKey) {
-        previousKeys = changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeKeys();
+        previousKeys =
+          changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeKeys();
         seenKeys = new Set<indexof<T>>();
         for (let i = 0; i < parsedKeyCount; i++) {
           seenKeys.add(unchecked(previousKeys[i]));
@@ -619,9 +633,14 @@ export function deserializeMapBody<T extends Map<any, any>>(
       const valueEnd = scanMapValueEnd(srcStart, srcEnd);
       if (!valueEnd || valueEnd <= srcStart) break;
       let raw: JSON.Raw | null = null;
-      if (reuseExisting && changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeHas(key)) {
+      if (
+        reuseExisting &&
+        changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeHas(key)
+      ) {
         raw = changetype<JSON.Raw>(
-          changetype<usize>(changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeGet(key)),
+          changetype<usize>(
+            changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeGet(key),
+          ),
         );
       }
       if (raw !== null) {
@@ -696,8 +715,12 @@ export function deserializeMapBody<T extends Map<any, any>>(
             previousEntry,
             offsetof<ReusableMapEntry<indexof<T>, valueof<T>>>("value"),
           );
-        } else if (reuseExisting && changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeHas(key)) {
-          value = changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeGet(key);
+        } else if (
+          reuseExisting &&
+          changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeHas(key)
+        ) {
+          value =
+            changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeGet(key);
         }
         // A stable map-entry value slot identifies the logical destination,
         // including repeated keys, across the complete public parse.
@@ -753,20 +776,32 @@ export function deserializeMapBody<T extends Map<any, any>>(
         let initialized = false;
         if (changetype<usize>(value) == 0) {
           value = changetype<valueof<T>>(
-            allocateObject(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
+            allocateObject(
+              offsetof<nonnull<valueof<T>>>(),
+              idof<nonnull<valueof<T>>>(),
+            ),
           );
           // @ts-ignore: supplied by the json-as transform
           if (
             isDefined(valueType.__INITIALIZE) &&
             !(
               isDefined(valueType.__DESERIALIZE_DEFER_DEFAULTS) &&
-              changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_DEFER_DEFAULTS() ==
-                idof<nonnull<valueof<T>>>()
+              changetype<nonnull<valueof<T>>>(
+                value,
+              ).__DESERIALIZE_DEFER_DEFAULTS() == idof<nonnull<valueof<T>>>()
             )
           ) {
             // @ts-ignore: supplied by the json-as transform
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
             initialized = true;
+          } else {
+            // Deferred defaults still require zeroed reference slots. Minimal
+            // runtime allocations can reuse nonzero payloads after collection.
+            // The transform removes this clear only for a verified zeroing allocator.
+            clearAllocatedObject(
+              changetype<usize>(value),
+              offsetof<nonnull<valueof<T>>>(),
+            );
           }
         }
 
@@ -809,11 +844,9 @@ export function deserializeMapBody<T extends Map<any, any>>(
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
           }
           // @ts-ignore: supplied by the json-as transform
-          const slowRes = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW(
-            valueStart,
-            valueEnd,
+          const slowRes = changetype<nonnull<valueof<T>>>(
             value,
-          );
+          ).__DESERIALIZE_SLOW(valueStart, valueEnd, value);
           if (!slowRes) break;
           next = valueEnd;
         }
@@ -886,7 +919,8 @@ export function deserializeMapBody<T extends Map<any, any>>(
         changetype<usize>(previousKeys) == 0 &&
         parsedKeyCount != previousCount
       )
-        previousKeys = changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeKeys();
+        previousKeys =
+          changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeKeys();
       removeStaleMapKeys<T>(out, previousKeys, seenKeys, parsedKeyCount);
       return srcStart + 2;
     }
@@ -913,6 +947,7 @@ export function deserializeMapField<T extends Map<any, any>>(
     srcStart,
     srcEnd,
     out,
-    reuseExisting || changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeSize() != 0,
+    reuseExisting ||
+      changetype<NativeMap<indexof<T>, valueof<T>>>(out).nativeSize() != 0,
   );
 }

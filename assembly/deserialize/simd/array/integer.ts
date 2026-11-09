@@ -5,7 +5,10 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+} from "../../../util/nativeArray";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { deserializeIntegerArray_SLOW } from "../../swar/array/integer";
 import { isSpace } from "../../../util";
@@ -218,8 +221,11 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
 ): T {
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
-  if (srcEnd - srcStart < 4 || load<u16>(srcStart) != BRACKET_LEFT ||
-      load<u16>(srcEnd - 2) != BRACKET_RIGHT) {
+  if (
+    srcEnd - srcStart < 4 ||
+    load<u16>(srcStart) != BRACKET_LEFT ||
+    load<u16>(srcEnd - 2) != BRACKET_RIGHT
+  ) {
     markProductionParseError();
     return changetype<T>(0);
   }
@@ -231,7 +237,7 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
   // + 1 delimiter per element). Zero-fill is skipped for u8/i8 in AS so the
   // over-allocation costs only a small amount of trimmed storage.
   const maxElements = i32((<usize>(srcEnd - srcStart)) >> 2);
-  if (maxElements > 0) out.length = maxElements;
+  if (maxElements > 0) setNativeArrayLength<T>(out, maxElements);
   const dataStart = out.dataStart;
   const elementSize = sizeof<valueof<T>>();
   let writePtr = dataStart;
@@ -239,11 +245,10 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
   srcStart += 2;
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
   if (srcStart + 2 == srcEnd && load<u16>(srcStart) == BRACKET_RIGHT) {
-    out.length = 0;
+    setNativeArrayLength<T>(out, 0);
     return out;
   }
   while (srcStart < srcEnd) {
-
     // Fast path: two packed 3-digit elements in one v128 load. Pattern
     // matches `DDD,DDD,` (commas at lanes 3 and 7) which is the majority of
     // pairs for any payload whose values frequently land in 100..255.
@@ -388,12 +393,18 @@ function deserializeNarrowIntegerArray_SIMD<T extends number[]>(
     if (srcStart >= srcEnd) break;
     const delimiter = load<u16>(srcStart);
     if (delimiter != COMMA && delimiter != BRACKET_RIGHT) break;
-    store<valueof<T>>(writePtr, negative ? <valueof<T>>-(<i64>value) : <valueof<T>>value);
+    store<valueof<T>>(
+      writePtr,
+      negative ? <valueof<T>>-(<i64>value) : <valueof<T>>value,
+    );
     writePtr += elementSize;
     srcStart += 2;
     if (delimiter == BRACKET_RIGHT) {
       if (srcStart != srcEnd) break;
-      out.length = i32(<usize>(writePtr - dataStart) / elementSize);
+      setNativeArrayLength<T>(
+        out,
+        i32(<usize>(writePtr - dataStart) / elementSize),
+      );
       return out;
     }
   }
@@ -431,7 +442,7 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
       srcStart += 2;
       if (srcStart >= srcEnd) break;
       if (load<u16>(srcStart) == BRACKET_RIGHT) {
-        out.length = 0;
+        setNativeArrayLength<T>(out, 0);
         return out;
       }
 
@@ -478,7 +489,7 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
             continue;
           }
           if (code == BRACKET_RIGHT) {
-            if (index != reusableLength) out.length = index;
+            if (index != reusableLength) setNativeArrayLength<T>(out, index);
             return out;
           }
           break;
@@ -517,7 +528,7 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
             continue;
           }
           if (code == BRACKET_RIGHT) {
-            if (index != reusableLength) out.length = index;
+            if (index != reusableLength) setNativeArrayLength<T>(out, index);
             return out;
           }
           break;
@@ -534,7 +545,7 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
   // write for every integer width.
   const elementSize = sizeof<valueof<T>>();
   const maxElements = i32((<usize>(srcEnd - srcStart)) >> 2);
-  if (maxElements > 0) out.length = maxElements;
+  if (maxElements > 0) setNativeArrayLength<T>(out, maxElements);
   const dataStart = out.dataStart;
   let writePtr = dataStart;
 
@@ -543,7 +554,7 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
     srcStart += 2;
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
-      out.length = 0;
+      setNativeArrayLength<T>(out, 0);
       return out;
     }
 
@@ -561,7 +572,10 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
           continue;
         }
         if (code == BRACKET_RIGHT) {
-          out.length = i32(<usize>(writePtr - dataStart) / elementSize);
+          setNativeArrayLength<T>(
+            out,
+            i32(<usize>(writePtr - dataStart) / elementSize),
+          );
           return out;
         }
         break;
@@ -580,7 +594,10 @@ export function deserializeIntegerArray_SIMD<T extends number[]>(
           continue;
         }
         if (code == BRACKET_RIGHT) {
-          out.length = i32(<usize>(writePtr - dataStart) / elementSize);
+          setNativeArrayLength<T>(
+            out,
+            i32(<usize>(writePtr - dataStart) / elementSize),
+          );
           return out;
         }
         break;

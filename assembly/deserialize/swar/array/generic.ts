@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
+import { setNativeArrayLength } from "../../../util/nativeArray";
 import { linkObject } from "../../../util/runtime";
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
@@ -26,7 +27,7 @@ export function deserializeGenericArrayBody<T extends unknown[]>(
   srcStart = skipWhitespace(srcStart, srcEnd);
   if (srcStart >= srcEnd) throw new Error("Failed to parse JSON!");
   if (load<u16>(srcStart) == BRACKET_RIGHT) {
-    out.length = 0;
+    setNativeArrayLength<T>(out, 0);
     return srcStart + 2;
   }
 
@@ -62,7 +63,7 @@ export function deserializeGenericArrayBody<T extends unknown[]>(
       continue;
     }
     if (code == BRACKET_RIGHT) {
-      if (reusableLength != index) out.length = index;
+      if (reusableLength != index) setNativeArrayLength<T>(out, index);
       return srcStart + 2;
     }
     break;

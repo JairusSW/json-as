@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
+import { appendNativeArray } from "../../util/nativeArray";
 import { JSON } from "../..";
 import {
   COMMA,
@@ -320,12 +321,15 @@ export function parseArrayBody(
         markProductionParseError();
         return 0;
       }
-      out[out.length] = JSON.Value.fromSlice(srcStart, end, parseSrc);
+      appendNativeArray<JSON.Value[]>(
+        out,
+        JSON.Value.fromSlice(srcStart, end, parseSrc),
+      );
       srcStart = end;
     } else {
       const value = parseValue(srcStart, srcEnd);
       if (parseValueEnd == 0) return 0;
-      out[out.length] = value;
+      appendNativeArray<JSON.Value[]>(out, value);
       srcStart = parseValueEnd;
     }
   }

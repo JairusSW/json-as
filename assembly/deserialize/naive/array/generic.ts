@@ -5,7 +5,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+  appendNativeArray,
+} from "../../../util/nativeArray";
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
@@ -19,7 +23,7 @@ export function deserializeGenericArray<T extends unknown[]>(
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(newNativeArray<T>()),
   );
-  out.length = 0;
+  setNativeArrayLength<T>(out, 0);
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
@@ -44,9 +48,10 @@ export function deserializeGenericArray<T extends unknown[]>(
     const valueEnd = scanValueEnd(srcStart, srcEnd);
     if (!valueEnd || valueEnd <= srcStart) break;
 
-    changetype<Array<valueof<T>>>(out)[out.length] = JSON.__deserializeValue<
-      valueof<T>
-    >(srcStart, valueEnd);
+    appendNativeArray<T>(
+      out,
+      JSON.__deserializeValue<valueof<T>>(srcStart, valueEnd),
+    );
     srcStart = valueEnd;
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;

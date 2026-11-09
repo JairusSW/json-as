@@ -5,7 +5,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+  appendNativeArray,
+} from "../../../util/nativeArray";
 import { JSON } from "../../..";
 import {
   BRACE_LEFT,
@@ -28,7 +32,7 @@ export function deserializeReferenceArray<T extends unknown[]>(
   dst: usize,
 ): T {
   const out = changetype<T>(dst || changetype<usize>(newNativeArray<T>()));
-  out.length = 0;
+  setNativeArrayLength<T>(out, 0);
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   if (srcStart < srcEnd && load<u16>(srcStart) == BRACKET_LEFT) {
     srcStart += 2;
@@ -51,9 +55,13 @@ export function deserializeReferenceArray<T extends unknown[]>(
           value = changetype<valueof<T>>(object);
         } else {
           const map = instantiate<nonnull<valueof<T>>>();
-          const native = changetype<
-            NativeMap<indexof<nonnull<valueof<T>>>, valueof<nonnull<valueof<T>>>>
-          >(map);
+          const native =
+            changetype<
+              NativeMap<
+                indexof<nonnull<valueof<T>>>,
+                valueof<nonnull<valueof<T>>>
+              >
+            >(map);
           srcStart = deserializeMapBody<nonnull<valueof<T>>>(
             srcStart,
             srcEnd,
@@ -64,7 +72,7 @@ export function deserializeReferenceArray<T extends unknown[]>(
         }
         if (!srcStart) break;
       } else break;
-      changetype<Array<valueof<T>>>(out)[out.length] = value;
+      appendNativeArray<T>(out, value);
       while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
       if (srcStart >= srcEnd) break;
       if (load<u16>(srcStart) == BRACKET_RIGHT && srcStart + 2 == srcEnd)

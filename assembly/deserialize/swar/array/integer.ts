@@ -5,7 +5,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+  nativeArrayLength,
+} from "../../../util/nativeArray";
 import { deserializeIntegerArray_NAIVE } from "../../naive/array/integer";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { isSpace } from "../../../util";
@@ -204,7 +208,7 @@ export function deserializeIntegerArray_SLOW<T extends number[]>(
   );
   let index = 0;
 
-  out.length = 0;
+  setNativeArrayLength<T>(out, 0);
   if (srcStart >= srcEnd || load<u16>(srcStart) != BRACKET_LEFT) {
     markProductionParseError();
     return changetype<T>(0);
@@ -306,7 +310,7 @@ function deserializeIntegerArrayImpl<T extends number[]>(
       srcStart += 2;
       if (srcStart >= srcEnd) break;
       if (load<u16>(srcStart) == BRACKET_RIGHT) {
-        out.length = 0;
+        setNativeArrayLength<T>(out, 0);
         return out;
       }
 
@@ -357,7 +361,7 @@ function deserializeIntegerArrayImpl<T extends number[]>(
             continue;
           }
           if (code == BRACKET_RIGHT) {
-            out.length = index;
+            setNativeArrayLength<T>(out, index);
             return out;
           }
           break;
@@ -400,7 +404,7 @@ function deserializeIntegerArrayImpl<T extends number[]>(
             continue;
           }
           if (code == BRACKET_RIGHT) {
-            out.length = index;
+            setNativeArrayLength<T>(out, index);
             return out;
           }
           break;
@@ -420,7 +424,7 @@ function deserializeIntegerArrayImpl<T extends number[]>(
   // integer width.
   const elementSize = sizeof<valueof<T>>();
   const maxElements = i32((<usize>(srcEnd - srcStart)) >> 2);
-  if (maxElements > 0) out.length = maxElements;
+  if (maxElements > 0) setNativeArrayLength<T>(out, maxElements);
   const dataStart = out.dataStart;
   let writePtr = dataStart;
 
@@ -429,7 +433,7 @@ function deserializeIntegerArrayImpl<T extends number[]>(
     srcStart += 2;
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
-      out.length = 0;
+      setNativeArrayLength<T>(out, 0);
       return out;
     }
 
@@ -451,7 +455,10 @@ function deserializeIntegerArrayImpl<T extends number[]>(
           continue;
         }
         if (code == BRACKET_RIGHT) {
-          out.length = i32(<usize>(writePtr - dataStart) / elementSize);
+          setNativeArrayLength<T>(
+            out,
+            i32(<usize>(writePtr - dataStart) / elementSize),
+          );
           return out;
         }
         break;
@@ -474,7 +481,10 @@ function deserializeIntegerArrayImpl<T extends number[]>(
           continue;
         }
         if (code == BRACKET_RIGHT) {
-          out.length = i32(<usize>(writePtr - dataStart) / elementSize);
+          setNativeArrayLength<T>(
+            out,
+            i32(<usize>(writePtr - dataStart) / elementSize),
+          );
           return out;
         }
         break;
@@ -517,7 +527,7 @@ function deserializeIntegerArrayBody<T extends number[]>(
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
-      out.length = 0;
+      setNativeArrayLength<T>(out, 0);
       return srcStart + 2;
     }
 
@@ -551,7 +561,8 @@ function deserializeIntegerArrayBody<T extends number[]>(
       }
       if (code == BRACKET_RIGHT) {
         const nextLen = index + 1;
-        if (out.length != nextLen) out.length = nextLen;
+        if (nativeArrayLength<valueof<T>>(changetype<usize>(out)) != nextLen)
+          setNativeArrayLength<T>(out, nextLen);
         return srcStart + 2;
       }
       break;

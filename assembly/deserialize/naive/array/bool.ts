@@ -5,7 +5,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+  appendNativeArray,
+} from "../../../util/nativeArray";
 import { isSpace } from "../../../util";
 import {
   COMMA,
@@ -35,7 +39,7 @@ export function deserializeBooleanArray<T extends boolean[]>(
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(newNativeArray<T>()),
   );
-  out.length = 0; // dst may arrive pre-sized; re-parse from empty via push
+  setNativeArrayLength<T>(out, 0); // dst may arrive pre-sized; re-parse from empty via push
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   if (
@@ -54,14 +58,14 @@ export function deserializeBooleanArray<T extends boolean[]>(
 
   while (true) {
     if (srcStart + 8 <= srcEnd && load<u64>(srcStart) == TRUE_WORD_U64) {
-      changetype<Array<valueof<T>>>(out)[out.length] = true;
+      appendNativeArray<T>(out, true);
       srcStart += 8;
     } else if (
       srcStart + 10 <= srcEnd &&
       load<u64>(srcStart) == FALSE_WORD_U64 &&
       load<u16>(srcStart, 8) == 101
     ) {
-      changetype<Array<valueof<T>>>(out)[out.length] = false;
+      appendNativeArray<T>(out, false);
       srcStart += 10;
     } else {
       markProductionParseError();

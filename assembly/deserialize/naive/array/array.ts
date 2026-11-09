@@ -5,7 +5,12 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+  nativeArrayLength,
+  appendNativeArray,
+} from "../../../util/nativeArray";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
 import { JSON } from "../../../";
 import { isSpace } from "../../../util";
@@ -49,7 +54,7 @@ export function deserializeArrayArray<T extends unknown[][]>(
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
       if (srcStart + 2 != srcEnd) break;
-      out.length = index;
+      setNativeArrayLength<T>(out, index);
       return out;
     }
 
@@ -80,10 +85,10 @@ export function deserializeArrayArray<T extends unknown[][]>(
       srcStart = valueEnd;
     }
 
-    if (index < out.length) {
+    if (index < nativeArrayLength<valueof<T>>(changetype<usize>(out))) {
       unchecked((changetype<Array<valueof<T>>>(out)[index] = value));
     } else {
-      changetype<Array<valueof<T>>>(out)[out.length] = value;
+      appendNativeArray<T>(out, value);
     }
     index++;
 
@@ -97,7 +102,7 @@ export function deserializeArrayArray<T extends unknown[][]>(
       continue;
     }
     if (code == BRACKET_RIGHT && srcStart + 2 == srcEnd) {
-      out.length = index;
+      setNativeArrayLength<T>(out, index);
       return out;
     }
     break;

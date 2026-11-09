@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
+import { setNativeArrayLength } from "../../../util/nativeArray";
 import { reuseComposite } from "../../parseMode";
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
@@ -34,7 +35,7 @@ function deserializeObjectArrayBody<T extends unknown[]>(
     srcStart = skipWhitespace(srcStart, srcEnd);
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
-      out.length = 0;
+      setNativeArrayLength<T>(out, 0);
       return srcStart + 2;
     }
 
@@ -66,7 +67,7 @@ function deserializeObjectArrayBody<T extends unknown[]>(
       }
       if (code == BRACKET_RIGHT) {
         const nextLen = index + 1;
-        if (reusableLength != nextLen) out.length = nextLen;
+        if (reusableLength != nextLen) setNativeArrayLength<T>(out, nextLen);
         return srcStart + 2;
       }
       break;

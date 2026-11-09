@@ -5,7 +5,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+  appendNativeArray,
+} from "../../../util/nativeArray";
 import { isSpace } from "../../../util";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { JSON, JSONMode } from "../../..";
@@ -35,7 +39,7 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
   );
   // `dst` may arrive pre-sized (e.g. the SWAR fast path presizes then falls
   // back here); we re-parse from scratch via push, so start from empty.
-  out.length = 0;
+  setNativeArrayLength<T>(out, 0);
 
   // Trim surrounding whitespace and require the enclosing brackets.
   while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
@@ -74,9 +78,12 @@ export function deserializeFloatArray_NAIVE<T extends number[]>(
       markProductionParseError();
       return changetype<T>(0);
     }
-    changetype<Array<valueof<T>>>(out)[out.length] = (JSON_MODE == JSONMode.NAIVE
-      ? deserializeValidatedFloat_NAIVE<valueof<T>>(tokenStart, srcStart)
-      : JSON.__deserializeValue<valueof<T>>(tokenStart, srcStart));
+    appendNativeArray<T>(
+      out,
+      JSON_MODE == JSONMode.NAIVE
+        ? deserializeValidatedFloat_NAIVE<valueof<T>>(tokenStart, srcStart)
+        : JSON.__deserializeValue<valueof<T>>(tokenStart, srcStart),
+    );
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break; // end of array body

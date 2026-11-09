@@ -5,7 +5,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+  appendNativeArray,
+} from "../../../util/nativeArray";
 import { atoi, isSpace } from "../../../util";
 import { COMMA, BRACKET_LEFT, BRACKET_RIGHT } from "../../../custom/chars";
 import { markProductionParseError } from "../../error";
@@ -27,7 +31,7 @@ export function deserializeIntegerArray_NAIVE<T extends number[]>(
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(newNativeArray<T>()),
   );
-  out.length = 0; // dst may arrive pre-sized; re-parse from empty via push
+  setNativeArrayLength<T>(out, 0); // dst may arrive pre-sized; re-parse from empty via push
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
   if (
@@ -59,10 +63,7 @@ export function deserializeIntegerArray_NAIVE<T extends number[]>(
       markProductionParseError();
       return changetype<T>(0);
     }
-    changetype<Array<valueof<T>>>(out)[out.length] = atoi<valueof<T>>(
-      tokenStart,
-      srcStart,
-    );
+    appendNativeArray<T>(out, atoi<valueof<T>>(tokenStart, srcStart));
 
     while (srcStart < srcEnd && isSpace(load<u16>(srcStart))) srcStart += 2;
     if (srcStart >= srcEnd) break;

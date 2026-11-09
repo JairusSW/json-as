@@ -5,8 +5,16 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { newNativeArray } from "../../../util/nativeArray";
-import { allocateObject, linkObject } from "../../../util/runtime";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+  nativeArrayLength,
+} from "../../../util/nativeArray";
+import {
+  allocateObject,
+  clearAllocatedObject,
+  linkObject,
+} from "../../../util/runtime";
 import { reuseComposite, hasCompositeReuseScope } from "../../parseMode";
 import {
   BRACE_LEFT,
@@ -72,7 +80,7 @@ export function deserializeStructArrayBody<T>(
     reusableLength = out.length;
     reusableDataStart = changetype<usize>(out);
   } else {
-    reusableLength = out.length;
+    reusableLength = nativeArrayLength<valueof<T>>(changetype<usize>(out));
     reusableDataStart = out.dataStart;
   }
   const elementSize = sizeof<valueof<T>>();
@@ -93,7 +101,7 @@ export function deserializeStructArrayBody<T>(
     }
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
-      if (!(out instanceof StaticArray)) out.length = 0;
+      if (!(out instanceof StaticArray)) setNativeArrayLength<T>(out, 0);
       return srcStart + 2;
     }
 
@@ -145,7 +153,10 @@ export function deserializeStructArrayBody<T>(
         let initialized = false;
         if (changetype<usize>(value) == 0) {
           value = changetype<valueof<T>>(
-            allocateObject(offsetof<nonnull<valueof<T>>>(), idof<nonnull<valueof<T>>>()),
+            allocateObject(
+              offsetof<nonnull<valueof<T>>>(),
+              idof<nonnull<valueof<T>>>(),
+            ),
           );
           // Use the same exact-type certificate as Map values. The generated
           // reader restores omitted defaults on success; a slow retry below
@@ -155,15 +166,25 @@ export function deserializeStructArrayBody<T>(
             isDefined(changetype<nonnull<valueof<T>>>(value).__INITIALIZE) &&
             !(
               isDefined(
-                changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_DEFER_DEFAULTS,
+                changetype<nonnull<valueof<T>>>(value)
+                  .__DESERIALIZE_DEFER_DEFAULTS,
               ) &&
-              changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_DEFER_DEFAULTS() ==
-                idof<nonnull<valueof<T>>>()
+              changetype<nonnull<valueof<T>>>(
+                value,
+              ).__DESERIALIZE_DEFER_DEFAULTS() == idof<nonnull<valueof<T>>>()
             )
           ) {
             // @ts-ignore: supplied by transform
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
             initialized = true;
+          } else {
+            // Deferred defaults still require zeroed reference slots. Minimal
+            // runtime allocations can reuse nonzero payloads after collection.
+            // The transform removes this clear only for a verified zeroing allocator.
+            clearAllocatedObject(
+              changetype<usize>(value),
+              offsetof<nonnull<valueof<T>>>(),
+            );
           }
           store<valueof<T>>(slot, value);
           linkObject(changetype<usize>(out), changetype<usize>(value), false);
@@ -229,11 +250,9 @@ export function deserializeStructArrayBody<T>(
             changetype<nonnull<valueof<T>>>(value).__INITIALIZE();
           }
           // @ts-ignore: supplied by transform
-          const slowRes = changetype<nonnull<valueof<T>>>(value).__DESERIALIZE_SLOW(
-            valueStart,
-            valueEnd,
+          const slowRes = changetype<nonnull<valueof<T>>>(
             value,
-          );
+          ).__DESERIALIZE_SLOW(valueStart, valueEnd, value);
           if (!slowRes) break;
           next = valueEnd;
         }
@@ -262,7 +281,8 @@ export function deserializeStructArrayBody<T>(
         const nextLen = index + 1;
         if (out instanceof StaticArray) {
           if (reusableLength != nextLen) break;
-        } else if (reusableLength != nextLen) out.length = nextLen;
+        } else if (reusableLength != nextLen)
+          setNativeArrayLength<T>(out, nextLen);
         return srcStart + 2;
       }
       break;

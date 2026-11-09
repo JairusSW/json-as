@@ -70,3 +70,38 @@ export function appendNativeArray<T extends unknown[]>(
     changetype<Array<valueof<T>>>(out)[index] = item;
   }
 }
+
+/**
+ * Resize the native layout without virtual length access. Growth still goes
+ * through the base indexed setter, retaining overflow checks, buffer renewal,
+ * and GC barriers. Clear newly exposed reference slots before later parsing
+ * can allocate: a shortened array may contain untraced stale pointers there.
+ */
+@inline
+export function setNativeArrayLength<T>(out: T, length: i32): void {
+  if (length < 0) throw new RangeError("Invalid array length");
+  const ptr = changetype<usize>(out);
+  const previous = nativeArrayLength<valueof<T>>(ptr);
+  const shift = <u32>alignof<valueof<T>>();
+  if (length > previous) {
+    const capacity =
+      load<u32>(ptr, offsetof<ArrayBufferView>("byteLength")) >> shift;
+    if (<u32>length > capacity) {
+      const storage = changetype<Array<valueof<T>>>(out);
+      if (isReference<valueof<T>>()) {
+        storage[length - 1] = changetype<valueof<T>>(0);
+      } else {
+        storage[length - 1] = <valueof<T>>0;
+      }
+    }
+    if (isReference<valueof<T>>()) {
+      const data = load<usize>(ptr, offsetof<ArrayBufferView>("dataStart"));
+      memory.fill(
+        data + ((<usize>previous) << shift),
+        0,
+        (<usize>(length - previous)) << shift,
+      );
+    }
+  }
+  store<i32>(ptr, length, offsetof<Array<valueof<T>>>("length_"));
+}

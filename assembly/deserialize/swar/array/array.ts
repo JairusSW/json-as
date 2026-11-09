@@ -6,7 +6,11 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { linkObject } from "../../../util/runtime";
-import { newNativeArray } from "../../../util/nativeArray";
+import {
+  newNativeArray,
+  setNativeArrayLength,
+  appendNativeArray,
+} from "../../../util/nativeArray";
 import { reuseComposite } from "../../parseMode";
 import { JSON } from "../../..";
 import { BRACKET_LEFT, BRACKET_RIGHT, COMMA } from "../../../custom/chars";
@@ -57,7 +61,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
     }
     if (srcStart >= srcEnd) break;
     if (load<u16>(srcStart) == BRACKET_RIGHT) {
-      out.length = 0;
+      setNativeArrayLength<T>(out, 0);
       return srcStart + 2;
     }
 
@@ -76,7 +80,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           }
         } else {
           value = changetype<valueof<T>>(newNativeArray<valueof<T>>(2));
-          changetype<Array<valueof<T>>>(out)[out.length] = value;
+          appendNativeArray<T>(out, value);
         }
         srcStart = deserializeFloatArrayBody<valueof<T>>(
           srcStart,
@@ -98,7 +102,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
           }
         } else {
           value = changetype<valueof<T>>(newNativeArray<valueof<T>>());
-          changetype<Array<valueof<T>>>(out)[out.length] = value;
+          appendNativeArray<T>(out, value);
         }
         srcStart = deserializeArrayArrayBody<valueof<T>>(
           srcStart,
@@ -126,7 +130,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
             value,
           );
         } else {
-          changetype<Array<valueof<T>>>(out)[out.length] = value;
+          appendNativeArray<T>(out, value);
         }
         srcStart = valueEnd;
       }
@@ -153,7 +157,7 @@ export function deserializeArrayArrayBody<T extends unknown[][]>(
         // correct (the array is being reused with the same shape, e.g.
         // canada's geometry rings across repeated parses).
         const nextLen = index + 1;
-        if (reusableLength != nextLen) out.length = nextLen;
+        if (reusableLength != nextLen) setNativeArrayLength<T>(out, nextLen);
         return srcStart + 2;
       }
       break;
