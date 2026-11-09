@@ -7,9 +7,15 @@
       "source": {
         "commit": "f182ca18030ca60c9e996c4c38dadff07d833ad7",
         "treeHash": "78787d973c83c2ab3361d8c306f51f7d719cd7d2b4584324d33bc4ceddf0b986",
-        "version": "2.0.0"
+        "version": "2.0.0",
+        "branch": "main"
       },
       "architecture": "arm64",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
       "settings": {
         "language": "as",
         "runtime": "v8",

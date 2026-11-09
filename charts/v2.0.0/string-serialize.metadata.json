@@ -7,9 +7,15 @@
       "source": {
         "commit": "58be43412eeb9b31b348d793134305fa72c7a631",
         "treeHash": "bcf1b7c697983478d444eb71fc1de81f3c94d83d1aef0623f9d25c5018996600",
-        "version": "2.0.0"
+        "version": "2.0.0",
+        "branch": "main"
       },
       "architecture": "arm64",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
       "settings": {
         "language": "js",
         "runtime": "v8",
@@ -25,9 +31,15 @@
       "source": {
         "commit": "58be43412eeb9b31b348d793134305fa72c7a631",
         "treeHash": "28096e38ae78498881ff39956cbbc77410a5e9d91b55601079fbda952f8ec332",
-        "version": "2.0.0"
+        "version": "2.0.0",
+        "branch": "main"
       },
       "architecture": "arm64",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
       "settings": {
         "language": "as",
         "runtime": "v8",
@@ -43,9 +55,15 @@
       "source": {
         "commit": "58be43412eeb9b31b348d793134305fa72c7a631",
         "treeHash": "1fb9d88c571691e0eee9339314e0c95204b4e83341dcaefa600403f0282f5ae3",
-        "version": "2.0.0"
+        "version": "2.0.0",
+        "branch": "main"
       },
       "architecture": "arm64",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
       "settings": {
         "language": "as",
         "runtime": "v8",
@@ -61,9 +79,15 @@
       "source": {
         "commit": "58be43412eeb9b31b348d793134305fa72c7a631",
         "treeHash": "1fb9d88c571691e0eee9339314e0c95204b4e83341dcaefa600403f0282f5ae3",
-        "version": "2.0.0"
+        "version": "2.0.0",
+        "branch": "main"
       },
       "architecture": "arm64",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
       "settings": {
         "language": "as",
         "runtime": "v8",
