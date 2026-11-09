@@ -16,6 +16,7 @@ import type { ChartConfiguration } from "chart.js";
 import { MODE_BARS, INK } from "./palette";
 import { withAdaptiveLogScale } from "./chart-outliers";
 import { orderBenchmarkSeries } from "./chart-order";
+import { overviewStyle, compactSidebar } from "./chart-style.mjs";
 import { comparisonWorkload } from "./comparison-workloads.mjs";
 
 export interface BenchResult {
@@ -53,10 +54,20 @@ const BENCH_RUNTIME: ASBenchRuntime = ((): ASBenchRuntime => {
   return value === "wavm" ? "wavm" : "v8";
 })();
 
-const measuredProvenance: unknown[] = [];
+type ChartProvenance = {
+  id: string;
+  startedAt: string;
+  source: { commit: string; treeHash: string; packageVersion: string };
+  host?: { arch?: string };
+  settings?: Record<string, unknown>;
+};
+const measuredProvenance: (ChartProvenance | null)[] = [];
 const artifactProvenance = new WeakMap<
   object,
-  { source: { files: Record<string, string> } }
+  {
+    source: { files: Record<string, string> };
+    settings?: { outputPolicy?: string };
+  }
 >();
 export function subtitle(runtime: string = BENCH_RUNTIME) {
   return benchProvenanceSubtitle(measuredProvenance, runtime);
@@ -142,18 +153,42 @@ export function readComparisonResult(
 ): BenchResult {
   const descriptor = comparisonWorkload(process.cwd(), suite);
   const source = artifactProvenance.get(reference);
-  if (
-    !source ||
-    source.source.files[descriptor.source] !== descriptor.sourceSha256
-  )
-    throw new Error(
-      `AS comparison input changed for ${suite}; rerun its benchmark`,
-    );
   const file =
     engine === "simdjson"
       ? path.join(LOGS_DIR, "native/simdjson", `${suite}.${kind}.native.json`)
       : path.join(LOGS_DIR, "js", `classic-${suite}.${kind}.js.json`);
   const result = readBenchLog(file);
+  const comparison = artifactProvenance.get(result);
+  const inputFiles = [
+    descriptor.source,
+    ...(descriptor.group === "overview"
+      ? [`assembly/__benches__/${suite}.bench.ts`]
+      : []),
+  ];
+  if (
+    engine === "simdjson" &&
+    kind === "serialize" &&
+    !comparison?.settings?.outputPolicy?.includes(
+      "native fields to fresh UTF-8 string",
+    )
+  )
+    throw new Error(
+      `Expected uncached owning serialization for ${suite}; rerun its benchmark`,
+    );
+  // Restyling historical results uses their sealed input sources, not whatever
+  // comments or headers the current checkout has. Both captures must agree.
+  if (
+    !source ||
+    !comparison ||
+    inputFiles.some(
+      (input) =>
+        !source.source.files[input] ||
+        source.source.files[input] !== comparison.source.files[input],
+    )
+  )
+    throw new Error(
+      `Recorded comparison input changed for ${suite}; rerun its benchmark`,
+    );
   if (
     result.inputSha256 !== descriptor.inputSha256 ||
     result.bytes !== reference.bytes
@@ -376,28 +411,45 @@ export function generateChart(
 
   config = withAdaptiveLogScale(orderBenchmarkSeries(config));
 
-  // Provenance belongs in a horizontal footer, not a cramped vertical axis.
-  const caption = config.options?.plugins?.subtitle;
-  if (caption?.display) {
-    caption.position = "bottom";
-    caption.font = { size: 10 };
-    caption.padding = 10;
-    // Keep long mixed-runtime provenance readable inside the canvas width.
-    const limit = Math.floor(((dims?.width ?? 1000) - 40) / 6);
-    const lines =
-      typeof caption.text === "string" ? [caption.text] : (caption.text ?? []);
-    const wrapped: string[] = [];
-    for (const line of lines) {
-      let current = "";
-      for (const part of line.split(" • ")) {
-        if (current && current.length + part.length + 3 > limit) {
-          wrapped.push(current);
-          current = part;
-        } else current += (current ? " • " : "") + part;
-      }
-      if (current) wrapped.push(current);
-    }
-    caption.text = wrapped.length === 1 ? wrapped[0] : wrapped;
+  const fullCaption = config.options?.plugins?.subtitle?.text ?? "";
+  config = overviewStyle(
+    config,
+    compactSidebar(measuredProvenance, fullCaption),
+  );
+  // Preserve detailed run identity separately from the one-line sidebar.
+  const metadataPath = outfile.replace(/\.(svg|png)$/, ".metadata.json");
+  const records = [
+    ...new Map(
+      measuredProvenance
+        .filter((record): record is ChartProvenance => record != null)
+        .map((record) => [
+          record.id,
+          {
+            id: record.id,
+            measuredAt: record.startedAt,
+            source: {
+              commit: record.source.commit,
+              treeHash: record.source.treeHash,
+              version: record.source.packageVersion,
+            },
+            architecture: record.host?.arch,
+            settings: {
+              language: record.settings?.language,
+              runtime: record.settings?.runtime,
+              mode: record.settings?.mode,
+              strict: record.settings?.strict,
+              fastPath: record.settings?.fastPath,
+              outputPolicy: record.settings?.outputPolicy,
+            },
+          },
+        ]),
+    ).values(),
+  ];
+  if (isSvg || !fs.existsSync(metadataPath)) {
+    fs.writeFileSync(
+      metadataPath,
+      JSON.stringify({ caption: fullCaption, records }, null, 2) + "\n",
+    );
   }
   // Axes and legends identify line series; per-point labels overlap on curves.
   if (config.type === "line") {

@@ -14,6 +14,12 @@ builds owning native models from the actual AS schemas. The check overwrites and
 destroys the temporary input and reuses the parser before serializing the object;
 the complete output is checked with an integer-preserving JSON oracle. Run timing
 with `--run-only` and the same selection under the shared host timing lock.
+Each timed serialization starts with an empty `std::string` and runs
+`model::to_owned_json` over the owned fields. It reconstructs JSON every time;
+there is no cached serialized result or DOM minification in these comparisons.
+The warm-up warms executable code, not an output cache. A mutation regression
+checks that successive fresh outputs reflect changed fields.
+
 Classic and library objects use owning native structs; overview primitives
 use their native owning types. All current comparison logs identify typed
 values rather than a DOM. Raw fields own their lexemes without an extra DOM validation pass, matching

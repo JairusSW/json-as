@@ -575,7 +575,7 @@ does not switch at 1 MiB. Each object and string chart has ten samples from
 about 100 KiB to 8 MiB. The x-axis is actual UTF-8 document size, not aggregate
 bytes from repeated independent calls. Wide throughput ranges use an explicitly
 labeled logarithmic axis. Built-in JSON appears first and SIMD/native references
-appear last.
+appear last. Charts share overview typography and a one-line sidebar; detailed run provenance is retained in companion `.metadata.json` files.
 
 <details>
 <summary>Object serialization chart (click to expand)</summary>

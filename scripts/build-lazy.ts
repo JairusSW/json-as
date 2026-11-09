@@ -12,6 +12,7 @@ import {
   type BenchResult,
 } from "./lib/bench-utils";
 import type { ChartConfiguration, Plugin } from "chart.js";
+import { CHART_FONT } from "./lib/chart-style.mjs";
 import type {} from "chartjs-plugin-datalabels";
 import {
   EAGER as EAGER_BAR,
@@ -39,7 +40,7 @@ const valueLabels: Plugin<"bar"> = {
   afterDatasetsDraw(chart) {
     const ctx = chart.ctx;
     ctx.save();
-    ctx.font = "bold 12px sans-serif";
+    ctx.font = "bold 12px " + CHART_FONT;
     ctx.fillStyle = INK.label;
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";

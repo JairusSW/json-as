@@ -159,6 +159,8 @@ This release includes all changes since v1.6.3. The planned v1.7.0 release was n
 
 ### Benchmarks, testing, and release tooling
 
+- Standardize chart typography on overview, restore concise one-line sidebars, and keep detailed recorded provenance in metadata files. Verify owning simdjson serializers reconstruct fresh output after field mutations.
+
 - Combine each object/string throughput sweep into one chart with ten single-document sizes from about 100 KiB to 8 MiB. Build growing-object input with repeated serialization into one output buffer, retain identical JS/AS bytes, and display actual encoded sizes and GB/s.
 
 - Use log axes for wide or mixed throughput ranges, keep built-in JSON first and SIMD/native references last, and use one growing JSON object with the same 1,024-byte row fixture across both object chart ranges, replacing the legacy switch between repeated 55-byte and 1,049-byte records.

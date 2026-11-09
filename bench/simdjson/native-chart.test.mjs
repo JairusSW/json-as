@@ -67,3 +67,65 @@ test(
     }
   },
 );
+
+test(
+  "owning serialization reads changed fields into independent fresh outputs",
+  {
+    skip:
+      !fs.existsSync(compiler) ||
+      !fs.existsSync(path.join(library, "simdjson.o")),
+  },
+  () => {
+    const dir = path.join(library, "fresh-serialization-test");
+    fs.mkdirSync(dir, { recursive: true });
+    const schema = schemaFromSource(
+      "@json class Child { text:string; } @json class Root { n:u64; child:Child; }",
+      "fresh.ts",
+    );
+    const source = path.join(dir, "fresh.cpp");
+    const binary = path.join(dir, "fresh");
+    fs.writeFileSync(
+      source,
+      nativeSchema(schema, "Root", { unknownFields: "ignore" }) +
+        `
+#include <iostream>
+int main() {
+  model::Root value{};
+  value.n = 7; value.child.text = "first";
+  std::string first;
+  if(model::to_owned_json(value, first)) return 1;
+  std::cout << first << '\\n';
+  value.n = 9007199254740993ULL; value.child.text = "second";
+  std::string second;
+  if(model::to_owned_json(value, second)) return 2;
+  std::cout << second << '\\n';
+  std::fill(first.begin(), first.end(), 'x');
+  std::string third;
+  if(model::to_owned_json(value, third)) return 3;
+  if(third != second) return 4;
+  value.n = 9; value.child.text = "third";
+  std::string fourth;
+  if(model::to_owned_json(value, fourth)) return 5;
+  std::cout << fourth << '\\n';
+}
+`,
+    );
+    const flags = JSON.parse(
+      fs.readFileSync(path.join(library, "native-library.json")),
+    ).flags;
+    execFileSync(compiler, [
+      ...flags,
+      source,
+      path.join(library, "simdjson.o"),
+      "-o",
+      binary,
+    ]);
+    const output = execFileSync(binary, [], { encoding: "utf8" })
+      .trim()
+      .split("\n");
+    assert.deepEqual(JSON.parse(output[0]), { n: 7, child: { text: "first" } });
+    assert.match(output[1], /9007199254740993/);
+    assert.equal(JSON.parse(output[1]).child.text, "second");
+    assert.deepEqual(JSON.parse(output[2]), { n: 9, child: { text: "third" } });
+  },
+);

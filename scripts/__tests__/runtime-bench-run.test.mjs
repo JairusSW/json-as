@@ -272,7 +272,7 @@ JS`,
   assert.ok(!fs.existsSync(path.join(publishedDir, "charts/v9.9.9")));
 });
 
-test("chart configuration uses only the selected run and original subtitle", (t) => {
+test("chart uses the selected run, compact sidebar and complete metadata", (t) => {
   const f = fixture(t);
   fs.unlinkSync(path.join(f.bin, "wasmtime"));
   f.run();
@@ -288,6 +288,7 @@ test("chart configuration uses only the selected run and original subtitle", (t)
     "scripts/lib/palette.ts",
     "scripts/lib/chart-outliers.ts",
     "scripts/lib/chart-order.ts",
+    "scripts/lib/chart-style.mjs",
   ]) {
     let source = fs.readFileSync(path.join(repo, file), "utf8");
     source = source.replace(/from "(\.[^"]+)"/g, (all, target) =>
@@ -360,10 +361,18 @@ export class ChartJSNodeCanvas {
       assert.deepEqual(config.data.datasets[0].data, [123, 123, 123]);
       assert.equal(
         config.options.plugins.subtitle.text,
-        runtimeRunSubtitle(selected.manifest),
+        `${selected.manifest.host.arch.toUpperCase()} · 1 runtime · v1.6.2`,
       );
+      assert.equal(config.options.plugins.subtitle.position, "right");
     }
   }
+  const metadata = JSON.parse(
+    fs.readFileSync(
+      path.join(f.root, "build/charts/runtimes-serialize.metadata.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(metadata.caption, runtimeRunSubtitle(selected.manifest));
   const exported = JSON.parse(
     fs.readFileSync(
       path.join(f.root, "build/charts/runtimes-results.json"),

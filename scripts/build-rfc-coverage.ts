@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createCanvas, loadImage } from "canvas";
 import ts from "typescript";
+import { CHART_FONT } from "./lib/chart-style.mjs";
 
 type CoverageKind = "direct" | "envelope" | "reject" | "na";
 
@@ -185,7 +186,7 @@ function buildSVG(fixtures: Fixture[]): {
   const modeGap = 12;
   const left = 310;
   const top = 196;
-  const right = 24;
+  const right = 54;
   const bottom = 40;
   const modeWidth = TARGETS.length * pitch;
   const gridWidth = MODES.length * modeWidth + (MODES.length - 1) * modeGap;
@@ -196,7 +197,8 @@ function buildSVG(fixtures: Fixture[]): {
     '<title id="title">RFC 8259 parsing coverage by fixture, target family, and mode</title>',
     `<desc id="description">${fixtures.length} JSONTestSuite fixtures across ${TARGETS.length} target families in NAIVE, SWAR, and SIMD modes. Each square is one fixture-target-mode check.</desc>`,
     '<rect width="100%" height="100%" fill="#ffffff"/>',
-    '<g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" fill="#1f2328">',
+    `<g font-family="${CHART_FONT}" fill="#1f2328">`,
+    `<text x="${width - 16}" y="${height / 2}" transform="rotate(-90 ${width - 16} ${height / 2})" text-anchor="middle" font-size="14" font-weight="bold" fill="#59636e">RFC 8259</text>`,
     '<text x="20" y="30" font-size="20" font-weight="600">RFC 8259 parsing coverage</text>',
     `<text x="20" y="53" font-size="12" fill="#59636e">${fixtures.length} fixtures × ${TARGETS.length} target families × ${MODES.length} parser modes = ${fixtures.length * TARGETS.length * MODES.length} test cells</text>`,
   ];
@@ -254,7 +256,7 @@ function buildSVG(fixtures: Fixture[]): {
 
     parts.push(
       `<rect x="${left - 10}" y="${y}" width="3" height="${cell}" rx="1" fill="${CATEGORY_COLORS[fixture.category]}"><title>${fixture.category === "y" ? "must accept" : fixture.category === "n" ? "must reject" : "implementation-defined"}</title></rect>`,
-      `<text x="${left - 15}" y="${y + 6.7}" text-anchor="end" font-family="SFMono-Regular,Consolas,Liberation Mono,monospace" font-size="7.2">${escapeXML(fixture.name)}</text>`,
+      `<text x="${left - 15}" y="${y + 6.7}" text-anchor="end" font-size="7.2">${escapeXML(fixture.name)}</text>`,
     );
 
     for (let modeIndex = 0; modeIndex < MODES.length; modeIndex++) {
