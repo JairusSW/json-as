@@ -448,9 +448,16 @@ export class JSONTransform extends Visitor {
 
   prepareStrategicLaziness(sources: Source[]): void {
     if (process.env["JSON_STRATEGIC_LAZINESS"] === "false") return;
+    const inheritedFieldCache = new Map<
+      ClassDeclaration,
+      { owner: ClassDeclaration; field: FieldDeclaration }[]
+    >();
     const inheritedFields = (
       owner: ClassDeclaration,
     ): { owner: ClassDeclaration; field: FieldDeclaration }[] => {
+      const cached = inheritedFieldCache.get(owner);
+      if (cached) return cached;
+      const declaration = owner;
       const fields: { owner: ClassDeclaration; field: FieldDeclaration }[] = [];
       const seen = new Set<string>();
       const visited = new Set<ClassDeclaration>();
@@ -471,6 +478,7 @@ export class JSONTransform extends Visitor {
               .resolveClass(toString(owner.extendsType), owner, this.parser)
           : null;
       }
+      inheritedFieldCache.set(declaration, fields);
       return fields;
     };
     if (
