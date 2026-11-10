@@ -1478,6 +1478,16 @@ export class JSONTransform extends Visitor {
                   (owner) =>
                     owner.members.some(
                       (member) => member.name.text === "constructor",
+                    ) ||
+                    !!this.schemas
+                      .get(owner.range.source.internalPath)
+                      ?.find((schema) => schema.node === owner)
+                      ?.hasCustomCursorLifecycle ||
+                    owner.members.some(
+                      (member) =>
+                        member.range.source === owner.range.source &&
+                        (member.name.text.startsWith("__INITIALIZE") ||
+                          member.name.text === "__FINALIZE_CURSOR"),
                     ),
                 ) || this.initializerChainHasEffects(declaration, new Set(seen))
               );

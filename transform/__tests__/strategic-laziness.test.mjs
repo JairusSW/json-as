@@ -89,6 +89,8 @@ try {
           check("apiSummary", [], "7:hello");
           check("effectfulDefaultCapability", [], 0);
           check("inheritedEffectfulDefaultCapability", [], 0);
+          check("lifecycleDefaultCapability", [], 0);
+          check("lifecycleDefaultCount", [], 1);
           check("effectfulDefaultCount", [], 1);
           for (const [name, wanted] of Object.entries({
             xOnly: "1:1.5",

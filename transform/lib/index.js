@@ -909,7 +909,14 @@ export class JSONTransform extends Visitor {
                         if (meaning.declaration.kind !== NodeKind.ClassDeclaration)
                             return true;
                         const declaration = meaning.declaration;
-                        return ([declaration, ...this.classAncestors(declaration)].some((owner) => owner.members.some((member) => member.name.text === "constructor")) || this.initializerChainHasEffects(declaration, new Set(seen)));
+                        return ([declaration, ...this.classAncestors(declaration)].some((owner) => owner.members.some((member) => member.name.text === "constructor") ||
+                            !!this.schemas
+                                .get(owner.range.source.internalPath)
+                                ?.find((schema) => schema.node === owner)
+                                ?.hasCustomCursorLifecycle ||
+                            owner.members.some((member) => member.range.source === owner.range.source &&
+                                (member.name.text.startsWith("__INITIALIZE") ||
+                                    member.name.text === "__FINALIZE_CURSOR"))) || this.initializerChainHasEffects(declaration, new Set(seen)));
                     }
                     return (!isPrimitive(meaning.name) &&
                         !isString(meaning.name) &&

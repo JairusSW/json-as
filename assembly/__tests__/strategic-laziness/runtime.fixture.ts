@@ -347,3 +347,26 @@ class InheritedEffectfulDefaults {
 export function inheritedEffectfulDefaultCapability(): bool {
   return changetype<InheritedEffectfulDefaults>(0).__DESERIALIZE_FAST_ENABLED();
 }
+
+@json
+class LifecycleDefault {
+  value: i32 = 0;
+  __INITIALIZE(): this {
+    defaultCalls++;
+    this.value = 7;
+    return this;
+  }
+}
+@json({ lazy: "strategic" })
+class LifecycleDefaults {
+  child!: LifecycleDefault;
+  @optional tail: i32 = 0;
+}
+export function lifecycleDefaultCapability(): bool {
+  return changetype<LifecycleDefaults>(0).__DESERIALIZE_FAST_ENABLED();
+}
+export function lifecycleDefaultCount(): i32 {
+  defaultCalls = 0;
+  const values = JSON.parse<LifecycleDefaults[]>('[{"tail":7}]');
+  return defaultCalls + values.length - 1;
+}
