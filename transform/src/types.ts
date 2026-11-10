@@ -82,6 +82,7 @@ export class Property {
   // For `JSON.Lazy<T>` slot members: the inner type T, used by the
   // deserialize (range store) and serialize (raw emit / materialized) codegen.
   public lazyInner: string | null = null;
+  public lazyProperty: string | null = null;
   public omitIfMethod: string | null = null;
   public lazyPacked: boolean = false;
   public lazyScalar: boolean = false;

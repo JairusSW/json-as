@@ -79,6 +79,7 @@ import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
 import { specializeSweepRuns } from "./sweep.js";
 import { generateCursorParser } from "./cursor.js";
+import { StrategicAccessAnalysis, materializationDecision } from "./strategic-laziness.js";
 import { keyDispatch, KeyDispatch } from "./key-dispatch.js";
 import {
   parseDiagnosticsFlag,
@@ -445,6 +446,208 @@ export class JSONTransform extends Visitor {
   public pureNumericConstants = new Set<string>();
   public numericConstantShadows = new Set<string>();
 
+  prepareStrategicLaziness(sources: Source[]): void {
+    if (process.env["JSON_STRATEGIC_LAZINESS"] === "false") return;
+    const inheritedFields = (
+      owner: ClassDeclaration,
+    ): { owner: ClassDeclaration; field: FieldDeclaration }[] => {
+      const fields: { owner: ClassDeclaration; field: FieldDeclaration }[] = [];
+      const seen = new Set<string>();
+      const visited = new Set<ClassDeclaration>();
+      while (owner && !visited.has(owner)) {
+        visited.add(owner);
+        for (const member of owner.members) {
+          if (
+            member.kind !== NodeKind.FieldDeclaration ||
+            seen.has(member.name.text)
+          )
+            continue;
+          seen.add(member.name.text);
+          fields.push({ owner, field: member as FieldDeclaration });
+        }
+        owner = owner.extendsType
+          ? this.sources
+              .get(owner.range.source)
+              .resolveClass(toString(owner.extendsType), owner, this.parser)
+          : null;
+      }
+      return fields;
+    };
+    if (
+      process.env["JSON_STRATEGIC_LAZINESS"] !== "true" &&
+      !sources.some((source) =>
+        this.sources
+          .get(source)
+          .getClasses()
+          .some((owner) => classLazyMode(owner) === "strategic"),
+      )
+    )
+      return;
+    const has = (node: FieldDeclaration, name: string): boolean =>
+      node.decorators?.some(
+        (d) => (d.name as IdentifierExpression).text === name,
+      ) ?? false;
+    const runtimeRoot = diagnosticsRuntimeRoot(this.parser.sources);
+    const analysis = new StrategicAccessAnalysis((call, shadowed, scope) => {
+      if (
+        call.typeArguments?.length !== 1 ||
+        call.expression.kind !== NodeKind.PropertyAccess
+      )
+        return null;
+      const method = call.expression as PropertyAccessExpression;
+      if (
+        method.property.text !== "parse" ||
+        method.expression.kind !== NodeKind.Identifier
+      )
+        return null;
+      const receiver = (method.expression as IdentifierExpression).text;
+      if (shadowed(receiver)) return null;
+      const source = this.sources.get(call.range.source);
+      const binding = source.getImportedBinding(
+        receiver + ".Value",
+        this.parser,
+      );
+      if (
+        !binding ||
+        binding.source.internalPath !== runtimeRoot + "assembly/index"
+      )
+        return null;
+      const meaning = source.resolveTypeMeaning(
+        toString(call.typeArguments[0]),
+        scope,
+        this.parser,
+      );
+      const declaration =
+        meaning.declaration?.kind === NodeKind.ClassDeclaration
+          ? (meaning.declaration as ClassDeclaration)
+          : null;
+      if (
+        !declaration ||
+        (classLazyMode(declaration) !== "strategic" &&
+          !inheritedFields(declaration).some(
+            ({ owner }) => classLazyMode(owner) === "strategic",
+          ) &&
+          process.env["JSON_STRATEGIC_LAZINESS"] !== "true")
+      )
+        return null;
+      return declaration;
+    });
+    for (const source of sources) analysis.visit(source);
+    let id = 0;
+    const plans = new Map<Source, Map<string, string>>();
+    for (const site of analysis.sites) {
+      const selected: string[] = [];
+      let effectful = false;
+      for (const { owner, field } of inheritedFields(site.declaration)) {
+        const ownerSource = this.sources.get(owner.range.source);
+        if (
+          field.kind !== NodeKind.FieldDeclaration ||
+          field.is(CommonFlags.Static) ||
+          field.is(CommonFlags.Private) ||
+          field.is(CommonFlags.Protected)
+        )
+          continue;
+        const declaration = field as FieldDeclaration;
+        if (
+          !declaration.type ||
+          declaration.type.kind === NodeKind.FunctionType ||
+          has(declaration, "omit") ||
+          has(declaration, "eager")
+        )
+          continue;
+        const scope = ownerSource
+          .getQualifiedName(owner)
+          .split(".")
+          .slice(0, -1)
+          .join(".");
+        const inner = this.lazyInnerType(
+          declaration.type,
+          ownerSource,
+          scope,
+          owner,
+        );
+        const mode = classLazyMode(owner);
+        if (
+          inner === null &&
+          mode !== "strategic" &&
+          mode !== "all" &&
+          !has(declaration, "lazy") &&
+          !(
+            mode === "auto" &&
+            lazyAutoCost(
+              toString(declaration.type),
+              ownerSource,
+              this.parser,
+            ) >= LAZY_AUTO_THRESHOLD
+          )
+        )
+          continue;
+        const type = inner || toString(declaration.type);
+        const meaning = ownerSource.resolveTypeMeaning(
+          type,
+          scope,
+          this.parser,
+          ownerSource.classTypeParameters(owner),
+        );
+        const canonical = typeMeaningText(meaning);
+        const enumType = meaning.declaration?.kind === NodeKind.EnumDeclaration;
+        const applicationClass =
+          meaning.declaration?.kind === NodeKind.ClassDeclaration &&
+          !meaning.declaration.range.source.internalPath.startsWith("~lib/") &&
+          meaning.declaration.range.source.internalPath !==
+            runtimeRoot + "assembly/index";
+        const decodeCost = enumType
+          ? 1
+          : applicationClass
+            ? 20
+            : lazyTypeCost(canonical, ownerSource, this.parser);
+        const decision = materializationDecision(
+          site.accesses.get(declaration.name.text) || [],
+          decodeCost,
+          site.origin,
+        );
+        if (DEBUG)
+          console.log(
+            `[strategic] ${site.source.internalPath}:${site.call.range.start} ${declaration.name.text}: ${JSON.stringify(decision)}`,
+          );
+        if (decision.eager) {
+          selected.push(declaration.name.text);
+          // Allocating nested models and custom decoders can execute user code.
+          // Until purity is proven, use the non-speculative generated reader so
+          // a layout miss cannot replay this field's eager materialization.
+          effectful ||=
+            applicationClass ||
+            (!enumType &&
+              !isPrimitive(stripNull(canonical)) &&
+              !isString(stripNull(canonical)));
+        }
+      }
+      if (!selected.length) continue;
+      const key = String(effectful) + ":" + selected.sort().join("\0");
+      if (!plans.has(site.source)) plans.set(site.source, new Map());
+      let name = plans.get(site.source)!.get(key);
+      if (!name) {
+        do {
+          name = `__JSON_StrategicPlan_${id++}`;
+        } while (
+          this.parser.sources.some((source) => source.text.includes(name))
+        );
+        // Phantom methods exist only for isDefined: no plan is instantiated.
+        const plan = SimpleParser.parseTopLevelStatement(
+          `class ${name} { ${effectful ? "__json_strategic_effects(): void {}" : ""} ${selected.map((field) => `__json_eager_${field}(): void {}`).join("\n")} }`,
+        );
+        site.source.statements.push(plan);
+        plans.get(site.source)!.set(key, name);
+      }
+      const type = (
+        SimpleParser.parseStatement(
+          `let __plan: ${name};`,
+        ) as import("assemblyscript/dist/assemblyscript.js").VariableStatement
+      ).declarations[0].type!;
+      site.call.typeArguments!.push(type);
+    }
+  }
+
   private eagerOverrides = new Set<FieldDeclaration>();
   private lazySourceFields = new Map<ClassDeclaration, string>();
   private lazySourceInstalled = new Set<ClassDeclaration>();
@@ -585,9 +788,11 @@ export class JSONTransform extends Visitor {
           const inner = this.lazyInnerType(field.type, src, scope, owner);
           const auto =
             mode !== "none" &&
+            field.type.kind !== NodeKind.FunctionType &&
             !has(field, "eager") &&
             !has(field, "omit") &&
             (mode === "all" ||
+              mode === "strategic" ||
               lazyAutoCost(
                 this.resolveType(
                   toString(field.type),
@@ -1770,6 +1975,11 @@ export class JSONTransform extends Visitor {
       )
         continue;
       if (this.eagerOverrides.has(fd as FieldDeclaration)) continue;
+      if (
+        lazyMode === "strategic" &&
+        (fd as FieldDeclaration).type!.kind === NodeKind.FunctionType
+      )
+        continue;
       const written = toString((fd as FieldDeclaration).type!).trim();
       // Two equivalent ways to mark a field on-demand:
       //   - `JSON.Lazy<T>` type wrapper (transparent alias, T preserved), or
@@ -1797,7 +2007,7 @@ export class JSONTransform extends Visitor {
           !hasDeco("eager") &&
           !hasDeco("omit")
         ) {
-          if (lazyMode === "all") inner = written;
+          if (lazyMode === "all" || lazyMode === "strategic") inner = written;
           else if (
             lazyAutoCost(
               this.resolveType(
@@ -2618,9 +2828,9 @@ export class JSONTransform extends Visitor {
       "__SERIALIZE(ptr: usize): void {\n  let __dst = bs.offset;\n";
     let INITIALIZE = "@inline __INITIALIZE(): this {\n";
     let DESERIALIZE =
-      '__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = false): usize {\n  let decodedKey: string = "";\n';
+      '__DESERIALIZE_SLOW<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = false, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {\n  let decodedKey: string = "";\n';
     let DESERIALIZE_FAST =
-      "__DESERIALIZE_FAST<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n";
+      "__DESERIALIZE_FAST<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {\n";
     const lazySourceHeader = __hasLazy
       ? "  changetype<this>(out).__SET_SRC(JSON.Util.getParseSource());\n"
       : "";
@@ -2966,6 +3176,7 @@ export class JSONTransform extends Visitor {
         mem.lazyPacked = !!lzInner.packed;
         mem.lazyScalar = !!lzInner.scalar;
         mem.lazyInner = lzInner.inner; // inner type T for the deser/ser codegen
+        mem.lazyProperty = lzInner.propertyName;
         // @omitnull/@omitif carried from the original (pre-lowering) field.
         // Must also clear `schema.static` (as the decorator handler does) - it
         // gates the optional/omit serialize path; leaving it set skips omission.
@@ -3633,6 +3844,28 @@ export class JSONTransform extends Visitor {
     const slowBooleanMembers = withLazyMembers(sortedMembers.boolean);
     const slowNullMembers = withLazyMembers(sortedMembers.null);
 
+    const strategicLazyStore = (
+      member: Property,
+      start: string,
+      end: string,
+      dst: string,
+    ): string => {
+      const metadata = this.lazyMetadata.get(member.node);
+      const property = metadata?.propertyName || member.name;
+      const type = member.lazyInner!;
+      const offset = `offsetof<this>(${JSON.stringify(member.name)})`;
+      const range = `store<u64>(${dst}, ((<u64>${start}) << 32) | (<u64>(<u32>${end})), ${offset});`;
+      const value = member.lazyPacked
+        ? `store<u64>(${dst}, ((<u64>0xffffffff) << 32) | ${stripNull(type) === "f32" ? "<u64>reinterpret<u32>(__eager)" : "<u64><u32>__eager"}, ${offset});`
+        : `store<${type}>(${dst}, __eager, offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")}));
+           store<u64>(${dst}, u64.MAX_VALUE, ${offset});
+           if (isManaged<${type}>()) JSON.__linkObject(${dst}, changetype<usize>(__eager), false);`;
+      return `if (isDefined(changetype<__JSON_PLAN>(0).__json_eager_${property})) {
+        const __eager = JSON.__deserializeValue<${type}>(${start}, ${end});
+        ${value}
+      } else { ${range} }`;
+    };
+
     const getComparisions = (
       data: string,
       ptr: string,
@@ -3720,6 +3953,34 @@ export class JSONTransform extends Visitor {
         // containers use) but store the packed range (start<<32)|end into the
         // u64 slot - no copy.
         const lazyInner = member.lazyInner!;
+        const nativeScalar =
+          INTEGER_TYPES.includes(lazyInner) || FLOAT_TYPES.includes(lazyInner);
+        if (nativeScalar) {
+          const property =
+            this.lazyMetadata.get(member.node)?.propertyName || member.name;
+          const eagerOffset = member.lazyPacked
+            ? fieldOffset
+            : `offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")})`;
+          const decoder = FLOAT_TYPES.includes(lazyInner)
+            ? "__deserializeFloatField"
+            : SIGNED_INTEGER_TYPES.includes(lazyInner)
+              ? "__deserializeIntegerField"
+              : "__deserializeUnsignedField";
+          out.push(
+            `if (isDefined(changetype<__JSON_PLAN>(0).__json_eager_${property})) {`,
+          );
+          // Direct native field decoder: no saved range and no second token scan.
+          out.push(
+            `${srcPtr} = ${decoder}<${lazyInner}>(${valuePtr}, srcEnd, ${outPtr}, ${eagerOffset});`,
+          );
+          out.push(`if (!${srcPtr}) break;`);
+          out.push(
+            member.lazyPacked
+              ? `store<u32>(${outPtr}, 0xffffffff, ${fieldOffset} + 4);`
+              : `store<u64>(${outPtr}, u64.MAX_VALUE, ${fieldOffset});`,
+          );
+          out.push("} else {");
+        }
         out.push("{");
         out.push(
           `  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`,
@@ -3728,11 +3989,10 @@ export class JSONTransform extends Visitor {
           `  const valueEnd = JSON.Util.scanValueEnd<${lazyInner}>(valueStart, srcEnd);`,
         );
         out.push("  if (!valueEnd) break;");
-        out.push(
-          `  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`,
-        );
+        out.push(strategicLazyStore(member, "valueStart", "valueEnd", outPtr));
         out.push(`  ${srcPtr} = valueEnd;`);
         out.push("}");
+        if (nativeScalar) out.push("}");
         return out;
       }
 
@@ -4506,10 +4766,10 @@ export class JSONTransform extends Visitor {
         const name = `__DESERIALIZE_FAST_${tag}_${fastChunkId++}`;
         const body = blocks.slice(c, c + FAST_CHUNK_SIZE).join("");
         fastChunkMethods.push(
-          `${name}(srcStart: usize, srcEnd: usize, dst: usize): usize {\n  do {\n${body}\n    return srcStart;\n  } while (false);\n  return 0;\n}`,
+          `${name}<__JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, dst: usize): usize {\n  do {\n${body}\n    return srcStart;\n  } while (false);\n  return 0;\n}`,
         );
         calls +=
-          `${callIndent}srcStart = this.${name}(srcStart, srcEnd, dst);\n` +
+          `${callIndent}srcStart = this.${name}<__JSON_PLAN>(srcStart, srcEnd, dst);\n` +
           `${callIndent}if (srcStart == 0) break;\n`;
       }
       return calls;
@@ -5588,7 +5848,13 @@ export class JSONTransform extends Visitor {
     ): string => {
       return (
         prefix +
-        `store<u64>(changetype<usize>(out), ((<u64>${valueStart}) << 32) | (<u64>(<u32>${valueEnd})), offsetof<this>(${JSON.stringify(member.name)}));\n`
+        strategicLazyStore(
+          member,
+          valueStart,
+          valueEnd,
+          "changetype<usize>(out)",
+        ) +
+        "\n"
       );
     };
 
@@ -6441,7 +6707,7 @@ export class JSONTransform extends Visitor {
     );
     const WHITESPACE_METHOD = useFastPath
       ? SimpleParser.parseClassMember(
-          "__DESERIALIZE_WHITESPACE<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n" +
+          "__DESERIALIZE_WHITESPACE<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {\n" +
             lazySourceHeader +
             "  const start = srcStart;\n  const dst = changetype<usize>(out);\n" +
             DESERIALIZE_FAST.slice(fastPrettyTailStart),
@@ -6499,7 +6765,7 @@ export class JSONTransform extends Visitor {
     }
     DESERIALIZE_FAST =
       DESERIALIZE_FAST.slice(0, fastPrettyTailStart) +
-      "  return this.__DESERIALIZE_WHITESPACE(start, srcEnd, out, __resetMissing);\n}";
+      "  return this.__DESERIALIZE_WHITESPACE(start, srcEnd, out, __resetMissing, __plan);\n}";
     // Small leaf readers benefit from caller-local roots and constant field
     // offsets. Keep optional, lazy, generic and nested-object readers outlined
     // so their fallback machinery does not multiply the generated code size.
@@ -6529,8 +6795,8 @@ export class JSONTransform extends Visitor {
     const PRETTY_SPECIALIZED_METHOD: MethodDeclaration | null = null;
     if (useFastPath) {
       DESERIALIZE_FAST_PRETTY_METHOD = SimpleParser.parseClassMember(
-        "__DESERIALIZE_FAST_PRETTY<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true): usize {\n" +
-          "  return this.__DESERIALIZE_FAST(srcStart, srcEnd, out, __resetMissing);\n" +
+        "__DESERIALIZE_FAST_PRETTY<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {\n" +
+          "  return this.__DESERIALIZE_FAST(srcStart, srcEnd, out, __resetMissing, __plan);\n" +
           "}",
         node,
       ) as MethodDeclaration;
@@ -6990,7 +7256,7 @@ export class JSONTransform extends Visitor {
     const INITIALIZE_EMPTY =
       "__INITIALIZE(): this {\n  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n  this.__JSON_INITIALIZE_FIELDS();\n  return this;\n}";
     const DESERIALIZE_SLOW_EMPTY =
-      "__DESERIALIZE_SLOW<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = false): usize {\n  return srcEnd;\n}";
+      "__DESERIALIZE_SLOW<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = false, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {\n  return srcEnd;\n}";
 
     if (DEBUG > 0) {
       console.log(SERIALIZE_EMPTY);
@@ -7561,6 +7827,7 @@ export default class Transformer extends Transform {
     const numericConstants = pureNumericConstants(parser.sources);
     transformer.pureNumericConstants = numericConstants.constants;
     transformer.numericConstantShadows = numericConstants.shadowed;
+    transformer.prepareStrategicLaziness(sources);
     transformer.prepareLazyOverrides(sources);
     for (const source of sources) {
       transformer.imports = [];
@@ -7812,7 +8079,7 @@ function sizeof(type: string): number {
 }
 
 // Class-level lazy mode from `@json({ lazy: "auto" | "all" | "none" })`.
-type LazyMode = "none" | "auto" | "all";
+type LazyMode = "none" | "auto" | "all" | "strategic";
 function classLazyMode(node: ClassDeclaration): LazyMode {
   const dec = node.decorators?.find((d) => {
     const n = (<IdentifierExpression>d.name).text;
@@ -7834,9 +8101,9 @@ function classLazyMode(node: ClassDeclaration): LazyMode {
       (v as LiteralExpression).literalKind === LiteralKind.String
     ) {
       const s = (v as StringLiteralExpression).value;
-      if (s === "none" || s === "auto" || s === "all") return s as LazyMode;
+      if (s === "none" || s === "auto" || s === "all" || s === "strategic") return s as LazyMode;
     }
-    throwError(`@json lazy must be "none", "auto", or "all"`, v.range);
+    throwError(`@json lazy must be "none", "auto", "all", or "strategic"`, v.range);
   }
   return "none";
 }

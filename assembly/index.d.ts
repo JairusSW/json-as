@@ -23,6 +23,10 @@ declare class JSONConfig {
    * - `"all"` - every field is deferred. Best for proxy / filter / forward
    *   workloads over large payloads; note it generates a getter and a serialize
    *   branch per field, so module size grows with very wide schemas.
+   * - `"strategic"` - start with deferred fields, then specialize each visible
+   *   parse site using its field accesses. Guaranteed reads become eager;
+   *   conditional reads use weighted branch probabilities and decode costs.
+   *   Unknown/escaping uses keep their deferred representation.
    *
    * @example
    * ```ts
@@ -34,7 +38,7 @@ declare class JSONConfig {
    * }
    * ```
    */
-  lazy?: "none" | "auto" | "all";
+  lazy?: "none" | "auto" | "all" | "strategic";
 }
 
 /**

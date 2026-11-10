@@ -27,6 +27,7 @@ export declare class JSONTransform extends Visitor {
     visitedClasses: Set<string>;
     pureNumericConstants: Set<string>;
     numericConstantShadows: Set<string>;
+    prepareStrategicLaziness(sources: Source[]): void;
     private eagerOverrides;
     private lazySourceFields;
     private lazySourceInstalled;

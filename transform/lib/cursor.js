@@ -50,10 +50,7 @@ export function generateCursorParser(members, compare, completeDefaults = false)
         const field = `offsetof<this>(${JSON.stringify(member.name)})`;
         if (member.flags.has(PropertyFlags.Lazy)) {
             return `case ${id}: {
-        const valueStart = srcStart;
-        srcStart = JSON.__cursorSkipValue(srcStart, srcEnd, depth + 1);
-        if (!srcStart) return 0;
-        store<u64>(changetype<usize>(out), (<u64>valueStart << 32) | <u64><u32>srcStart, ${field});
+        ${readLazy(member, field)}
         break;
       }`;
         }
@@ -73,10 +70,7 @@ export function generateCursorParser(members, compare, completeDefaults = false)
                 const { member, id } = entry;
                 const field = `offsetof<this>(${JSON.stringify(member.name)})`;
                 const read = member.flags.has(PropertyFlags.Lazy)
-                    ? `const valueStart = srcStart;
-             srcStart = JSON.__cursorSkipValue(srcStart, srcEnd, depth + 1);
-             if (!srcStart) return 0;
-             store<u64>(changetype<usize>(out), (<u64>valueStart << 32) | <u64><u32>srcStart, ${field});`
+                    ? `${readLazy(member, field)}`
                     : `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
                 return `{
           const keyStart = srcStart;
@@ -99,7 +93,7 @@ export function generateCursorParser(members, compare, completeDefaults = false)
                 .join("\n") +
             "\n} while (false);"
         : "";
-    return `__DESERIALIZE_CURSOR<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, depth: i32): usize {
+    return `__DESERIALIZE_CURSOR<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, depth: i32, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {
     if (depth >= 256 || srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;
     ${anchor}
     srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);
@@ -146,5 +140,24 @@ export function generateCursorParser(members, compare, completeDefaults = false)
       srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);
     }
     return 0;
+  }`;
+}
+function readLazy(member, field) {
+    const offset = member.lazyPacked
+        ? field
+        : `offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")})`;
+    const mark = member.lazyPacked
+        ? `store<u32>(changetype<usize>(out), 0xffffffff, ${field} + 4);`
+        : `store<u64>(changetype<usize>(out), u64.MAX_VALUE, ${field});
+       if (isManaged<${member.lazyInner}>()) JSON.__linkObject(changetype<usize>(out), load<usize>(changetype<usize>(out), ${offset}), false);`;
+    return `if (isDefined(changetype<__JSON_PLAN>(0).__json_eager_${member.lazyProperty || member.name})) {
+    srcStart = JSON.__cursorRead<${member.lazyInner}>(srcStart, srcEnd, changetype<usize>(out), ${offset}, depth + 1);
+    if (!srcStart) return 0;
+    ${mark}
+  } else {
+    const valueStart = srcStart;
+    srcStart = JSON.__cursorSkipValue(srcStart, srcEnd, depth + 1);
+    if (!srcStart) return 0;
+    store<u64>(changetype<usize>(out), (<u64>valueStart << 32) | <u64><u32>srcStart, ${field});
   }`;
 }

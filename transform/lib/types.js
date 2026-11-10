@@ -39,6 +39,7 @@ export class Property {
     node;
     byteSize = 0;
     lazyInner = null;
+    lazyProperty = null;
     omitIfMethod = null;
     lazyPacked = false;
     lazyScalar = false;

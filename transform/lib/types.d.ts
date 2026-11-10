@@ -43,6 +43,7 @@ export declare class Property {
     node: FieldDeclaration;
     byteSize: number;
     lazyInner: string | null;
+    lazyProperty: string | null;
     omitIfMethod: string | null;
     lazyPacked: boolean;
     lazyScalar: boolean;
