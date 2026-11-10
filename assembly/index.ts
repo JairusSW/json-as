@@ -274,6 +274,12 @@ function utf16Equals(ptrA: usize, ptrB: usize, len: i32): bool {
 // pure overhead below this size. Above it, the hash index amortizes.
 const OBJ_LINEAR_MAX: i32 = 6;
 
+// Bound deterministic-hash collision work, including failed lookups. Objects
+// exceeding this probe budget switch to an AVL index for the rest of that
+// index's lifetime. Rehashing alone cannot bound attacker-controlled keys.
+// Keep this a power of two so the masked stop sentinel also bounds small tables.
+const OBJ_INDEX_MAX_PROBES: i32 = 64;
+
 // Deferred-value record for a lazy JSON.Value (see JSON.Types.Lazy). `lz` packs
 // the unparsed source slice as (sliceStart << 32) | sliceEnd - the same encoding
 // the transform uses for @lazy struct fields. `src` is the GC anchor that keeps
@@ -1894,6 +1900,7 @@ export namespace JSON {
     _rawStart: usize = 0;
     _rawEnd: usize = 0;
     private _index: StaticArray<i32> | null = null;
+    // Nonnegative: hash mask. Negative: -(root slot + 1) in the AVL index.
     private _indexMask: i32 = 0;
 
     // Only key insertion/removal/reset changes logical entry positions.
@@ -2094,7 +2101,7 @@ export namespace JSON {
     }
 
     /** Compares a lookup key against the stored key bytes for slot `i`. */
-    private keyEquals(i: i32, key: string): bool {
+    @inline private keyEquals(i: i32, key: string): bool {
       const pos = unchecked(this._kpos[i]);
       const buf = changetype<usize>(this._kbuf) + ((<usize>pos) << 1);
       const len = keyLength(buf);
@@ -2154,27 +2161,24 @@ export namespace JSON {
         }
         return -1;
       }
-      const idx = this.buildIndex();
+      // Keep index construction off the cached lookup path, including the
+      // compiler's GC stack setup for buildIndex's allocating slow path.
+      const idx = this._index || this.buildIndex();
       const mask = this._indexMask;
-      if (mask == 0) {
-        const entry = unchecked(idx[0]);
-        return entry != 0 && this.keyEquals(entry - 1, key) ? entry - 1 : -1;
-      }
-      let slot = <i32>(
-        (hashUtf16(changetype<usize>(key), <i32>key.length) & (<u32>mask))
-      );
-      const start = slot;
-      while (true) {
+      if (mask < 0) return this.treeIndexOf(key, idx);
+      let slot = <i32>(hashUtf16(changetype<usize>(key), keyLen) & (<u32>mask));
+      // Every indexed key was inserted within this same budget. Tables are
+      // powers of two: the sentinel bounds this walk to min(capacity, 64)
+      // without a second loop counter on ordinary lookups.
+      const stop = (slot + OBJ_INDEX_MAX_PROBES) & mask;
+      do {
         const entry = unchecked(idx[slot]);
         if (entry == 0) return -1;
         const i = entry - 1;
         if (this.keyEquals(i, key)) return i;
         slot = (slot + 1) & mask;
-        // A correctly-maintained table stays below full load, so an empty slot
-        // is found first. This wrap check is a safety net against spinning
-        // forever should that invariant ever be violated.
-        if (slot == start) return -1;
-      }
+      } while (slot != stop);
+      return -1;
     }
 
     /** Parses a lazy slot in place, caching the concrete box, and returns it. */
@@ -2254,31 +2258,47 @@ export namespace JSON {
       this.appendRawSlot(keyStart, keyEnd, JSON.Value.bitsFrom<T>(value));
     }
 
-    /** Inserts a single slot into an already-built index. */
-    private insertIndex(slotIndex: i32): void {
-      const idx = this._index;
-      if (idx === null) return;
-      const mask = this._indexMask;
-      let slot = <i32>(this.keyHashAt(slotIndex) & (<u32>mask));
-      const start = slot;
-      while (unchecked(idx[slot]) != 0) {
-        const entry = unchecked(idx[slot]) - 1;
-        if (this.slotEqualsSlot(entry, slotIndex)) {
-          unchecked((idx[slot] = slotIndex + 1));
-          return;
+    /** Returns false instead of extending a collision chain beyond the budget. */
+    @inline private insertHashIndex(idx: StaticArray<i32>, mask: i32, i: i32): bool {
+      let slot = <i32>(this.keyHashAt(i) & (<u32>mask));
+      const stop = (slot + OBJ_INDEX_MAX_PROBES) & mask;
+      do {
+        const entry = unchecked(idx[slot]);
+        if (entry == 0 || this.slotEqualsSlot(entry - 1, i)) {
+          unchecked((idx[slot] = i + 1));
+          return true;
         }
         slot = (slot + 1) & mask;
-        if (slot == start) {
-          this._index = null;
-          return;
+      } while (slot != stop);
+      return false;
+    }
+
+    /** Inserts a single slot into an already-built index. */
+    private insertIndex(slotIndex: i32): void {
+      let idx = this._index;
+      if (idx === null) return;
+      const mask = this._indexMask;
+      if (mask < 0) {
+        // Geometric growth preserves amortized O(log n) insertion after the
+        // fallback, rather than sorting/rebuilding on every new key.
+        if (slotIndex >= idx.length >> 2) {
+          const grown = new StaticArray<i32>(idx.length << 1);
+          memory.copy(
+            changetype<usize>(grown),
+            changetype<usize>(idx),
+            (<usize>idx.length) << 2,
+          );
+          this._index = idx = grown;
         }
+        this._indexMask = -this.insertTreeSlot(idx, -mask, slotIndex);
+        return;
       }
-      unchecked((idx[slot] = slotIndex + 1));
-      // buildIndex() sizes the table at >2x the entry count (load < 0.5), but it
-      // only runs lazily; appends since then go through here without resizing.
-      // Once we cross half load, drop the index so the next access rebuilds it at
-      // double capacity — this keeps an empty slot available for every probe.
-      // Without it a small (e.g. cap-2) table fills and indexOf() spins forever.
+      if (!this.insertHashIndex(idx, mask, slotIndex)) {
+        this.buildTreeIndex();
+        return;
+      }
+      // Keep the ordinary hash table below half load. Its next lazy build is
+      // geometric; an overloaded collision chain instead takes the tree path.
       if ((slotIndex + 1) << 1 > mask + 1) this._index = null;
     }
 
@@ -2292,26 +2312,149 @@ export namespace JSON {
         idx = new StaticArray<i32>(cap);
         const mask = cap - 1;
         for (let i = 0; i < used; i++) {
-          const keyPos = unchecked(this._kpos[i]);
-          const buf = changetype<usize>(this._kbuf) + ((<usize>keyPos) << 1);
-          const len = keyLength(buf);
-          let slot = <i32>(
-            (hashUtf16(buf + ((<usize>KEY_HEADER_UNITS) << 1), len) &
-              (<u32>mask))
-          );
-          while (unchecked(idx[slot]) != 0) {
-            const entry = unchecked(idx[slot]) - 1;
-            if (this.slotEqualsSlot(entry, i)) {
-              unchecked((idx[slot] = i + 1));
-              break;
-            }
-            slot = (slot + 1) & mask;
-          }
-          if (unchecked(idx[slot]) == 0) unchecked((idx[slot] = i + 1));
+          if (!this.insertHashIndex(idx, mask, i)) return this.buildTreeIndex();
         }
         this._index = idx;
         this._indexMask = mask;
       }
+      return idx;
+    }
+
+    /**
+     * Compare by length, then bytes. Only a total order is needed: user-facing
+     * iteration still walks the original slots. Length-first avoids scanning
+     * long common prefixes when lengths already distinguish two keys.
+     */
+    private compareKeyAt(i: i32, ptr: usize, len: i32): i32 {
+      const pos = unchecked(this._kpos[i]);
+      const buf = changetype<usize>(this._kbuf) + ((<usize>pos) << 1);
+      const storedLen = keyLength(buf);
+      if (storedLen != len) return storedLen < len ? -1 : 1;
+      return memory.compare(
+        buf + ((<usize>KEY_HEADER_UNITS) << 1),
+        ptr,
+        (<usize>len) << 1,
+      );
+    }
+
+    private treeIndexOf(key: string, idx: StaticArray<i32>): i32 {
+      let node = -this._indexMask;
+      while (node != 0) {
+        const base = (node - 1) << 2;
+        const entry = unchecked(idx[base]);
+        const order = this.compareKeyAt(
+          entry,
+          changetype<usize>(key),
+          key.length,
+        );
+        if (order == 0) return entry;
+        node = unchecked(idx[base + (order > 0 ? 1 : 2)]);
+      }
+      return -1;
+    }
+
+
+    @inline private treeHeight(idx: StaticArray<i32>, node: i32): i32 {
+      return node == 0 ? 0 : unchecked(idx[(node << 2) - 1]);
+    }
+
+    private updateTreeHeight(idx: StaticArray<i32>, node: i32): void {
+      const base = (node - 1) << 2;
+      unchecked(
+        (idx[base + 3] =
+          1 +
+          max(
+            this.treeHeight(idx, unchecked(idx[base + 1])),
+            this.treeHeight(idx, unchecked(idx[base + 2])),
+          )),
+      );
+    }
+
+    /** Rotate toward `side` (1 = left child, 2 = right child). */
+    private rotateTree(idx: StaticArray<i32>, node: i32, side: i32): i32 {
+      const base = (node - 1) << 2;
+      const child = unchecked(idx[base + side]);
+      const childBase = (child - 1) << 2;
+      const other = 3 - side;
+      unchecked((idx[base + side] = idx[childBase + other]));
+      unchecked((idx[childBase + other] = node));
+      this.updateTreeHeight(idx, node);
+      this.updateTreeHeight(idx, child);
+      return child;
+    }
+
+    /** AVL recursion is bounded by tree height, not input/key order. */
+    private insertTreeSlot(idx: StaticArray<i32>, node: i32, i: i32): i32 {
+      if (node == 0) {
+        const base = i << 2;
+        unchecked((idx[base] = i));
+        unchecked((idx[base + 3] = 1));
+        return i + 1;
+      }
+      const base = (node - 1) << 2;
+      const keyPos = unchecked(this._kpos[i]);
+      const keyBuf = changetype<usize>(this._kbuf) + ((<usize>keyPos) << 1);
+      const order = this.compareKeyAt(
+        unchecked(idx[base]),
+        keyBuf + ((<usize>KEY_HEADER_UNITS) << 1),
+        keyLength(keyBuf),
+      );
+      if (order == 0) {
+        // Parsed/raw duplicates remain in the slots and serialized output, but
+        // lookup and set must resolve to the LAST occurrence.
+        unchecked((idx[base] = i));
+        return node;
+      }
+      const side = order > 0 ? 1 : 2;
+      unchecked(
+        (idx[base + side] = this.insertTreeSlot(
+          idx,
+          unchecked(idx[base + side]),
+          i,
+        )),
+      );
+      const left = unchecked(idx[base + 1]);
+      const right = unchecked(idx[base + 2]);
+      const balance = this.treeHeight(idx, left) - this.treeHeight(idx, right);
+      if (balance > 1 || balance < -1) {
+        const heavySide = balance > 0 ? 1 : 2;
+        const child = unchecked(idx[base + heavySide]);
+        const childBase = (child - 1) << 2;
+        if (
+          this.treeHeight(idx, unchecked(idx[childBase + heavySide])) <
+          this.treeHeight(idx, unchecked(idx[childBase + 3 - heavySide]))
+        ) {
+          unchecked(
+            (idx[base + heavySide] = this.rotateTree(
+              idx,
+              child,
+              3 - heavySide,
+            )),
+          );
+        }
+        return this.rotateTree(idx, node, heavySide);
+      }
+      this.updateTreeHeight(idx, node);
+      return node;
+    }
+
+    /**
+     * O(n log n) worst-case key comparisons, regardless of deterministic hash
+     * collisions. Four i32s per capacity slot: latest entry, left, right, height.
+     * Child/root links are slot + 1, with zero representing an empty subtree.
+     * No key strings or per-node objects are allocated. Key/value slots and
+     * source ownership are untouched; delete/clear discard either index kind.
+     */
+    private buildTreeIndex(): StaticArray<i32> {
+      let cap = 8;
+      while (cap < this._vused) cap <<= 1;
+      const idx = new StaticArray<i32>(cap << 2);
+      let root = 0;
+      for (let i = 0; i < this._vused; i++) {
+        root = this.insertTreeSlot(idx, root, i);
+      }
+      this._index = idx;
+      this._indexMask = -root;
       return idx;
     }
 

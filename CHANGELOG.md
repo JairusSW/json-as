@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Bound `JSON.Obj` key-index collision chains and switch to a balanced index for adversarial keys, preserving duplicate-key lookup and insertion-order serialization.
+
 ## 2026-11-09 - v2.0.0
 
 This release includes all changes since v1.6.3. The planned v1.7.0 release was never published; its changes are included in v2.0.0 below.
