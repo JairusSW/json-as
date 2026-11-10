@@ -679,6 +679,12 @@ decode cost `c`, it compares eager cost `c + 0.25r` with lazy cost
 The constants estimate work; they are not timing guarantees. `JSON_DEBUG=true`
 prints the decisions, probabilities, and costs.
 
+Initial [captured API benchmarks](bench/reports/strategic-laziness-api.md) show
+workload-dependent results: selective forecast reads improve, while selective
+GitHub/tweet reads and full-record consumption can be slower than eager parsing.
+The report includes ordinary-lazy and default-eager controls, losses, allocation
+measurements, and the raw capture. Measure your workload before enabling this mode.
+
 Local variable aliases and statically known local helper calls are followed. Unresolved
 calls, branch-dependent mutable aliases, uninvoked closures, and uses outside the visible program stay conservative;
 fields remain readable through their lazy getters. The specialization preserves
