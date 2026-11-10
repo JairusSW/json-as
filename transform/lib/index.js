@@ -663,6 +663,7 @@ export class JSONTransform extends Visitor {
         return name + (arguments_.length ? `<${arguments_.join(",")}>` : "");
     }
     lazyMetadata = new Map();
+    lazyOriginalFields = new Map();
     logicalFieldName(field) {
         return this.lazyMetadata.get(field)?.propertyName || field.name.text;
     }
@@ -884,10 +885,40 @@ export class JSONTransform extends Visitor {
             }
             return true;
         }));
-        if (node.members.some((member) => member.kind === NodeKind.FieldDeclaration &&
-            !member.is(32) &&
-            !!member.initializer &&
-            initializerHasEffects(member.initializer, pureConstants)))
+        if (node.members.some((member) => {
+            if (member.kind !== NodeKind.FieldDeclaration ||
+                member.is(32))
+                return false;
+            let field = member;
+            if (this.lazyOriginalFields.has(field)) {
+                const original = this.lazyOriginalFields.get(field);
+                if (!original)
+                    return false;
+                field = original;
+                if (!field.initializer) {
+                    const source = this.sources.get(node.range.source);
+                    const type = this.lazyInnerType(field.type, source, namespaces.join("."), node) || toString(field.type);
+                    const meaning = source.resolveTypeMeaning(type, namespaces.join("."), this.parser, source.classTypeParameters(node));
+                    if (meaning.nullable)
+                        return false;
+                    if (source.classTypeParameters(node).has(meaning.name))
+                        return true;
+                    if (meaning.declaration && !isStdlib(meaning.declaration)) {
+                        if (meaning.declaration.kind === NodeKind.EnumDeclaration)
+                            return false;
+                        if (meaning.declaration.kind !== NodeKind.ClassDeclaration)
+                            return true;
+                        const declaration = meaning.declaration;
+                        return ([declaration, ...this.classAncestors(declaration)].some((owner) => owner.members.some((member) => member.name.text === "constructor")) || this.initializerChainHasEffects(declaration, new Set(seen)));
+                    }
+                    return (!isPrimitive(meaning.name) &&
+                        !isString(meaning.name) &&
+                        !/^(Array|StaticArray|Map|Set|ArrayBuffer|Date|(?:Uint|Int|Float)\d+Array|Uint8ClampedArray)$/.test(meaning.name));
+                }
+            }
+            return (!!field.initializer &&
+                initializerHasEffects(field.initializer, pureConstants));
+        }))
             return true;
         if (!node.extendsType)
             return false;
@@ -1342,6 +1373,9 @@ export class JSONTransform extends Visitor {
                         `  this.${backing}_lz = u64.MAX_VALUE;\n}`,
                 ]).map((src) => SimpleParser.parseClassMember(src, node));
             node.members.splice(i, 1, ...lowered);
+            this.lazyOriginalFields.set(lowered[0], fd);
+            if (!packScalar)
+                this.lazyOriginalFields.set(lowered[1], null);
             this.lazyMetadata.set(lowered[0], lazyInner.get(slotName));
             if (!packScalar && refDefault != null) {
                 const valueInit = `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`${backing}_val`)}));\n`;

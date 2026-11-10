@@ -13,6 +13,7 @@ import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { gzipSync, gunzipSync } from "node:zlib";
 
@@ -577,7 +578,7 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
   const profile = option("--profile", "summary");
   const { g, input } = await instance(entry);
   let count = 16,
-    nsPerOp = 1;
+    nsPerOp;
   const warmStart = performance.now();
   do {
     const start = process.hrtime.bigint();

@@ -85,6 +85,11 @@ try {
       for (const strict of process.env.PROBE_QUICK ? [false] : [false, true])
         for (const fast of process.env.PROBE_QUICK ? [true] : [false, true]) {
           const { check } = compile(mode, runtime, strict, fast);
+          check("apiFastCapability", [], fast ? 1 : 0);
+          check("apiSummary", [], "7:hello");
+          check("effectfulDefaultCapability", [], 0);
+          check("inheritedEffectfulDefaultCapability", [], 0);
+          check("effectfulDefaultCount", [], 1);
           for (const [name, wanted] of Object.entries({
             xOnly: "1:1.5",
             method: "1:1.5",

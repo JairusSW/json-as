@@ -4,6 +4,8 @@
 
 - Add opt-in `@json({ lazy: "strategic" })` parse-site specialization. Analyze guaranteed and conditionally weighted field reads, compare estimated eager/lazy costs, and generate compile-time reader plans without allocating strategy objects. Preserve ordinary explicit-lazy timing unless `JSON_STRATEGIC_LAZINESS=true` is enabled.
 
+- Keep generated fast readers enabled for lazy fields with pure defaults. Analyze the original field initializer and resolved native defaults instead of generated storage expressions; retain non-speculative parsing for application constructors and effectful defaults.
+
 ## 2026-11-09 - v2.0.0
 
 This release includes all changes since v1.6.3. The planned v1.7.0 release was never published; its changes are included in v2.0.0 below.

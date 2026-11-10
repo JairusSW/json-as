@@ -305,3 +305,45 @@ export function conditionalAlias(condition: bool): string {
     ? before.toString() + ":" + value.value.toString()
     : before.toString();
 }
+
+@json({ lazy: "strategic" })
+class ApiDefaults {
+  id!: i64;
+  title!: string;
+  tags!: string[];
+}
+export function apiFastCapability(): bool {
+  return changetype<ApiDefaults>(0).__DESERIALIZE_FAST_ENABLED();
+}
+export function apiSummary(): string {
+  const value = JSON.parse<ApiDefaults>('{"id":7,"title":"hello","tags":["a","b"]}');
+  return value.id.toString() + ":" + value.title;
+}
+
+let defaultCalls: i32 = 0;
+class DefaultWithEffects {
+  constructor() { defaultCalls++; }
+}
+@json({ lazy: "strategic" })
+class EffectfulDefaults {
+  child!: DefaultWithEffects;
+  @optional tail: i32 = 0;
+}
+export function effectfulDefaultCapability(): bool {
+  return changetype<EffectfulDefaults>(0).__DESERIALIZE_FAST_ENABLED();
+}
+export function effectfulDefaultCount(): i32 {
+  defaultCalls = 0;
+  const values = JSON.parse<EffectfulDefaults[]>('[{"tail":7}]');
+  return defaultCalls + values.length - 1;
+}
+
+class InheritedDefaultWithEffects extends DefaultWithEffects {}
+@json({ lazy: "strategic" })
+class InheritedEffectfulDefaults {
+  child!: InheritedDefaultWithEffects;
+  @optional tail: i32 = 0;
+}
+export function inheritedEffectfulDefaultCapability(): bool {
+  return changetype<InheritedEffectfulDefaults>(0).__DESERIALIZE_FAST_ENABLED();
+}

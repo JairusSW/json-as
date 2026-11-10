@@ -1065,6 +1065,14 @@ export class JSONTransform extends Visitor {
     }
   >();
 
+  // Inspect application defaults, not the factory calls/storage expressions
+  // introduced by lazy lowering. A null entry is a companion value field;
+  // its initialization is accounted for by the logical slot's original field.
+  private lazyOriginalFields = new Map<
+    FieldDeclaration,
+    FieldDeclaration | null
+  >();
+
   private logicalFieldName(field: FieldDeclaration): string {
     return this.lazyMetadata.get(field)?.propertyName || field.name.text;
   }
@@ -1431,16 +1439,65 @@ export class JSONTransform extends Visitor {
       }),
     );
     if (
-      node.members.some(
-        (member) =>
-          member.kind === NodeKind.FieldDeclaration &&
-          !member.is(CommonFlags.Static) &&
-          !!(member as FieldDeclaration).initializer &&
-          initializerHasEffects(
-            (member as FieldDeclaration).initializer!,
-            pureConstants,
-          ),
-      )
+      node.members.some((member) => {
+        if (
+          member.kind !== NodeKind.FieldDeclaration ||
+          member.is(CommonFlags.Static)
+        )
+          return false;
+        let field = member as FieldDeclaration;
+        if (this.lazyOriginalFields.has(field)) {
+          const original = this.lazyOriginalFields.get(field);
+          if (!original) return false;
+          field = original;
+          if (!field.initializer) {
+            const source = this.sources.get(node.range.source);
+            const type =
+              this.lazyInnerType(
+                field.type!,
+                source,
+                namespaces.join("."),
+                node,
+              ) || toString(field.type);
+            const meaning = source.resolveTypeMeaning(
+              type,
+              namespaces.join("."),
+              this.parser,
+              source.classTypeParameters(node),
+            );
+            if (meaning.nullable) return false;
+            if (source.classTypeParameters(node).has(meaning.name)) return true;
+            if (meaning.declaration && !isStdlib(meaning.declaration)) {
+              if (meaning.declaration.kind === NodeKind.EnumDeclaration)
+                return false;
+              if (meaning.declaration.kind !== NodeKind.ClassDeclaration)
+                return true;
+              const declaration = meaning.declaration as ClassDeclaration;
+              return (
+                [declaration, ...this.classAncestors(declaration)].some(
+                  (owner) =>
+                    owner.members.some(
+                      (member) => member.name.text === "constructor",
+                    ),
+                ) || this.initializerChainHasEffects(declaration, new Set(seen))
+              );
+            }
+            // Exact native defaults cannot invoke application constructors or
+            // operators. Unknown/generic bindings remain non-speculative.
+            return (
+              !isPrimitive(meaning.name) &&
+              !isString(meaning.name) &&
+              !/^(Array|StaticArray|Map|Set|ArrayBuffer|Date|(?:Uint|Int|Float)\d+Array|Uint8ClampedArray)$/.test(
+                meaning.name,
+              )
+            );
+          }
+        }
+        return (
+          !!field.initializer &&
+          initializerHasEffects(field.initializer, pureConstants)
+        );
+      })
     )
       return true;
     if (!node.extendsType) return false;
@@ -2196,6 +2253,12 @@ export class JSONTransform extends Visitor {
             ]
       ).map((src) => SimpleParser.parseClassMember(src, node));
       node.members.splice(i, 1, ...lowered);
+      this.lazyOriginalFields.set(
+        lowered[0] as FieldDeclaration,
+        fd as FieldDeclaration,
+      );
+      if (!packScalar)
+        this.lazyOriginalFields.set(lowered[1] as FieldDeclaration, null);
       this.lazyMetadata.set(
         lowered[0] as FieldDeclaration,
         lazyInner.get(slotName)!,
