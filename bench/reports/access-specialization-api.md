@@ -4,6 +4,8 @@ Measured production sources: main `70a04480`; strategic branch `381902ff`.
 
 [Raw paired samples, allocation results, source seals, and host audits](data/access-specialization-api-381902ff.json.gz). The [earlier 32-field capture](data/access-specialization-api-7bff3859.json.gz) is retained for comparison.
 
+The later generic-inheritance change at `8cdeb1b2` produced [byte-identical ordinary benchmark binaries](data/access-specialization-binary-verification-8cdeb1b2.json) for all six payload/backend combinations.
+
 Apple M4 Max, arm64, Node v26.4.0, v8 14.6.202.34-node.21, AssemblyScript 0.28.20. Incremental runtime, -O3, compatibility mode (strict off), fast path on, diagnostics on.
 
 8 paired fresh-process groups per row and backend. Each process warms for at least 100 ms, then measures three batches; its median feeds the paired geometric means below. All raw batches are retained. GB/s uses captured UTF-8 payload bytes; input is already a pinned UTF-16 string. Timing includes JSON.parse plus the listed field reads, allocation and normal automatic collection. It excludes network, UTF-8 decoding, module startup and serialization.
