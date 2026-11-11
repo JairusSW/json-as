@@ -30,6 +30,17 @@ export function makeInput(which: i32): string {
 }
 
 @json
+class Nullable {
+  id: i32 = 0;
+  ignored: string | null = null;
+}
+
+export function readNullable(input: string): i32 {
+  const value = JSON.parse<Nullable>(input);
+  return value.id;
+}
+
+@json
 class Numeric {
   id: i32 = 0;
   signed: i32 = 0;
@@ -80,5 +91,6 @@ export function makeNestedInput(which: i32): string {
   if (which == 3) return '{"id":7,"child":{"count":1,"label":"bad\\q","values":[]}}';
   if (which == 4) return '{"id":7,"child":{"label":null,"values":[],"count":1}}';
   if (which == 5) return '{"id":7,"child":{"count":1,"label":null,"values":[],"extra":2}}';
-  return '{"id":7,"child":{"count":1,"label":null,"values":[1,]}}';
+  if (which == 6) return '{"id":7,"child":{"count":1,"label":null,"values":[1,]}}';
+  return '{"id":7,"child":{"count":1,"label":"\x01","values":[]}}';
 }

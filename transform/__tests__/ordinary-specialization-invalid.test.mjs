@@ -26,11 +26,12 @@ try {
       const { instance } = await WebAssembly.instantiate(fs.readFileSync(wasm), {
         env: { abort() { throw Error("abort"); } },
       });
-      outcomes.push(Array.from({ length: 24 }, (_, i) => {
+      outcomes.push(Array.from({ length: 33 }, (_, i) => {
         try { return { value: i < 8
           ? instance.exports.read(instance.exports.makeInput(i))
           : i < 17 ? instance.exports.readNumeric(instance.exports.makeNumericInput(i - 8))
-          : instance.exports.readNested(instance.exports.makeNestedInput(i - 17)) }; }
+          : i < 25 ? instance.exports.readNested(instance.exports.makeNestedInput(i - 17))
+          : instance.exports.readNullable(instance.exports.makeInput(i - 25)) }; }
         catch { return { error: true }; }
       }));
     }

@@ -2912,7 +2912,34 @@ export class JSONTransform extends Visitor {
             return output;
         };
         for (const validator of this.ordinaryObjectValidators.get(node)?.values() || []) {
+            const compact = ["const start = srcStart;", "do {"];
+            for (let i = 0; i < validator.fields.length; i++) {
+                const field = validator.fields[i];
+                const key = (i ? "," : "{") + JSON.stringify(field.key) + ":";
+                const bytes = key.length << 1;
+                compact.push(`if (srcStart > srcEnd || srcEnd - srcStart < ${bytes} || ${getComparisions(key, "srcStart", "!=").join(" || ")}) break;`, `srcStart += ${bytes};`);
+                const type = stripNull(field.type);
+                const kind = isString(type) ? 0 : isBoolean(type) ? 1 :
+                    SIGNED_INTEGER_TYPES.includes(type) ? 2 : INTEGER_TYPES.includes(type) ? 3 : 4;
+                const arrayReader = kind === 0 && field.elementNullable ? "__cursorSkipNullableStringArray" :
+                    ["__cursorSkipStringArray", "__cursorSkipBooleanArray", "__cursorSkipSignedArray", "__cursorSkipUnsignedArray", "__cursorSkipFloatArray"][kind];
+                const skip = field.kind === "string" && !STRICT
+                    ? "JSON.__cursorSkipTrustedString(srcStart, srcEnd)"
+                    : field.kind === "array" ? `JSON.${arrayReader}(srcStart, srcEnd)` :
+                        `JSON.__cursorSkipNative(srcStart, srcEnd, ${kind})`;
+                compact.push("{");
+                if (field.nullable)
+                    compact.push("if (srcStart <= srcEnd && srcEnd - srcStart >= 8 && load<u64>(srcStart) == 30399761348886638) srcStart += 8;", "else {");
+                compact.push(`const next = ${skip};`, "if (!next) break;", "srcStart = next;");
+                if (field.nullable)
+                    compact.push("}");
+                compact.push("}");
+            }
+            if (validator.fields.length)
+                compact.push("if (srcStart < srcEnd && load<u16>(srcStart) == 125) return srcStart + 2;");
+            compact.push("} while (false);", "srcStart = start;");
             const steps = [
+                ...compact,
                 "srcStart = JSON.__cursorWhitespace(srcStart, srcEnd);",
                 ...(validator.nullable ? ["if (srcStart <= srcEnd && srcEnd - srcStart >= 8 && load<u64>(srcStart) == 30399761348886638) return srcStart + 8;"] : []),
                 "if (srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;",
@@ -2930,9 +2957,11 @@ export class JSONTransform extends Visitor {
                     SIGNED_INTEGER_TYPES.includes(type) ? 2 : INTEGER_TYPES.includes(type) ? 3 : 4;
                 const arrayReader = kind === 0 && field.elementNullable ? "__cursorSkipNullableStringArray" :
                     ["__cursorSkipStringArray", "__cursorSkipBooleanArray", "__cursorSkipSignedArray", "__cursorSkipUnsignedArray", "__cursorSkipFloatArray"][kind];
-                const skip = field.kind === "array"
-                    ? `JSON.${arrayReader}(srcStart, srcEnd)`
-                    : `JSON.__cursorSkipNative(srcStart, srcEnd, ${kind})`;
+                const skip = field.kind === "string" && !STRICT
+                    ? "JSON.__cursorSkipTrustedString(srcStart, srcEnd)"
+                    : field.kind === "array"
+                        ? `JSON.${arrayReader}(srcStart, srcEnd)`
+                        : `JSON.__cursorSkipNative(srcStart, srcEnd, ${kind})`;
                 steps.push("{");
                 if (field.nullable)
                     steps.push("if (srcStart <= srcEnd && srcEnd - srcStart >= 8 && load<u64>(srcStart) == 30399761348886638) srcStart += 8;", "else {");
@@ -3539,7 +3568,7 @@ export class JSONTransform extends Visitor {
             if (this.ordinarySpecializedFields.get(node)?.has(member.name) &&
                 !member.flags.has(PropertyFlags.Lazy) && (isString(stripNull(type)) || isScalarType(type))) {
                 const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
-                const trusted = !STRICT && fastPath && !whitespaceTier && keyOffset !== 0 && !member.nullable;
+                const trusted = !STRICT && fastPath && !whitespaceTier && keyOffset !== 0;
                 const skip = isString(stripNull(type)) ? trusted ? "JSON.__cursorSkipTrustedString" : "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${type}>`;
                 const start = fastPath && !whitespaceTier ? valuePtr : `JSON.__cursorWhitespace(${valuePtr}, srcEnd)`;
                 return [
