@@ -3608,7 +3608,7 @@ export class JSONTransform extends Visitor {
             return body;
         };
         indent = "  ";
-        const FAST_CHUNK_SIZE = 32;
+        const FAST_CHUNK_SIZE = this.ordinarySpecializedFields.has(node) ? 8 : 32;
         const fastChunkMethods = [];
         let fastChunkId = 0;
         const chunkFastBlocks = (blocks, tag, callIndent) => {
