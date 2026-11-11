@@ -157,6 +157,8 @@ sites = analyze(`const v = JSON.parse<Vec3>("{}"); const later = (): void => { v
 assert.equal(sites[0].escaped, true);
 sites = analyze(`const v = JSON.parse<Vec3>("{}"); const address = changetype<usize>(v);`);
 assert.equal(sites[0].escaped, true);
+sites = analyze(`const v = JSON.parse<Vec3>("{}"); const alias = unchecked(v); alias.x;`);
+assert.equal(sites[0].escaped, true);
 sites = analyze(`const v = JSON.parse<Vec3>("{}"); const choice = a ? v : other; choice.x;`);
 assert.equal(sites[0].escaped, true);
 sites = analyze(`const v = JSON.parse<Vec3>("{}"); const alias = v; alias.x;`);

@@ -479,6 +479,83 @@ export class JSONTransform extends Visitor {
             site.call.typeArguments.push(type);
         }
     }
+    ordinarySpecializedFields = new WeakMap();
+    prepareOrdinarySpecialization(sources) {
+        if (process.env["JSON_ACCESS_SPECIALIZATION"] === "false")
+            return;
+        const runtimeRoot = diagnosticsRuntimeRoot(this.parser.sources);
+        const analysis = new StrategicAccessAnalysis((call, shadowed, scope) => {
+            if (call.args.length !== 1 || call.typeArguments?.length !== 1 ||
+                call.expression.kind !== NodeKind.PropertyAccess)
+                return null;
+            const method = call.expression;
+            if (method.property.text !== "parse" || method.expression.kind !== NodeKind.Identifier)
+                return null;
+            const receiver = method.expression.text;
+            if (shadowed(receiver))
+                return null;
+            const source = this.sources.get(call.range.source);
+            const binding = source.getImportedBinding(receiver + ".Value", this.parser);
+            if (!binding || binding.source.internalPath !== runtimeRoot + "assembly/index")
+                return null;
+            const meaning = source.resolveTypeMeaning(toString(call.typeArguments[0]), scope, this.parser);
+            if (meaning.declaration?.kind !== NodeKind.ClassDeclaration)
+                return null;
+            const owner = meaning.declaration;
+            if (owner.typeParameters?.length || owner.extendsType || classLazyMode(owner) !== "none")
+                return null;
+            if (!owner.decorators?.some((d) => ["json", "serializable"].includes(d.name.text.toLowerCase())))
+                return null;
+            if (owner.members.some((member) => member.kind === NodeKind.MethodDeclaration ||
+                member.decorators?.some((d) => ["lazy", "serializer", "deserializer"].includes(d.name.text.toLowerCase()))))
+                return null;
+            const ownerSource = this.sources.get(owner.range.source);
+            const ownerScope = ownerSource.getQualifiedName(owner).split(".").slice(0, -1).join(".");
+            if (owner.members.some((member) => member.kind === NodeKind.FieldDeclaration &&
+                member.type &&
+                this.lazyInnerType(member.type, ownerSource, ownerScope, owner) !== null))
+                return null;
+            if (this.initializerChainHasEffects(owner))
+                return null;
+            return owner;
+        }, undefined, true);
+        for (const source of sources)
+            analysis.visit(source);
+        const plans = new Map();
+        let id = 0;
+        for (const site of analysis.sites) {
+            if (site.escaped || site.writes.size)
+                continue;
+            const fields = site.declaration.members.filter((member) => member.kind === NodeKind.FieldDeclaration && !member.is(32));
+            const names = new Set(fields.map((field) => field.name.text));
+            if ([...site.accesses.keys()].some((name) => !names.has(name)))
+                continue;
+            const selected = fields.filter((field) => field.type && stripNull(toString(field.type)) === "string" &&
+                !site.accesses.has(field.name.text) &&
+                !field.is(512) && !field.is(1024) &&
+                !field.decorators?.some((d) => d.name.text.toLowerCase() === "omit")).map((field) => field.name.text).sort();
+            if (!selected.length)
+                continue;
+            let specialized = this.ordinarySpecializedFields.get(site.declaration);
+            if (!specialized)
+                this.ordinarySpecializedFields.set(site.declaration, specialized = new Set());
+            for (const field of selected)
+                specialized.add(field);
+            const key = selected.join("\0");
+            if (!plans.has(site.source))
+                plans.set(site.source, new Map());
+            let name = plans.get(site.source).get(key);
+            if (!name) {
+                do
+                    name = `__JSON_OrdinaryPlan_${id++}`;
+                while (this.parser.sources.some((source) => source.text.includes(name)));
+                site.source.statements.push(SimpleParser.parseTopLevelStatement(`class ${name} { ${selected.map((field) => `__json_skip_${field}(): void {}`).join("\n")} }`));
+                plans.get(site.source).set(key, name);
+            }
+            const type = SimpleParser.parseStatement(`let __plan: ${name};`).declarations[0].type;
+            site.call.typeArguments.push(type);
+        }
+    }
     eagerOverrides = new Set();
     lazySourceFields = new Map();
     lazySourceInstalled = new Set();
@@ -3265,6 +3342,21 @@ export class JSONTransform extends Visitor {
                     : field;
                 body.push(`if (isManaged<${member.type}>()) JSON.__linkObject(${outPtr}, ${child}, false);`);
             }
+            if (this.ordinarySpecializedFields.get(node)?.has(member.name) &&
+                !member.flags.has(PropertyFlags.Lazy) && isString(stripNull(type))) {
+                const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
+                return [
+                    `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {`,
+                    `  const __skipped = JSON.__cursorSkipString(JSON.__cursorWhitespace(${valuePtr}, srcEnd), srcEnd);`,
+                    `  if (__skipped) ${srcPtr} = __skipped;`,
+                    `  else {`,
+                    ...body,
+                    `  }`,
+                    `} else {`,
+                    ...body,
+                    `}`,
+                ];
+            }
             return body;
         };
         indent = "  ";
@@ -4134,6 +4226,11 @@ export class JSONTransform extends Visitor {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
             const offset = JSON.stringify(member.name);
+            if (this.ordinarySpecializedFields.get(node)?.has(member.name) && isString(stripNull(member.type))) {
+                return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || JSON.__cursorSkipString(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
+                    prefix + `  store<${member.type}>(changetype<usize>(out), JSON.__deserializeValue<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n` +
+                    prefix + `}\n`;
+            }
             const memberSchema = this.getSchema(member.type);
             if (memberSchema?.customReader) {
                 return (prefix +
@@ -4926,7 +5023,7 @@ export class JSONTransform extends Visitor {
                     .map((member) => `JSON.__cursorSupports<${member.lazyInner || member.type}>(depth + 1)`)
                     .join(" && ") || "true";
                 node.members.push(SimpleParser.parseClassMember(`__CURSOR_SUPPORTED(depth: i32): bool { return depth < 256 && (${supported}); }`, node));
-                node.members.push(SimpleParser.parseClassMember(generateCursorParser(this.schema.members, getComparisions, cursorMayDefer && cursorDeferred.length > 0), node));
+                node.members.push(SimpleParser.parseClassMember(generateCursorParser(this.schema.members, getComparisions, cursorMayDefer && cursorDeferred.length > 0, this.ordinarySpecializedFields.get(node)), node));
             }
         }
         node.members.push(SimpleParser.parseClassMember(`__DESERIALIZE_FAST_ENABLED(): bool { return ${!DESERIALIZE_CUSTOM && useFastPath}; }`, node));
@@ -5485,6 +5582,7 @@ export default class Transformer extends Transform {
         transformer.pureNumericConstants = numericConstants.constants;
         transformer.numericConstantShadows = numericConstants.shadowed;
         transformer.prepareStrategicLaziness(sources);
+        transformer.prepareOrdinarySpecialization(sources);
         transformer.prepareLazyOverrides(sources);
         for (const source of sources) {
             transformer.imports = [];

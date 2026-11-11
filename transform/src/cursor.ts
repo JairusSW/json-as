@@ -16,6 +16,7 @@ export function generateCursorParser(
   members: Property[],
   compare: (key: string, ptr: string, operator: string) => string[],
   completeDefaults = false,
+  specializedFields?: Set<string>,
 ): string {
   const entries = members.map((member, id) => ({
     member,
@@ -68,6 +69,15 @@ export function generateCursorParser(
           .replaceAll("\u2029", "\\u2029")}) field = ${entry.id};`,
     )
     .join("\n");
+  const readField = (member: Property, field: string): string => {
+    const read = `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
+    if (!specializedFields?.has(member.name)) return read;
+    return `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {
+      const skipped = JSON.__cursorSkipString(srcStart, srcEnd);
+      if (skipped) srcStart = skipped;
+      else { ${read} }
+    } else { ${read} }`;
+  };
   const values = entries
     .map(({ member, id }) => {
       const field = `offsetof<this>(${JSON.stringify(member.name)})`;
@@ -78,7 +88,7 @@ export function generateCursorParser(
       }`;
       }
       return `case ${id}: {
-      srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);
+      ${readField(member, field)}
       break;
     }`;
     })
@@ -97,7 +107,7 @@ export function generateCursorParser(
             const field = `offsetof<this>(${JSON.stringify(member.name)})`;
             const read = member.flags.has(PropertyFlags.Lazy)
               ? `${readLazy(member, field)}`
-              : `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
+              : readField(member, field);
             return `{
           const keyStart = srcStart;
           if (!(keyStart + ${(entry.encoded.length + 1) << 1} <= srcEnd && ${compare(entry.encoded + ":", "keyStart", "==").join(" && ")})) break;
