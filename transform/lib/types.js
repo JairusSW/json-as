@@ -43,6 +43,7 @@ export class Property {
     omitIfMethod = null;
     lazyPacked = false;
     lazyScalar = false;
+    lazyMaybeArray = false;
     _generic = false;
     _custom = false;
     parent;

@@ -64,12 +64,21 @@ function compile(mode, runtime, strict, fast, strategy = "") {
   const label = `${mode}/${runtime}/strict=${strict}/fast=${fast}/strategy=${strategy}`;
   return {
     check(name, args, wanted) {
-      const result = g[name](...args);
+      let result;
+      try {
+        result = g[name](...args);
+      } catch (error) {
+        throw new Error(`${label}/${name}/${args}: ${error.message}`, { cause: error });
+      }
       assert.equal(
         typeof wanted === "string" ? decode(result) : result,
         wanted,
         `${label}/${name}/${args}`,
       );
+      checks++;
+    },
+    checkRejects(name) {
+      assert.throws(() => g[name](), /Invalid JSON|Unexpected key/, `${label}/${name}`);
       checks++;
     },
   };
@@ -84,7 +93,7 @@ try {
       : ["incremental", "minimal", "stub"])
       for (const strict of process.env.PROBE_QUICK ? [false] : [false, true])
         for (const fast of process.env.PROBE_QUICK ? [true] : [false, true]) {
-          const { check } = compile(mode, runtime, strict, fast);
+          const { check, checkRejects } = compile(mode, runtime, strict, fast);
           check("apiFastCapability", [], fast ? 1 : 0);
           check("apiSummary", [], "7:hello");
           check("effectfulDefaultCapability", [], 0);
@@ -113,6 +122,53 @@ try {
           check("conditionalAlias", [0], "1");
           check("conditionalAlias", [1], "1:7");
           check("unused", [], 0);
+          check("fullStringFields", [], "a\\b:hello:world");
+          check("fullNullableStrings", [], "hi!:1");
+          check("fullBooleanFields", [], '1:0:{"first":true,"second":false}');
+          check("lazyReferenceStates", [], "1:hello:hello:1:set");
+          check("nestedFullRead", [], "7:7.5");
+          if (strict) checkRejects("nestedReaderFallback");
+          else check("nestedReaderFallback", [], "7.5");
+          check("nestedReaderReordered", [], "7.5");
+          check("aliasedNestedFullRead", [], "7:7.5");
+          check("nestedFullReadAfterGC", [], "7:7.5");
+          check("missingNestedDefaults", [], "3:7:tail");
+          check("missingArrayDefaults", [], "3:7:tail");
+          check("nestedArrayWhitespaceAndReordering", [], "4:7:3:5:8:tail");
+          check("nestedEmptyArray", [], 0);
+          check("nestedPartialRead", [], "1:1.5");
+          check("explicitLazyNested", [], "0:7");
+          check("nestedArrayFullRead", [], "0:7.5");
+          check("nestedArrayPartialRead", [], "0:1.5");
+          check("nestedArrayLoopRead", [], "0:24.0");
+          check("nestedArrayGrowthAfterGC", [], "0:360.0");
+          check("arrayFormsDecodeEagerly", [], "3:7:8:9:3");
+          check("eagerArraysRespectReuseOwnership", [], '{"a":[1],"b":[2]}|{"a":[3],"b":[4]}');
+          check("genericArrayFieldDecodesEagerly", [], "1:7:1");
+          check("inheritedGenericArrayDecodesEagerly", [], "1:7:9:1");
+          check("genericTypedArrayFieldDecodesEagerly", [], '{"value":[1,2]}');
+          check("genericNullableArrayFieldDecodesEagerly", [], "1:7:1:1");
+          check("subclassArrayFieldDecodesEagerly", [], "1:7:1");
+          if (strict) checkRejects("subclassArrayFallbackDoesNotReplay");
+          else check("subclassArrayFallbackDoesNotReplay", [], "1:7:9");
+          check("genericSubclassArrayFieldDecodesEagerly", [], "1:7:1");
+          check("customArrayFieldDecodesEagerly", [], "1:7:1");
+          check("userNamedArrayRemainsLazy", [], '{"item":{ "n" : 7 }}');
+          check("dynamicArrayStillDefersElements", [], "1:7.0:0");
+          check("genericDynamicArrayFieldDecodesEagerly", [], "1:1");
+          check("dynamicArrayFieldDecodesEagerly", [], '{"value":[{ "n":7 }]}:1');
+          check("nullableNestedArrayRead", [], "1:0:7.5");
+          if (strict) {
+            checkRejects("nestedCodecFallback");
+            checkRejects("nestedCodecArrayFallback");
+          } else {
+            check("nestedCodecFallback", [], "7:1");
+            check("nestedCodecArrayFallback", [], "7:1");
+          }
+          check("overwrittenNestedChild", [], "0:0");
+          check("unknownNestedWrite", [], "0:0");
+          if (strict) checkRejects("pureNestedFallback");
+          else check("pureNestedFallback", [], "7:7.5:2");
           check("nested", [0, 0, 0], "1:1.5");
           check("nested", [1, 1, 1], "1:4.0");
           check("halves", [0], "1:1.5");
@@ -125,8 +181,12 @@ try {
     for (const strict of [false, true]) {
       const { check } = compile("SWAR", "incremental", strict, true, strategy);
       check("existing", [], strategy === "true" ? "1:7" : "0:7");
+      check("explicitLazyNested", [], strategy === "true" ? "1:7" : "0:7");
       check("xOnly", [], strategy === "true" ? "1:1.5" : "0:1.5");
       check("custom", [], strategy === "true" ? "1:7:1" : "0:7:1");
+      check("lazyReferenceStates", [], "1:hello:hello:1:set");
+      check("genericDynamicArrayFieldDecodesEagerly", [], "1:1");
+      check("dynamicArrayStillDefersElements", [], "1:7.0:0");
     }
   console.log(
     `Strategic laziness: ${checks} eager/deferred state, parse-site, cost, fallback, reuse, GC and opt-in checks passed`,

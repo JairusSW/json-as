@@ -19,6 +19,8 @@ import {
   Source,
   TernaryExpression,
   UnaryPrefixExpression,
+  UnaryPostfixExpression,
+  NewExpression,
   Token,
   VariableDeclaration,
   NamespaceDeclaration,
@@ -98,6 +100,9 @@ export interface StrategicSite {
   declaration: ClassDeclaration;
   origin: AccessPath[];
   accesses: Map<string, AccessPath[]>;
+  writes: Set<string>;
+  escaped: boolean;
+  children: Map<string, StrategicSite>;
 }
 
 type Callable = FunctionDeclaration | MethodDeclaration;
@@ -134,6 +139,10 @@ export class StrategicAccessAnalysis extends Visitor {
       shadowed: (name: string) => boolean,
       scope: string,
     ) => ClassDeclaration | null,
+    private resolveChild: (
+      owner: ClassDeclaration,
+      property: string,
+    ) => ClassDeclaration | null = () => null,
   ) {
     super();
   }
@@ -195,6 +204,30 @@ export class StrategicAccessAnalysis extends Visitor {
     if (node.kind === NodeKind.This) return this.thisSite;
     if (node.kind === NodeKind.Identifier)
       return this.binding((node as IdentifierExpression).text);
+    if (node.kind === NodeKind.PropertyAccess) {
+      const property = node as PropertyAccessExpression;
+      const parent = this.origin(property.expression);
+      // Reused destinations can contain a more-derived object supplied by the
+      // caller, so its field and virtual-method bindings are not statically exact.
+      if (!parent || parent.call.args.length !== 1) return null;
+      const name = property.property.text;
+      const existing = parent.children.get(name);
+      if (existing) return existing;
+      const declaration = this.resolveChild(parent.declaration, name);
+      if (!declaration) return null;
+      const child: StrategicSite = {
+        call: parent.call,
+        source: parent.source,
+        declaration,
+        origin: parent.origin,
+        accesses: new Map(),
+        writes: new Set(),
+        escaped: false,
+        children: new Map(),
+      };
+      parent.children.set(name, child);
+      return child;
+    }
     if (
       node.kind === NodeKind.Parenthesized ||
       node.kind === NodeKind.Assertion
@@ -227,6 +260,9 @@ export class StrategicAccessAnalysis extends Visitor {
         declaration,
         origin: this.paths,
         accesses: new Map(),
+        writes: new Set(),
+        escaped: false,
+        children: new Map(),
       };
       this.sites.push(site);
       this.byCall.set(call, site);
@@ -330,8 +366,19 @@ export class StrategicAccessAnalysis extends Visitor {
         ) as MethodDeclaration | undefined;
       }
     }
-    if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8) return;
     const args = node.args.map((arg) => this.origin(arg));
+    if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8) {
+      const intrinsic = node.expression.kind === NodeKind.Identifier && [
+        "changetype", "reinterpret", "unchecked", "idof", "offsetof", "sizeof", "nameof",
+        "isDefined", "isReference", "isManaged", "isInteger", "isFloat",
+        "isString", "isBoolean", "isNullable",
+      ].includes((node.expression as IdentifierExpression).text);
+      if (!intrinsic) {
+        if (receiver) receiver.escaped = true;
+        for (const arg of args) if (arg) arg.escaped = true;
+      }
+      return;
+    }
     if (!receiver && !args.some(Boolean)) return;
     const saved = [
       this.scopes,
@@ -558,7 +605,37 @@ export class StrategicAccessAnalysis extends Visitor {
     this.terminated = !this.paths.length;
   }
 
+  visitNewExpression(node: NewExpression): void {
+    super.visitNewExpression(node);
+    for (const argument of node.args) {
+      const site = this.origin(argument);
+      if (site) site.escaped = true;
+    }
+  }
+
+  private recordWrite(target: Node): void {
+    if (target.kind === NodeKind.PropertyAccess) {
+      const property = target as PropertyAccessExpression;
+      const owner = this.origin(property.expression);
+      if (owner) owner.writes.add(property.property.text);
+    }
+  }
+
+  visitUnaryPrefixExpression(node: UnaryPrefixExpression): void {
+    if (node.operator === Token.Plus_Plus || node.operator === Token.Minus_Minus)
+      this.recordWrite(node.operand);
+    super.visitUnaryPrefixExpression(node);
+  }
+
+  visitUnaryPostfixExpression(node: UnaryPostfixExpression): void {
+    if (node.operator === Token.Plus_Plus || node.operator === Token.Minus_Minus)
+      this.recordWrite(node.operand);
+    super.visitUnaryPostfixExpression(node);
+  }
+
   visitBinaryExpression(node: BinaryExpression): void {
+    if (node.operator >= Token.Equals && node.operator <= Token.Caret_Equals)
+      this.recordWrite(node.left);
     if (node.operator === Token.Equals) {
       const site = this.origin(node.right);
       this.visit(node.right);

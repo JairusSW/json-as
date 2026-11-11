@@ -293,7 +293,7 @@ export namespace JSON {
    * type alias), so a field declared `JSON.Lazy<T>` is typed and accessed
    * exactly like `T`. The transform detects the annotation and defers that
    * field: its raw JSON slice is stored at parse time and parsed into `T` on
-   * first access (a generated get accessor).
+   * first access (a generated get accessor). Array-typed fields parse eagerly.
    */
   export type Lazy<T> = T;
 
@@ -527,6 +527,18 @@ export namespace JSON {
     depth: i32 = 0,
   ): usize {
     return readCursorValue<T>(start, end, dst, offset, depth);
+  }
+
+  @inline export function __cursorReadPlanned<T, P>(
+    _type: T,
+    plan: P,
+    start: usize,
+    end: usize,
+    dst: usize,
+    offset: usize = 0,
+    depth: i32 = 0,
+  ): usize {
+    return readCursorValue<T, P>(start, end, dst, offset, depth, plan);
   }
 
 
@@ -3442,6 +3454,23 @@ export namespace JSON {
    */
   // A field's usize zero is numeric, even though the public scalar API uses
   // usize(0) as its internal null sentinel. Lazy fields preserve eager spelling.
+  /** Array-valued generic fields are decoded eagerly even through JSON.Lazy<T>. */
+  @inline
+  function __isArrayField<T>(): bool {
+    if (isArray<nonnull<T>>()) return true;
+    if (isReference<T>()) {
+      const type = changetype<nonnull<T>>(0);
+      return type instanceof JSON.Arr || type instanceof StaticArray ||
+        type instanceof Int8Array || type instanceof Uint8Array ||
+        type instanceof Uint8ClampedArray || type instanceof Int16Array ||
+        type instanceof Uint16Array || type instanceof Int32Array ||
+        type instanceof Uint32Array || type instanceof Int64Array ||
+        type instanceof Uint64Array || type instanceof Float32Array ||
+        type instanceof Float64Array;
+    }
+    return false;
+  }
+
   function __lazyDefault<T>(): T {
     if (isNullable<T>()) return changetype<T>(0);
     if (isBoolean<T>() || isInteger<T>() || isFloat<T>()) return <T>0;
@@ -3852,10 +3881,63 @@ export namespace JSON {
   }
 
   /** Worker for generated and recursive readers; errors reach the outer boundary. */
-  function __deserializeValue<T>(
+  @inline
+  function __initializePlannedObject<T>(value: T): bool {
+    const type = changetype<nonnull<T>>(0);
+    let defer = false;
+    if (isDefined(type.__DESERIALIZE_DEFER_DEFAULTS)) {
+      if (isDefined(type.__DESERIALIZE_FULL_WRITE)) {
+        // @ts-expect-error: supplied by transform
+        defer = value.__DESERIALIZE_DEFER_DEFAULTS() == idof<nonnull<T>>() &&
+          // @ts-expect-error: supplied by transform
+          value.__DESERIALIZE_FULL_WRITE() == idof<nonnull<T>>();
+      }
+    }
+    if (defer) {
+      clearAllocatedObject(changetype<usize>(value), offsetof<nonnull<T>>());
+      return false;
+    }
+    if (isDefined(type.__INITIALIZE)) {
+      // @ts-expect-error: supplied by transform
+      value.__INITIALIZE();
+      return true;
+    }
+    clearAllocatedObject(changetype<usize>(value), offsetof<nonnull<T>>());
+    return false;
+  }
+
+  @inline
+  function __deserializePlannedObjectField<T, P>(
+    value: T,
+    plan: P,
+    start: usize,
+    end: usize,
+    resetMissing: bool,
+    whitespace: bool,
+  ): usize {
+    const type = changetype<nonnull<T>>(0);
+    if (whitespace && isDefined(type.__DESERIALIZE_WHITESPACE)) {
+      // @ts-expect-error: generated reader
+      return value.__DESERIALIZE_WHITESPACE(start, end, value, resetMissing, plan);
+    }
+    // @ts-expect-error: generated reader
+    return value.__DESERIALIZE_FAST(start, end, value, resetMissing, plan);
+  }
+
+  function __deserializePlannedValue<T, P>(
+    _type: T,
+    plan: P,
+    srcStart: usize,
+    srcEnd: usize,
+  ): T {
+    return __deserializeValue<T, P>(srcStart, srcEnd, 0, plan);
+  }
+
+  function __deserializeValue<T, __JSON_PLAN = i32>(
     srcStart: usize,
     srcEnd: usize,
     dst: usize = 0,
+    plan: __JSON_PLAN = changetype<__JSON_PLAN>(0),
   ): T {
     // Skip leading whitespace once here so every handler below may assume
     // srcStart is at the first non-whitespace char. (Trailing whitespace is
@@ -3921,6 +4003,7 @@ export namespace JSON {
         // @ts-expect-error: supplied by transform
         if (isDefined(out.__DESERIALIZE_FAST_ENABLED))
           canFast = out.__DESERIALIZE_FAST_ENABLED();
+        if (isDefined(plan.__json_strategic_effects)) canFast = false;
         // Generated fast paths may preserve omitted fields and reuse existing
         // strings/containers. Initialize only a freshly allocated object here;
         // callers that pass `dst` intentionally retain that reusable graph.
@@ -3930,7 +4013,9 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST) && canFast) {
           // @ts-expect-error: Defined by transform
-          const fastEnd = out.__DESERIALIZE_FAST(srcStart, srcEnd, out, !fresh);
+          const fastEnd = isReference<__JSON_PLAN>()
+            ? out.__DESERIALIZE_FAST(srcStart, srcEnd, out, !fresh, plan)
+            : out.__DESERIALIZE_FAST(srcStart, srcEnd, out, !fresh);
           // Accept the fast path when only trailing whitespace remains.
           if (
             fastEnd != 0 &&
@@ -3943,7 +4028,9 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_SLOW)) {
           // @ts-expect-error: Defined by transform
-          const slowEnd = out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
+          const slowEnd = isReference<__JSON_PLAN>()
+            ? out.__DESERIALIZE_SLOW(srcStart, srcEnd, out, false, plan)
+            : out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
           if (slowEnd == 0) {
             markProductionParseError();
             return changetype<T>(0);

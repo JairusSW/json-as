@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Parse array-typed fields eagerly, including `JSON.Arr` fields using lazy markers or class-wide lazy modes. Dynamic `JSON.Arr` retains its existing deferred-element behavior.
+
 - Add opt-in `@json({ lazy: "strategic" })` parse-site specialization. Analyze guaranteed and conditionally weighted field reads, compare estimated eager/lazy costs, and generate compile-time reader plans without allocating strategy objects. Preserve ordinary explicit-lazy timing unless `JSON_STRATEGIC_LAZINESS=true` is enabled.
 
 - Keep generated fast readers enabled for lazy fields with pure defaults. Analyze the original field initializer and resolved native defaults instead of generated storage expressions; retain non-speculative parsing for application constructors and effectful defaults.

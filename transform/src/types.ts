@@ -86,6 +86,8 @@ export class Property {
   public omitIfMethod: string | null = null;
   public lazyPacked: boolean = false;
   public lazyScalar: boolean = false;
+  // Generic lazy fields may be instantiated with an array type.
+  public lazyMaybeArray: boolean = false;
   public _generic: boolean = false;
   public _custom: boolean = false;
   public parent: Schema;

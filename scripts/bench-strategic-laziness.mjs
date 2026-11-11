@@ -552,9 +552,12 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
         entries.push(entry);
       }
   }
+  const candidatePatch = run("git", ["diff", "--binary", "HEAD"]);
+  if (candidatePatch) fs.writeFileSync(path.join(base, "tracked-source.patch"), candidatePatch);
   write(manifestFile, {
     created: new Date().toISOString(),
     candidate: run("git", ["rev-parse", "HEAD"]).trim(),
+    candidateDirty: !!candidatePatch,
     main: run("git", ["rev-parse", "HEAD"], { cwd: baseline }).trim(),
     sources,
     entries,
@@ -758,16 +761,20 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
         rows.push(row);
       }
   write(path.join(base, "summary.json"), rows);
+  const dirty = manifest.candidateDirty ?? fs.existsSync(path.join(base, "tracked-source.patch"));
+  const power = [...new Set(environment.audits.map((audit) =>
+    audit.power.includes("AC Power") ? "AC power" : audit.power.includes("Battery Power") ? "battery" : "unknown power",
+  ))].join(" and ");
   const lines = [
     "# Strategic laziness: captured API reads",
     "",
-    `Measured production sources: main \`${manifest.main.slice(0, 8)}\`; strategic branch \`${manifest.candidate.slice(0, 8)}\`.`,
+    `Measured production sources: main \`${manifest.main.slice(0, 8)}\`; strategic branch \`${manifest.candidate.slice(0, 8)}\`${dirty ? " with uncommitted changes (see sealed sources and captured patch)" : ""}.`,
     "",
     `${environment.cpu}, ${environment.arch}, Node ${environment.node}, v8 ${environment.v8}, AssemblyScript ${manifest.compiler}. Incremental runtime, -O3, compatibility mode (strict off), fast path on, diagnostics on.`,
     "",
-    `Eight paired fresh-process groups per row and backend. Each process warms for at least 100 ms, then measures three batches; its median feeds the paired geometric means below. All raw batches are retained. GB/s uses captured UTF-8 payload bytes; input is already a pinned UTF-16 string. Timing includes JSON.parse plus the listed field reads, allocation and normal automatic collection. It excludes network, UTF-8 decoding, module startup and serialization.`,
+    `${environment.pairs} paired fresh-process groups per row and backend. Each process warms for at least 100 ms, then measures three batches; its median feeds the paired geometric means below. All raw batches are retained. GB/s uses captured UTF-8 payload bytes; input is already a pinned UTF-16 string. Timing includes JSON.parse plus the listed field reads, allocation and normal automatic collection. It excludes network, UTF-8 decoding, module startup and serialization.`,
     "",
-    "The host was on battery with background activity. These are shared-host measurements, not an isolated or normal-power qualification. Full power/process audits are included in the capture.",
+    `The host used ${power} with background activity. These are shared-host measurements, not an isolated qualification. Full power/process audits are included in the capture.`,
     "",
     "## Inputs and reads",
     "",
@@ -803,9 +810,9 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
   lines.push(
     "Allocations are a separate ASC_RTRACE=1 run, averaged over 32 operations; values include managed allocator block overhead/rounding. They are not RSS or throughput from the instrumented build. The ordinary-lazy control uses lazy: all on the same branch. The branch-eager control checks the default path against main.",
     "",
-    "Conditional weights are syntactic estimates, not profiles. The full-read control intentionally includes the cost of materializing everything. Nested child classes are still independently lazy; this implementation does not propagate parse-site plans through the whole object graph, and effectful reference selections use the non-speculative reader.",
+    "Conditional weights are syntactic estimates, not profiles. The full-read control intentionally includes the cost of materializing everything. Effectful reference selections use the non-speculative reader.",
     "",
-    "95% intervals are paired bootstrap intervals (10,000 deterministic resamples), conditional on this host/run. They do not remove systematic effects from battery policy or concurrent load.",
+    "95% intervals are paired bootstrap intervals (10,000 deterministic resamples), conditional on this host/run. They do not remove systematic effects from power policy or concurrent load.",
     "",
   );
   fs.writeFileSync(path.join(base, "report.md"), lines.join("\n"));

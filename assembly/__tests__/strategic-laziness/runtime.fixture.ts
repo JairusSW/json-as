@@ -6,7 +6,16 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { JSON } from "../../index";
+import { __heap_base } from "memory";
 
+function collectWithRoot<T>(root: T): void {
+  if (isDefined(__collect)) {
+    const ptr = changetype<usize>(root);
+    if (ptr >= __heap_base) __pin(ptr);
+    __collect();
+    if (ptr >= __heap_base) __unpin(ptr);
+  }
+}
 
 @json({ lazy: "strategic" })
 class Vec3 {
@@ -112,7 +121,7 @@ export function texts(a: bool, b: bool, c: bool): string {
   if (b) out += value.likely;
   if (c) out += value.likely;
   if (a) if (b) if (c) out += value.rare;
-  if (isDefined(__collect)) __collect();
+  collectWithRoot(out);
   return before.toString() + ":" + out;
 }
 
@@ -223,7 +232,7 @@ function ownedSource(seed: i32): Vec3 {
 export function gcDeferred(): string {
   const value = ownedSource(1);
   const before = mask(value);
-  if (isDefined(__collect)) __collect();
+  collectWithRoot(value);
   return before.toString() + ":" + value.y.toString();
 }
 
@@ -369,4 +378,446 @@ export function lifecycleDefaultCount(): i32 {
   defaultCalls = 0;
   const values = JSON.parse<LifecycleDefaults[]>('[{"tail":7}]');
   return defaultCalls + values.length - 1;
+}
+
+export function fullStringFields(): string {
+  const value = JSON.parse<Texts>(' { "always" : "a\\\\b", "likely" : "hello", "rare" : "world" } ');
+  collectWithRoot(value);
+  return value.always + ":" + value.likely + ":" + value.rare;
+}
+
+@json({ lazy: "strategic" })
+class NullableTexts {
+  a: string | null = null;
+  b: string | null = null;
+}
+
+export function fullNullableStrings(): string {
+  const value = JSON.parse<NullableTexts>('{"a":"hi\\u0021", "b":null}');
+  collectWithRoot(value);
+  return (value.a === null ? "null" : value.a!) + ":" + i32(value.b === null).toString();
+}
+
+@json({ lazy: "strategic" })
+class StrategicFlags {
+  first: bool = false;
+  second: bool = true;
+}
+
+export function fullBooleanFields(): string {
+  const flags = JSON.parse<StrategicFlags>(' { "first" : true, "second" : false } ');
+  return i32(flags.first).toString() + ":" + i32(flags.second).toString() + ":" + JSON.stringify(flags);
+}
+
+@json
+class LazyReferenceStates {
+  @optional @lazy value: string | null = null;
+}
+
+export function lazyReferenceStates(): string {
+  const absent = JSON.parse<LazyReferenceStates>('{}');
+  const present = JSON.parse<LazyReferenceStates>('{"value":"hello"}');
+  const explicitNull = JSON.parse<LazyReferenceStates>('{"value":null}');
+  const first = present.value;
+  if (isDefined(__collect)) {
+    __pin(changetype<usize>(absent));
+    __pin(changetype<usize>(present));
+    __pin(changetype<usize>(explicitNull));
+    __collect();
+    __unpin(changetype<usize>(explicitNull));
+    __unpin(changetype<usize>(present));
+    __unpin(changetype<usize>(absent));
+  }
+  const second = present.value;
+  present.value = "set";
+  return i32(absent.value === null).toString() + ":" + first! + ":" + second! + ":" +
+    i32(explicitNull.value === null).toString() + ":" + present.value!;
+}
+
+@json({ lazy: "strategic" })
+class NestedVec {
+  child: Vec3 = new Vec3();
+}
+export function nestedFullRead(): string {
+  const parent = JSON.parse<NestedVec>('{"child":{"x":1.5,"y":2.5,"z":3.5}}');
+  const child = parent.child;
+  const before = mask(child);
+  const sum = child.x + child.y + child.z;
+  return before.toString() + ":" + sum.toString();
+}
+
+export function nestedReaderFallback(): string {
+  const parent = JSON.parse<NestedVec>('{"child":{"z":3.5,"unknown":0,"x":1.5,"y":2.5}}');
+  const child = parent.child;
+  collectWithRoot(child);
+  return (child.x + child.y + child.z).toString();
+}
+
+export function nestedReaderReordered(): string {
+  const parent = JSON.parse<NestedVec>('{"child":{"z":3.5,"x":1.5,"y":2.5}}');
+  const child = parent.child;
+  collectWithRoot(child);
+  return (child.x + child.y + child.z).toString();
+}
+
+@json({ lazy: "strategic" })
+class NestedCodecFallback {
+  probe!: Probe;
+  tail!: i32;
+}
+export function nestedCodecFallback(): string {
+  calls = 0;
+  const value = JSON.parse<NestedCodecFallback>('{"probe":7,"unknown":1,"tail":2}');
+  return value.probe.n.toString() + ":" + calls.toString();
+}
+
+@json({ lazy: "strategic" })
+class PureNestedFallback {
+  child!: Vec3;
+  @optional tail: i32 = 0;
+}
+export function pureNestedFallback(): string {
+  const value = JSON.parse<PureNestedFallback>('{"child":{"x":1.5,"y":2.5,"z":3.5},"unknown":1,"tail":2}');
+  const child = value.child;
+  const before = mask(child);
+  return before.toString() + ":" + (child.x + child.y + child.z).toString() + ":" + value.tail.toString();
+}
+export function nestedPartialRead(): string {
+  const parent = JSON.parse<NestedVec>('{"child":{"x":1.5,"y":2.5,"z":3.5}}');
+  const child = parent.child;
+  const before = mask(child);
+  return before.toString() + ":" + child.x.toString();
+}
+
+@json({ lazy: "strategic" })
+class NestedVecArray {
+  items: Vec3[] = [];
+}
+export function nestedArrayFullRead(): string {
+  const parent = JSON.parse<NestedVecArray>('{"items":[{"x":1.5,"y":2.5,"z":3.5}]}');
+  const item = parent.items[0];
+  const before = mask(item);
+  const sum = item.x + item.y + item.z;
+  collectWithRoot(item);
+  return before.toString() + ":" + sum.toString();
+}
+
+@json({ lazy: "strategic" })
+class NestedCodecArray {
+  items!: Probe[];
+  tail!: i32;
+}
+export function nestedCodecArrayFallback(): string {
+  calls = 0;
+  const value = JSON.parse<NestedCodecArray>('{"items":[7],"unknown":1,"tail":2}');
+  return value.items[0].n.toString() + ":" + calls.toString();
+}
+
+export function nestedArrayPartialRead(): string {
+  const parent = JSON.parse<NestedVecArray>('{"items":[{"x":1.5,"y":2.5,"z":3.5}]}');
+  const item = parent.items[0];
+  const before = mask(item);
+  return before.toString() + ":" + item.x.toString();
+}
+export function nestedArrayLoopRead(): string {
+  const parent = JSON.parse<NestedVecArray>('{"items":[{"x":1.5,"y":2.5,"z":3.5},{"x":4.5,"y":5.5,"z":6.5}]}');
+  const values = parent.items;
+  let masks: i32 = 0;
+  let sum: f32 = 0;
+  for (let i = 0; i < values.length; i++) {
+    const item = values[i];
+    masks += mask(item);
+    sum += item.x + item.y + item.z;
+  }
+  return masks.toString() + ":" + sum.toString();
+}
+
+@json({ lazy: "strategic" })
+class OverwrittenNestedInner {
+  probe!: Probe;
+}
+@json({ lazy: "strategic" })
+class OverwrittenNestedOuter {
+  child!: OverwrittenNestedInner;
+}
+export function overwrittenNestedChild(): string {
+  calls = 0;
+  const value = JSON.parse<OverwrittenNestedOuter>('{"child":{"probe":7}}');
+  value.child = new OverwrittenNestedInner();
+  return value.child.probe.n.toString() + ":" + calls.toString();
+}
+
+@json({ lazy: "strategic" })
+class AliasedNestedVec {
+  @alias("wire") child!: Vec3;
+}
+export function aliasedNestedFullRead(): string {
+  const parent = JSON.parse<AliasedNestedVec>('{"wire":{"x":1.5,"y":2.5,"z":3.5}}');
+  const child = parent.child;
+  const before = mask(child);
+  return before.toString() + ":" + (child.x + child.y + child.z).toString();
+}
+
+@json({ lazy: "strategic" })
+class MissingNestedDefaults {
+  @optional x: i32 = 1;
+  @optional y: i32 = 7;
+  @optional z: string = "tail";
+}
+@json({ lazy: "strategic" })
+class MissingNestedParent {
+  child!: MissingNestedDefaults;
+}
+export function missingNestedDefaults(): string {
+  const parent = JSON.parse<MissingNestedParent>('{"child":{"x":3}}');
+  return parent.child.x.toString() + ":" + parent.child.y.toString() + ":" + parent.child.z;
+}
+
+@json({ lazy: "all" })
+class ExplicitNestedLazy {
+  x: i32 = 0;
+}
+@json({ lazy: "strategic" })
+class StrategicWithExplicitChild {
+  child!: ExplicitNestedLazy;
+}
+export function explicitLazyNested(): string {
+  const parent = JSON.parse<StrategicWithExplicitChild>('{"child":{"x":7}}');
+  const child = parent.child;
+  const before = i32(load<u64>(changetype<usize>(child), offsetof<ExplicitNestedLazy>("__x_lz")) >>> 32 == 0xffffffff);
+  return before.toString() + ":" + child.x.toString();
+}
+
+@json({ lazy: "strategic" })
+class MissingArrayParent {
+  items!: MissingNestedDefaults[];
+}
+export function missingArrayDefaults(): string {
+  const parent = JSON.parse<MissingArrayParent>('{"items":[{"x":3}]}');
+  const child = parent.items[0];
+  return child.x.toString() + ":" + child.y.toString() + ":" + child.z;
+}
+
+export function nestedArrayWhitespaceAndReordering(): string {
+  const parent = JSON.parse<MissingArrayParent>(' { "items" : [ { "z" : "a\\u2028b", "x" : 4 }, { "y" : 8, "x" : 5 } ] } ');
+  const first = parent.items[0];
+  const second = parent.items[1];
+  collectWithRoot(parent);
+  return first.x.toString() + ":" + first.y.toString() + ":" + first.z.length.toString() + ":" + second.x.toString() + ":" + second.y.toString() + ":" + second.z;
+}
+
+export function nestedEmptyArray(): i32 {
+  const parent = JSON.parse<MissingArrayParent>('{"items":[]}');
+  collectWithRoot(parent);
+  return parent.items.length;
+}
+
+export function nestedFullReadAfterGC(): string {
+  const parent = JSON.parse<AliasedNestedVec>('{"wire":{"x":1.5,"y":2.5,"z":3.5}}');
+  const child = parent.child;
+  collectWithRoot(child);
+  const before = mask(child);
+  return before.toString() + ":" + (child.x + child.y + child.z).toString();
+}
+
+function replaceNestedChild(value: OverwrittenNestedOuter): void {
+  value.child = new OverwrittenNestedInner();
+}
+export function unknownNestedWrite(): string {
+  calls = 0;
+  const value = JSON.parse<OverwrittenNestedOuter>('{"child":{"probe":7}}');
+  const replace = replaceNestedChild;
+  replace(value);
+  return value.child.probe.n.toString() + ":" + calls.toString();
+}
+export function nestedArrayGrowthAfterGC(): string {
+  let input = '{"items":[';
+  for (let i = 0; i < 48; i++) {
+    if (i) input += ",";
+    input += '{"x":1.5,"y":2.5,"z":3.5}';
+  }
+  input += "]}";
+  const parent = JSON.parse<NestedVecArray>(input);
+  collectWithRoot(parent);
+  let masks: i32 = 0;
+  let sum: f32 = 0;
+  for (let i = 0; i < parent.items.length; i++) {
+    const item = parent.items[i];
+    masks += mask(item);
+    sum += item.x + item.y + item.z;
+  }
+  return masks.toString() + ":" + sum.toString();
+}
+
+type ProbeArrayAlias = Probe[];
+
+@json({ lazy: "all" })
+class EagerArrayForms {
+  @lazy decorated!: Probe[];
+  wrapped!: JSON.Lazy<ProbeArrayAlias>;
+  implicit!: Probe[];
+}
+
+export function arrayFormsDecodeEagerly(): string {
+  calls = 0;
+  const value = JSON.parse<EagerArrayForms>('{"decorated":[7],"wrapped":[8],"implicit":[9]}');
+  const before = calls;
+  return before.toString() + ":" + value.decorated[0].n.toString() + ":" + value.wrapped[0].n.toString() + ":" + value.implicit[0].n.toString() + ":" + calls.toString();
+}
+
+@json
+class SharedArrayDefaults {
+  @lazy a: i32[] = [];
+  @lazy b: i32[] = this.a;
+}
+
+export function eagerArraysRespectReuseOwnership(): string {
+  const value = JSON.parse<SharedArrayDefaults>('{"a":[1],"b":[2]}');
+  const first = JSON.stringify(value);
+  JSON.parse<SharedArrayDefaults>('{"a":[3],"b":[4]}', value);
+  return first + "|" + JSON.stringify(value);
+}
+
+@json
+class GenericArrayField<T> {
+  value!: JSON.Lazy<T>;
+}
+
+@json
+class ConcreteInheritedArray extends GenericArrayField<Probe[]> {
+  tail: i32 = 0;
+}
+
+export function inheritedGenericArrayDecodesEagerly(): string {
+  calls = 0;
+  const value = JSON.parse<ConcreteInheritedArray>('{"value":[7],"tail":9}');
+  const before = calls;
+  return before.toString() + ":" + value.value[0].n.toString() + ":" + value.tail.toString() + ":" + calls.toString();
+}
+
+export function genericArrayFieldDecodesEagerly(): string {
+  calls = 0;
+  const value = JSON.parse<GenericArrayField<Probe[]>>('{"value":[7]}');
+  const before = calls;
+  return before.toString() + ":" + value.value[0].n.toString() + ":" + calls.toString();
+}
+
+export function genericTypedArrayFieldDecodesEagerly(): string {
+  const value = JSON.parse<GenericArrayField<Uint8Array>>('{"value":[ 1, 2 ]}');
+  return JSON.stringify(value);
+}
+
+export function genericNullableArrayFieldDecodesEagerly(): string {
+  calls = 0;
+  const present = JSON.parse<GenericArrayField<Probe[] | null>>('{"value":[7]}');
+  const before = calls;
+  const absent = JSON.parse<GenericArrayField<Probe[] | null>>('{"value":null}');
+  const items = present.value;
+  return before.toString() + ":" + (items === null ? -1 : items[0].n).toString() + ":" + i32(absent.value === null).toString() + ":" + calls.toString();
+}
+
+class ProbeArraySubclass extends Array<Probe> {}
+
+@json
+class SubclassArrayField {
+  @lazy value!: ProbeArraySubclass;
+  @optional tail: i32 = 0;
+}
+
+export function subclassArrayFallbackDoesNotReplay(): string {
+  calls = 0;
+  const value = JSON.parse<SubclassArrayField>('{"value":[7],"unknown":1,"tail":9}');
+  return calls.toString() + ":" + value.value[0].n.toString() + ":" + value.tail.toString();
+}
+
+export function subclassArrayFieldDecodesEagerly(): string {
+  calls = 0;
+  const value = JSON.parse<SubclassArrayField>('{"value":[7]}');
+  const before = calls;
+  return before.toString() + ":" + value.value[0].n.toString() + ":" + calls.toString();
+}
+
+export function genericSubclassArrayFieldDecodesEagerly(): string {
+  calls = 0;
+  const value = JSON.parse<GenericArrayField<ProbeArraySubclass>>('{"value":[7]}');
+  const before = calls;
+  return before.toString() + ":" + value.value[0].n.toString() + ":" + calls.toString();
+}
+
+@json
+class CustomArraySubclass extends Array<i32> {
+  @deserializer("number") decode(data: string): CustomArraySubclass {
+    calls++;
+    const out = new CustomArraySubclass();
+    out.push(<i32>parseInt(data));
+    return out;
+  }
+}
+
+@json
+class CustomArrayField {
+  @lazy value!: CustomArraySubclass;
+}
+
+export function customArrayFieldDecodesEagerly(): string {
+  calls = 0;
+  const value = JSON.parse<CustomArrayField>('{"value":7}');
+  const before = calls;
+  return before.toString() + ":" + value.value[0].toString() + ":" + calls.toString();
+}
+
+namespace ShadowArrayName {
+  @json
+  export class Uint8Array {
+    n: i32 = 0;
+  }
+}
+
+@json
+class ShadowArrayHolder {
+  item!: JSON.Lazy<ShadowArrayName.Uint8Array>;
+}
+
+export function userNamedArrayRemainsLazy(): string {
+  const value = JSON.parse<ShadowArrayHolder>('{"item":{ "n" : 7 }}');
+  return JSON.stringify(value);
+}
+
+export function dynamicArrayStillDefersElements(): string {
+  const value = JSON.parse<JSON.Arr>('[{"n":7}]');
+  const before = JSON.Value.slotIsLazy(unchecked(value._vals[0]));
+  const item = value.getAs<JSON.Obj>(0);
+  const after = JSON.Value.slotIsLazy(unchecked(value._vals[0]));
+  return i32(before).toString() + ":" + item.getAs<f64>("n").toString() + ":" + i32(after).toString();
+}
+
+export function genericDynamicArrayFieldDecodesEagerly(): string {
+  const value = JSON.parse<GenericArrayField<JSON.Arr>>('{"value":[{"n":7}]}');
+  const eager = load<u64>(changetype<usize>(value), offsetof<GenericArrayField<JSON.Arr>>("__value_lz")) == u64.MAX_VALUE;
+  const array = value.value;
+  const elementLazy = JSON.Value.slotIsLazy(unchecked(array._vals[0]));
+  return i32(eager).toString() + ":" + i32(elementLazy).toString();
+}
+
+@json
+class DynamicArrayField {
+  @lazy value!: JSON.Arr;
+}
+
+export function dynamicArrayFieldDecodesEagerly(): string {
+  const value = JSON.parse<DynamicArrayField>('{"value":[ { "n":7 } ]}');
+  const wire = JSON.stringify(value);
+  return wire + ":" + i32(JSON.Value.slotIsLazy(unchecked(value.value._vals[0]))).toString();
+}
+
+@json({ lazy: "strategic" })
+class NullableVecArray {
+  items!: (Vec3 | null)[];
+}
+export function nullableNestedArrayRead(): string {
+  const parent = JSON.parse<NullableVecArray>('{"items":[null,{"x":1.5,"y":2.5,"z":3.5}]}');
+  const child = parent.items[1];
+  if (child === null) return "bad";
+  const before = mask(child);
+  return i32(parent.items[0] === null).toString() + ":" + before.toString() + ":" + (child.x + child.y + child.z).toString();
 }

@@ -150,8 +150,13 @@ function readLazy(member, field) {
         ? `store<u32>(changetype<usize>(out), 0xffffffff, ${field} + 4);`
         : `store<u64>(changetype<usize>(out), u64.MAX_VALUE, ${field});
        if (isManaged<${member.lazyInner}>()) JSON.__linkObject(changetype<usize>(out), load<usize>(changetype<usize>(out), ${offset}), false);`;
-    return `if (isDefined(changetype<__JSON_PLAN>(0).__json_eager_${member.lazyProperty || member.name})) {
-    srcStart = JSON.__cursorRead<${member.lazyInner}>(srcStart, srcEnd, changetype<usize>(out), ${offset}, depth + 1);
+    const eagerArray = member.lazyMaybeArray ? `JSON.__isArrayField<${member.lazyInner}>() || ` : "";
+    return `if (${eagerArray}isDefined(changetype<__JSON_PLAN>(0).__json_eager_${member.lazyProperty || member.name})) {
+    if (isDefined(changetype<__JSON_PLAN>(0).__json_child_${member.lazyProperty || member.name})) {
+      srcStart = JSON.__cursorReadPlanned(changetype<${member.lazyInner}>(0), changetype<__JSON_PLAN>(0).__json_child_${member.lazyProperty || member.name}(), srcStart, srcEnd, changetype<usize>(out), ${offset}, depth + 1);
+    } else {
+      srcStart = JSON.__cursorRead<${member.lazyInner}>(srcStart, srcEnd, changetype<usize>(out), ${offset}, depth + 1);
+    }
     if (!srcStart) return 0;
     ${mark}
   } else {

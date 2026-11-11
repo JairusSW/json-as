@@ -35,6 +35,7 @@ export declare class JSONTransform extends Visitor {
     private generatedRuntimeName;
     private runtimeReference;
     private lazyRuntimeSource;
+    private isArrayFieldType;
     private lazyInnerType;
     prepareLazyOverrides(sources: Source[]): void;
     private usesBuiltinRepresentation;

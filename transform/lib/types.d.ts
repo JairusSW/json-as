@@ -47,6 +47,7 @@ export declare class Property {
     omitIfMethod: string | null;
     lazyPacked: boolean;
     lazyScalar: boolean;
+    lazyMaybeArray: boolean;
     _generic: boolean;
     _custom: boolean;
     parent: Schema;

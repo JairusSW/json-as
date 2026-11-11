@@ -48,6 +48,7 @@ export function materializationDecision(paths, decodeCost, origin = [new Map()])
 }
 export class StrategicAccessAnalysis extends Visitor {
     resolveParse;
+    resolveChild;
     sites = [];
     scopes = [];
     paths = [new Map()];
@@ -61,9 +62,10 @@ export class StrategicAccessAnalysis extends Visitor {
     captures = new WeakMap();
     expanding = new Set();
     byCall = new WeakMap();
-    constructor(resolveParse) {
+    constructor(resolveParse, resolveChild = () => null) {
         super();
         this.resolveParse = resolveParse;
+        this.resolveChild = resolveChild;
     }
     binding(name) {
         for (let i = this.scopes.length - 1; i >= 0; i--)
@@ -118,6 +120,31 @@ export class StrategicAccessAnalysis extends Visitor {
             return this.thisSite;
         if (node.kind === NodeKind.Identifier)
             return this.binding(node.text);
+        if (node.kind === NodeKind.PropertyAccess) {
+            const property = node;
+            const parent = this.origin(property.expression);
+            if (!parent || parent.call.args.length !== 1)
+                return null;
+            const name = property.property.text;
+            const existing = parent.children.get(name);
+            if (existing)
+                return existing;
+            const declaration = this.resolveChild(parent.declaration, name);
+            if (!declaration)
+                return null;
+            const child = {
+                call: parent.call,
+                source: parent.source,
+                declaration,
+                origin: parent.origin,
+                accesses: new Map(),
+                writes: new Set(),
+                escaped: false,
+                children: new Map(),
+            };
+            parent.children.set(name, child);
+            return child;
+        }
         if (node.kind === NodeKind.Parenthesized ||
             node.kind === NodeKind.Assertion)
             return this.origin(node.expression);
@@ -144,6 +171,9 @@ export class StrategicAccessAnalysis extends Visitor {
                 declaration,
                 origin: this.paths,
                 accesses: new Map(),
+                writes: new Set(),
+                escaped: false,
+                children: new Map(),
             };
             this.sites.push(site);
             this.byCall.set(call, site);
@@ -228,9 +258,22 @@ export class StrategicAccessAnalysis extends Visitor {
                     member.name.text === method.property.text);
             }
         }
-        if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8)
-            return;
         const args = node.args.map((arg) => this.origin(arg));
+        if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8) {
+            const intrinsic = node.expression.kind === NodeKind.Identifier && [
+                "changetype", "reinterpret", "unchecked", "idof", "offsetof", "sizeof", "nameof",
+                "isDefined", "isReference", "isManaged", "isInteger", "isFloat",
+                "isString", "isBoolean", "isNullable",
+            ].includes(node.expression.text);
+            if (!intrinsic) {
+                if (receiver)
+                    receiver.escaped = true;
+                for (const arg of args)
+                    if (arg)
+                        arg.escaped = true;
+            }
+            return;
+        }
         if (!receiver && !args.some(Boolean))
             return;
         const saved = [
@@ -427,7 +470,35 @@ export class StrategicAccessAnalysis extends Visitor {
         this.paths = this.merge([...left, ...right]);
         this.terminated = !this.paths.length;
     }
+    visitNewExpression(node) {
+        super.visitNewExpression(node);
+        for (const argument of node.args) {
+            const site = this.origin(argument);
+            if (site)
+                site.escaped = true;
+        }
+    }
+    recordWrite(target) {
+        if (target.kind === NodeKind.PropertyAccess) {
+            const property = target;
+            const owner = this.origin(property.expression);
+            if (owner)
+                owner.writes.add(property.property.text);
+        }
+    }
+    visitUnaryPrefixExpression(node) {
+        if (node.operator === 87 || node.operator === 88)
+            this.recordWrite(node.operand);
+        super.visitUnaryPrefixExpression(node);
+    }
+    visitUnaryPostfixExpression(node) {
+        if (node.operator === 87 || node.operator === 88)
+            this.recordWrite(node.operand);
+        super.visitUnaryPostfixExpression(node);
+    }
     visitBinaryExpression(node) {
+        if (node.operator >= 101 && node.operator <= 113)
+            this.recordWrite(node.left);
         if (node.operator === 101) {
             const site = this.origin(node.right);
             this.visit(node.right);

@@ -650,6 +650,8 @@ log format.
 
 Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "auto" })`) to defer it: its raw JSON slice is stored at parse time and parsed only on first access. Fields you skip are never parsed, and untouched fields pass through their original bytes on serialize. See the [Lazy Fields guide](https://docs.jairus.dev/json-as/guide/lazy-fields) for the full API and trade-offs.
 
+Array-typed fields, including `JSON.Arr`, are parsed eagerly even when marked `@lazy` or `JSON.Lazy<T>` or included in a class-wide lazy mode. Elements within a dynamic `JSON.Arr` retain their separate deferred behavior.
+
 Opt into access-based specialization with `@json({ lazy: "strategic" })`:
 
 ```ts
