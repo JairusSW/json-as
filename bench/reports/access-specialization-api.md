@@ -57,6 +57,23 @@ Conditional weights are syntactic estimates, not profiles. The full-read control
 
 95% intervals are paired bootstrap intervals (10,000 deterministic resamples), conditional on this host/run. They do not remove systematic effects from power policy or concurrent load.
 
+## Access-analysis review fixes
+
+The correctness and startup-allocation fixes at `10e86535` were compared with
+`381902ff` using the same GitHub input on the same ARM64 host. Each row uses 16
+alternating fresh-process pairs; the intervals are paired bootstrap intervals.
+As above, the machine had background activity and these are not isolated-host
+measurements. [Raw samples, binary hashes, and host audits](data/access-review-fix-10e86535.json.gz).
+
+| Backend / read | Before GB/s | After GB/s | Change | 95% interval |
+|---|---:|---:|---:|---:|
+| SWAR / summary | 2.423 | 2.365 | −2.4% | −5.4% to +0.4% |
+| SWAR / conditional | 2.264 | 2.269 | +0.2% | −2.0% to +2.3% |
+| SWAR / full | 1.864 | 1.898 | +1.8% | −0.2% to +3.9% |
+| SIMD / summary | 3.684 | 3.732 | +1.3% | −3.3% to +5.7% |
+| SIMD / conditional | 3.237 | 3.260 | +0.7% | −2.9% to +4.2% |
+| SIMD / full | 2.182 | 2.181 | 0.0% | −1.7% to +1.6% |
+
 ## Compiler cost and chunk-size experiments
 
 On the same shared ARM64 host, four alternating whole-compiler `-O3` pairs for
