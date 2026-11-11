@@ -485,6 +485,7 @@ export class JSONTransform extends Visitor {
             return;
         const runtimeRoot = diagnosticsRuntimeRoot(this.parser.sources);
         const modelFields = new WeakMap();
+        const fieldOwners = new WeakMap();
         const eligibleFields = (owner) => {
             if (modelFields.has(owner))
                 return modelFields.get(owner);
@@ -516,6 +517,7 @@ export class JSONTransform extends Visitor {
                     }
                     if (!seen.has(field.name.text)) {
                         seen.add(field.name.text);
+                        fieldOwners.set(field, declaration);
                         fields.push(field);
                     }
                 }
@@ -556,10 +558,19 @@ export class JSONTransform extends Visitor {
             const names = new Set(fields.map((field) => field.name.text));
             if ([...site.accesses.keys()].some((name) => !names.has(name)))
                 continue;
-            const selected = fields.filter((field) => field.type && stripNull(toString(field.type)) === "string" &&
-                !site.accesses.has(field.name.text) &&
-                !field.is(512) && !field.is(1024) &&
-                !field.decorators?.some((d) => d.name.text.toLowerCase() === "omit")).map((field) => field.name.text).sort();
+            const selected = fields.filter((field) => {
+                if (!field.type || site.accesses.has(field.name.text) ||
+                    field.is(512) || field.is(1024) ||
+                    field.decorators?.some((d) => d.name.text.toLowerCase() === "omit"))
+                    return false;
+                const type = toString(field.type);
+                if (stripNull(type) !== "string" && !isScalarType(type))
+                    return false;
+                const source = this.sources.get(field.range.source);
+                const scope = source.getQualifiedName(fieldOwners.get(field)).split(".").slice(0, -1).join(".");
+                const meaning = source.resolveTypeMeaning(type, scope, this.parser);
+                return !meaning.declaration || isStdlib(meaning.declaration);
+            }).map((field) => field.name.text).sort();
             if (!selected.length)
                 continue;
             let specialized = this.ordinarySpecializedFields.get(site.declaration);
@@ -3369,11 +3380,12 @@ export class JSONTransform extends Visitor {
                 body.push(`if (isManaged<${member.type}>()) JSON.__linkObject(${outPtr}, ${child}, false);`);
             }
             if (this.ordinarySpecializedFields.get(node)?.has(member.name) &&
-                !member.flags.has(PropertyFlags.Lazy) && isString(stripNull(type))) {
+                !member.flags.has(PropertyFlags.Lazy) && (isString(stripNull(type)) || isScalarType(type))) {
                 const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
+                const skip = isString(stripNull(type)) ? "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${type}>`;
                 return [
                     `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {`,
-                    `  const __skipped = JSON.__cursorSkipString(JSON.__cursorWhitespace(${valuePtr}, srcEnd), srcEnd);`,
+                    `  const __skipped = ${skip}(JSON.__cursorWhitespace(${valuePtr}, srcEnd), srcEnd);`,
                     `  if (__skipped) ${srcPtr} = __skipped;`,
                     `  else {`,
                     ...body,
@@ -4252,8 +4264,9 @@ export class JSONTransform extends Visitor {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
             const offset = JSON.stringify(member.name);
-            if (this.ordinarySpecializedFields.get(node)?.has(member.name) && isString(stripNull(member.type))) {
-                return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || JSON.__cursorSkipString(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
+            if (this.ordinarySpecializedFields.get(node)?.has(member.name) && (isString(stripNull(member.type)) || isScalarType(member.type))) {
+                const skip = isString(stripNull(member.type)) ? "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${member.type}>`;
+                return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || ${skip}(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
                     prefix + `  store<${member.type}>(changetype<usize>(out), JSON.__deserializeValue<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n` +
                     prefix + `}\n`;
             }
@@ -4272,6 +4285,9 @@ export class JSONTransform extends Visitor {
         const getSlowBooleanStore = (member, value, valueStart, valueEnd, prefix) => {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+            if (this.ordinarySpecializedFields.get(node)?.has(member.name) && isBoolean(member.type)) {
+                return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) store<boolean>(changetype<usize>(out), ${value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
+            }
             if (member.generic ||
                 this.getSchema(member.type)?.customReader ||
                 stripNull(member.type) === "JSON.Raw" ||

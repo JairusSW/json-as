@@ -594,6 +594,28 @@ export function skipCursorNumber(start: usize, end: usize): usize {
   return numberCursor<f64>(start, end, 0, false);
 }
 
+// Skip only values that the checked reader for T would accept. A failure lets
+// the caller run its ordinary decoder, preserving its diagnostics and policy.
+export function skipCursorScalar<T>(start: usize, end: usize): usize {
+  if (start >= end) return 0;
+  const first = load<u16>(start);
+  if (isBoolean<T>())
+    return first == 116 || first == 102 ? readCursorLiteral(start, end, first) : 0;
+  if (isInteger<T>()) {
+    if (!isSigned<T>() && first == 45) return 0;
+    const digits = first == 45 ? start + 2 : start;
+    const next = scanDigits(digits, end);
+    if (next == digits || (next - digits > 2 && load<u16>(digits) == 48)) return 0;
+    if (next < end) {
+      const code = load<u16>(next);
+      if (code == 46 || (code | 32) == 101) return 0;
+    }
+    return next;
+  }
+  if (isFloat<T>()) return skipCursorNumber(start, end);
+  return 0;
+}
+
 export function readCursorLiteral(start: usize, end: usize, code: u16): usize {
   if (
     code == 116 &&

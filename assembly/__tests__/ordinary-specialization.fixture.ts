@@ -151,6 +151,38 @@ export function genericInherited(): string {
   return value.value.toString() + ":" + value.inherited;
 }
 
+@json
+class Scalars {
+  id: i32 = 0;
+  signed: i64 = 1;
+  unsigned: u64 = 2;
+  fraction: f64 = 3.0;
+  flag: bool = false;
+}
+
+export function scalarPartial(): i32 {
+  const value = JSON.parse<Scalars>('{"id":17,"signed":-9223372036854775808,"unsigned":18446744073709551615,"fraction":-1.25e3,"flag":true}');
+  return value.id;
+}
+
+export function scalarFull(): string {
+  const value = JSON.parse<Scalars>('{"id":17,"signed":-9,"unsigned":42,"fraction":1.25,"flag":true}');
+  return value.id.toString() + ":" + value.signed.toString() + ":" + value.unsigned.toString() + ":" + value.fraction.toString() + ":" + value.flag.toString();
+}
+
+namespace Namespaced {
+  @json
+  export class Data {
+    id: i32 = 0;
+    unused: string = "";
+  }
+}
+
+export function namespaced(): i32 {
+  const value = JSON.parse<Namespaced.Data>('{"id":18,"unused":"text"}');
+  return value.id;
+}
+
 let codecCalls = 0;
 @json
 class Codec {

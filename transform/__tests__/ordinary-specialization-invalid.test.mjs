@@ -15,23 +15,25 @@ const root = path.resolve(import.meta.dirname, "../..");
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-ordinary-invalid-"));
 try {
   let checks = 0;
-  for (const strict of ["false", "true"]) for (const fast of ["0", "1"]) {
+  for (const mode of ["NAIVE", "SWAR", "SIMD"]) for (const strict of ["false", "true"]) for (const fast of ["0", "1"]) {
     const outcomes = [];
     for (const specialize of ["false", "true"]) {
       const wasm = path.join(dir, "test.wasm");
       execFileSync(process.execPath, ["node_modules/assemblyscript/bin/asc.js",
         "assembly/__tests__/ordinary-specialization-invalid.fixture.ts", "--transform", "./transform",
-        "-O3", "-o", wasm], { cwd: root, env: { ...process.env, JSON_MODE: "SWAR",
+        "-O3", "-o", wasm, ...(mode === "SIMD" ? ["--enable", "simd"] : [])], { cwd: root, env: { ...process.env, JSON_MODE: mode,
         JSON_ACCESS_SPECIALIZATION: specialize, JSON_STRICT: strict, JSON_USE_FAST_PATH: fast }, stdio: "pipe" });
       const { instance } = await WebAssembly.instantiate(fs.readFileSync(wasm), {
         env: { abort() { throw Error("abort"); } },
       });
-      outcomes.push(Array.from({ length: 6 }, (_, i) => {
-        try { return { value: instance.exports.read(instance.exports.makeInput(i)) }; }
+      outcomes.push(Array.from({ length: 15 }, (_, i) => {
+        try { return { value: i < 6
+          ? instance.exports.read(instance.exports.makeInput(i))
+          : instance.exports.readNumeric(instance.exports.makeNumericInput(i - 6)) }; }
         catch { return { error: true }; }
       }));
     }
-    assert.deepEqual(outcomes[1], outcomes[0], `strict=${strict} fast=${fast}`);
+    assert.deepEqual(outcomes[1], outcomes[0], `${mode} strict=${strict} fast=${fast}`);
     checks += outcomes[0].length;
   }
   console.log(`Ordinary specialization: ${checks} malformed and type-mismatch comparisons passed`);

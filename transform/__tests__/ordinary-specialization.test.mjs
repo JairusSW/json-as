@@ -40,6 +40,8 @@ try {
             assert.match(generated, /JSON\.parse<Child, __JSON_OrdinaryPlan_\d+>/);
             assert.match(generated, /JSON\.parse<DecoratedChild, __JSON_OrdinaryPlan_\d+>/);
             assert.match(generated, /JSON\.parse<GenericChild>\(/);
+            assert.match(generated, /JSON\.parse<Scalars, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(generated, /JSON\.parse<Namespaced\.Data, __JSON_OrdinaryPlan_\d+>/);
           }
           let exports;
           const decode = (ptr) => Buffer.from(exports.memory.buffer, ptr,
@@ -53,6 +55,7 @@ try {
             nullableString: 10, nullableNull: 11, aliased: 12, codecEffects: 113,
             inheritedPartial: 14, inheritedFull: "parent:text",
             decoratedInheritedPartial: 15, genericInherited: "16:parent",
+            scalarPartial: 17, scalarFull: "17:-9:42:1.25:true", namespaced: 18,
             initializerEffects: 11 })) {
             const actual = exports[name]();
             assert.equal(typeof expected === "string" ? decode(actual) : actual, expected,

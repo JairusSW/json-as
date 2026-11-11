@@ -25,6 +25,7 @@ import {
   readCursorLiteral,
   skipCursorWhitespace,
   skipCursorString,
+  skipCursorScalar,
   skipCheckedValue,
   validateCursor,
 } from "./deserialize/cursor";
@@ -549,6 +550,10 @@ export namespace JSON {
 
   @inline export function __cursorSkipString(ptr: usize, end: usize): usize {
     return skipCursorString(ptr, end);
+  }
+
+  @inline export function __cursorSkipScalar<T>(ptr: usize, end: usize): usize {
+    return skipCursorScalar<T>(ptr, end);
   }
 
 
