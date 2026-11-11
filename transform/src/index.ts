@@ -5441,9 +5441,7 @@ export class JSONTransform extends Visitor {
     // never 0, so it doubles as the bail sentinel. Only the straight-line (no
     // optional fields) tiers are chunked; the seenAny-stateful optional tiers
     // stay inline and route wide structs to slow via the useFastPath gate.
-    // Specialized plans instantiate readers separately. Smaller scalar-mode
-    // chunks bound optimizer work; SIMD retains the faster larger chunks.
-    const FAST_CHUNK_SIZE = this.ordinarySpecializedFields.has(node) && MODE !== JSONMode.SIMD ? 8 : 32;
+    const FAST_CHUNK_SIZE = 32;
     const fastChunkMethods: string[] = [];
     let fastChunkId = 0;
     const chunkFastBlocks = (

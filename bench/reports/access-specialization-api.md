@@ -54,3 +54,20 @@ Allocations are a separate ASC_RTRACE=1 run, averaged over 32 operations; values
 Conditional weights are syntactic estimates, not profiles. The full-read control intentionally includes the cost of materializing everything. Effectful reference selections use the non-speculative reader.
 
 95% intervals are paired bootstrap intervals (10,000 deterministic resamples), conditional on this host/run. They do not remove systematic effects from power policy or concurrent load.
+
+## Compiler cost and chunk-size experiment
+
+On the same shared ARM64 host, four alternating whole-compiler `-O3` pairs for
+the GitHub/SWAR model took approximately 7.2 seconds with ordinary
+specialization disabled and 19.0 seconds enabled. This includes compilation
+and optimization, not just the transform. Two `-O0` pairs took approximately
+0.7 and 0.9 seconds respectively. These small samples identify a substantial
+build-time cost; they are not isolated compiler benchmarks.
+
+An experimental 8-field chunk size reduced the specialized `-O3` compilation
+to approximately 13.8 seconds in two pairs. However, a separate eight-pair
+head-to-head SIMD run found that the smaller chunks reduced GitHub summary
+throughput by 9.5% and conditional throughput by 10.9%, with full-read
+throughput essentially unchanged. The experiment was therefore reverted. The
+retained 32-field layout matches all six SWAR/SIMD benchmark binaries in this
+report byte for byte. [Raw compile samples and paired chunk comparison](data/access-specialization-compile-tradeoffs.json.gz).
