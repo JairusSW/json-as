@@ -78,7 +78,7 @@ function compile(mode, runtime, strict, fast, strategy = "") {
       checks++;
     },
     checkRejects(name) {
-      assert.throws(() => g[name](), /Invalid JSON|Unexpected key/, `${label}/${name}`);
+      assert.throws(() => g[name](), /Invalid JSON|Unexpected key|Incomplete or unterminated/, `${label}/${name}`);
       checks++;
     },
   };
@@ -125,6 +125,11 @@ try {
           check("fullStringFields", [], "a\\b:hello:world");
           check("fullNullableStrings", [], "hi!:1");
           check("fullBooleanFields", [], '1:0:{"first":true,"second":false}');
+          check("booleanFieldVariants", [], "1:0:0:1:0:1");
+          if (strict) {
+            checkRejects("invalidBooleanField");
+            checkRejects("invalidBooleanFieldReuse");
+          }
           check("implicitArrayConstruction", [], '0:0:0:0:7:1:{"value":[1]}');
           check("lazyReferenceStates", [], "1:hello:hello:1:set");
           check("nestedFullRead", [], "7:7.5");

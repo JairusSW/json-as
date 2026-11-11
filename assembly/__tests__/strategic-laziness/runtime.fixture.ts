@@ -409,6 +409,23 @@ export function fullBooleanFields(): string {
   return i32(flags.first).toString() + ":" + i32(flags.second).toString() + ":" + JSON.stringify(flags);
 }
 
+export function booleanFieldVariants(): string {
+  const compact = JSON.parse<StrategicFlags>('{"first":true,"second":false}');
+  const reordered = JSON.parse<StrategicFlags>('{"second":true,"first":false}');
+  const omitted = JSON.parse<StrategicFlags>('{}');
+  return i32(compact.first).toString() + ":" + i32(compact.second).toString() + ":" +
+    i32(reordered.first).toString() + ":" + i32(reordered.second).toString() + ":" +
+    i32(omitted.first).toString() + ":" + i32(omitted.second).toString();
+}
+
+export function invalidBooleanField(): void {
+  JSON.parse<StrategicFlags>('{"first":tru,"second":false}');
+}
+
+export function invalidBooleanFieldReuse(): void {
+  JSON.parse<StrategicFlags>('{"first":tru,"second":false}', new StrategicFlags());
+}
+
 @json({ lazy: "auto" })
 class ImplicitAutoArray {
   value: i32[];

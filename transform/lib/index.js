@@ -2737,6 +2737,11 @@ export class JSONTransform extends Visitor {
                     out.push(`} else {`, `  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`, `  const valueEnd = JSON.Util.scanValueEnd<string>(valueStart, srcEnd);`, `  if (!valueEnd) break;`, `  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`, `  ${srcPtr} = valueEnd;`, `}`);
                     return out;
                 }
+                if (isBoolean(lazyInner) && member.lazyPacked) {
+                    const property = this.lazyMetadata.get(member.node)?.propertyName || member.name;
+                    out.push(`if (isDefined(changetype<__JSON_PLAN>(0).__json_eager_${property})) {`, `  const __start = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`, `  if (__start + 8 <= srcEnd && load<u64>(__start) == 28429475166421108) {`, `    store<u64>(${outPtr}, ((<u64>0xffffffff) << 32) | 1, ${fieldOffset});`, `    ${srcPtr} = __start + 8;`, `  } else if (__start + 10 <= srcEnd && load<u64>(__start) == 32370086184550502 && load<u16>(__start, 8) == 101) {`, `    store<u64>(${outPtr}, (<u64>0xffffffff) << 32, ${fieldOffset});`, `    ${srcPtr} = __start + 10;`, `  } else break;`, `} else {`, `  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`, `  const valueEnd = JSON.Util.scanValueEnd<${lazyInner}>(valueStart, srcEnd);`, `  if (!valueEnd) break;`, `  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`, `  ${srcPtr} = valueEnd;`, `}`);
+                    return out;
+                }
                 const nativeScalar = INTEGER_TYPES.includes(lazyInner) || FLOAT_TYPES.includes(lazyInner);
                 if (nativeScalar) {
                     const property = this.lazyMetadata.get(member.node)?.propertyName || member.name;
