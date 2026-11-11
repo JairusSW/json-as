@@ -49,6 +49,7 @@ export function materializationDecision(paths, decodeCost, origin = [new Map()])
 export class StrategicAccessAnalysis extends Visitor {
     resolveParse;
     resolveChild;
+    conservativeEscapes;
     sites = [];
     scopes = [];
     paths = [new Map()];
@@ -62,10 +63,11 @@ export class StrategicAccessAnalysis extends Visitor {
     captures = new WeakMap();
     expanding = new Set();
     byCall = new WeakMap();
-    constructor(resolveParse, resolveChild = () => null) {
+    constructor(resolveParse, resolveChild = () => null, conservativeEscapes = false) {
         super();
         this.resolveParse = resolveParse;
         this.resolveChild = resolveChild;
+        this.conservativeEscapes = conservativeEscapes;
     }
     binding(name) {
         for (let i = this.scopes.length - 1; i >= 0; i--)
@@ -261,9 +263,10 @@ export class StrategicAccessAnalysis extends Visitor {
         const args = node.args.map((arg) => this.origin(arg));
         if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8) {
             const intrinsic = node.expression.kind === NodeKind.Identifier && [
-                "changetype", "reinterpret", "unchecked", "idof", "offsetof", "sizeof", "nameof",
+                "unchecked", "idof", "offsetof", "sizeof", "nameof",
                 "isDefined", "isReference", "isManaged", "isInteger", "isFloat",
                 "isString", "isBoolean", "isNullable",
+                ...(!this.conservativeEscapes ? ["changetype", "reinterpret"] : []),
             ].includes(node.expression.text);
             if (!intrinsic) {
                 if (receiver)
@@ -300,6 +303,16 @@ export class StrategicAccessAnalysis extends Visitor {
             saved;
     }
     callable(node) {
+        const binding = (name) => this.binding(name);
+        class MarkCaptures extends Visitor {
+            visitIdentifierExpression(identifier) {
+                const site = binding(identifier.text);
+                if (site)
+                    site.escaped = true;
+            }
+        }
+        if (this.conservativeEscapes && node.body)
+            new MarkCaptures().visit(node.body);
         const saved = [
             this.scopes,
             this.paths,
@@ -346,12 +359,24 @@ export class StrategicAccessAnalysis extends Visitor {
         this.callable(node);
     }
     visitReturnStatement(node) {
-        this.visit(node.value);
+        const value = node.value;
+        if (this.conservativeEscapes) {
+            const site = this.origin(value);
+            if (site)
+                site.escaped = true;
+        }
+        this.visit(value);
         this.paths = [];
         this.terminated = true;
     }
     visitThrowStatement(node) {
-        this.visit(node.value);
+        const value = node.value;
+        if (this.conservativeEscapes) {
+            const site = this.origin(value);
+            if (site)
+                site.escaped = true;
+        }
+        this.visit(value);
         this.paths = [];
         this.terminated = true;
     }
@@ -478,6 +503,24 @@ export class StrategicAccessAnalysis extends Visitor {
                 site.escaped = true;
         }
     }
+    visitArrayLiteralExpression(node) {
+        if (this.conservativeEscapes)
+            for (const element of node.elementExpressions) {
+                const site = this.origin(element);
+                if (site)
+                    site.escaped = true;
+            }
+        super.visitArrayLiteralExpression(node);
+    }
+    visitObjectLiteralExpression(node) {
+        if (this.conservativeEscapes)
+            for (const value of node.values) {
+                const site = this.origin(value);
+                if (site)
+                    site.escaped = true;
+            }
+        super.visitObjectLiteralExpression(node);
+    }
     recordWrite(target) {
         if (target.kind === NodeKind.PropertyAccess) {
             const property = target;
@@ -509,17 +552,33 @@ export class StrategicAccessAnalysis extends Visitor {
                     site.origin.every((origin) => this.paths.some((path) => path.size === origin.size &&
                         [...origin].every(([key, value]) => path.get(key) === value)));
                 const assigned = accessProbability(this.paths) === 1 || sameContext ? site : null;
+                let found = false;
                 for (let i = this.scopes.length - 1; i >= 0; i--)
                     if (this.scopes[i].has(name)) {
+                        found = true;
+                        if (this.conservativeEscapes && (i === 0 || !assigned)) {
+                            if (site)
+                                site.escaped = true;
+                            const previous = this.scopes[i].get(name);
+                            if (previous)
+                                previous.escaped = true;
+                        }
                         this.scopes[i].set(name, assigned);
                         break;
                     }
+                if (this.conservativeEscapes && !found && site)
+                    site.escaped = true;
             }
             else if (node.left.kind === NodeKind.PropertyAccess) {
+                if (this.conservativeEscapes && site)
+                    site.escaped = true;
                 this.visit(node.left.expression);
             }
-            else
+            else {
+                if (this.conservativeEscapes && site)
+                    site.escaped = true;
                 this.visit(node.left);
+            }
             return;
         }
         this.visit(node.left);

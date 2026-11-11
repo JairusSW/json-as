@@ -7,6 +7,7 @@
 
 import {
   BinaryExpression,
+  ArrayLiteralExpression,
   BlockStatement,
   CallExpression,
   ClassDeclaration,
@@ -21,6 +22,7 @@ import {
   UnaryPrefixExpression,
   UnaryPostfixExpression,
   NewExpression,
+  ObjectLiteralExpression,
   Token,
   VariableDeclaration,
   NamespaceDeclaration,
@@ -143,6 +145,7 @@ export class StrategicAccessAnalysis extends Visitor {
       owner: ClassDeclaration,
       property: string,
     ) => ClassDeclaration | null = () => null,
+    private conservativeEscapes = false,
   ) {
     super();
   }
@@ -369,9 +372,10 @@ export class StrategicAccessAnalysis extends Visitor {
     const args = node.args.map((arg) => this.origin(arg));
     if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8) {
       const intrinsic = node.expression.kind === NodeKind.Identifier && [
-        "changetype", "reinterpret", "unchecked", "idof", "offsetof", "sizeof", "nameof",
+        "unchecked", "idof", "offsetof", "sizeof", "nameof",
         "isDefined", "isReference", "isManaged", "isInteger", "isFloat",
         "isString", "isBoolean", "isNullable",
+        ...(!this.conservativeEscapes ? ["changetype", "reinterpret"] : []),
       ].includes((node.expression as IdentifierExpression).text);
       if (!intrinsic) {
         if (receiver) receiver.escaped = true;
@@ -409,6 +413,16 @@ export class StrategicAccessAnalysis extends Visitor {
   private callable(node: FunctionDeclaration | MethodDeclaration): void {
     // A closure is not an unconditional call. Do not attribute its captured
     // reads to an enclosing parse; analyze its own parse sites independently.
+    // Captured objects may be observed after this analysis loses track of the
+    // closure. Fail closed even when a nested binding has the same spelling.
+    const binding = (name: string): StrategicSite | null => this.binding(name);
+    class MarkCaptures extends Visitor {
+      visitIdentifierExpression(identifier: IdentifierExpression): void {
+        const site = binding(identifier.text);
+        if (site) site.escaped = true;
+      }
+    }
+    if (this.conservativeEscapes && node.body) new MarkCaptures().visit(node.body);
     const saved = [
       this.scopes,
       this.paths,
@@ -462,12 +476,22 @@ export class StrategicAccessAnalysis extends Visitor {
   }
 
   visitReturnStatement(node: Node): void {
-    this.visit((node as unknown as { value: Node }).value);
+    const value = (node as unknown as { value: Node }).value;
+    if (this.conservativeEscapes) {
+      const site = this.origin(value);
+      if (site) site.escaped = true;
+    }
+    this.visit(value);
     this.paths = [];
     this.terminated = true;
   }
   visitThrowStatement(node: Node): void {
-    this.visit((node as unknown as { value: Node }).value);
+    const value = (node as unknown as { value: Node }).value;
+    if (this.conservativeEscapes) {
+      const site = this.origin(value);
+      if (site) site.escaped = true;
+    }
+    this.visit(value);
     this.paths = [];
     this.terminated = true;
   }
@@ -613,6 +637,24 @@ export class StrategicAccessAnalysis extends Visitor {
     }
   }
 
+  visitArrayLiteralExpression(node: ArrayLiteralExpression): void {
+    if (this.conservativeEscapes)
+      for (const element of node.elementExpressions) {
+        const site = this.origin(element);
+        if (site) site.escaped = true;
+      }
+    super.visitArrayLiteralExpression(node);
+  }
+
+  visitObjectLiteralExpression(node: ObjectLiteralExpression): void {
+    if (this.conservativeEscapes)
+      for (const value of node.values) {
+        const site = this.origin(value);
+        if (site) site.escaped = true;
+      }
+    super.visitObjectLiteralExpression(node);
+  }
+
   private recordWrite(target: Node): void {
     if (target.kind === NodeKind.PropertyAccess) {
       const property = target as PropertyAccessExpression;
@@ -656,15 +698,29 @@ export class StrategicAccessAnalysis extends Visitor {
           );
         const assigned =
           accessProbability(this.paths) === 1 || sameContext ? site : null;
+        let found = false;
         for (let i = this.scopes.length - 1; i >= 0; i--)
           if (this.scopes[i].has(name)) {
+            found = true;
+            if (this.conservativeEscapes && (i === 0 || !assigned)) {
+              if (site) site.escaped = true;
+              const previous = this.scopes[i].get(name);
+              if (previous) previous.escaped = true;
+            }
             this.scopes[i].set(name, assigned);
             break;
           }
+        if (this.conservativeEscapes && !found && site) site.escaped = true;
       } else if (node.left.kind === NodeKind.PropertyAccess) {
+        // Storing an object in another object can expose it beyond the
+        // locally tracked bindings, even when the destination is known.
+        if (this.conservativeEscapes && site) site.escaped = true;
         // A write of x is not a read of x; a write of x.y does read x.
         this.visit((node.left as PropertyAccessExpression).expression);
-      } else this.visit(node.left);
+      } else {
+        if (this.conservativeEscapes && site) site.escaped = true;
+        this.visit(node.left);
+      }
       return;
     }
     this.visit(node.left);

@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { BinaryExpression, BlockStatement, CallExpression, ClassDeclaration, FunctionDeclaration, IfStatement, MethodDeclaration, Node, PropertyAccessExpression, Source, TernaryExpression, UnaryPrefixExpression, UnaryPostfixExpression, NewExpression, VariableDeclaration, NamespaceDeclaration, WhileStatement, ForStatement, DoStatement, ForOfStatement, SwitchStatement, TryStatement } from "assemblyscript/dist/assemblyscript.js";
+import { BinaryExpression, ArrayLiteralExpression, BlockStatement, CallExpression, ClassDeclaration, FunctionDeclaration, IfStatement, MethodDeclaration, Node, PropertyAccessExpression, Source, TernaryExpression, UnaryPrefixExpression, UnaryPostfixExpression, NewExpression, ObjectLiteralExpression, VariableDeclaration, NamespaceDeclaration, WhileStatement, ForStatement, DoStatement, ForOfStatement, SwitchStatement, TryStatement } from "assemblyscript/dist/assemblyscript.js";
 import { Visitor } from "./visitor.js";
 export type AccessPath = ReadonlyMap<number, boolean>;
 export declare function accessProbability(paths: AccessPath[]): number;
@@ -31,6 +31,7 @@ export interface StrategicSite {
 export declare class StrategicAccessAnalysis extends Visitor {
     private resolveParse;
     private resolveChild;
+    private conservativeEscapes;
     readonly sites: StrategicSite[];
     private scopes;
     private paths;
@@ -44,7 +45,7 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private captures;
     private expanding;
     private byCall;
-    constructor(resolveParse: (call: CallExpression, shadowed: (name: string) => boolean, scope: string) => ClassDeclaration | null, resolveChild?: (owner: ClassDeclaration, property: string) => ClassDeclaration | null);
+    constructor(resolveParse: (call: CallExpression, shadowed: (name: string) => boolean, scope: string) => ClassDeclaration | null, resolveChild?: (owner: ClassDeclaration, property: string) => ClassDeclaration | null, conservativeEscapes?: boolean);
     private binding;
     private shadowed;
     private names;
@@ -70,6 +71,8 @@ export declare class StrategicAccessAnalysis extends Visitor {
     visitIfStatement(node: IfStatement): void;
     visitTernaryExpression(node: TernaryExpression): void;
     visitNewExpression(node: NewExpression): void;
+    visitArrayLiteralExpression(node: ArrayLiteralExpression): void;
+    visitObjectLiteralExpression(node: ObjectLiteralExpression): void;
     private recordWrite;
     visitUnaryPrefixExpression(node: UnaryPrefixExpression): void;
     visitUnaryPostfixExpression(node: UnaryPostfixExpression): void;

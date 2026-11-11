@@ -41,8 +41,11 @@ function analyze(body) {
     "fixture.ts",
     true,
   );
-  const analysis = new StrategicAccessAnalysis((call, shadowed) =>
-    call.expression.property?.text === "parse" && !shadowed("JSON") ? {} : null,
+  const analysis = new StrategicAccessAnalysis(
+    (call, shadowed) =>
+      call.expression.property?.text === "parse" && !shadowed("JSON") ? {} : null,
+    undefined,
+    true,
   );
   analysis.visit(parser.sources[0]);
   return analysis.sites;
@@ -136,6 +139,27 @@ assert.equal(probability(sites[0], "y"), 1);
 sites = analyze(`const v = JSON.parse<Vec3>("{}"); while (true) { v.x; } v.y;`);
 assert.equal(probability(sites[0], "x"), 1);
 assert.equal(probability(sites[0], "y"), 0);
+sites = analyze(`const v = JSON.parse<Vec3>("{}"); return v;`);
+assert.equal(sites[0].escaped, true);
+sites = analyze(`const v = JSON.parse<Vec3>("{}"); throw v;`);
+assert.equal(sites[0].escaped, true);
+sites = analyze(`const v = JSON.parse<Vec3>("{}"); holder.value = v;`);
+assert.equal(sites[0].escaped, true);
+sites = analyze(`const v = JSON.parse<Vec3>("{}"); values[0] = v;`);
+assert.equal(sites[0].escaped, true);
+sites = analyze(`const v = JSON.parse<Vec3>("{}"); external = v;`);
+assert.equal(sites[0].escaped, true);
+sites = analyze(`const v = JSON.parse<Vec3>("{}"); const list = [v];`);
+assert.equal(sites[0].escaped, true);
+sites = analyze(`const v = JSON.parse<Vec3>("{}"); const box = { value: v };`);
+assert.equal(sites[0].escaped, true);
+sites = analyze(`const v = JSON.parse<Vec3>("{}"); const later = (): void => { v.x; };`);
+assert.equal(sites[0].escaped, true);
+sites = analyze(`const v = JSON.parse<Vec3>("{}"); const address = changetype<usize>(v);`);
+assert.equal(sites[0].escaped, true);
+sites = analyze(`const first = JSON.parse<Vec3>("{}"); const second = JSON.parse<Vec3>("{}"); let value = first; if (a) value = second; value.x;`);
+assert.equal(sites[0].escaped, true);
+assert.equal(sites[1].escaped, true);
 console.log(
   "Strategic analysis: weighted paths, costs, aliases, shadowing, exits, closures and loops passed",
 );
