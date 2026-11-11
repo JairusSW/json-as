@@ -94,3 +94,31 @@ export function makeNestedInput(which: i32): string {
   if (which == 6) return '{"id":7,"child":{"count":1,"label":null,"values":[1,]}}';
   return '{"id":7,"child":{"count":1,"label":"\x01","values":[]}}';
 }
+
+@json
+class Generic<T> {
+  id: i32 = 0;
+  value!: T;
+}
+
+export function readGeneric(input: string): i32 {
+  const value = JSON.parse<Generic<f32>>(input);
+  return value.id;
+}
+
+export function makeGenericInput(which: i32): string {
+  if (which == 0) return '{"id":7,"value":1.5}';
+  if (which == 1) return '{"id":7,"value":"wrong"}';
+  if (which == 2) return '{"id":7,"value":1e}';
+  if (which == 3) return '{"id":7,"value":{}}';
+  return '{"id":7,"value":null}';
+}
+
+export function readGenericArray(input: string): i32 {
+  const value = JSON.parse<Generic<Array<i32>>>(input);
+  return value.id;
+}
+
+export function makeGenericArrayInput(which: i32): string {
+  return which == 0 ? '{"id":7,"value":[1,2]}' : '{"id":7,"value":[1,"wrong"]}';
+}

@@ -171,6 +171,35 @@ export function genericInherited(): string {
   return value.value.toString() + ":" + value.inherited;
 }
 
+type Item = i32;
+@json
+class GenericRecord<Item> {
+  id: i32 = 0;
+  payload!: Item;
+  text: string = "default";
+}
+
+export function genericScalarPartial(): i32 {
+  const value = JSON.parse<GenericRecord<f32>>('{"id":26,"payload":1.5,"text":"hello"}');
+  return value.id;
+}
+
+export function genericScalarFull(): string {
+  const value = JSON.parse<GenericRecord<f32>>('{"id":26,"payload":1.5,"text":"hello"}');
+  return value.id.toString() + ":" + value.payload.toString() + ":" + value.text;
+}
+
+export function genericStringPartial(): i32 {
+  const value = JSON.parse<GenericRecord<string>>('{"id":27,"payload":"hello","text":"world"}');
+  return value.id;
+}
+
+function identityGeneric(value: GenericRecord<string>): GenericRecord<string> { return value; }
+export function genericStringEager(): i32 {
+  const value = identityGeneric(JSON.parse<GenericRecord<string>>('{"id":27,"payload":"hello","text":"world"}'));
+  return value.id;
+}
+
 @json
 class Scalars {
   id: i32 = 0;
@@ -327,6 +356,12 @@ class WithCodec {
 export function codecEffects(): i32 {
   codecCalls = 0;
   const value = JSON.parse<WithCodec>('{"id":13,"ignored":"text","value":7}');
+  return value.id + codecCalls * 100;
+}
+
+export function genericCodecEffects(): i32 {
+  codecCalls = 0;
+  const value = JSON.parse<GenericRecord<Codec>>('{"id":28,"payload":7,"text":"ignored"}');
   return value.id + codecCalls * 100;
 }
 

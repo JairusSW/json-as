@@ -69,6 +69,16 @@ try {
     const wideEager = count;
     assert.ok(wideSpecialized < wideEager,
       `wide strict=${strict} fast=${fast}: specialized=${wideSpecialized}, eager=${wideEager}`);
+    instance.exports.genericStringPartial();
+    instance.exports.genericStringEager();
+    count = 0;
+    assert.equal(instance.exports.genericStringPartial(), 27);
+    const genericSpecialized = count;
+    count = 0;
+    assert.equal(instance.exports.genericStringEager(), 27);
+    const genericEager = count;
+    assert.ok(genericSpecialized < genericEager,
+      `generic strict=${strict} fast=${fast}: specialized=${genericSpecialized}, eager=${genericEager}`);
   }
   console.log("Ordinary specialization: allocation reduction verified in four configurations");
 } finally {

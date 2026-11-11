@@ -749,6 +749,7 @@ export class JSONTransform extends Visitor {
   }
 
   private ordinarySpecializedFields = new WeakMap<ClassDeclaration, Set<string>>();
+  private ordinaryGenericFields = new WeakMap<ClassDeclaration, Set<string>>();
   private ordinaryObjectValidators = new WeakMap<ClassDeclaration, Map<string, OrdinaryObjectValidator>>();
 
   /** Generate phantom plans only when an ordinary, fresh result cannot escape. */
@@ -756,10 +757,12 @@ export class JSONTransform extends Visitor {
     if (process.env["JSON_ACCESS_SPECIALIZATION"] === "false") return;
     const runtimeRoot = diagnosticsRuntimeRoot(this.parser.sources);
     const modelFields = new WeakMap<ClassDeclaration, FieldDeclaration[] | null>();
+    const modelGeneric = new WeakMap<ClassDeclaration, boolean>();
     const fieldOwners = new WeakMap<FieldDeclaration, ClassDeclaration>();
     const eligibleFields = (owner: ClassDeclaration): FieldDeclaration[] | null => {
       if (modelFields.has(owner)) return modelFields.get(owner)!;
       const chain = [owner, ...this.classAncestors(owner)];
+      modelGeneric.set(owner, chain.some((declaration) => !!declaration.typeParameters?.length));
       let fields: FieldDeclaration[] | null = [];
       const seen = new Set<string>();
       if (chain[chain.length - 1].extendsType ||
@@ -767,7 +770,7 @@ export class JSONTransform extends Visitor {
           this.initializerChainHasEffects(owner)) fields = null;
       for (const declaration of chain) {
         if (!fields) break;
-        if (declaration.typeParameters?.length || classLazyMode(declaration) !== "none" ||
+        if (classLazyMode(declaration) !== "none" ||
             declaration.members.some((member) => member.kind === NodeKind.MethodDeclaration ||
               member.decorators?.some((d) => ["lazy", "serializer", "deserializer"].includes((d.name as IdentifierExpression).text.toLowerCase())))) {
           fields = null;
@@ -805,7 +808,7 @@ export class JSONTransform extends Visitor {
     const validatorFields = (owner: ClassDeclaration): OrdinaryValidatorField[] | null => {
       if (validatorCache.has(owner)) return validatorCache.get(owner)!;
       const fields = eligibleFields(owner);
-      let result: OrdinaryValidatorField[] | null = fields && !owner.extendsType && privateDefaults(fields) ? [] : null;
+      let result: OrdinaryValidatorField[] | null = fields && !modelGeneric.get(owner) && !owner.extendsType && privateDefaults(fields) ? [] : null;
       for (const field of fields || []) {
         if (!result) break;
         if (field.is(CommonFlags.Private) || field.is(CommonFlags.Protected) ||
@@ -851,6 +854,7 @@ export class JSONTransform extends Visitor {
       validatorCache.set(owner, result);
       return result;
     };
+    const siteMeanings = new WeakMap<CallExpression, TypeMeaning>();
     const analysis = new StrategicAccessAnalysis((call, shadowed, scope) => {
       if (call.args.length !== 1 || call.typeArguments?.length !== 1 ||
           call.expression.kind !== NodeKind.PropertyAccess) return null;
@@ -867,6 +871,7 @@ export class JSONTransform extends Visitor {
       if (meaning.declaration?.kind !== NodeKind.ClassDeclaration) return null;
       const owner = meaning.declaration as ClassDeclaration;
       if (!eligibleFields(owner)) return null;
+      siteMeanings.set(call, meaning);
       return owner;
     }, undefined, true);
     for (const source of sources) {
@@ -894,13 +899,27 @@ export class JSONTransform extends Visitor {
             field.decorators?.some((d) => (d.name as IdentifierExpression).text.toLowerCase() === "omit")) return false;
         const type = toString(field.type);
         const source = this.sources.get(field.range.source);
-        const scope = source.getQualifiedName(fieldOwners.get(field)!).split(".").slice(0, -1).join(".");
-        const meaning = source.resolveTypeMeaning(type, scope, this.parser);
+        const owner = fieldOwners.get(field)!;
+        const scope = source.getQualifiedName(owner).split(".").slice(0, -1).join(".");
+        const parameters = source.classTypeParameters(owner);
+        const meaning = source.resolveTypeMeaning(type, scope, this.parser, parameters);
+        if (parameters.has(meaning.name)) {
+          const index = owner === site.declaration
+            ? owner.typeParameters?.findIndex((parameter) => parameter.name.text === meaning.name) ?? -1
+            : -1;
+          const actual = index >= 0 ? siteMeanings.get(site.call)?.arguments[index] : null;
+          if (!actual || (actual.declaration && !isStdlib(actual.declaration)) ||
+              (!isString(actual.name) && (!isScalarType(actual.name) || actual.nullable || meaning.nullable))) return false;
+          let generic = this.ordinaryGenericFields.get(site.declaration);
+          if (!generic) this.ordinaryGenericFields.set(site.declaration, generic = new Set());
+          generic.add(field.name.text);
+          return true;
+        }
         if (isString(meaning.name) || isScalarType(meaning.name))
           return !meaning.declaration || isStdlib(meaning.declaration);
         // Direct array fields remain eager. For a wholly unread, private child
         // object, validate its simple native contents without constructing it.
-        if (!privateReferenceDefaults || (field.initializer && toString(field.initializer) !== "null") ||
+        if (modelGeneric.get(site.declaration) || !privateReferenceDefaults || (field.initializer && toString(field.initializer) !== "null") ||
             meaning.declaration?.kind !== NodeKind.ClassDeclaration || isStdlib(meaning.declaration)) return false;
         const child = meaning.declaration as ClassDeclaration;
         const validated = validatorFields(child);
@@ -5390,11 +5409,12 @@ export class JSONTransform extends Visitor {
           `}`,
         ];
       }
+      const genericSkip = this.ordinaryGenericFields.get(node)?.has(member.name);
       if (this.ordinarySpecializedFields.get(node)?.has(member.name) &&
-          !member.flags.has(PropertyFlags.Lazy) && (isString(stripNull(type)) || isScalarType(type))) {
+          !member.flags.has(PropertyFlags.Lazy) && (genericSkip || isString(stripNull(type)) || isScalarType(type))) {
         const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
         const trusted = !STRICT && fastPath && !whitespaceTier && keyOffset !== 0;
-        const skip = isString(stripNull(type)) ? trusted ? "JSON.__cursorSkipTrustedString" : "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${type}>`;
+        const skip = genericSkip ? `JSON.__cursorSkipGeneric<${type}>` : isString(stripNull(type)) ? trusted ? "JSON.__cursorSkipTrustedString" : "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${type}>`;
         const start = fastPath && !whitespaceTier ? valuePtr : `JSON.__cursorWhitespace(${valuePtr}, srcEnd)`;
         return [
           `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {`,
@@ -6542,8 +6562,9 @@ export class JSONTransform extends Visitor {
           getSlowValueStore(member, valueStart, valueEnd, prefix + "  ", false) + prefix + "}\n";
       }
       const offset = JSON.stringify(member.name);
-      if (allowSkip && this.ordinarySpecializedFields.get(node)?.has(member.name) && (isString(stripNull(member.type)) || isScalarType(member.type))) {
-        const skip = isString(stripNull(member.type)) ? "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${member.type}>`;
+      const genericSkip = this.ordinaryGenericFields.get(node)?.has(member.name);
+      if (allowSkip && this.ordinarySpecializedFields.get(node)?.has(member.name) && (genericSkip || isString(stripNull(member.type)) || isScalarType(member.type))) {
+        const skip = genericSkip ? `JSON.__cursorSkipGeneric<${member.type}>` : isString(stripNull(member.type)) ? "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${member.type}>`;
         return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || ${skip}(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
           prefix + `  store<${member.type}>(changetype<usize>(out), JSON.__deserializeValue<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n` +
           prefix + `}\n`;
@@ -7661,6 +7682,7 @@ export class JSONTransform extends Visitor {
               cursorMayDefer && cursorDeferred.length > 0,
               this.ordinarySpecializedFields.get(node),
               this.ordinaryObjectValidators.get(node),
+              this.ordinaryGenericFields.get(node),
             ),
             node,
           ),

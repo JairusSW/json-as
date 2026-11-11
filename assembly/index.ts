@@ -27,6 +27,7 @@ import {
   skipCursorString,
   skipTrustedCursorString,
   skipCursorScalar,
+  skipCursorGeneric,
   skipCursorNative,
   skipCursorNativeArray,
   skipCheckedValue,
@@ -563,6 +564,10 @@ export namespace JSON {
 
   @inline export function __cursorSkipScalar<T>(ptr: usize, end: usize): usize {
     return skipCursorScalar<T>(ptr, end);
+  }
+
+  @inline export function __cursorSkipGeneric<T>(ptr: usize, end: usize): usize {
+    return skipCursorGeneric<T>(ptr, end);
   }
 
   @inline export function __cursorSkipNative(ptr: usize, end: usize, kind: i32): usize {

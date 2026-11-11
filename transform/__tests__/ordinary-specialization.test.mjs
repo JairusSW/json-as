@@ -41,6 +41,7 @@ try {
             assert.match(generated, /JSON\.parse<Child, __JSON_OrdinaryPlan_\d+>/);
             assert.match(generated, /JSON\.parse<DecoratedChild, __JSON_OrdinaryPlan_\d+>/);
             assert.match(generated, /JSON\.parse<GenericChild>\(/);
+            assert.match(generated, /JSON\.parse<GenericRecord<f32>, __JSON_OrdinaryPlan_\d+>/);
             assert.match(generated, /JSON\.parse<Scalars, __JSON_OrdinaryPlan_\d+>/);
             assert.match(generated, /JSON\.parse<AliasTypes, __JSON_OrdinaryPlan_\d+>/);
             assert.match(generated, /JSON\.parse<Namespaced\.Data, __JSON_OrdinaryPlan_\d+>/);
@@ -59,9 +60,10 @@ try {
           for (const [name, expected] of Object.entries({ partial: 7, eagerPartial: 7, full: "7:hello:some text",
             escaped: "some text", serialized: '{"id":7,"title":"hello","body":"some text"}', reordered: 8,
             stored: "some text", throughUnchecked: "some text", reused: "8:changed", escapedString: 9,
-            nullableString: 10, nullableNull: 11, aliased: 12, aliasTypesPartial: 22, aliasTypesEager: 22, codecEffects: 113,
+            nullableString: 10, nullableNull: 11, aliased: 12, aliasTypesPartial: 22, aliasTypesEager: 22, codecEffects: 113, genericCodecEffects: 128,
             inheritedPartial: 14, inheritedFull: "parent:text",
             decoratedInheritedPartial: 15, genericInherited: "16:parent",
+            genericScalarPartial: 26, genericScalarFull: "26:1.5:hello", genericStringPartial: 27, genericStringEager: 27,
             scalarPartial: 17, scalarFull: "17:-9:42:1.25:true", namespaced: 18,
             objectPartial: 19, objectPartialAfterGC: 19, objectEager: 19, objectFull: "19:7:hello:1,2,3",
             nullableObject: 23, nullableObjectNull: 24,

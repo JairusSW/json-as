@@ -655,6 +655,13 @@ export function skipCursorScalar<T>(start: usize, end: usize): usize {
   return 0;
 }
 
+@inline
+export function skipCursorGeneric<T>(start: usize, end: usize): usize {
+  if (isString<T>()) return skipCursorString(start, end);
+  if (isBoolean<T>() || isInteger<T>() || isFloat<T>()) return skipCursorScalar<T>(start, end);
+  return 0;
+}
+
 // Kinds are fixed by the transform from the field's declaring scope. Keeping
 // native type names here prevents a caller's shadowed aliases from rebinding
 // a child model's validation policy.
