@@ -204,7 +204,7 @@ function valIntTag<T>(): u32 {
 }
 
 
-/*MAGIC_ASSEMBLYSCRIPT_PRETTIER_1996@inlineMAGIC_ASSEMBLYSCRIPT_PRETTIER_1996*/
+@inline
 function numericCast<T, V>(value: V): T {
   if (isBoolean<T>()) return <T>(value != 0);
   return <T>value;
@@ -261,17 +261,17 @@ function utf16Equals(ptrA: usize, ptrB: usize, len: i32): bool {
 // Shared zero-length sentinel for JSON.Obj's key buffer, so an empty object
 // allocates no key storage until its first key is inserted. Never mutated.
 // @ts-expect-error: Decorator valid here
-/*MAGIC_ASSEMBLYSCRIPT_PRETTIER_1996@lazyMAGIC_ASSEMBLYSCRIPT_PRETTIER_1996*/ const EMPTY_KEYS: StaticArray<u16> = new StaticArray<u16>(0);
+@lazy const EMPTY_KEYS: StaticArray<u16> = new StaticArray<u16>(0);
 
 // Shared zero-length sentinel for JSON.Obj's key-position/index buffers.
 // Never mutated.
 // @ts-expect-error: Decorator valid here
-/*MAGIC_ASSEMBLYSCRIPT_PRETTIER_1996@lazyMAGIC_ASSEMBLYSCRIPT_PRETTIER_1996*/ const EMPTY_I32S: StaticArray<i32> = new StaticArray<i32>(0);
+@lazy const EMPTY_I32S: StaticArray<i32> = new StaticArray<i32>(0);
 
 // Shared zero-length sentinel for JSON.Obj's value-slot buffer, so an empty
 // object allocates no slot storage until its first value. Never mutated.
 // @ts-expect-error: Decorator valid here
-/*MAGIC_ASSEMBLYSCRIPT_PRETTIER_1996@lazyMAGIC_ASSEMBLYSCRIPT_PRETTIER_1996*/ const EMPTY_VALS: StaticArray<u64> = new StaticArray<u64>(0);
+@lazy const EMPTY_VALS: StaticArray<u64> = new StaticArray<u64>(0);
 
 // A JSON.Obj with at most this many keys resolves lookups by linear scan and
 // never allocates/hashes a key index. Most JSON objects are small and dynamic
@@ -286,7 +286,7 @@ const OBJ_LINEAR_MAX: i32 = 6;
 // UTF-16 buffer) alive until the value is materialized. Managed so `src` is
 // traced automatically; a JSON.Value's __visit traces the LazyRef itself.
 // @ts-expect-error: decorators allowed here
-/*MAGIC_ASSEMBLYSCRIPT_PRETTIER_1996@finalMAGIC_ASSEMBLYSCRIPT_PRETTIER_1996*/
+@final
 class LazyRef {
   lz: u64 = 0;
   src: string = "";

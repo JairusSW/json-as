@@ -39,6 +39,7 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private branch;
     private terminated;
     private namespace;
+    private callableDepth;
     private thisSite;
     private callableNamespaces;
     private declarations;

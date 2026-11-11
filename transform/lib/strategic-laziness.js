@@ -57,6 +57,7 @@ export class StrategicAccessAnalysis extends Visitor {
     branch = 0;
     terminated = false;
     namespace = [];
+    callableDepth = 0;
     thisSite = null;
     callableNamespaces = new WeakMap();
     declarations = new WeakMap();
@@ -222,6 +223,8 @@ export class StrategicAccessAnalysis extends Visitor {
     visitVariableDeclaration(node) {
         const site = this.origin(node.initializer);
         this.visit(node.initializer, node);
+        if (this.conservativeEscapes && site && this.callableDepth === 0)
+            site.escaped = true;
         this.scopes.at(-1)?.set(node.name.text, site);
     }
     visitBlockStatement(node) {
@@ -296,6 +299,13 @@ export class StrategicAccessAnalysis extends Visitor {
         }
         if (!receiver && !args.some(Boolean))
             return;
+        if (this.conservativeEscapes && fn.signature.parameters.slice(node.args.length).some((p) => p.initializer)) {
+            if (receiver)
+                receiver.escaped = true;
+            for (const arg of args)
+                if (arg)
+                    arg.escaped = true;
+        }
         const saved = [
             this.scopes,
             this.paths,
@@ -354,7 +364,9 @@ export class StrategicAccessAnalysis extends Visitor {
         this.paths = [new Map()];
         this.thisSite = null;
         this.terminated = false;
+        this.callableDepth++;
         this.visit(node.body);
+        this.callableDepth--;
         [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace] =
             saved;
     }
@@ -568,7 +580,9 @@ export class StrategicAccessAnalysis extends Visitor {
                     site.origin.length === this.paths.length &&
                     site.origin.every((origin) => this.paths.some((path) => path.size === origin.size &&
                         [...origin].every(([key, value]) => path.get(key) === value)));
-                const assigned = accessProbability(this.paths) === 1 || sameContext ? site : null;
+                const inLoop = this.exits.some((exit) => exit.loop);
+                const assigned = !(this.conservativeEscapes && inLoop) &&
+                    (accessProbability(this.paths) === 1 || (!this.conservativeEscapes && sameContext)) ? site : null;
                 let found = false;
                 for (let i = this.scopes.length - 1; i >= 0; i--)
                     if (this.scopes[i].has(name)) {

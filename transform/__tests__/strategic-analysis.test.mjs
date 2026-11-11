@@ -168,6 +168,27 @@ assert.equal(sites[0].escaped, false);
 sites = analyze(`const first = JSON.parse<Vec3>("{}"); const second = JSON.parse<Vec3>("{}"); let value = first; if (a) value = second; value.x;`);
 assert.equal(sites[0].escaped, true);
 assert.equal(sites[1].escaped, true);
+sites = analyze(`let value = JSON.parse<Vec3>("{}"); if (a) value = JSON.parse<Vec3>("{}"); value.x;`);
+assert.equal(sites[0].escaped, true);
+assert.equal(sites[1].escaped, true);
+sites = analyze(`let value = other; for (let i = 0; i < 3; i++) { value.x; value = JSON.parse<Vec3>("{}"); }`);
+assert.equal(sites[0].escaped, true);
+sites = analyze(`function read(value: Vec3, n: i32 = value.x): i32 { return n; } const value = JSON.parse<Vec3>("{}"); read(value);`);
+assert.ok(sites[0].escaped || sites[0].accesses.has("x"));
+{
+  const parser = new Parser();
+  parser.parseFile(`function read(): i32 { return value.x; } const value = JSON.parse<Vec3>("{}");`, "global.ts", true);
+  const analysis = new StrategicAccessAnalysis((call) => call.expression.property?.text === "parse" ? {} : null, undefined, true);
+  analysis.visit(parser.sources[0]);
+  assert.equal(analysis.sites[0].escaped, true);
+}
+{
+  const parser = new Parser();
+  parser.parseFile(`{ const value = JSON.parse<Vec3>("{}"); }`, "global-block.ts", true);
+  const analysis = new StrategicAccessAnalysis((call) => call.expression.property?.text === "parse" ? {} : null, undefined, true);
+  analysis.visit(parser.sources[0]);
+  assert.equal(analysis.sites[0].escaped, true);
+}
 console.log(
   "Strategic analysis: weighted paths, costs, aliases, shadowing, exits, closures and loops passed",
 );

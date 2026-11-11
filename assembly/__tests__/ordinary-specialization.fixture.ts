@@ -6,6 +6,7 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { JSON } from "../index";
+import { globalRecord } from "./ordinary-global.fixture";
 
 @json
 class Record {
@@ -15,6 +16,62 @@ class Record {
 }
 
 const input = '{"id":7,"title":"hello","body":"some text"}';
+
+export function conditionalBinding(flag: bool): i32 {
+  let value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+  if (flag) value = JSON.parse<Record>('{"id":7,"body":"other"}');
+  return value.id;
+}
+
+export function conditionalBoth(flag: bool): i32 {
+  let value = new Record();
+  if (flag) value = JSON.parse<Record>('{"id":42}');
+  else value = JSON.parse<Record>('{"id":7}');
+  return value.id;
+}
+
+export function loopCarried(): i32 {
+  let last = new Record();
+  let sum = 0;
+  for (let i = 0; i < 3; i++) {
+    sum += last.id;
+    last = JSON.parse<Record>('{"id":42}');
+  }
+  return sum;
+}
+
+export function doLoopCarried(): i32 {
+  let last = new Record();
+  let sum = 0;
+  let i = 0;
+  do {
+    sum += last.id;
+    last = JSON.parse<Record>('{"id":42}');
+    i++;
+  } while (i < 3);
+  return sum;
+}
+
+export function globalRead(): i32 { return parsedGlobal.id; }
+const parsedGlobal = JSON.parse<Record>('{"id":42}');
+export function importedGlobalRead(): i32 { return globalRecord.id; }
+
+namespace Globals {
+  export function read(): i32 { return value.id; }
+  const value = JSON.parse<Record>('{"id":42}');
+}
+export function namespaceGlobalRead(): i32 { return Globals.read(); }
+
+function helperDefault(value: Record, n: i32 = value.id): i32 { return n; }
+function helperDefaultString(value: Record, s: string = value.body): string { return s; }
+export function defaultArgument(): i32 {
+  const value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+  return helperDefault(value);
+}
+export function defaultStringArgument(): string {
+  const value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+  return helperDefaultString(value);
+}
 
 export function partial(): i32 {
   const value = JSON.parse<Record>(input);

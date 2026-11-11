@@ -59,6 +59,18 @@ try {
           exports = new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(wasm)), {
             env: { abort(m, f, l, c) { throw Error(`${decode(m)} (${decode(f)}:${l}:${c})`); } },
           }).exports;
+          assert.equal(exports.conditionalBinding(0), 42);
+          assert.equal(exports.conditionalBinding(1), 7);
+          assert.equal(exports.conditionalBoth(0), 7);
+          assert.equal(exports.conditionalBoth(1), 42);
+          assert.equal(exports.loopCarried(), 84);
+          assert.equal(exports.doLoopCarried(), 84);
+          assert.equal(exports.globalRead(), 42);
+          assert.equal(exports.importedGlobalRead(), 42);
+          assert.equal(exports.namespaceGlobalRead(), 42);
+          assert.equal(exports.defaultArgument(), 42);
+          assert.equal(decode(exports.defaultStringArgument()), "hello");
+          checks += 11;
           for (const [name, expected] of Object.entries({ partial: 7, eagerPartial: 7, full: "7:hello:some text",
             escaped: "some text", serialized: '{"id":7,"title":"hello","body":"some text"}', reordered: 8,
             stored: "some text", throughUnchecked: "some text", reused: "8:changed", escapedString: 9,

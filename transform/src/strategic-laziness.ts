@@ -122,6 +122,7 @@ export class StrategicAccessAnalysis extends Visitor {
   private branch = 0;
   private terminated = false;
   private namespace: string[] = [];
+  private callableDepth = 0;
   private thisSite: StrategicSite | null = null;
   private callableNamespaces = new WeakMap<Callable, string[]>();
   private declarations = new WeakMap<
@@ -318,6 +319,10 @@ export class StrategicAccessAnalysis extends Visitor {
   visitVariableDeclaration(node: VariableDeclaration): void {
     const site = this.origin(node.initializer);
     this.visit(node.initializer, node);
+    // Module and namespace variables may be read by declarations visited
+    // earlier or by other modules, beyond this local access analysis.
+    if (this.conservativeEscapes && site && this.callableDepth === 0)
+      site.escaped = true;
     this.scopes.at(-1)?.set(node.name.text, site);
   }
 
@@ -399,6 +404,12 @@ export class StrategicAccessAnalysis extends Visitor {
       return;
     }
     if (!receiver && !args.some(Boolean)) return;
+    // A default argument can read an earlier argument before the function
+    // body runs. Until those expressions are modeled, retain the full value.
+    if (this.conservativeEscapes && fn.signature.parameters.slice(node.args.length).some((p) => p.initializer)) {
+      if (receiver) receiver.escaped = true;
+      for (const arg of args) if (arg) arg.escaped = true;
+    }
     const saved = [
       this.scopes,
       this.paths,
@@ -466,7 +477,9 @@ export class StrategicAccessAnalysis extends Visitor {
     this.paths = [new Map()];
     this.thisSite = null;
     this.terminated = false;
+    this.callableDepth++;
     this.visit(node.body);
+    this.callableDepth--;
     [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace] =
       saved;
   }
@@ -711,8 +724,10 @@ export class StrategicAccessAnalysis extends Visitor {
                 [...origin].every(([key, value]) => path.get(key) === value),
             ),
           );
+        const inLoop = this.exits.some((exit) => exit.loop);
         const assigned =
-          accessProbability(this.paths) === 1 || sameContext ? site : null;
+          !(this.conservativeEscapes && inLoop) &&
+          (accessProbability(this.paths) === 1 || (!this.conservativeEscapes && sameContext)) ? site : null;
         let found = false;
         for (let i = this.scopes.length - 1; i >= 0; i--)
           if (this.scopes[i].has(name)) {
