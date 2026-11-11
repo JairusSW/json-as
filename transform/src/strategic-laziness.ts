@@ -300,9 +300,24 @@ export class StrategicAccessAnalysis extends Visitor {
     super.visitPropertyAccessExpression(node);
   }
 
+  visitIdentifierExpression(node: IdentifierExpression, parent: Node | null = null): void {
+    if (!this.conservativeEscapes) return;
+    const site = this.binding(node.text);
+    if (!site) return;
+    // The explicit handlers below track direct field reads, simple aliases and
+    // call arguments. Any other use can hide a reference from the analysis.
+    if (parent?.kind === NodeKind.PropertyAccess &&
+        (parent as PropertyAccessExpression).expression === node) return;
+    if (parent?.kind === NodeKind.VariableDeclaration &&
+        (parent as VariableDeclaration).initializer === node) return;
+    if (parent?.kind === NodeKind.Call &&
+        (parent as CallExpression).args.includes(node)) return;
+    site.escaped = true;
+  }
+
   visitVariableDeclaration(node: VariableDeclaration): void {
     const site = this.origin(node.initializer);
-    this.visit(node.initializer);
+    this.visit(node.initializer, node);
     this.scopes.at(-1)?.set(node.name.text, site);
   }
 

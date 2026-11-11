@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-import { BinaryExpression, ArrayLiteralExpression, BlockStatement, CallExpression, ClassDeclaration, FunctionDeclaration, IfStatement, MethodDeclaration, Node, PropertyAccessExpression, Source, TernaryExpression, UnaryPrefixExpression, UnaryPostfixExpression, NewExpression, ObjectLiteralExpression, VariableDeclaration, NamespaceDeclaration, WhileStatement, ForStatement, DoStatement, ForOfStatement, SwitchStatement, TryStatement } from "assemblyscript/dist/assemblyscript.js";
+import { BinaryExpression, ArrayLiteralExpression, BlockStatement, CallExpression, ClassDeclaration, FunctionDeclaration, IdentifierExpression, IfStatement, MethodDeclaration, Node, PropertyAccessExpression, Source, TernaryExpression, UnaryPrefixExpression, UnaryPostfixExpression, NewExpression, ObjectLiteralExpression, VariableDeclaration, NamespaceDeclaration, WhileStatement, ForStatement, DoStatement, ForOfStatement, SwitchStatement, TryStatement } from "assemblyscript/dist/assemblyscript.js";
 import { Visitor } from "./visitor.js";
 export type AccessPath = ReadonlyMap<number, boolean>;
 export declare function accessProbability(paths: AccessPath[]): number;
@@ -53,6 +53,7 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private origin;
     private read;
     visitPropertyAccessExpression(node: PropertyAccessExpression): void;
+    visitIdentifierExpression(node: IdentifierExpression, parent?: Node | null): void;
     visitVariableDeclaration(node: VariableDeclaration): void;
     visitBlockStatement(node: BlockStatement): void;
     private registerFunctions;

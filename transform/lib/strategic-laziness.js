@@ -202,9 +202,26 @@ export class StrategicAccessAnalysis extends Visitor {
         this.read(node);
         super.visitPropertyAccessExpression(node);
     }
+    visitIdentifierExpression(node, parent = null) {
+        if (!this.conservativeEscapes)
+            return;
+        const site = this.binding(node.text);
+        if (!site)
+            return;
+        if (parent?.kind === NodeKind.PropertyAccess &&
+            parent.expression === node)
+            return;
+        if (parent?.kind === NodeKind.VariableDeclaration &&
+            parent.initializer === node)
+            return;
+        if (parent?.kind === NodeKind.Call &&
+            parent.args.includes(node))
+            return;
+        site.escaped = true;
+    }
     visitVariableDeclaration(node) {
         const site = this.origin(node.initializer);
-        this.visit(node.initializer);
+        this.visit(node.initializer, node);
         this.scopes.at(-1)?.set(node.name.text, site);
     }
     visitBlockStatement(node) {
