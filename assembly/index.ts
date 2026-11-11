@@ -25,7 +25,10 @@ import {
   readCursorLiteral,
   skipCursorWhitespace,
   skipCursorString,
+  skipTrustedCursorString,
   skipCursorScalar,
+  skipCursorNative,
+  skipCursorNativeArray,
   skipCheckedValue,
   validateCursor,
 } from "./deserialize/cursor";
@@ -552,9 +555,26 @@ export namespace JSON {
     return skipCursorString(ptr, end);
   }
 
+  @inline export function __cursorSkipTrustedString(ptr: usize, end: usize): usize {
+    return JSON_MODE == JSONMode.SWAR
+      ? skipTrustedCursorString(ptr, end)
+      : skipCursorString(ptr, end);
+  }
+
   @inline export function __cursorSkipScalar<T>(ptr: usize, end: usize): usize {
     return skipCursorScalar<T>(ptr, end);
   }
+
+  @inline export function __cursorSkipNative(ptr: usize, end: usize, kind: i32): usize {
+    return skipCursorNative(ptr, end, kind);
+  }
+
+  @inline export function __cursorSkipStringArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<string>(ptr, end); }
+  @inline export function __cursorSkipNullableStringArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<string | null>(ptr, end); }
+  @inline export function __cursorSkipBooleanArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<bool>(ptr, end); }
+  @inline export function __cursorSkipSignedArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<i32>(ptr, end); }
+  @inline export function __cursorSkipUnsignedArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<u32>(ptr, end); }
+  @inline export function __cursorSkipFloatArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<f64>(ptr, end); }
 
 
   @inline export function __cursorSkipValue(

@@ -105,6 +105,8 @@ export declare class Src {
     constructor(source: Source, sourceSet: SourceSet);
     private traverse;
     getNamespaces(node: DeclarationStatement): NamespaceDeclaration[];
+    getImportedLocalNames(): string[];
+    hasNamespaceImports(): boolean;
     getQualifiedName(node: DeclarationStatement): string;
     getClass(qualifiedName: string): ClassDeclaration | null;
     getClassInContext(name: string, owner: DeclarationStatement, visited?: Set<string>): ClassDeclaration | null;

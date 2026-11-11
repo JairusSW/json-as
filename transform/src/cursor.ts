@@ -18,6 +18,7 @@ export function generateCursorParser(
   compare: (key: string, ptr: string, operator: string) => string[],
   completeDefaults = false,
   specializedFields?: Set<string>,
+  objectValidators?: Map<string, { method: string }>,
 ): string {
   const entries = members.map((member, id) => ({
     member,
@@ -73,7 +74,9 @@ export function generateCursorParser(
   const readField = (member: Property, field: string): string => {
     const read = `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
     if (!specializedFields?.has(member.name)) return read;
-    const skip = isScalarType(member.type) ? `JSON.__cursorSkipScalar<${member.type}>` : "JSON.__cursorSkipString";
+    const validator = objectValidators?.get(member.name);
+    const skip = validator ? `this.${validator.method}` :
+      isScalarType(member.type) ? `JSON.__cursorSkipScalar<${member.type}>` : "JSON.__cursorSkipString";
     return `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {
       const skipped = ${skip}(srcStart, srcEnd);
       if (skipped) srcStart = skipped;

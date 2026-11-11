@@ -364,6 +364,19 @@ export class Src {
     return this.nodeMap.get(node) ?? [];
   }
 
+  getImportedLocalNames(): string[] {
+    const names = new Set<string>();
+    for (const statement of this.imports) {
+      if (statement.namespaceName) names.add(statement.namespaceName.text);
+      for (const declaration of statement.declarations || []) names.add(declaration.name.text);
+    }
+    return [...names];
+  }
+
+  hasNamespaceImports(): boolean {
+    return this.imports.some((statement) => !!statement.namespaceName);
+  }
+
   /**
    * Get the qualified name (eg. "Namespace.BaseObject") for a class.
    * @param node Class declaration.

@@ -8,7 +8,7 @@
 import { keyDispatch } from "./key-dispatch.js";
 import { PropertyFlags } from "./types.js";
 import { isScalarType } from "./scalars.js";
-export function generateCursorParser(members, compare, completeDefaults = false, specializedFields) {
+export function generateCursorParser(members, compare, completeDefaults = false, specializedFields, objectValidators) {
     const entries = members.map((member, id) => ({
         member,
         id,
@@ -50,7 +50,9 @@ export function generateCursorParser(members, compare, completeDefaults = false,
         const read = `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
         if (!specializedFields?.has(member.name))
             return read;
-        const skip = isScalarType(member.type) ? `JSON.__cursorSkipScalar<${member.type}>` : "JSON.__cursorSkipString";
+        const validator = objectValidators?.get(member.name);
+        const skip = validator ? `this.${validator.method}` :
+            isScalarType(member.type) ? `JSON.__cursorSkipScalar<${member.type}>` : "JSON.__cursorSkipString";
         return `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {
       const skipped = ${skip}(srcStart, srcEnd);
       if (skipped) srcStart = skipped;

@@ -279,11 +279,11 @@ export class StrategicAccessAnalysis extends Visitor {
         }
         const args = node.args.map((arg) => this.origin(arg));
         if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8) {
-            const intrinsic = node.expression.kind === NodeKind.Identifier && [
+            const intrinsic = !this.conservativeEscapes && node.expression.kind === NodeKind.Identifier && [
                 "idof", "offsetof", "sizeof", "nameof",
                 "isDefined", "isReference", "isManaged", "isInteger", "isFloat",
                 "isString", "isBoolean", "isNullable",
-                ...(!this.conservativeEscapes ? ["unchecked", "changetype", "reinterpret"] : []),
+                "unchecked", "changetype", "reinterpret",
             ].includes(node.expression.text);
             if (!intrinsic) {
                 if (receiver)

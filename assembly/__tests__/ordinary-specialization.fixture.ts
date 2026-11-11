@@ -101,6 +101,26 @@ export function aliased(): i32 {
   return value.id;
 }
 
+type TextAlias = string;
+type NumberAlias = i32;
+@json
+class AliasTypes {
+  id: i32 = 0;
+  text: TextAlias = "";
+  number: NumberAlias = 0;
+}
+
+export function aliasTypesPartial(): i32 {
+  const value = JSON.parse<AliasTypes>('{"id":22,"text":"hello","number":7}');
+  return value.id;
+}
+
+function identityAliases(value: AliasTypes): AliasTypes { return value; }
+export function aliasTypesEager(): i32 {
+  const value = identityAliases(JSON.parse<AliasTypes>('{"id":22,"text":"hello","number":7}'));
+  return value.id;
+}
+
 class Parent {
   inherited: string = "base";
 }
@@ -181,6 +201,108 @@ namespace Namespaced {
 export function namespaced(): i32 {
   const value = JSON.parse<Namespaced.Data>('{"id":18,"unused":"text"}');
   return value.id;
+}
+
+@json
+class NestedSimple {
+  value: i32 = 0;
+  label: string | null = null;
+  values: Array<i32> = [];
+}
+
+@json
+class ObjectHolder {
+  id: i32 = 0;
+  child!: NestedSimple;
+}
+
+const nestedInput = '{"id":19,"child":{"value":7,"label":"hello","values":[1,2,3]}}';
+
+export function objectPartial(): i32 {
+  const value = JSON.parse<ObjectHolder>(nestedInput);
+  return value.id;
+}
+
+export function objectPartialAfterGC(): i32 {
+  const value = JSON.parse<ObjectHolder>(nestedInput);
+  if (isDefined(__collect)) __collect();
+  return value.id;
+}
+
+function identityObject(value: ObjectHolder): ObjectHolder { return value; }
+export function objectEager(): i32 {
+  const value = identityObject(JSON.parse<ObjectHolder>(nestedInput));
+  return value.id;
+}
+
+export function objectFull(): string {
+  const value = JSON.parse<ObjectHolder>(nestedInput);
+  return value.id.toString() + ":" + value.child.value.toString() + ":" + value.child.label! + ":" + value.child.values.join(",");
+}
+
+export function objectEscaped(): string {
+  const value = JSON.parse<ObjectHolder>(nestedInput);
+  return JSON.stringify(value);
+}
+
+@json
+class NullableHolder {
+  id: i32 = 0;
+  child: NestedSimple | null = null;
+}
+
+export function nullableObject(): i32 {
+  const value = JSON.parse<NullableHolder>('{"id":23,"child":{"value":7,"label":null,"values":[1]}}');
+  return value.id;
+}
+
+export function nullableObjectNull(): i32 {
+  const value = JSON.parse<NullableHolder>('{"id":24,"child":null}');
+  return value.id;
+}
+
+@json
+class WideChild {
+  a00: string = ""; a01: string = ""; a02: string = ""; a03: string = "";
+  a04: string = ""; a05: string = ""; a06: string = ""; a07: string = "";
+  a08: string = ""; a09: string = ""; a10: string = ""; a11: string = "";
+  a12: string = ""; a13: string = ""; a14: string = ""; a15: string = "";
+  a16: string = ""; a17: string = ""; a18: string = "";
+}
+
+@json
+class WideHolder {
+  id: i32 = 0;
+  child!: WideChild;
+}
+
+const wideInput = '{"id":25,"child":{"a00":"x","a01":"x","a02":"x","a03":"x","a04":"x","a05":"x","a06":"x","a07":"x","a08":"x","a09":"x","a10":"x","a11":"x","a12":"x","a13":"x","a14":"x","a15":"x","a16":"x","a17":"x","a18":"x"}}';
+
+export function widePartial(): i32 {
+  const value = JSON.parse<WideHolder>(wideInput);
+  return value.id;
+}
+
+function identityWide(value: WideHolder): WideHolder { return value; }
+export function wideEager(): i32 {
+  const value = identityWide(JSON.parse<WideHolder>(wideInput));
+  return value.id;
+}
+
+const sharedChild = new NestedSimple();
+@json
+class SharedHolder {
+  id: i32 = 0;
+  child: NestedSimple = sharedChild;
+}
+
+function readSharedHolder(): i32 {
+  const value = JSON.parse<SharedHolder>('{"id":20,"child":{"value":21,"label":null,"values":[]}}');
+  return value.id;
+}
+export function sharedDefault(): string {
+  const id = readSharedHolder();
+  return id.toString() + ":" + sharedChild.value.toString();
 }
 
 let codecCalls = 0;

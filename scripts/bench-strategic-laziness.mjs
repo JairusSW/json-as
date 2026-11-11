@@ -84,6 +84,8 @@ const reads = {
     ],
   },
 };
+const selectedNames = args.includes("--smoke") ? ["github"] : Object.keys(reads);
+const selectedModes = args.includes("--smoke") ? ["SWAR"] : ["SWAR", "SIMD"];
 
 // Null-only fields are represented as nullable strings for this exact capture;
 // empty arrays use string elements. No JSON.Raw/dynamic-value field shortcuts.
@@ -401,7 +403,7 @@ if (args.includes("--fetch")) {
   }
   const baseline = path.resolve(option("--main", path.join(base, "main")));
   const entries = [];
-  for (const name of args.includes("--smoke") ? ["github"] : Object.keys(reads)) {
+  for (const name of selectedNames) {
     const input = path.join(base, "payloads", name + ".json");
     const floating = new Set(
       JSON.parse(
@@ -431,7 +433,7 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
     const oracle = JSON.parse(
       run("python3", ["-c", oraclePython, input, schemaFile, specFile]),
     );
-    for (const mode of args.includes("--smoke") ? ["SWAR"] : ["SWAR", "SIMD"])
+    for (const mode of selectedModes)
       for (const variant of variants) {
         const repo = variant === "main" ? baseline : root;
         const folder = path.join(repo, "build/strategic-api-bench");
@@ -646,8 +648,8 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
   const raw = [],
     audits = [capture()];
   const pairs = Number(option("--pairs", "8"));
-  for (const mode of ["SWAR", "SIMD"])
-    for (const name of Object.keys(reads))
+  for (const mode of selectedModes)
+    for (const name of selectedNames)
       for (const profile of profiles) {
         for (let pair = 0; pair < pairs; pair++) {
           const order =
@@ -711,8 +713,8 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
     return [boot[250], boot[9750]];
   };
   const rows = [];
-  for (const mode of ["SWAR", "SIMD"])
-    for (const name of Object.keys(reads))
+  for (const mode of selectedModes)
+    for (const name of selectedNames)
       for (const profile of profiles) {
         const groups = Object.fromEntries(
           variants.map((variant) => [
@@ -781,7 +783,8 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
     "## Inputs and reads",
     "",
   ];
-  for (const [name, spec] of Object.entries(reads)) {
+  for (const name of selectedNames) {
+    const spec = reads[name];
     const entry = manifest.entries.find((e) => e.name === name);
     lines.push(
       `- **${name}**, ${entry.bytes.toLocaleString("en-US")} bytes. Summary: ${spec.summary.join(", ")}. Conditional: the same summary plus ${spec.detail.join(", ")} on 1/8 of records. Full: every modeled field and array element.`,
@@ -793,7 +796,7 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
     "Models cover every field in each fixed capture. Integer tokens use i64; decimal/exponent tokens and mixed numeric arrays use f64. Null-only fields are nullable strings and empty arrays use string elements for this capture. Neither JSON.Raw nor dynamic-object shortcuts are used. Exact full snapshots and independent integer-preserving Python checksums passed before timing.",
     "",
   );
-  for (const mode of ["SWAR", "SIMD"]) {
+  for (const mode of selectedModes) {
     lines.push(
       `## ${mode}`,
       "",

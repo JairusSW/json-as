@@ -31,6 +31,7 @@ try {
             JSON_STRATEGIC_LAZINESS: "", JSON_ACCESS_SPECIALIZATION: "true", JSON_STRICT: String(strict),
             JSON_USE_FAST_PATH: fast ? "1" : "0" }, encoding: "utf8" });
           assert.equal(result.status, 0, result.stderr || result.error?.message);
+          assert.doesNotMatch(result.stdout + result.stderr, /WARNING AS\d+/);
           if (checks === 0) {
             const generated = fs.readFileSync(written, "utf8");
             assert.match(generated, /JSON\.parse<Record, __JSON_OrdinaryPlan_\d+>\(input\)/);
@@ -41,7 +42,13 @@ try {
             assert.match(generated, /JSON\.parse<DecoratedChild, __JSON_OrdinaryPlan_\d+>/);
             assert.match(generated, /JSON\.parse<GenericChild>\(/);
             assert.match(generated, /JSON\.parse<Scalars, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(generated, /JSON\.parse<AliasTypes, __JSON_OrdinaryPlan_\d+>/);
             assert.match(generated, /JSON\.parse<Namespaced\.Data, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(generated, /JSON\.parse<ObjectHolder, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(generated, /JSON\.parse<NullableHolder, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(generated, /JSON\.parse<WideHolder, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(generated, /function objectPartialAfterGC\(\)[\s\S]*?JSON\.parse<ObjectHolder, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(generated, /JSON\.parse<SharedHolder>\(/);
           }
           let exports;
           const decode = (ptr) => Buffer.from(exports.memory.buffer, ptr,
@@ -52,10 +59,14 @@ try {
           for (const [name, expected] of Object.entries({ partial: 7, eagerPartial: 7, full: "7:hello:some text",
             escaped: "some text", serialized: '{"id":7,"title":"hello","body":"some text"}', reordered: 8,
             stored: "some text", throughUnchecked: "some text", reused: "8:changed", escapedString: 9,
-            nullableString: 10, nullableNull: 11, aliased: 12, codecEffects: 113,
+            nullableString: 10, nullableNull: 11, aliased: 12, aliasTypesPartial: 22, aliasTypesEager: 22, codecEffects: 113,
             inheritedPartial: 14, inheritedFull: "parent:text",
             decoratedInheritedPartial: 15, genericInherited: "16:parent",
             scalarPartial: 17, scalarFull: "17:-9:42:1.25:true", namespaced: 18,
+            objectPartial: 19, objectPartialAfterGC: 19, objectEager: 19, objectFull: "19:7:hello:1,2,3",
+            nullableObject: 23, nullableObjectNull: 24,
+            widePartial: 25, wideEager: 25,
+            objectEscaped: '{"id":19,"child":{"value":7,"label":"hello","values":[1,2,3]}}', sharedDefault: "20:0",
             initializerEffects: 11 })) {
             const actual = exports[name]();
             assert.equal(typeof expected === "string" ? decode(actual) : actual, expected,

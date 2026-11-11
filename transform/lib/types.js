@@ -261,6 +261,19 @@ export class Src {
     getNamespaces(node) {
         return this.nodeMap.get(node) ?? [];
     }
+    getImportedLocalNames() {
+        const names = new Set();
+        for (const statement of this.imports) {
+            if (statement.namespaceName)
+                names.add(statement.namespaceName.text);
+            for (const declaration of statement.declarations || [])
+                names.add(declaration.name.text);
+        }
+        return [...names];
+    }
+    hasNamespaceImports() {
+        return this.imports.some((statement) => !!statement.namespaceName);
+    }
     getQualifiedName(node) {
         return this.qualifiedName(node, this.nodeMap.get(node));
     }

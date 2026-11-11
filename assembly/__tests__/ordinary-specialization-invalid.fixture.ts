@@ -24,7 +24,9 @@ export function makeInput(which: i32): string {
   if (which == 2) return '{"id":7,"ignored":{}}';
   if (which == 3) return '{"id":7,"ignored":"unfinished}';
   if (which == 4) return '{"id":7,"ignored":"\\u123x"}';
-  return '{"ignored":"valid","id":7}';
+  if (which == 5) return '{"ignored":"valid","id":7}';
+  if (which == 6) return '{"id":7,"ignored":"\x01"}';
+  return '{"id":7,"ignored":"\u0122"}';
 }
 
 @json
@@ -51,4 +53,32 @@ export function makeNumericInput(which: i32): string {
   if (which == 6) return '{"id":7,"signed":01,"unsigned":3,"decimal":1.5,"flag":true}';
   if (which == 7) return '{"id":7,"signed":1,"unsigned":3,"decimal":1e,"flag":true}';
   return '{"id":7,"signed":1,"unsigned":-0,"decimal":1.5,"flag":true}';
+}
+
+@json
+class Nested {
+  count: i32 = 0;
+  label: string | null = null;
+  values: Array<i32> = [];
+}
+
+@json
+class Parent {
+  id: i32 = 0;
+  child!: Nested;
+}
+
+export function readNested(input: string): i32 {
+  const value = JSON.parse<Parent>(input);
+  return value.id;
+}
+
+export function makeNestedInput(which: i32): string {
+  if (which == 0) return '{"id":7,"child":{"count":1,"label":"ok","values":[1,2]}}';
+  if (which == 1) return '{"id":7,"child":{"count":"wrong","label":"ok","values":[1]}}';
+  if (which == 2) return '{"id":7,"child":{"count":1,"label":"ok","values":[1,"wrong"]}}';
+  if (which == 3) return '{"id":7,"child":{"count":1,"label":"bad\\q","values":[]}}';
+  if (which == 4) return '{"id":7,"child":{"label":null,"values":[],"count":1}}';
+  if (which == 5) return '{"id":7,"child":{"count":1,"label":null,"values":[],"extra":2}}';
+  return '{"id":7,"child":{"count":1,"label":null,"values":[1,]}}';
 }

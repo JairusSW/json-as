@@ -39,6 +39,36 @@ try {
     const eager = count;
     assert.ok(specialized < eager,
       `strict=${strict} fast=${fast}: specialized=${specialized}, eager=${eager}`);
+    instance.exports.objectPartial();
+    instance.exports.objectEager();
+    count = 0;
+    assert.equal(instance.exports.objectPartial(), 19);
+    const objectSpecialized = count;
+    count = 0;
+    assert.equal(instance.exports.objectEager(), 19);
+    const objectEager = count;
+    assert.ok(objectSpecialized < objectEager,
+      `object strict=${strict} fast=${fast}: specialized=${objectSpecialized}, eager=${objectEager}`);
+    instance.exports.aliasTypesPartial();
+    instance.exports.aliasTypesEager();
+    count = 0;
+    assert.equal(instance.exports.aliasTypesPartial(), 22);
+    const aliasSpecialized = count;
+    count = 0;
+    assert.equal(instance.exports.aliasTypesEager(), 22);
+    const aliasEager = count;
+    assert.ok(aliasSpecialized < aliasEager,
+      `alias strict=${strict} fast=${fast}: specialized=${aliasSpecialized}, eager=${aliasEager}`);
+    instance.exports.widePartial();
+    instance.exports.wideEager();
+    count = 0;
+    assert.equal(instance.exports.widePartial(), 25);
+    const wideSpecialized = count;
+    count = 0;
+    assert.equal(instance.exports.wideEager(), 25);
+    const wideEager = count;
+    assert.ok(wideSpecialized < wideEager,
+      `wide strict=${strict} fast=${fast}: specialized=${wideSpecialized}, eager=${wideEager}`);
   }
   console.log("Ordinary specialization: allocation reduction verified in four configurations");
 } finally {

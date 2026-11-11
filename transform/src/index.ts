@@ -88,6 +88,15 @@ import {
   lowerDiagnostics,
 } from "./diagnostics.js";
 
+type OrdinaryValidatorField = {
+  key: string;
+  kind: "string" | "scalar" | "array";
+  type: string;
+  nullable: boolean;
+  elementNullable?: boolean;
+};
+type OrdinaryObjectValidator = { method: string; fields: OrdinaryValidatorField[]; nullable: boolean };
+
 let indent = "  ";
 
 let id = 0;
@@ -740,6 +749,7 @@ export class JSONTransform extends Visitor {
   }
 
   private ordinarySpecializedFields = new WeakMap<ClassDeclaration, Set<string>>();
+  private ordinaryObjectValidators = new WeakMap<ClassDeclaration, Map<string, OrdinaryObjectValidator>>();
 
   /** Generate phantom plans only when an ordinary, fresh result cannot escape. */
   prepareOrdinarySpecialization(sources: Source[]): void {
@@ -782,13 +792,74 @@ export class JSONTransform extends Visitor {
       modelFields.set(owner, fields);
       return fields;
     };
+    // A reference initialized from a global or another field can be observed
+    // independently of the parsed parent. Never omit an update to that object.
+    const privateDefaults = (fields: FieldDeclaration[]): boolean => fields.every((field) => {
+      if (!field.type || !field.initializer) return true;
+      const type = toString(field.type);
+      if (isScalarType(type) || isString(type)) return true;
+      const value = toString(field.initializer);
+      return value === "null" || value === "[]";
+    });
+    const validatorCache = new WeakMap<ClassDeclaration, OrdinaryValidatorField[] | null>();
+    const validatorFields = (owner: ClassDeclaration): OrdinaryValidatorField[] | null => {
+      if (validatorCache.has(owner)) return validatorCache.get(owner)!;
+      const fields = eligibleFields(owner);
+      let result: OrdinaryValidatorField[] | null = fields && !owner.extendsType && privateDefaults(fields) ? [] : null;
+      for (const field of fields || []) {
+        if (!result) break;
+        if (field.is(CommonFlags.Private) || field.is(CommonFlags.Protected) ||
+            field.decorators?.some((d) => (d.name as IdentifierExpression).text.toLowerCase() === "omit")) continue;
+        if (!field.type || field.decorators?.some((d) => ["raw", "lazy"].includes((d.name as IdentifierExpression).text.toLowerCase()))) {
+          result = null;
+          break;
+        }
+        const alias = field.decorators?.find((d) => (d.name as IdentifierExpression).text.toLowerCase() === "alias");
+        const arg = alias?.args?.[0];
+        if (alias && (!arg || arg.kind !== NodeKind.Literal || (arg as LiteralExpression).literalKind !== LiteralKind.String)) {
+          result = null;
+          break;
+        }
+        const key = arg ? (arg as StringLiteralExpression).value : field.name.text;
+        const type = toString(field.type);
+        const base = stripNull(type);
+        const source = this.sources.get(field.range.source);
+        const scope = source.getQualifiedName(owner).split(".").slice(0, -1).join(".");
+        const meaning = source.resolveTypeMeaning(type, scope, this.parser);
+        if (meaning.declaration && !isStdlib(meaning.declaration)) { result = null; break; }
+        if (base === "string" || base === "String") {
+          if (meaning.name !== "string" && meaning.name !== "String") { result = null; break; }
+          result.push({ key, kind: "string", type: base, nullable: meaning.nullable });
+        } else if (isScalarType(base) && !meaning.nullable) {
+          if (meaning.name !== base && !(base === "boolean" && meaning.name === "bool") && !(base === "number" && meaning.name === "f64")) { result = null; break; }
+          result.push({ key, kind: "scalar", type: base, nullable: false });
+        } else {
+          const match = /^Array<(.+)>$/.exec(base);
+          if (!match || meaning.name !== "Array") { result = null; break; }
+          const element = match[1];
+          const elementMeaning = source.resolveTypeMeaning(element, scope, this.parser);
+          if ((!isScalarType(element) && !isString(element)) ||
+              (elementMeaning.declaration && !isStdlib(elementMeaning.declaration)) ||
+              (elementMeaning.nullable && !isString(element)) ||
+              (stripNull(element) !== elementMeaning.name &&
+               !(element === "number" && elementMeaning.name === "f64") &&
+               !(element === "boolean" && elementMeaning.name === "bool"))) { result = null; break; }
+          result.push({ key, kind: "array", type: element, nullable: meaning.nullable, elementNullable: elementMeaning.nullable });
+        }
+      }
+      if (result && result.length > 32) result = null;
+      validatorCache.set(owner, result);
+      return result;
+    };
     const analysis = new StrategicAccessAnalysis((call, shadowed, scope) => {
       if (call.args.length !== 1 || call.typeArguments?.length !== 1 ||
           call.expression.kind !== NodeKind.PropertyAccess) return null;
       const method = call.expression as PropertyAccessExpression;
-      if (method.property.text !== "parse" || method.expression.kind !== NodeKind.Identifier) return null;
-      const receiver = (method.expression as IdentifierExpression).text;
-      if (shadowed(receiver)) return null;
+      if (method.property.text !== "parse") return null;
+      let root: Expression = method.expression;
+      while (root.kind === NodeKind.PropertyAccess) root = (root as PropertyAccessExpression).expression;
+      if (root.kind !== NodeKind.Identifier || shadowed((root as IdentifierExpression).text)) return null;
+      const receiver = toString(method.expression);
       const source = this.sources.get(call.range.source);
       const binding = source.getImportedBinding(receiver + ".Value", this.parser);
       if (!binding || binding.source.internalPath !== runtimeRoot + "assembly/index") return null;
@@ -798,24 +869,50 @@ export class JSONTransform extends Visitor {
       if (!eligibleFields(owner)) return null;
       return owner;
     }, undefined, true);
-    for (const source of sources) analysis.visit(source);
+    for (const source of sources) {
+      const indexed = this.sources.get(source);
+      // The resolver only recognizes a receiver imported from this runtime.
+      // Avoid walking application and dependency ASTs that cannot contain one.
+      if (!indexed.hasNamespaceImports() && !indexed.getImportedLocalNames().some((name) => {
+        const binding = indexed.getImportedBinding(name + ".Value", this.parser);
+        return binding?.source.internalPath === runtimeRoot + "assembly/index";
+      })) continue;
+      analysis.visit(source);
+    }
     const plans = new Map<Source, Map<string, string>>();
     let id = 0;
+    let validatorId = 0;
     for (const site of analysis.sites) {
       if (site.escaped || site.writes.size) continue;
       const fields = eligibleFields(site.declaration)!;
       const names = new Set(fields.map((field) => field.name.text));
       if ([...site.accesses.keys()].some((name) => !names.has(name))) continue;
+      const privateReferenceDefaults = privateDefaults(fields);
       const selected = fields.filter((field) => {
         if (!field.type || site.accesses.has(field.name.text) ||
             field.is(CommonFlags.Private) || field.is(CommonFlags.Protected) ||
             field.decorators?.some((d) => (d.name as IdentifierExpression).text.toLowerCase() === "omit")) return false;
         const type = toString(field.type);
-        if (stripNull(type) !== "string" && !isScalarType(type)) return false;
         const source = this.sources.get(field.range.source);
         const scope = source.getQualifiedName(fieldOwners.get(field)!).split(".").slice(0, -1).join(".");
         const meaning = source.resolveTypeMeaning(type, scope, this.parser);
-        return !meaning.declaration || isStdlib(meaning.declaration);
+        if (isString(meaning.name) || isScalarType(meaning.name))
+          return !meaning.declaration || isStdlib(meaning.declaration);
+        // Direct array fields remain eager. For a wholly unread, private child
+        // object, validate its simple native contents without constructing it.
+        if (!privateReferenceDefaults || (field.initializer && toString(field.initializer) !== "null") ||
+            meaning.declaration?.kind !== NodeKind.ClassDeclaration || isStdlib(meaning.declaration)) return false;
+        const child = meaning.declaration as ClassDeclaration;
+        const validated = validatorFields(child);
+        if (!validated) return false;
+        let validators = this.ordinaryObjectValidators.get(site.declaration);
+        if (!validators) this.ordinaryObjectValidators.set(site.declaration, validators = new Map());
+        if (!validators.has(field.name.text)) validators.set(field.name.text, {
+          method: this.unusedMemberName(site.declaration, `__JSON_SKIP_OBJECT_${validatorId++}_${field.name.text}`),
+          fields: validated,
+          nullable: meaning.nullable,
+        });
+        return true;
       }).map((field) => field.name.text).sort();
       if (!selected.length) continue;
       let specialized = this.ordinarySpecializedFields.get(site.declaration);
@@ -4254,6 +4351,49 @@ export class JSONTransform extends Visitor {
       return output;
     };
 
+    for (const validator of this.ordinaryObjectValidators.get(node)?.values() || []) {
+      const steps: string[] = [
+        "srcStart = JSON.__cursorWhitespace(srcStart, srcEnd);",
+        ...(validator.nullable ? ["if (srcStart <= srcEnd && srcEnd - srcStart >= 8 && load<u64>(srcStart) == 30399761348886638) return srcStart + 8;"] : []),
+        "if (srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;",
+        "srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);",
+      ];
+      for (let i = 0; i < validator.fields.length; i++) {
+        const field = validator.fields[i];
+        if (i) steps.push(
+          "if (srcStart >= srcEnd || load<u16>(srcStart) != 44) return 0;",
+          "srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);",
+        );
+        const key = JSON.stringify(field.key) + ":";
+        const bytes = key.length << 1;
+        steps.push(
+          `if (srcStart > srcEnd || srcEnd - srcStart < ${bytes} || ${getComparisions(key, "srcStart", "!=").join(" || ")}) return 0;`,
+          `srcStart = JSON.__cursorWhitespace(srcStart + ${bytes}, srcEnd);`,
+        );
+        const type = stripNull(field.type);
+        const kind = isString(type) ? 0 : isBoolean(type) ? 1 :
+          SIGNED_INTEGER_TYPES.includes(type) ? 2 : INTEGER_TYPES.includes(type) ? 3 : 4;
+        const arrayReader = kind === 0 && field.elementNullable ? "__cursorSkipNullableStringArray" :
+          ["__cursorSkipStringArray", "__cursorSkipBooleanArray", "__cursorSkipSignedArray", "__cursorSkipUnsignedArray", "__cursorSkipFloatArray"][kind];
+        const skip = field.kind === "array"
+          ? `JSON.${arrayReader}(srcStart, srcEnd)`
+          : `JSON.__cursorSkipNative(srcStart, srcEnd, ${kind})`;
+        steps.push("{");
+        if (field.nullable) steps.push(
+          "if (srcStart <= srcEnd && srcEnd - srcStart >= 8 && load<u64>(srcStart) == 30399761348886638) srcStart += 8;",
+          "else {",
+        );
+        steps.push(`const next = ${skip};`, "if (!next) return 0;", "srcStart = next;");
+        if (field.nullable) steps.push("}");
+        steps.push("}", "srcStart = JSON.__cursorWhitespace(srcStart, srcEnd);");
+      }
+      steps.push("if (srcStart >= srcEnd || load<u16>(srcStart) != 125) return 0;", "return srcStart + 2;");
+      node.members.push(SimpleParser.parseClassMember(
+        `${validator.fields.length <= 2 ? "@inline " : ""}${validator.method}(srcStart: usize, srcEnd: usize): usize { ${steps.join("\n")} }`,
+        node,
+      ));
+    }
+
     // const variables = new Set<string>();
     // const getVariable = (initializer: "let" | "const", name: string, value: string, type: string | null = null): string => {
     //   if (variables.has(name)) return name + " = " + value;
@@ -5198,13 +5338,30 @@ export class JSONTransform extends Visitor {
           `if (isManaged<${member.type}>()) JSON.__linkObject(${outPtr}, ${child}, false);`,
         );
       }
+      const validator = this.ordinaryObjectValidators.get(node)?.get(member.name);
+      if (validator) {
+        const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
+        return [
+          `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {`,
+          `  const __skipped = this.${validator.method}(${valuePtr}, srcEnd);`,
+          `  if (__skipped) ${srcPtr} = __skipped;`,
+          `  else {`,
+          ...body,
+          `  }`,
+          `} else {`,
+          ...body,
+          `}`,
+        ];
+      }
       if (this.ordinarySpecializedFields.get(node)?.has(member.name) &&
           !member.flags.has(PropertyFlags.Lazy) && (isString(stripNull(type)) || isScalarType(type))) {
         const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
-        const skip = isString(stripNull(type)) ? "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${type}>`;
+        const trusted = !STRICT && fastPath && !whitespaceTier && keyOffset !== 0 && !member.nullable;
+        const skip = isString(stripNull(type)) ? trusted ? "JSON.__cursorSkipTrustedString" : "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${type}>`;
+        const start = fastPath && !whitespaceTier ? valuePtr : `JSON.__cursorWhitespace(${valuePtr}, srcEnd)`;
         return [
           `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {`,
-          `  const __skipped = ${skip}(JSON.__cursorWhitespace(${valuePtr}, srcEnd), srcEnd);`,
+          `  const __skipped = ${skip}(${start}, srcEnd);`,
           `  if (__skipped) ${srcPtr} = __skipped;`,
           `  else {`,
           ...body,
@@ -6338,11 +6495,17 @@ export class JSONTransform extends Visitor {
       valueStart: string,
       valueEnd: string,
       prefix: string,
+      allowSkip = true,
     ): string => {
       if (member.flags.has(PropertyFlags.Lazy))
         return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+      const validator = this.ordinaryObjectValidators.get(node)?.get(member.name);
+      if (allowSkip && validator) {
+        return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || this.${validator.method}(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
+          getSlowValueStore(member, valueStart, valueEnd, prefix + "  ", false) + prefix + "}\n";
+      }
       const offset = JSON.stringify(member.name);
-      if (this.ordinarySpecializedFields.get(node)?.has(member.name) && (isString(stripNull(member.type)) || isScalarType(member.type))) {
+      if (allowSkip && this.ordinarySpecializedFields.get(node)?.has(member.name) && (isString(stripNull(member.type)) || isScalarType(member.type))) {
         const skip = isString(stripNull(member.type)) ? "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${member.type}>`;
         return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || ${skip}(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
           prefix + `  store<${member.type}>(changetype<usize>(out), JSON.__deserializeValue<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n` +
@@ -7460,6 +7623,7 @@ export class JSONTransform extends Visitor {
               getComparisions,
               cursorMayDefer && cursorDeferred.length > 0,
               this.ordinarySpecializedFields.get(node),
+              this.ordinaryObjectValidators.get(node),
             ),
             node,
           ),

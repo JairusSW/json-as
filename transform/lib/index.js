@@ -480,6 +480,7 @@ export class JSONTransform extends Visitor {
         }
     }
     ordinarySpecializedFields = new WeakMap();
+    ordinaryObjectValidators = new WeakMap();
     prepareOrdinarySpecialization(sources) {
         if (process.env["JSON_ACCESS_SPECIALIZATION"] === "false")
             return;
@@ -525,16 +526,99 @@ export class JSONTransform extends Visitor {
             modelFields.set(owner, fields);
             return fields;
         };
+        const privateDefaults = (fields) => fields.every((field) => {
+            if (!field.type || !field.initializer)
+                return true;
+            const type = toString(field.type);
+            if (isScalarType(type) || isString(type))
+                return true;
+            const value = toString(field.initializer);
+            return value === "null" || value === "[]";
+        });
+        const validatorCache = new WeakMap();
+        const validatorFields = (owner) => {
+            if (validatorCache.has(owner))
+                return validatorCache.get(owner);
+            const fields = eligibleFields(owner);
+            let result = fields && !owner.extendsType && privateDefaults(fields) ? [] : null;
+            for (const field of fields || []) {
+                if (!result)
+                    break;
+                if (field.is(512) || field.is(1024) ||
+                    field.decorators?.some((d) => d.name.text.toLowerCase() === "omit"))
+                    continue;
+                if (!field.type || field.decorators?.some((d) => ["raw", "lazy"].includes(d.name.text.toLowerCase()))) {
+                    result = null;
+                    break;
+                }
+                const alias = field.decorators?.find((d) => d.name.text.toLowerCase() === "alias");
+                const arg = alias?.args?.[0];
+                if (alias && (!arg || arg.kind !== NodeKind.Literal || arg.literalKind !== 2)) {
+                    result = null;
+                    break;
+                }
+                const key = arg ? arg.value : field.name.text;
+                const type = toString(field.type);
+                const base = stripNull(type);
+                const source = this.sources.get(field.range.source);
+                const scope = source.getQualifiedName(owner).split(".").slice(0, -1).join(".");
+                const meaning = source.resolveTypeMeaning(type, scope, this.parser);
+                if (meaning.declaration && !isStdlib(meaning.declaration)) {
+                    result = null;
+                    break;
+                }
+                if (base === "string" || base === "String") {
+                    if (meaning.name !== "string" && meaning.name !== "String") {
+                        result = null;
+                        break;
+                    }
+                    result.push({ key, kind: "string", type: base, nullable: meaning.nullable });
+                }
+                else if (isScalarType(base) && !meaning.nullable) {
+                    if (meaning.name !== base && !(base === "boolean" && meaning.name === "bool") && !(base === "number" && meaning.name === "f64")) {
+                        result = null;
+                        break;
+                    }
+                    result.push({ key, kind: "scalar", type: base, nullable: false });
+                }
+                else {
+                    const match = /^Array<(.+)>$/.exec(base);
+                    if (!match || meaning.name !== "Array") {
+                        result = null;
+                        break;
+                    }
+                    const element = match[1];
+                    const elementMeaning = source.resolveTypeMeaning(element, scope, this.parser);
+                    if ((!isScalarType(element) && !isString(element)) ||
+                        (elementMeaning.declaration && !isStdlib(elementMeaning.declaration)) ||
+                        (elementMeaning.nullable && !isString(element)) ||
+                        (stripNull(element) !== elementMeaning.name &&
+                            !(element === "number" && elementMeaning.name === "f64") &&
+                            !(element === "boolean" && elementMeaning.name === "bool"))) {
+                        result = null;
+                        break;
+                    }
+                    result.push({ key, kind: "array", type: element, nullable: meaning.nullable, elementNullable: elementMeaning.nullable });
+                }
+            }
+            if (result && result.length > 32)
+                result = null;
+            validatorCache.set(owner, result);
+            return result;
+        };
         const analysis = new StrategicAccessAnalysis((call, shadowed, scope) => {
             if (call.args.length !== 1 || call.typeArguments?.length !== 1 ||
                 call.expression.kind !== NodeKind.PropertyAccess)
                 return null;
             const method = call.expression;
-            if (method.property.text !== "parse" || method.expression.kind !== NodeKind.Identifier)
+            if (method.property.text !== "parse")
                 return null;
-            const receiver = method.expression.text;
-            if (shadowed(receiver))
+            let root = method.expression;
+            while (root.kind === NodeKind.PropertyAccess)
+                root = root.expression;
+            if (root.kind !== NodeKind.Identifier || shadowed(root.text))
                 return null;
+            const receiver = toString(method.expression);
             const source = this.sources.get(call.range.source);
             const binding = source.getImportedBinding(receiver + ".Value", this.parser);
             if (!binding || binding.source.internalPath !== runtimeRoot + "assembly/index")
@@ -547,10 +631,18 @@ export class JSONTransform extends Visitor {
                 return null;
             return owner;
         }, undefined, true);
-        for (const source of sources)
+        for (const source of sources) {
+            const indexed = this.sources.get(source);
+            if (!indexed.hasNamespaceImports() && !indexed.getImportedLocalNames().some((name) => {
+                const binding = indexed.getImportedBinding(name + ".Value", this.parser);
+                return binding?.source.internalPath === runtimeRoot + "assembly/index";
+            }))
+                continue;
             analysis.visit(source);
+        }
         const plans = new Map();
         let id = 0;
+        let validatorId = 0;
         for (const site of analysis.sites) {
             if (site.escaped || site.writes.size)
                 continue;
@@ -558,18 +650,35 @@ export class JSONTransform extends Visitor {
             const names = new Set(fields.map((field) => field.name.text));
             if ([...site.accesses.keys()].some((name) => !names.has(name)))
                 continue;
+            const privateReferenceDefaults = privateDefaults(fields);
             const selected = fields.filter((field) => {
                 if (!field.type || site.accesses.has(field.name.text) ||
                     field.is(512) || field.is(1024) ||
                     field.decorators?.some((d) => d.name.text.toLowerCase() === "omit"))
                     return false;
                 const type = toString(field.type);
-                if (stripNull(type) !== "string" && !isScalarType(type))
-                    return false;
                 const source = this.sources.get(field.range.source);
                 const scope = source.getQualifiedName(fieldOwners.get(field)).split(".").slice(0, -1).join(".");
                 const meaning = source.resolveTypeMeaning(type, scope, this.parser);
-                return !meaning.declaration || isStdlib(meaning.declaration);
+                if (isString(meaning.name) || isScalarType(meaning.name))
+                    return !meaning.declaration || isStdlib(meaning.declaration);
+                if (!privateReferenceDefaults || (field.initializer && toString(field.initializer) !== "null") ||
+                    meaning.declaration?.kind !== NodeKind.ClassDeclaration || isStdlib(meaning.declaration))
+                    return false;
+                const child = meaning.declaration;
+                const validated = validatorFields(child);
+                if (!validated)
+                    return false;
+                let validators = this.ordinaryObjectValidators.get(site.declaration);
+                if (!validators)
+                    this.ordinaryObjectValidators.set(site.declaration, validators = new Map());
+                if (!validators.has(field.name.text))
+                    validators.set(field.name.text, {
+                        method: this.unusedMemberName(site.declaration, `__JSON_SKIP_OBJECT_${validatorId++}_${field.name.text}`),
+                        fields: validated,
+                        nullable: meaning.nullable,
+                    });
+                return true;
             }).map((field) => field.name.text).sort();
             if (!selected.length)
                 continue;
@@ -2802,6 +2911,39 @@ export class JSONTransform extends Visitor {
             }
             return output;
         };
+        for (const validator of this.ordinaryObjectValidators.get(node)?.values() || []) {
+            const steps = [
+                "srcStart = JSON.__cursorWhitespace(srcStart, srcEnd);",
+                ...(validator.nullable ? ["if (srcStart <= srcEnd && srcEnd - srcStart >= 8 && load<u64>(srcStart) == 30399761348886638) return srcStart + 8;"] : []),
+                "if (srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;",
+                "srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);",
+            ];
+            for (let i = 0; i < validator.fields.length; i++) {
+                const field = validator.fields[i];
+                if (i)
+                    steps.push("if (srcStart >= srcEnd || load<u16>(srcStart) != 44) return 0;", "srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);");
+                const key = JSON.stringify(field.key) + ":";
+                const bytes = key.length << 1;
+                steps.push(`if (srcStart > srcEnd || srcEnd - srcStart < ${bytes} || ${getComparisions(key, "srcStart", "!=").join(" || ")}) return 0;`, `srcStart = JSON.__cursorWhitespace(srcStart + ${bytes}, srcEnd);`);
+                const type = stripNull(field.type);
+                const kind = isString(type) ? 0 : isBoolean(type) ? 1 :
+                    SIGNED_INTEGER_TYPES.includes(type) ? 2 : INTEGER_TYPES.includes(type) ? 3 : 4;
+                const arrayReader = kind === 0 && field.elementNullable ? "__cursorSkipNullableStringArray" :
+                    ["__cursorSkipStringArray", "__cursorSkipBooleanArray", "__cursorSkipSignedArray", "__cursorSkipUnsignedArray", "__cursorSkipFloatArray"][kind];
+                const skip = field.kind === "array"
+                    ? `JSON.${arrayReader}(srcStart, srcEnd)`
+                    : `JSON.__cursorSkipNative(srcStart, srcEnd, ${kind})`;
+                steps.push("{");
+                if (field.nullable)
+                    steps.push("if (srcStart <= srcEnd && srcEnd - srcStart >= 8 && load<u64>(srcStart) == 30399761348886638) srcStart += 8;", "else {");
+                steps.push(`const next = ${skip};`, "if (!next) return 0;", "srcStart = next;");
+                if (field.nullable)
+                    steps.push("}");
+                steps.push("}", "srcStart = JSON.__cursorWhitespace(srcStart, srcEnd);");
+            }
+            steps.push("if (srcStart >= srcEnd || load<u16>(srcStart) != 125) return 0;", "return srcStart + 2;");
+            node.members.push(SimpleParser.parseClassMember(`${validator.fields.length <= 2 ? "@inline " : ""}${validator.method}(srcStart: usize, srcEnd: usize): usize { ${steps.join("\n")} }`, node));
+        }
         const STRING_FIELD_DESERIALIZER = "__deserializeStringField";
         const STRING_FIELD_TRUSTED_DESERIALIZER = "__deserializeStringFieldTrusted";
         const getCustomDeserializeExpression = (type, valueStart, valueEnd) => `JSON.__deserializeCustom<${type}>(JSON.Util.ptrToStr(${valueStart}, ${valueEnd}))`;
@@ -3379,13 +3521,30 @@ export class JSONTransform extends Visitor {
                     : field;
                 body.push(`if (isManaged<${member.type}>()) JSON.__linkObject(${outPtr}, ${child}, false);`);
             }
+            const validator = this.ordinaryObjectValidators.get(node)?.get(member.name);
+            if (validator) {
+                const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
+                return [
+                    `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {`,
+                    `  const __skipped = this.${validator.method}(${valuePtr}, srcEnd);`,
+                    `  if (__skipped) ${srcPtr} = __skipped;`,
+                    `  else {`,
+                    ...body,
+                    `  }`,
+                    `} else {`,
+                    ...body,
+                    `}`,
+                ];
+            }
             if (this.ordinarySpecializedFields.get(node)?.has(member.name) &&
                 !member.flags.has(PropertyFlags.Lazy) && (isString(stripNull(type)) || isScalarType(type))) {
                 const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
-                const skip = isString(stripNull(type)) ? "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${type}>`;
+                const trusted = !STRICT && fastPath && !whitespaceTier && keyOffset !== 0 && !member.nullable;
+                const skip = isString(stripNull(type)) ? trusted ? "JSON.__cursorSkipTrustedString" : "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${type}>`;
+                const start = fastPath && !whitespaceTier ? valuePtr : `JSON.__cursorWhitespace(${valuePtr}, srcEnd)`;
                 return [
                     `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {`,
-                    `  const __skipped = ${skip}(JSON.__cursorWhitespace(${valuePtr}, srcEnd), srcEnd);`,
+                    `  const __skipped = ${skip}(${start}, srcEnd);`,
                     `  if (__skipped) ${srcPtr} = __skipped;`,
                     `  else {`,
                     ...body,
@@ -4260,11 +4419,16 @@ export class JSONTransform extends Visitor {
                 strategicLazyStore(member, valueStart, valueEnd, "changetype<usize>(out)") +
                 "\n");
         };
-        const getSlowValueStore = (member, valueStart, valueEnd, prefix) => {
+        const getSlowValueStore = (member, valueStart, valueEnd, prefix, allowSkip = true) => {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
+            const validator = this.ordinaryObjectValidators.get(node)?.get(member.name);
+            if (allowSkip && validator) {
+                return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || this.${validator.method}(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
+                    getSlowValueStore(member, valueStart, valueEnd, prefix + "  ", false) + prefix + "}\n";
+            }
             const offset = JSON.stringify(member.name);
-            if (this.ordinarySpecializedFields.get(node)?.has(member.name) && (isString(stripNull(member.type)) || isScalarType(member.type))) {
+            if (allowSkip && this.ordinarySpecializedFields.get(node)?.has(member.name) && (isString(stripNull(member.type)) || isScalarType(member.type))) {
                 const skip = isString(stripNull(member.type)) ? "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${member.type}>`;
                 return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || ${skip}(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
                     prefix + `  store<${member.type}>(changetype<usize>(out), JSON.__deserializeValue<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n` +
@@ -5065,7 +5229,7 @@ export class JSONTransform extends Visitor {
                     .map((member) => `JSON.__cursorSupports<${member.lazyInner || member.type}>(depth + 1)`)
                     .join(" && ") || "true";
                 node.members.push(SimpleParser.parseClassMember(`__CURSOR_SUPPORTED(depth: i32): bool { return depth < 256 && (${supported}); }`, node));
-                node.members.push(SimpleParser.parseClassMember(generateCursorParser(this.schema.members, getComparisions, cursorMayDefer && cursorDeferred.length > 0, this.ordinarySpecializedFields.get(node)), node));
+                node.members.push(SimpleParser.parseClassMember(generateCursorParser(this.schema.members, getComparisions, cursorMayDefer && cursorDeferred.length > 0, this.ordinarySpecializedFields.get(node), this.ordinaryObjectValidators.get(node)), node));
             }
         }
         node.members.push(SimpleParser.parseClassMember(`__DESERIALIZE_FAST_ENABLED(): bool { return ${!DESERIALIZE_CUSTOM && useFastPath}; }`, node));
