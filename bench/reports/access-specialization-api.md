@@ -1,8 +1,8 @@
 # Strategic laziness: captured API reads
 
-Measured production sources: main `70a04480`; strategic branch `7bff3859`.
+Measured production sources: main `70a04480`; strategic branch `381902ff`.
 
-[Raw paired samples, allocation results, source seals, and host audits](data/access-specialization-api-7bff3859.json.gz).
+[Raw paired samples, allocation results, source seals, and host audits](data/access-specialization-api-381902ff.json.gz). The [earlier 32-field capture](data/access-specialization-api-7bff3859.json.gz) is retained for comparison.
 
 Apple M4 Max, arm64, Node v26.4.0, v8 14.6.202.34-node.21, AssemblyScript 0.28.20. Incremental runtime, -O3, compatibility mode (strict off), fast path on, diagnostics on.
 
@@ -25,29 +25,29 @@ Models cover every field in each fixed capture. Integer tokens use i64; decimal/
 
 | API / read | Branch eager GB/s | Ordinary default GB/s | Default vs eager | 95% speedup interval | Ordinary lazy GB/s | Explicit strategic GB/s | Allocated bytes/op, eager → default |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| github / summary | 2.168 | 2.389 | 1.10× (10.2%) | 1.08×–1.12× | 2.765 | 2.793 | 12928 → 880 |
-| github / conditional | 2.140 | 2.183 | 1.02× (2.0%) | 1.01×–1.03× | 2.730 | 2.767 | 12928 → 1456 |
-| github / full | 1.792 | 1.796 | 1.00× (0.2%) | 0.98×–1.02× | 0.937 | 1.722 | 12928 → 12928 |
-| twitter / summary | 1.270 | 1.471 | 1.16× (15.8%) | 1.14×–1.18× | 2.162 | 2.258 | 3649 → 3153 |
-| twitter / conditional | 1.245 | 1.493 | 1.20× (20.0%) | 1.18×–1.22× | 1.863 | 2.026 | 3584 → 3088 |
-| twitter / full | 1.095 | 1.082 | 0.99× (-1.2%) | 0.97×–1.00× | 0.626 | 1.018 | 3584 → 3584 |
-| weather / summary | 0.336 | 0.841 | 2.50× (150.4%) | 2.43×–2.57× | 2.740 | 2.814 | 42208 → 288 |
-| weather / conditional | 0.333 | 0.765 | 2.30× (129.6%) | 2.28×–2.32× | 2.514 | 2.646 | 42208 → 2576 |
-| weather / full | 0.297 | 0.294 | 0.99× (-0.8%) | 0.97×–1.01× | 0.300 | 0.290 | 42208 → 42208 |
+| github / summary | 2.148 | 2.408 | 1.12× (12.1%) | 1.11×–1.14× | 2.759 | 2.788 | 12928 → 880 |
+| github / conditional | 2.118 | 2.238 | 1.06× (5.7%) | 1.04×–1.08× | 2.706 | 2.753 | 12928 → 1456 |
+| github / full | 1.804 | 1.842 | 1.02× (2.1%) | 0.99×–1.05× | 0.935 | 1.697 | 12928 → 12928 |
+| twitter / summary | 1.240 | 1.479 | 1.19× (19.2%) | 1.17×–1.22× | 2.113 | 2.223 | 3649 → 3153 |
+| twitter / conditional | 1.244 | 1.472 | 1.18× (18.3%) | 1.17×–1.21× | 1.923 | 2.005 | 3584 → 3088 |
+| twitter / full | 1.124 | 1.121 | 1.00× (-0.2%) | 0.99×–1.01× | 0.635 | 1.058 | 3584 → 3584 |
+| weather / summary | 0.334 | 0.836 | 2.50× (150.5%) | 2.45×–2.55× | 2.767 | 2.841 | 42208 → 288 |
+| weather / conditional | 0.333 | 0.766 | 2.30× (129.6%) | 2.25×–2.34× | 2.516 | 2.630 | 42208 → 2576 |
+| weather / full | 0.299 | 0.296 | 0.99× (-0.7%) | 0.97×–1.01× | 0.302 | 0.292 | 42208 → 42208 |
 
 ## SIMD
 
 | API / read | Branch eager GB/s | Ordinary default GB/s | Default vs eager | 95% speedup interval | Ordinary lazy GB/s | Explicit strategic GB/s | Allocated bytes/op, eager → default |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| github / summary | 2.529 | 3.836 | 1.52× (51.7%) | 1.47×–1.56× | 4.362 | 4.565 | 12928 → 880 |
-| github / conditional | 2.506 | 3.279 | 1.31× (30.8%) | 1.27×–1.35× | 4.287 | 4.312 | 12928 → 1456 |
-| github / full | 2.121 | 2.132 | 1.01× (0.5%) | 0.97×–1.04× | 1.171 | 1.978 | 12928 → 12928 |
-| twitter / summary | 1.405 | 1.588 | 1.13× (13.0%) | 1.11×–1.15× | 3.424 | 3.919 | 3649 → 3153 |
-| twitter / conditional | 1.360 | 1.546 | 1.14× (13.6%) | 1.12×–1.16× | 2.852 | 3.158 | 3584 → 3088 |
-| twitter / full | 1.178 | 1.190 | 1.01× (1.0%) | 1.00×–1.03× | 0.719 | 1.107 | 3584 → 3584 |
-| weather / summary | 0.328 | 0.943 | 2.87× (187.2%) | 2.81×–2.94× | 7.151 | 7.919 | 42208 → 288 |
-| weather / conditional | 0.325 | 0.848 | 2.61× (160.7%) | 2.57×–2.65× | 5.798 | 6.261 | 42208 → 2576 |
-| weather / full | 0.300 | 0.297 | 0.99× (-1.0%) | 0.97×–1.01× | 0.322 | 0.292 | 42208 → 42208 |
+| github / summary | 2.581 | 3.697 | 1.43× (43.2%) | 1.39×–1.47× | 4.384 | 4.476 | 12928 → 880 |
+| github / conditional | 2.565 | 3.193 | 1.24× (24.5%) | 1.18×–1.30× | 4.297 | 4.435 | 12928 → 1456 |
+| github / full | 2.134 | 2.128 | 1.00× (-0.3%) | 0.98×–1.01× | 1.182 | 1.991 | 12928 → 12928 |
+| twitter / summary | 1.388 | 1.570 | 1.13× (13.2%) | 1.11×–1.16× | 3.390 | 3.887 | 3649 → 3153 |
+| twitter / conditional | 1.381 | 1.552 | 1.12× (12.4%) | 1.11×–1.14× | 2.842 | 3.257 | 3584 → 3088 |
+| twitter / full | 1.190 | 1.181 | 0.99× (-0.8%) | 0.98×–1.00× | 0.723 | 1.137 | 3584 → 3584 |
+| weather / summary | 0.333 | 0.935 | 2.81× (180.9%) | 2.76×–2.85× | 7.164 | 7.732 | 42208 → 288 |
+| weather / conditional | 0.331 | 0.839 | 2.54× (153.6%) | 2.48×–2.58× | 5.901 | 6.262 | 42208 → 2576 |
+| weather / full | 0.295 | 0.299 | 1.01× (1.5%) | 1.00×–1.03× | 0.319 | 0.290 | 42208 → 42208 |
 
 Allocations are a separate ASC_RTRACE=1 run, averaged over 32 operations; values include managed allocator block overhead/rounding. They are not RSS or throughput from the instrumented build. Branch eager disables access specialization; ordinary default enables it. The ordinary-lazy control uses lazy: all on the same branch.
 
@@ -55,19 +55,21 @@ Conditional weights are syntactic estimates, not profiles. The full-read control
 
 95% intervals are paired bootstrap intervals (10,000 deterministic resamples), conditional on this host/run. They do not remove systematic effects from power policy or concurrent load.
 
-## Compiler cost and chunk-size experiment
+## Compiler cost and chunk-size experiments
 
 On the same shared ARM64 host, four alternating whole-compiler `-O3` pairs for
 the GitHub/SWAR model took approximately 7.2 seconds with ordinary
-specialization disabled and 19.0 seconds enabled. This includes compilation
-and optimization, not just the transform. Two `-O0` pairs took approximately
-0.7 and 0.9 seconds respectively. These small samples identify a substantial
-build-time cost; they are not isolated compiler benchmarks.
+specialization disabled and 19.0 seconds enabled with the original 32-field
+chunk size. This includes compilation and optimization, not just the
+transform. Two `-O0` pairs took approximately 0.7 and 0.9 seconds respectively.
+These small samples identify a substantial build-time cost; they are not
+isolated compiler benchmarks.
 
-An experimental 8-field chunk size reduced the specialized `-O3` compilation
-to approximately 13.8 seconds in two pairs. However, a separate eight-pair
-head-to-head SIMD run found that the smaller chunks reduced GitHub summary
-throughput by 9.5% and conditional throughput by 10.9%, with full-read
-throughput essentially unchanged. The experiment was therefore reverted. The
-retained 32-field layout matches all six SWAR/SIMD benchmark binaries in this
-report byte for byte. [Raw compile samples and paired chunk comparison](data/access-specialization-compile-tradeoffs.json.gz).
+An experimental 8-field chunk reduced specialized `-O3` compilation to about
+13.8 seconds in two pairs, but a separate eight-pair SIMD run found 9.5% lower
+GitHub summary throughput and 10.9% lower conditional throughput than 32-field
+chunks. The retained 16-field layout took about 15.6 seconds in two compiler
+pairs. In a separate 16-pair comparison against the original layout, GitHub
+summary and conditional throughput changed by +0.6% and +3.8% on SWAR, and
+−0.2% and +0.5% on SIMD. These measurements are shared-host results and do not
+establish an isolated-host guarantee. [Raw compile samples and paired chunk comparisons](data/access-specialization-compile-tradeoffs.json.gz).
