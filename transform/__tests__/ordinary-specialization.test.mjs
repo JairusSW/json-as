@@ -14,6 +14,7 @@ import { spawnSync } from "node:child_process";
 const root = path.resolve(import.meta.dirname, "../..");
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-ordinary-"));
 const written = path.join(root, "assembly/__tests__/ordinary-specialization.fixture.tmp.ts");
+const enabled = process.env.JSON_ORDINARY_CONTROL !== "1";
 let checks = 0;
 try {
   for (const mode of process.env.PROBE_QUICK ? ["SWAR"] : ["NAIVE", "SWAR", "SIMD"])
@@ -28,11 +29,11 @@ try {
             ...(mode === "SIMD" ? ["--enable", "simd"] : []),
           ], { cwd: root, env: { ...process.env, JSON_MODE: mode,
             JSON_WRITE: checks === 0 ? "assembly/__tests__/ordinary-specialization.fixture.ts" : "",
-            JSON_STRATEGIC_LAZINESS: "", JSON_ACCESS_SPECIALIZATION: "true", JSON_STRICT: String(strict),
+            JSON_STRATEGIC_LAZINESS: "", JSON_ACCESS_SPECIALIZATION: enabled ? "true" : "false", JSON_STRICT: String(strict),
             JSON_USE_FAST_PATH: fast ? "1" : "0" }, encoding: "utf8" });
           assert.equal(result.status, 0, result.stderr || result.error?.message);
           assert.doesNotMatch(result.stdout + result.stderr, /WARNING AS\d+/);
-          if (checks === 0) {
+          if (checks === 0 && enabled) {
             const generated = fs.readFileSync(written, "utf8");
             assert.match(generated, /JSON\.parse<Record, __JSON_OrdinaryPlan_\d+>\(input\)/);
             assert.match(generated, /function full\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
@@ -90,7 +91,7 @@ try {
             checks++;
           }
         }
-  console.log(`Ordinary specialization: ${checks} checks passed`);
+  console.log(`Ordinary ${enabled ? "specialization" : "eager control"}: ${checks} checks passed`);
 } finally {
   if (fs.existsSync(written)) fs.unlinkSync(written);
   fs.rmSync(dir, { recursive: true, force: true });
