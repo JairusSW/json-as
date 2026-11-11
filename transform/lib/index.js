@@ -1409,6 +1409,16 @@ export class JSONTransform extends Visitor {
             if (inner === null)
                 continue;
             if (this.isArrayFieldType(inner, source, source.getQualifiedName(node).split(".").slice(0, -1).join("."), node)) {
+                if (!fd.initializer &&
+                    !fd.is(16384) &&
+                    !hasDeco("omit")) {
+                    const scope = source.getQualifiedName(node).split(".").slice(0, -1).join(".");
+                    const meaning = source.resolveTypeMeaning(inner, scope, this.parser, source.classTypeParameters(node));
+                    if (!meaning.nullable) {
+                        const generated = SimpleParser.parseClassMember(`__array_default: ${inner} = ${this.runtimeReference()}.__lazyDefault<${inner}>();`, node);
+                        fd.initializer = generated.initializer;
+                    }
+                }
                 fd.decorators =
                     decos?.filter((d) => d.name.text !== "lazy") ?? null;
                 continue;

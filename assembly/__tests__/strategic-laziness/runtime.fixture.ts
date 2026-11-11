@@ -409,6 +409,56 @@ export function fullBooleanFields(): string {
   return i32(flags.first).toString() + ":" + i32(flags.second).toString() + ":" + JSON.stringify(flags);
 }
 
+@json({ lazy: "auto" })
+class ImplicitAutoArray {
+  value: i32[];
+}
+
+@json
+class ImplicitWrappedArray {
+  value: JSON.Lazy<i32[]>;
+}
+
+class ImplicitArraySubclass extends Array<i32> {
+  tag: i32 = 7;
+}
+
+@json
+class ImplicitSubclassArray {
+  @lazy value: ImplicitArraySubclass;
+}
+
+type NullableArrayAlias = i32[] | null;
+
+@json
+class ImplicitNullableArray {
+  @lazy value: NullableArrayAlias;
+}
+
+namespace ShadowedArrayRuntime {
+  const JSON: i32 = 3;
+  @json
+  class ImplicitTypedArray {
+    @lazy value: Uint8Array;
+  }
+  export function length(): i32 {
+    return new ImplicitTypedArray().value.length + JSON - 3;
+  }
+}
+
+export function implicitArrayConstruction(): string {
+  const auto = new ImplicitAutoArray();
+  const wrapped = new ImplicitWrappedArray();
+  const subclass = new ImplicitSubclassArray();
+  const nullable = new ImplicitNullableArray();
+  const nullablePresent = JSON.parse<ImplicitNullableArray>('{"value":[ 1 ]}');
+  const parsed = JSON.parse<ImplicitAutoArray>('{}');
+  return auto.value.length.toString() + ":" + wrapped.value.length.toString() + ":" +
+    parsed.value.length.toString() + ":" + ShadowedArrayRuntime.length().toString() + ":" +
+    subclass.value.tag.toString() + ":" + i32(nullable.value === null).toString() + ":" +
+    JSON.stringify(nullablePresent);
+}
+
 @json
 class LazyReferenceStates {
   @optional @lazy value: string | null = null;

@@ -2235,6 +2235,29 @@ export class JSONTransform extends Visitor {
       }
       if (inner === null) continue;
       if (this.isArrayFieldType(inner, source, source.getQualifiedName(node).split(".").slice(0, -1).join("."), node)) {
+        // Lazy lowering used to give non-nullable fields an implicit default.
+        // Preserve that constructor behavior when removing the lazy marker,
+        // unless the declaration explicitly asserts definite assignment.
+        if (
+          !(fd as FieldDeclaration).initializer &&
+          !fd.is(CommonFlags.DefinitelyAssigned) &&
+          !hasDeco("omit")
+        ) {
+          const scope = source.getQualifiedName(node).split(".").slice(0, -1).join(".");
+          const meaning = source.resolveTypeMeaning(
+            inner,
+            scope,
+            this.parser,
+            source.classTypeParameters(node),
+          );
+          if (!meaning.nullable) {
+            const generated = SimpleParser.parseClassMember(
+              `__array_default: ${inner} = ${this.runtimeReference()}.__lazyDefault<${inner}>();`,
+              node,
+            ) as FieldDeclaration;
+            (fd as FieldDeclaration).initializer = generated.initializer;
+          }
+        }
         (fd as FieldDeclaration).decorators =
           decos?.filter((d) => (<IdentifierExpression>d.name).text !== "lazy") ?? null;
         continue;

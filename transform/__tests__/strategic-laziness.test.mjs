@@ -125,6 +125,7 @@ try {
           check("fullStringFields", [], "a\\b:hello:world");
           check("fullNullableStrings", [], "hi!:1");
           check("fullBooleanFields", [], '1:0:{"first":true,"second":false}');
+          check("implicitArrayConstruction", [], '0:0:0:0:7:1:{"value":[1]}');
           check("lazyReferenceStates", [], "1:hello:hello:1:set");
           check("nestedFullRead", [], "7:7.5");
           if (strict) checkRejects("nestedReaderFallback");
