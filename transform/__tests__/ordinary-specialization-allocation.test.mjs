@@ -79,6 +79,16 @@ try {
     const genericEager = count;
     assert.ok(genericSpecialized < genericEager,
       `generic strict=${strict} fast=${fast}: specialized=${genericSpecialized}, eager=${genericEager}`);
+    instance.exports.genericInheritedStringPartial();
+    instance.exports.genericInheritedStringEager();
+    count = 0;
+    assert.equal(instance.exports.genericInheritedStringPartial(), 30);
+    const inheritedSpecialized = count;
+    count = 0;
+    assert.equal(instance.exports.genericInheritedStringEager(), 30);
+    const inheritedEager = count;
+    assert.ok(inheritedSpecialized < inheritedEager,
+      `generic inherited strict=${strict} fast=${fast}: specialized=${inheritedSpecialized}, eager=${inheritedEager}`);
   }
   console.log("Ordinary specialization: allocation reduction verified in four configurations");
 } finally {

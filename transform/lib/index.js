@@ -668,10 +668,15 @@ export class JSONTransform extends Visitor {
                 const parameters = source.classTypeParameters(owner);
                 const meaning = source.resolveTypeMeaning(type, scope, this.parser, parameters);
                 if (parameters.has(meaning.name)) {
-                    const index = owner === site.declaration
-                        ? owner.typeParameters?.findIndex((parameter) => parameter.name.text === meaning.name) ?? -1
-                        : -1;
-                    const actual = index >= 0 ? siteMeanings.get(site.call)?.arguments[index] : null;
+                    const index = owner.typeParameters?.findIndex((parameter) => parameter.name.text === meaning.name) ?? -1;
+                    let actual = owner === site.declaration && index >= 0 ? siteMeanings.get(site.call)?.arguments[index] : null;
+                    if (!actual && index >= 0 && site.declaration.extendsType) {
+                        const childSource = this.sources.get(site.declaration.range.source);
+                        const childScope = childSource.getQualifiedName(site.declaration).split(".").slice(0, -1).join(".");
+                        const parent = childSource.resolveTypeMeaning(toString(site.declaration.extendsType), childScope, this.parser, childSource.classTypeParameters(site.declaration));
+                        if (parent.declaration === owner)
+                            actual = parent.arguments[index];
+                    }
                     if (!actual || (actual.declaration && !isStdlib(actual.declaration)) ||
                         (!isString(actual.name) && (!isScalarType(actual.name) || actual.nullable || meaning.nullable)))
                         return false;

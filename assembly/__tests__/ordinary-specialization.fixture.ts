@@ -171,6 +171,27 @@ export function genericInherited(): string {
   return value.value.toString() + ":" + value.inherited;
 }
 
+export function genericInheritedPartial(): i32 {
+  const value = JSON.parse<GenericChild>('{"value":16,"inherited":"parent","tail":2}');
+  return value.tail;
+}
+
+@json
+class GenericTextChild extends GenericParent<string> {
+  tail: i32 = 0;
+}
+
+export function genericInheritedStringPartial(): i32 {
+  const value = JSON.parse<GenericTextChild>('{"value":"text","inherited":"parent","tail":30}');
+  return value.tail;
+}
+
+function identityGenericText(value: GenericTextChild): GenericTextChild { return value; }
+export function genericInheritedStringEager(): i32 {
+  const value = identityGenericText(JSON.parse<GenericTextChild>('{"value":"text","inherited":"parent","tail":30}'));
+  return value.tail;
+}
+
 type Item = i32;
 @json
 class GenericRecord<Item> {
@@ -363,6 +384,17 @@ export function genericCodecEffects(): i32 {
   codecCalls = 0;
   const value = JSON.parse<GenericRecord<Codec>>('{"id":28,"payload":7,"text":"ignored"}');
   return value.id + codecCalls * 100;
+}
+
+@json
+class GenericCodecChild extends GenericParent<Codec> {
+  tail: i32 = 0;
+}
+
+export function genericInheritedCodecEffects(): i32 {
+  codecCalls = 0;
+  const value = JSON.parse<GenericCodecChild>('{"value":7,"inherited":"parent","tail":29}');
+  return value.tail + codecCalls * 100;
 }
 
 let calls = 0;
