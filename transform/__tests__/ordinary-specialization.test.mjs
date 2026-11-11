@@ -37,6 +37,9 @@ try {
             assert.match(generated, /function full\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
             assert.match(generated, /function escape\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
             assert.match(generated, /function serialized\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
+            assert.match(generated, /JSON\.parse<Child, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(generated, /JSON\.parse<DecoratedChild, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(generated, /JSON\.parse<GenericChild>\(/);
           }
           let exports;
           const decode = (ptr) => Buffer.from(exports.memory.buffer, ptr,
@@ -48,6 +51,8 @@ try {
             escaped: "some text", serialized: '{"id":7,"title":"hello","body":"some text"}', reordered: 8,
             stored: "some text", throughUnchecked: "some text", reused: "8:changed", escapedString: 9,
             nullableString: 10, nullableNull: 11, aliased: 12, codecEffects: 113,
+            inheritedPartial: 14, inheritedFull: "parent:text",
+            decoratedInheritedPartial: 15, genericInherited: "16:parent",
             initializerEffects: 11 })) {
             const actual = exports[name]();
             assert.equal(typeof expected === "string" ? decode(actual) : actual, expected,

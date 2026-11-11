@@ -745,6 +745,41 @@ export class JSONTransform extends Visitor {
   prepareOrdinarySpecialization(sources: Source[]): void {
     if (process.env["JSON_ACCESS_SPECIALIZATION"] === "false") return;
     const runtimeRoot = diagnosticsRuntimeRoot(this.parser.sources);
+    const modelFields = new WeakMap<ClassDeclaration, FieldDeclaration[] | null>();
+    const eligibleFields = (owner: ClassDeclaration): FieldDeclaration[] | null => {
+      if (modelFields.has(owner)) return modelFields.get(owner)!;
+      const chain = [owner, ...this.classAncestors(owner)];
+      let fields: FieldDeclaration[] | null = [];
+      const seen = new Set<string>();
+      if (chain[chain.length - 1].extendsType ||
+          !owner.decorators?.some((d) => ["json", "serializable"].includes((d.name as IdentifierExpression).text.toLowerCase())) ||
+          this.initializerChainHasEffects(owner)) fields = null;
+      for (const declaration of chain) {
+        if (!fields) break;
+        if (declaration.typeParameters?.length || classLazyMode(declaration) !== "none" ||
+            declaration.members.some((member) => member.kind === NodeKind.MethodDeclaration ||
+              member.decorators?.some((d) => ["lazy", "serializer", "deserializer"].includes((d.name as IdentifierExpression).text.toLowerCase())))) {
+          fields = null;
+          break;
+        }
+        const source = this.sources.get(declaration.range.source);
+        const scope = source.getQualifiedName(declaration).split(".").slice(0, -1).join(".");
+        for (const member of declaration.members) {
+          if (member.kind !== NodeKind.FieldDeclaration || member.is(CommonFlags.Static)) continue;
+          const field = member as FieldDeclaration;
+          if (field.type && this.lazyInnerType(field.type, source, scope, declaration) !== null) {
+            fields = null;
+            break;
+          }
+          if (!seen.has(field.name.text)) {
+            seen.add(field.name.text);
+            fields.push(field);
+          }
+        }
+      }
+      modelFields.set(owner, fields);
+      return fields;
+    };
     const analysis = new StrategicAccessAnalysis((call, shadowed, scope) => {
       if (call.args.length !== 1 || call.typeArguments?.length !== 1 ||
           call.expression.kind !== NodeKind.PropertyAccess) return null;
@@ -758,16 +793,7 @@ export class JSONTransform extends Visitor {
       const meaning = source.resolveTypeMeaning(toString(call.typeArguments[0]), scope, this.parser);
       if (meaning.declaration?.kind !== NodeKind.ClassDeclaration) return null;
       const owner = meaning.declaration as ClassDeclaration;
-      if (owner.typeParameters?.length || owner.extendsType || classLazyMode(owner) !== "none") return null;
-      if (!owner.decorators?.some((d) => ["json", "serializable"].includes((d.name as IdentifierExpression).text.toLowerCase()))) return null;
-      if (owner.members.some((member) => member.kind === NodeKind.MethodDeclaration ||
-          member.decorators?.some((d) => ["lazy", "serializer", "deserializer"].includes((d.name as IdentifierExpression).text.toLowerCase())))) return null;
-      const ownerSource = this.sources.get(owner.range.source);
-      const ownerScope = ownerSource.getQualifiedName(owner).split(".").slice(0, -1).join(".");
-      if (owner.members.some((member) => member.kind === NodeKind.FieldDeclaration &&
-          (member as FieldDeclaration).type &&
-          this.lazyInnerType((member as FieldDeclaration).type!, ownerSource, ownerScope, owner) !== null)) return null;
-      if (this.initializerChainHasEffects(owner)) return null;
+      if (!eligibleFields(owner)) return null;
       return owner;
     }, undefined, true);
     for (const source of sources) analysis.visit(source);
@@ -775,9 +801,7 @@ export class JSONTransform extends Visitor {
     let id = 0;
     for (const site of analysis.sites) {
       if (site.escaped || site.writes.size) continue;
-      const fields = site.declaration.members.filter((member) =>
-        member.kind === NodeKind.FieldDeclaration && !member.is(CommonFlags.Static),
-      ) as FieldDeclaration[];
+      const fields = eligibleFields(site.declaration)!;
       const names = new Set(fields.map((field) => field.name.text));
       if ([...site.accesses.keys()].some((name) => !names.has(name))) continue;
       const selected = fields.filter((field) =>

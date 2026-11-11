@@ -101,6 +101,56 @@ export function aliased(): i32 {
   return value.id;
 }
 
+class Parent {
+  inherited: string = "base";
+}
+
+@json
+class Child extends Parent {
+  id: i32 = 0;
+  other: string = "child";
+}
+
+export function inheritedPartial(): i32 {
+  const value = JSON.parse<Child>('{"inherited":"parent","id":14,"other":"text"}');
+  return value.id;
+}
+
+export function inheritedFull(): string {
+  const value = JSON.parse<Child>('{"inherited":"parent","id":14,"other":"text"}');
+  return value.inherited + ":" + value.other;
+}
+
+@json
+class DecoratedParent {
+  inherited: string = "base";
+}
+
+@json
+class DecoratedChild extends DecoratedParent {
+  id: i32 = 0;
+}
+
+export function decoratedInheritedPartial(): i32 {
+  const value = JSON.parse<DecoratedChild>('{"inherited":"parent","id":15}');
+  return value.id;
+}
+
+class GenericParent<T> {
+  value!: T;
+  inherited: string = "base";
+}
+
+@json
+class GenericChild extends GenericParent<i32> {
+  tail: i32 = 0;
+}
+
+export function genericInherited(): string {
+  const value = JSON.parse<GenericChild>('{"value":16,"inherited":"parent","tail":2}');
+  return value.value.toString() + ":" + value.inherited;
+}
+
 let codecCalls = 0;
 @json
 class Codec {
