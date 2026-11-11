@@ -5,8 +5,8 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-// Prepare captured API responses and sealed binaries without a timing lock.
-// Run --measure under ~/benchmark-lock.py; every sample uses a fresh process.
+// Coordinate preparation and measurement through ~/benchmark-lock.py.
+// Every measured sample uses a fresh process.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -24,7 +24,7 @@ const option = (name, fallback) =>
   fallback;
 const base = path.resolve(option("--dir", "build/perf/strategic-api-5ae2306b"));
 const manifestFile = path.join(base, "manifest.json");
-const variants = ["main", "eager", "lazy", "strategic"];
+const variants = ["main", "eager", "ordinary", "lazy", "strategic"];
 const profiles = ["summary", "conditional", "full"];
 const sha = (file) =>
   crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
@@ -401,7 +401,7 @@ if (args.includes("--fetch")) {
   }
   const baseline = path.resolve(option("--main", path.join(base, "main")));
   const entries = [];
-  for (const name of Object.keys(reads)) {
+  for (const name of args.includes("--smoke") ? ["github"] : Object.keys(reads)) {
     const input = path.join(base, "payloads", name + ".json");
     const floating = new Set(
       JSON.parse(
@@ -431,7 +431,7 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
     const oracle = JSON.parse(
       run("python3", ["-c", oraclePython, input, schemaFile, specFile]),
     );
-    for (const mode of ["SWAR", "SIMD"])
+    for (const mode of args.includes("--smoke") ? ["SWAR"] : ["SWAR", "SIMD"])
       for (const variant of variants) {
         const repo = variant === "main" ? baseline : root;
         const folder = path.join(repo, "build/strategic-api-bench");
@@ -463,6 +463,7 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
           JSON_DIAGNOSTICS: "true",
           JSON_CACHE: "0",
           JSON_STRATEGIC_LAZINESS: "",
+          JSON_ACCESS_SPECIALIZATION: variant === "eager" ? "false" : "true",
           JSON_AS_LIBRARY_SOURCE: "assembly/index",
         };
         const entry = {
@@ -651,8 +652,8 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
         for (let pair = 0; pair < pairs; pair++) {
           const order =
             pair % 2
-              ? ["strategic", "main", "eager", "lazy"]
-              : ["lazy", "eager", "main", "strategic"];
+              ? ["strategic", "ordinary", "main", "eager", "lazy"]
+              : ["lazy", "eager", "main", "ordinary", "strategic"];
           for (const variant of order) {
             const entry = manifest.entries.findIndex(
               (e) =>
@@ -754,6 +755,7 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
             speedupVsMain: geo(ratios),
             speedupVsMain95CI: interval(ratios),
             speedupVsBranchEager: geo(sameBranchRatios),
+            speedupVsBranchEager95CI: interval(sameBranchRatios),
             allocations: entry.allocations[profile],
             fastCapability: entry.fastCapability,
           };
@@ -795,20 +797,20 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
     lines.push(
       `## ${mode}`,
       "",
-      "| API / read | Main eager GB/s | Branch eager GB/s | Ordinary lazy GB/s | Strategic GB/s | Strategic vs main | 95% speedup interval | Allocated bytes/op, main → strategic |",
+      "| API / read | Branch eager GB/s | Ordinary default GB/s | Default vs eager | 95% speedup interval | Ordinary lazy GB/s | Explicit strategic GB/s | Allocated bytes/op, eager → default |",
       "|---|---:|---:|---:|---:|---:|---:|---:|",
     );
     for (const row of rows.filter((r) => r.mode === mode)) {
       const v = row.variants,
-        s = v.strategic;
+        s = v.ordinary;
       lines.push(
-        `| ${row.name} / ${row.profile} | ${v.main.gbps.toFixed(3)} | ${v.eager.gbps.toFixed(3)} | ${v.lazy.gbps.toFixed(3)} | ${s.gbps.toFixed(3)} | ${s.speedupVsMain.toFixed(2)}× (${((s.speedupVsMain - 1) * 100).toFixed(1)}%) | ${s.speedupVsMain95CI.map((x) => x.toFixed(2) + "×").join("–")} | ${v.main.allocations.blockBytes.toFixed(0)} → ${s.allocations.blockBytes.toFixed(0)} |`,
+        `| ${row.name} / ${row.profile} | ${v.eager.gbps.toFixed(3)} | ${s.gbps.toFixed(3)} | ${s.speedupVsBranchEager.toFixed(2)}× (${((s.speedupVsBranchEager - 1) * 100).toFixed(1)}%) | ${s.speedupVsBranchEager95CI.map((x) => x.toFixed(2) + "×").join("–")} | ${v.lazy.gbps.toFixed(3)} | ${v.strategic.gbps.toFixed(3)} | ${v.eager.allocations.blockBytes.toFixed(0)} → ${s.allocations.blockBytes.toFixed(0)} |`,
       );
     }
     lines.push("");
   }
   lines.push(
-    "Allocations are a separate ASC_RTRACE=1 run, averaged over 32 operations; values include managed allocator block overhead/rounding. They are not RSS or throughput from the instrumented build. The ordinary-lazy control uses lazy: all on the same branch. The branch-eager control checks the default path against main.",
+    "Allocations are a separate ASC_RTRACE=1 run, averaged over 32 operations; values include managed allocator block overhead/rounding. They are not RSS or throughput from the instrumented build. Branch eager disables access specialization; ordinary default enables it. The ordinary-lazy control uses lazy: all on the same branch.",
     "",
     "Conditional weights are syntactic estimates, not profiles. The full-read control intentionally includes the cost of materializing everything. Effectful reference selections use the non-speculative reader.",
     "",
