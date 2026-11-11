@@ -13,8 +13,9 @@ import { execFileSync } from "node:child_process";
 
 const root = path.resolve(import.meta.dirname, "../..");
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-startup-"));
-const eagerRuntime = path.join(root, "assembly/index-startup-eager.tmp.ts");
-const eagerFixture = path.join(root, "assembly/__tests__/scalar-startup-eager.tmp.ts");
+const suffix = path.basename(temp);
+const eagerRuntime = path.join(root, `assembly/index-${suffix}.tmp.ts`);
+const eagerFixture = path.join(root, `assembly/__tests__/scalar-${suffix}.tmp.ts`);
 const runtime = fs.readFileSync(path.join(root, "assembly/index.ts"), "utf8");
 const fixture = fs.readFileSync(path.join(root, "assembly/__tests__/scalar-startup.fixture.ts"), "utf8");
 try {
@@ -23,7 +24,7 @@ try {
   assert.match(runtime, /@inline\s+function numericCast\b/);
   assert.match(runtime, /@final\s+class LazyRef\b/);
   fs.writeFileSync(eagerRuntime, runtime.replace(/@lazy(?=\s+const EMPTY_(?:KEYS|I32S|VALS)\b)/g, ""));
-  fs.writeFileSync(eagerFixture, fixture.replace('"../index"', '"../index-startup-eager.tmp"'));
+  fs.writeFileSync(eagerFixture, fixture.replace('"../index"', `"../${path.basename(eagerRuntime, ".ts")}"`));
   const allocations = async (entry, name) => {
     const wasm = path.join(temp, `${name}.wasm`);
     execFileSync(process.execPath, ["node_modules/assemblyscript/bin/asc.js", entry,
@@ -41,7 +42,7 @@ try {
     return count;
   };
   const lazy = await allocations("assembly/__tests__/scalar-startup.fixture.ts", "lazy");
-  const eager = await allocations("assembly/__tests__/scalar-startup-eager.tmp.ts", "eager");
+  const eager = await allocations(path.relative(root, eagerFixture), "eager");
   assert.equal(eager - lazy, 3, `scalar startup: lazy=${lazy}, eager=${eager}`);
   console.log(`Scalar startup: ${lazy} allocations, ${eager} with eager sentinels`);
 } finally {
