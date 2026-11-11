@@ -648,6 +648,29 @@ log format.
 
 ### Lazy Fields
 
+Ordinary `@json` parsing also uses access analysis by default. When a visible
+`JSON.parse<T>` result stays local, the transform can generate a reader that
+scans proven-unused fields without decoding them. For example:
+
+```ts
+@json
+class Point {
+  x: f32 = 0;
+  y: f32 = 0;
+  name: string = "";
+}
+
+const point = JSON.parse<Point>(input);
+const x = point.x; // y and name can be skipped at this parse site
+```
+
+The result remains an ordinary object: this optimization does not add lazy
+slots or getters. When every field is needed, or the result escapes or has
+uses the transform cannot prove safe, parsing retains the eager behavior.
+Potentially effectful initializers and custom decoders remain observable.
+Direct array-typed fields stay eager. Set `JSON_ACCESS_SPECIALIZATION=false`
+when compiling to disable this optimization.
+
 Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "auto" })`) to defer it: its raw JSON slice is stored at parse time and parsed only on first access. Fields you skip are never parsed, and untouched fields pass through their original bytes on serialize. See the [Lazy Fields guide](https://docs.jairus.dev/json-as/guide/lazy-fields) for the full API and trade-offs.
 
 Array-typed fields, including `JSON.Arr`, are parsed eagerly even when marked `@lazy` or `JSON.Lazy<T>` or included in a class-wide lazy mode. Elements within a dynamic `JSON.Arr` retain their separate deferred behavior.
