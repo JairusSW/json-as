@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Normalize supported alternating-NUL JSON encodings with one exact-size allocation instead of repeatedly copying a growing string. Preserve both byte orders and unchanged-input identity.
+
 ## 2026-11-09 - v2.0.0
 
 This release includes all changes since v1.6.3. The planned v1.7.0 release was never published; its changes are included in v2.0.0 below.

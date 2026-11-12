@@ -353,10 +353,18 @@ export function normalizeJSONEncoding(data: string): string {
     if (data.charCodeAt(i) != 0) return data;
   }
 
-  let out = "";
   const codeIndex = byteIndex ^ 1;
-  for (let i = codeIndex; i < length; i += 2)
-    out += String.fromCharCode(data.charCodeAt(i));
+  // Preserve the existing odd-length behavior: an LE input can end with a
+  // code unit, while a trailing BE NUL contributes no output code unit.
+  const outputLength = (length + byteIndex) >>> 1;
+  const out = changetype<string>(
+    __new((<usize>outputLength) << 1, idof<string>()),
+  );
+  let destination = changetype<usize>(out);
+  for (let i = codeIndex; i < length; i += 2) {
+    store<u16>(destination, data.charCodeAt(i));
+    destination += 2;
+  }
   return out;
 }
 
