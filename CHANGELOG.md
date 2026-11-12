@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Reuse checked cursor validation for strict parsing into existing destinations and custom codecs, retaining complete syntax validation before mutation or callbacks.
+
 ## 2026-11-09 - v2.0.0
 
 This release includes all changes since v1.6.3. The planned v1.7.0 release was never published; its changes are included in v2.0.0 below.
