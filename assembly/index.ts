@@ -129,7 +129,7 @@ import {
   hasLongPrettyIndent_SIMD,
   skipPrettyWhitespace_SIMD,
 } from "./util/prettyWhitespaceSimd";
-import { normalizeJSONEncoding, validateJSON } from "./util/validateJson";
+import { normalizeJSONEncoding } from "./util/validateJson";
 
 const VAL_QNAN: u64 = 0x7ffc000000000000; // boxed signature (quiet NaN)
 const VAL_TAG_SHIFT: u8 = 45;
@@ -682,7 +682,9 @@ export namespace JSON {
           throw new Error("Invalid JSON syntax or target value");
         return slot.value;
       }
-      if (!validateJSON(data)) throw new Error("Invalid JSON syntax");
+      // Finish grammar validation before reused destinations or custom codecs
+      // can observe the document. Share the checked discard cursor with validate.
+      if (!validateCursor(data)) throw new Error("Invalid JSON syntax");
     }
     let managePretty = false;
     let simdPretty = false;
