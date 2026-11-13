@@ -18,6 +18,7 @@ class Record {
 const input = '{"id":7,"title":"hello","body":"some text"}';
 
 function firstArgumentId(first: Record, _second: Record): i32 { return first.id; }
+function firstScalarArgument(first: i32, _second: Record): i32 { return first; }
 export function callArgumentOrder(): i32 {
   const first = JSON.parse<Record>('{"id":42,"body":"first"}');
   const second = JSON.parse<Record>('{"id":7,"body":"second"}');
@@ -29,6 +30,12 @@ export function callAssignmentArguments(): i32 {
   const second = JSON.parse<Record>('{"id":7,"body":"second"}');
   let selected = second;
   return firstArgumentId(selected = first, selected = second);
+}
+export function nestedCallAssignment(): i32 {
+  const first = JSON.parse<Record>('{"id":42,"body":"first"}');
+  const second = JSON.parse<Record>('{"id":7,"body":"second"}');
+  let selected = first;
+  return firstScalarArgument((selected = second).id, first);
 }
 function secondRestId(...values: Record[]): i32 { return values[1].id; }
 function laterRestId(_first: Record, ...values: Record[]): i32 { return values[1].id; }

@@ -64,6 +64,7 @@ try {
           }).exports;
           assert.equal(exports.callArgumentOrder(), 42);
           assert.equal(exports.callAssignmentArguments(), 42);
+          assert.equal(exports.nestedCallAssignment(), 7);
           assert.equal(exports.restArguments(), 42);
           assert.equal(exports.restAfterFixedArgument(), 42);
           assert.equal(decode(exports.templateRead()), "42:hello");
@@ -84,7 +85,7 @@ try {
           assert.equal(exports.namespaceGlobalRead(), 42);
           assert.equal(exports.defaultArgument(), 42);
           assert.equal(decode(exports.defaultStringArgument()), "hello");
-          checks += 22;
+          checks += 23;
           for (const [name, expected] of Object.entries({ partial: 7, eagerPartial: 7, full: "7:hello:some text",
             escaped: "some text", serialized: '{"id":7,"title":"hello","body":"some text"}', reordered: 8,
             stored: "some text", throughUnchecked: "some text", reused: "8:changed", escapedString: 9,
