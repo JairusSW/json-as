@@ -41,7 +41,7 @@ declare class JSONConfig {
    * }
    * ```
    */
-  lazy?: boolean | "none" | "auto" | "all" | "strategic";
+  lazy?: boolean | typeof lazy | "none" | "auto" | "all" | "strategic";
   /** Disable access-based parsing specialization for this class and its descendants. */
   nolazy?: boolean;
 }
@@ -182,6 +182,9 @@ declare function optional(..._): void;
  */
 // @ts-ignore: type
 declare function lazy(..._): void;
+
+/** Shorthand for disabling automatic access-based specialization in `@json({ nolazy })`. */
+declare const nolazy: true;
 
 /**
  * Field decorator that forces a property to be parsed eagerly, opting it out of
