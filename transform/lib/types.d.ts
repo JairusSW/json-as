@@ -43,9 +43,11 @@ export declare class Property {
     node: FieldDeclaration;
     byteSize: number;
     lazyInner: string | null;
+    lazyProperty: string | null;
     omitIfMethod: string | null;
     lazyPacked: boolean;
     lazyScalar: boolean;
+    lazyMaybeArray: boolean;
     _generic: boolean;
     _custom: boolean;
     parent: Schema;
@@ -103,6 +105,8 @@ export declare class Src {
     constructor(source: Source, sourceSet: SourceSet);
     private traverse;
     getNamespaces(node: DeclarationStatement): NamespaceDeclaration[];
+    getImportedLocalNames(): string[];
+    hasNamespaceImports(): boolean;
     getQualifiedName(node: DeclarationStatement): string;
     getClass(qualifiedName: string): ClassDeclaration | null;
     getClassInContext(name: string, owner: DeclarationStatement, visited?: Set<string>): ClassDeclaration | null;

@@ -206,12 +206,13 @@ export function createCursorDefault<T>(): T {
 
 /** Store one checked value and return its end, without discovering its extent
  * beforehand. The parent owns separators, whitespace, and the next value. */
-export function readCursorValue<T>(
+export function readCursorValue<T, P = i32>(
   start: usize,
   end: usize,
   dst: usize,
   offset: usize = 0,
   depth: i32 = 0,
+  plan: P = changetype<P>(0),
 ): usize {
   if (start >= end) return 0;
   const field = dst + offset;
@@ -239,7 +240,9 @@ export function readCursorValue<T>(
         __new(offsetof<nonnull<T>>(), idof<nonnull<T>>()),
       );
       initializeCursorObject(obj);
-      const next = obj.__DESERIALIZE_CURSOR(start, end, obj, depth);
+      const next = isReference<P>()
+        ? obj.__DESERIALIZE_CURSOR(start, end, obj, depth, plan)
+        : obj.__DESERIALIZE_CURSOR(start, end, obj, depth);
       if (next) {
         store<T>(field, obj);
         cursorLink(dst, changetype<usize>(obj), false);

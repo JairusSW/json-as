@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+- Respect function-scoped `var` shadowing when resolving receivers and helpers in strategic access analysis.
+
+- Keep parsing eager inside generic scopes where type parameters could shadow model declarations, and bound helper expansion during access analysis to avoid excessive compilation work.
+
+- Preserve parsed values used through assignment expressions, respect hoisted `var` shadowing during access analysis, and validate preserved numeric and Boolean aliases against their actual target types in strict parsing.
+
+- Preserve call argument evaluation order and conservatively handle rest parameters in access analysis. Bound control-flow path growth and fall back to eager parsing when the limit is reached. Correct signed and unsigned narrow values eagerly decoded into packed lazy slots.
+
+- Keep access-based parsing eager when values can cross conditional assignments, loop iterations, module or namespace boundaries, function-scoped `var` bindings, or omitted helper arguments. Track template and `void` expression reads. Restore lazy startup sentinels and the affected runtime decorators.
+
+- Specialize ordinary `@json` readers at visible parse sites by default. Proven-unused supported fields are scanned without decoding; full reads and uncertain or escaping uses retain eager behavior. Set `JSON_ACCESS_SPECIALIZATION=false` to disable this optimization.
+
+- Parse array-typed fields eagerly, including `JSON.Arr` fields using lazy markers or class-wide lazy modes. Dynamic `JSON.Arr` retains its existing deferred-element behavior.
+
+- Add opt-in `@json({ lazy: "strategic" })` parse-site specialization. Analyze guaranteed and conditionally weighted field reads, compare estimated eager/lazy costs, and generate compile-time reader plans without allocating strategy objects. Preserve ordinary explicit-lazy timing unless `JSON_STRATEGIC_LAZINESS=true` is enabled.
+
+- Keep generated fast readers enabled for lazy fields with pure defaults. Analyze the original field initializer and resolved native defaults instead of generated storage expressions; retain non-speculative parsing for application constructors and effectful defaults.
+
 ## 2026-11-09 - v2.0.0
 
 This release includes all changes since v1.6.3. The planned v1.7.0 release was never published; its changes are included in v2.0.0 below.

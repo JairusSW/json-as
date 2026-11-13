@@ -17,12 +17,17 @@ declare class JSONConfig {
    *
    * - `"none"` *(default)* - every field is parsed eagerly, up-front.
    * - `"auto"` - the transform defers fields whose estimated parse cost is high
-   *   (nested structs, arrays, maps, long strings) and keeps cheap fields
+   *   (nested structs, maps, long strings) and keeps cheap fields
    *   (primitives, enums, `Date`) eager. Use `@eager` to force a field back to
    *   eager, or `@lazy` to force one on.
-   * - `"all"` - every field is deferred. Best for proxy / filter / forward
+   * - `"all"` - every supported field is deferred. Best for proxy / filter / forward
    *   workloads over large payloads; note it generates a getter and a serialize
    *   branch per field, so module size grows with very wide schemas.
+   * - `"strategic"` - start with deferred fields, then specialize each visible
+   *   parse site using its field accesses. Guaranteed reads become eager;
+   *   conditional reads use weighted branch probabilities and decode costs.
+   *   Unknown/escaping uses keep their deferred representation.
+   * Array-typed fields always parse eagerly, including fields marked `@lazy`.
    *
    * @example
    * ```ts
@@ -34,7 +39,7 @@ declare class JSONConfig {
    * }
    * ```
    */
-  lazy?: "none" | "auto" | "all";
+  lazy?: "none" | "auto" | "all" | "strategic";
 }
 
 /**
@@ -160,6 +165,7 @@ declare function optional(..._): void;
  *
  * Equivalent to the `JSON.Lazy<T>` type-wrapper form. Pays off for fields you
  * usually skip or forward; reading a deferred field is a one-time cost.
+ * Array-typed fields parse eagerly even when marked `@lazy`.
  *
  * @example
  * ```ts

@@ -332,7 +332,10 @@ export class Visitor {
     }
     visitIntegerLiteralExpression(_node, _ref = null) { }
     visitStringLiteralExpression(_node, _ref = null) { }
-    visitTemplateLiteralExpression(_node, _ref = null) { }
+    visitTemplateLiteralExpression(node, _ref = null) {
+        this.visit(node.tag, node);
+        this.visit(node.expressions, node);
+    }
     visitRegexpLiteralExpression(_node, _ref = null) { }
     visitNewExpression(node, _ref = null) {
         this.visit(node.typeName, node);
@@ -516,7 +519,9 @@ export class Visitor {
         this.visit(node.condition, node);
         this.visit(node.body, node);
     }
-    visitVoidStatement(_node, _ref = null) { }
+    visitVoidStatement(node, _ref = null) {
+        this.visit(node.expression, node);
+    }
     visitComment(_node, _ref = null) { }
     visitDecoratorNode(node, _ref = null) {
         this.visit(node.name, node);

@@ -437,6 +437,45 @@ export function skipCursorString(start: usize, end: usize): usize {
   return 0;
 }
 
+@inline
+function trustedStringMask(block: u64): u64 {
+  const quote = block ^ 0x0022_0022_0022_0022;
+  const slash = block ^ 0x005c_005c_005c_005c;
+  return (((quote - 0x0001_0001_0001_0001) & ~quote) |
+    ((slash - 0x0001_0001_0001_0001) & ~slash)) & 0x0080_0080_0080_0080;
+}
+
+// The compact SWAR reader already matched the opening quote and uses a
+// trusted quote/backslash scan. Escapes use the checked scanner, with failure
+// falling back to the ordinary decoder for its exact error behavior.
+export function skipTrustedCursorString(start: usize, end: usize): usize {
+  if (start >= end || load<u16>(start) != 34) return 0;
+  let ptr = start + 2;
+  while (ptr <= end && end - ptr >= 8) {
+    let mask = trustedStringMask(load<u64>(ptr));
+    if (!mask && end - ptr >= 16) {
+      mask = trustedStringMask(load<u64>(ptr + 8));
+      if (!mask) { ptr += 16; continue; }
+      ptr += 8;
+    } else if (!mask) { ptr += 8; continue; }
+    do {
+      const candidate = ptr + (usize(ctz(mask)) >> 3);
+      mask &= mask - 1;
+      const code = load<u16>(candidate);
+      if (code == 34) return candidate + 2;
+      if (code == 92) return skipCursorString(start, end);
+    } while (mask);
+    ptr += 8;
+  }
+  while (ptr < end) {
+    const code = load<u16>(ptr);
+    if (code == 34) return ptr + 2;
+    if (code == 92) return skipCursorString(start, end);
+    ptr += 2;
+  }
+  return 0;
+}
+
 function skipCursorKey(start: usize, end: usize): usize {
   if (start >= end || load<u16>(start) != 34) return 0;
   let ptr = start + 2;
@@ -592,6 +631,72 @@ export function readCursorNumber<T extends number>(
 
 export function skipCursorNumber(start: usize, end: usize): usize {
   return numberCursor<f64>(start, end, 0, false);
+}
+
+// Skip only values that the checked reader for T would accept. A failure lets
+// the caller run its ordinary decoder, preserving its diagnostics and policy.
+export function skipCursorScalar<T>(start: usize, end: usize): usize {
+  if (start >= end) return 0;
+  const first = load<u16>(start);
+  if (isBoolean<T>())
+    return first == 116 || first == 102 ? readCursorLiteral(start, end, first) : 0;
+  if (isInteger<T>()) {
+    if (!isSigned<T>() && first == 45) return 0;
+    const digits = first == 45 ? start + 2 : start;
+    const next = scanDigits(digits, end);
+    if (next == digits || (next - digits > 2 && load<u16>(digits) == 48)) return 0;
+    if (next < end) {
+      const code = load<u16>(next);
+      if (code == 46 || (code | 32) == 101) return 0;
+    }
+    return next;
+  }
+  if (isFloat<T>()) return skipCursorNumber(start, end);
+  return 0;
+}
+
+@inline
+export function skipCursorGeneric<T>(start: usize, end: usize): usize {
+  if (isString<T>()) return skipCursorString(start, end);
+  if (isBoolean<T>() || isInteger<T>() || isFloat<T>()) return skipCursorScalar<T>(start, end);
+  return 0;
+}
+
+// Kinds are fixed by the transform from the field's declaring scope. Keeping
+// native type names here prevents a caller's shadowed aliases from rebinding
+// a child model's validation policy.
+@inline
+export function skipCursorNative(start: usize, end: usize, kind: i32): usize {
+  if (kind == 0) return skipCursorString(start, end);
+  if (kind == 1) return skipCursorScalar<bool>(start, end);
+  if (kind == 2) return skipCursorScalar<i32>(start, end);
+  if (kind == 3) return skipCursorScalar<u32>(start, end);
+  if (kind == 4) return skipCursorScalar<f64>(start, end);
+  return 0;
+}
+
+/** Checked, allocation-free scan for arrays of native scalars or strings. */
+export function skipCursorNativeArray<T>(start: usize, end: usize): usize {
+  if (start >= end || load<u16>(start) != 91) return 0;
+  let ptr = skipCursorWhitespace(start + 2, end);
+  if (ptr >= end) return 0;
+  if (load<u16>(ptr) == 93) return ptr + 2;
+  while (ptr < end) {
+    let next: usize = 0;
+    if (isNullable<T>() && load<u16>(ptr) == 110)
+      next = readCursorLiteral(ptr, end, 110);
+    else if (isString<T>()) next = skipCursorString(ptr, end);
+    else next = skipCursorScalar<T>(ptr, end);
+    if (!next) return 0;
+    ptr = skipCursorWhitespace(next, end);
+    if (ptr >= end) return 0;
+    const code = load<u16>(ptr);
+    if (code == 93) return ptr + 2;
+    if (code != 44) return 0;
+    ptr = skipCursorWhitespace(ptr + 2, end);
+    if (ptr >= end) return 0;
+  }
+  return 0;
 }
 
 export function readCursorLiteral(start: usize, end: usize, code: u16): usize {

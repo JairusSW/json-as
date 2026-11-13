@@ -648,7 +648,83 @@ log format.
 
 ### Lazy Fields
 
+Ordinary `@json` parsing also uses access analysis by default. When a visible
+`JSON.parse<T>` result stays local, the transform can generate a reader that
+scans proven-unused fields without decoding them. For example:
+
+```ts
+@json
+class Point {
+  x: f32 = 0;
+  y: f32 = 0;
+  name: string = "";
+}
+
+const point = JSON.parse<Point>(input);
+const x = point.x; // y and name can be skipped at this parse site
+```
+
+The result remains an ordinary object: this optimization does not add lazy
+slots or getters. When every field is needed, or the result escapes or has
+uses the transform cannot prove safe, parsing retains the eager behavior.
+Potentially effectful initializers and custom decoders remain observable.
+Direct array-typed fields stay eager. Set `JSON_ACCESS_SPECIALIZATION=false`
+when compiling to disable this optimization. See the [captured API benchmark
+results](bench/reports/access-specialization-api.md) for eager and specialized
+throughput, allocation counts, and measurement conditions.
+
 Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "auto" })`) to defer it: its raw JSON slice is stored at parse time and parsed only on first access. Fields you skip are never parsed, and untouched fields pass through their original bytes on serialize. See the [Lazy Fields guide](https://docs.jairus.dev/json-as/guide/lazy-fields) for the full API and trade-offs.
+
+Array-typed fields, including `JSON.Arr`, are parsed eagerly even when marked `@lazy` or `JSON.Lazy<T>` or included in a class-wide lazy mode. Elements within a dynamic `JSON.Arr` retain their separate deferred behavior.
+
+Opt into access-based specialization with `@json({ lazy: "strategic" })`:
+
+```ts
+@json({ lazy: "strategic" })
+class Vec3 {
+  x: f32 = 0;
+  y: f32 = 0;
+  z: f32 = 0;
+}
+
+const vec = JSON.parse<Vec3>(input);
+consume(vec.x); // this parse site decodes x eagerly; y and z remain deferred
+```
+
+The transform analyzes the original application AST separately for each parse
+site. A guaranteed field read is always eager. Each conditional edge contributes
+a weight of 1/2; nested edges contribute 1/4, 1/8, and so on. Complementary
+branches are combined, repeated reads contribute to estimated read frequency,
+and early returns exclude paths that cannot reach a read. These are compile-time
+heuristics, not measured execution probabilities.
+
+For conditional reads, the current model uses relative decode costs of 1 for
+scalars/enums, 4 for Date, 10 for strings, 15 for dynamic JSON values, and 20 for
+other references. Given access probability `p`, weighted read count `r`, and
+decode cost `c`, it compares eager cost `c + 0.25r` with lazy cost
+`p(c + 4) + 0.5r`. It selects eager materialization when lazy cost is higher.
+The constants estimate work; they are not timing guarantees. `JSON_DEBUG=true`
+prints the decisions, probabilities, and costs.
+
+[Captured API benchmarks](bench/reports/strategic-laziness-api.md) show faster
+selective GitHub, tweet and forecast reads than eager parsing in the tested
+workloads. Full-record consumption can still be slower. The report includes
+ordinary-lazy and default-eager controls, losses, allocation measurements and raw
+captures. Measure your workload before enabling this mode.
+
+Local variable aliases and statically known local helper calls are followed. Unresolved
+calls, branch-dependent mutable aliases, uninvoked closures, and uses outside the visible program stay conservative;
+fields remain readable through their lazy getters. The specialization preserves
+the actual model class and adds no allocated strategy object or runtime plan
+lookup. Eager numeric fields use native field decoders. Potentially effectful
+reference decodes use the non-speculative reader to avoid callback replay.
+
+Existing explicit lazy declarations retain their behavior by default. To apply
+access analysis to those declarations too, compile with
+`JSON_STRATEGIC_LAZINESS=true`. Set `JSON_STRATEGIC_LAZINESS=false` to disable
+specialization, including for strategic classes, while keeping their fields lazy.
+Opting in can move decoding errors and custom-decoder side effects from first
+access to parse time. `@eager` fields remain eager regardless of the analysis.
 
 Skipping the deferred fields makes deserialization several times faster, and the win grows with payload size:
 

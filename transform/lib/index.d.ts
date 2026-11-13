@@ -27,6 +27,11 @@ export declare class JSONTransform extends Visitor {
     visitedClasses: Set<string>;
     pureNumericConstants: Set<string>;
     numericConstantShadows: Set<string>;
+    prepareStrategicLaziness(sources: Source[]): void;
+    private ordinarySpecializedFields;
+    private ordinaryGenericFields;
+    private ordinaryObjectValidators;
+    prepareOrdinarySpecialization(sources: Source[]): void;
     private eagerOverrides;
     private lazySourceFields;
     private lazySourceInstalled;
@@ -34,6 +39,7 @@ export declare class JSONTransform extends Visitor {
     private generatedRuntimeName;
     private runtimeReference;
     private lazyRuntimeSource;
+    private isArrayFieldType;
     private lazyInnerType;
     prepareLazyOverrides(sources: Source[]): void;
     private usesBuiltinRepresentation;
@@ -41,6 +47,7 @@ export declare class JSONTransform extends Visitor {
     private inheritedAliasId;
     private inheritedTypeBinding;
     private lazyMetadata;
+    private lazyOriginalFields;
     private logicalFieldName;
     private collectInheritedFieldMembers;
     private inheritedOmissionHelpers;

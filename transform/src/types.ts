@@ -82,9 +82,12 @@ export class Property {
   // For `JSON.Lazy<T>` slot members: the inner type T, used by the
   // deserialize (range store) and serialize (raw emit / materialized) codegen.
   public lazyInner: string | null = null;
+  public lazyProperty: string | null = null;
   public omitIfMethod: string | null = null;
   public lazyPacked: boolean = false;
   public lazyScalar: boolean = false;
+  // Generic lazy fields may be instantiated with an array type.
+  public lazyMaybeArray: boolean = false;
   public _generic: boolean = false;
   public _custom: boolean = false;
   public parent: Schema;
@@ -359,6 +362,19 @@ export class Src {
 
   getNamespaces(node: DeclarationStatement): NamespaceDeclaration[] {
     return this.nodeMap.get(node) ?? [];
+  }
+
+  getImportedLocalNames(): string[] {
+    const names = new Set<string>();
+    for (const statement of this.imports) {
+      if (statement.namespaceName) names.add(statement.namespaceName.text);
+      for (const declaration of statement.declarations || []) names.add(declaration.name.text);
+    }
+    return [...names];
+  }
+
+  hasNamespaceImports(): boolean {
+    return this.imports.some((statement) => !!statement.namespaceName);
   }
 
   /**

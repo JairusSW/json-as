@@ -25,6 +25,11 @@ import {
   readCursorLiteral,
   skipCursorWhitespace,
   skipCursorString,
+  skipTrustedCursorString,
+  skipCursorScalar,
+  skipCursorGeneric,
+  skipCursorNative,
+  skipCursorNativeArray,
   skipCheckedValue,
   validateCursor,
 } from "./deserialize/cursor";
@@ -293,7 +298,7 @@ export namespace JSON {
    * type alias), so a field declared `JSON.Lazy<T>` is typed and accessed
    * exactly like `T`. The transform detects the annotation and defers that
    * field: its raw JSON slice is stored at parse time and parsed into `T` on
-   * first access (a generated get accessor).
+   * first access (a generated get accessor). Array-typed fields parse eagerly.
    */
   export type Lazy<T> = T;
 
@@ -529,6 +534,18 @@ export namespace JSON {
     return readCursorValue<T>(start, end, dst, offset, depth);
   }
 
+  @inline export function __cursorReadPlanned<T, P>(
+    _type: T,
+    plan: P,
+    start: usize,
+    end: usize,
+    dst: usize,
+    offset: usize = 0,
+    depth: i32 = 0,
+  ): usize {
+    return readCursorValue<T, P>(start, end, dst, offset, depth, plan);
+  }
+
 
   @inline export function __cursorWhitespace(ptr: usize, end: usize): usize {
     return skipCursorWhitespace(ptr, end);
@@ -538,6 +555,31 @@ export namespace JSON {
   @inline export function __cursorSkipString(ptr: usize, end: usize): usize {
     return skipCursorString(ptr, end);
   }
+
+  @inline export function __cursorSkipTrustedString(ptr: usize, end: usize): usize {
+    return JSON_MODE == JSONMode.SWAR
+      ? skipTrustedCursorString(ptr, end)
+      : skipCursorString(ptr, end);
+  }
+
+  @inline export function __cursorSkipScalar<T>(ptr: usize, end: usize): usize {
+    return skipCursorScalar<T>(ptr, end);
+  }
+
+  @inline export function __cursorSkipGeneric<T>(ptr: usize, end: usize): usize {
+    return skipCursorGeneric<T>(ptr, end);
+  }
+
+  @inline export function __cursorSkipNative(ptr: usize, end: usize, kind: i32): usize {
+    return skipCursorNative(ptr, end, kind);
+  }
+
+  @inline export function __cursorSkipStringArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<string>(ptr, end); }
+  @inline export function __cursorSkipNullableStringArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<string | null>(ptr, end); }
+  @inline export function __cursorSkipBooleanArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<bool>(ptr, end); }
+  @inline export function __cursorSkipSignedArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<i32>(ptr, end); }
+  @inline export function __cursorSkipUnsignedArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<u32>(ptr, end); }
+  @inline export function __cursorSkipFloatArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<f64>(ptr, end); }
 
 
   @inline export function __cursorSkipValue(
@@ -566,7 +608,10 @@ export namespace JSON {
     return validateCursor(normalizeJSONEncoding(data));
   }
 
-  export function parse<T>(data: string, out: T = __zero<T>()): T {
+  export function parse<T, __JSON_PLAN = i32>(
+    data: string,
+    out: T = __zero<T>(),
+  ): T {
     if (isManaged<T>() || isReference<T>()) {
       if (changetype<usize>(out) == 0) clearStringFieldTrace();
     } else clearStringFieldTrace();
@@ -575,7 +620,11 @@ export namespace JSON {
       let fresh = true;
       if (isReference<T>() || isManaged<T>())
         fresh = changetype<usize>(out) == 0;
-      if (fresh && __cursorSupports<T>()) {
+      if (
+        fresh &&
+        !isDefined(changetype<__JSON_PLAN>(0).__json_strategic_effects) &&
+        __cursorSupports<T>()
+      ) {
         if (isNullable<T>()) {
           const start = skipCursorWhitespace(
             changetype<usize>(data),
@@ -637,22 +686,40 @@ export namespace JSON {
             // @ts-expect-error: generated marker for fully owned scalar fields
             if (isDefined(type.__DESERIALIZE_SOURCE_FREE)) {
               initializeCursorObject(obj);
-              next = obj.__DESERIALIZE_CURSOR(
-                skipCursorWhitespace(start, end),
-                end,
-                obj,
-                0,
-              );
+              if (isReference<__JSON_PLAN>())
+                next = obj.__DESERIALIZE_CURSOR(
+                  skipCursorWhitespace(start, end),
+                  end,
+                  obj,
+                  0,
+                  changetype<__JSON_PLAN>(0),
+                );
+              else
+                next = obj.__DESERIALIZE_CURSOR(
+                  skipCursorWhitespace(start, end),
+                  end,
+                  obj,
+                  0,
+                );
             } else {
               const previous = getParseSrc();
               setParseSrc(data);
               initializeCursorObject(obj);
-              next = obj.__DESERIALIZE_CURSOR(
-                skipCursorWhitespace(start, end),
-                end,
-                obj,
-                0,
-              );
+              if (isReference<__JSON_PLAN>())
+                next = obj.__DESERIALIZE_CURSOR(
+                  skipCursorWhitespace(start, end),
+                  end,
+                  obj,
+                  0,
+                  changetype<__JSON_PLAN>(0),
+                );
+              else
+                next = obj.__DESERIALIZE_CURSOR(
+                  skipCursorWhitespace(start, end),
+                  end,
+                  obj,
+                  0,
+                );
               setParseSrc(previous);
             }
             if (isDefined(__endAllocBatch)) __endAllocBatch(previousBatch);
@@ -747,10 +814,10 @@ export namespace JSON {
         if (managePretty) {
           const prevPretty = isPrettyParse();
           setPrettyParse(simdPretty);
-          result = parseInternal<T>(data, out);
+          result = parseInternal<T, __JSON_PLAN>(data, out);
           setPrettyParse(prevPretty);
         } else {
-          result = parseInternal<T>(data, out);
+          result = parseInternal<T, __JSON_PLAN>(data, out);
         }
         const failed = takeProductionParseError();
         endStringFieldTrace(!failed);
@@ -773,10 +840,10 @@ export namespace JSON {
     if (managePretty) {
       const prevPretty = isPrettyParse();
       setPrettyParse(simdPretty);
-      result = parseInternal<T>(data, out);
+      result = parseInternal<T, __JSON_PLAN>(data, out);
       setPrettyParse(prevPretty);
     } else {
-      result = parseInternal<T>(data, out);
+      result = parseInternal<T, __JSON_PLAN>(data, out);
     }
     setParseSrc(prevSrc);
     const failed = takeProductionParseError();
@@ -785,7 +852,10 @@ export namespace JSON {
     return result;
   }
 
-  function parseInternal<T>(data: string, out: T = __zero<T>()): T {
+  function parseInternal<T, __JSON_PLAN = i32>(
+    data: string,
+    out: T = __zero<T>(),
+  ): T {
     let dataPtr = changetype<usize>(data);
     const dataEnd = dataPtr + bytes(data);
     // Entry point skips leading whitespace: every deserialize handler may then
@@ -857,6 +927,9 @@ export namespace JSON {
         // @ts-expect-error: a derived schema may disable inherited fast methods
         if (isDefined(obj.__DESERIALIZE_FAST_ENABLED))
           canFast = obj.__DESERIALIZE_FAST_ENABLED();
+        // Strategy types carry compile-time decisions only; no plan is allocated.
+        if (isDefined(changetype<__JSON_PLAN>(0).__json_strategic_effects))
+          canFast = false;
         // The certificate belongs to the declaring schema, not its descendants.
         let fullWrite = false;
         if (isDefined(type.__DESERIALIZE_FULL_WRITE)) {
@@ -881,20 +954,38 @@ export namespace JSON {
             isDefined(type.__DESERIALIZE_FAST_PRETTY)
           ) {
             // @ts-expect-error: Defined by transform
-            fastEnd = obj.__DESERIALIZE_FAST_PRETTY(
-              dataPtr,
-              dataPtr + dataSize,
-              obj,
-              reuse,
-            );
+            if (isReference<__JSON_PLAN>())
+              fastEnd = obj.__DESERIALIZE_FAST_PRETTY(
+                dataPtr,
+                dataPtr + dataSize,
+                obj,
+                reuse,
+                changetype<__JSON_PLAN>(0),
+              );
+            else
+              fastEnd = obj.__DESERIALIZE_FAST_PRETTY(
+                dataPtr,
+                dataPtr + dataSize,
+                obj,
+                reuse,
+              );
           } else {
             // @ts-expect-error: Defined by transform
-            fastEnd = obj.__DESERIALIZE_FAST(
-              dataPtr,
-              dataPtr + dataSize,
-              obj,
-              reuse,
-            );
+            if (isReference<__JSON_PLAN>())
+              fastEnd = obj.__DESERIALIZE_FAST(
+                dataPtr,
+                dataPtr + dataSize,
+                obj,
+                reuse,
+                changetype<__JSON_PLAN>(0),
+              );
+            else
+              fastEnd = obj.__DESERIALIZE_FAST(
+                dataPtr,
+                dataPtr + dataSize,
+                obj,
+                reuse,
+              );
           }
           // A non-zero return means the fast path matched; accept it when only
           // trailing whitespace remains (pretty-printed input ends with a
@@ -918,11 +1009,17 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_SLOW)) {
           // @ts-expect-error: Defined by transform
-          const slowEnd = obj.__DESERIALIZE_SLOW(
-            dataPtr,
-            dataPtr + dataSize,
-            obj,
-          );
+          let slowEnd: usize;
+          if (isReference<__JSON_PLAN>())
+            slowEnd = obj.__DESERIALIZE_SLOW(
+              dataPtr,
+              dataPtr + dataSize,
+              obj,
+              false,
+              changetype<__JSON_PLAN>(0),
+            );
+          else
+            slowEnd = obj.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, obj);
           if (slowEnd == 0) markProductionParseError();
           // @ts-expect-error: Defined by transform for @lazy-field structs.
           if (
@@ -1516,7 +1613,8 @@ export namespace JSON {
         allocateObject(offsetof<JSON.Value>(), idof<JSON.Value>()),
       );
       out.bits = w;
-      if (root) linkObject(changetype<usize>(out), changetype<usize>(root), false);
+      if (root)
+        linkObject(changetype<usize>(out), changetype<usize>(root), false);
       return out;
     }
     /** Concrete NaN-boxed bits for a value of type T (materializing if lazy). */
@@ -3386,6 +3484,23 @@ export namespace JSON {
    */
   // A field's usize zero is numeric, even though the public scalar API uses
   // usize(0) as its internal null sentinel. Lazy fields preserve eager spelling.
+  /** Array-valued generic fields are decoded eagerly even through JSON.Lazy<T>. */
+  @inline
+  function __isArrayField<T>(): bool {
+    if (isArray<nonnull<T>>()) return true;
+    if (isReference<T>()) {
+      const type = changetype<nonnull<T>>(0);
+      return type instanceof JSON.Arr || type instanceof StaticArray ||
+        type instanceof Int8Array || type instanceof Uint8Array ||
+        type instanceof Uint8ClampedArray || type instanceof Int16Array ||
+        type instanceof Uint16Array || type instanceof Int32Array ||
+        type instanceof Uint32Array || type instanceof Int64Array ||
+        type instanceof Uint64Array || type instanceof Float32Array ||
+        type instanceof Float64Array;
+    }
+    return false;
+  }
+
   function __lazyDefault<T>(): T {
     if (isNullable<T>()) return changetype<T>(0);
     if (isBoolean<T>() || isInteger<T>() || isFloat<T>()) return <T>0;
@@ -3583,7 +3698,11 @@ export namespace JSON {
 
   /** Internal publication entry for generated readers. */
   @inline
-  function __linkObject(parent: usize, child: usize, expectMultiple: bool = false): void {
+  function __linkObject(
+    parent: usize,
+    child: usize,
+    expectMultiple: bool = false,
+  ): void {
     linkObject(parent, child, expectMultiple);
   }
 
@@ -3792,10 +3911,63 @@ export namespace JSON {
   }
 
   /** Worker for generated and recursive readers; errors reach the outer boundary. */
-  function __deserializeValue<T>(
+  @inline
+  function __initializePlannedObject<T>(value: T): bool {
+    const type = changetype<nonnull<T>>(0);
+    let defer = false;
+    if (isDefined(type.__DESERIALIZE_DEFER_DEFAULTS)) {
+      if (isDefined(type.__DESERIALIZE_FULL_WRITE)) {
+        // @ts-expect-error: supplied by transform
+        defer = value.__DESERIALIZE_DEFER_DEFAULTS() == idof<nonnull<T>>() &&
+          // @ts-expect-error: supplied by transform
+          value.__DESERIALIZE_FULL_WRITE() == idof<nonnull<T>>();
+      }
+    }
+    if (defer) {
+      clearAllocatedObject(changetype<usize>(value), offsetof<nonnull<T>>());
+      return false;
+    }
+    if (isDefined(type.__INITIALIZE)) {
+      // @ts-expect-error: supplied by transform
+      value.__INITIALIZE();
+      return true;
+    }
+    clearAllocatedObject(changetype<usize>(value), offsetof<nonnull<T>>());
+    return false;
+  }
+
+  @inline
+  function __deserializePlannedObjectField<T, P>(
+    value: T,
+    plan: P,
+    start: usize,
+    end: usize,
+    resetMissing: bool,
+    whitespace: bool,
+  ): usize {
+    const type = changetype<nonnull<T>>(0);
+    if (whitespace && isDefined(type.__DESERIALIZE_WHITESPACE)) {
+      // @ts-expect-error: generated reader
+      return value.__DESERIALIZE_WHITESPACE(start, end, value, resetMissing, plan);
+    }
+    // @ts-expect-error: generated reader
+    return value.__DESERIALIZE_FAST(start, end, value, resetMissing, plan);
+  }
+
+  function __deserializePlannedValue<T, P>(
+    _type: T,
+    plan: P,
+    srcStart: usize,
+    srcEnd: usize,
+  ): T {
+    return __deserializeValue<T, P>(srcStart, srcEnd, 0, plan);
+  }
+
+  function __deserializeValue<T, __JSON_PLAN = i32>(
     srcStart: usize,
     srcEnd: usize,
     dst: usize = 0,
+    plan: __JSON_PLAN = changetype<__JSON_PLAN>(0),
   ): T {
     // Skip leading whitespace once here so every handler below may assume
     // srcStart is at the first non-whitespace char. (Trailing whitespace is
@@ -3861,6 +4033,7 @@ export namespace JSON {
         // @ts-expect-error: supplied by transform
         if (isDefined(out.__DESERIALIZE_FAST_ENABLED))
           canFast = out.__DESERIALIZE_FAST_ENABLED();
+        if (isDefined(plan.__json_strategic_effects)) canFast = false;
         // Generated fast paths may preserve omitted fields and reuse existing
         // strings/containers. Initialize only a freshly allocated object here;
         // callers that pass `dst` intentionally retain that reusable graph.
@@ -3870,7 +4043,9 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_FAST) && canFast) {
           // @ts-expect-error: Defined by transform
-          const fastEnd = out.__DESERIALIZE_FAST(srcStart, srcEnd, out, !fresh);
+          const fastEnd = isReference<__JSON_PLAN>()
+            ? out.__DESERIALIZE_FAST(srcStart, srcEnd, out, !fresh, plan)
+            : out.__DESERIALIZE_FAST(srcStart, srcEnd, out, !fresh);
           // Accept the fast path when only trailing whitespace remains.
           if (
             fastEnd != 0 &&
@@ -3883,7 +4058,9 @@ export namespace JSON {
         // @ts-expect-error: Defined by transform
         if (isDefined(type.__DESERIALIZE_SLOW)) {
           // @ts-expect-error: Defined by transform
-          const slowEnd = out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
+          const slowEnd = isReference<__JSON_PLAN>()
+            ? out.__DESERIALIZE_SLOW(srcStart, srcEnd, out, false, plan)
+            : out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
           if (slowEnd == 0) {
             markProductionParseError();
             return changetype<T>(0);
@@ -4011,6 +4188,7 @@ export namespace JSON {
     export function hasCompositeReuseScope(): bool {
       return compositeReuseScopeActive();
     }
+
     @inline
     export function reuseCompositeBuffer(value: usize, field: usize): usize {
       if (value == 0) return 0;
@@ -4103,7 +4281,8 @@ export namespace JSON {
         sizeof<usize>() != 4 ||
         isDefined(ASC_RTRACE) ||
         isDefined(ASC_PROFILE)
-      ) return skipWhitespace(srcStart, srcEnd);
+      )
+        return skipWhitespace(srcStart, srcEnd);
       if (srcStart >= srcEnd || !isSpace(load<u16>(srcStart))) return srcStart;
       srcStart += 2;
       if (srcStart >= srcEnd || !isSpace(load<u16>(srcStart))) return srcStart;
@@ -4114,10 +4293,8 @@ export namespace JSON {
       // limit rejects ranges shorter than a word, including an end below 8.
       // Keeping the last legal load address avoids subtracting ptr each trip.
       const wordEnd = <i64>end - 8;
-      while (
-        <i64>ptr <= wordEnd &&
-        load<u64>(ptr) == 0x0020_0020_0020_0020
-      ) ptr += 8;
+      while (<i64>ptr <= wordEnd && load<u64>(ptr) == 0x0020_0020_0020_0020)
+        ptr += 8;
       while (ptr < end && isSpace(load<u16>(ptr))) ptr += 2;
       return ptr;
     }
@@ -4252,9 +4429,12 @@ export namespace JSON {
      * @param data - string
      * @returns - T
      */
-    export function parse<T>(data: string, out: T = __zero<T>()): T {
+    export function parse<T, __JSON_PLAN = i32>(
+      data: string,
+      out: T = __zero<T>(),
+    ): T {
       bs.saveState();
-      const result = JSON.parse<T>(data, out);
+      const result = JSON.parse<T, __JSON_PLAN>(data, out);
       bs.loadState();
       return result;
     }

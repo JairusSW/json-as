@@ -465,9 +465,12 @@ export class Visitor {
     _ref: Node | null = null,
   ): void {}
   visitTemplateLiteralExpression(
-    _node: TemplateLiteralExpression,
+    node: TemplateLiteralExpression,
     _ref: Node | null = null,
-  ): void {}
+  ): void {
+    this.visit(node.tag, node);
+    this.visit(node.expressions, node);
+  }
   visitRegexpLiteralExpression(
     _node: RegexpLiteralExpression,
     _ref: Node | null = null,
@@ -737,7 +740,9 @@ export class Visitor {
     this.visit(node.condition, node);
     this.visit(node.body, node);
   }
-  visitVoidStatement(_node: VoidStatement, _ref: Node | null = null): void {}
+  visitVoidStatement(node: VoidStatement, _ref: Node | null = null): void {
+    this.visit(node.expression, node);
+  }
   visitComment(_node: CommentNode, _ref: Node | null = null): void {}
   visitDecoratorNode(node: DecoratorNode, _ref: Node | null = null): void {
     this.visit(node.name, node);

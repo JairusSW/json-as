@@ -7,6 +7,7 @@
 
 import { keyDispatch, type KeyDispatch } from "./key-dispatch.js";
 import { PropertyFlags, type Property } from "./types.js";
+import { isScalarType } from "./scalars.js";
 
 type Entry = { member: Property; id: number; encoded: string };
 
@@ -16,6 +17,9 @@ export function generateCursorParser(
   members: Property[],
   compare: (key: string, ptr: string, operator: string) => string[],
   completeDefaults = false,
+  specializedFields?: Set<string>,
+  objectValidators?: Map<string, { method: string }>,
+  genericFields?: Set<string>,
 ): string {
   const entries = members.map((member, id) => ({
     member,
@@ -68,20 +72,29 @@ export function generateCursorParser(
           .replaceAll("\u2029", "\\u2029")}) field = ${entry.id};`,
     )
     .join("\n");
+  const readField = (member: Property, field: string): string => {
+    const read = `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
+    if (!specializedFields?.has(member.name)) return read;
+    const validator = objectValidators?.get(member.name);
+    const skip = validator ? `this.${validator.method}` : genericFields?.has(member.name) ? `JSON.__cursorSkipGeneric<${member.type}>` :
+      isScalarType(member.type) ? `JSON.__cursorSkipScalar<${member.type}>` : `JSON.__cursorSkipGeneric<${member.type}>`;
+    return `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {
+      const skipped = ${skip}(srcStart, srcEnd);
+      if (skipped) srcStart = skipped;
+      else { ${read} }
+    } else { ${read} }`;
+  };
   const values = entries
     .map(({ member, id }) => {
       const field = `offsetof<this>(${JSON.stringify(member.name)})`;
       if (member.flags.has(PropertyFlags.Lazy)) {
         return `case ${id}: {
-        const valueStart = srcStart;
-        srcStart = JSON.__cursorSkipValue(srcStart, srcEnd, depth + 1);
-        if (!srcStart) return 0;
-        store<u64>(changetype<usize>(out), (<u64>valueStart << 32) | <u64><u32>srcStart, ${field});
+        ${readLazy(member, field)}
         break;
       }`;
       }
       return `case ${id}: {
-      srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);
+      ${readField(member, field)}
       break;
     }`;
     })
@@ -99,11 +112,8 @@ export function generateCursorParser(
             const { member, id } = entry;
             const field = `offsetof<this>(${JSON.stringify(member.name)})`;
             const read = member.flags.has(PropertyFlags.Lazy)
-              ? `const valueStart = srcStart;
-             srcStart = JSON.__cursorSkipValue(srcStart, srcEnd, depth + 1);
-             if (!srcStart) return 0;
-             store<u64>(changetype<usize>(out), (<u64>valueStart << 32) | <u64><u32>srcStart, ${field});`
-              : `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
+              ? `${readLazy(member, field)}`
+              : readField(member, field);
             return `{
           const keyStart = srcStart;
           if (!(keyStart + ${(entry.encoded.length + 1) << 1} <= srcEnd && ${compare(entry.encoded + ":", "keyStart", "==").join(" && ")})) break;
@@ -125,7 +135,7 @@ export function generateCursorParser(
           .join("\n") +
         "\n} while (false);"
       : "";
-  return `__DESERIALIZE_CURSOR<__JSON_T>(srcStart: usize, srcEnd: usize, out: __JSON_T, depth: i32): usize {
+  return `__DESERIALIZE_CURSOR<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, depth: i32, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {
     if (depth >= 256 || srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;
     ${anchor}
     srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);
@@ -172,5 +182,31 @@ export function generateCursorParser(
       srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);
     }
     return 0;
+  }`;
+}
+
+function readLazy(member: Property, field: string): string {
+  const offset = member.lazyPacked
+    ? field
+    : `offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")})`;
+  const mark = member.lazyPacked
+    ? `store<u32>(changetype<usize>(out), 0xffffffff, ${field} + 4);`
+    : `store<u64>(changetype<usize>(out), u64.MAX_VALUE, ${field});
+       if (isManaged<${member.lazyInner}>()) JSON.__linkObject(changetype<usize>(out), load<usize>(changetype<usize>(out), ${offset}), false);`;
+  const eagerArray = member.lazyMaybeArray ? `JSON.__isArrayField<${member.lazyInner}>() || ` : "";
+  return `if (${eagerArray}isDefined(changetype<__JSON_PLAN>(0).__json_eager_${member.lazyProperty || member.name})) {
+    if (isDefined(changetype<__JSON_PLAN>(0).__json_child_${member.lazyProperty || member.name})) {
+      srcStart = JSON.__cursorReadPlanned(changetype<${member.lazyInner}>(0), changetype<__JSON_PLAN>(0).__json_child_${member.lazyProperty || member.name}(), srcStart, srcEnd, changetype<usize>(out), ${offset}, depth + 1);
+    } else {
+      srcStart = JSON.__cursorRead<${member.lazyInner}>(srcStart, srcEnd, changetype<usize>(out), ${offset}, depth + 1);
+    }
+    if (!srcStart) return 0;
+    ${member.lazyPacked ? `if (sizeof<${member.lazyInner}>() < 4) store<u32>(changetype<usize>(out), <u32>load<${member.lazyInner}>(changetype<usize>(out), ${offset}), ${offset});` : ""}
+    ${mark}
+  } else {
+    const valueStart = srcStart;
+    srcStart = JSON.__cursorSkipValue(srcStart, srcEnd, depth + 1);
+    if (!srcStart) return 0;
+    store<u64>(changetype<usize>(out), (<u64>valueStart << 32) | <u64><u32>srcStart, ${field});
   }`;
 }

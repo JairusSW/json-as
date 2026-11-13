@@ -31,7 +31,7 @@ export declare class Visitor {
     visitInstanceOfExpression(node: InstanceOfExpression, _ref?: Node | null): void;
     visitIntegerLiteralExpression(_node: IntegerLiteralExpression, _ref?: Node | null): void;
     visitStringLiteralExpression(_node: StringLiteralExpression, _ref?: Node | null): void;
-    visitTemplateLiteralExpression(_node: TemplateLiteralExpression, _ref?: Node | null): void;
+    visitTemplateLiteralExpression(node: TemplateLiteralExpression, _ref?: Node | null): void;
     visitRegexpLiteralExpression(_node: RegexpLiteralExpression, _ref?: Node | null): void;
     visitNewExpression(node: NewExpression, _ref?: Node | null): void;
     visitParenthesizedExpression(node: ParenthesizedExpression, _ref?: Node | null): void;
@@ -79,7 +79,7 @@ export declare class Visitor {
     visitVariableDeclaration(node: VariableDeclaration, _ref?: Node | null): void;
     visitVariableStatement(node: VariableStatement, _ref?: Node | null): void;
     visitWhileStatement(node: WhileStatement, _ref?: Node | null): void;
-    visitVoidStatement(_node: VoidStatement, _ref?: Node | null): void;
+    visitVoidStatement(node: VoidStatement, _ref?: Node | null): void;
     visitComment(_node: CommentNode, _ref?: Node | null): void;
     visitDecoratorNode(node: DecoratorNode, _ref?: Node | null): void;
     visitParameter(node: ParameterNode, _ref?: Node | null): void;
