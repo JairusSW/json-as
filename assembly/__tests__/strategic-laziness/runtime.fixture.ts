@@ -8,6 +8,23 @@
 import { JSON } from "../../index";
 import { __heap_base } from "memory";
 
+@json({ lazy: "strategic" })
+class ShadowedParserModel {
+  value: i32 = 7;
+  unused: string = "unused";
+}
+class ShadowedParser {
+  parse<T>(_data: string): T { return instantiate<T>(); }
+}
+export function hoistedLocalParser(): i32 {
+  {
+    // eslint-disable-next-line no-var
+    var JSON = new ShadowedParser();
+  }
+  const value = JSON.parse<ShadowedParserModel>("ignored");
+  return value.value;
+}
+
 function collectWithRoot<T>(root: T): void {
   if (isDefined(__collect)) {
     const ptr = changetype<usize>(root);

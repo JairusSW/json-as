@@ -380,7 +380,7 @@ export class StrategicAccessAnalysis extends Visitor {
         ];
         this.thisSite = receiver;
         this.callableScopeStart = this.scopes.length - 1;
-        this.varBindings = this.conservativeEscapes ? this.collectVarBindings(fn.body) : new Set();
+        this.varBindings = this.collectVarBindings(fn.body);
         this.namespace = this.callableNamespaces.get(fn) || [];
         this.terminated = false;
         this.expanding.add(fn);
@@ -431,7 +431,7 @@ export class StrategicAccessAnalysis extends Visitor {
         this.callableSiteStart = this.sites.length;
         this.helperExpansions = 0;
         this.callableScopeStart = this.scopes.length - 1;
-        this.varBindings = this.conservativeEscapes ? this.collectVarBindings(node.body) : new Set();
+        this.varBindings = this.collectVarBindings(node.body);
         this.thisSite = null;
         this.terminated = false;
         this.callableDepth++;

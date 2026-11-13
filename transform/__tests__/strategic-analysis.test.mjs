@@ -93,6 +93,39 @@ assert.equal(traversalSites[0].escaped, true);
 traversalSites = analyze('let v = other; const alias = (v = JSON.parse<Vec3>("{}")); alias.x;');
 assert.equal(traversalSites[0].escaped, true);
 assert.equal(analyze('if (a) { var JSON = local(); } JSON.parse<Vec3>("{}");').length, 0);
+for (const conservative of [false, true]) {
+  const parser = new Parser();
+  parser.parseFile(`
+    function read(value: Vec3): void { value.x; }
+    function alternate(value: Vec3): void { value.y; }
+    function probe(): void {
+      if (true) { var read = alternate; }
+      const value = JSON.parse<Vec3>("{}");
+      read(value);
+    }
+    function delegate(value: Vec3): void {
+      if (true) { var read = alternate; }
+      read(value);
+    }
+    function caller(): void {
+      const value = JSON.parse<Vec3>("{}");
+      delegate(value);
+    }
+    function localParser(): void {
+      if (true) { var JSON = local(); }
+      JSON.parse<Vec3>("{}");
+    }
+  `, "strategic-hoisted.ts", true);
+  const analysis = new StrategicAccessAnalysis(
+    (call, shadowed) => call.expression.property?.text === "parse" && !shadowed("JSON") ? {} : null,
+    undefined,
+    conservative,
+  );
+  analysis.visit(parser.sources[0]);
+  assert.equal(analysis.sites.length, 2);
+  assert.equal(analysis.sites[0].escaped, true);
+  assert.equal(analysis.sites[1].escaped, true);
+}
 let sites = analyze(
   `const v = JSON.parse<Vec3>("{}"); v.x; if (a) { if (b) { if (c) v.y; } }`,
 );

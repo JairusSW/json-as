@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Respect function-scoped `var` shadowing when resolving receivers and helpers in strategic access analysis.
+
 - Keep parsing eager inside generic scopes where type parameters could shadow model declarations, and bound helper expansion during access analysis to avoid excessive compilation work.
 
 - Preserve parsed values used through assignment expressions, respect hoisted `var` shadowing during access analysis, and validate preserved numeric and Boolean aliases against their actual target types in strict parsing.

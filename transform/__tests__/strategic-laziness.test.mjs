@@ -94,6 +94,7 @@ try {
       for (const strict of process.env.PROBE_QUICK ? [false] : [false, true])
         for (const fast of process.env.PROBE_QUICK ? [true] : [false, true]) {
           const { check, checkRejects } = compile(mode, runtime, strict, fast);
+          check("hoistedLocalParser", [], 7);
           check("apiFastCapability", [], fast ? 1 : 0);
           check("apiSummary", [], "7:hello");
           check("reviewSignedByte", [], -1);
@@ -192,6 +193,7 @@ try {
   for (const strategy of ["false", "true"])
     for (const strict of [false, true]) {
       const { check } = compile("SWAR", "incremental", strict, true, strategy);
+      check("hoistedLocalParser", [], 7);
       check("reviewSignedByte", [], -1);
       check("reviewSignedShort", [], -2);
       check("reviewSignedNegative", [], 1);
