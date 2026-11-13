@@ -498,7 +498,7 @@ export class JSONTransform extends Visitor {
             modelGeneric.set(owner, chain.some((declaration) => !!declaration.typeParameters?.length));
             let fields = [];
             const seen = new Set();
-            if (chain[chain.length - 1].extendsType ||
+            if (chain.some(classNoLazy) || chain[chain.length - 1].extendsType ||
                 !owner.decorators?.some((d) => ["json", "serializable"].includes(d.name.text.toLowerCase())) ||
                 this.initializerChainHasEffects(owner))
                 fields = null;
@@ -6032,6 +6032,18 @@ function sizeof(type) {
     else
         return 0;
 }
+function classNoLazy(node) {
+    const dec = node.decorators?.find((d) => {
+        const name = d.name.text;
+        return name === "json" || name === "serializable";
+    });
+    const arg = dec?.args?.[0];
+    if (!arg || arg.kind !== NodeKind.Literal || arg.literalKind !== 6)
+        return false;
+    const obj = arg;
+    return obj.names.some((name, index) => (name.text === "nolazy" && toString(obj.values[index]) !== "false") ||
+        (name.text === "lazy" && toString(obj.values[index]) === "false"));
+}
 function classLazyMode(node) {
     const dec = node.decorators?.find((d) => {
         const n = d.name.text;
@@ -6048,6 +6060,8 @@ function classLazyMode(node) {
         if (obj.names[i].text !== "lazy")
             continue;
         const v = obj.values[i];
+        if (["lazy", "true", "false"].includes(toString(v)))
+            return "none";
         if (v.kind === NodeKind.Literal &&
             v.literalKind === 2) {
             const s = v.value;

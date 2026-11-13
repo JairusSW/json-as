@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Accept `@json({ lazy })` for the default access-based parsing strategy and `@json({ nolazy })` to disable it for a class and its descendants, including for eager benchmark controls.
+
 - Respect function-scoped `var` shadowing when resolving receivers and helpers in strategic access analysis.
 
 - Keep parsing eager inside generic scopes where type parameters could shadow model declarations, and bound helper expansion during access analysis to avoid excessive compilation work.

@@ -17,6 +17,36 @@ class Record {
 
 const input = '{"id":7,"title":"hello","body":"some text"}';
 
+@json({ nolazy })
+class NoLazyConfig { id: i32 = 0; text: string = ""; }
+@json
+class NoLazyChild extends NoLazyConfig { extra: i32 = 0; }
+@json({ lazy })
+class LazyConfig { id: i32 = 0; text: string = ""; }
+@json({ lazy: false })
+class DisabledLazyConfig { id: i32 = 0; text: string = ""; }
+@json({ lazy: true })
+class EnabledLazyConfig { id: i32 = 0; text: string = ""; }
+@json({ nolazy: false })
+class EnabledNoLazyConfig { id: i32 = 0; text: string = ""; }
+export function noLazyConfig(): i32 {
+  const value = JSON.parse<NoLazyConfig>('{"id":7,"text":"hello"}');
+  return value.id;
+}
+export function noLazyInherited(): i32 {
+  return JSON.parse<NoLazyChild>('{"id":7,"text":"hello","extra":9}').id;
+}
+export function lazyConfig(): i32 {
+  const value = JSON.parse<LazyConfig>('{"id":7,"text":"hello"}');
+  return value.id;
+}
+export function booleanLazyConfig(): i32 {
+  const a = JSON.parse<DisabledLazyConfig>('{"id":1,"text":"hello"}');
+  const b = JSON.parse<EnabledLazyConfig>('{"id":2,"text":"hello"}');
+  const c = JSON.parse<EnabledNoLazyConfig>('{"id":4,"text":"hello"}');
+  return a.id + b.id + c.id;
+}
+
 @json
 class Model {
   value: i32 = 0;

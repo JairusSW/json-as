@@ -38,6 +38,12 @@ try {
           if (checks === 0 && enabled) {
             const generated = fs.readFileSync(written, "utf8");
             assert.match(generated, /JSON\.parse<Record, __JSON_OrdinaryPlan_\d+>\(input\)/);
+            assert.match(generated, /JSON\.parse<NoLazyConfig>\(/);
+            assert.match(generated, /JSON\.parse<NoLazyChild>\(/);
+            assert.match(generated, /JSON\.parse<LazyConfig, __JSON_OrdinaryPlan_\d+>\(/);
+            assert.match(generated, /JSON\.parse<DisabledLazyConfig>\(/);
+            assert.match(generated, /JSON\.parse<EnabledLazyConfig, __JSON_OrdinaryPlan_\d+>\(/);
+            assert.match(generated, /JSON\.parse<EnabledNoLazyConfig, __JSON_OrdinaryPlan_\d+>\(/);
             assert.match(generated, /function readGeneric<Model>\([\s\S]*?JSON\.parse<Model>\(data\)/);
             assert.match(generated, /class GenericReader<Model>[\s\S]*?JSON\.parse<Model>\(data\)/);
             assert.match(generated, /function full\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
@@ -65,6 +71,10 @@ try {
             env: { abort(m, f, l, c) { throw Error(`${decode(m)} (${decode(f)}:${l}:${c})`); } },
           }).exports;
           assert.equal(exports.returnedAssignment(), 42);
+          assert.equal(exports.noLazyConfig(), 7);
+          assert.equal(exports.noLazyInherited(), 7);
+          assert.equal(exports.lazyConfig(), 7);
+          assert.equal(exports.booleanLazyConfig(), 7);
           assert.equal(exports.genericShadow(), 42);
           assert.equal(exports.genericClassShadow(), 42);
           assert.equal(exports.assignmentReceiver(), 42);

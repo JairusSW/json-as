@@ -18,3 +18,12 @@ export function read(input: string): string {
   const value = JSON.parse<Record>(input);
   return value.id.toString() + value.title + value.flag.toString();
 }
+
+@json({ nolazy })
+class BenchmarkRecord {
+  id: i32 = 0;
+  unread: string = "";
+}
+export function readEager(input: string): i32 {
+  return JSON.parse<BenchmarkRecord>(input).id;
+}

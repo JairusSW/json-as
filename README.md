@@ -673,11 +673,28 @@ when compiling to disable this optimization. See the [captured API benchmark
 results](bench/reports/access-specialization-api.md) for eager and specialized
 throughput, allocation counts, and measurement conditions.
 
+Access-based specialization is the default; `@json({ lazy })` selects it
+explicitly. For an eager comparison on one class, use `@json({ nolazy })`:
+
+```ts
+@json({ nolazy })
+class EagerPoint {
+  x: f32 = 0;
+  y: f32 = 0;
+}
+```
+
+This disables access-based specialization for the class and its descendants.
+It leaves explicit `@lazy` and `JSON.Lazy<T>` fields unchanged. The equivalent
+boolean forms are `@json({ lazy: true })`, `@json({ lazy: false })`, and
+`@json({ nolazy: true })`.
+
 Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "auto" })`) to defer it: its raw JSON slice is stored at parse time and parsed only on first access. Fields you skip are never parsed, and untouched fields pass through their original bytes on serialize. See the [Lazy Fields guide](https://docs.jairus.dev/json-as/guide/lazy-fields) for the full API and trade-offs.
 
 Array-typed fields, including `JSON.Arr`, are parsed eagerly even when marked `@lazy` or `JSON.Lazy<T>` or included in a class-wide lazy mode. Elements within a dynamic `JSON.Arr` retain their separate deferred behavior.
 
-Opt into access-based specialization with `@json({ lazy: "strategic" })`:
+To use deferred fields with strategic materialization, opt into
+`@json({ lazy: "strategic" })`:
 
 ```ts
 @json({ lazy: "strategic" })

@@ -768,7 +768,7 @@ export class JSONTransform extends Visitor {
       modelGeneric.set(owner, chain.some((declaration) => !!declaration.typeParameters?.length));
       let fields: FieldDeclaration[] | null = [];
       const seen = new Set<string>();
-      if (chain[chain.length - 1].extendsType ||
+      if (chain.some(classNoLazy) || chain[chain.length - 1].extendsType ||
           !owner.decorators?.some((d) => ["json", "serializable"].includes((d.name as IdentifierExpression).text.toLowerCase())) ||
           this.initializerChainHasEffects(owner)) fields = null;
       for (const declaration of chain) {
@@ -8801,6 +8801,18 @@ function sizeof(type: string): number {
 
 // Class-level lazy mode from `@json({ lazy: "auto" | "all" | "none" })`.
 type LazyMode = "none" | "auto" | "all" | "strategic";
+function classNoLazy(node: ClassDeclaration): boolean {
+  const dec = node.decorators?.find((d) => {
+    const name = (d.name as IdentifierExpression).text;
+    return name === "json" || name === "serializable";
+  });
+  const arg = dec?.args?.[0];
+  if (!arg || arg.kind !== NodeKind.Literal || (arg as LiteralExpression).literalKind !== LiteralKind.Object) return false;
+  const obj = arg as ObjectLiteralExpression;
+  return obj.names.some((name, index) =>
+    (name.text === "nolazy" && toString(obj.values[index]) !== "false") ||
+    (name.text === "lazy" && toString(obj.values[index]) === "false"));
+}
 function classLazyMode(node: ClassDeclaration): LazyMode {
   const dec = node.decorators?.find((d) => {
     const n = (<IdentifierExpression>d.name).text;
@@ -8817,6 +8829,9 @@ function classLazyMode(node: ClassDeclaration): LazyMode {
   for (let i = 0; i < obj.names.length; i++) {
     if (obj.names[i].text !== "lazy") continue;
     const v = obj.values[i];
+    // The shorthand selects the default access-based reader; unlike explicit
+    // deferred modes it does not add lazy storage or change observable timing.
+    if (["lazy", "true", "false"].includes(toString(v))) return "none";
     if (
       v.kind === NodeKind.Literal &&
       (v as LiteralExpression).literalKind === LiteralKind.String

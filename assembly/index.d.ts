@@ -15,7 +15,9 @@ declare class JSONConfig {
    * access; untouched fields pass their original bytes straight through on
    * serialize.
    *
-   * - `"none"` *(default)* - every field is parsed eagerly, up-front.
+   * - `true` or `{ lazy }` - use the default access-based specialization.
+   * - `false` or `{ nolazy }` - disable access-based specialization.
+   * - `"none"` - do not defer fields; access-based specialization still applies.
    * - `"auto"` - the transform defers fields whose estimated parse cost is high
    *   (nested structs, maps, long strings) and keeps cheap fields
    *   (primitives, enums, `Date`) eager. Use `@eager` to force a field back to
@@ -39,7 +41,9 @@ declare class JSONConfig {
    * }
    * ```
    */
-  lazy?: "none" | "auto" | "all" | "strategic";
+  lazy?: boolean | "none" | "auto" | "all" | "strategic";
+  /** Disable access-based parsing specialization for this class and its descendants. */
+  nolazy?: boolean;
 }
 
 /**
@@ -47,7 +51,7 @@ declare class JSONConfig {
  * runtime needs. Required on every type passed to `JSON.parse` / `JSON.stringify`
  * (including nested types).
  *
- * @param config - Optional {@link JSONConfig} (currently `{ lazy }`).
+ * @param config - Optional {@link JSONConfig} (`{ lazy }` or `{ nolazy }`).
  *
  * @example
  * ```ts
