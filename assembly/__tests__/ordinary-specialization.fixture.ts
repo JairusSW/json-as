@@ -17,6 +17,32 @@ class Record {
 
 const input = '{"id":7,"title":"hello","body":"some text"}';
 
+function firstArgumentId(first: Record, _second: Record): i32 { return first.id; }
+export function callArgumentOrder(): i32 {
+  const first = JSON.parse<Record>('{"id":42,"body":"first"}');
+  const second = JSON.parse<Record>('{"id":7,"body":"second"}');
+  let selected = first;
+  return firstArgumentId(selected, selected = second);
+}
+export function callAssignmentArguments(): i32 {
+  const first = JSON.parse<Record>('{"id":42,"body":"first"}');
+  const second = JSON.parse<Record>('{"id":7,"body":"second"}');
+  let selected = second;
+  return firstArgumentId(selected = first, selected = second);
+}
+function secondRestId(...values: Record[]): i32 { return values[1].id; }
+function laterRestId(_first: Record, ...values: Record[]): i32 { return values[1].id; }
+export function restArguments(): i32 {
+  const first = JSON.parse<Record>('{"id":7,"body":"first"}');
+  const second = JSON.parse<Record>('{"id":42,"body":"second"}');
+  return secondRestId(first, second);
+}
+export function restAfterFixedArgument(): i32 {
+  const first = JSON.parse<Record>('{"id":7,"body":"first"}');
+  const second = JSON.parse<Record>('{"id":42,"body":"second"}');
+  return laterRestId(first, first, second);
+}
+
 export function templateRead(): string {
   const value = JSON.parse<Record>('{"id":42,"body":"hello"}');
   return `${value.id}:${value.body}`;

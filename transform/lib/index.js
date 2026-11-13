@@ -3067,6 +3067,8 @@ export class JSONTransform extends Visitor {
                     out.push(`if (isDefined(changetype<__JSON_PLAN>(0).__json_eager_${property})) {`);
                     out.push(`${srcPtr} = ${decoder}<${lazyInner}>(${valuePtr}, srcEnd, ${outPtr}, ${eagerOffset});`);
                     out.push(`if (!${srcPtr}) break;`);
+                    if (member.lazyPacked)
+                        out.push(`if (sizeof<${lazyInner}>() < 4) store<u32>(${outPtr}, <u32>load<${lazyInner}>(${outPtr}, ${fieldOffset}), ${fieldOffset});`);
                     out.push(member.lazyPacked
                         ? `store<u32>(${outPtr}, 0xffffffff, ${fieldOffset} + 4);`
                         : `store<u64>(${outPtr}, u64.MAX_VALUE, ${fieldOffset});`);

@@ -251,6 +251,41 @@ class Scalars {
   i: f32 = 0;
   j: f64 = 0;
 }
+
+@json({ lazy: "strategic" })
+class ReviewSignedByte { value: i8 = 0; }
+@json({ lazy: "strategic" })
+class ReviewSignedShort { value: i16 = 0; }
+@json({ lazy: "strategic" })
+class ReviewOptionalByte { @optional value: i8 = -1; }
+@json({ lazy: "strategic" })
+class ReviewUnsignedByte { value: u8 = 0; }
+@json({ lazy: "strategic" })
+class ReviewUnsignedShort { value: u16 = 0; }
+export function reviewSignedByte(): i32 {
+  const value = JSON.parse<ReviewSignedByte>('{"value":-1}');
+  return i32(value.value);
+}
+export function reviewSignedShort(): i32 {
+  const value = JSON.parse<ReviewSignedShort>('{"value":-2}');
+  return i32(value.value);
+}
+export function reviewSignedNegative(): i32 {
+  const value = JSON.parse<ReviewSignedByte>('{"value":-1}');
+  return value.value < 0 ? 1 : 0;
+}
+export function reviewUnsignedShort(): i32 {
+  const value = JSON.parse<ReviewUnsignedShort>('{"value":65535}');
+  return i32(value.value);
+}
+export function reviewOptionalByte(): i32 {
+  const value = JSON.parse<ReviewOptionalByte>('{"value":1}');
+  return i32(value.value);
+}
+export function reviewReusedByte(): i32 {
+  const value = JSON.parse<ReviewUnsignedByte>('{"value":1}');
+  return i32(JSON.parse<ReviewUnsignedByte>('{"value":2}', value).value);
+}
 const scalarsInput =
   '{"signed8":-128,"b":255,"c":-32768,"d":65535,"e":-2147483648,"f":4294967295,"g":-9223372036854775808,"h":18446744073709551615,"i":-1.25,"j":2.5}';
 function coldScalars(): Scalars {

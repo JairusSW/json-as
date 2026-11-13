@@ -32,6 +32,8 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private resolveParse;
     private resolveChild;
     private conservativeEscapes;
+    private pathLimitReached;
+    private callableSiteStart;
     readonly sites: StrategicSite[];
     private scopes;
     private paths;

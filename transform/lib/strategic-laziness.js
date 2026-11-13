@@ -50,6 +50,8 @@ export class StrategicAccessAnalysis extends Visitor {
     resolveParse;
     resolveChild;
     conservativeEscapes;
+    pathLimitReached = false;
+    callableSiteStart = 0;
     sites = [];
     scopes = [];
     paths = [new Map()];
@@ -109,14 +111,16 @@ export class StrategicAccessAnalysis extends Visitor {
             this.terminated,
             this.thisSite,
             this.namespace,
+            this.pathLimitReached,
         ];
         this.scopes = [this.names(node.statements)];
         this.registerFunctions(node.statements, this.scopes[0]);
         this.paths = [new Map()];
+        this.pathLimitReached = false;
         this.thisSite = null;
         this.terminated = false;
         super.visitSource(node);
-        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace] =
+        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.pathLimitReached] =
             saved;
     }
     origin(node) {
@@ -145,7 +149,7 @@ export class StrategicAccessAnalysis extends Visitor {
                 origin: parent.origin,
                 accesses: new Map(),
                 writes: new Set(),
-                escaped: false,
+                escaped: parent.escaped || this.pathLimitReached,
                 children: new Map(),
             };
             parent.children.set(name, child);
@@ -178,7 +182,7 @@ export class StrategicAccessAnalysis extends Visitor {
                 origin: this.paths,
                 accesses: new Map(),
                 writes: new Set(),
-                escaped: false,
+                escaped: this.pathLimitReached,
                 children: new Map(),
             };
             this.sites.push(site);
@@ -284,7 +288,8 @@ export class StrategicAccessAnalysis extends Visitor {
         return names;
     }
     visitCallExpression(node) {
-        super.visitCallExpression(node);
+        this.visit(node.expression, node);
+        this.visit(node.typeArguments, node);
         let fn;
         let receiver = null;
         if (node.expression.kind === NodeKind.Identifier) {
@@ -304,7 +309,26 @@ export class StrategicAccessAnalysis extends Visitor {
                     member.name.text === method.property.text);
             }
         }
-        const args = node.args.map((arg) => this.origin(arg));
+        const args = [];
+        for (const arg of node.args) {
+            const before = this.origin(arg);
+            this.visit(arg, node);
+            const site = before || this.origin(arg);
+            args.push(site);
+            if (!site && arg.kind === NodeKind.Binary && arg.operator === 101) {
+                const assigned = this.origin(arg.left);
+                if (assigned)
+                    assigned.escaped = true;
+            }
+        }
+        if (fn?.signature.parameters.some((parameter) => parameter.parameterKind === 2)) {
+            if (receiver)
+                receiver.escaped = true;
+            for (const arg of args)
+                if (arg)
+                    arg.escaped = true;
+            return;
+        }
         if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8) {
             const intrinsic = !this.conservativeEscapes && node.expression.kind === NodeKind.Identifier && [
                 "idof", "offsetof", "sizeof", "nameof",
@@ -376,6 +400,8 @@ export class StrategicAccessAnalysis extends Visitor {
             this.namespace,
             this.callableScopeStart,
             this.varBindings,
+            this.pathLimitReached,
+            this.callableSiteStart,
         ];
         this.scopes = [
             ...this.scopes.map((scope) => {
@@ -392,6 +418,8 @@ export class StrategicAccessAnalysis extends Visitor {
             ])),
         ];
         this.paths = [new Map()];
+        this.pathLimitReached = false;
+        this.callableSiteStart = this.sites.length;
         this.callableScopeStart = this.scopes.length - 1;
         this.varBindings = this.conservativeEscapes ? this.collectVarBindings(node.body) : new Set();
         this.thisSite = null;
@@ -399,7 +427,7 @@ export class StrategicAccessAnalysis extends Visitor {
         this.callableDepth++;
         this.visit(node.body);
         this.callableDepth--;
-        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings] =
+        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings, this.pathLimitReached, this.callableSiteStart] =
             saved;
     }
     visitNamespaceDeclaration(node) {
@@ -456,7 +484,7 @@ export class StrategicAccessAnalysis extends Visitor {
     }
     fork(node, branch, outcome) {
         const saved = this.paths;
-        this.paths = saved.map((path) => new Map(path).set(branch, outcome));
+        this.paths = this.pathLimitReached ? saved : saved.map((path) => new Map(path).set(branch, outcome));
         this.terminated = false;
         this.visit(node);
         const remaining = this.paths;
@@ -464,6 +492,21 @@ export class StrategicAccessAnalysis extends Visitor {
         return remaining;
     }
     merge(paths) {
+        if (paths.length > 128 || this.pathLimitReached) {
+            this.pathLimitReached = true;
+            const escape = (site) => {
+                site.escaped = true;
+                for (const child of site.children.values())
+                    escape(child);
+            };
+            for (const site of this.sites.slice(this.callableSiteStart))
+                escape(site);
+            for (const scope of this.scopes)
+                for (const site of scope.values())
+                    if (site)
+                        escape(site);
+            return paths.length ? [new Map()] : [];
+        }
         const result = [];
         for (let path of paths) {
             if (result.some((existing) => [...existing].every(([key, value]) => path.get(key) === value)))

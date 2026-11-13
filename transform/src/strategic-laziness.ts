@@ -34,6 +34,7 @@ import {
   TryStatement,
   Statement,
   CommonFlags,
+  ParameterKind,
 } from "assemblyscript/dist/assemblyscript.js";
 import { NodeKind } from "./types.js";
 import { Visitor } from "./visitor.js";
@@ -112,6 +113,8 @@ type Callable = FunctionDeclaration | MethodDeclaration;
 
 /** Analyze original application ASTs before lazy lowering introduces getters. */
 export class StrategicAccessAnalysis extends Visitor {
+  private pathLimitReached = false;
+  private callableSiteStart = 0;
   readonly sites: StrategicSite[] = [];
   private scopes: Map<string, StrategicSite | null>[] = [];
   private paths: AccessPath[] = [new Map()];
@@ -196,14 +199,16 @@ export class StrategicAccessAnalysis extends Visitor {
       this.terminated,
       this.thisSite,
       this.namespace,
+      this.pathLimitReached,
     ] as const;
     this.scopes = [this.names(node.statements)];
     this.registerFunctions(node.statements, this.scopes[0]);
     this.paths = [new Map()];
+    this.pathLimitReached = false;
     this.thisSite = null;
     this.terminated = false;
     super.visitSource(node);
-    [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace] =
+    [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.pathLimitReached] =
       saved;
   }
 
@@ -230,7 +235,7 @@ export class StrategicAccessAnalysis extends Visitor {
         origin: parent.origin,
         accesses: new Map(),
         writes: new Set(),
-        escaped: false,
+        escaped: parent.escaped || this.pathLimitReached,
         children: new Map(),
       };
       parent.children.set(name, child);
@@ -269,7 +274,7 @@ export class StrategicAccessAnalysis extends Visitor {
         origin: this.paths,
         accesses: new Map(),
         writes: new Set(),
-        escaped: false,
+        escaped: this.pathLimitReached,
         children: new Map(),
       };
       this.sites.push(site);
@@ -388,7 +393,8 @@ export class StrategicAccessAnalysis extends Visitor {
   }
 
   visitCallExpression(node: CallExpression): void {
-    super.visitCallExpression(node);
+    this.visit(node.expression, node);
+    this.visit(node.typeArguments, node);
     let fn: Callable | undefined;
     let receiver: StrategicSite | null = null;
     if (node.expression.kind === NodeKind.Identifier) {
@@ -411,7 +417,24 @@ export class StrategicAccessAnalysis extends Visitor {
         ) as MethodDeclaration | undefined;
       }
     }
-    const args = node.args.map((arg) => this.origin(arg));
+    const args: (StrategicSite | null)[] = [];
+    for (const arg of node.args) {
+      const before = this.origin(arg);
+      this.visit(arg, node);
+      const site = before || this.origin(arg);
+      args.push(site);
+      // An assignment expression returns its new binding, which may be used
+      // by the callee even though the expression itself has no tracked origin.
+      if (!site && arg.kind === NodeKind.Binary && (arg as BinaryExpression).operator === Token.Equals) {
+        const assigned = this.origin((arg as BinaryExpression).left);
+        if (assigned) assigned.escaped = true;
+      }
+    }
+    if (fn?.signature.parameters.some((parameter) => parameter.parameterKind === ParameterKind.Rest)) {
+      if (receiver) receiver.escaped = true;
+      for (const arg of args) if (arg) arg.escaped = true;
+      return;
+    }
     if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8) {
       const intrinsic = !this.conservativeEscapes && node.expression.kind === NodeKind.Identifier && [
         "idof", "offsetof", "sizeof", "nameof",
@@ -483,6 +506,8 @@ export class StrategicAccessAnalysis extends Visitor {
       this.namespace,
       this.callableScopeStart,
       this.varBindings,
+      this.pathLimitReached,
+      this.callableSiteStart,
     ] as const;
     this.scopes = [
       ...this.scopes.map((scope) => {
@@ -503,6 +528,8 @@ export class StrategicAccessAnalysis extends Visitor {
       ),
     ];
     this.paths = [new Map()];
+    this.pathLimitReached = false;
+    this.callableSiteStart = this.sites.length;
     this.callableScopeStart = this.scopes.length - 1;
     this.varBindings = this.conservativeEscapes ? this.collectVarBindings(node.body) : new Set();
     this.thisSite = null;
@@ -510,7 +537,7 @@ export class StrategicAccessAnalysis extends Visitor {
     this.callableDepth++;
     this.visit(node.body);
     this.callableDepth--;
-    [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings] =
+    [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings, this.pathLimitReached, this.callableSiteStart] =
       saved;
   }
 
@@ -573,7 +600,7 @@ export class StrategicAccessAnalysis extends Visitor {
     outcome: boolean,
   ): AccessPath[] {
     const saved = this.paths;
-    this.paths = saved.map((path) => new Map(path).set(branch, outcome));
+    this.paths = this.pathLimitReached ? saved : saved.map((path) => new Map(path).set(branch, outcome));
     this.terminated = false;
     this.visit(node);
     const remaining = this.paths;
@@ -582,6 +609,18 @@ export class StrategicAccessAnalysis extends Visitor {
   }
 
   private merge(paths: AccessPath[]): AccessPath[] {
+    // A bounded fallback is safer than enumerating exponentially many paths.
+    // Existing and subsequent sites in this source must retain all fields.
+    if (paths.length > 128 || this.pathLimitReached) {
+      this.pathLimitReached = true;
+      const escape = (site: StrategicSite): void => {
+        site.escaped = true;
+        for (const child of site.children.values()) escape(child);
+      };
+      for (const site of this.sites.slice(this.callableSiteStart)) escape(site);
+      for (const scope of this.scopes) for (const site of scope.values()) if (site) escape(site);
+      return paths.length ? [new Map()] : [];
+    }
     const result: AccessPath[] = [];
     for (let path of paths) {
       if (

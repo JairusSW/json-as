@@ -53,6 +53,18 @@ function analyze(body) {
 const probability = (site, field) =>
   accessProbability(site.accesses.get(field) || []) /
   accessProbability(site.origin);
+const manyGuards = Array.from({ length: 14 }, () => 'if (a) { if (b) return; }').join('\n');
+const boundedSites = analyze(`const v = JSON.parse<Vec3>("{}"); ${manyGuards} v.x;`);
+assert.equal(boundedSites[0].escaped, true);
+{
+  const parser = new Parser();
+  parser.parseFile(`function costly(a: bool, b: bool): void { const v = JSON.parse<Vec3>("{}"); ${manyGuards} v.x; } function simple(): void { const v = JSON.parse<Vec3>("{}"); v.x; }`, "bounded.ts", true);
+  const analysis = new StrategicAccessAnalysis((call) => call.expression.property?.text === "parse" ? {} : null, undefined, true);
+  analysis.visit(parser.sources[0]);
+  assert.equal(analysis.sites[0].escaped, true);
+  assert.equal(analysis.sites[1].escaped, false);
+  assert.equal(probability(analysis.sites[1], "x"), 1);
+}
 let traversalSites = analyze('const v = JSON.parse<Vec3>("{}"); `${v.x}:${v.y}`;');
 assert.equal(probability(traversalSites[0], "x"), 1);
 assert.equal(probability(traversalSites[0], "y"), 1);

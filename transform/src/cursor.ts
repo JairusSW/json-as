@@ -201,6 +201,7 @@ function readLazy(member: Property, field: string): string {
       srcStart = JSON.__cursorRead<${member.lazyInner}>(srcStart, srcEnd, changetype<usize>(out), ${offset}, depth + 1);
     }
     if (!srcStart) return 0;
+    ${member.lazyPacked ? `if (sizeof<${member.lazyInner}>() < 4) store<u32>(changetype<usize>(out), <u32>load<${member.lazyInner}>(changetype<usize>(out), ${offset}), ${offset});` : ""}
     ${mark}
   } else {
     const valueStart = srcStart;

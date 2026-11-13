@@ -26,7 +26,7 @@ function compile(mode, runtime, strict, fast, strategy = "") {
       "./transform",
       "--runtime",
       runtime,
-      "-O3",
+      process.env.PROBE_OPT === "0" ? "-O0" : "-O3",
       "--exportRuntime",
       "-o",
       file,
@@ -88,7 +88,7 @@ try {
   for (const mode of process.env.PROBE_QUICK
     ? ["SWAR"]
     : ["NAIVE", "SWAR", "SIMD"])
-    for (const runtime of process.env.PROBE_QUICK
+    for (const runtime of process.env.PROBE_QUICK || process.env.PROBE_REVIEW
       ? ["incremental"]
       : ["incremental", "minimal", "stub"])
       for (const strict of process.env.PROBE_QUICK ? [false] : [false, true])
@@ -96,6 +96,12 @@ try {
           const { check, checkRejects } = compile(mode, runtime, strict, fast);
           check("apiFastCapability", [], fast ? 1 : 0);
           check("apiSummary", [], "7:hello");
+          check("reviewSignedByte", [], -1);
+          check("reviewSignedShort", [], -2);
+          check("reviewSignedNegative", [], 1);
+          check("reviewUnsignedShort", [], 65535);
+          check("reviewOptionalByte", [], 1);
+          check("reviewReusedByte", [], 2);
           check("effectfulDefaultCapability", [], 0);
           check("inheritedEffectfulDefaultCapability", [], 0);
           check("lifecycleDefaultCapability", [], 0);
@@ -186,6 +192,12 @@ try {
   for (const strategy of ["false", "true"])
     for (const strict of [false, true]) {
       const { check } = compile("SWAR", "incremental", strict, true, strategy);
+      check("reviewSignedByte", [], -1);
+      check("reviewSignedShort", [], -2);
+      check("reviewSignedNegative", [], 1);
+      check("reviewUnsignedShort", [], 65535);
+      check("reviewOptionalByte", [], 1);
+      check("reviewReusedByte", [], 2);
       check("existing", [], strategy === "true" ? "1:7" : "0:7");
       check("explicitLazyNested", [], strategy === "true" ? "1:7" : "0:7");
       check("xOnly", [], strategy === "true" ? "1:1.5" : "0:1.5");
