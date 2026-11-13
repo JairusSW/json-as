@@ -122,3 +122,33 @@ export function readGenericArray(input: string): i32 {
 export function makeGenericArrayInput(which: i32): string {
   return which == 0 ? '{"id":7,"value":[1,2]}' : '{"id":7,"value":[1,"wrong"]}';
 }
+
+type ReviewAmount = f32;
+type ReviewCount = i32;
+type ReviewFlag = boolean;
+namespace FloatAliasScope {
+  type f32 = i32;
+  @json class AliasRecord { id: i32 = 0; value: ReviewAmount = 0; }
+  export function read(input: string): i32 { return JSON.parse<AliasRecord>(input).id; }
+}
+namespace IntegerAliasScope {
+  type i32 = u32;
+  @json class AliasRecord { id: u32 = 0; value: ReviewCount = 0; }
+  export function read(input: string): u32 { return JSON.parse<AliasRecord>(input).id; }
+}
+namespace BooleanAliasScope {
+  type boolean = i32;
+  @json class AliasRecord { id: i32 = 0; value: ReviewFlag = false; }
+  export function read(input: string): i32 { return JSON.parse<AliasRecord>(input).id; }
+}
+export function readAliasFloat(input: string): i32 { return FloatAliasScope.read(input); }
+export function readAliasInteger(input: string): u32 { return IntegerAliasScope.read(input); }
+export function readAliasBoolean(input: string): i32 { return BooleanAliasScope.read(input); }
+export function makeAliasInput(which: i32): string {
+  if (which == 0 || which == 3 || which == 6) return '{"id":7,"value":"wrong"}';
+  if (which == 1) return '{"id":7,"value":1.5}';
+  if (which == 2) return '{"id":7,"value":"42"}';
+  if (which == 4) return '{"id":7,"value":42}';
+  if (which == 5) return '{"id":7,"value":"true"}';
+  return '{"id":7,"value":true}';
+}

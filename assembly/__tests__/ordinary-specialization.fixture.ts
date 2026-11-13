@@ -17,6 +17,50 @@ class Record {
 
 const input = '{"id":7,"title":"hello","body":"some text"}';
 
+function assignedRecord(): Record {
+  let value = new Record();
+  return value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+}
+export function returnedAssignment(): i32 { return assignedRecord().id; }
+export function assignmentReceiver(): i32 {
+  let value = new Record();
+  return (value = JSON.parse<Record>('{"id":42,"body":"hello"}')).id;
+}
+export function assignmentAlias(): i32 {
+  let value = new Record();
+  const alias = (value = JSON.parse<Record>('{"id":42,"body":"hello"}'));
+  return alias.id;
+}
+function identityRecord(value: Record): Record { return value; }
+export function assignmentCall(): i32 {
+  let value = new Record();
+  return identityRecord((value = JSON.parse<Record>('{"id":42,"body":"hello"}'))).id;
+}
+function shadowRead(value: Record): i32 { return value.id; }
+function shadowReadOther(value: Record): i32 { return value.title.length; }
+export function hoistedHelperShadow(): i32 {
+  if (true) {
+    // eslint-disable-next-line no-var
+    var shadowRead = shadowReadOther;
+  }
+  const value = JSON.parse<Record>('{"id":42,"title":"hello"}');
+  return shadowRead(value);
+}
+class LocalParser {
+  parse<T>(_input: string): T {
+    const value = new Record();
+    value.id = 42;
+    return changetype<T>(value);
+  }
+}
+export function hoistedRuntimeShadow(): i32 {
+  if (true) {
+    // eslint-disable-next-line no-var
+    var JSON = new LocalParser();
+  }
+  return JSON.parse<Record>("ignored").id;
+}
+
 function firstArgumentId(first: Record, _second: Record): i32 { return first.id; }
 function firstScalarArgument(first: i32, _second: Record): i32 { return first; }
 export function callArgumentOrder(): i32 {

@@ -33,6 +33,7 @@ import {
   SwitchStatement,
   TryStatement,
   Statement,
+  ExpressionStatement,
   CommonFlags,
   ParameterKind,
 } from "assemblyscript/dist/assemblyscript.js";
@@ -165,7 +166,7 @@ export class StrategicAccessAnalysis extends Visitor {
   }
 
   private shadowed = (name: string): boolean =>
-    this.scopes.some((scope) => scope.has(name));
+    this.varBindings.has(name) || this.scopes.some((scope) => scope.has(name));
 
   private names(statements: Node[]): Map<string, StrategicSite | null> {
     const names = new Map<string, StrategicSite | null>();
@@ -336,6 +337,10 @@ export class StrategicAccessAnalysis extends Visitor {
     this.scopes.at(-1)?.set(node.name.text, site);
   }
 
+  visitExpressionStatement(node: ExpressionStatement): void {
+    this.visit(node.expression, node);
+  }
+
   visitBlockStatement(node: BlockStatement): void {
     // Predeclare names to respect lexical shadowing even before initialization.
     const scope = this.names(node.statements);
@@ -399,10 +404,12 @@ export class StrategicAccessAnalysis extends Visitor {
     let receiver: StrategicSite | null = null;
     if (node.expression.kind === NodeKind.Identifier) {
       const name = (node.expression as IdentifierExpression).text;
-      for (let i = this.scopes.length - 1; i >= 0; i--) {
-        if (!this.scopes[i].has(name)) continue;
-        fn = this.declarations.get(this.scopes[i])?.get(name);
-        break;
+      if (!this.varBindings.has(name)) {
+        for (let i = this.scopes.length - 1; i >= 0; i--) {
+          if (!this.scopes[i].has(name)) continue;
+          fn = this.declarations.get(this.scopes[i])?.get(name);
+          break;
+        }
       }
     } else if (node.expression.kind === NodeKind.PropertyAccess) {
       const method = node.expression as PropertyAccessExpression;
@@ -772,11 +779,14 @@ export class StrategicAccessAnalysis extends Visitor {
     super.visitUnaryPostfixExpression(node);
   }
 
-  visitBinaryExpression(node: BinaryExpression): void {
+  visitBinaryExpression(node: BinaryExpression, parent: Node | null = null): void {
     if (node.operator >= Token.Equals && node.operator <= Token.Caret_Equals)
       this.recordWrite(node.left);
     if (node.operator === Token.Equals) {
       const site = this.origin(node.right);
+      // Assignment expressions can themselves be returned, aliased, or used
+      // as receivers. Until those uses are modeled, retain the assigned value.
+      if (this.conservativeEscapes && site && parent?.kind !== NodeKind.Expression) site.escaped = true;
       this.visit(node.right);
       if (node.left.kind === NodeKind.Identifier) {
         const name = (node.left as IdentifierExpression).text;

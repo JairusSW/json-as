@@ -77,6 +77,11 @@ assert.equal(traversalSites[0].escaped, true);
 traversalSites = analyze('let v = other; v = JSON.parse<Vec3>("{}"); v.x;');
 assert.equal(traversalSites[0].escaped, false);
 assert.equal(probability(traversalSites[0], "x"), 1);
+traversalSites = analyze('let v = other; return v = JSON.parse<Vec3>("{}");');
+assert.equal(traversalSites[0].escaped, true);
+traversalSites = analyze('let v = other; const alias = (v = JSON.parse<Vec3>("{}")); alias.x;');
+assert.equal(traversalSites[0].escaped, true);
+assert.equal(analyze('if (a) { var JSON = local(); } JSON.parse<Vec3>("{}");').length, 0);
 let sites = analyze(
   `const v = JSON.parse<Vec3>("{}"); v.x; if (a) { if (b) { if (c) v.y; } }`,
 );

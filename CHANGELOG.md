@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve parsed values used through assignment expressions, respect hoisted `var` shadowing during access analysis, and validate preserved numeric and Boolean aliases against their actual target types in strict parsing.
+
 - Preserve call argument evaluation order and conservatively handle rest parameters in access analysis. Bound control-flow path growth and fall back to eager parsing when the limit is reached. Correct signed and unsigned narrow values eagerly decoded into packed lazy slots.
 
 - Keep access-based parsing eager when values can cross conditional assignments, loop iterations, module or namespace boundaries, function-scoped `var` bindings, or omitted helper arguments. Track template and `void` expression reads. Restore lazy startup sentinels and the affected runtime decorators.

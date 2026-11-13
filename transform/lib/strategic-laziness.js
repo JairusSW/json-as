@@ -81,7 +81,7 @@ export class StrategicAccessAnalysis extends Visitor {
                 return this.scopes[i].get(name);
         return null;
     }
-    shadowed = (name) => this.scopes.some((scope) => scope.has(name));
+    shadowed = (name) => this.varBindings.has(name) || this.scopes.some((scope) => scope.has(name));
     names(statements) {
         const names = new Map();
         for (let node of statements) {
@@ -235,6 +235,9 @@ export class StrategicAccessAnalysis extends Visitor {
             site.escaped = true;
         this.scopes.at(-1)?.set(node.name.text, site);
     }
+    visitExpressionStatement(node) {
+        this.visit(node.expression, node);
+    }
     visitBlockStatement(node) {
         const scope = this.names(node.statements);
         this.scopes.push(scope);
@@ -294,11 +297,13 @@ export class StrategicAccessAnalysis extends Visitor {
         let receiver = null;
         if (node.expression.kind === NodeKind.Identifier) {
             const name = node.expression.text;
-            for (let i = this.scopes.length - 1; i >= 0; i--) {
-                if (!this.scopes[i].has(name))
-                    continue;
-                fn = this.declarations.get(this.scopes[i])?.get(name);
-                break;
+            if (!this.varBindings.has(name)) {
+                for (let i = this.scopes.length - 1; i >= 0; i--) {
+                    if (!this.scopes[i].has(name))
+                        continue;
+                    fn = this.declarations.get(this.scopes[i])?.get(name);
+                    break;
+                }
             }
         }
         else if (node.expression.kind === NodeKind.PropertyAccess) {
@@ -643,11 +648,13 @@ export class StrategicAccessAnalysis extends Visitor {
             this.recordWrite(node.operand);
         super.visitUnaryPostfixExpression(node);
     }
-    visitBinaryExpression(node) {
+    visitBinaryExpression(node, parent = null) {
         if (node.operator >= 101 && node.operator <= 113)
             this.recordWrite(node.left);
         if (node.operator === 101) {
             const site = this.origin(node.right);
+            if (this.conservativeEscapes && site && parent?.kind !== NodeKind.Expression)
+                site.escaped = true;
             this.visit(node.right);
             if (node.left.kind === NodeKind.Identifier) {
                 const name = node.left.text;

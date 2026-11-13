@@ -77,7 +77,7 @@ export function generateCursorParser(
     if (!specializedFields?.has(member.name)) return read;
     const validator = objectValidators?.get(member.name);
     const skip = validator ? `this.${validator.method}` : genericFields?.has(member.name) ? `JSON.__cursorSkipGeneric<${member.type}>` :
-      isScalarType(member.type) ? `JSON.__cursorSkipScalar<${member.type}>` : "JSON.__cursorSkipString";
+      isScalarType(member.type) ? `JSON.__cursorSkipScalar<${member.type}>` : `JSON.__cursorSkipGeneric<${member.type}>`;
     return `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {
       const skipped = ${skip}(srcStart, srcEnd);
       if (skipped) srcStart = skipped;
