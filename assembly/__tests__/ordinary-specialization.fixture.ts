@@ -17,6 +17,53 @@ class Record {
 
 const input = '{"id":7,"title":"hello","body":"some text"}';
 
+export function templateRead(): string {
+  const value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+  return `${value.id}:${value.body}`;
+}
+let observedVoid = 0;
+function observeVoid(value: Record): void { observedVoid = value.id; }
+export function voidRead(): i32 {
+  observedVoid = 0;
+  const value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+  void observeVoid(value);
+  return observedVoid;
+}
+let observedAddress: usize = 0;
+function observeAddress(value: Record): void { observedAddress = changetype<usize>(value); }
+export function voidAddress(): i32 {
+  const value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+  void observeAddress(value);
+  return changetype<Record>(observedAddress).id;
+}
+namespace AssignmentStore {
+  let value: Record | null = null;
+  export function load(): void { value = JSON.parse<Record>('{"id":42,"body":"hello"}'); }
+  export function read(): string { return value!.id.toString() + ":" + value!.body; }
+}
+export function namespaceAssignment(): string { AssignmentStore.load(); return AssignmentStore.read(); }
+@json
+class RequiredBody { body!: string; }
+namespace RequiredStore {
+  let value: RequiredBody | null = null;
+  export function load(): void { value = JSON.parse<RequiredBody>('{"body":"hello"}'); }
+  export function read(): i32 { return value!.body.length; }
+}
+export function namespaceRequiredBody(): i32 { RequiredStore.load(); return RequiredStore.read(); }
+export function varBlockRead(): i32 {
+  if (true) {
+    // eslint-disable-next-line no-var
+    var value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+  }
+  return value.id;
+}
+export function varAssignmentRead(): i32 {
+  // eslint-disable-next-line no-var
+  var value: Record;
+  { value = JSON.parse<Record>('{"id":42,"body":"hello"}'); }
+  return value.id;
+}
+
 export function conditionalBinding(flag: bool): i32 {
   let value = JSON.parse<Record>('{"id":42,"body":"hello"}');
   if (flag) value = JSON.parse<Record>('{"id":7,"body":"other"}');

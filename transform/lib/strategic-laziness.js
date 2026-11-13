@@ -58,6 +58,9 @@ export class StrategicAccessAnalysis extends Visitor {
     terminated = false;
     namespace = [];
     callableDepth = 0;
+    callableScopeStart = 0;
+    varBindings = new Set();
+    varBindingCache = new WeakMap();
     thisSite = null;
     callableNamespaces = new WeakMap();
     declarations = new WeakMap();
@@ -223,7 +226,8 @@ export class StrategicAccessAnalysis extends Visitor {
     visitVariableDeclaration(node) {
         const site = this.origin(node.initializer);
         this.visit(node.initializer, node);
-        if (this.conservativeEscapes && site && this.callableDepth === 0)
+        if (this.conservativeEscapes && site &&
+            (this.callableDepth === 0 || !node.isAny(8 | 16)))
             site.escaped = true;
         this.scopes.at(-1)?.set(node.name.text, site);
     }
@@ -258,6 +262,26 @@ export class StrategicAccessAnalysis extends Visitor {
             this.callableNamespaces.set(fn, [...this.namespace]);
         }
         this.declarations.set(scope, declarations);
+    }
+    collectVarBindings(body) {
+        if (body) {
+            const cached = this.varBindingCache.get(body);
+            if (cached)
+                return cached;
+        }
+        const names = new Set();
+        class Collector extends Visitor {
+            visitVariableDeclaration(node) {
+                if (!node.isAny(8 | 16))
+                    names.add(node.name.text);
+                super.visitVariableDeclaration(node);
+            }
+        }
+        if (body)
+            new Collector().visit(body);
+        if (body)
+            this.varBindingCache.set(body, names);
+        return names;
     }
     visitCallExpression(node) {
         super.visitCallExpression(node);
@@ -312,6 +336,8 @@ export class StrategicAccessAnalysis extends Visitor {
             this.terminated,
             this.thisSite,
             this.namespace,
+            this.callableScopeStart,
+            this.varBindings,
         ];
         this.scopes = [
             ...(this.captures.get(fn) || []),
@@ -321,12 +347,14 @@ export class StrategicAccessAnalysis extends Visitor {
             ])),
         ];
         this.thisSite = receiver;
+        this.callableScopeStart = this.scopes.length - 1;
+        this.varBindings = this.conservativeEscapes ? this.collectVarBindings(fn.body) : new Set();
         this.namespace = this.callableNamespaces.get(fn) || [];
         this.terminated = false;
         this.expanding.add(fn);
         this.visit(fn.body);
         this.expanding.delete(fn);
-        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace] =
+        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings] =
             saved;
     }
     callable(node) {
@@ -346,6 +374,8 @@ export class StrategicAccessAnalysis extends Visitor {
             this.terminated,
             this.thisSite,
             this.namespace,
+            this.callableScopeStart,
+            this.varBindings,
         ];
         this.scopes = [
             ...this.scopes.map((scope) => {
@@ -362,12 +392,14 @@ export class StrategicAccessAnalysis extends Visitor {
             ])),
         ];
         this.paths = [new Map()];
+        this.callableScopeStart = this.scopes.length - 1;
+        this.varBindings = this.conservativeEscapes ? this.collectVarBindings(node.body) : new Set();
         this.thisSite = null;
         this.terminated = false;
         this.callableDepth++;
         this.visit(node.body);
         this.callableDepth--;
-        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace] =
+        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings] =
             saved;
     }
     visitNamespaceDeclaration(node) {
@@ -587,7 +619,7 @@ export class StrategicAccessAnalysis extends Visitor {
                 for (let i = this.scopes.length - 1; i >= 0; i--)
                     if (this.scopes[i].has(name)) {
                         found = true;
-                        if (this.conservativeEscapes && (i === 0 || !assigned)) {
+                        if (this.conservativeEscapes && (this.callableDepth === 0 || i < this.callableScopeStart || this.varBindings.has(name) || !assigned)) {
                             if (site)
                                 site.escaped = true;
                             const previous = this.scopes[i].get(name);

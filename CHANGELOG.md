@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Keep access-based parsing eager when values can cross conditional assignments, loop iterations, module boundaries, or omitted helper arguments. Restore lazy startup sentinels and the affected runtime decorators.
+- Keep access-based parsing eager when values can cross conditional assignments, loop iterations, module or namespace boundaries, function-scoped `var` bindings, or omitted helper arguments. Track template and `void` expression reads. Restore lazy startup sentinels and the affected runtime decorators.
 
 - Specialize ordinary `@json` readers at visible parse sites by default. Proven-unused supported fields are scanned without decoding; full reads and uncertain or escaping uses retain eager behavior. Set `JSON_ACCESS_SPECIALIZATION=false` to disable this optimization.
 

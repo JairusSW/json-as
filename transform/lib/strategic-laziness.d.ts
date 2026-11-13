@@ -40,6 +40,9 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private terminated;
     private namespace;
     private callableDepth;
+    private callableScopeStart;
+    private varBindings;
+    private varBindingCache;
     private thisSite;
     private callableNamespaces;
     private declarations;
@@ -58,6 +61,7 @@ export declare class StrategicAccessAnalysis extends Visitor {
     visitVariableDeclaration(node: VariableDeclaration): void;
     visitBlockStatement(node: BlockStatement): void;
     private registerFunctions;
+    private collectVarBindings;
     visitCallExpression(node: CallExpression): void;
     private callable;
     visitNamespaceDeclaration(node: NamespaceDeclaration): void;

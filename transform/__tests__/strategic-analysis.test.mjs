@@ -53,6 +53,18 @@ function analyze(body) {
 const probability = (site, field) =>
   accessProbability(site.accesses.get(field) || []) /
   accessProbability(site.origin);
+let traversalSites = analyze('const v = JSON.parse<Vec3>("{}"); `${v.x}:${v.y}`;');
+assert.equal(probability(traversalSites[0], "x"), 1);
+assert.equal(probability(traversalSites[0], "y"), 1);
+traversalSites = analyze('const v = JSON.parse<Vec3>("{}"); v.tag`value`;');
+assert.equal(probability(traversalSites[0], "tag"), 1);
+traversalSites = analyze('const v = JSON.parse<Vec3>("{}"); void external(v);');
+assert.equal(traversalSites[0].escaped, true);
+traversalSites = analyze('var v: Vec3; { v = JSON.parse<Vec3>("{}"); } v.x;');
+assert.equal(traversalSites[0].escaped, true);
+traversalSites = analyze('let v = other; v = JSON.parse<Vec3>("{}"); v.x;');
+assert.equal(traversalSites[0].escaped, false);
+assert.equal(probability(traversalSites[0], "x"), 1);
 let sites = analyze(
   `const v = JSON.parse<Vec3>("{}"); v.x; if (a) { if (b) { if (c) v.y; } }`,
 );

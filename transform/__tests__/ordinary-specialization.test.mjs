@@ -15,12 +15,14 @@ const root = path.resolve(import.meta.dirname, "../..");
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-ordinary-"));
 const written = path.join(root, "assembly/__tests__/ordinary-specialization.fixture.tmp.ts");
 const enabled = process.env.JSON_ORDINARY_CONTROL !== "1";
+const review = process.env.PROBE_REVIEW === "1";
+const quick = !!process.env.PROBE_QUICK;
 let checks = 0;
 try {
-  for (const mode of process.env.PROBE_QUICK ? ["SWAR"] : ["NAIVE", "SWAR", "SIMD"])
-    for (const runtime of process.env.PROBE_QUICK ? ["incremental"] : ["incremental", "minimal", "stub"])
-      for (const strict of process.env.PROBE_QUICK ? [false] : [false, true])
-        for (const fast of process.env.PROBE_QUICK ? [true] : [false, true]) {
+  for (const mode of quick ? ["SWAR"] : ["NAIVE", "SWAR", "SIMD"])
+    for (const runtime of quick || review ? ["incremental"] : ["incremental", "minimal", "stub"])
+      for (const strict of quick ? [false] : [false, true])
+        for (const fast of quick || review ? [true] : [false, true]) {
           const wasm = path.join(dir, "probe.wasm");
           const result = spawnSync(process.execPath, [
             "node_modules/assemblyscript/bin/asc.js",
@@ -60,6 +62,13 @@ try {
           exports = new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(wasm)), {
             env: { abort(m, f, l, c) { throw Error(`${decode(m)} (${decode(f)}:${l}:${c})`); } },
           }).exports;
+          assert.equal(decode(exports.templateRead()), "42:hello");
+          assert.equal(exports.voidRead(), 42);
+          assert.equal(exports.voidAddress(), 42);
+          assert.equal(decode(exports.namespaceAssignment()), "42:hello");
+          assert.equal(exports.namespaceRequiredBody(), 5);
+          assert.equal(exports.varBlockRead(), 42);
+          assert.equal(exports.varAssignmentRead(), 42);
           assert.equal(exports.conditionalBinding(0), 42);
           assert.equal(exports.conditionalBinding(1), 7);
           assert.equal(exports.conditionalBoth(0), 7);
@@ -71,7 +80,7 @@ try {
           assert.equal(exports.namespaceGlobalRead(), 42);
           assert.equal(exports.defaultArgument(), 42);
           assert.equal(decode(exports.defaultStringArgument()), "hello");
-          checks += 11;
+          checks += 18;
           for (const [name, expected] of Object.entries({ partial: 7, eagerPartial: 7, full: "7:hello:some text",
             escaped: "some text", serialized: '{"id":7,"title":"hello","body":"some text"}', reordered: 8,
             stored: "some text", throughUnchecked: "some text", reused: "8:changed", escapedString: 9,
