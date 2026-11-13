@@ -42,6 +42,8 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private terminated;
     private namespace;
     private callableDepth;
+    private genericDepth;
+    private helperExpansions;
     private callableScopeStart;
     private varBindings;
     private varBindingCache;
@@ -51,7 +53,7 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private captures;
     private expanding;
     private byCall;
-    constructor(resolveParse: (call: CallExpression, shadowed: (name: string) => boolean, scope: string) => ClassDeclaration | null, resolveChild?: (owner: ClassDeclaration, property: string) => ClassDeclaration | null, conservativeEscapes?: boolean);
+    constructor(resolveParse: (call: CallExpression, shadowed: (name: string) => boolean, scope: string, genericScope: boolean) => ClassDeclaration | null, resolveChild?: (owner: ClassDeclaration, property: string) => ClassDeclaration | null, conservativeEscapes?: boolean);
     private binding;
     private shadowed;
     private names;
@@ -67,6 +69,7 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private collectVarBindings;
     visitCallExpression(node: CallExpression): void;
     private callable;
+    visitClassDeclaration(node: ClassDeclaration, isDefault?: boolean, parent?: Node | null): void;
     visitNamespaceDeclaration(node: NamespaceDeclaration): void;
     visitFunctionDeclaration(node: FunctionDeclaration): void;
     visitMethodDeclaration(node: MethodDeclaration): void;

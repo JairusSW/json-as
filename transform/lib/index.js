@@ -337,7 +337,9 @@ export class JSONTransform extends Visitor {
             pureModels.add(node);
             return true;
         };
-        const analysis = new StrategicAccessAnalysis((call, shadowed, scope) => {
+        const analysis = new StrategicAccessAnalysis((call, shadowed, scope, genericScope) => {
+            if (genericScope)
+                return null;
             if (call.typeArguments?.length !== 1 ||
                 call.expression.kind !== NodeKind.PropertyAccess)
                 return null;
@@ -610,7 +612,9 @@ export class JSONTransform extends Visitor {
             return result;
         };
         const siteMeanings = new WeakMap();
-        const analysis = new StrategicAccessAnalysis((call, shadowed, scope) => {
+        const analysis = new StrategicAccessAnalysis((call, shadowed, scope, genericScope) => {
+            if (genericScope)
+                return null;
             if (call.args.length !== 1 || call.typeArguments?.length !== 1 ||
                 call.expression.kind !== NodeKind.PropertyAccess)
                 return null;

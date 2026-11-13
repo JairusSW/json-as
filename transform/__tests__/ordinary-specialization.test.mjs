@@ -38,6 +38,8 @@ try {
           if (checks === 0 && enabled) {
             const generated = fs.readFileSync(written, "utf8");
             assert.match(generated, /JSON\.parse<Record, __JSON_OrdinaryPlan_\d+>\(input\)/);
+            assert.match(generated, /function readGeneric<Model>\([\s\S]*?JSON\.parse<Model>\(data\)/);
+            assert.match(generated, /class GenericReader<Model>[\s\S]*?JSON\.parse<Model>\(data\)/);
             assert.match(generated, /function full\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
             assert.match(generated, /function escape\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
             assert.match(generated, /function serialized\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
@@ -63,6 +65,8 @@ try {
             env: { abort(m, f, l, c) { throw Error(`${decode(m)} (${decode(f)}:${l}:${c})`); } },
           }).exports;
           assert.equal(exports.returnedAssignment(), 42);
+          assert.equal(exports.genericShadow(), 42);
+          assert.equal(exports.genericClassShadow(), 42);
           assert.equal(exports.assignmentReceiver(), 42);
           assert.equal(exports.assignmentAlias(), 42);
           assert.equal(exports.assignmentCall(), 42);

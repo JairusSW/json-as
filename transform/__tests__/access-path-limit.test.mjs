@@ -28,6 +28,7 @@ try {
     });
     assert.equal(instance.exports.guarded(0), 42);
     assert.equal(instance.exports.guarded(3), 0);
+    assert.equal(instance.exports.helperGraph(), 14680064);
   }
   console.log("Access path limit: compiler and eager fallback passed");
 } finally {

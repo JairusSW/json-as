@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep parsing eager inside generic scopes where type parameters could shadow model declarations, and bound helper expansion during access analysis to avoid excessive compilation work.
+
 - Preserve parsed values used through assignment expressions, respect hoisted `var` shadowing during access analysis, and validate preserved numeric and Boolean aliases against their actual target types in strict parsing.
 
 - Preserve call argument evaluation order and conservatively handle rest parameters in access analysis. Bound control-flow path growth and fall back to eager parsing when the limit is reached. Correct signed and unsigned narrow values eagerly decoded into packed lazy slots.

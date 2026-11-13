@@ -17,6 +17,37 @@ class Record {
 
 const input = '{"id":7,"title":"hello","body":"some text"}';
 
+@json
+class Model {
+  value: i32 = 0;
+  summary: i32 = 0;
+}
+@json
+class GenericActualBase { value: i32 = 0; }
+class GenericActual extends GenericActualBase {
+  get summary(): i32 { return this.value; }
+}
+function readGeneric<Model>(data: string): i32 {
+  const value = JSON.parse<Model>(data);
+  return value.summary;
+}
+class GenericReader<Model> {
+  read(data: string): i32 {
+    const value = JSON.parse<Model>(data);
+    return value.summary;
+  }
+}
+export function genericSeed(): i32 {
+  const value = JSON.parse<GenericActualBase>('{"value":123}');
+  return 1;
+}
+export function genericShadow(): i32 {
+  return readGeneric<GenericActual>('{"value":42}');
+}
+export function genericClassShadow(): i32 {
+  return new GenericReader<GenericActual>().read('{"value":42}');
+}
+
 function assignedRecord(): Record {
   let value = new Record();
   return value = JSON.parse<Record>('{"id":42,"body":"hello"}');

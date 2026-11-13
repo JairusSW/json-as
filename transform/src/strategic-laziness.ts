@@ -128,6 +128,8 @@ export class StrategicAccessAnalysis extends Visitor {
   private terminated = false;
   private namespace: string[] = [];
   private callableDepth = 0;
+  private genericDepth = 0;
+  private helperExpansions = 0;
   private callableScopeStart = 0;
   private varBindings = new Set<string>();
   private varBindingCache = new WeakMap<Node, Set<string>>();
@@ -149,6 +151,7 @@ export class StrategicAccessAnalysis extends Visitor {
       call: CallExpression,
       shadowed: (name: string) => boolean,
       scope: string,
+      genericScope: boolean,
     ) => ClassDeclaration | null,
     private resolveChild: (
       owner: ClassDeclaration,
@@ -266,6 +269,7 @@ export class StrategicAccessAnalysis extends Visitor {
         call,
         this.shadowed,
         this.namespace.join("."),
+        this.genericDepth > 0,
       );
       if (!declaration) return null;
       const site: StrategicSite = {
@@ -442,7 +446,7 @@ export class StrategicAccessAnalysis extends Visitor {
       for (const arg of args) if (arg) arg.escaped = true;
       return;
     }
-    if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8) {
+    if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8 || this.helperExpansions >= 1024) {
       const intrinsic = !this.conservativeEscapes && node.expression.kind === NodeKind.Identifier && [
         "idof", "offsetof", "sizeof", "nameof",
         "isDefined", "isReference", "isManaged", "isInteger", "isFloat",
@@ -456,6 +460,7 @@ export class StrategicAccessAnalysis extends Visitor {
       return;
     }
     if (!receiver && !args.some(Boolean)) return;
+    this.helperExpansions++;
     // A default argument can read an earlier argument before the function
     // body runs. Until those expressions are modeled, retain the full value.
     if (this.conservativeEscapes && fn.signature.parameters.slice(node.args.length).some((p) => p.initializer)) {
@@ -515,6 +520,7 @@ export class StrategicAccessAnalysis extends Visitor {
       this.varBindings,
       this.pathLimitReached,
       this.callableSiteStart,
+      this.helperExpansions,
     ] as const;
     this.scopes = [
       ...this.scopes.map((scope) => {
@@ -537,15 +543,24 @@ export class StrategicAccessAnalysis extends Visitor {
     this.paths = [new Map()];
     this.pathLimitReached = false;
     this.callableSiteStart = this.sites.length;
+    this.helperExpansions = 0;
     this.callableScopeStart = this.scopes.length - 1;
     this.varBindings = this.conservativeEscapes ? this.collectVarBindings(node.body) : new Set();
     this.thisSite = null;
     this.terminated = false;
     this.callableDepth++;
+    if (node.typeParameters?.length) this.genericDepth++;
     this.visit(node.body);
+    if (node.typeParameters?.length) this.genericDepth--;
     this.callableDepth--;
-    [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings, this.pathLimitReached, this.callableSiteStart] =
+    [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings, this.pathLimitReached, this.callableSiteStart, this.helperExpansions] =
       saved;
+  }
+
+  visitClassDeclaration(node: ClassDeclaration, isDefault = false, parent: Node | null = null): void {
+    if (node.typeParameters?.length) this.genericDepth++;
+    super.visitClassDeclaration(node, isDefault, parent);
+    if (node.typeParameters?.length) this.genericDepth--;
   }
 
   visitNamespaceDeclaration(node: NamespaceDeclaration): void {

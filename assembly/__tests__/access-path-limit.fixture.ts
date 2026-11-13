@@ -30,3 +30,16 @@ export function guarded(mask: i32): i32 {
   if (mask & 16777216) { if (mask & 33554432) return 0; }
   return value.id;
 }
+
+function helper0(value: GuardedRecord): i32 { return value.id; }
+function helper1(value: GuardedRecord): i32 { return helper0(value) + helper0(value) + helper0(value) + helper0(value) + helper0(value) + helper0(value) + helper0(value) + helper0(value); }
+function helper2(value: GuardedRecord): i32 { return helper1(value) + helper1(value) + helper1(value) + helper1(value) + helper1(value) + helper1(value) + helper1(value) + helper1(value); }
+function helper3(value: GuardedRecord): i32 { return helper2(value) + helper2(value) + helper2(value) + helper2(value) + helper2(value) + helper2(value) + helper2(value) + helper2(value); }
+function helper4(value: GuardedRecord): i32 { return helper3(value) + helper3(value) + helper3(value) + helper3(value) + helper3(value) + helper3(value) + helper3(value) + helper3(value); }
+function helper5(value: GuardedRecord): i32 { return helper4(value) + helper4(value) + helper4(value) + helper4(value) + helper4(value) + helper4(value) + helper4(value) + helper4(value); }
+function helper6(value: GuardedRecord): i32 { return helper5(value) + helper5(value) + helper5(value) + helper5(value) + helper5(value) + helper5(value) + helper5(value) + helper5(value); }
+function helper7(value: GuardedRecord): i32 { return helper6(value) + helper6(value) + helper6(value) + helper6(value) + helper6(value) + helper6(value) + helper6(value) + helper6(value); }
+export function helperGraph(): i32 {
+  const value = JSON.parse<GuardedRecord>('{"id":7,"body":"hello"}');
+  return helper7(value);
+}
