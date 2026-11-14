@@ -312,3 +312,37 @@ sample, log, per-process audit and sealed source/binary provenance. Three of
 nine meet 90% parity; six typed workloads remain below it. Between-capture
 changes are descriptive, not causal deltas; the paired grouped-reservation
 screen above isolates that change. The parity gate exits 1 as expected.
+
+## Compile-time integer digit pairs
+
+The fixed 100-entry UTF-16 digit-pair table is now embedded as static data,
+removing its mutable initialization flag and the check performed for every
+integer. The existing initialization helper remains as a no-op for source
+compatibility. Numeric conversion and formatting algorithms are unchanged.
+
+An initial six-pair original-classic screen suggested CITM −2.20%, GitHub
+−0.80%, and Twitter +0.60% in median latency. Independent confirmation with
+eight alternating fresh-process pairs per workload gives:
+
+| Workload | Previous µs | Candidate µs | Latency delta |
+|---|---:|---:|---:|
+| CITM | 141.630 | 138.600 | −2.14% |
+| GitHub events | 9.380 | 9.380 | 0.00% |
+| Twitter | 70.180 | 70.280 | +0.14% |
+
+CITM improves in six of eight confirmation pairs; the other workloads are
+mixed and effectively flat. Shared Apple M4 Max/AC, SIMD/incremental without
+validation, shared timing lock; background work remains visible in the
+[raw screen and confirmation](data/serialization-static-pairs-screen.json.gz).
+Updated full-corpus native ratios are pending.
+
+The capture also retains refreshed isolated-writer profiles at the preceding
+revision. CITM attributes 31.4% of samples to its generated serializer and
+24.8% to its 64-bit integer formatter (including inlined narrow formatting).
+These profiles guide experiments; their timings and GC mix do not replace
+classic-harness qualification. Profile processing warns of a V8 version
+mismatch, so native C++ symbol names are not interpreted.
+
+Validation: 85,995 exact public root/field/array BigInt-oracle comparisons
+across all nine backend/runtime configurations; 40,434 additional full-width
+and decimal-boundary comparisons; typecheck, lint and license checks pass.
