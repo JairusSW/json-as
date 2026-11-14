@@ -61,3 +61,20 @@ The [screen capture](data/serialization-reservation-screen.json.gz) retains
 all samples, logs, binary hashes, candidate patch, model source and CPU capture.
 The profile processor warned of a V8 version mismatch, so native-symbol labels
 should not be interpreted; named Wasm allocation/GC frames corroborate churn.
+
+## Regular-harness requalification after reservation change
+
+Five process pairs, same machine and settings, commit `d04de7ee`:
+
+| Corpus | json-as µs | simdjson µs | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|---:|---:|
+| Twitter | 137.22 | 45.90 | 3.48 | 10.40 | 0.33× |
+| Canada | 2556.18 | 1675.46 | 0.82 | 1.25 | 0.66× |
+| CITM | 147.26 | 48.96 | 3.40 | 10.22 | 0.33× |
+
+All complete-output oracles passed. CITM's latency is 44.4% below the original
+screen; Twitter and Canada are roughly flat. These regular-harness captures
+were sequential before/after batches, unlike the alternating binary screen
+above, so small changes must not be treated as statistically established wins
+or losses. The [raw capture](data/serialization-reservation-native.json.gz)
+retains all samples and provenance. The 90% gate still fails on all three.
