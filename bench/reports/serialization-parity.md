@@ -493,3 +493,26 @@ still clear 90%; six typed workloads remain below the target. The gate exits
 1 for that unmet threshold, with no execution or output-oracle failure. Small
 cross-batch native changes are not attributed to the snapshot optimization;
 the preceding paired AS-before/after screen measures that change directly.
+
+## Rejected runtime 32-byte string tails
+
+A general packed 32-byte overlapping tail improved the initial GitHub/Twitter
+screen, but independent six-pair full-corpus confirmation exposed regressions:
+CITM +2.14% and Canada +1.13% median latency. GitHub improved 7.03%, Twitter
+2.26% and GSOC 3.46%; that tradeoff was not retained. A straddling-only variant
+improved CITM in an eight-pair screen but regressed Poet 9.80%. Changing only
+its guard order still regressed Poet 11.96%, while its smaller gains elsewhere
+were statistically unresolved. Those variants were also rejected.
+
+All probes used the original classic harness against sealed `e1ab611f` binaries
+on Apple M4 Max/AC, SIMD/incremental, no validation and the shared timing lock.
+The [raw experiment archive](data/serialization-overlap32-rejected.json.gz)
+retains the initial screen, full-corpus confirmation, both narrowed controls,
+all scripts, patches, binary hashes, process audits and validation logs.
+
+The runtime source and all nine current binaries have been restored to the
+qualified snapshot implementation. The stronger oracle remains: every length
+from zero through 33 UTF-16 units is checked with controls/surrogates at every
+position, plus longer block boundaries. It passes 1,872 exact root/field/reuse
+checks across 12 configurations on the restored writer. The earlier native
+table remains the current retained implementation's qualification.
