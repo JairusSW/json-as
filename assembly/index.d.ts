@@ -66,14 +66,14 @@ declare class JSONConfig {
  * JSON.parse<Vec3>('{"x":1,"y":2,"z":3}');
  * ```
  */
-declare function json(config?: JSONConfig): Function;
-// @ts-expect-error: type
-declare function json(..._): void;
+declare function json(
+  config?: JSONConfig,
+): (target: Function, context?: unknown) => void;
+declare function json(target: Function, context?: unknown): void;
 /**
  * Alias for {@link json}. `@serializable` and `@json` are interchangeable.
  */
-// @ts-ignore: type
-declare function serializable(..._): void;
+declare const serializable: typeof json;
 
 /**
  * Field decorator that overrides the JSON key used for a property, decoupling
@@ -180,8 +180,7 @@ declare function optional(..._): void;
  * }
  * ```
  */
-// @ts-ignore: type
-declare function lazy(..._): void;
+declare function lazy(...args: unknown[]): void;
 
 /** Shorthand for disabling automatic access-based specialization in `@json({ nolazy })`. */
 declare const nolazy: true;
