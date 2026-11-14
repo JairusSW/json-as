@@ -861,3 +861,48 @@ all samples/audits, sealed manifests, compiler options, scripts, source prototyp
 profile logs, explicit-control results and third-party licenses. It includes
 work that did not improve performance so it will not be repeated as a new idea.
 The separate float-array accounting prototype is not part of these results.
+
+## Rejected float-array loop variants
+
+Three further independent screens keep the decimal formatter unchanged and alter
+only f32/f64 array bookkeeping. The outer-chunk variant updates size accounting
+once per 16-value chunk, using an inner loop. The first-chunk variant reserves
+before the existing loop and advances an explicit chunk boundary instead of
+checking `i & 15`. The third retains the original loop and computes total bytes
+from a buffer-relative starting position at the end. All three are rejected;
+no production patch is retained.
+
+| Variant | Twitter latency delta | Canada latency delta |
+|---|---:|---:|
+| Outer chunk loop | -0.54% | +5.51% |
+| First chunk before loop | +0.59% | +6.83% |
+| Frame-relative accounting | -0.70% | +2.09% |
+
+Each screen uses four alternating fresh-process pairs, the same retained
+`e9971446` baseline and original classic harness, M4 Max / arm64 / AC,
+SIMD/incremental, validation/cache off, under the shared lock. Raw process audits
+are preserved. Only Twitter/Canada images differ; the other seven are
+byte-identical. These are shared-host screening results, not confidence bounds
+or a new native parity table.
+
+All three variants pass 448 exact baseline/candidate float-array outputs, spanning
+f32/f64, empty/single/pair arrays, 15/16/17 and 31/32/33 boundaries, and lengths
+through 2,049, with collection between operations. An independent host oracle
+checks all 113,376 numbers: f64 round trips exactly, f32 rounds back to the same
+float32 value, nonfinite values become null, and zero is normalized. Another 468 explicit edge outputs across the six
+baseline/candidate images cover signed zero, subnormals, normal boundaries,
+maximum finite values, infinities and NaNs. All nine
+complete model/GC oracles pass for each variant.
+
+The emitted Canada module changes only function 132. Its body grows from 3,134
+to 3,147 bytes for the first variant and 3,265 for the second; declared i32 locals
+grow from 14 to 15/16. The third variant is 3,142 bytes with 15 i32 locals.
+The static call counts for baseline/variants are 33/33/34/33. This establishes added
+emitted work; it does not establish native register spills or branch-predictor
+behavior. The trials illustrate why fewer global updates in source are not
+sufficient performance evidence.
+
+The [raw archive](data/serialization-float-loops-rejected.json.gz) contains all three
+source prototypes, all samples/audits, sealed binaries' manifests, the full
+baseline float outputs, independent oracle, scripts, full-model build logs and
+function disassemblies. The original source is restored.
