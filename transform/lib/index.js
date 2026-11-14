@@ -2643,12 +2643,41 @@ export class JSONTransform extends Visitor {
             (isReservedPrimitive(member.type) ||
                 isString(member.type) ||
                 /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type)));
-        const directStringMembers = this.schema.static && canReserveDynamicPayloads
+        const directStringMembers = this.schema.static
             ? this.schema.members.filter((member) => !member.flags.has(PropertyFlags.Lazy) &&
+                !this.getSchema(member.type) &&
                 isString(member.type) &&
                 !defaultStringLiterals.has(member.name))
             : [];
-        const reserveDirectStringPayloads = directStringMembers.length >= 1;
+        const directStringSet = new Set(directStringMembers);
+        const stringPayloadReserves = new Map();
+        if (!canReserveDynamicPayloads && directStringSet.size) {
+            let strings = [];
+            const finish = () => {
+                if (strings.length)
+                    stringPayloadReserves.set(strings[0], strings);
+                strings = [];
+            };
+            for (const member of this.schema.members) {
+                if (member.flags.has(PropertyFlags.Lazy) ||
+                    this.getSchema(member.type) ||
+                    (!isReservedPrimitive(member.type) && !isString(member.type))) {
+                    finish();
+                }
+                else if (directStringSet.has(member)) {
+                    strings.push(member);
+                }
+            }
+            finish();
+        }
+        const stringPayloadSize = (members) => members
+            .map((member) => {
+            const size = member.nullable
+                ? "__nullableStringByteSizePointer"
+                : "__stringByteSizePointer";
+            return `JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
+        })
+            .join(" + ");
         const wideIntegerArrayCandidates = this.schema.static && canReserveDynamicPayloads
             ? this.schema.members.filter((member) => {
                 if (member.flags.has(PropertyFlags.Lazy) ||
@@ -2679,11 +2708,16 @@ export class JSONTransform extends Visitor {
                         `  }\n` +
                         `}\n`);
                 }
-                if (reserveDirectStringPayloads && isString(member.type)) {
+                if (directStringSet.has(member)) {
                     const writer = member.nullable
                         ? "__serializeNullableStringPointerReservedAt"
                         : "__serializeStringPointerReservedAt";
-                    return `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+                    const group = stringPayloadReserves.get(member);
+                    const reserve = group
+                        ? `bs.offset = __dst; bs.proposeSize(${stringPayloadSize(group)}); __dst = bs.offset;\n`
+                        : "";
+                    return (reserve +
+                        `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
                 }
                 if (directWideIntegerArrays.includes(member)) {
                     return `__dst = JSON.__serializeIntegerArrayPointerReservedAt<${member.type}>(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
@@ -5264,15 +5298,8 @@ export class JSONTransform extends Visitor {
         SERIALIZE += indent + "__dst += 2;\n";
         SERIALIZE += indent + "bs.offset = __dst;\n";
         SERIALIZE += "}";
-        const directStringPayloadReserve = reserveDirectStringPayloads
-            ? directStringMembers
-                .map((member) => {
-                const size = member.nullable
-                    ? "__nullableStringByteSizePointer"
-                    : "__stringByteSizePointer";
-                return ` + JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
-            })
-                .join("")
+        const directStringPayloadReserve = canReserveDynamicPayloads && directStringMembers.length
+            ? " + " + stringPayloadSize(directStringMembers)
             : "";
         const directWideIntegerArrayReserve = directWideIntegerArrays
             .map((member) => ` + JSON.__integerArrayReservedBytes<${member.type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`)

@@ -250,3 +250,40 @@ threshold. The six typed workloads remain below it; the goal is still unmet.
 Between-capture throughput changes are not an isolated causal estimate of the
 string-tail change; the paired AS-before/after screen above supplies that
 evidence. The runner exits 1 because the parity gate fails.
+
+## Callback-bounded string reservation groups
+
+Mixed schemas previously disabled all direct string-payload reservations because
+nested serializers can mutate later fields. The transform now groups consecutive
+plain fields, reserving their string payloads together at the first string in
+each run. Nested values, lazy fields and other potentially effectful operations
+end the run. Later sizes are loaded only after those operations finish. Pure
+flat schemas keep their existing single reservation. No output cache or runtime
+analysis is added.
+
+Six alternating fresh-process pairs per workload in the original classic harness
+on shared Apple M4 Max/AC power, using SIMD/incremental without validation:
+
+| Workload | Previous µs | Candidate µs | Latency delta |
+|---|---:|---:|---:|
+| GitHub events | 10.535 | 9.065 | −13.95% |
+| Twitter | 81.395 | 69.990 | −14.01% |
+| CITM | 141.800 | 140.610 | −0.84% |
+
+Every GitHub/Twitter pair improves; CITM is mixed and effectively flat. Background
+virtualization and interactive apps were present; no isolated-host claim.
+[Raw screen](data/serialization-string-groups-screen.json.gz) retains all logs,
+audits, binary hashes and patches. Final cleaned-up compiler output produces
+byte-identical benchmark binaries to the screened candidate. The full native
+comparison remains pending for this change.
+
+The same capture retains a rejected 4–7-character vector experiment: its first
+screen suggested small gains, but independent confirmation regressed GitHub
+2.25% while improving Twitter 1.52%. That runtime change was reverted.
+
+Validation passes: 324 callback-order/GC/retained-output checks across nine
+backend/runtime configurations, including callbacks that expand later strings
+and mutate already-emitted fields; 1,872 escaping root/field/reuse oracle checks
+across 12 configurations; unchanged zero-allocation static string-array checks;
+288 packed-consumer operations across 36 configurations; typecheck, lint and
+license headers.

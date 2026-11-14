@@ -39,7 +39,7 @@ const specialUnits = [
   0xffff,
 ];
 for (const length of [
-  ...Array.from({ length: 11 }, (_, i) => i + 7),
+  ...Array.from({ length: 18 }, (_, i) => i),
   23,
   24,
   25,
