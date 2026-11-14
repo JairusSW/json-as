@@ -467,3 +467,29 @@ Map callback/codec checks; 288 packed-consumer checks across 36 configurations;
 source/AST/alias guards; typecheck, lint, formatting and license headers. Forced
 collection inside callbacks is tested on incremental; minimal requires explicit
 roots rather than implicit active-stack rooting. Full native refresh follows.
+
+## Complete native refresh at e1ab611f
+
+Five alternating fresh-process pairs for all nine corpora, same source-aligned
+classic harness and fresh owning output. Apple M4 Max/AC, SIMD/incremental,
+validation disabled, shared timing lock; background activity retained in audits.
+All owned-model output oracles pass.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.15 | 10.70 | 0.67× |
+| canada | 0.91 | 1.25 | 0.72× |
+| citm_catalog | 4.29 | 10.17 | 0.42× |
+| poet | 15.92 | 22.81 | 0.70× |
+| github_events | 6.52 | 16.46 | 0.40× |
+| gsoc-2018 | 7.90 | 16.72 | 0.47× |
+| lottie | 24.67 | 20.08 | 1.23× |
+| otfcc | 34.96 | 23.86 | 1.46× |
+| fgo | 37.69 | 22.27 | 1.69× |
+
+[Raw qualification](data/serialization-aligned-e1ab611f.json.gz) retains all
+samples, logs, source/runtime/binary seals and process audits. Three of nine
+still clear 90%; six typed workloads remain below the target. The gate exits
+1 for that unmet threshold, with no execution or output-oracle failure. Small
+cross-batch native changes are not attributed to the snapshot optimization;
+the preceding paired AS-before/after screen measures that change directly.
