@@ -703,3 +703,60 @@ qualification. Cross-capture shifts in unchanged/native binaries are not
 attributed to the Map change; its paired AS confirmation above isolates that
 change. The Map optimization adds 1,165 bytes to the CITM Wasm and 909 bytes to
 GSOC; these are artifact sizes, not heap/RSS measurements.
+
+## Stock marking-call expansion
+
+The retained change expands the stock incremental collector's `Object.makeGray`
+call inside `__visit`. It clones the original AST body, binds its receiver to
+`obj`, and preserves the iterator check, list operations, pointer-free decision,
+and `visitCount` ordering. It does not change GC pacing, object headers, roots,
+or output ownership. Stock runtime source and body checks gate the rewrite;
+unknown layouts and affected aliases remain unchanged. RTRACE, PROFILE, and
+finalizer configurations retain the original call.
+
+A controlled emitted-code comparison confirms one `makeGray` call in the
+baseline `__visit` and zero in the candidate. The original method remains
+available. All nine classic outputs, including retained models after collection,
+pass their integer-preserving model oracles. AST selection and unchanged-fallback
+checks pass 36 assertions; the allocation-pressure suite passes 12 configurations
+plus its fixed-memory control, and 24 runtime fallback/finalizer configurations
+preserve exact binaries and event counts.
+
+Local Apple M4 Max / AC, SIMD, incremental runtime, validation disabled,
+JSON_CACHE=0, original classic harness. The baseline is `e48e0489`; only the
+marking-call expansion changes the measured implementation. An independent
+eight-pair confirmation alternates fresh baseline/candidate processes:
+
+| Corpus | Baseline µs | Candidate µs | Median latency change |
+|---|---:|---:|---:|
+| Twitter | 68.165 | 66.720 | -2.12% |
+| Canada | 2291.625 | 2276.120 | -0.68% |
+| CITM | 99.695 | 98.305 | -1.39% |
+| Poet | 204.695 | 204.885 | +0.09% |
+| GitHub | 8.940 | 8.395 | -6.10% |
+| GSOC | 336.150 | 332.515 | -1.08% |
+| Lottie | 61.400 | 61.495 | +0.15% |
+| OTFCC | 1871.495 | 1931.320 | +3.20% |
+| FGO | 1317.235 | 1300.725 | -1.25% |
+
+GitHub is faster in all eight pairs; its paired geometric latency change is
+-5.01% (paired bootstrap 95% interval -5.99% to -3.98%). CITM's corresponding
+interval is -5.16% to -0.52%. Most other intervals include zero; their point
+estimates do not establish individual speedups. OTFCC's apparent slowdown also
+has an interval crossing zero. A separate 16-pair OTFCC confirmation resolves
+that risk: 1858.715 to 1850.340 µs (-0.45% medians), paired geometric change
+-1.96% with interval -4.37% to +0.32%.
+
+These captures are **under background load**, not isolated host measurements:
+process audits record VM activity, substantial during the initial four-pair
+screen and lower but still present during confirmation. No background services
+were stopped. All samples, process audits, power state, hashes, implementation,
+controlled emitted-code evidence, and verification logs are preserved in the
+[raw capture](data/serialization-gc-marking.json.gz). The shared timing lock was
+released after each batch. This is incremental AS-before/after evidence; the
+latest full native comparison above still refers to `e48e0489`, and whole-corpus
+near parity remains unmet.
+
+The final local package matrix passes 288 operations across 36 configurations.
+All 51 compiler-warning configurations pass with AS201 enabled, along with
+typechecking, lint, license headers, and formatting.

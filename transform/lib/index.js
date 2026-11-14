@@ -21,6 +21,7 @@ import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
 import { specializeSweepRuns } from "./sweep.js";
+import { inlineGcMarking } from "./gc-marking.js";
 import { generateCursorParser } from "./cursor.js";
 import { StrategicAccessAnalysis, materializationDecision, } from "./strategic-laziness.js";
 import { keyDispatch } from "./key-dispatch.js";
@@ -6090,6 +6091,7 @@ export default class Transformer extends Transform {
         specializeObjectBarrier(parser.sources);
         const hasStaticI64ArraySchema = [...transformer.schemas.values()].some((schemas) => schemas.some((schema) => schema.members.some((member) => /(?:^|[<,])Array<i64>(?:$|[>,|])/.test(member.type.replace(/\s/g, "")))));
         specializeSweepRuns(parser.sources, this.program.options.globalAliases, hasStaticI64ArraySchema);
+        inlineGcMarking(parser.sources, this.program.options.globalAliases);
         for (const [source, statements] of transformer.simdStatements) {
             for (const statement of statements)
                 source.statements.unshift(SimpleParser.parseTopLevelStatement(statement));

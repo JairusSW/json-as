@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Expand a stock incremental-GC marking call at compile time without changing collection pacing or state transitions. Unknown runtimes, tracing, profiling, finalizers, and affected aliases retain the original path.
+
 - Reduce native-model serialization overhead with adaptive owned output, grouped plain-string reservations, compile-time digit pairs, and bounded integer inlining. Every call still produces a fresh owning result.
 
 - Traverse callback-free generated Map values directly from native entries after bounded type checks. Preserve snapshot iteration for custom codecs, effectful omission, deferred fields, uncertain subtypes, and unsupported runtime layouts.

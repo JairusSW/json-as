@@ -78,6 +78,7 @@ import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
 import { specializeSweepRuns } from "./sweep.js";
+import { inlineGcMarking } from "./gc-marking.js";
 import { generateCursorParser } from "./cursor.js";
 import {
   StrategicAccessAnalysis,
@@ -9155,6 +9156,8 @@ export default class Transformer extends Transform {
       this.program.options.globalAliases,
       hasStaticI64ArraySchema,
     );
+
+    inlineGcMarking(parser.sources, this.program.options.globalAliases);
 
     for (const [source, statements] of transformer.simdStatements) {
       for (const statement of statements)
