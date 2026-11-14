@@ -287,3 +287,28 @@ and mutate already-emitted fields; 1,872 escaping root/field/reuse oracle checks
 across 12 configurations; unchanged zero-allocation static string-array checks;
 288 packed-consumer operations across 36 configurations; typecheck, lint and
 license headers.
+
+## Complete refresh at 91fc355e
+
+Five alternating fresh-process pairs per corpus, original classic harness,
+SIMD/incremental without validation. Apple M4 Max on AC power under the shared
+timing lock; background virtualization/interactive applications were active.
+All source-aligned complete-output oracles pass.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 6.77 | 10.37 | 0.65× |
+| canada | 0.88 | 1.22 | 0.72× |
+| citm_catalog | 3.58 | 10.24 | 0.35× |
+| poet | 16.51 | 22.96 | 0.72× |
+| github_events | 6.37 | 16.29 | 0.39× |
+| gsoc-2018 | 7.84 | 16.07 | 0.49× |
+| lottie | 23.72 | 21.52 | 1.10× |
+| otfcc | 35.92 | 23.77 | 1.51× |
+| fgo | 36.09 | 21.93 | 1.65× |
+
+[Raw qualification](data/serialization-aligned-91fc355e.json.gz) retains every
+sample, log, per-process audit and sealed source/binary provenance. Three of
+nine meet 90% parity; six typed workloads remain below it. Between-capture
+changes are descriptive, not causal deltas; the paired grouped-reservation
+screen above isolates that change. The parity gate exits 1 as expected.
