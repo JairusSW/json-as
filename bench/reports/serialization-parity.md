@@ -789,3 +789,21 @@ Poet and FGO, are not attributed to the marking patch; its isolated before/after
 evidence is reported above. The [raw qualification](data/serialization-aligned-e9971446.json.gz)
 retains all 90 invocation logs, samples, process audits, power state, source and
 binary seals, output hashes, and the final gate result.
+
+## Rejected grouped string-Map reservations
+
+A fresh e997 diagnostic profile locates approximately 57% of CITM samples in its
+generated root serializer, 28% of GitHub samples in GC marking and 26% in string
+writing, and 31% of Twitter samples in string writing. These isolate serialization
+with source-recorded inputs (CITM/Twitter min; GitHub pretty), not the classic
+throughput qualification. The decoder's V8-version warning is preserved.
+
+An experimental string-to-string Map loop reserves each key/value pair together
+and keeps its output cursor local. Correctness passes 4,212 exact-output and
+retention checks across all three backends/runtimes, plus 555 callback and 375
+snapshot/rehash checks. All nine full-model output/GC oracles pass. Only the CITM
+classic binary changes. Four alternating baseline/candidate pairs versus e997
+measure 97.40 versus 97.80 µs medians (+0.41% latency), with no useful gain.
+The prototype is rejected and the runtime restored. The [raw capture](data/serialization-map-string-pairs-rejected.json.gz)
+retains the implementation, tests, all samples/audits and refreshed profiles.
+No speedup is claimed from the lower reservation-call count.
