@@ -346,3 +346,59 @@ mismatch, so native C++ symbol names are not interpreted.
 Validation: 85,995 exact public root/field/array BigInt-oracle comparisons
 across all nine backend/runtime configurations; 40,434 additional full-width
 and decimal-boundary comparisons; typecheck, lint and license checks pass.
+
+## Bounded integer inlining
+
+The u32 formatter and small-value u64 entry are inlined into their callers;
+large magnitudes retain a shared out-of-line helper. This exposes the common
+formatting path to the caller's optimizer without duplicating the complete
+large-number routine at every field. Numeric algorithms and output are unchanged.
+
+Six alternating original-classic process pairs per corpus compare the sealed
+`91fc355e` binaries against static digit data plus bounded inlining. Apple M4
+Max/AC, SIMD/incremental, no validation, shared timing lock; per-process
+background audits retained. Every complete-model output oracle passes.
+
+| Corpus | Previous µs | Bounded µs | Median latency delta |
+|---|---:|---:|---:|
+| twitter | 69.980 | 67.130 | -4.07% |
+| canada | 2348.655 | 2301.890 | -1.99% |
+| citm_catalog | 140.735 | 118.830 | -15.56% |
+| poet | 205.725 | 208.650 | 1.42% |
+| github_events | 9.040 | 8.890 | -1.66% |
+| gsoc-2018 | 400.025 | 394.705 | -1.33% |
+| lottie | 62.255 | 61.025 | -1.98% |
+| otfcc | 1858.035 | 1860.640 | 0.14% |
+| fgo | 1365.535 | 1294.165 | -5.23% |
+
+Poet's paired geometric-mean change is +0.75%, with a 95% paired-percentile
+bootstrap interval of −1.79% to +3.39%. No regression is statistically resolved
+in this small batch; that is not a guarantee of universal non-regression.
+CITM's corresponding interval is −16.14% to −15.28%, Twitter's −5.09% to −3.50%.
+Intervals use 20,000 resamples of six process pairs without multiplicity
+correction. Full native-parity qualification is pending.
+
+A three-way screen against the preceding static-table writer measured CITM
+139.710 / 118.340 / 119.390 µs for baseline / full inlining / bounded inlining,
+Twitter 70.240 / 67.725 / 68.440 µs, and GitHub 9.165 / 8.875 / 8.890 µs. Bounded
+inlining reduces CITM's added Wasm from approximately 78 KB to 24 KB, Twitter's
+from 87 KB to 42 KB, and GitHub's from 79 KB to 38 KB. These are binary sizes,
+not heap/RSS measurements. Performance qualification is ARM64-only.
+
+The [raw capture](data/serialization-bounded-inline-screen.json.gz) includes
+all process logs/hashes/audits, both full-corpus trials, the three-way screen,
+scripts, and representative compiler IR. The IR already lowers constant
+integer division to ARM64 multiply/shift operations, ruling out redundant
+source-level division rewrites.
+
+Rejected experiments are retained there too: the 64-byte string loop regressed
+Twitter 2.53%; packed surrogate validation regressed GitHub 8.14%, Twitter
+2.60%, and CITM 3.76%; direct map-value dispatch regressed CITM 1.94%. All three
+runtime changes were reverted. The stronger string oracle remains: it now
+checks exact JSON encoding, including lone surrogates and exhaustive small
+surrogate combinations across vector boundaries, in addition to decoded values.
+
+Validation passes: 85,995 exact integer root/field/array comparisons across nine
+backend/runtime configurations, 1,872 expanded exact string root/field/reuse
+checks across 12 configurations, nine full model-output oracles, typecheck,
+lint and license headers.

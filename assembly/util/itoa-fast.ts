@@ -71,6 +71,7 @@ function pair(i: u32): u32 {
  * a byte offset). Caller must ensure the buffer has at least 20 bytes
  * available (max 10 chars).
  */
+@inline
 export function itoaU32(buf: usize, v: u32): u32 {
   if (v < 10) {
     store<u16>(buf, <u16>(v + 0x30));
@@ -200,10 +201,16 @@ function writeU32Padded8(buf: usize, v: u32): void {
  * For 17+ digit values (which still fit in u64 < 1.8e19), repeat.
  * Caller must ensure the buffer has at least 40 bytes available.
  */
+@inline
 export function itoaU64(buf: usize, v: u64): u32 {
   if (v <= <u64>u32.MAX_VALUE) {
     return itoaU32(buf, <u32>v);
   }
+  return writeU64Large(buf, v);
+}
+
+// The inline entry already handled magnitudes that fit in u32.
+function writeU64Large(buf: usize, v: u64): u32 {
   const lo8 = <u32>(v % 100_000_000);
   const hi = v / 100_000_000;
   if (hi <= <u64>u32.MAX_VALUE) {

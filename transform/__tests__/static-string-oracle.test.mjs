@@ -51,7 +51,7 @@ for (const length of [
   65,
 ]) {
   const base = "a".repeat(length);
-  tails.push(base);
+  tails.push(base, "😀".repeat(length), "\uffff".repeat(length));
   for (let at = 0; at < length; at++) {
     for (const code of specialUnits)
       tails.push(
@@ -59,6 +59,17 @@ for (const length of [
       );
     tails.push(base.slice(0, at) + "😀" + base.slice(at + 2));
   }
+}
+const surrogateUnits = ["x", "\ud800", "\udbff", "\udc00", "\udfff"];
+for (let value = 0; value < 625; value++) {
+  let pattern = "";
+  let digits = value;
+  for (let i = 0; i < 4; i++) {
+    pattern += surrogateUnits[digits % surrogateUnits.length];
+    digits = Math.floor(digits / surrogateUnits.length);
+  }
+  for (const prefix of [7, 15, 31])
+    tails.push("a".repeat(prefix) + pattern + "z".repeat(40));
 }
 valid.push(tails);
 const invalid = [
@@ -133,8 +144,14 @@ try {
               const data = kind >= 3 ? [null, ...values, null] : values;
               const value = kind % 3 === 0 ? data : { items: data };
               const source = JSON.stringify(value, null, space);
+              const output = call(source, kind);
+              assert.equal(
+                output,
+                JSON.stringify(value),
+                `${mode}/${strict}/${fast}/${kind}: encoding`,
+              );
               assert.deepEqual(
-                JSON.parse(call(source, kind)),
+                JSON.parse(output),
                 JSON.parse(source),
                 `${mode}/${strict}/${fast}/${kind}`,
               );
