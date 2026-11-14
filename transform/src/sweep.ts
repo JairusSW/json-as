@@ -93,9 +93,13 @@ export function specializeSweepRuns(
     toString(capability.body).replace(/\s/g, "") !== "{returnfalse;}"
   )
     return;
-  const owned = (name: string): FunctionDeclaration | undefined => {
+  const owned = (
+    name: string,
+    fallback = false,
+  ): FunctionDeclaration | undefined => {
     const helper = fn(target, name);
-    const statement = (helper?.body as BlockStatement | null)?.statements[0];
+    const statements = (helper?.body as BlockStatement | null)?.statements;
+    const statement = fallback ? statements?.at(-1) : statements?.[0];
     if (statement?.kind !== NodeKind.Return) return undefined;
     const call = (statement as ReturnStatement).value;
     if (call?.kind !== NodeKind.Call) return undefined;
@@ -118,6 +122,10 @@ export function specializeSweepRuns(
   const allocators = [owned("allocateObject"), owned("allocateCopiedString")];
   if (!allocators[0] || !allocators[1] || allocators[0] === allocators[1])
     return;
+  // Output allocation can prefer a native uninitialized allocator first.
+  // Route only its private library fallback, never the native/global entry.
+  const output = owned("allocateUninitialized", true);
+  if (output && !allocators.includes(output)) allocators.push(output);
   const free = fn(runtime, "free"),
     step = fn(runtime, "step"),
     interrupt = fn(runtime, "interrupt");

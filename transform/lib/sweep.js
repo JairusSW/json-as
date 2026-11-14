@@ -60,9 +60,10 @@ export function specializeSweepRuns(sources, aliases, hasStaticI64ArraySchema = 
     if (!capability?.body ||
         toString(capability.body).replace(/\s/g, "") !== "{returnfalse;}")
         return;
-    const owned = (name) => {
+    const owned = (name, fallback = false) => {
         const helper = fn(target, name);
-        const statement = helper?.body?.statements[0];
+        const statements = helper?.body?.statements;
+        const statement = fallback ? statements?.at(-1) : statements?.[0];
         if (statement?.kind !== NodeKind.Return)
             return undefined;
         const call = statement.value;
@@ -86,6 +87,9 @@ export function specializeSweepRuns(sources, aliases, hasStaticI64ArraySchema = 
     const allocators = [owned("allocateObject"), owned("allocateCopiedString")];
     if (!allocators[0] || !allocators[1] || allocators[0] === allocators[1])
         return;
+    const output = owned("allocateUninitialized", true);
+    if (output && !allocators.includes(output))
+        allocators.push(output);
     const free = fn(runtime, "free"), step = fn(runtime, "step"), interrupt = fn(runtime, "interrupt");
     if (!free?.body || !step?.body || !interrupt?.body)
         return;

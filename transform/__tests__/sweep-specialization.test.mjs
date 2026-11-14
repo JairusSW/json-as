@@ -100,6 +100,15 @@ for (const kind of [
     );
     continue;
   }
+  const outputAllocator = rt.statements.find((node) =>
+    node.name?.text.startsWith("__json_as_allocate_output_string"),
+  );
+  assert.ok(outputAllocator);
+  assert.match(toString(outputAllocator), /__json_as_sweep_select\(\)/);
+  assert.doesNotMatch(
+    toString(outputAllocator),
+    /if \(total >= threshold\) interrupt\(\)/,
+  );
   const capability = toString(find(target, "canCoalesceSweepRuns"));
   assert.match(capability, /return __json_as_sweep_capability\(/);
   const enabled = toString(find(rt, "__json_as_can_coalesce_sweep_runs"));

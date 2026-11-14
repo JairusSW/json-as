@@ -172,3 +172,24 @@ The preceding capture that overlapped profile compilation was excluded.
 The [raw capture](data/serialization-aligned-10da43f7.json.gz) retains all
 process samples, logs and provenance. Lottie, OTFCC and FGO pass the 90%
 threshold; the other six do not, so the complete goal remains unmet.
+
+## Private output allocator collector routing
+
+The output-string allocator clone initially used the global incremental
+interrupt, bypassing the existing library-scoped sweep optimizations. The next
+change routes its private fallback through the same guarded selector already
+used by object/copied-string allocation. Native/global allocation entries stay
+unchanged; unknown versions, aliases and instrumentation retain the fallback.
+
+Six alternating process pairs in the original GitHub classic harness measure
+median baseline 11.285 µs versus candidate 11.005 µs, 2.48% lower latency.
+All pairs favor the candidate. The [raw screen](data/serialization-collector-routing-screen.json.gz)
+contains process results, binary hashes and the patch. A separate collector
+ordering experiment was also measured but is not retained. Updated whole-corpus
+native ratios are pending.
+
+The routing change passes collector activation/AST/alias guards, unchanged
+global collector assertions, idempotence, native-free/retained-graph pressure
+checks, 12 static numeric-array pressure configurations, 24 exact-binary/event
+fallback and finalizer configurations, nine output-retention configurations,
+117 static-output checks, typecheck and lint.
