@@ -592,3 +592,20 @@ compiler-IR controls and validation logs. The failed initial screen invocation
 with a stale candidate filename is retained for provenance and excluded from
 all statistics. No runtime/transform optimization from these experiments is
 retained; the earlier Unicode constant-packing fix remains.
+
+## Rejected scalar-only generated literals
+
+Replacing vector constants with u64/u32/u16 stores avoided static pools and
+reduced the small ARM64 emission control's maximum mapped PC from 120 to 116
+bytes. The actual classic corpus still regressed. Six alternating fresh-process
+pairs per corpus under the same SIMD/incremental, no-validation M4 Max/AC
+method measured median latency deltas of Twitter +3.70%, Canada +0.04%,
+CITM +1.24%, Poet −1.88%, GitHub +2.70%, GSOC +1.59%, Lottie +2.01%,
+OTFCC −3.65% and FGO −2.45%. Paired geometric-mean intervals resolve the
+Twitter (+0.45% to +3.96%) and GitHub (+0.52% to +5.47%) regressions.
+
+All nine complete-output/GC oracles and 3,105 literal checks passed before
+measurement. The scalar-only transform change was reverted. The
+[raw capture](data/serialization-scalar-literals-rejected.json.gz) preserves
+all 108 process runs, provenance, process audits, patch, scripts, validation
+and native-emission control. The retained native table is unchanged.
