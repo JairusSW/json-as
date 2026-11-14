@@ -52,11 +52,19 @@ try {
     fs.writeFileSync(
       path.join(dir, "consumer.ts"),
       `import {JSON as Json, JSONMode, toRaw, fromRaw, toBox} from "${entry}";
+import * as Runtime from "${entry}";
 let calls:i32=0;
 @json class Codec { value:i32=-9; @deserializer("number") decode(_source:string):Codec { calls++; const out=new Codec();out.value=99;return out; } }
 @json class Generic<T> { value!:T; }
 @json class Owner { value:Set<i32>|null=null; }
 class Values extends Array<Json.Value> { constructor() { super(); } }
+@json({lazy:"strategic"}) class Forwarded { needed:i32=0; text:string=""; }
+function forwardedMask(value:Forwarded):i32 { return i32(load<u64>(changetype<usize>(value),offsetof<Forwarded>("__needed_lz"))>>>32==0xffffffff); }
+export function forwarded():string {
+ const value=Json.parse<Forwarded>('{"needed":7,"text":"\\\\u0061"}');const before=forwardedMask(value);const n=value.needed;assert(n==7);
+ const first=Json.stringify(value);const second=Runtime.JSON.stringify(value);assert(changetype<usize>(first)!=changetype<usize>(second));
+ return before.toString()+"|"+first+"|"+second;
+}
 export function run():string {
  assert(fromRaw(toRaw('{"x":1}'))=='{"x":1}'&&toBox<i32>(7).value==7&&JSONMode.SWAR==0&&JSONMode.SIMD==1&&JSONMode.NAIVE==2);
  calls=0;const generic=Json.parse<Generic<Codec>>('{"value":7}');assert(generic.value.value==99&&calls==1);
@@ -95,6 +103,7 @@ export function run():string {
                 JSON_MODE: mode,
                 JSON_STRICT: String(strict),
                 JSON_USE_FAST_PATH: "1",
+                JSON_STRATEGIC_LAZINESS: "",
                 JSON_AS_LIBRARY_SOURCE: "",
               },
               stdio: "pipe",
@@ -120,7 +129,11 @@ export function run():string {
             },
           ).exports;
           assert.equal(read(g.run()), JSON.stringify(99));
-          checks += 8;
+          assert.equal(
+            read(g.forwarded()),
+            '1|{"needed":7,"text":"\\u0061"}|{"needed":7,"text":"\\u0061"}',
+          );
+          checks += 9;
           console.log(
             `Packed consumer: ${entry}/${mode}/${runtime}/strict=${strict}`,
           );

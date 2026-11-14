@@ -37,6 +37,64 @@ export function specializeCopiedStringAllocator(sources) {
     const normalized = (node) => toString(node).replace(/\s/g, "");
     if (normalized(original.body) !== normalized(expected.body))
         return;
+    const output = fn(target, "allocateUninitialized");
+    const expectedOutput = SimpleParser.parseTopLevelStatement(`function expected(size: usize, id: u32): usize {
+    if (isDefined(__newUninitialized)) return __newUninitialized(size, id);
+    return __new(size, id);
+  }`);
+    if (output?.body &&
+        normalized(output.body) === normalized(expectedOutput.body)) {
+        const unique = (source, prefix) => {
+            const text = source.text + source.statements.map(toString).join("\n");
+            let name = prefix;
+            for (let i = 0; text.includes(name); i++)
+                name = prefix + i;
+            return name;
+        };
+        const name = unique(runtime, "__json_as_allocate_output_string");
+        const local = unique(target, "__json_as_output_allocate");
+        {
+            const copy = cloneNode(original);
+            copy.name.text = name;
+            copy.decorators = (copy.decorators ?? []).filter((decorator) => decorator.name.text !== "global");
+            class BindOutput extends Visitor {
+                _visit(node, parent) {
+                    node.range = copy.range;
+                    super._visit(node, parent);
+                }
+            }
+            const body = copy.body;
+            let fills = 0;
+            for (let i = 0; i < body.statements.length; i++) {
+                if (normalized(body.statements[i]) !== "memory.fill(ptr,0,size)")
+                    continue;
+                const guarded = SimpleParser.parseStatement(`if (id != idof<string>() || isDefined(ASC_RTRACE)) memory.fill(ptr, 0, size);`);
+                new BindOutput().visit(guarded);
+                body.statements[i] = guarded;
+                fills++;
+            }
+            if (fills !== 1)
+                return;
+            runtime.statements.push(copy);
+            const imported = Node.createImportStatement([
+                Node.createImportDeclaration(Node.createIdentifierExpression(name, target.range), Node.createIdentifierExpression(local, target.range), target.range),
+            ], Node.createStringLiteralExpression("rt/itcms", target.range), target.range);
+            imported.internalPath = runtime.internalPath;
+            target.statements.unshift(imported);
+            const replacement = SimpleParser.parseTopLevelStatement(`function replacement(size: usize, id: u32): usize {
+        if (isDefined(__newUninitialized)) return __newUninitialized(size, id);
+        return ${local}(size, id);
+      }`);
+            class BindHelper extends Visitor {
+                _visit(node, parent) {
+                    node.range = output.range;
+                    super._visit(node, parent);
+                }
+            }
+            new BindHelper().visit(replacement.body);
+            output.body = replacement.body;
+        }
+    }
     const statement = allocate.body.statements[0];
     if (statement?.kind !== NodeKind.Return)
         return;

@@ -153,17 +153,24 @@ export namespace bs {
     stackSize = 0;
   }
 
-  function updateOwnedHint(len: usize): void {
-    if (len < MIN_OWNED_OUTPUT_SIZE) {
+  function updateOwnedHint(len: usize, reserved: usize): void {
+    // Wide schemas can reserve much more than their actual JSON needs. In
+    // that case retain the reusable staging buffer instead of repeatedly
+    // growing a fresh managed string and copying it again to trim the excess.
+    if (len < MIN_OWNED_OUTPUT_SIZE || reserved > len + (len >> 2)) {
       ownedHint = 0;
       return;
     }
     // Medium outputs need only enough slack to absorb ordinary length changes;
     // retain the established larger allowance for very large outputs.
-    ownedHint =
+    const slack =
       len < LARGE_OWNED_OUTPUT_SIZE
-        ? len + min<usize>(max<usize>(len >> 6, 64), 64 * 1024)
-        : len + min<usize>(max<usize>(len >> 4, 64), 1 << 20);
+        ? min<usize>(max<usize>(len >> 6, 64), 64 * 1024)
+        : min<usize>(max<usize>(len >> 4, 64), 1 << 20);
+    // Learn the writer's reservation demand, not only its final byte length.
+    // Stay below finishOwned's excess limit so the learned allocation can be
+    // returned directly instead of immediately copied into a smaller string.
+    ownedHint = min(max(len, reserved) + slack, len + (len >> 2));
   }
 
   function finishOwned(): string {
@@ -183,7 +190,7 @@ export namespace bs {
       // @ts-expect-error: __renew is a runtime builtin
       result = __renew(buffer, len);
     }
-    updateOwnedHint(len);
+    updateOwnedHint(len, stackSize);
 
     ownedOutput = null;
     ownedCapacity = 0;
@@ -444,6 +451,7 @@ export namespace bs {
       }
       return changetype<T>(finishOwned());
     }
+    const reservedSize = stackSize;
     let out: usize;
     if (cacheOutput === 0) {
       const len = offset - buffer;
@@ -462,7 +470,7 @@ export namespace bs {
     }
     if (learnOwnedHint) {
       learnOwnedHint = false;
-      updateOwnedHint(changetype<OBJECT>(out - TOTAL_OVERHEAD).rtSize);
+      updateOwnedHint(changetype<OBJECT>(out - TOTAL_OVERHEAD).rtSize, reservedSize);
       // Keep ordinary staging allocations so switching output ownership does
       // not perturb the allocator layout of subsequent parse work. Very large
       // staging blocks would duplicate a returned string and can exhaust the

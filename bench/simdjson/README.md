@@ -1,5 +1,27 @@
 # simdjson parity qualification
 
+## Classic serialization comparison
+
+The paired classic gate accepts `--phase=serialize` to compare generated native
+class serialization with simdjson's owning-struct writer. Both produce a fresh
+output string on every operation. The existing classic AssemblyScript harness
+is retained, including its warmup and incremental runtime. Results include
+output-byte GB/s and the native/json-as latency ratio. Serialization is measured
+once per corpus. The runner discovers the AS model's actual initialization
+input and uses the same layout for native serialization. Ordinary fields use
+compact formatting, while `JSON.Raw` fields preserve their input whitespace.
+The old harness's `(min)` writer label does not imply minified raw contents.
+
+```sh
+node scripts/run-classic-parity.mjs --prepare --phase=serialize --corpora=twitter,canada,citm_catalog
+python3 ~/benchmark-lock.py --wait --owner "json-as: serialize baseline" --planned-minutes 30 -- node scripts/run-classic-parity.mjs --measure --phase=serialize --corpora=twitter,canada,citm_catalog --pairs=5 --threshold=0.9
+```
+
+Preparation validates the complete owned model outputs and seals source and
+binary hashes. Raw process logs, samples, power state, and results are retained
+under `build/classic-serialize-parity`. Omit `--corpora` for all classic corpora.
+The deserialization gate remains the default and retains its separate directory.
+
 ## Current classic deserialization target
 
 Use JSON text → owning native structs for the classic simdjson baseline, and

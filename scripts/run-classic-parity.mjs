@@ -11,17 +11,32 @@ import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { CLASSIC, digest } from "./lib/comparison-workloads.mjs";
+import {
+  CLASSIC,
+  digest,
+  classicSerializationLayout,
+} from "./lib/comparison-workloads.mjs";
 import { readSchema } from "../bench/simdjson/generate.mjs";
 const root = path.resolve(import.meta.dirname, "..");
 const args = process.argv.slice(2);
 const option = (name, fallback) =>
   args.find((s) => s.startsWith(name + "="))?.slice(name.length + 1) ??
   fallback;
+const phase = option("--phase", "deserialize");
+assert.ok(["deserialize", "serialize"].includes(phase));
+const measuredLayouts = (corpus) =>
+  phase === "serialize"
+    ? corpus.layouts.filter((layout) => layout === "min")
+    : corpus.layouts;
 const names = option("--corpora", CLASSIC.join(",")).split(",");
 assert.ok(names.every((n) => CLASSIC.includes(n)));
 assert.equal(new Set(names).size, names.length, "Duplicate classic corpus");
-const base = path.join(root, "build/classic-parity");
+const base = path.join(
+  root,
+  phase === "serialize"
+    ? "build/classic-serialize-parity"
+    : "build/classic-parity",
+);
 fs.mkdirSync(base, { recursive: true });
 const manifest = JSON.parse(fs.readFileSync("bench/simdjson/workloads.json"));
 const corpora = names.map((name) =>
@@ -54,6 +69,7 @@ const sourceFiles = [
   "node_modules/assemblyscript/dist/asc.js",
   "node_modules/assemblyscript/dist/assemblyscript.js",
   "scripts/run-classic-parity.mjs",
+  "scripts/lib/comparison-workloads.mjs",
   "scripts/run-comparison-benches.mjs",
   "bench/simdjson/chart-struct-driver.h",
   "bench/simdjson/generate.mjs",
@@ -66,6 +82,21 @@ const sourceHash = () =>
 const suites = corpora.flatMap((c) =>
   c.layouts.map((layout) => `${c.name}-${layout}`),
 );
+const serializationInputs =
+  phase === "serialize"
+    ? Object.fromEntries(
+        corpora.map((corpus) => {
+          const layout = classicSerializationLayout(
+            fs.readFileSync(corpus.source, "utf8"),
+            corpus.root,
+          );
+          assert.ok(corpus.layouts.includes(layout));
+          return [corpus.name, layout];
+        }),
+      )
+    : null;
+const sourceSuite = (corpus, layout) =>
+  `${corpus.name}-${serializationInputs?.[corpus.name] ?? layout}`;
 const nativeBase = path.join(root, "build/comparison-baselines");
 const oracle = (suite, engine) => path.join(base, `${suite}.${engine}.json`);
 const flags = [
@@ -171,6 +202,7 @@ if (args.includes("--prepare")) {
   }
   const prepared = {
     sourceHash: sourceHash(),
+    serializationInputs,
     env,
     flags,
     opt,
@@ -200,6 +232,7 @@ if (args.includes("--measure")) {
     "Source changed since preparation",
   );
   assert.deepEqual(prepared.corpora, names);
+  assert.deepEqual(prepared.serializationInputs, serializationInputs);
   for (const name of names)
     assert.equal(hash(binary(name)), prepared.binaries[name]);
   assert.equal(
@@ -239,6 +272,7 @@ if (args.includes("--measure")) {
   assert.ok(threshold > 0);
   const samples = [];
   const evidence = {
+    phase,
     head: run("git", ["rev-parse", "HEAD"]).trim(),
     date: new Date().toISOString(),
     arch: process.arch,
@@ -271,17 +305,20 @@ if (args.includes("--measure")) {
             output,
           );
           for (const match of output.matchAll(
-            /Benchmarking Deserialize [^\n]+\((min|pretty)\)\n\s+Completed benchmark[^\n]+\(([0-9.]+) us\/op\)/g,
+            new RegExp(
+              `Benchmarking ${phase === "serialize" ? "Serialize" : "Deserialize"} [^\\n]+\\((min|pretty)\\)\\n\\s+Completed benchmark[^\\n]+\\(([0-9.]+) us/op\\)`,
+              "g",
+            ),
           ))
             sample.ns[match[1]] = Number(match[2]) * 1000;
           assert.equal(
             Object.keys(sample.ns).length,
-            corpus.layouts.length,
+            measuredLayouts(corpus).length,
             output,
           );
         } else {
-          for (const layout of corpus.layouts) {
-            const suite = `${corpus.name}-${layout}`;
+          for (const layout of measuredLayouts(corpus)) {
+            const suite = sourceSuite(corpus, layout);
             const bytes = fs.statSync(
               path.join(nativeBase, "inputs", suite + ".json"),
             ).size;
@@ -303,7 +340,7 @@ if (args.includes("--measure")) {
               .split("\n")
               .filter((s) => s.startsWith("BASELINE "))
               .map((s) => JSON.parse(s.slice(9)))
-              .find((r) => r.kind === "deserialize");
+              .find((r) => r.kind === phase);
             sample.ns[layout] = row.nsPerOp;
             run("python3", [
               "bench/simdjson/check-model.py",
@@ -330,7 +367,7 @@ if (args.includes("--measure")) {
       : (values[middle - 1] + values[middle]) / 2;
   };
   const rows = corpora.flatMap((c) =>
-    c.layouts.map((layout) => {
+    measuredLayouts(c).map((layout) => {
       const ns = Object.fromEntries(
         ["as", "native"].map((engine) => [
           engine,
@@ -345,12 +382,19 @@ if (args.includes("--measure")) {
         corpus: c.name,
         layout,
         ...ns,
+        sourceLayout: serializationInputs?.[c.name] ?? layout,
+        outputBytes: fs.statSync(oracle(sourceSuite(c, layout), "as")).size,
+        asGBps: fs.statSync(oracle(sourceSuite(c, layout), "as")).size / ns.as,
+        nativeGBps:
+          fs.statSync(oracle(sourceSuite(c, layout), "native")).size /
+          ns.native,
         throughputFraction: ns.native / ns.as,
         pass: ns.native / ns.as >= threshold,
       };
     }),
   );
   const result = {
+    phase,
     threshold,
     completeClassicCoverage: names.length === CLASSIC.length,
     rows,

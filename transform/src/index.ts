@@ -78,6 +78,7 @@ import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
 import { specializeSweepRuns } from "./sweep.js";
+import { inlineGcMarking } from "./gc-marking.js";
 import { generateCursorParser } from "./cursor.js";
 import {
   StrategicAccessAnalysis,
@@ -703,6 +704,30 @@ export class JSONTransform extends Visitor {
           return null;
         return child;
       },
+      false,
+      (call, shadowed) => {
+        if (call.expression.kind !== NodeKind.PropertyAccess) return false;
+        const method = call.expression as PropertyAccessExpression;
+        if (method.property.text !== "stringify") return false;
+        let receiver = method.expression;
+        const parts: string[] = [];
+        while (receiver.kind === NodeKind.PropertyAccess) {
+          const property = receiver as PropertyAccessExpression;
+          parts.unshift(property.property.text);
+          receiver = property.expression;
+        }
+        if (receiver.kind !== NodeKind.Identifier) return false;
+        const root = (receiver as IdentifierExpression).text;
+        if (shadowed(root)) return false;
+        parts.unshift(root);
+        const binding = this.sources
+          .get(call.range.source)
+          .getImportedBinding(parts.join(".") + ".Value", this.parser);
+        return (
+          binding?.source.internalPath === runtimeRoot + "assembly/index" &&
+          binding.name === "JSON.Value"
+        );
+      },
     );
     for (const source of sources) analysis.visit(source);
     let id = 0;
@@ -780,7 +805,9 @@ export class JSONTransform extends Visitor {
             ? 20
             : lazyTypeCost(canonical, ownerSource, this.parser);
         const decision = materializationDecision(
-          site.accesses.get(declaration.name.text) || [],
+          (site.serializationAccesses ?? site.accesses).get(
+            declaration.name.text,
+          ) || [],
           decodeCost,
           site.origin,
         );
@@ -4230,19 +4257,47 @@ export class JSONTransform extends Visitor {
           isString(member.type) ||
           /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type)),
     );
-    const directStringMembers =
-      this.schema.static && canReserveDynamicPayloads
-        ? this.schema.members.filter(
-            (member) =>
-              !member.flags.has(PropertyFlags.Lazy) &&
-              isString(member.type) &&
-              !defaultStringLiterals.has(member.name),
-          )
-        : [];
-    // Fold every direct string payload into the object's existing reservation.
-    // Even one field removes its separate capacity check and keeps the output
-    // cursor local across the field boundary without changing the total bound.
-    const reserveDirectStringPayloads = directStringMembers.length >= 1;
+    const directStringMembers = this.schema.static
+      ? this.schema.members.filter(
+          (member) =>
+            !member.flags.has(PropertyFlags.Lazy) &&
+            !this.getSchema(member.type) &&
+            isString(member.type) &&
+            !defaultStringLiterals.has(member.name),
+        )
+      : [];
+    // Pure objects reserve all payloads at entry. Mixed objects reserve each
+    // run only after preceding callbacks have finished changing its fields.
+    const directStringSet = new Set(directStringMembers);
+    const stringPayloadReserves = new Map<Property, Property[]>();
+    if (!canReserveDynamicPayloads && directStringSet.size) {
+      let strings: Property[] = [];
+      const finish = () => {
+        if (strings.length) stringPayloadReserves.set(strings[0], strings);
+        strings = [];
+      };
+      for (const member of this.schema.members) {
+        if (
+          member.flags.has(PropertyFlags.Lazy) ||
+          this.getSchema(member.type) ||
+          (!isReservedPrimitive(member.type) && !isString(member.type))
+        ) {
+          finish();
+        } else if (directStringSet.has(member)) {
+          strings.push(member);
+        }
+      }
+      finish();
+    }
+    const stringPayloadSize = (members: Property[]) =>
+      members
+        .map((member) => {
+          const size = member.nullable
+            ? "__nullableStringByteSizePointer"
+            : "__stringByteSizePointer";
+          return `JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
+        })
+        .join(" + ");
     const wideIntegerArrayCandidates =
       this.schema.static && canReserveDynamicPayloads
         ? this.schema.members.filter((member) => {
@@ -4291,11 +4346,18 @@ export class JSONTransform extends Visitor {
             `}\n`
           );
         }
-        if (reserveDirectStringPayloads && isString(member.type)) {
+        if (directStringSet.has(member)) {
           const writer = member.nullable
             ? "__serializeNullableStringPointerReservedAt"
             : "__serializeStringPointerReservedAt";
-          return `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+          const group = stringPayloadReserves.get(member);
+          const reserve = group
+            ? `bs.offset = __dst; bs.proposeSize(${stringPayloadSize(group)}); __dst = bs.offset;\n`
+            : "";
+          return (
+            reserve +
+            `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`
+          );
         }
         if (directWideIntegerArrays.includes(member)) {
           return `__dst = JSON.__serializeIntegerArrayPointerReservedAt<${member.type}>(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
@@ -7865,16 +7927,10 @@ export class JSONTransform extends Visitor {
     SERIALIZE += indent + "bs.offset = __dst;\n";
     SERIALIZE += "}";
 
-    const directStringPayloadReserve = reserveDirectStringPayloads
-      ? directStringMembers
-          .map((member) => {
-            const size = member.nullable
-              ? "__nullableStringByteSizePointer"
-              : "__stringByteSizePointer";
-            return ` + JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
-          })
-          .join("")
-      : "";
+    const directStringPayloadReserve =
+      canReserveDynamicPayloads && directStringMembers.length
+        ? " + " + stringPayloadSize(directStringMembers)
+        : "";
     const directWideIntegerArrayReserve = directWideIntegerArrays
       .map(
         (member) =>
@@ -8224,6 +8280,28 @@ export class JSONTransform extends Visitor {
       ),
     );
 
+    const ownType =
+      node.name.text +
+      (node.typeParameters?.length
+        ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
+        : "");
+    const callbackFreeSerializer =
+      !schema.custom &&
+      !schema.parent?.custom &&
+      !hasManualSerializer(node) &&
+      schema.members.every(
+        (member) =>
+          !member.flags.has(PropertyFlags.OmitIf) &&
+          !member.flags.has(PropertyFlags.Lazy),
+      );
+    const callbackFreeFields = callbackFreeSerializer
+      ? schema.members
+          .map(
+            (member) =>
+              `${this.runtimeReference()}.__serializeCallbackFree<${member.type}>(load<${member.type}>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})), depth + 1)`,
+          )
+          .join(" && ") || "true"
+      : "false";
     const serializerPure =
       !schema.custom &&
       !schema.parent?.custom &&
@@ -8236,14 +8314,14 @@ export class JSONTransform extends Visitor {
             isString(member.type) ||
             isEnum(stripNull(member.type), source, this.parser)),
       );
-    const ownType =
-      node.name.text +
-      (node.typeParameters?.length
-        ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
-        : "");
+    // Value keeps the flat certificate by default. Map traversal requests a
+    // bounded instance check and verifies the returned declaring type too.
     node.members.push(
       SimpleParser.parseClassMember(
-        `__SERIALIZE_PURE_TYPE(): u32 { return ${serializerPure ? `idof<${ownType}>()` : "0"}; }`,
+        `__SERIALIZE_PURE_TYPE(depth: i32 = -1): u32 {
+  if (depth < 0) return ${serializerPure ? `idof<${ownType}>()` : "0"};
+  return (${callbackFreeFields}) ? idof<${ownType}>() : 0;
+}`,
         node,
       ),
     );
@@ -8472,7 +8550,7 @@ export class JSONTransform extends Visitor {
         : "");
     node.members.push(
       SimpleParser.parseClassMember(
-        `__SERIALIZE_PURE_TYPE(): u32 { return ${hasManualSerializer(node) ? "0" : `idof<${ownType}>()`}; }`,
+        `__SERIALIZE_PURE_TYPE(_depth: i32 = -1): u32 { return ${hasManualSerializer(node) ? "0" : `idof<${ownType}>()`}; }`,
         node,
       ),
     );
@@ -9105,6 +9183,8 @@ export default class Transformer extends Transform {
       hasStaticI64ArraySchema,
     );
 
+    inlineGcMarking(parser.sources, this.program.options.globalAliases);
+
     for (const [source, statements] of transformer.simdStatements) {
       for (const statement of statements)
         source.statements.unshift(
@@ -9147,7 +9227,9 @@ function toU16(data: string, offset: number = 0): number {
 }
 
 function toU32(data: string, offset: number = 0): number {
-  return (data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0);
+  return (
+    ((data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0)) >>> 0
+  );
 }
 
 function toU48(data: string, offset: number = 0): bigint {
@@ -9211,6 +9293,10 @@ function toMemCCheck(data: string): string {
   return out.slice(4);
 }
 
+function signedCodeUnit(data: string, offset: number): number {
+  return (data.charCodeAt(offset) << 16) >> 16;
+}
+
 function strToNum(
   data: string,
   simd: boolean = false,
@@ -9223,21 +9309,21 @@ function strToNum(
     out.push([
       "v128",
       "i16x8(" +
-        data.charCodeAt(offset + 0) +
+        signedCodeUnit(data, offset + 0) +
         ", " +
-        data.charCodeAt(offset + 1) +
+        signedCodeUnit(data, offset + 1) +
         ", " +
-        data.charCodeAt(offset + 2) +
+        signedCodeUnit(data, offset + 2) +
         ", " +
-        data.charCodeAt(offset + 3) +
+        signedCodeUnit(data, offset + 3) +
         ", " +
-        data.charCodeAt(offset + 4) +
+        signedCodeUnit(data, offset + 4) +
         ", " +
-        data.charCodeAt(offset + 5) +
+        signedCodeUnit(data, offset + 5) +
         ", " +
-        data.charCodeAt(offset + 6) +
+        signedCodeUnit(data, offset + 6) +
         ", " +
-        data.charCodeAt(offset + 7) +
+        signedCodeUnit(data, offset + 7) +
         ")",
     ]);
     offset += 8;
@@ -9256,8 +9342,7 @@ function strToNum(
   }
 
   while (n >= 2) {
-    const value =
-      (data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0);
+    const value = toU32(data, offset);
     out.push(["u32", value.toString()]);
     offset += 2;
     n -= 2;

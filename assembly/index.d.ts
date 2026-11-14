@@ -28,7 +28,9 @@ declare class JSONConfig {
    * - `"strategic"` - start with deferred fields, then specialize each visible
    *   parse site using its field accesses. Guaranteed reads become eager;
    *   conditional reads use weighted branch probabilities and decode costs.
-   *   Unknown/escaping uses keep their deferred representation.
+   *   Unknown/escaping uses keep their deferred representation. Untouched fields
+   *   serialize from their saved JSON ranges; reads after the first serialization
+   *   do not trigger early materialization before that output.
    * Array-typed fields always parse eagerly, including fields marked `@lazy`.
    *
    * @example
@@ -66,14 +68,14 @@ declare class JSONConfig {
  * JSON.parse<Vec3>('{"x":1,"y":2,"z":3}');
  * ```
  */
-declare function json(config?: JSONConfig): Function;
-// @ts-expect-error: type
-declare function json(..._): void;
+declare function json(
+  config?: JSONConfig,
+): (target: Function, context?: unknown) => void;
+declare function json(target: Function, context?: unknown): void;
 /**
  * Alias for {@link json}. `@serializable` and `@json` are interchangeable.
  */
-// @ts-ignore: type
-declare function serializable(..._): void;
+declare const serializable: typeof json;
 
 /**
  * Field decorator that overrides the JSON key used for a property, decoupling
@@ -180,8 +182,7 @@ declare function optional(..._): void;
  * }
  * ```
  */
-// @ts-ignore: type
-declare function lazy(..._): void;
+declare function lazy(...args: unknown[]): void;
 
 /** Shorthand for disabling automatic access-based specialization in `@json({ nolazy })`. */
 declare const nolazy: true;

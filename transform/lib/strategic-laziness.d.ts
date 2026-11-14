@@ -24,6 +24,8 @@ export interface StrategicSite {
     declaration: ClassDeclaration;
     origin: AccessPath[];
     accesses: Map<string, AccessPath[]>;
+    serializationAccesses?: Map<string, AccessPath[]>;
+    parent?: StrategicSite;
     writes: Set<string>;
     escaped: boolean;
     children: Map<string, StrategicSite>;
@@ -32,6 +34,7 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private resolveParse;
     private resolveChild;
     private conservativeEscapes;
+    private resolveSerialization;
     private pathLimitReached;
     private callableSiteStart;
     readonly sites: StrategicSite[];
@@ -53,13 +56,14 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private captures;
     private expanding;
     private byCall;
-    constructor(resolveParse: (call: CallExpression, shadowed: (name: string) => boolean, scope: string, genericScope: boolean) => ClassDeclaration | null, resolveChild?: (owner: ClassDeclaration, property: string) => ClassDeclaration | null, conservativeEscapes?: boolean);
+    constructor(resolveParse: (call: CallExpression, shadowed: (name: string) => boolean, scope: string, genericScope: boolean) => ClassDeclaration | null, resolveChild?: (owner: ClassDeclaration, property: string) => ClassDeclaration | null, conservativeEscapes?: boolean, resolveSerialization?: (call: CallExpression, shadowed: (name: string) => boolean) => boolean);
     private binding;
     private shadowed;
     private names;
     visitSource(node: Source): void;
     private origin;
     private read;
+    private serializationBoundary;
     visitPropertyAccessExpression(node: PropertyAccessExpression): void;
     visitIdentifierExpression(node: IdentifierExpression, parent?: Node | null): void;
     visitVariableDeclaration(node: VariableDeclaration): void;

@@ -18,29 +18,51 @@ try {
   fs.writeFileSync(
     fixture,
     `
+    @json class Bare {}
+    @json() class Empty {}
     @json({ lazy }) class Strategic {}
     @json({ nolazy }) class Eager {}
     @json({ lazy: true }) class Enabled {}
     @json({ lazy: false }) class Disabled {}
     @json({ lazy: "strategic" }) class Deferred {}
+    @json({ lazy: "none" }) class None {}
+    @json({ lazy: "auto" }) class Auto {}
+    @json({ lazy: "all" }) class All {}
+    @serializable class AliasBare {}
+    @serializable() class AliasEmpty {}
+    @serializable({ lazy }) class AliasStrategic {}
+    @serializable({ nolazy }) class AliasEager {}
     class Fields { @lazy value: string = ""; }
+    // @ts-expect-error Unsupported lazy mode.
+    @json({ lazy: "invalid" }) class InvalidMode {}
+    // @ts-expect-error nolazy requires a boolean.
+    @json({ nolazy: "true" }) class InvalidNoLazy {}
+    // @ts-expect-error Unknown option.
+    @serializable({ unknown: true }) class InvalidOption {}
   `,
   );
-  const result = spawnSync(
-    process.execPath,
-    [
-      "node_modules/typescript/bin/tsc",
-      "--noEmit",
-      "--skipLibCheck",
-      "--experimentalDecorators",
-      "--target",
-      "esnext",
-      "assembly/index.d.ts",
-      fixture,
-    ],
-    { cwd: root, encoding: "utf8" },
-  );
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  for (const decorators of ["legacy", "standard"]) {
+    const result = spawnSync(
+      process.execPath,
+      [
+        "node_modules/typescript/bin/tsc",
+        "--noEmit",
+        "--skipLibCheck",
+        "--strict",
+        ...(decorators === "legacy" ? ["--experimentalDecorators"] : []),
+        "--target",
+        "esnext",
+        "assembly/index.d.ts",
+        fixture,
+      ],
+      { cwd: root, encoding: "utf8" },
+    );
+    assert.equal(
+      result.status,
+      0,
+      `${decorators}: ${result.stdout}${result.stderr}`,
+    );
+  }
   console.log(
     "Decorator IntelliSense: shorthand, options, and field decorator passed",
   );
