@@ -223,3 +223,30 @@ strictness × fast-path configurations, including every control unit and
 surrogate boundary at every position in lengths 7–17, 23–25, 31–33 and 63–65;
 117 static-output checks; retained-output/allocation checks across nine
 backend/runtime configurations; typecheck, lint and license headers pass.
+
+## Complete refresh at 3efb7905
+
+Five alternating fresh-process pairs per corpus on Apple M4 Max/AC power,
+under the shared timing lock. All full-output oracles passed. Original classic
+harness, SIMD/incremental, compatibility mode without validation; source layouts
+match the preceding source-aligned matrix. Background virtualization and
+interactive applications were active; per-process audits are retained.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 5.81 | 10.57 | 0.55× |
+| canada | 0.92 | 1.24 | 0.74× |
+| citm_catalog | 3.54 | 10.17 | 0.35× |
+| poet | 15.80 | 23.51 | 0.67× |
+| github_events | 5.54 | 15.96 | 0.35× |
+| gsoc-2018 | 7.38 | 16.60 | 0.44× |
+| lottie | 23.35 | 22.51 | 1.04× |
+| otfcc | 34.95 | 23.91 | 1.46× |
+| fgo | 38.60 | 21.70 | 1.78× |
+
+[Raw qualification](data/serialization-aligned-3efb7905.json.gz) includes samples,
+logs, source/binary provenance and host audits. Three of nine pass the 90%
+threshold. The six typed workloads remain below it; the goal is still unmet.
+Between-capture throughput changes are not an isolated causal estimate of the
+string-tail change; the paired AS-before/after screen above supplies that
+evidence. The runner exits 1 because the parity gate fails.
