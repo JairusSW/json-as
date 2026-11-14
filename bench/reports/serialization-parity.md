@@ -1069,3 +1069,90 @@ host and native measurement variation. The independently confirmed AS-before/aft
 Canada and Poet improvements above are the evidence for retaining the change.
 Typecheck, lint, license headers, all 51 warning configurations, and the packed
 consumer's 324 operations across 36 configurations pass on the candidate.
+
+## Multiplication and string-frame trials remain unretained
+
+An exact multiply-ten-plus-carry limb formulation reduces its isolated ARM64
+helper from 80 to 68 instruction bytes. Both versions pass 400,100 independent
+BigInt cases, 448 exact array outputs / 113,376 numeric round trips, and 156
+explicit edge outputs. All nine model/GC oracles pass, with unchanged data
+sections. The prototype preserves the already-retained early clamps.
+
+Its first eight-pair screen observes Canada -1.18% paired geometric latency
+(95% interval -2.14% to -0.05%); Poet is unresolved. An independent eight-pair
+full-nine confirmation gives Canada -1.50% (-1.96% to -0.96%), all eight pairs
+faster, but Poet +2.22% (+0.45% to +3.78%). The other seven intervals include
+zero. Poet's timed model contains only strings, so this is not evidence that
+its payload spends time in the changed arithmetic. The result may involve code
+layout or host variation; it still does not qualify a corpus-wide change. The
+candidate is preserved but **not retained**.
+
+### Attribute the GitHub writer using the actual classic image
+
+A named diagnostic build of the retained GitHub classic module has identical
+bytes in **every non-custom Wasm section**, including code and data. Only custom
+diagnostic sections differ. The capture uses the original classic benchmark,
+with same-process sampled PCs and a pinned native-code snapshot. It includes
+both parsing and serialization, so whole-profile percentages are not isolated
+serialization costs.
+
+A separate classifier selects ticks whose absolute stack PCs contain the
+actual root serializer or its serialization benchmark closure. It rejects
+unknown stack encodings and retains unmapped samples. Of 1,791 total ticks,
+288 have a matching serializer-root stack:
+
+| Sampled PC location | Ticks | Share of selected ticks |
+|---|---:|---:|
+| General SIMD string writer | 114 | 39.6% |
+| Root array/object writer | 64 | 22.2% |
+| GC visit | 28 | 9.7% |
+| Sweep interrupt | 19 | 6.6% |
+| GC member visitor | 7 | 2.4% |
+| Unmapped native PC | 18 | 6.3% |
+
+These are sampling locations, not hardware cycles or branch-misprediction
+counts. Node's optional profile report warns that its V8 version differs from
+the recording engine; the table instead uses the same-process printed native
+regions and raw absolute PCs. Function names come from the equivalent named
+module. A compile-only snapshot independently reproduces the sampled baseline
+string function's native bytes exactly.
+
+### Split escape expansion out of the common frame
+
+A second prototype separates escape expansion from the common scan/copy loop.
+Medium strings that already identify an exceptional first block enter expansion
+directly. Its hot native function shrinks from 11,248 to 2,736 instruction bytes;
+the shared expansion helper is 6,968 bytes. No output caching or GC pacing change
+is introduced. This passes 1,872 string-oracle root/field/reuse checks, 324
+retained-output/GC checks across nine configurations, and all nine model oracles.
+
+Nevertheless, an eight-pair screen does not establish a useful improvement:
+
+| Workload | Paired geometric latency delta | Paired 95% interval |
+|---|---:|---:|
+| GitHub | -0.56% | -2.14% to +1.21% |
+| CITM | -0.05% | -1.47% to +1.31% |
+| Poet | +2.18% | +0.01% to +4.96% |
+
+The smaller function is **not retained**. Code size alone is insufficient
+performance evidence, and these captures do not identify the cause of Poet's
+result. Both timing investigations use alternating fresh processes, the shared
+host lock, Apple M4 Max/AC, original harness, SIMD/incremental, validation off,
+cache zero, and process/memory audits. No other services or agents were stopped.
+
+### Next classifier probe
+
+The actual snapshot shows a vector reduction followed by scalar Boolean
+normalization in the 32-byte clean loop. Combining its two 64-bit lanes with OR
+is equivalent for any mask. An isolated probe passes 2,097,152 checks (all UTF-16
+values in every lane, baseline and candidate) and emits a 496-byte native scan
+versus 512 bytes. Each unrolled block uses two lane transfers, OR and a direct
+branch, replacing the reduction, transfer, comparison, Boolean result and
+branch. This is static-code and correctness evidence only: **no full-writer
+performance result or retained classifier change is claimed**.
+
+The [raw archive](data/serialization-mask-and-cold-trials.json.gz) preserves
+both unretained candidates, all samples/audits, oracle results, exact named and
+native snapshots, source/seal comparisons, stack classifier and the isolated
+mask probe. Production sources are restored. The current native gate remains
+**3/9**, qualified on `3a9a7913`; near parity is still unfinished.
