@@ -95,3 +95,25 @@ The [raw screen](data/serialization-demand-hint-screen.json.gz) retains samples,
 logs, binary hashes, model source, code patch and the preceding CPU capture.
 This is an isolated before/after screen; regular-harness native ratios and
 full classic coverage still need requalification.
+
+## All-classic qualification at `420b0ed0`
+
+Five alternating process pairs on local ARM64/AC power, the same harness
+and flags, and all complete-output oracles passing:
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 5.46 | 10.44 | 0.52× |
+| canada | 0.90 | 1.24 | 0.73× |
+| citm_catalog | 3.46 | 10.28 | 0.34× |
+| poet | 14.12 | 24.00 | 0.59× |
+| github_events | 4.88 | 15.68 | 0.31× |
+| gsoc-2018 | 6.81 | 16.70 | 0.41× |
+| lottie | 3.86 | 13.65 | 0.28× |
+| otfcc | 27.50 | 23.62 | 1.16× |
+| fgo | 29.15 | 20.76 | 1.40× |
+
+Only OTFCC and FGO pass the 90% threshold; the whole gate fails.
+The [raw capture](data/serialization-all-420b0ed0.json.gz) retains all process
+samples, logs and provenance. Raw-heavy results do not establish typed-field
+serialization parity on the other models.
