@@ -537,3 +537,58 @@ All nine classic models were rebuilt with complete output/GC oracles, and
 their binaries remain byte-for-byte identical to the qualified `e1ab611f`
 implementation. No additional timing claim is made for this correctness fix;
 the preceding native table still describes those exact classic binaries.
+
+## Rejected static literal-vector loads
+
+A small ARM64 compiler probe showed that loading a constant vector from static
+memory can reduce the native instructions for a literal store. That local
+code-size improvement did not translate into a safe whole-corpus change.
+Three variants were tested: overlapping constant tails, static vector pools,
+and pools restricted to literals containing at least two complete vectors.
+All retain the exact literal payload bounds and fresh output ownership.
+
+The final two pool confirmations each used six alternating baseline/candidate
+fresh-process pairs per corpus, original classic AS harness, SIMD/incremental,
+validation disabled, Apple M4 Max on AC and the shared timing lock. Each executed
+binary was checked against its recorded hash. Process audits retain background
+activity; these are shared-host measurements. Positive deltas mean slower.
+
+| Corpus | Broad pools latency delta | Two-vector-minimum latency delta |
+|---|---:|---:|
+| twitter | −3.15% | −2.77% |
+| canada | +0.80% | +0.58% |
+| citm_catalog | −3.02% | −0.51% |
+| poet | −1.95% | +4.66% |
+| github_events | −1.45% | −0.96% |
+| gsoc-2018 | +0.87% | −2.10% |
+| lottie | +0.78% | +2.04% |
+| otfcc | +3.72% | +1.60% |
+| fgo | −3.91% | +2.92% |
+
+These are ratios of process medians. Paired geometric-mean bootstrap intervals
+resolve the broad-pool OTFCC regression (+1.30% to +8.68%) and the narrowed
+Poet regression (+4.38% to +10.41%). The small Canada regression also remains
+resolved in both captures. These tradeoffs were rejected; the qualified writer
+is restored. The preceding native table remains the retained qualification.
+
+The initial eager pools also retained unused static data. Compiler `@lazy`
+declarations removed that footprint and passed the unused-image regression;
+this concerns declaration liveness, not deferred JSON materialization. It did
+not remove the performance regressions. Restricting pools to longer literals
+also changed benchmark-reporting schemas, so short-key models did not produce
+byte-identical complete benchmark modules.
+
+Before timing, both final candidates passed complete output/retained-model GC
+oracles for all nine corpora, 3,142 literal-byte/cursor/fence/liveness and public
+codec checks across 26 configurations, and all 51 compiler-warning configurations.
+The broad compile-lazy candidate additionally passed 288 packed-consumer
+operations, six installed AssemblyScript 0.28.18 configurations, and the scalar
+startup-allocation control. Correctness passes do not qualify the throughput
+tradeoff. The restored original literal regression passes separately.
+
+[Raw experiment archive](data/serialization-literal-pools-rejected.json.gz)
+contains every trial's samples, scripts, patches, source and binary hashes,
+compiler-IR controls and validation logs. The failed initial screen invocation
+with a stale candidate filename is retained for provenance and excluded from
+all statistics. No runtime/transform optimization from these experiments is
+retained; the earlier Unicode constant-packing fix remains.
