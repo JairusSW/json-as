@@ -9,7 +9,7 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full qualification: [callback-free Map implementation `e48e0489`](#native-refresh-after-callback-free-map-traversal). Three of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full qualification: [marking-call implementation `e9971446`](#native-refresh-after-marking-call-expansion). Three of nine workloads meet the 90% gate; near parity remains unmet.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -760,3 +760,32 @@ near parity remains unmet.
 The final local package matrix passes 288 operations across 36 configurations.
 All 51 compiler-warning configurations pass with AS201 enabled, along with
 typechecking, lint, license headers, and formatting.
+
+## Native refresh after marking-call expansion
+
+Implementation `e9971446`, five alternating fresh-process pairs per corpus,
+Apple M4 Max / AC, SIMD/incremental, validation disabled, JSON_CACHE=0.
+The original AS classic harness and source-aligned owning-model inputs are
+unchanged. GB/s uses actual UTF-8 output bytes; every call writes fresh output.
+All nine rebuilt binaries match the independently measured marking candidate.
+Complete outputs and retained models after collection pass their oracles.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.34 | 10.52 | 0.70× |
+| canada | 0.91 | 1.26 | 0.73× |
+| citm_catalog | 5.13 | 10.08 | 0.51× |
+| poet | 15.66 | 23.65 | 0.66× |
+| github_events | 6.90 | 16.26 | 0.42× |
+| gsoc-2018 | 9.23 | 16.74 | 0.55× |
+| lottie | 24.63 | 22.30 | 1.10× |
+| otfcc | 36.30 | 24.19 | 1.50× |
+| fgo | 32.50 | 21.95 | 1.48× |
+
+Three of nine workloads pass the 90% gate. Six typed workloads remain below it,
+so the gate exits 1 and the goal remains unmet. These are audited background-load
+measurements, with variability in both engines. Cross-capture changes, including
+Poet and FGO, are not attributed to the marking patch; its isolated before/after
+evidence is reported above. The [raw qualification](data/serialization-aligned-e9971446.json.gz)
+retains all 90 invocation logs, samples, process audits, power state, source and
+binary seals, output hashes, and the final gate result.
