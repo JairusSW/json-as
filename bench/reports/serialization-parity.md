@@ -807,3 +807,57 @@ measure 97.40 versus 97.80 µs medians (+0.41% latency), with no useful gain.
 The prototype is rejected and the runtime restored. The [raw capture](data/serialization-map-string-pairs-rejected.json.gz)
 retains the implementation, tests, all samples/audits and refreshed profiles.
 No speedup is claimed from the lower reservation-call count.
+
+## Rejected decimal-kernel trials on `5d3a041c`
+
+The Canada serialization-only diagnostic attributes 3,334/3,435 samples (97.1%)
+to the inlined owning-model writer; sampled GC work is below 1%. This narrows
+investigation to the writer but does not separate decimal arithmetic, digit
+formatting and array-loop bookkeeping. The profile decoder warns about a V8
+version mismatch. A second matching-PC capture emits code ranges/sizes but this
+V8 build does not print instruction disassembly, so it does not establish an
+instruction-level bottleneck. Both captures and their audits are preserved.
+
+Two independent formatter experiments were rejected. Each screen used four
+alternating fresh-process pairs per changed corpus on Apple M4 Max / arm64 / AC,
+SIMD/incremental, validation off, cache off, with the existing classic harness
+and shared host lock. Process audits are included; these are shared-host screens,
+not isolated qualification or replacement native throughput results.
+
+| Corpus | SWAR digit kernel latency delta | Low-zero-limb multiply latency delta |
+|---|---:|---:|
+| Twitter | +2.35% | -0.41% |
+| Canada | +34.33% | -2.41% |
+| CITM | -0.14% | +0.16% |
+| Poet | -2.34% | +5.46% |
+| GitHub | +0.65% | +0.35% |
+| GSoC | -0.28% | -1.56% |
+| Lottie | +1.23% | +2.33% |
+| OTFCC | -0.14% | -0.21% |
+| FGO | +1.14% | -0.38% |
+
+Deltas compare medians against the same retained `e9971446` binaries, whose
+classic images remain unchanged at `5d3a041c`. Negative means faster. Four pairs
+are a screening signal, not a confidence interval. The 34% Canada loss rejects
+the SWAR option; the multiply shortcut's Canada benefit does not justify the
+Poet regression. Neither experiment is retained.
+
+The SWAR experiment changes only existing `XJB_SIMD=0`, leaving JSON_MODE=SIMD.
+All nine model/GC oracles pass. Explicit `XJB_SIMD=1` Canada and FGO controls are
+byte-identical to the retained default binaries, confirming which setting was
+measured. All nine images differ with flag zero, including images with only
+cold formatter changes; this does not imply nine hot paths use the formatter.
+
+The second experiment changes only `umul64hi`: when the low limb of operand
+`a` is zero, high64(a*b) equals `a1*b1 + ((a1*b0)>>32)`. This is exact integer
+arithmetic, with no floating-point rounding or corpus constants. The original
+and candidate each pass 400,049 BigInt product checks, including zero limbs and
+boundary values. All nine full-model/GC oracles pass. It remains rejected on
+performance grounds. Installed xjb-as sources have been restored, and all nine
+main classic images/manifests restored to their retained baseline.
+
+The [raw archive](data/serialization-numeric-trials-rejected.json.gz) contains
+all samples/audits, sealed manifests, compiler options, scripts, source prototypes,
+profile logs, explicit-control results and third-party licenses. It includes
+work that did not improve performance so it will not be repeated as a new idea.
+The separate float-array accounting prototype is not part of these results.
