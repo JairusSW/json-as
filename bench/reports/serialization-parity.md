@@ -658,8 +658,7 @@ Every confirmation pair improved. Seven other classic binaries are unchanged.
 These are original classic-harness measurements on shared Apple M4 Max/AC,
 SIMD/incremental, validation disabled, with alternating fresh processes, the
 host timing lock and executed-binary hash checks. Intervals use paired
-geometric means; point deltas use process medians. This is not a refreshed
-native parity table, and the six typed workloads remain below the goal.
+geometric means; point deltas use process medians. This is an AS-before/after comparison; a full native refresh is reported below.
 
 Validation includes 555 graph/alias/callback/GC/legacy-marker checks across 15
 configurations, with warning-free compilation asserted for each; 375 existing
@@ -674,3 +673,31 @@ configurations, typecheck, lint and license checks pass.
 retain all samples, full-corpus binary hashes, source patches, execution audits,
 compiler conditions and lower-bound consumer artifacts. A full native refresh
 on the committed implementation follows separately.
+
+## Native refresh after callback-free Map traversal
+
+Committed implementation `e48e0489`, five alternating native/AS fresh-process
+pairs across all nine corpora on shared Apple M4 Max/AC, original classic
+harness, SIMD/incremental and validation disabled. Complete output checks pass;
+the source, runtime and executed binaries match the prepared seals.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.04 | 10.45 | 0.67× |
+| canada | 0.91 | 1.25 | 0.73× |
+| citm_catalog | 4.97 | 10.51 | 0.47× |
+| poet | 16.04 | 23.34 | 0.69× |
+| github_events | 6.55 | 16.53 | 0.40× |
+| gsoc-2018 | 9.25 | 16.73 | 0.55× |
+| lottie | 24.54 | 22.20 | 1.11× |
+| otfcc | 35.43 | 23.38 | 1.52× |
+| fgo | 36.88 | 21.10 | 1.75× |
+
+[Raw native qualification](data/serialization-aligned-e48e0489.json.gz) retains
+all 90 process samples, logs, audits, model/layout accounting and provenance.
+The threshold gate exits 1 because six typed rows remain below 90%, not because
+of an execution or output mismatch. This table supersedes the earlier native
+qualification. Cross-capture shifts in unchanged/native binaries are not
+attributed to the Map change; its paired AS confirmation above isolates that
+change. The Map optimization adds 1,165 bytes to the CITM Wasm and 909 bytes to
+GSOC; these are artifact sizes, not heap/RSS measurements.
