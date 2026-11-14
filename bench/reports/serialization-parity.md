@@ -609,3 +609,22 @@ measurement. The scalar-only transform change was reverted. The
 [raw capture](data/serialization-scalar-literals-rejected.json.gz) preserves
 all 108 process runs, provenance, process audits, patch, scripts, validation
 and native-emission control. The retained native table is unchanged.
+
+## Short-string probe and refreshed hotspots
+
+A bounded first/final-u64 SIMD check for four to seven UTF-16 units passed
+1,872 exact string-oracle checks, all nine complete-output/GC oracles and all
+51 compiler-warning configurations. Its six-pair corpus confirmation did not
+resolve an improvement: Twitter median −1.02% (paired interval −2.61% to
++0.67%), CITM −1.38% (−2.27% to +0.74%), with mixed other rows. The change
+was reverted rather than adding an unqualified fast path. All 108 process
+runs, patch, hashes, shared-host audits and validation are in the
+[raw capture](data/serialization-short-vector-rejected.json.gz).
+
+That archive also preserves refreshed retained-writer CITM, Twitter and GitHub
+sampling profiles, binary hashes and their build/capture driver. These isolated
+serialization-only, min-input modules are hotspot diagnostics, not classic/native
+throughput evidence. The decoder reports a V8-version mismatch, retained in
+its output. Symbolized samples point to generated root writers, string scanning,
+GC traversal and CITM callback-map key snapshots. They motivate investigation;
+they do not change the qualified native table.
