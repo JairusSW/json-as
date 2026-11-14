@@ -117,3 +117,23 @@ Only OTFCC and FGO pass the 90% threshold; the whole gate fails.
 The [raw capture](data/serialization-all-420b0ed0.json.gz) retains all process
 samples, logs and provenance. Raw-heavy results do not establish typed-field
 serialization parity on the other models.
+
+## Guarded output-string allocation
+
+On the recognized incremental allocator, freshly allocated string payloads are
+normally cleared before being overwritten. The candidate clones the verified
+allocator for the library's output helper, preserving allocation checks, GC
+interrupts, object headers, list linking, and accounting. Non-string IDs and
+allocation tracing retain the clear; unknown allocator bodies/runtimes and
+existing native uninitialized-allocation support retain their original paths.
+
+A six-pair Twitter writer screen measures median 87.21 µs with ordinary
+allocation versus 84.115 µs for the prototype, 3.55% lower latency. This smaller
+gain is not a new whole-corpus qualification. The [raw screen](data/serialization-output-allocation-screen.json.gz)
+retains samples, process outputs, binary hashes and prototype code. Final
+regular-harness before/after measurements remain outstanding.
+
+Validation passes the exact-body allocator and hygiene/fallback tests, 117
+static-output checks, retained-output tests across nine configurations, 1,728
+root/field/reuse string-oracle checks, and 288 packed-consumer operations across
+36 configurations. Typecheck, lint and license-header checks also pass.

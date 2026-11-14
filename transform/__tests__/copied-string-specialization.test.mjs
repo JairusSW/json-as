@@ -25,15 +25,18 @@ function fixture(runtime = "itcms", body = stock) {
     ],
     [
       "assembly/util/runtime",
-      `const __json_as_copy_string=0;
+      `const __json_as_copy_string=0; const __json_as_output_allocate=0;
  export function allocateObject(size:usize,id:u32):usize{return __new(size,id);}
+ export function allocateUninitialized(size:usize,id:u32):usize{
+ if(isDefined(__newUninitialized))return __newUninitialized(size,id);return __new(size,id);}
+
  export function clearAllocatedObject(ptr:usize,size:usize):void{memory.fill(ptr,0,size);}
  export function canAllocateCopiedString():bool{return false;}
  export function allocateCopiedString(source:usize,size:usize):usize{const out=allocateObject(size,idof<string>());memory.copy(out,source,size);return out;}`,
     ],
     [
       `~lib/rt/${runtime}`,
-      `const __json_as_allocate_copied_string=0; @global @unsafe export function __new(size:usize,id:i32):usize{${body}}`,
+      `const __json_as_allocate_copied_string=0; const __json_as_allocate_output_string=0; @global @unsafe export function __new(size:usize,id:i32):usize{${body}}`,
     ],
     ["app", "export function application():usize{return __new(8,3);}"],
   ])
@@ -53,6 +56,14 @@ assert.equal(
   original,
 );
 assert.equal(toString(app), application);
+const outputAllocator = rt.statements.find((s) => s.name?.text === "__json_as_allocate_output_string0");
+assert.ok(outputAllocator);
+assert.match(toString(outputAllocator), /id != idof<string>\(\) \|\| isDefined\(ASC_RTRACE\)/);
+assert.match(toString(outputAllocator), /memory.fill\(ptr, 0, size\)/);
+assert.match(toString(outputAllocator), /obj.linkTo\(fromSpace, white\)/);
+assert.match(toString(helper), /return __json_as_output_allocate0\(size, id\)/);
+assert.match(toString(helper), /isDefined\(__newUninitialized\)/);
+
 assert.match(toString(helper), /return true/);
 const copy = rt.statements.at(-1);
 assert.equal(copy.name.text, "__json_as_allocate_copied_string0");
