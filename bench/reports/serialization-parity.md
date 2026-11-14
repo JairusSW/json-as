@@ -402,3 +402,28 @@ Validation passes: 85,995 exact integer root/field/array comparisons across nine
 backend/runtime configurations, 1,872 expanded exact string root/field/reuse
 checks across 12 configurations, nine full model-output oracles, typecheck,
 lint and license headers.
+
+## Complete native refresh at f68c4749
+
+Five alternating fresh-process pairs per corpus, original classic harness,
+source-aligned owning models and fresh output strings on both sides. Apple M4
+Max/AC, SIMD/incremental without validation, shared timing lock; background
+process audits retained. All full-output checks pass.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.11 | 10.76 | 0.66× |
+| canada | 0.91 | 1.24 | 0.73× |
+| citm_catalog | 4.24 | 10.22 | 0.41× |
+| poet | 16.42 | 23.81 | 0.69× |
+| github_events | 6.44 | 16.30 | 0.39× |
+| gsoc-2018 | 7.75 | 16.96 | 0.46× |
+| lottie | 24.59 | 22.20 | 1.11× |
+| otfcc | 35.13 | 23.57 | 1.49× |
+| fgo | 37.64 | 20.55 | 1.83× |
+
+[Raw qualification](data/serialization-aligned-f68c4749.json.gz) contains the
+sealed source/runtime/binary provenance, every sample and process log. Three
+of nine pass 90% parity. Six typed workloads remain below it, so the goal
+remains active and unmet. These are current native ratios; the preceding
+paired AS-before/after gate supplies causal evidence for the retained changes.
