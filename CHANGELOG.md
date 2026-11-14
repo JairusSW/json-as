@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Skip a pure decimal-rounding product when a clamp already fixes the result. Apply only to the verified stock formatter and helper, retaining original code for unknown sources, bindings, and compiler aliases.
+
 - Keep strategic eager-read plans when forwarding through json-as serialization. Copy untouched deferred fields, serialize current materialized or assigned values, and keep later reads from pulling decoding ahead of the first output. Preserve conservative behavior for ordinary schemas and application-owned writers.
 
 - Expand a stock incremental-GC marking call at compile time without changing collection pacing or state transitions. Unknown runtimes, tracing, profiling, finalizers, and affected aliases retain the original path.

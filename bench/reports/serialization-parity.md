@@ -979,3 +979,93 @@ logs, exact numeric outputs, native snapshots, matched PC logs, parser and
 annotation scripts, division controls, both diagnostic Wasm images and required
 third-party notices. These unresolved screens must not be used as performance
 claims.
+
+## Skip an already-clamped decimal product
+
+The actual classic formatter profile motivated moving the final rounding clamps
+ahead of a pure high-product calculation. If the upper or lower clamp determines
+the last digit, the formatter publishes that result immediately. The upper
+clamp remains first because it wins when both conditions hold. Unclamped values
+use the original product and publication helper. No tables, output caches,
+allocation policies, or GC transitions change.
+
+The transform selects only the exact stock xjb-as 1.0.0 source and parsed AST
+for both formatter and arithmetic helper, with guards against affected compiler
+aliases. Changed sources, modified bindings, earlier AST instrumentation, and
+unknown versions retain the original implementation. The rewrite is idempotent.
+
+An independent eight-pair confirmation follows a separate eight-pair Canada/Poet
+screen. Each pair alternates fresh baseline/candidate processes in the original
+classic harness. Settings remain SIMD/incremental, -O3 plus the recorded
+wasm-opt passes, validation off and cache zero on Apple M4 Max / arm64 / AC.
+The shared timing lock covers each batch; process, swap, and VM audits record
+background activity. Paired intervals are bootstrap intervals for geometric
+latency ratios, not guarantees of isolated host conditions.
+
+| Corpus | Baseline µs | Candidate µs | Median latency delta | Paired geometric delta | Paired 95% interval | Faster pairs |
+|---|---:|---:|---:|---:|---:|---:|
+| twitter | 66.140 | 65.885 | -0.39% | -0.42% | -2.35% to +1.29% | 4/8 |
+| canada | 2280.740 | 2207.680 | -3.20% | -3.41% | -3.95% to -2.91% | 8/8 |
+| citm_catalog | 99.390 | 98.270 | -1.13% | +0.34% | -1.62% to +2.13% | 3/8 |
+| poet | 204.885 | 201.095 | -1.85% | -1.85% | -3.40% to -0.12% | 6/8 |
+| github_events | 8.595 | 8.575 | -0.23% | -0.14% | -0.77% to +0.44% | 5/8 |
+| gsoc-2018 | 337.780 | 338.050 | +0.08% | +0.67% | -0.60% to +2.09% | 4/8 |
+| lottie | 62.410 | 61.040 | -2.20% | -0.95% | -3.10% to +1.12% | 4/8 |
+| otfcc | 1903.715 | 1872.280 | -1.65% | -0.77% | -3.37% to +2.13% | 6/8 |
+| fgo | 1317.555 | 1354.130 | +2.78% | +0.03% | -2.06% to +2.26% | 5/8 |
+
+Canada and Poet improve in both captures. The other seven paired intervals
+include zero. FGO's median increases 2.78%, while its paired geometric estimate
+is +0.03% with a -2.06% to +2.26% interval; this noisy row is retained rather
+than described as a proven improvement or regression.
+
+Validation includes 84 AST selection/purity/binding/idempotence checks and
+324,990 runtime assertions across all three backends and runtimes. Untimed
+observers count the actual multiplication and compare both normal/subnormal
+rounding tails against independent BigInt arithmetic, including overlapping
+clamps and the normal-path special bias. Original-body and modified-helper
+controls retain the product, while selected forced results eliminate it.
+Random f32/f64 outputs match the original code and independent numeric oracles.
+The earlier prototype also passes 448 float-array comparisons, 113,376 numeric
+round trips, 156 explicit edge outputs and all nine full owned-model/GC oracles.
+
+All nine production binaries match the measured prototype byte for byte. Their
+static data sections match the retained baseline. These are AS-before/after
+measurements; they do not establish new simdjson parity ratios. The 90% native
+gate remains unmet.
+
+The [raw archive](data/serialization-decimal-clamps.json.gz) retains samples,
+audits, exact source prototypes, compiler/binary seals, oracle outputs and
+validation logs. It also preserves a rejected two-lane SIMD high-product trial:
+eight-pair latency increases of +12.01% for Canada and +5.63% for Poet, despite
+correct arithmetic and output. No SIMD arithmetic change is retained. A separate
+618-row cached-power proof matches the current coefficients against BigInt;
+no new power table is introduced.
+
+### Fresh native qualification of the retained clamp change
+
+Five alternating fresh-process pairs per corpus, same source-aligned complete
+owned models and original classic harness. Every AS/native output oracle and
+source/binary seal passes. The explicit 90% throughput target still fails for
+six rows, so the command correctly exits 1 after completing all measurements.
+Both writers produce a fresh owning string each operation; neither caches output.
+GB/s uses actual UTF-8 output bytes. Background-load audits are retained.
+
+| Corpus | json-as GB/s | Native GB/s | Throughput / native |
+|---|---:|---:|---:|
+| twitter | 7.14 | 10.39 | 0.69× |
+| canada | 0.94 | 1.25 | 0.76× |
+| citm_catalog | 5.06 | 10.21 | 0.50× |
+| poet | 16.39 | 23.10 | 0.71× |
+| github_events | 6.87 | 15.70 | 0.44× |
+| gsoc-2018 | 9.16 | 16.45 | 0.56× |
+| lottie | 24.33 | 22.68 | 1.07× |
+| otfcc | 35.35 | 23.76 | 1.49× |
+| fgo | 36.43 | 21.43 | 1.70× |
+
+Only Lottie, OTFCC and FGO clear the gate. These are a fresh capture, not
+a paired old/new native ratio experiment; changes from earlier tables include
+host and native measurement variation. The independently confirmed AS-before/after
+Canada and Poet improvements above are the evidence for retaining the change.
+Typecheck, lint, license headers, all 51 warning configurations, and the packed
+consumer's 324 operations across 36 configurations pass on the candidate.
