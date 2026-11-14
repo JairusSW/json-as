@@ -153,8 +153,11 @@ export namespace bs {
     stackSize = 0;
   }
 
-  function updateOwnedHint(len: usize): void {
-    if (len < MIN_OWNED_OUTPUT_SIZE) {
+  function updateOwnedHint(len: usize, reserved: usize): void {
+    // Wide schemas can reserve much more than their actual JSON needs. In
+    // that case retain the reusable staging buffer instead of repeatedly
+    // growing a fresh managed string and copying it again to trim the excess.
+    if (len < MIN_OWNED_OUTPUT_SIZE || reserved > len + (len >> 2)) {
       ownedHint = 0;
       return;
     }
@@ -183,7 +186,7 @@ export namespace bs {
       // @ts-expect-error: __renew is a runtime builtin
       result = __renew(buffer, len);
     }
-    updateOwnedHint(len);
+    updateOwnedHint(len, stackSize);
 
     ownedOutput = null;
     ownedCapacity = 0;
@@ -444,6 +447,7 @@ export namespace bs {
       }
       return changetype<T>(finishOwned());
     }
+    const reservedSize = stackSize;
     let out: usize;
     if (cacheOutput === 0) {
       const len = offset - buffer;
@@ -462,7 +466,7 @@ export namespace bs {
     }
     if (learnOwnedHint) {
       learnOwnedHint = false;
-      updateOwnedHint(changetype<OBJECT>(out - TOTAL_OVERHEAD).rtSize);
+      updateOwnedHint(changetype<OBJECT>(out - TOTAL_OVERHEAD).rtSize, reservedSize);
       // Keep ordinary staging allocations so switching output ownership does
       // not perturb the allocator layout of subsequent parse work. Very large
       // staging blocks would duplicate a returned string and can exhaust the

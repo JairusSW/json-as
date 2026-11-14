@@ -35,3 +35,29 @@ sources, runtime files and binaries; measurement rejects changed seals.
 The 90% gate failed on all three initial corpora. CITM is the first profiling
 target. Runtime optimization, paired before/after qualification, remaining
 classic coverage, and a final performance verdict are outstanding.
+
+## Reservation policy experiment
+
+An allocation trace of warmed CITM serialization found four large allocations
+per call: approximately 1.02 MB, 1.27 MB, 1.59 MB, then a 1.00 MB final output.
+Generated field reservations exceed actual output size, so learning capacity
+from the final length repeatedly underestimates the managed writer's demand.
+
+The candidate retains reusable staging when reservation demand exceeds output
+length by more than 25%. The same probe then records one large allocation.
+The permanent synthetic integer-record regression fails on the baseline with
+nine large allocations per warmed output and passes with one on the candidate.
+Output retention and size transitions pass on all three backends and runtimes;
+allocation counts are asserted only on incremental/minimal because stub does
+not provide allocator trace callbacks. Static-output regressions pass 117 checks.
+
+An isolated serialization-only CITM screen then measured six alternating
+fresh-process pairs under the shared timing lock: median baseline 245.275 µs,
+candidate 144.55 µs, a 41.1% latency reduction (1.70× throughput).
+Both binaries used the same named-function profiling build and model source.
+This establishes a local before/after effect, not a revised native parity ratio.
+The regular harness and remaining classic corpora still need qualification.
+The [screen capture](data/serialization-reservation-screen.json.gz) retains
+all samples, logs, binary hashes, candidate patch, model source and CPU capture.
+The profile processor warned of a V8 version mismatch, so native-symbol labels
+should not be interpreted; named Wasm allocation/GC frames corroborate churn.
