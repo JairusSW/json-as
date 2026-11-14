@@ -25,3 +25,24 @@ export function resize(count: i32): void {
 export function serialize(): string {
   return JSON.stringify(rows);
 }
+
+
+@json
+class StringRow {
+  a: i64 = 1;
+  b: i64 = 2;
+  c: i64 = 3;
+  text: string = "";
+}
+const strings: StringRow[] = [];
+export function setupStrings(): void {
+  const text = "x".repeat(384);
+  for (let i = 0; i < 400; i++) {
+    const row = new StringRow();
+    row.text = text;
+    strings.push(row);
+  }
+}
+export function serializeStrings(): string {
+  return JSON.stringify(strings);
+}

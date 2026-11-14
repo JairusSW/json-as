@@ -100,6 +100,29 @@ try {
         assert.equal(decode(retained), expected);
       }
       g.__unpin(retained);
+      g.setupStrings();
+      const textExpected = JSON.stringify(
+        Array.from({ length: 400 }, () => ({
+          a: 1,
+          b: 2,
+          c: 3,
+          text: "x".repeat(384),
+        })),
+      );
+      const textRetained = g.__pin(g.serializeStrings());
+      for (let i = 0; i < 3; i++) {
+        large = 0;
+        assert.equal(decode(g.serializeStrings()), textExpected);
+        if (runtime !== "stub")
+          assert.equal(
+            large,
+            1,
+            `${mode}/${runtime}: learned reservation demand`,
+          );
+        g.__collect();
+        assert.equal(decode(textRetained), textExpected);
+      }
+      g.__unpin(textRetained);
     }
   console.log(
     "Owned reservation: six allocation checks and retained output across nine configurations",

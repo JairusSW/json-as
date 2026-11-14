@@ -163,10 +163,14 @@ export namespace bs {
     }
     // Medium outputs need only enough slack to absorb ordinary length changes;
     // retain the established larger allowance for very large outputs.
-    ownedHint =
+    const slack =
       len < LARGE_OWNED_OUTPUT_SIZE
-        ? len + min<usize>(max<usize>(len >> 6, 64), 64 * 1024)
-        : len + min<usize>(max<usize>(len >> 4, 64), 1 << 20);
+        ? min<usize>(max<usize>(len >> 6, 64), 64 * 1024)
+        : min<usize>(max<usize>(len >> 4, 64), 1 << 20);
+    // Learn the writer's reservation demand, not only its final byte length.
+    // Stay below finishOwned's excess limit so the learned allocation can be
+    // returned directly instead of immediately copied into a smaller string.
+    ownedHint = min(max(len, reserved) + slack, len + (len >> 2));
   }
 
   function finishOwned(): string {

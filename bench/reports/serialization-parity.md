@@ -78,3 +78,20 @@ were sequential before/after batches, unlike the alternating binary screen
 above, so small changes must not be treated as statistically established wins
 or losses. The [raw capture](data/serialization-reservation-native.json.gz)
 retains all samples and provenance. The 90% gate still fails on all three.
+
+## Learn reservation demand below the fallback threshold
+
+Twitter still made three large allocations per warmed output: approximately
+0.84 MB, 1.05 MB and a final 0.83 MB. Its reservation demand was below the
+staging fallback threshold but above the hint learned from final output size.
+The next change learns reservation demand as well as output length, capped at
+the existing 25% retained-slack limit. The probe then records one 0.92 MB
+allocation. A synthetic string-heavy regression reproduces the three-to-one
+allocation change, with retained-output checks across all nine configurations.
+
+A six-pair alternating Twitter writer screen measures median baseline
+137.47 µs and candidate 87.28 µs: 36.5% lower latency, 1.58× throughput.
+The [raw screen](data/serialization-demand-hint-screen.json.gz) retains samples,
+logs, binary hashes, model source, code patch and the preceding CPU capture.
+This is an isolated before/after screen; regular-harness native ratios and
+full classic coverage still need requalification.
