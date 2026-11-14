@@ -23,6 +23,44 @@ const valid = [
   [],
   ["regrown", "values"],
 ];
+const tails = [];
+const specialUnits = [
+  ...Array.from({ length: 32 }, (_, i) => i),
+  34,
+  92,
+  0x7fff,
+  0x8000,
+  0xd7ff,
+  0xd800,
+  0xdbff,
+  0xdc00,
+  0xdfff,
+  0xe000,
+  0xffff,
+];
+for (const length of [
+  ...Array.from({ length: 11 }, (_, i) => i + 7),
+  23,
+  24,
+  25,
+  31,
+  32,
+  33,
+  63,
+  64,
+  65,
+]) {
+  const base = "a".repeat(length);
+  tails.push(base);
+  for (let at = 0; at < length; at++) {
+    for (const code of specialUnits)
+      tails.push(
+        base.slice(0, at) + String.fromCharCode(code) + base.slice(at + 1),
+      );
+    tails.push(base.slice(0, at) + "😀" + base.slice(at + 2));
+  }
+}
+valid.push(tails);
 const invalid = [
   '["x",]',
   '["x",,"y"]',

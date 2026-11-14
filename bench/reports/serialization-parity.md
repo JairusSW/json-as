@@ -193,3 +193,33 @@ global collector assertions, idempotence, native-free/retained-graph pressure
 checks, 12 static numeric-array pressure configurations, 24 exact-binary/event
 fallback and finalizer configurations, nine output-retention configurations,
 117 static-output checks, typecheck and lint.
+
+## Bounded SIMD string tails
+
+Medium strings (8–15 UTF-16 units) and clean long-string tails now use
+payload-bounded overlapping vector loads instead of scalar tail loops. Every
+load stays inside the source range; exceptional controls, quotes, backslashes
+and surrogates retain the shared escaping path. No serialized output is cached.
+
+Six alternating fresh-process pairs per workload on Apple M4 Max/AC power,
+under the shared timing lock, using the original classic harness:
+
+| Workload | Previous µs | Candidate µs | Latency delta |
+|---|---:|---:|---:|
+| GitHub events | 10.930 | 10.470 | −4.21% |
+| Twitter | 82.345 | 82.205 | −0.17% |
+
+All six GitHub pairs favor the candidate. Twitter is noisy and effectively
+flat; this capture does not establish a Twitter gain. The diagnostic isolated
+writer screen gave −3.38% / −2.66%, respectively, and does not replace the
+original-harness evidence. Background virtualization and interactive apps were
+running; these are shared-host measurements, not an isolated-host claim.
+The [raw capture](data/serialization-string-tail-screen.json.gz) retains logs,
+binary hashes, patch, host/power audit and commands. Whole-corpus native ratios
+are pending refresh.
+
+Validation: 1,872 root/field/reuse oracle checks across all 12 backend ×
+strictness × fast-path configurations, including every control unit and
+surrogate boundary at every position in lengths 7–17, 23–25, 31–33 and 63–65;
+117 static-output checks; retained-output/allocation checks across nine
+backend/runtime configurations; typecheck, lint and license headers pass.

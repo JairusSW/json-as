@@ -185,6 +185,15 @@ export function serializeStringRangeReservedAt_SIMD(
     }
     if (srcStart <= srcEnd16Fast) break;
 
+    if (srcStart < srcEnd && srcSize >= 16) {
+      const tail = load<v128>(srcEnd - 16);
+      if (!hasStringSpecial(tail)) {
+        // The overlapping prefix was already copied without expansion.
+        store<v128>(dstStart + 2 + srcSize - 16, tail);
+        srcStart = srcEnd;
+        dst = dstStart + 2 + srcSize;
+      }
+    }
     while (srcStart <= srcEnd - 2) {
       const code = load<u16>(srcStart);
       if (
@@ -419,40 +428,36 @@ function serializeMediumStringReservedAt_SIMD(
   srcSize: u32,
   dstStart: usize,
 ): usize {
-  const block = load<v128>(srcStart);
-  const special = v128.or(
-    i16x8.eq(block, SPLAT_0022),
+  const first = load<v128>(srcStart);
+  if (hasStringSpecial(first))
+    return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
+  if (srcSize > 16) {
+    const last = load<v128>(srcStart + srcSize - 16);
+    if (hasStringSpecial(last))
+      return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
+    store<v128>(dstStart + 2 + srcSize - 16, last);
+  }
+  store<u16>(dstStart, 34);
+  store<v128>(dstStart + 2, first);
+  store<u16>(dstStart + 2 + srcSize, 34);
+  return dstStart + srcSize + 4;
+}
+
+
+@inline
+function hasStringSpecial(block: v128): bool {
+  return v128.any_true(
     v128.or(
-      i16x8.eq(block, SPLAT_005C),
+      i16x8.eq(block, SPLAT_0022),
       v128.or(
-        i16x8.lt_u(block, SPLAT_0020),
-        i16x8.eq(v128.and(block, SURROGATE_MASK), SURROGATE_BASE),
+        i16x8.eq(block, SPLAT_005C),
+        v128.or(
+          i16x8.lt_u(block, SPLAT_0020),
+          i16x8.eq(v128.and(block, SURROGATE_MASK), SURROGATE_BASE),
+        ),
       ),
     ),
   );
-  if (v128.any_true(special))
-    return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
-
-  store<u16>(dstStart, 34);
-  store<v128>(dstStart, block, 2);
-  let src = srcStart + 16;
-  let dst = dstStart + 18;
-  const srcEnd = srcStart + srcSize;
-  while (src < srcEnd) {
-    const code = load<u16>(src);
-    if (
-      (code >= 0xd800 && code <= 0xdfff) ||
-      code == BACK_SLASH ||
-      code == 34 ||
-      code < 32
-    )
-      return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
-    store<u16>(dst, code);
-    src += 2;
-    dst += 2;
-  }
-  store<u16>(dst, 34);
-  return dst + 2;
 }
 
 function copyKnownCleanString(
