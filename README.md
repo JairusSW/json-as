@@ -25,7 +25,6 @@
   - [Performance Tuning](#performance-tuning)
   - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [Debugging](#debugging)
-- [Architecture](#architecture)
 - [Contributing](#contributing)
 - [Who uses it?](#who-uses-it)
 - [License](#license)
@@ -39,24 +38,10 @@
 npm install json-as
 ```
 
-Declare AssemblyScript (`^0.28.18`) in your application's development dependencies;
-json-as uses that compiler as a peer. The required xjb-as sources and licenses are
-bundled with json-as, including for pnpm's isolated dependency layout.
-
-Upgrading from 1.x? See the [2.0.0 upgrade notes and changelog](./CHANGELOG.md).
-
 Add the `--transform` to your `asc` command (e.g. in package.json)
 
 ```bash
 --transform json-as
-```
-
-Set `JSON_STRICT=true` when compiling to enable complete JSON syntax validation for `JSON.parse`. The default compatibility mode prioritizes parsing known input.
-
-Optionally, for additional performance, also add:
-
-```bash
---enable simd
 ```
 
 Alternatively, add it to your `asconfig.json`
@@ -69,11 +54,15 @@ Alternatively, add it to your `asconfig.json`
 }
 ```
 
-If you'd like to see the code that the transform generates, run the build step with `JSON_DEBUG=true`
+Optionally, for additional performance, also add this to your `asc` command:
+
+```bash
+--enable simd
+```
 
 ## Docs
 
-Full documentation lives at:
+You can read the docs here:
 
 <https://docs.jairus.dev/json-as>
 
@@ -534,7 +523,7 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 
 ## Performance
 
-`json-as` is engineered for **multi-GB/s** serialization and deserialization. Every `@json` schema is compiled to specialized WebAssembly at build time, and bytes are scanned by one of three interchangeable backends:
+`json-as` is engineered for **multi-GB/s** serialization and deserialization. I've handwritten and ideated every single algorithm from scratch with no outside resources. Every `@json` schema is compiled to specialized WebAssembly at build time, and bytes are scanned by one of three interchangeable backends:
 
 - **NAIVE** — a portable, branchy scalar scanner. The correctness baseline; needs no special CPU features.
 - **SWAR** — *SIMD-Within-A-Register*: processes 8 bytes at a time with ordinary 64-bit integer math. The default.
@@ -567,15 +556,6 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-deserialize.svg" alt="Performance Chart 4">
 
 </details>
-
-The combined object charts use the same 1,024-byte row fixture inside one growing
-JSON document. Larger inputs add rows to that object's `records` array; each
-measured operation parses or serializes the whole document once. The schema
-does not switch at 1 MiB. Each object and string chart has ten samples from
-about 100 KiB to 8 MiB. The x-axis is actual UTF-8 document size, not aggregate
-bytes from repeated independent calls. Deserialization charts use linear axes.
-Serialization charts use an explicitly labeled logarithmic axis for wide throughput
-ranges. Series follow JS, NAIVE, SWAR, SIMD, Obj, Lazy, and simdjson where present. Charts share overview typography and a one-line sidebar; detailed run provenance is retained in companion `.metadata.json` files.
 
 <details>
 <summary>Object serialization chart (click to expand)</summary>
@@ -615,37 +595,6 @@ ranges. Series follow JS, NAIVE, SWAR, SIMD, Obj, Lazy, and simdjson where prese
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/runtimes-serialize.svg" alt="Serialization throughput across WebAssembly runtimes">
 </details>
 
-Reproduce locally (requires Go for the Wago host; the other engines are auto-detected):
-
-```bash
-npm run bench:runtimes
-npm run charts:runtimes
-# Publish only these charts to the docs branch:
-bash scripts/publish-benchmarks.sh --runtimes --no-run
-# Rebuild or publish an older completed run explicitly:
-npm run charts:runtimes -- --run <run-id>
-bash scripts/publish-benchmarks.sh --runtimes --no-run --run <run-id>
-```
-
-Each attempt writes to `build/logs/runtimes/runs/<run-id>/`, with a
-`manifest.json` recording its original timestamp, source commit/branch and dirty
-state, package version, host, compiler flags, engine versions (when available),
-and pinned Wago dependencies. `build/logs/runtimes/latest.json` selects the latest
-attempt. Only completed runs can be charted: a failed or interrupted attempt
-never silently falls back to older results, and absent engines are omitted rather
-than inheriting their old bars. Older successful runs remain selectable with
-`--run` (or `JSON_RUNTIME_RUN`).
-
-`runtimes-results.json` includes that manifest alongside the selected results.
-Rebuilding with `--no-run` keeps the original date, checkout, version, and Wago
-dependencies, even after changing branches; runtime-only publication also uses
-the recorded `charts/v<version>/` destination. A dirty flag identifies uncommitted
-source but is not a snapshot of it. Legacy flat logs under
-`build/logs/runtimes/<runtime>/` have no trustworthy run identity and are no longer
-read automatically. Run the runtime benchmark once to create a manifest; existing
-legacy files are left untouched. Other benchmark categories retain their existing
-log format.
-
 ### Lazy Fields
 
 Ordinary `@json` parsing also uses access analysis by default. When a visible
@@ -664,18 +613,9 @@ const point = JSON.parse<Point>(input);
 const x = point.x; // y and name can be skipped at this parse site
 ```
 
-The result remains an ordinary object: this optimization does not add lazy
-slots or getters. When every field is needed, or the result escapes or has
-uses the transform cannot prove safe, parsing retains the eager behavior.
-Potentially effectful initializers and custom decoders remain observable.
-Direct array-typed fields stay eager. Set `JSON_ACCESS_SPECIALIZATION=false`
-when compiling to disable this optimization. See the [captured API benchmark
-results](bench/reports/access-specialization-api.md) for eager and specialized
-throughput, allocation counts, and measurement conditions.
+Here, we can prove syntatically that only `point.x` is accessed. So, we can take a shortcut and simply skip decoding `y` and `name`! This gives us something around a 70% speedup.
 
-Access-based specialization is the default; `@json({ lazy })` selects it
-explicitly. For an eager comparison on one class, use `@json({ nolazy })`:
-
+You can also disable this like so. I'd reccomend using this for benchmarks.
 ```ts
 @json({ nolazy })
 class EagerPoint {
@@ -683,85 +623,6 @@ class EagerPoint {
   y: f32 = 0;
 }
 ```
-
-This disables access-based specialization for the class and its descendants.
-It leaves explicit `@lazy` and `JSON.Lazy<T>` fields unchanged. The equivalent
-boolean forms are `@json({ lazy: true })`, `@json({ lazy: false })`, and
-`@json({ nolazy: true })`.
-
-Mark a field `@lazy` (or `JSON.Lazy<T>`, or a whole class with `@json({ lazy: "auto" })`) to defer it: its raw JSON slice is stored at parse time and parsed only on first access. Fields you skip are never parsed, and untouched fields pass through their original bytes on serialize. See the [Lazy Fields guide](https://docs.jairus.dev/json-as/guide/lazy-fields) for the full API and trade-offs.
-
-Array-typed fields, including `JSON.Arr`, are parsed eagerly even when marked `@lazy` or `JSON.Lazy<T>` or included in a class-wide lazy mode. Elements within a dynamic `JSON.Arr` retain their separate deferred behavior.
-
-To use deferred fields with strategic materialization, opt into
-`@json({ lazy: "strategic" })`:
-
-```ts
-@json({ lazy: "strategic" })
-class Vec3 {
-  x: f32 = 0;
-  y: f32 = 0;
-  z: f32 = 0;
-}
-
-const vec = JSON.parse<Vec3>(input);
-consume(vec.x); // this parse site decodes x eagerly; y and z remain deferred
-```
-
-The transform analyzes the original application AST separately for each parse
-site. A guaranteed field read is always eager. Each conditional edge contributes
-a weight of 1/2; nested edges contribute 1/4, 1/8, and so on. Complementary
-branches are combined, repeated reads contribute to estimated read frequency,
-and early returns exclude paths that cannot reach a read. These are compile-time
-heuristics, not measured execution probabilities.
-
-For conditional reads, the current model uses relative decode costs of 1 for
-scalars/enums, 4 for Date, 10 for strings, 15 for dynamic JSON values, and 20 for
-other references. Given access probability `p`, weighted read count `r`, and
-decode cost `c`, it compares eager cost `c + 0.25r` with lazy cost
-`p(c + 4) + 0.5r`. It selects eager materialization when lazy cost is higher.
-The constants estimate work; they are not timing guarantees. `JSON_DEBUG=true`
-prints the decisions, probabilities, and costs.
-
-[Captured API benchmarks](bench/reports/strategic-laziness-api.md) show faster
-selective GitHub, tweet and forecast reads than eager parsing in the tested
-workloads. Full-record consumption can still be slower. The report includes
-ordinary-lazy and default-eager controls, losses, allocation measurements and raw
-captures. Measure your workload before enabling this mode.
-
-Local variable aliases and statically known local helper calls are followed. Unresolved
-calls, branch-dependent mutable aliases, uninvoked closures, and uses outside the visible program stay conservative;
-fields remain readable through their lazy getters. The specialization preserves
-the actual model class and adds no allocated strategy object or runtime plan
-lookup. Eager numeric fields use native field decoders. Potentially effectful
-reference decodes use the non-speculative reader to avoid callback replay.
-
-Existing explicit lazy declarations retain their behavior by default. To apply
-access analysis to those declarations too, compile with
-`JSON_STRATEGIC_LAZINESS=true`. Set `JSON_STRATEGIC_LAZINESS=false` to disable
-specialization, including for strategic classes, while keeping their fields lazy.
-Opting in can move decoding errors and custom-decoder side effects from first
-access to parse time. `@eager` fields remain eager regardless of the analysis.
-
-Skipping the deferred fields makes deserialization several times faster, and the win grows with payload size:
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/lazy-deserialize.svg" alt="Lazy deserialize: eager vs lazy by payload size">
-
-The proxy / filter / forward case - parse then re-serialize without reading the deferred fields - copies their raw bytes straight through:
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/lazy-roundtrip.svg" alt="Lazy round-trip: eager vs lazy by payload size">
-
-Re-emitting a parsed object forwards the untouched fields' raw bytes instead of rebuilding them:
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/lazy-serialize.svg" alt="Lazy serialize: eager vs lazy by payload size">
-
-<details>
-<summary>Access-pattern comparison (click to expand)</summary>
-
-Lazy cost scales with how much you actually read. For each payload (vec3 → large) the chart compares a lazy parse that reads none, one, half, or all of its deferred fields against the eager full-parse baseline. Reading nothing or a single field is far faster than eager; reading everything approaches it (the work is deferred, not removed). SWAR only, since that's the mode the lazy fast-path is showcased in:
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/lazy-access-pattern.svg" alt="Lazy mode access patterns: deferred-field reads vs eager baseline">
-</details>
 
 ### Performance Tuning
 
@@ -781,10 +642,6 @@ Here's a short list:
 **JSON_USE_FAST_PATH** (default: 1) - The transform emits the fast `__DESERIALIZE` implementation for generated structs by default. Set to `0`, `false`, `off`, or `no` to force slow-path-only output.
 
 **JSON_WRITE** (default: "") - Select a series of files to output after transform and optimization passes have completed for easy inspection. Usage: `JSON_WRITE=.path-to-file-a.ts,./path-to-file-b.ts`
-
-For allocation-heavy workloads, AssemblyScript's incremental GC settings also matter. For example, `--use ASC_GC_GRANULARITY=65536` raises the runtime's minimum allocation budget between automatic collections to 64 KB. This trades more temporary heap space for less frequent collection; measure it with your application's live heap and workload. It is an explicit compiler option, not a json-as default.
-
-When comparing against v1.6.1, use identical explicit GC settings as well as the same harness. That release allocated a 1 MB cache arena even with caching disabled. The extra live allocation increased the incremental collector's budget; removing it saves memory but can increase collection frequency in tiny standalone benchmarks. Do not enable the unused cache just to reproduce that effect.
 
 ### Running Benchmarks Locally
 
@@ -825,8 +682,6 @@ bun run bench:as -- medium.bench.ts --wazero
 bun run bench:as -- medium.bench.ts --wago --wazero --mode simd
 ```
 
-Runtime flags can be combined with `--v8` and `--wavm`; V8 remains the default when no runtime flag is supplied. Wago builds its host from pinned dependencies and requires Go; wazero requires the `wazero` CLI in `PATH` (or `WAZERO_BIN`). Each selected WASI runtime executes the same compiled module per mode, with separate `.wago.json`, `.wazero.json`, or `.wavm.json` result files under `build/logs/as/<mode>/`.
-
 The AS suite includes eager/lazy comparisons for deserialization, serialization, round trips, and access patterns under `assembly/__benches__/lazy/`. Classic datasets also have `*.lazy.bench.ts` variants alongside their eager and dynamic-object workloads.
 
 ```bash
@@ -839,8 +694,6 @@ Prepare and run the native simdjson/classic-JS references before building their 
 ```bash
 node scripts/run-comparison-benches.mjs
 ```
-
-This uses the pinned simdjson sources and a C++26 reflection-capable compiler (default: `/opt/homebrew/bin/g++-16`; override with `PARITY_CXX`). Input oracles run before timing, and raw process samples are retained under `build/comparison-baselines/`. Coordinate timed runs through your host's shared benchmark lock.
 
 5. Build charts from the latest local logs:
 
@@ -862,33 +715,7 @@ npm run charts:build
 `JSON_DEBUG=2` - The above and prints keys/values as they are deserialized
 `JSON_WRITE=path-to-file.ts` - Writes out generated code to `path-to-file.json.ts` for easy inspection
 
-## Architecture
-
-Compile with `JSON_STRICT=true` to require complete JSON syntax. Fresh supported
-objects and containers validate while parsing through checked cursors. Reordered
-keys continue from the current field, preserving defaults, aliases, and duplicate
-handling. Lazy fields validate their complete source ranges before returning.
-
-Strict parsing into an existing `out` object and types with custom deserializers
-retain document prevalidation. This preserves rejection of malformed syntax before
-mutating reused output or invoking custom deserializers. The default compatibility
-grammar is unchanged.
-
-`JSON.validate(data)` checks complete strict syntax without materializing values,
-regardless of the `JSON_STRICT` setting. It uses the same checked lexical readers
-and bounded discard traversal as cursor parsing.
-
 ## Contributing
-
-Compiler diagnostics remain enabled. The project ignores only AS217 (recursive
-inlining cannot inline a function into itself), AS228 (forced inlining cannot
-apply to intentional virtual dispatch), and AS235 (AssemblyScript class/namespace
-exports are type exports, not Wasm exports). Test runners also
-ignore AS906 from unnecessary definite assignments in the external as-test fuzz
-helpers. AS201 pointer-width conversion warnings must be fixed with intentional, width-correct arithmetic or
-explicit casts; never add AS201 or an empty `disableWarning` list to the config.
-An empty list disables **all** compiler warnings. `npm run test:transform` checks
-this policy and compiles the warning regression across backends and runtimes.
 
 We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines on:
 
