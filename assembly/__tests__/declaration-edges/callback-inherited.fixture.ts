@@ -14,6 +14,7 @@ class Base {
   callback: Callback = callback;
 }
 
+
 @json class Child extends Base {
   value: i32 = 0;
 }

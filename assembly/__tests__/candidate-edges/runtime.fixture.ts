@@ -50,8 +50,10 @@ class BufferAndView {
   view: Uint8Array = Uint8Array.wrap(this.bytes);
 }
 export function incompatible(reuse: bool): i32 {
-  return JSON.parse<Item>('{"n":{},"s":""}', reuse ? new Item() : changetype<Item>(0))
-    .n;
+  return JSON.parse<Item>(
+    '{"n":{},"s":""}',
+    reuse ? new Item() : changetype<Item>(0),
+  ).n;
 }
 export function unknown(reuse: bool): i32 {
   return JSON.parse<Item>(
@@ -119,12 +121,14 @@ class ReversedBuffer {
   bytes: ArrayBuffer = this.view.buffer;
 }
 
+
 @json
 class OffsetViews {
   a: Uint8Array = new Uint8Array(4);
   b: Uint8Array = Uint8Array.wrap(this.a.buffer, 1, 2);
 }
 class Middle extends Base {}
+
 
 @json
 class Leaf extends Middle {

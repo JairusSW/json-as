@@ -437,12 +437,16 @@ export function skipCursorString(start: usize, end: usize): usize {
   return 0;
 }
 
+
 @inline
 function trustedStringMask(block: u64): u64 {
   const quote = block ^ 0x0022_0022_0022_0022;
   const slash = block ^ 0x005c_005c_005c_005c;
-  return (((quote - 0x0001_0001_0001_0001) & ~quote) |
-    ((slash - 0x0001_0001_0001_0001) & ~slash)) & 0x0080_0080_0080_0080;
+  return (
+    (((quote - 0x0001_0001_0001_0001) & ~quote) |
+      ((slash - 0x0001_0001_0001_0001) & ~slash)) &
+    0x0080_0080_0080_0080
+  );
 }
 
 // The compact SWAR reader already matched the opening quote and uses a
@@ -455,9 +459,15 @@ export function skipTrustedCursorString(start: usize, end: usize): usize {
     let mask = trustedStringMask(load<u64>(ptr));
     if (!mask && end - ptr >= 16) {
       mask = trustedStringMask(load<u64>(ptr + 8));
-      if (!mask) { ptr += 16; continue; }
+      if (!mask) {
+        ptr += 16;
+        continue;
+      }
       ptr += 8;
-    } else if (!mask) { ptr += 8; continue; }
+    } else if (!mask) {
+      ptr += 8;
+      continue;
+    }
     do {
       const candidate = ptr + (usize(ctz(mask)) >> 3);
       mask &= mask - 1;
@@ -639,12 +649,15 @@ export function skipCursorScalar<T>(start: usize, end: usize): usize {
   if (start >= end) return 0;
   const first = load<u16>(start);
   if (isBoolean<T>())
-    return first == 116 || first == 102 ? readCursorLiteral(start, end, first) : 0;
+    return first == 116 || first == 102
+      ? readCursorLiteral(start, end, first)
+      : 0;
   if (isInteger<T>()) {
     if (!isSigned<T>() && first == 45) return 0;
     const digits = first == 45 ? start + 2 : start;
     const next = scanDigits(digits, end);
-    if (next == digits || (next - digits > 2 && load<u16>(digits) == 48)) return 0;
+    if (next == digits || (next - digits > 2 && load<u16>(digits) == 48))
+      return 0;
     if (next < end) {
       const code = load<u16>(next);
       if (code == 46 || (code | 32) == 101) return 0;
@@ -655,10 +668,12 @@ export function skipCursorScalar<T>(start: usize, end: usize): usize {
   return 0;
 }
 
+
 @inline
 export function skipCursorGeneric<T>(start: usize, end: usize): usize {
   if (isString<T>()) return skipCursorString(start, end);
-  if (isBoolean<T>() || isInteger<T>() || isFloat<T>()) return skipCursorScalar<T>(start, end);
+  if (isBoolean<T>() || isInteger<T>() || isFloat<T>())
+    return skipCursorScalar<T>(start, end);
   return 0;
 }
 

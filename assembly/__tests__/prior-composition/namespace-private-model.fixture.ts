@@ -12,6 +12,7 @@ export namespace Model {
     value: i32 = 7;
   }
 
+
   @json export class Base {
     value: Hidden = new Hidden();
   }

@@ -12,10 +12,12 @@ function initial(): i32 {
   return 1;
 }
 
+
 @json class Row {
   first: i32 = initial();
   second: i32 = 0;
 }
+
 
 @json class ConstRow {
   first: i32 = 1;
@@ -29,26 +31,32 @@ class Strings extends Array<string> {
   }
 }
 
+
 @json class Field {
   value: Strings = new Strings();
 }
+
 
 @json class Generic<T> {
   value!: T;
 }
 
+
 @json class Base {
   __value_lz: u64 = 5;
 }
+
 
 @json class Child extends Base {
   value: JSON.Lazy<i32> = 7;
 }
 type Num<T = i32> = T;
 
+
 @json class Alias {
   value: Num = 0;
 }
+
 
 @json class CustomArray extends Array<JSON.Value> {
 

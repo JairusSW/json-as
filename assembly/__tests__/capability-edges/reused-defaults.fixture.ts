@@ -7,41 +7,53 @@
 
 import { JSON } from "../..";
 
+
 @json class State {
 
   @optional value: i32 = 7;
 
+
   @optional other: i32 = 8;
+
 
   @optional text: string | null = null;
 
+
   @optional items: i32[] = [];
 }
+
 
 @json class Generic<T> {
 
   @optional value: T = <T>7;
 
+
   @optional other: i32 = 8;
   payload!: Uint8Array;
 }
+
 
 @json class LazyState {
 
   @optional text!: JSON.Lazy<string | null>;
 
+
   @optional count!: JSON.Lazy<f64>;
+
 
   @optional other: i32 = 8;
 }
+
 
 @json class RowParent {
   rows: State[] = [];
 }
 
+
 @json class ConcreteParent {
   child: State | null = null;
 }
+
 
 @json class GenericParent {
   child: Generic<i32> | null = null;

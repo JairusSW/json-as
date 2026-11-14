@@ -7,6 +7,7 @@
 
 import { JSON } from "../../index";
 
+
 @json class Row {
   value: i32 = 7;
 }

@@ -80,7 +80,9 @@ function deserializeSetDirect<T extends Set<any>>(
         const end = scanStringEnd(srcStart, srcEnd);
         if (end >= srcEnd) break;
         // @ts-ignore: type
-        changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserializeValue<indexof<T>>(srcStart, end + 2));
+        changetype<NativeSet<indexof<T>>>(out).nativeAdd(
+          JSON.__deserializeValue<indexof<T>>(srcStart, end + 2),
+        );
         srcStart = end + 2;
       } else if (
         // @ts-ignore: type
@@ -89,7 +91,9 @@ function deserializeSetDirect<T extends Set<any>>(
         load<u64>(srcStart) == NULL_WORD_U64
       ) {
         // @ts-ignore: type
-        changetype<NativeSet<indexof<T>>>(out).nativeAdd(changetype<indexof<T>>(0));
+        changetype<NativeSet<indexof<T>>>(out).nativeAdd(
+          changetype<indexof<T>>(0),
+        );
         srcStart += 8;
       } else {
         break;
@@ -101,7 +105,9 @@ function deserializeSetDirect<T extends Set<any>>(
       const literal = deserializeBooleanCode(srcStart, end);
       if (!literal) break;
       // @ts-ignore: type
-      changetype<NativeSet<indexof<T>>>(out).nativeAdd(<indexof<T>>(literal == 2));
+      changetype<NativeSet<indexof<T>>>(out).nativeAdd(
+        <indexof<T>>(literal == 2),
+      );
       srcStart = end;
       // @ts-ignore: type
     } else if (isInteger<indexof<T>>()) {
@@ -113,7 +119,9 @@ function deserializeSetDirect<T extends Set<any>>(
         ptr += 2;
       }
       // @ts-ignore: type
-      changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserializeValue<indexof<T>>(srcStart, ptr));
+      changetype<NativeSet<indexof<T>>>(out).nativeAdd(
+        JSON.__deserializeValue<indexof<T>>(srcStart, ptr),
+      );
       srcStart = ptr;
       // @ts-ignore: type
     } else if (isFloat<indexof<T>>()) {
@@ -125,14 +133,18 @@ function deserializeSetDirect<T extends Set<any>>(
         ptr += 2;
       }
       // @ts-ignore: type
-      changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserializeValue<indexof<T>>(srcStart, ptr));
+      changetype<NativeSet<indexof<T>>>(out).nativeAdd(
+        JSON.__deserializeValue<indexof<T>>(srcStart, ptr),
+      );
       srcStart = ptr;
       // @ts-ignore: type
     } else if (isManaged<indexof<T>>() || isReference<indexof<T>>()) {
       const end = scanSetElementEnd(srcStart, srcEnd);
       if (!end) break;
       // @ts-ignore: type
-      changetype<NativeSet<indexof<T>>>(out).nativeAdd(JSON.__deserializeValue<indexof<T>>(srcStart, end));
+      changetype<NativeSet<indexof<T>>>(out).nativeAdd(
+        JSON.__deserializeValue<indexof<T>>(srcStart, end),
+      );
       srcStart = end;
     } else {
       break;
@@ -172,7 +184,8 @@ export function deserializeSet<T extends Set<any>>(
   const out = changetype<nonnull<T>>(
     dst || changetype<usize>(instantiate<T>()),
   );
-  if (dst || changetype<NativeSet<indexof<T>>>(out).nativeSize() != 0) resetSet<T>(out);
+  if (dst || changetype<NativeSet<indexof<T>>>(out).nativeSize() != 0)
+    resetSet<T>(out);
 
   while (srcEnd > srcStart && isSpace(load<u16>(srcEnd - 2))) srcEnd -= 2;
 
@@ -194,7 +207,8 @@ export function deserializeSetField<T extends Set<any>>(
   if (!changetype<usize>(out)) {
     out = changetype<T>(instantiate<T>());
     store<T>(fieldPtr, out);
-    if (changetype<NativeSet<indexof<T>>>(out).nativeSize() != 0) resetSet<T>(out);
+    if (changetype<NativeSet<indexof<T>>>(out).nativeSize() != 0)
+      resetSet<T>(out);
   } else {
     resetSet<T>(out);
   }

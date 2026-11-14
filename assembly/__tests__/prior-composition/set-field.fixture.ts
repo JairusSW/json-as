@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 class Numbers extends Set<i32> {}
 
+
 @json class Owner {
   value: Numbers = new Numbers();
 }

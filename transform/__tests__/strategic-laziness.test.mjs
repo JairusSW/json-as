@@ -68,7 +68,9 @@ function compile(mode, runtime, strict, fast, strategy = "") {
       try {
         result = g[name](...args);
       } catch (error) {
-        throw new Error(`${label}/${name}/${args}: ${error.message}`, { cause: error });
+        throw new Error(`${label}/${name}/${args}: ${error.message}`, {
+          cause: error,
+        });
       }
       assert.equal(
         typeof wanted === "string" ? decode(result) : result,
@@ -78,7 +80,11 @@ function compile(mode, runtime, strict, fast, strategy = "") {
       checks++;
     },
     checkRejects(name) {
-      assert.throws(() => g[name](), /Invalid JSON|Unexpected key|Incomplete or unterminated/, `${label}/${name}`);
+      assert.throws(
+        () => g[name](),
+        /Invalid JSON|Unexpected key|Incomplete or unterminated/,
+        `${label}/${name}`,
+      );
       checks++;
     },
   };
@@ -156,7 +162,11 @@ try {
           check("nestedArrayLoopRead", [], "0:24.0");
           check("nestedArrayGrowthAfterGC", [], "0:360.0");
           check("arrayFormsDecodeEagerly", [], "3:7:8:9:3");
-          check("eagerArraysRespectReuseOwnership", [], '{"a":[1],"b":[2]}|{"a":[3],"b":[4]}');
+          check(
+            "eagerArraysRespectReuseOwnership",
+            [],
+            '{"a":[1],"b":[2]}|{"a":[3],"b":[4]}',
+          );
           check("genericArrayFieldDecodesEagerly", [], "1:7:1");
           check("inheritedGenericArrayDecodesEagerly", [], "1:7:9:1");
           check("genericTypedArrayFieldDecodesEagerly", [], '{"value":[1,2]}');
@@ -169,7 +179,11 @@ try {
           check("userNamedArrayRemainsLazy", [], '{"item":{ "n" : 7 }}');
           check("dynamicArrayStillDefersElements", [], "1:7.0:0");
           check("genericDynamicArrayFieldDecodesEagerly", [], "1:1");
-          check("dynamicArrayFieldDecodesEagerly", [], '{"value":[{ "n":7 }]}:1');
+          check(
+            "dynamicArrayFieldDecodesEagerly",
+            [],
+            '{"value":[{ "n":7 }]}:1',
+          );
           check("nullableNestedArrayRead", [], "1:0:7.5");
           if (strict) {
             checkRejects("nestedCodecFallback");

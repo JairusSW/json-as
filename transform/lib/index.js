@@ -22,7 +22,7 @@ import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
 import { specializeSweepRuns } from "./sweep.js";
 import { generateCursorParser } from "./cursor.js";
-import { StrategicAccessAnalysis, materializationDecision } from "./strategic-laziness.js";
+import { StrategicAccessAnalysis, materializationDecision, } from "./strategic-laziness.js";
 import { keyDispatch } from "./key-dispatch.js";
 import { parseDiagnosticsFlag, collectOriginalMethods, diagnosticsRuntimeRoot, lowerDiagnostics, } from "./diagnostics.js";
 let indent = "  ";
@@ -315,7 +315,8 @@ export class JSONTransform extends Visitor {
             if (!node.decorators?.some((decorator) => ["json", "serializable"].includes(decorator.name.text)))
                 return false;
             if (chain.some((owner) => owner.members.some((member) => member.name.text === "constructor" ||
-                (member.kind === NodeKind.MethodDeclaration && member.name.text.startsWith("__")) ||
+                (member.kind === NodeKind.MethodDeclaration &&
+                    member.name.text.startsWith("__")) ||
                 member.decorators?.some((decorator) => ["serializer", "deserializer"].includes(decorator.name.text.toLowerCase())))))
                 return false;
             if (this.initializerChainHasEffects(node))
@@ -325,8 +326,13 @@ export class JSONTransform extends Visitor {
                 if (field.is(32) || !field.type)
                     continue;
                 const source = this.sources.get(owner.range.source);
-                const scope = source.getQualifiedName(owner).split(".").slice(0, -1).join(".");
-                const type = this.lazyInnerType(field.type, source, scope, owner) || toString(field.type);
+                const scope = source
+                    .getQualifiedName(owner)
+                    .split(".")
+                    .slice(0, -1)
+                    .join(".");
+                const type = this.lazyInnerType(field.type, source, scope, owner) ||
+                    toString(field.type);
                 const child = source.resolveTypeMeaning(type, scope, this.parser, source.classTypeParameters(owner));
                 if (!pureMaterialization(child, visiting)) {
                     visiting.delete(node);
@@ -372,11 +378,17 @@ export class JSONTransform extends Visitor {
             if (!inherited?.field.type)
                 return null;
             const source = this.sources.get(inherited.owner.range.source);
-            const scope = source.getQualifiedName(inherited.owner).split(".").slice(0, -1).join(".");
+            const scope = source
+                .getQualifiedName(inherited.owner)
+                .split(".")
+                .slice(0, -1)
+                .join(".");
             const type = this.lazyInnerType(inherited.field.type, source, scope, inherited.owner) || toString(inherited.field.type);
             const meaning = source.resolveTypeMeaning(type, scope, this.parser, source.classTypeParameters(inherited.owner));
             const declaration = meaning.declaration;
-            if (!declaration || declaration.kind !== NodeKind.ClassDeclaration || isStdlib(declaration))
+            if (!declaration ||
+                declaration.kind !== NodeKind.ClassDeclaration ||
+                isStdlib(declaration))
                 return null;
             const child = declaration;
             if (child.typeParameters?.length)
@@ -459,7 +471,14 @@ export class JSONTransform extends Visitor {
                 const plan = child && makePlan(child);
                 return plan ? [{ field, plan }] : [];
             });
-            const key = String(effectful) + ":" + selected.sort().join("\0") + ":" + children.map(({ field, plan }) => `${field}=${plan}`).sort().join("\0");
+            const key = String(effectful) +
+                ":" +
+                selected.sort().join("\0") +
+                ":" +
+                children
+                    .map(({ field, plan }) => `${field}=${plan}`)
+                    .sort()
+                    .join("\0");
             if (!plans.has(site.source))
                 plans.set(site.source, new Map());
             let name = plans.get(site.source).get(key);
@@ -498,7 +517,8 @@ export class JSONTransform extends Visitor {
             modelGeneric.set(owner, chain.some((declaration) => !!declaration.typeParameters?.length));
             let fields = [];
             const seen = new Set();
-            if (chain.some(classNoLazy) || chain[chain.length - 1].extendsType ||
+            if (chain.some(classNoLazy) ||
+                chain[chain.length - 1].extendsType ||
                 !owner.decorators?.some((d) => ["json", "serializable"].includes(d.name.text.toLowerCase())) ||
                 this.initializerChainHasEffects(owner))
                 fields = null;
@@ -512,12 +532,18 @@ export class JSONTransform extends Visitor {
                     break;
                 }
                 const source = this.sources.get(declaration.range.source);
-                const scope = source.getQualifiedName(declaration).split(".").slice(0, -1).join(".");
+                const scope = source
+                    .getQualifiedName(declaration)
+                    .split(".")
+                    .slice(0, -1)
+                    .join(".");
                 for (const member of declaration.members) {
-                    if (member.kind !== NodeKind.FieldDeclaration || member.is(32))
+                    if (member.kind !== NodeKind.FieldDeclaration ||
+                        member.is(32))
                         continue;
                     const field = member;
-                    if (field.type && this.lazyInnerType(field.type, source, scope, declaration) !== null) {
+                    if (field.type &&
+                        this.lazyInnerType(field.type, source, scope, declaration) !== null) {
                         fields = null;
                         break;
                     }
@@ -545,28 +571,44 @@ export class JSONTransform extends Visitor {
             if (validatorCache.has(owner))
                 return validatorCache.get(owner);
             const fields = eligibleFields(owner);
-            let result = fields && !modelGeneric.get(owner) && !owner.extendsType && privateDefaults(fields) ? [] : null;
+            let result = fields &&
+                !modelGeneric.get(owner) &&
+                !owner.extendsType &&
+                privateDefaults(fields)
+                ? []
+                : null;
             for (const field of fields || []) {
                 if (!result)
                     break;
-                if (field.is(512) || field.is(1024) ||
+                if (field.is(512) ||
+                    field.is(1024) ||
                     field.decorators?.some((d) => d.name.text.toLowerCase() === "omit"))
                     continue;
-                if (!field.type || field.decorators?.some((d) => ["raw", "lazy"].includes(d.name.text.toLowerCase()))) {
+                if (!field.type ||
+                    field.decorators?.some((d) => ["raw", "lazy"].includes(d.name.text.toLowerCase()))) {
                     result = null;
                     break;
                 }
                 const alias = field.decorators?.find((d) => d.name.text.toLowerCase() === "alias");
                 const arg = alias?.args?.[0];
-                if (alias && (!arg || arg.kind !== NodeKind.Literal || arg.literalKind !== 2)) {
+                if (alias &&
+                    (!arg ||
+                        arg.kind !== NodeKind.Literal ||
+                        arg.literalKind !== 2)) {
                     result = null;
                     break;
                 }
-                const key = arg ? arg.value : field.name.text;
+                const key = arg
+                    ? arg.value
+                    : field.name.text;
                 const type = toString(field.type);
                 const base = stripNull(type);
                 const source = this.sources.get(field.range.source);
-                const scope = source.getQualifiedName(owner).split(".").slice(0, -1).join(".");
+                const scope = source
+                    .getQualifiedName(owner)
+                    .split(".")
+                    .slice(0, -1)
+                    .join(".");
                 const meaning = source.resolveTypeMeaning(type, scope, this.parser);
                 if (meaning.declaration && !isStdlib(meaning.declaration)) {
                     result = null;
@@ -577,10 +619,17 @@ export class JSONTransform extends Visitor {
                         result = null;
                         break;
                     }
-                    result.push({ key, kind: "string", type: base, nullable: meaning.nullable });
+                    result.push({
+                        key,
+                        kind: "string",
+                        type: base,
+                        nullable: meaning.nullable,
+                    });
                 }
                 else if (isScalarType(base) && !meaning.nullable) {
-                    if (meaning.name !== base && !(base === "boolean" && meaning.name === "bool") && !(base === "number" && meaning.name === "f64")) {
+                    if (meaning.name !== base &&
+                        !(base === "boolean" && meaning.name === "bool") &&
+                        !(base === "number" && meaning.name === "f64")) {
                         result = null;
                         break;
                     }
@@ -595,7 +644,8 @@ export class JSONTransform extends Visitor {
                     const element = match[1];
                     const elementMeaning = source.resolveTypeMeaning(element, scope, this.parser);
                     if ((!isScalarType(element) && !isString(element)) ||
-                        (elementMeaning.declaration && !isStdlib(elementMeaning.declaration)) ||
+                        (elementMeaning.declaration &&
+                            !isStdlib(elementMeaning.declaration)) ||
                         (elementMeaning.nullable && !isString(element)) ||
                         (stripNull(element) !== elementMeaning.name &&
                             !(element === "number" && elementMeaning.name === "f64") &&
@@ -603,7 +653,13 @@ export class JSONTransform extends Visitor {
                         result = null;
                         break;
                     }
-                    result.push({ key, kind: "array", type: element, nullable: meaning.nullable, elementNullable: elementMeaning.nullable });
+                    result.push({
+                        key,
+                        kind: "array",
+                        type: element,
+                        nullable: meaning.nullable,
+                        elementNullable: elementMeaning.nullable,
+                    });
                 }
             }
             if (result && result.length > 32)
@@ -615,7 +671,8 @@ export class JSONTransform extends Visitor {
         const analysis = new StrategicAccessAnalysis((call, shadowed, scope, genericScope) => {
             if (genericScope)
                 return null;
-            if (call.args.length !== 1 || call.typeArguments?.length !== 1 ||
+            if (call.args.length !== 1 ||
+                call.typeArguments?.length !== 1 ||
                 call.expression.kind !== NodeKind.PropertyAccess)
                 return null;
             const method = call.expression;
@@ -624,12 +681,14 @@ export class JSONTransform extends Visitor {
             let root = method.expression;
             while (root.kind === NodeKind.PropertyAccess)
                 root = root.expression;
-            if (root.kind !== NodeKind.Identifier || shadowed(root.text))
+            if (root.kind !== NodeKind.Identifier ||
+                shadowed(root.text))
                 return null;
             const receiver = toString(method.expression);
             const source = this.sources.get(call.range.source);
             const binding = source.getImportedBinding(receiver + ".Value", this.parser);
-            if (!binding || binding.source.internalPath !== runtimeRoot + "assembly/index")
+            if (!binding ||
+                binding.source.internalPath !== runtimeRoot + "assembly/index")
                 return null;
             const meaning = source.resolveTypeMeaning(toString(call.typeArguments[0]), scope, this.parser);
             if (meaning.declaration?.kind !== NodeKind.ClassDeclaration)
@@ -642,10 +701,11 @@ export class JSONTransform extends Visitor {
         }, undefined, true);
         for (const source of sources) {
             const indexed = this.sources.get(source);
-            if (!indexed.hasNamespaceImports() && !indexed.getImportedLocalNames().some((name) => {
-                const binding = indexed.getImportedBinding(name + ".Value", this.parser);
-                return binding?.source.internalPath === runtimeRoot + "assembly/index";
-            }))
+            if (!indexed.hasNamespaceImports() &&
+                !indexed.getImportedLocalNames().some((name) => {
+                    const binding = indexed.getImportedBinding(name + ".Value", this.parser);
+                    return (binding?.source.internalPath === runtimeRoot + "assembly/index");
+                }))
                 continue;
             analysis.visit(source);
         }
@@ -660,40 +720,60 @@ export class JSONTransform extends Visitor {
             if ([...site.accesses.keys()].some((name) => !names.has(name)))
                 continue;
             const privateReferenceDefaults = privateDefaults(fields);
-            const selected = fields.filter((field) => {
-                if (!field.type || site.accesses.has(field.name.text) ||
-                    field.is(512) || field.is(1024) ||
+            const selected = fields
+                .filter((field) => {
+                if (!field.type ||
+                    site.accesses.has(field.name.text) ||
+                    field.is(512) ||
+                    field.is(1024) ||
                     field.decorators?.some((d) => d.name.text.toLowerCase() === "omit"))
                     return false;
                 const type = toString(field.type);
                 const source = this.sources.get(field.range.source);
                 const owner = fieldOwners.get(field);
-                const scope = source.getQualifiedName(owner).split(".").slice(0, -1).join(".");
+                const scope = source
+                    .getQualifiedName(owner)
+                    .split(".")
+                    .slice(0, -1)
+                    .join(".");
                 const parameters = source.classTypeParameters(owner);
                 const meaning = source.resolveTypeMeaning(type, scope, this.parser, parameters);
                 if (parameters.has(meaning.name)) {
                     const index = owner.typeParameters?.findIndex((parameter) => parameter.name.text === meaning.name) ?? -1;
-                    let actual = owner === site.declaration && index >= 0 ? siteMeanings.get(site.call)?.arguments[index] : null;
+                    let actual = owner === site.declaration && index >= 0
+                        ? siteMeanings.get(site.call)?.arguments[index]
+                        : null;
                     if (!actual && index >= 0 && site.declaration.extendsType) {
                         const childSource = this.sources.get(site.declaration.range.source);
-                        const childScope = childSource.getQualifiedName(site.declaration).split(".").slice(0, -1).join(".");
+                        const childScope = childSource
+                            .getQualifiedName(site.declaration)
+                            .split(".")
+                            .slice(0, -1)
+                            .join(".");
                         const parent = childSource.resolveTypeMeaning(toString(site.declaration.extendsType), childScope, this.parser, childSource.classTypeParameters(site.declaration));
                         if (parent.declaration === owner)
                             actual = parent.arguments[index];
                     }
-                    if (!actual || (actual.declaration && !isStdlib(actual.declaration)) ||
-                        (!isString(actual.name) && (!isScalarType(actual.name) || actual.nullable || meaning.nullable)))
+                    if (!actual ||
+                        (actual.declaration && !isStdlib(actual.declaration)) ||
+                        (!isString(actual.name) &&
+                            (!isScalarType(actual.name) ||
+                                actual.nullable ||
+                                meaning.nullable)))
                         return false;
                     let generic = this.ordinaryGenericFields.get(site.declaration);
                     if (!generic)
-                        this.ordinaryGenericFields.set(site.declaration, generic = new Set());
+                        this.ordinaryGenericFields.set(site.declaration, (generic = new Set()));
                     generic.add(field.name.text);
                     return true;
                 }
                 if (isString(meaning.name) || isScalarType(meaning.name))
                     return !meaning.declaration || isStdlib(meaning.declaration);
-                if (modelGeneric.get(site.declaration) || !privateReferenceDefaults || (field.initializer && toString(field.initializer) !== "null") ||
-                    meaning.declaration?.kind !== NodeKind.ClassDeclaration || isStdlib(meaning.declaration))
+                if (modelGeneric.get(site.declaration) ||
+                    !privateReferenceDefaults ||
+                    (field.initializer && toString(field.initializer) !== "null") ||
+                    meaning.declaration?.kind !== NodeKind.ClassDeclaration ||
+                    isStdlib(meaning.declaration))
                     return false;
                 const child = meaning.declaration;
                 const validated = validatorFields(child);
@@ -701,7 +781,7 @@ export class JSONTransform extends Visitor {
                     return false;
                 let validators = this.ordinaryObjectValidators.get(site.declaration);
                 if (!validators)
-                    this.ordinaryObjectValidators.set(site.declaration, validators = new Map());
+                    this.ordinaryObjectValidators.set(site.declaration, (validators = new Map()));
                 if (!validators.has(field.name.text))
                     validators.set(field.name.text, {
                         method: this.unusedMemberName(site.declaration, `__JSON_SKIP_OBJECT_${validatorId++}_${field.name.text}`),
@@ -709,12 +789,14 @@ export class JSONTransform extends Visitor {
                         nullable: meaning.nullable,
                     });
                 return true;
-            }).map((field) => field.name.text).sort();
+            })
+                .map((field) => field.name.text)
+                .sort();
             if (!selected.length)
                 continue;
             let specialized = this.ordinarySpecializedFields.get(site.declaration);
             if (!specialized)
-                this.ordinarySpecializedFields.set(site.declaration, specialized = new Set());
+                this.ordinarySpecializedFields.set(site.declaration, (specialized = new Set()));
             for (const field of selected)
                 specialized.add(field);
             const key = selected.join("\0");
@@ -769,13 +851,15 @@ export class JSONTransform extends Visitor {
     }
     lazyRuntimeSource;
     isArrayFieldType(type, source, scope, owner, resolved) {
-        const meaning = resolved || source.resolveTypeMeaning(type, scope, this.parser, source.classTypeParameters(owner));
+        const meaning = resolved ||
+            source.resolveTypeMeaning(type, scope, this.parser, source.classTypeParameters(owner));
         if (meaning.name === "JSON.Arr" &&
             !!meaning.declaration &&
             !!this.lazyRuntimeSource &&
             meaning.declaration.range.source === this.lazyRuntimeSource)
             return true;
-        if ((!meaning.declaration || isStdlib(meaning.declaration)) && ARRAY_FIELD_TYPE.test(meaning.name))
+        if ((!meaning.declaration || isStdlib(meaning.declaration)) &&
+            ARRAY_FIELD_TYPE.test(meaning.name))
             return true;
         if (meaning.declaration?.kind !== NodeKind.ClassDeclaration)
             return false;
@@ -789,7 +873,11 @@ export class JSONTransform extends Visitor {
                 return false;
             const declaringSource = this.sources.get(node.range.source);
             const name = declaringSource.resolveExtendsName(node);
-            const parent = declaringSource.resolveTypeMeaning(name, declaringSource.getQualifiedName(node).split(".").slice(0, -1).join("."), this.parser, declaringSource.classTypeParameters(node));
+            const parent = declaringSource.resolveTypeMeaning(name, declaringSource
+                .getQualifiedName(node)
+                .split(".")
+                .slice(0, -1)
+                .join("."), this.parser, declaringSource.classTypeParameters(node));
             if (!parent.declaration)
                 return ARRAY_FIELD_TYPE.test(parent.name);
             if (parent.declaration.kind !== NodeKind.ClassDeclaration)
@@ -1665,7 +1753,11 @@ export class JSONTransform extends Visitor {
                 if (!fd.initializer &&
                     !fd.is(16384) &&
                     !hasDeco("omit")) {
-                    const scope = source.getQualifiedName(node).split(".").slice(0, -1).join(".");
+                    const scope = source
+                        .getQualifiedName(node)
+                        .split(".")
+                        .slice(0, -1)
+                        .join(".");
                     const meaning = source.resolveTypeMeaning(inner, scope, this.parser, source.classTypeParameters(node));
                     if (!meaning.nullable) {
                         const generated = SimpleParser.parseClassMember(`__array_default: ${inner} = ${this.runtimeReference()}.__lazyDefault<${inner}>();`, node);
@@ -2415,10 +2507,15 @@ export class JSONTransform extends Visitor {
                 mem.lazyInner = lzInner.inner;
                 mem.lazyProperty = lzInner.propertyName;
                 const parameters = source.classTypeParameters(node);
-                const scope = source.getQualifiedName(node).split(".").slice(0, -1).join(".");
+                const scope = source
+                    .getQualifiedName(node)
+                    .split(".")
+                    .slice(0, -1)
+                    .join(".");
                 const innerMeaning = source.resolveTypeMeaning(lzInner.inner, scope, this.parser, parameters);
-                mem.lazyMaybeArray = parameters.has(innerMeaning.name) ||
-                    this.isArrayFieldType(lzInner.inner, source, scope, node, innerMeaning);
+                mem.lazyMaybeArray =
+                    parameters.has(innerMeaning.name) ||
+                        this.isArrayFieldType(lzInner.inner, source, scope, node, innerMeaning);
                 if (lzInner.omitNull) {
                     mem.flags.set(PropertyFlags.OmitNull, null);
                     this.schema.static = false;
@@ -2906,7 +3003,9 @@ export class JSONTransform extends Visitor {
                 : `store<${type}>(${dst}, __eager, offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")}));
            store<u64>(${dst}, u64.MAX_VALUE, ${offset});
            if (isManaged<${type}>()) JSON.__linkObject(${dst}, changetype<usize>(__eager), false);`;
-            const eagerArray = member.lazyMaybeArray ? `JSON.__isArrayField<${type}>() || ` : "";
+            const eagerArray = member.lazyMaybeArray
+                ? `JSON.__isArrayField<${type}>() || `
+                : "";
             return `if (${eagerArray}isDefined(changetype<__JSON_PLAN>(0).__json_eager_${property})) {
         let __eager: ${type};
         if (isDefined(changetype<__JSON_PLAN>(0).__json_child_${property})) {
@@ -2941,7 +3040,8 @@ export class JSONTransform extends Visitor {
             }
             return output;
         };
-        for (const validator of this.ordinaryObjectValidators.get(node)?.values() || []) {
+        for (const validator of this.ordinaryObjectValidators.get(node)?.values() ||
+            []) {
             const compact = ["const start = srcStart;", "do {"];
             for (let i = 0; i < validator.fields.length; i++) {
                 const field = validator.fields[i];
@@ -2949,14 +3049,29 @@ export class JSONTransform extends Visitor {
                 const bytes = key.length << 1;
                 compact.push(`if (srcStart > srcEnd || srcEnd - srcStart < ${bytes} || ${getComparisions(key, "srcStart", "!=").join(" || ")}) break;`, `srcStart += ${bytes};`);
                 const type = stripNull(field.type);
-                const kind = isString(type) ? 0 : isBoolean(type) ? 1 :
-                    SIGNED_INTEGER_TYPES.includes(type) ? 2 : INTEGER_TYPES.includes(type) ? 3 : 4;
-                const arrayReader = kind === 0 && field.elementNullable ? "__cursorSkipNullableStringArray" :
-                    ["__cursorSkipStringArray", "__cursorSkipBooleanArray", "__cursorSkipSignedArray", "__cursorSkipUnsignedArray", "__cursorSkipFloatArray"][kind];
+                const kind = isString(type)
+                    ? 0
+                    : isBoolean(type)
+                        ? 1
+                        : SIGNED_INTEGER_TYPES.includes(type)
+                            ? 2
+                            : INTEGER_TYPES.includes(type)
+                                ? 3
+                                : 4;
+                const arrayReader = kind === 0 && field.elementNullable
+                    ? "__cursorSkipNullableStringArray"
+                    : [
+                        "__cursorSkipStringArray",
+                        "__cursorSkipBooleanArray",
+                        "__cursorSkipSignedArray",
+                        "__cursorSkipUnsignedArray",
+                        "__cursorSkipFloatArray",
+                    ][kind];
                 const skip = field.kind === "string" && !STRICT
                     ? "JSON.__cursorSkipTrustedString(srcStart, srcEnd)"
-                    : field.kind === "array" ? `JSON.${arrayReader}(srcStart, srcEnd)` :
-                        `JSON.__cursorSkipNative(srcStart, srcEnd, ${kind})`;
+                    : field.kind === "array"
+                        ? `JSON.${arrayReader}(srcStart, srcEnd)`
+                        : `JSON.__cursorSkipNative(srcStart, srcEnd, ${kind})`;
                 compact.push("{");
                 if (field.nullable)
                     compact.push("if (srcStart <= srcEnd && srcEnd - srcStart >= 8 && load<u64>(srcStart) == 30399761348886638) srcStart += 8;", "else {");
@@ -2971,7 +3086,11 @@ export class JSONTransform extends Visitor {
             const steps = [
                 ...compact,
                 "srcStart = JSON.__cursorWhitespace(srcStart, srcEnd);",
-                ...(validator.nullable ? ["if (srcStart <= srcEnd && srcEnd - srcStart >= 8 && load<u64>(srcStart) == 30399761348886638) return srcStart + 8;"] : []),
+                ...(validator.nullable
+                    ? [
+                        "if (srcStart <= srcEnd && srcEnd - srcStart >= 8 && load<u64>(srcStart) == 30399761348886638) return srcStart + 8;",
+                    ]
+                    : []),
                 "if (srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;",
                 "srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);",
             ];
@@ -2983,10 +3102,24 @@ export class JSONTransform extends Visitor {
                 const bytes = key.length << 1;
                 steps.push(`if (srcStart > srcEnd || srcEnd - srcStart < ${bytes} || ${getComparisions(key, "srcStart", "!=").join(" || ")}) return 0;`, `srcStart = JSON.__cursorWhitespace(srcStart + ${bytes}, srcEnd);`);
                 const type = stripNull(field.type);
-                const kind = isString(type) ? 0 : isBoolean(type) ? 1 :
-                    SIGNED_INTEGER_TYPES.includes(type) ? 2 : INTEGER_TYPES.includes(type) ? 3 : 4;
-                const arrayReader = kind === 0 && field.elementNullable ? "__cursorSkipNullableStringArray" :
-                    ["__cursorSkipStringArray", "__cursorSkipBooleanArray", "__cursorSkipSignedArray", "__cursorSkipUnsignedArray", "__cursorSkipFloatArray"][kind];
+                const kind = isString(type)
+                    ? 0
+                    : isBoolean(type)
+                        ? 1
+                        : SIGNED_INTEGER_TYPES.includes(type)
+                            ? 2
+                            : INTEGER_TYPES.includes(type)
+                                ? 3
+                                : 4;
+                const arrayReader = kind === 0 && field.elementNullable
+                    ? "__cursorSkipNullableStringArray"
+                    : [
+                        "__cursorSkipStringArray",
+                        "__cursorSkipBooleanArray",
+                        "__cursorSkipSignedArray",
+                        "__cursorSkipUnsignedArray",
+                        "__cursorSkipFloatArray",
+                    ][kind];
                 const skip = field.kind === "string" && !STRICT
                     ? "JSON.__cursorSkipTrustedString(srcStart, srcEnd)"
                     : field.kind === "array"
@@ -3023,15 +3156,28 @@ export class JSONTransform extends Visitor {
             const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
             if (member.flags.has(PropertyFlags.Lazy)) {
                 const lazyInner = member.lazyInner;
-                if (fastPath && !isPrimitive(stripNull(lazyInner)) && !isString(lazyInner)) {
-                    const lazyScope = source.getQualifiedName(node).split(".").slice(0, -1).join(".");
+                if (fastPath &&
+                    !isPrimitive(stripNull(lazyInner)) &&
+                    !isString(lazyInner)) {
+                    const lazyScope = source
+                        .getQualifiedName(node)
+                        .split(".")
+                        .slice(0, -1)
+                        .join(".");
                     const lazyMeaning = source.resolveTypeMeaning(lazyInner, lazyScope, this.parser, source.classTypeParameters(node));
                     const lazyDeclaration = lazyMeaning.declaration;
-                    const lazyClass = lazyDeclaration?.kind === NodeKind.ClassDeclaration && !isStdlib(lazyDeclaration)
-                        ? lazyDeclaration : null;
-                    const customLazyReader = lazyClass && [lazyClass, ...this.classAncestors(lazyClass)].some((owner) => owner.members.some((entry) => (entry.range.source === owner.range.source && entry.name.text.startsWith("__DESERIALIZE")) ||
-                        entry.decorators?.some((decorator) => decorator.name.text.toLowerCase() === "deserializer")));
-                    if (lazyClass && !lazyClass.typeParameters?.length && !lazyMeaning.nullable && !customLazyReader &&
+                    const lazyClass = lazyDeclaration?.kind === NodeKind.ClassDeclaration &&
+                        !isStdlib(lazyDeclaration)
+                        ? lazyDeclaration
+                        : null;
+                    const customLazyReader = lazyClass &&
+                        [lazyClass, ...this.classAncestors(lazyClass)].some((owner) => owner.members.some((entry) => (entry.range.source === owner.range.source &&
+                            entry.name.text.startsWith("__DESERIALIZE")) ||
+                            entry.decorators?.some((decorator) => decorator.name.text.toLowerCase() === "deserializer")));
+                    if (lazyClass &&
+                        !lazyClass.typeParameters?.length &&
+                        !lazyMeaning.nullable &&
+                        !customLazyReader &&
                         lazyClass.decorators?.some((decorator) => ["json", "serializable"].includes(decorator.name.text))) {
                         const property = this.lazyMetadata.get(member.node)?.propertyName || member.name;
                         const valueOffset = `offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")})`;
@@ -3582,7 +3728,9 @@ export class JSONTransform extends Visitor {
                     : field;
                 body.push(`if (isManaged<${member.type}>()) JSON.__linkObject(${outPtr}, ${child}, false);`);
             }
-            const validator = this.ordinaryObjectValidators.get(node)?.get(member.name);
+            const validator = this.ordinaryObjectValidators
+                .get(node)
+                ?.get(member.name);
             if (validator) {
                 const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
                 return [
@@ -3597,13 +3745,24 @@ export class JSONTransform extends Visitor {
                     `}`,
                 ];
             }
-            const genericSkip = this.ordinaryGenericFields.get(node)?.has(member.name);
+            const genericSkip = this.ordinaryGenericFields
+                .get(node)
+                ?.has(member.name);
             if (this.ordinarySpecializedFields.get(node)?.has(member.name) &&
-                !member.flags.has(PropertyFlags.Lazy) && (genericSkip || isString(stripNull(type)) || isScalarType(type))) {
+                !member.flags.has(PropertyFlags.Lazy) &&
+                (genericSkip || isString(stripNull(type)) || isScalarType(type))) {
                 const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
                 const trusted = !STRICT && fastPath && !whitespaceTier && keyOffset !== 0;
-                const skip = genericSkip ? `JSON.__cursorSkipGeneric<${type}>` : isString(stripNull(type)) ? trusted ? "JSON.__cursorSkipTrustedString" : "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${type}>`;
-                const start = fastPath && !whitespaceTier ? valuePtr : `JSON.__cursorWhitespace(${valuePtr}, srcEnd)`;
+                const skip = genericSkip
+                    ? `JSON.__cursorSkipGeneric<${type}>`
+                    : isString(stripNull(type))
+                        ? trusted
+                            ? "JSON.__cursorSkipTrustedString"
+                            : "JSON.__cursorSkipString"
+                        : `JSON.__cursorSkipScalar<${type}>`;
+                const start = fastPath && !whitespaceTier
+                    ? valuePtr
+                    : `JSON.__cursorWhitespace(${valuePtr}, srcEnd)`;
                 return [
                     `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {`,
                     `  const __skipped = ${skip}(${start}, srcEnd);`,
@@ -4484,18 +4643,36 @@ export class JSONTransform extends Visitor {
         const getSlowValueStore = (member, valueStart, valueEnd, prefix, allowSkip = true) => {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
-            const validator = this.ordinaryObjectValidators.get(node)?.get(member.name);
+            const validator = this.ordinaryObjectValidators
+                .get(node)
+                ?.get(member.name);
             if (allowSkip && validator) {
-                return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || this.${validator.method}(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
-                    getSlowValueStore(member, valueStart, valueEnd, prefix + "  ", false) + prefix + "}\n";
+                return (prefix +
+                    `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || this.${validator.method}(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
+                    getSlowValueStore(member, valueStart, valueEnd, prefix + "  ", false) +
+                    prefix +
+                    "}\n");
             }
             const offset = JSON.stringify(member.name);
-            const genericSkip = this.ordinaryGenericFields.get(node)?.has(member.name);
-            if (allowSkip && this.ordinarySpecializedFields.get(node)?.has(member.name) && (genericSkip || isString(stripNull(member.type)) || isScalarType(member.type))) {
-                const skip = genericSkip ? `JSON.__cursorSkipGeneric<${member.type}>` : isString(stripNull(member.type)) ? "JSON.__cursorSkipString" : `JSON.__cursorSkipScalar<${member.type}>`;
-                return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || ${skip}(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
-                    prefix + `  store<${member.type}>(changetype<usize>(out), JSON.__deserializeValue<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n` +
-                    prefix + `}\n`;
+            const genericSkip = this.ordinaryGenericFields
+                .get(node)
+                ?.has(member.name);
+            if (allowSkip &&
+                this.ordinarySpecializedFields.get(node)?.has(member.name) &&
+                (genericSkip ||
+                    isString(stripNull(member.type)) ||
+                    isScalarType(member.type))) {
+                const skip = genericSkip
+                    ? `JSON.__cursorSkipGeneric<${member.type}>`
+                    : isString(stripNull(member.type))
+                        ? "JSON.__cursorSkipString"
+                        : `JSON.__cursorSkipScalar<${member.type}>`;
+                return (prefix +
+                    `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name}) || ${skip}(${valueStart}, ${valueEnd}) != ${valueEnd}) {\n` +
+                    prefix +
+                    `  store<${member.type}>(changetype<usize>(out), JSON.__deserializeValue<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n` +
+                    prefix +
+                    `}\n`);
             }
             const memberSchema = this.getSchema(member.type);
             if (memberSchema?.customReader) {
@@ -4512,8 +4689,10 @@ export class JSONTransform extends Visitor {
         const getSlowBooleanStore = (member, value, valueStart, valueEnd, prefix) => {
             if (member.flags.has(PropertyFlags.Lazy))
                 return getLazyRangeStore(member, valueStart, valueEnd, prefix);
-            if (this.ordinarySpecializedFields.get(node)?.has(member.name) && isBoolean(member.type)) {
-                return prefix + `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) store<boolean>(changetype<usize>(out), ${value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
+            if (this.ordinarySpecializedFields.get(node)?.has(member.name) &&
+                isBoolean(member.type)) {
+                return (prefix +
+                    `if (!isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) store<boolean>(changetype<usize>(out), ${value}, offsetof<this>(${JSON.stringify(member.name)}));\n`);
             }
             if (member.generic ||
                 this.getSchema(member.type)?.customReader ||
@@ -6038,7 +6217,9 @@ function classNoLazy(node) {
         return name === "json" || name === "serializable";
     });
     const arg = dec?.args?.[0];
-    if (!arg || arg.kind !== NodeKind.Literal || arg.literalKind !== 6)
+    if (!arg ||
+        arg.kind !== NodeKind.Literal ||
+        arg.literalKind !== 6)
         return false;
     const obj = arg;
     return obj.names.some((name, index) => (name.text === "nolazy" && toString(obj.values[index]) !== "false") ||

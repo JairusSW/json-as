@@ -8,7 +8,11 @@
 /// <reference path="./index.d.ts" />
 
 import { newEmptyArray } from "./util/emptyArray";
-import { newNativeArray, appendNativeArray, nativeArrayLength } from "./util/nativeArray";
+import {
+  newNativeArray,
+  appendNativeArray,
+  nativeArrayLength,
+} from "./util/nativeArray";
 import { keyLength, KEY_HEADER_UNITS } from "./util/key-buffer";
 import { NativeMap } from "./util/native-collections";
 import { bs } from "../lib/as-bs";
@@ -35,7 +39,12 @@ import {
 } from "./deserialize/cursor";
 
 import { OBJECT, OBJECT_MAXSIZE, TOTAL_OVERHEAD } from "rt/common";
-import { STRING_SIZE_MASK, allocateObject, clearAllocatedObject, linkObject } from "./util/runtime";
+import {
+  STRING_SIZE_MASK,
+  allocateObject,
+  clearAllocatedObject,
+  linkObject,
+} from "./util/runtime";
 import {
   serializeArray,
   serializeArrayPointer,
@@ -534,6 +543,7 @@ export namespace JSON {
     return readCursorValue<T>(start, end, dst, offset, depth);
   }
 
+
   @inline export function __cursorReadPlanned<T, P>(
     _type: T,
     plan: P,
@@ -556,30 +566,85 @@ export namespace JSON {
     return skipCursorString(ptr, end);
   }
 
-  @inline export function __cursorSkipTrustedString(ptr: usize, end: usize): usize {
+
+  @inline export function __cursorSkipTrustedString(
+    ptr: usize,
+    end: usize,
+  ): usize {
     return JSON_MODE == JSONMode.SWAR
       ? skipTrustedCursorString(ptr, end)
       : skipCursorString(ptr, end);
   }
 
+
   @inline export function __cursorSkipScalar<T>(ptr: usize, end: usize): usize {
     return skipCursorScalar<T>(ptr, end);
   }
 
-  @inline export function __cursorSkipGeneric<T>(ptr: usize, end: usize): usize {
+
+  @inline export function __cursorSkipGeneric<T>(
+    ptr: usize,
+    end: usize,
+  ): usize {
     return skipCursorGeneric<T>(ptr, end);
   }
 
-  @inline export function __cursorSkipNative(ptr: usize, end: usize, kind: i32): usize {
+
+  @inline export function __cursorSkipNative(
+    ptr: usize,
+    end: usize,
+    kind: i32,
+  ): usize {
     return skipCursorNative(ptr, end, kind);
   }
 
-  @inline export function __cursorSkipStringArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<string>(ptr, end); }
-  @inline export function __cursorSkipNullableStringArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<string | null>(ptr, end); }
-  @inline export function __cursorSkipBooleanArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<bool>(ptr, end); }
-  @inline export function __cursorSkipSignedArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<i32>(ptr, end); }
-  @inline export function __cursorSkipUnsignedArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<u32>(ptr, end); }
-  @inline export function __cursorSkipFloatArray(ptr: usize, end: usize): usize { return skipCursorNativeArray<f64>(ptr, end); }
+
+  @inline export function __cursorSkipStringArray(
+    ptr: usize,
+    end: usize,
+  ): usize {
+    return skipCursorNativeArray<string>(ptr, end);
+  }
+
+
+  @inline export function __cursorSkipNullableStringArray(
+    ptr: usize,
+    end: usize,
+  ): usize {
+    return skipCursorNativeArray<string | null>(ptr, end);
+  }
+
+
+  @inline export function __cursorSkipBooleanArray(
+    ptr: usize,
+    end: usize,
+  ): usize {
+    return skipCursorNativeArray<bool>(ptr, end);
+  }
+
+
+  @inline export function __cursorSkipSignedArray(
+    ptr: usize,
+    end: usize,
+  ): usize {
+    return skipCursorNativeArray<i32>(ptr, end);
+  }
+
+
+  @inline export function __cursorSkipUnsignedArray(
+    ptr: usize,
+    end: usize,
+  ): usize {
+    return skipCursorNativeArray<u32>(ptr, end);
+  }
+
+
+  @inline export function __cursorSkipFloatArray(
+    ptr: usize,
+    end: usize,
+  ): usize {
+    return skipCursorNativeArray<f64>(ptr, end);
+  }
 
 
   @inline export function __cursorSkipValue(
@@ -3490,13 +3555,21 @@ export namespace JSON {
     if (isArray<nonnull<T>>()) return true;
     if (isReference<T>()) {
       const type = changetype<nonnull<T>>(0);
-      return type instanceof JSON.Arr || type instanceof StaticArray ||
-        type instanceof Int8Array || type instanceof Uint8Array ||
-        type instanceof Uint8ClampedArray || type instanceof Int16Array ||
-        type instanceof Uint16Array || type instanceof Int32Array ||
-        type instanceof Uint32Array || type instanceof Int64Array ||
-        type instanceof Uint64Array || type instanceof Float32Array ||
-        type instanceof Float64Array;
+      return (
+        type instanceof JSON.Arr ||
+        type instanceof StaticArray ||
+        type instanceof Int8Array ||
+        type instanceof Uint8Array ||
+        type instanceof Uint8ClampedArray ||
+        type instanceof Int16Array ||
+        type instanceof Uint16Array ||
+        type instanceof Int32Array ||
+        type instanceof Uint32Array ||
+        type instanceof Int64Array ||
+        type instanceof Uint64Array ||
+        type instanceof Float32Array ||
+        type instanceof Float64Array
+      );
     }
     return false;
   }
@@ -3918,7 +3991,8 @@ export namespace JSON {
     if (isDefined(type.__DESERIALIZE_DEFER_DEFAULTS)) {
       if (isDefined(type.__DESERIALIZE_FULL_WRITE)) {
         // @ts-expect-error: supplied by transform
-        defer = value.__DESERIALIZE_DEFER_DEFAULTS() == idof<nonnull<T>>() &&
+        defer =
+          value.__DESERIALIZE_DEFER_DEFAULTS() == idof<nonnull<T>>() &&
           // @ts-expect-error: supplied by transform
           value.__DESERIALIZE_FULL_WRITE() == idof<nonnull<T>>();
       }
@@ -3936,6 +4010,7 @@ export namespace JSON {
     return false;
   }
 
+
   @inline
   function __deserializePlannedObjectField<T, P>(
     value: T,
@@ -3948,7 +4023,13 @@ export namespace JSON {
     const type = changetype<nonnull<T>>(0);
     if (whitespace && isDefined(type.__DESERIALIZE_WHITESPACE)) {
       // @ts-expect-error: generated reader
-      return value.__DESERIALIZE_WHITESPACE(start, end, value, resetMissing, plan);
+      return value.__DESERIALIZE_WHITESPACE(
+        start,
+        end,
+        value,
+        resetMissing,
+        plan,
+      );
     }
     // @ts-expect-error: generated reader
     return value.__DESERIALIZE_FAST(start, end, value, resetMissing, plan);
@@ -4188,6 +4269,7 @@ export namespace JSON {
     export function hasCompositeReuseScope(): bool {
       return compositeReuseScopeActive();
     }
+
 
     @inline
     export function reuseCompositeBuffer(value: usize, field: usize): usize {

@@ -12,8 +12,10 @@ class Encoder {
   }
 }
 
+
 @json class Item {
   value: i32 = 7;
+
 
   @serializer("number") encode(self: Item): string {
     const JSON = new Encoder();

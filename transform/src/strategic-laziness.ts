@@ -212,8 +212,14 @@ export class StrategicAccessAnalysis extends Visitor {
     this.thisSite = null;
     this.terminated = false;
     super.visitSource(node);
-    [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.pathLimitReached] =
-      saved;
+    [
+      this.scopes,
+      this.paths,
+      this.terminated,
+      this.thisSite,
+      this.namespace,
+      this.pathLimitReached,
+    ] = saved;
   }
 
   private origin(node: Node | null): StrategicSite | null {
@@ -315,18 +321,30 @@ export class StrategicAccessAnalysis extends Visitor {
     super.visitPropertyAccessExpression(node);
   }
 
-  visitIdentifierExpression(node: IdentifierExpression, parent: Node | null = null): void {
+  visitIdentifierExpression(
+    node: IdentifierExpression,
+    parent: Node | null = null,
+  ): void {
     if (!this.conservativeEscapes) return;
     const site = this.binding(node.text);
     if (!site) return;
     // The explicit handlers below track direct field reads, simple aliases and
     // call arguments. Any other use can hide a reference from the analysis.
-    if (parent?.kind === NodeKind.PropertyAccess &&
-        (parent as PropertyAccessExpression).expression === node) return;
-    if (parent?.kind === NodeKind.VariableDeclaration &&
-        (parent as VariableDeclaration).initializer === node) return;
-    if (parent?.kind === NodeKind.Call &&
-        (parent as CallExpression).args.includes(node)) return;
+    if (
+      parent?.kind === NodeKind.PropertyAccess &&
+      (parent as PropertyAccessExpression).expression === node
+    )
+      return;
+    if (
+      parent?.kind === NodeKind.VariableDeclaration &&
+      (parent as VariableDeclaration).initializer === node
+    )
+      return;
+    if (
+      parent?.kind === NodeKind.Call &&
+      (parent as CallExpression).args.includes(node)
+    )
+      return;
     site.escaped = true;
   }
 
@@ -335,8 +353,12 @@ export class StrategicAccessAnalysis extends Visitor {
     this.visit(node.initializer, node);
     // Module and namespace variables may be read by declarations visited
     // earlier or by other modules, beyond this local access analysis.
-    if (this.conservativeEscapes && site &&
-        (this.callableDepth === 0 || !node.isAny(CommonFlags.Const | CommonFlags.Let)))
+    if (
+      this.conservativeEscapes &&
+      site &&
+      (this.callableDepth === 0 ||
+        !node.isAny(CommonFlags.Const | CommonFlags.Let))
+    )
       site.escaped = true;
     this.scopes.at(-1)?.set(node.name.text, site);
   }
@@ -392,7 +414,8 @@ export class StrategicAccessAnalysis extends Visitor {
     const names = new Set<string>();
     class Collector extends Visitor {
       visitVariableDeclaration(node: VariableDeclaration): void {
-        if (!node.isAny(CommonFlags.Const | CommonFlags.Let)) names.add(node.name.text);
+        if (!node.isAny(CommonFlags.Const | CommonFlags.Let))
+          names.add(node.name.text);
         super.visitVariableDeclaration(node);
       }
     }
@@ -436,23 +459,50 @@ export class StrategicAccessAnalysis extends Visitor {
       args.push(site);
       // An assignment expression returns its new binding, which may be used
       // by the callee even though the expression itself has no tracked origin.
-      if (!site && arg.kind === NodeKind.Binary && (arg as BinaryExpression).operator === Token.Equals) {
+      if (
+        !site &&
+        arg.kind === NodeKind.Binary &&
+        (arg as BinaryExpression).operator === Token.Equals
+      ) {
         const assigned = this.origin((arg as BinaryExpression).left);
         if (assigned) assigned.escaped = true;
       }
     }
-    if (fn?.signature.parameters.some((parameter) => parameter.parameterKind === ParameterKind.Rest)) {
+    if (
+      fn?.signature.parameters.some(
+        (parameter) => parameter.parameterKind === ParameterKind.Rest,
+      )
+    ) {
       if (receiver) receiver.escaped = true;
       for (const arg of args) if (arg) arg.escaped = true;
       return;
     }
-    if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8 || this.helperExpansions >= 1024) {
-      const intrinsic = !this.conservativeEscapes && node.expression.kind === NodeKind.Identifier && [
-        "idof", "offsetof", "sizeof", "nameof",
-        "isDefined", "isReference", "isManaged", "isInteger", "isFloat",
-        "isString", "isBoolean", "isNullable",
-        "unchecked", "changetype", "reinterpret",
-      ].includes((node.expression as IdentifierExpression).text);
+    if (
+      !fn?.body ||
+      this.expanding.has(fn) ||
+      this.expanding.size >= 8 ||
+      this.helperExpansions >= 1024
+    ) {
+      const intrinsic =
+        !this.conservativeEscapes &&
+        node.expression.kind === NodeKind.Identifier &&
+        [
+          "idof",
+          "offsetof",
+          "sizeof",
+          "nameof",
+          "isDefined",
+          "isReference",
+          "isManaged",
+          "isInteger",
+          "isFloat",
+          "isString",
+          "isBoolean",
+          "isNullable",
+          "unchecked",
+          "changetype",
+          "reinterpret",
+        ].includes((node.expression as IdentifierExpression).text);
       if (!intrinsic) {
         if (receiver) receiver.escaped = true;
         for (const arg of args) if (arg) arg.escaped = true;
@@ -463,7 +513,10 @@ export class StrategicAccessAnalysis extends Visitor {
     this.helperExpansions++;
     // A default argument can read an earlier argument before the function
     // body runs. Until those expressions are modeled, retain the full value.
-    if (this.conservativeEscapes && fn.signature.parameters.slice(node.args.length).some((p) => p.initializer)) {
+    if (
+      this.conservativeEscapes &&
+      fn.signature.parameters.slice(node.args.length).some((p) => p.initializer)
+    ) {
       if (receiver) receiver.escaped = true;
       for (const arg of args) if (arg) arg.escaped = true;
     }
@@ -493,8 +546,15 @@ export class StrategicAccessAnalysis extends Visitor {
     this.expanding.add(fn);
     this.visit(fn.body);
     this.expanding.delete(fn);
-    [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings] =
-      saved;
+    [
+      this.scopes,
+      this.paths,
+      this.terminated,
+      this.thisSite,
+      this.namespace,
+      this.callableScopeStart,
+      this.varBindings,
+    ] = saved;
   }
 
   private callable(node: FunctionDeclaration | MethodDeclaration): void {
@@ -509,7 +569,8 @@ export class StrategicAccessAnalysis extends Visitor {
         if (site) site.escaped = true;
       }
     }
-    if (this.conservativeEscapes && node.body) new MarkCaptures().visit(node.body);
+    if (this.conservativeEscapes && node.body)
+      new MarkCaptures().visit(node.body);
     const saved = [
       this.scopes,
       this.paths,
@@ -553,11 +614,25 @@ export class StrategicAccessAnalysis extends Visitor {
     this.visit(node.body);
     if (node.typeParameters?.length) this.genericDepth--;
     this.callableDepth--;
-    [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings, this.pathLimitReached, this.callableSiteStart, this.helperExpansions] =
-      saved;
+    [
+      this.scopes,
+      this.paths,
+      this.terminated,
+      this.thisSite,
+      this.namespace,
+      this.callableScopeStart,
+      this.varBindings,
+      this.pathLimitReached,
+      this.callableSiteStart,
+      this.helperExpansions,
+    ] = saved;
   }
 
-  visitClassDeclaration(node: ClassDeclaration, isDefault = false, parent: Node | null = null): void {
+  visitClassDeclaration(
+    node: ClassDeclaration,
+    isDefault = false,
+    parent: Node | null = null,
+  ): void {
     if (node.typeParameters?.length) this.genericDepth++;
     super.visitClassDeclaration(node, isDefault, parent);
     if (node.typeParameters?.length) this.genericDepth--;
@@ -622,7 +697,9 @@ export class StrategicAccessAnalysis extends Visitor {
     outcome: boolean,
   ): AccessPath[] {
     const saved = this.paths;
-    this.paths = this.pathLimitReached ? saved : saved.map((path) => new Map(path).set(branch, outcome));
+    this.paths = this.pathLimitReached
+      ? saved
+      : saved.map((path) => new Map(path).set(branch, outcome));
     this.terminated = false;
     this.visit(node);
     const remaining = this.paths;
@@ -640,7 +717,8 @@ export class StrategicAccessAnalysis extends Visitor {
         for (const child of site.children.values()) escape(child);
       };
       for (const site of this.sites.slice(this.callableSiteStart)) escape(site);
-      for (const scope of this.scopes) for (const site of scope.values()) if (site) escape(site);
+      for (const scope of this.scopes)
+        for (const site of scope.values()) if (site) escape(site);
       return paths.length ? [new Map()] : [];
     }
     const result: AccessPath[] = [];
@@ -783,25 +861,39 @@ export class StrategicAccessAnalysis extends Visitor {
   }
 
   visitUnaryPrefixExpression(node: UnaryPrefixExpression): void {
-    if (node.operator === Token.Plus_Plus || node.operator === Token.Minus_Minus)
+    if (
+      node.operator === Token.Plus_Plus ||
+      node.operator === Token.Minus_Minus
+    )
       this.recordWrite(node.operand);
     super.visitUnaryPrefixExpression(node);
   }
 
   visitUnaryPostfixExpression(node: UnaryPostfixExpression): void {
-    if (node.operator === Token.Plus_Plus || node.operator === Token.Minus_Minus)
+    if (
+      node.operator === Token.Plus_Plus ||
+      node.operator === Token.Minus_Minus
+    )
       this.recordWrite(node.operand);
     super.visitUnaryPostfixExpression(node);
   }
 
-  visitBinaryExpression(node: BinaryExpression, parent: Node | null = null): void {
+  visitBinaryExpression(
+    node: BinaryExpression,
+    parent: Node | null = null,
+  ): void {
     if (node.operator >= Token.Equals && node.operator <= Token.Caret_Equals)
       this.recordWrite(node.left);
     if (node.operator === Token.Equals) {
       const site = this.origin(node.right);
       // Assignment expressions can themselves be returned, aliased, or used
       // as receivers. Until those uses are modeled, retain the assigned value.
-      if (this.conservativeEscapes && site && parent?.kind !== NodeKind.Expression) site.escaped = true;
+      if (
+        this.conservativeEscapes &&
+        site &&
+        parent?.kind !== NodeKind.Expression
+      )
+        site.escaped = true;
       this.visit(node.right);
       if (node.left.kind === NodeKind.Identifier) {
         const name = (node.left as IdentifierExpression).text;
@@ -821,12 +913,21 @@ export class StrategicAccessAnalysis extends Visitor {
         const inLoop = this.exits.some((exit) => exit.loop);
         const assigned =
           !(this.conservativeEscapes && inLoop) &&
-          (accessProbability(this.paths) === 1 || (!this.conservativeEscapes && sameContext)) ? site : null;
+          (accessProbability(this.paths) === 1 ||
+            (!this.conservativeEscapes && sameContext))
+            ? site
+            : null;
         let found = false;
         for (let i = this.scopes.length - 1; i >= 0; i--)
           if (this.scopes[i].has(name)) {
             found = true;
-            if (this.conservativeEscapes && (this.callableDepth === 0 || i < this.callableScopeStart || this.varBindings.has(name) || !assigned)) {
+            if (
+              this.conservativeEscapes &&
+              (this.callableDepth === 0 ||
+                i < this.callableScopeStart ||
+                this.varBindings.has(name) ||
+                !assigned)
+            ) {
               if (site) site.escaped = true;
               const previous = this.scopes[i].get(name);
               if (previous) previous.escaped = true;

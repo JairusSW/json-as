@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { PublicArray, make } from "./private-model.fixture";
 
+
 @json class Owner {
   value: PublicArray = make();
 }

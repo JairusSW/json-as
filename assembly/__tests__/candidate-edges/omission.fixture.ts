@@ -23,6 +23,7 @@ export function run(): string {
 
 import { ArrowBase } from "./base";
 
+
 @json
 class ArrowChild extends ArrowBase {
   tail: i32 = 9;

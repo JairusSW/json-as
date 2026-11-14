@@ -340,7 +340,5 @@ function packedStructuralOrQuoteMask(packed: v128): i32 {
     v128.and(i8x16.sub(packed, i8x16.splat(91)), i8x16.splat(<i8>0xdd)),
     i8x16.splat(0),
   );
-  return i8x16.bitmask(
-    v128.or(brackets, i8x16.eq(packed, i8x16.splat(34))),
-  );
+  return i8x16.bitmask(v128.or(brackets, i8x16.eq(packed, i8x16.splat(34))));
 }

@@ -5,13 +5,14 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-
 @json class Token {
   value: i32 = 0;
+
 
   @serializer("number") encode(self: Token): string {
     return self.value.toString();
   }
+
 
   @deserializer("number") decode(data: string): Token {
     const out = new Token();

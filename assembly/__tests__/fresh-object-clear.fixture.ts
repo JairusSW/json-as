@@ -9,9 +9,27 @@ import { allocateObject, clearAllocatedObject } from "../util/runtime";
 import { OBJECT_OVERHEAD } from "rt/common";
 import { JSON } from "../index";
 
-class Payload { a: u64 = 0; b: u64 = 0; c: u64 = 0; d: u64 = 0; }
-@json class Child { @optional n: i32 = 7; @optional values: i32[] | null = null; }
-@json class Holder { child: Child | null = null; rows: Child[] = []; }
+class Payload {
+  a: u64 = 0;
+  b: u64 = 0;
+  c: u64 = 0;
+  d: u64 = 0;
+}
+
+
+@json class Child {
+
+  @optional n: i32 = 7;
+
+
+  @optional values: i32[] | null = null;
+}
+
+
+@json class Holder {
+  child: Child | null = null;
+  rows: Child[] = [];
+}
 
 export function verify(): i32 {
   const size = offsetof<Payload>();
@@ -36,8 +54,14 @@ export function verify(): i32 {
   for (let turn = 0; turn < 64; turn++) {
     const parsed = JSON.parse<Holder>('{"child":{},"rows":[{}, {"n":9}]}');
     __collect();
-    assert(parsed.child !== null && parsed.child!.n == 7 && parsed.child!.values === null);
-    assert(parsed.rows.length == 2 && parsed.rows[0].n == 7 && parsed.rows[1].n == 9);
+    assert(
+      parsed.child !== null &&
+        parsed.child!.n == 7 &&
+        parsed.child!.values === null,
+    );
+    assert(
+      parsed.rows.length == 2 && parsed.rows[0].n == 7 && parsed.rows[1].n == 9,
+    );
     assert(parsed.rows[0].values === null && parsed.rows[1].values === null);
   }
   return 1;

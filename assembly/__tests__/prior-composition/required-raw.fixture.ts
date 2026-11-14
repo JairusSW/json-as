@@ -7,6 +7,7 @@
 
 import { JSON } from "../..";
 
+
 @json class Owner {
   raw!: JSON.Raw;
   values!: Map<string, i32>;

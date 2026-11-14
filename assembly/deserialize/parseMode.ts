@@ -117,10 +117,13 @@ const OWNER_BUCKET_BITS: i32 = 8;
 const OWNER_BUCKET_COUNT: i32 = 1 << OWNER_BUCKET_BITS;
 const OWNER_INLINE_LIMIT: i32 = OWNER_BUCKET_COUNT / 2;
 const OWNER_SLOT_BYTES: usize = 3 * sizeof<usize>();
-const SMALL_OWNERS: usize = memory.data(<i32>(<usize>OWNER_BUCKET_COUNT * OWNER_SLOT_BYTES));
+const SMALL_OWNERS: usize = memory.data(
+  <i32>(<usize>OWNER_BUCKET_COUNT * OWNER_SLOT_BYTES),
+);
 let SMALL_OWNER_COUNT: i32 = 0;
 // Zero denotes an unused bucket, including before any public parse scope.
 let OWNER_GENERATION: u32 = 1;
+
 
 @inline
 function resetBufferOwners(): void {
@@ -140,6 +143,7 @@ function resetBufferOwners(): void {
   store<i32>(ptr, 0, offsetof<Map<usize, usize>>("entriesCount"));
 }
 
+
 @inline
 export function claimStringBuffer(value: usize, field: usize): bool {
   if (value == changetype<usize>(ACTIVE_PARSE_ROOT)) return false;
@@ -149,7 +153,8 @@ export function claimStringBuffer(value: usize, field: usize): bool {
       return false;
   }
   if (SMALL_OWNER_COUNT >= 0) {
-    let slot: u32 = ((u32(value) >> 4) * 0x9e3779b1) >> (32 - OWNER_BUCKET_BITS);
+    let slot: u32 =
+      ((u32(value) >> 4) * 0x9e3779b1) >> (32 - OWNER_BUCKET_BITS);
     while (true) {
       const ptr = SMALL_OWNERS + usize(slot) * OWNER_SLOT_BYTES;
       if (load<u32>(ptr, 2 * sizeof<usize>()) != OWNER_GENERATION) {
@@ -183,6 +188,8 @@ function claimStringBufferSlow(value: usize, field: usize): bool {
   owners.set(value, field);
   return true;
 }
+
+
 @inline export function hasCompositeReuseScope(): bool {
   return STRING_TRACE_DEPTH != 0;
 }
@@ -211,9 +218,19 @@ export function clearStringFieldTrace(): void {
   STRING_TRACE_OUT = 0;
   STRING_TRACE_COMPLETE = false;
   STRING_TRACE_ACTIVE = false;
-  if (load<i32>(changetype<usize>(STRING_TRACE_VALUES), offsetof<Array<string>>("length_")))
+  if (
+    load<i32>(
+      changetype<usize>(STRING_TRACE_VALUES),
+      offsetof<Array<string>>("length_"),
+    )
+  )
     STRING_TRACE_VALUES.length = 0;
-  if (load<i32>(changetype<usize>(OBJECT_TRACE_TYPES), offsetof<Array<string>>("length_")))
+  if (
+    load<i32>(
+      changetype<usize>(OBJECT_TRACE_TYPES),
+      offsetof<Array<string>>("length_"),
+    )
+  )
     OBJECT_TRACE_TYPES.length = 0;
   STRING_TRACE_COUNT = 0;
   OBJECT_TRACE_COUNT = 0;
@@ -257,27 +274,77 @@ export function beginStringFieldTrace(
     STRING_TRACE_OUT = out;
     STRING_TRACE_TYPE = typeId;
     STRING_TRACE_COUNT = 0;
-    if (load<i32>(changetype<usize>(STRING_TRACE_FIELDS), offsetof<Array<usize>>("length_")))
-    STRING_TRACE_FIELDS.length = 0;
-    if (load<i32>(changetype<usize>(STRING_TRACE_STARTS), offsetof<Array<usize>>("length_")))
-    STRING_TRACE_STARTS.length = 0;
-    if (load<i32>(changetype<usize>(STRING_TRACE_ENDS), offsetof<Array<usize>>("length_")))
-    STRING_TRACE_ENDS.length = 0;
-    if (load<i32>(changetype<usize>(STRING_TRACE_VALUES), offsetof<Array<string>>("length_")))
-    STRING_TRACE_VALUES.length = 0;
+    if (
+      load<i32>(
+        changetype<usize>(STRING_TRACE_FIELDS),
+        offsetof<Array<usize>>("length_"),
+      )
+    )
+      STRING_TRACE_FIELDS.length = 0;
+    if (
+      load<i32>(
+        changetype<usize>(STRING_TRACE_STARTS),
+        offsetof<Array<usize>>("length_"),
+      )
+    )
+      STRING_TRACE_STARTS.length = 0;
+    if (
+      load<i32>(
+        changetype<usize>(STRING_TRACE_ENDS),
+        offsetof<Array<usize>>("length_"),
+      )
+    )
+      STRING_TRACE_ENDS.length = 0;
+    if (
+      load<i32>(
+        changetype<usize>(STRING_TRACE_VALUES),
+        offsetof<Array<string>>("length_"),
+      )
+    )
+      STRING_TRACE_VALUES.length = 0;
     OBJECT_TRACE_COUNT = 0;
-    if (load<i32>(changetype<usize>(OBJECT_TRACE_FIELDS), offsetof<Array<usize>>("length_")))
-    OBJECT_TRACE_FIELDS.length = 0;
-    if (load<i32>(changetype<usize>(OBJECT_TRACE_STARTS), offsetof<Array<usize>>("length_")))
-    OBJECT_TRACE_STARTS.length = 0;
-    if (load<i32>(changetype<usize>(OBJECT_TRACE_TYPES), offsetof<Array<string>>("length_")))
-    OBJECT_TRACE_TYPES.length = 0;
-    if (load<i32>(changetype<usize>(OBJECT_TRACE_MASKS), offsetof<Array<u64>>("length_")))
-    OBJECT_TRACE_MASKS.length = 0;
-    if (load<i32>(changetype<usize>(OBJECT_TRACE_TIERS), offsetof<Array<u8>>("length_")))
-    OBJECT_TRACE_TIERS.length = 0;
-    if (load<i32>(changetype<usize>(OBJECT_TRACE_SEPARATORS), offsetof<Array<usize>>("length_")))
-    OBJECT_TRACE_SEPARATORS.length = 0;
+    if (
+      load<i32>(
+        changetype<usize>(OBJECT_TRACE_FIELDS),
+        offsetof<Array<usize>>("length_"),
+      )
+    )
+      OBJECT_TRACE_FIELDS.length = 0;
+    if (
+      load<i32>(
+        changetype<usize>(OBJECT_TRACE_STARTS),
+        offsetof<Array<usize>>("length_"),
+      )
+    )
+      OBJECT_TRACE_STARTS.length = 0;
+    if (
+      load<i32>(
+        changetype<usize>(OBJECT_TRACE_TYPES),
+        offsetof<Array<string>>("length_"),
+      )
+    )
+      OBJECT_TRACE_TYPES.length = 0;
+    if (
+      load<i32>(
+        changetype<usize>(OBJECT_TRACE_MASKS),
+        offsetof<Array<u64>>("length_"),
+      )
+    )
+      OBJECT_TRACE_MASKS.length = 0;
+    if (
+      load<i32>(
+        changetype<usize>(OBJECT_TRACE_TIERS),
+        offsetof<Array<u8>>("length_"),
+      )
+    )
+      OBJECT_TRACE_TIERS.length = 0;
+    if (
+      load<i32>(
+        changetype<usize>(OBJECT_TRACE_SEPARATORS),
+        offsetof<Array<usize>>("length_"),
+      )
+    )
+      OBJECT_TRACE_SEPARATORS.length = 0;
   }
   STRING_TRACE_INDEX = 0;
   OBJECT_TRACE_INDEX = 0;
@@ -302,7 +369,9 @@ export function endStringFieldTrace(success: bool): void {
     ACTIVE_PARSE_OUT = 0;
     resetBufferOwners();
   } else {
-    unchecked((ACTIVE_PARSE_SOURCES[STRING_TRACE_DEPTH] = changetype<string>(0)));
+    unchecked(
+      (ACTIVE_PARSE_SOURCES[STRING_TRACE_DEPTH] = changetype<string>(0)),
+    );
   }
 }
 

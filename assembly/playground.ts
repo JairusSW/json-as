@@ -12,7 +12,8 @@ import { JSON } from ".";
 //   bun run build:playground      # regenerate tmp (runs the transform)
 //   bun run playground:tmp        # build + run the tmp WITHOUT the transform
 
-@json class Obj {
+@json
+class Obj {
   id: u32 = 0;
   active: boolean = false;
   name: string = "";
@@ -34,10 +35,10 @@ function deserializeInto<T>(srcStart: usize, srcEnd: usize, out: T): void {
   out.__DESERIALIZE_SLOW(srcStart, srcEnd, out);
 }
 
-const json = `{"id":4294967295,"active":true,"name":"jairus tanaka","email":"me@jairus.dev","role":"administrator","count":-123456,"score":3.1415926535,"created":"2025-01-02T03:04:05Z"}`;
-const srcStart = changetype<usize>(json);
-const srcEnd = srcStart + ((<usize>json.length) << 1);
-const bytes = <f64>String.UTF8.byteLength(json);
+const text = `{"id":4294967295,"active":true,"name":"jairus tanaka","email":"me@jairus.dev","role":"administrator","count":-123456,"score":3.1415926535,"created":"2025-01-02T03:04:05Z"}`;
+const srcStart = changetype<usize>(text);
+const srcEnd = srcStart + ((<usize>text.length) << 1);
+const bytes = <f64>String.UTF8.byteLength(text);
 
 const out = new Obj();
 

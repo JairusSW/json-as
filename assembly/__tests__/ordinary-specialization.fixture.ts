@@ -8,6 +8,7 @@
 import { JSON } from "../index";
 import { globalRecord } from "./ordinary-global.fixture";
 
+
 @json
 class Record {
   id: i32 = 0;
@@ -17,18 +18,46 @@ class Record {
 
 const input = '{"id":7,"title":"hello","body":"some text"}';
 
+
 @json({ nolazy })
-class NoLazyConfig { id: i32 = 0; text: string = ""; }
+class NoLazyConfig {
+  id: i32 = 0;
+  text: string = "";
+}
+
+
 @json
-class NoLazyChild extends NoLazyConfig { extra: i32 = 0; }
+class NoLazyChild extends NoLazyConfig {
+  extra: i32 = 0;
+}
+
+
 @json({ lazy })
-class LazyConfig { id: i32 = 0; text: string = ""; }
+class LazyConfig {
+  id: i32 = 0;
+  text: string = "";
+}
+
+
 @json({ lazy: false })
-class DisabledLazyConfig { id: i32 = 0; text: string = ""; }
+class DisabledLazyConfig {
+  id: i32 = 0;
+  text: string = "";
+}
+
+
 @json({ lazy: true })
-class EnabledLazyConfig { id: i32 = 0; text: string = ""; }
+class EnabledLazyConfig {
+  id: i32 = 0;
+  text: string = "";
+}
+
+
 @json({ nolazy: false })
-class EnabledNoLazyConfig { id: i32 = 0; text: string = ""; }
+class EnabledNoLazyConfig {
+  id: i32 = 0;
+  text: string = "";
+}
 export function noLazyConfig(): i32 {
   const value = JSON.parse<NoLazyConfig>('{"id":7,"text":"hello"}');
   return value.id;
@@ -47,15 +76,22 @@ export function booleanLazyConfig(): i32 {
   return a.id + b.id + c.id;
 }
 
+
 @json
 class Model {
   value: i32 = 0;
   summary: i32 = 0;
 }
+
+
 @json
-class GenericActualBase { value: i32 = 0; }
+class GenericActualBase {
+  value: i32 = 0;
+}
 class GenericActual extends GenericActualBase {
-  get summary(): i32 { return this.value; }
+  get summary(): i32 {
+    return this.value;
+  }
 }
 function readGeneric<Model>(data: string): i32 {
   const value = JSON.parse<Model>(data);
@@ -80,9 +116,11 @@ export function genericClassShadow(): i32 {
 
 function assignedRecord(): Record {
   let value = new Record();
-  return value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+  return (value = JSON.parse<Record>('{"id":42,"body":"hello"}'));
 }
-export function returnedAssignment(): i32 { return assignedRecord().id; }
+export function returnedAssignment(): i32 {
+  return assignedRecord().id;
+}
 export function assignmentReceiver(): i32 {
   let value = new Record();
   return (value = JSON.parse<Record>('{"id":42,"body":"hello"}')).id;
@@ -92,13 +130,21 @@ export function assignmentAlias(): i32 {
   const alias = (value = JSON.parse<Record>('{"id":42,"body":"hello"}'));
   return alias.id;
 }
-function identityRecord(value: Record): Record { return value; }
+function identityRecord(value: Record): Record {
+  return value;
+}
 export function assignmentCall(): i32 {
   let value = new Record();
-  return identityRecord((value = JSON.parse<Record>('{"id":42,"body":"hello"}'))).id;
+  return identityRecord(
+    (value = JSON.parse<Record>('{"id":42,"body":"hello"}')),
+  ).id;
 }
-function shadowRead(value: Record): i32 { return value.id; }
-function shadowReadOther(value: Record): i32 { return value.title.length; }
+function shadowRead(value: Record): i32 {
+  return value.id;
+}
+function shadowReadOther(value: Record): i32 {
+  return value.title.length;
+}
 export function hoistedHelperShadow(): i32 {
   if (true) {
     // eslint-disable-next-line no-var
@@ -122,19 +168,23 @@ export function hoistedRuntimeShadow(): i32 {
   return JSON.parse<Record>("ignored").id;
 }
 
-function firstArgumentId(first: Record, _second: Record): i32 { return first.id; }
-function firstScalarArgument(first: i32, _second: Record): i32 { return first; }
+function firstArgumentId(first: Record, _second: Record): i32 {
+  return first.id;
+}
+function firstScalarArgument(first: i32, _second: Record): i32 {
+  return first;
+}
 export function callArgumentOrder(): i32 {
   const first = JSON.parse<Record>('{"id":42,"body":"first"}');
   const second = JSON.parse<Record>('{"id":7,"body":"second"}');
   let selected = first;
-  return firstArgumentId(selected, selected = second);
+  return firstArgumentId(selected, (selected = second));
 }
 export function callAssignmentArguments(): i32 {
   const first = JSON.parse<Record>('{"id":42,"body":"first"}');
   const second = JSON.parse<Record>('{"id":7,"body":"second"}');
   let selected = second;
-  return firstArgumentId(selected = first, selected = second);
+  return firstArgumentId((selected = first), (selected = second));
 }
 export function nestedCallAssignment(): i32 {
   const first = JSON.parse<Record>('{"id":42,"body":"first"}');
@@ -142,8 +192,12 @@ export function nestedCallAssignment(): i32 {
   let selected = first;
   return firstScalarArgument((selected = second).id, first);
 }
-function secondRestId(...values: Record[]): i32 { return values[1].id; }
-function laterRestId(_first: Record, ...values: Record[]): i32 { return values[1].id; }
+function secondRestId(...values: Record[]): i32 {
+  return values[1].id;
+}
+function laterRestId(_first: Record, ...values: Record[]): i32 {
+  return values[1].id;
+}
 export function restArguments(): i32 {
   const first = JSON.parse<Record>('{"id":7,"body":"first"}');
   const second = JSON.parse<Record>('{"id":42,"body":"second"}');
@@ -160,7 +214,9 @@ export function templateRead(): string {
   return `${value.id}:${value.body}`;
 }
 let observedVoid = 0;
-function observeVoid(value: Record): void { observedVoid = value.id; }
+function observeVoid(value: Record): void {
+  observedVoid = value.id;
+}
 export function voidRead(): i32 {
   observedVoid = 0;
   const value = JSON.parse<Record>('{"id":42,"body":"hello"}');
@@ -168,7 +224,9 @@ export function voidRead(): i32 {
   return observedVoid;
 }
 let observedAddress: usize = 0;
-function observeAddress(value: Record): void { observedAddress = changetype<usize>(value); }
+function observeAddress(value: Record): void {
+  observedAddress = changetype<usize>(value);
+}
 export function voidAddress(): i32 {
   const value = JSON.parse<Record>('{"id":42,"body":"hello"}');
   void observeAddress(value);
@@ -176,18 +234,36 @@ export function voidAddress(): i32 {
 }
 namespace AssignmentStore {
   let value: Record | null = null;
-  export function load(): void { value = JSON.parse<Record>('{"id":42,"body":"hello"}'); }
-  export function read(): string { return value!.id.toString() + ":" + value!.body; }
+  export function load(): void {
+    value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+  }
+  export function read(): string {
+    return value!.id.toString() + ":" + value!.body;
+  }
 }
-export function namespaceAssignment(): string { AssignmentStore.load(); return AssignmentStore.read(); }
+export function namespaceAssignment(): string {
+  AssignmentStore.load();
+  return AssignmentStore.read();
+}
+
+
 @json
-class RequiredBody { body!: string; }
+class RequiredBody {
+  body!: string;
+}
 namespace RequiredStore {
   let value: RequiredBody | null = null;
-  export function load(): void { value = JSON.parse<RequiredBody>('{"body":"hello"}'); }
-  export function read(): i32 { return value!.body.length; }
+  export function load(): void {
+    value = JSON.parse<RequiredBody>('{"body":"hello"}');
+  }
+  export function read(): i32 {
+    return value!.body.length;
+  }
 }
-export function namespaceRequiredBody(): i32 { RequiredStore.load(); return RequiredStore.read(); }
+export function namespaceRequiredBody(): i32 {
+  RequiredStore.load();
+  return RequiredStore.read();
+}
 export function varBlockRead(): i32 {
   if (true) {
     // eslint-disable-next-line no-var
@@ -198,7 +274,9 @@ export function varBlockRead(): i32 {
 export function varAssignmentRead(): i32 {
   // eslint-disable-next-line no-var
   var value: Record;
-  { value = JSON.parse<Record>('{"id":42,"body":"hello"}'); }
+  {
+    value = JSON.parse<Record>('{"id":42,"body":"hello"}');
+  }
   return value.id;
 }
 
@@ -237,18 +315,30 @@ export function doLoopCarried(): i32 {
   return sum;
 }
 
-export function globalRead(): i32 { return parsedGlobal.id; }
+export function globalRead(): i32 {
+  return parsedGlobal.id;
+}
 const parsedGlobal = JSON.parse<Record>('{"id":42}');
-export function importedGlobalRead(): i32 { return globalRecord.id; }
+export function importedGlobalRead(): i32 {
+  return globalRecord.id;
+}
 
 namespace Globals {
-  export function read(): i32 { return value.id; }
+  export function read(): i32 {
+    return value.id;
+  }
   const value = JSON.parse<Record>('{"id":42}');
 }
-export function namespaceGlobalRead(): i32 { return Globals.read(); }
+export function namespaceGlobalRead(): i32 {
+  return Globals.read();
+}
 
-function helperDefault(value: Record, n: i32 = value.id): i32 { return n; }
-function helperDefaultString(value: Record, s: string = value.body): string { return s; }
+function helperDefault(value: Record, n: i32 = value.id): i32 {
+  return n;
+}
+function helperDefaultString(value: Record, s: string = value.body): string {
+  return s;
+}
 export function defaultArgument(): i32 {
   const value = JSON.parse<Record>('{"id":42,"body":"hello"}');
   return helperDefault(value);
@@ -263,7 +353,9 @@ export function partial(): i32 {
   return value.id;
 }
 
-function identity(value: Record): Record { return value; }
+function identity(value: Record): Record {
+  return value;
+}
 export function eagerPartial(): i32 {
   const value = identity(JSON.parse<Record>(input));
   return value.id;
@@ -288,7 +380,9 @@ export function serialized(): string {
 }
 
 export function reordered(): i32 {
-  const value = JSON.parse<Record>(' { "body" : "abc", "id" : 8, "title" : "x" } ');
+  const value = JSON.parse<Record>(
+    ' { "body" : "abc", "id" : 8, "title" : "x" } ',
+  );
   return value.id;
 }
 
@@ -307,14 +401,20 @@ export function throughUnchecked(): string {
 
 export function reused(): string {
   const value = JSON.parse<Record>(input);
-  const result = JSON.parse<Record>('{"id":8,"title":"new","body":"changed"}', value);
+  const result = JSON.parse<Record>(
+    '{"id":8,"title":"new","body":"changed"}',
+    value,
+  );
   return result.id.toString() + ":" + result.body;
 }
 
 export function escapedString(): i32 {
-  const value = JSON.parse<Record>('{"id":9,"title":"a\\\\b","body":"\\u00e9"}');
+  const value = JSON.parse<Record>(
+    '{"id":9,"title":"a\\\\b","body":"\\u00e9"}',
+  );
   return value.id;
 }
+
 
 @json
 class NullableRecord {
@@ -332,9 +432,12 @@ export function nullableNull(): i32 {
   return value.id;
 }
 
+
 @json
 class Aliased {
   id: i32 = 0;
+
+
   @alias("display-name") name: string = "default";
 }
 
@@ -345,6 +448,8 @@ export function aliased(): i32 {
 
 type TextAlias = string;
 type NumberAlias = i32;
+
+
 @json
 class AliasTypes {
   id: i32 = 0;
@@ -357,15 +462,20 @@ export function aliasTypesPartial(): i32 {
   return value.id;
 }
 
-function identityAliases(value: AliasTypes): AliasTypes { return value; }
+function identityAliases(value: AliasTypes): AliasTypes {
+  return value;
+}
 export function aliasTypesEager(): i32 {
-  const value = identityAliases(JSON.parse<AliasTypes>('{"id":22,"text":"hello","number":7}'));
+  const value = identityAliases(
+    JSON.parse<AliasTypes>('{"id":22,"text":"hello","number":7}'),
+  );
   return value.id;
 }
 
 class Parent {
   inherited: string = "base";
 }
+
 
 @json
 class Child extends Parent {
@@ -374,19 +484,25 @@ class Child extends Parent {
 }
 
 export function inheritedPartial(): i32 {
-  const value = JSON.parse<Child>('{"inherited":"parent","id":14,"other":"text"}');
+  const value = JSON.parse<Child>(
+    '{"inherited":"parent","id":14,"other":"text"}',
+  );
   return value.id;
 }
 
 export function inheritedFull(): string {
-  const value = JSON.parse<Child>('{"inherited":"parent","id":14,"other":"text"}');
+  const value = JSON.parse<Child>(
+    '{"inherited":"parent","id":14,"other":"text"}',
+  );
   return value.inherited + ":" + value.other;
 }
+
 
 @json
 class DecoratedParent {
   inherited: string = "base";
 }
+
 
 @json
 class DecoratedChild extends DecoratedParent {
@@ -403,20 +519,26 @@ class GenericParent<T> {
   inherited: string = "base";
 }
 
+
 @json
 class GenericChild extends GenericParent<i32> {
   tail: i32 = 0;
 }
 
 export function genericInherited(): string {
-  const value = JSON.parse<GenericChild>('{"value":16,"inherited":"parent","tail":2}');
+  const value = JSON.parse<GenericChild>(
+    '{"value":16,"inherited":"parent","tail":2}',
+  );
   return value.value.toString() + ":" + value.inherited;
 }
 
 export function genericInheritedPartial(): i32 {
-  const value = JSON.parse<GenericChild>('{"value":16,"inherited":"parent","tail":2}');
+  const value = JSON.parse<GenericChild>(
+    '{"value":16,"inherited":"parent","tail":2}',
+  );
   return value.tail;
 }
+
 
 @json
 class GenericTextChild extends GenericParent<string> {
@@ -424,17 +546,27 @@ class GenericTextChild extends GenericParent<string> {
 }
 
 export function genericInheritedStringPartial(): i32 {
-  const value = JSON.parse<GenericTextChild>('{"value":"text","inherited":"parent","tail":30}');
+  const value = JSON.parse<GenericTextChild>(
+    '{"value":"text","inherited":"parent","tail":30}',
+  );
   return value.tail;
 }
 
-function identityGenericText(value: GenericTextChild): GenericTextChild { return value; }
+function identityGenericText(value: GenericTextChild): GenericTextChild {
+  return value;
+}
 export function genericInheritedStringEager(): i32 {
-  const value = identityGenericText(JSON.parse<GenericTextChild>('{"value":"text","inherited":"parent","tail":30}'));
+  const value = identityGenericText(
+    JSON.parse<GenericTextChild>(
+      '{"value":"text","inherited":"parent","tail":30}',
+    ),
+  );
   return value.tail;
 }
 
 type Item = i32;
+
+
 @json
 class GenericRecord<Item> {
   id: i32 = 0;
@@ -443,25 +575,40 @@ class GenericRecord<Item> {
 }
 
 export function genericScalarPartial(): i32 {
-  const value = JSON.parse<GenericRecord<f32>>('{"id":26,"payload":1.5,"text":"hello"}');
+  const value = JSON.parse<GenericRecord<f32>>(
+    '{"id":26,"payload":1.5,"text":"hello"}',
+  );
   return value.id;
 }
 
 export function genericScalarFull(): string {
-  const value = JSON.parse<GenericRecord<f32>>('{"id":26,"payload":1.5,"text":"hello"}');
-  return value.id.toString() + ":" + value.payload.toString() + ":" + value.text;
+  const value = JSON.parse<GenericRecord<f32>>(
+    '{"id":26,"payload":1.5,"text":"hello"}',
+  );
+  return (
+    value.id.toString() + ":" + value.payload.toString() + ":" + value.text
+  );
 }
 
 export function genericStringPartial(): i32 {
-  const value = JSON.parse<GenericRecord<string>>('{"id":27,"payload":"hello","text":"world"}');
+  const value = JSON.parse<GenericRecord<string>>(
+    '{"id":27,"payload":"hello","text":"world"}',
+  );
   return value.id;
 }
 
-function identityGeneric(value: GenericRecord<string>): GenericRecord<string> { return value; }
+function identityGeneric(value: GenericRecord<string>): GenericRecord<string> {
+  return value;
+}
 export function genericStringEager(): i32 {
-  const value = identityGeneric(JSON.parse<GenericRecord<string>>('{"id":27,"payload":"hello","text":"world"}'));
+  const value = identityGeneric(
+    JSON.parse<GenericRecord<string>>(
+      '{"id":27,"payload":"hello","text":"world"}',
+    ),
+  );
   return value.id;
 }
+
 
 @json
 class Scalars {
@@ -473,16 +620,31 @@ class Scalars {
 }
 
 export function scalarPartial(): i32 {
-  const value = JSON.parse<Scalars>('{"id":17,"signed":-9223372036854775808,"unsigned":18446744073709551615,"fraction":-1.25e3,"flag":true}');
+  const value = JSON.parse<Scalars>(
+    '{"id":17,"signed":-9223372036854775808,"unsigned":18446744073709551615,"fraction":-1.25e3,"flag":true}',
+  );
   return value.id;
 }
 
 export function scalarFull(): string {
-  const value = JSON.parse<Scalars>('{"id":17,"signed":-9,"unsigned":42,"fraction":1.25,"flag":true}');
-  return value.id.toString() + ":" + value.signed.toString() + ":" + value.unsigned.toString() + ":" + value.fraction.toString() + ":" + value.flag.toString();
+  const value = JSON.parse<Scalars>(
+    '{"id":17,"signed":-9,"unsigned":42,"fraction":1.25,"flag":true}',
+  );
+  return (
+    value.id.toString() +
+    ":" +
+    value.signed.toString() +
+    ":" +
+    value.unsigned.toString() +
+    ":" +
+    value.fraction.toString() +
+    ":" +
+    value.flag.toString()
+  );
 }
 
 namespace Namespaced {
+
   @json
   export class Data {
     id: i32 = 0;
@@ -495,6 +657,7 @@ export function namespaced(): i32 {
   return value.id;
 }
 
+
 @json
 class NestedSimple {
   value: i32 = 0;
@@ -502,13 +665,15 @@ class NestedSimple {
   values: Array<i32> = [];
 }
 
+
 @json
 class ObjectHolder {
   id: i32 = 0;
   child!: NestedSimple;
 }
 
-const nestedInput = '{"id":19,"child":{"value":7,"label":"hello","values":[1,2,3]}}';
+const nestedInput =
+  '{"id":19,"child":{"value":7,"label":"hello","values":[1,2,3]}}';
 
 export function objectPartial(): i32 {
   const value = JSON.parse<ObjectHolder>(nestedInput);
@@ -521,7 +686,9 @@ export function objectPartialAfterGC(): i32 {
   return value.id;
 }
 
-function identityObject(value: ObjectHolder): ObjectHolder { return value; }
+function identityObject(value: ObjectHolder): ObjectHolder {
+  return value;
+}
 export function objectEager(): i32 {
   const value = identityObject(JSON.parse<ObjectHolder>(nestedInput));
   return value.id;
@@ -529,13 +696,22 @@ export function objectEager(): i32 {
 
 export function objectFull(): string {
   const value = JSON.parse<ObjectHolder>(nestedInput);
-  return value.id.toString() + ":" + value.child.value.toString() + ":" + value.child.label! + ":" + value.child.values.join(",");
+  return (
+    value.id.toString() +
+    ":" +
+    value.child.value.toString() +
+    ":" +
+    value.child.label! +
+    ":" +
+    value.child.values.join(",")
+  );
 }
 
 export function objectEscaped(): string {
   const value = JSON.parse<ObjectHolder>(nestedInput);
   return JSON.stringify(value);
 }
+
 
 @json
 class NullableHolder {
@@ -544,7 +720,9 @@ class NullableHolder {
 }
 
 export function nullableObject(): i32 {
-  const value = JSON.parse<NullableHolder>('{"id":23,"child":{"value":7,"label":null,"values":[1]}}');
+  const value = JSON.parse<NullableHolder>(
+    '{"id":23,"child":{"value":7,"label":null,"values":[1]}}',
+  );
   return value.id;
 }
 
@@ -553,14 +731,30 @@ export function nullableObjectNull(): i32 {
   return value.id;
 }
 
+
 @json
 class WideChild {
-  a00: string = ""; a01: string = ""; a02: string = ""; a03: string = "";
-  a04: string = ""; a05: string = ""; a06: string = ""; a07: string = "";
-  a08: string = ""; a09: string = ""; a10: string = ""; a11: string = "";
-  a12: string = ""; a13: string = ""; a14: string = ""; a15: string = "";
-  a16: string = ""; a17: string = ""; a18: string = "";
+  a00: string = "";
+  a01: string = "";
+  a02: string = "";
+  a03: string = "";
+  a04: string = "";
+  a05: string = "";
+  a06: string = "";
+  a07: string = "";
+  a08: string = "";
+  a09: string = "";
+  a10: string = "";
+  a11: string = "";
+  a12: string = "";
+  a13: string = "";
+  a14: string = "";
+  a15: string = "";
+  a16: string = "";
+  a17: string = "";
+  a18: string = "";
 }
+
 
 @json
 class WideHolder {
@@ -568,20 +762,25 @@ class WideHolder {
   child!: WideChild;
 }
 
-const wideInput = '{"id":25,"child":{"a00":"x","a01":"x","a02":"x","a03":"x","a04":"x","a05":"x","a06":"x","a07":"x","a08":"x","a09":"x","a10":"x","a11":"x","a12":"x","a13":"x","a14":"x","a15":"x","a16":"x","a17":"x","a18":"x"}}';
+const wideInput =
+  '{"id":25,"child":{"a00":"x","a01":"x","a02":"x","a03":"x","a04":"x","a05":"x","a06":"x","a07":"x","a08":"x","a09":"x","a10":"x","a11":"x","a12":"x","a13":"x","a14":"x","a15":"x","a16":"x","a17":"x","a18":"x"}}';
 
 export function widePartial(): i32 {
   const value = JSON.parse<WideHolder>(wideInput);
   return value.id;
 }
 
-function identityWide(value: WideHolder): WideHolder { return value; }
+function identityWide(value: WideHolder): WideHolder {
+  return value;
+}
 export function wideEager(): i32 {
   const value = identityWide(JSON.parse<WideHolder>(wideInput));
   return value.id;
 }
 
 const sharedChild = new NestedSimple();
+
+
 @json
 class SharedHolder {
   id: i32 = 0;
@@ -589,7 +788,9 @@ class SharedHolder {
 }
 
 function readSharedHolder(): i32 {
-  const value = JSON.parse<SharedHolder>('{"id":20,"child":{"value":21,"label":null,"values":[]}}');
+  const value = JSON.parse<SharedHolder>(
+    '{"id":20,"child":{"value":21,"label":null,"values":[]}}',
+  );
   return value.id;
 }
 export function sharedDefault(): string {
@@ -598,9 +799,13 @@ export function sharedDefault(): string {
 }
 
 let codecCalls = 0;
+
+
 @json
 class Codec {
   value: i32 = 0;
+
+
   @deserializer("number") decode(data: string): Codec {
     codecCalls++;
     const value = new Codec();
@@ -608,6 +813,7 @@ class Codec {
     return value;
   }
 }
+
 
 @json
 class WithCodec {
@@ -624,9 +830,12 @@ export function codecEffects(): i32 {
 
 export function genericCodecEffects(): i32 {
   codecCalls = 0;
-  const value = JSON.parse<GenericRecord<Codec>>('{"id":28,"payload":7,"text":"ignored"}');
+  const value = JSON.parse<GenericRecord<Codec>>(
+    '{"id":28,"payload":7,"text":"ignored"}',
+  );
   return value.id + codecCalls * 100;
 }
+
 
 @json
 class GenericCodecChild extends GenericParent<Codec> {
@@ -635,12 +844,17 @@ class GenericCodecChild extends GenericParent<Codec> {
 
 export function genericInheritedCodecEffects(): i32 {
   codecCalls = 0;
-  const value = JSON.parse<GenericCodecChild>('{"value":7,"inherited":"parent","tail":29}');
+  const value = JSON.parse<GenericCodecChild>(
+    '{"value":7,"inherited":"parent","tail":29}',
+  );
   return value.tail + codecCalls * 100;
 }
 
 let calls = 0;
-function next(): i32 { return ++calls; }
+function next(): i32 {
+  return ++calls;
+}
+
 
 @json
 class Effectful {

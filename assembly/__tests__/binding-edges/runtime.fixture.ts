@@ -11,10 +11,12 @@ type Identity<T> = T;
 namespace M {
   type Item = f32;
 
+
   @json export class Row {
     value: Identity<Item> = 1.5;
   }
 }
+
 
 @json class Ancestor {
   base: i32 = 1;
@@ -23,12 +25,14 @@ class Middle extends Ancestor {
   middle: i32 = 2;
 }
 
+
 @json class Leaf extends Middle {
   leaf: i32 = 3;
 }
 class Plain {
   value: i32 = 1;
 }
+
 
 @json class Omitted extends Plain {
 
@@ -40,6 +44,7 @@ class OmitMiddle extends Plain {
   @omit value: i32 = 2;
 }
 
+
 @json class OmitLeaf extends OmitMiddle {
   leaf: i32 = 3;
 }
@@ -50,6 +55,7 @@ function next(): i32 {
 class EffectBase {
   value: i32 = next();
 }
+
 
 @json class EffectChild extends EffectBase {
   tail: i32 = 0;

@@ -81,5 +81,7 @@ export function atoiScan<T extends number>(
   const next = deserializeIntegerField_SWAR<T>(srcStart, srcEnd, dstPtr, 0);
   if (next != 0) return next;
   store<T>(dstPtr, <T>0);
-  return srcStart < srcEnd && load<u16>(srcStart) == 45 ? srcStart + 2 : srcStart;
+  return srcStart < srcEnd && load<u16>(srcStart) == 45
+    ? srcStart + 2
+    : srcStart;
 }

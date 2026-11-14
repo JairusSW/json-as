@@ -7,18 +7,24 @@
 
 import { JSON } from "../..";
 
+
 @json class Owner {
 
   @lazy date!: Date;
 
+
   @lazy raw!: JSON.Raw;
+
 
   @lazy box!: JSON.Box<i32>;
 
+
   @lazy bytes!: Uint8Array;
+
 
   @lazy arbitrary!: JSON.Value;
 }
+
 
 @json({lazy:"all"}) class Auto {
   date!: Date;

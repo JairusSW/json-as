@@ -122,8 +122,14 @@ export class StrategicAccessAnalysis extends Visitor {
         this.thisSite = null;
         this.terminated = false;
         super.visitSource(node);
-        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.pathLimitReached] =
-            saved;
+        [
+            this.scopes,
+            this.paths,
+            this.terminated,
+            this.thisSite,
+            this.namespace,
+            this.pathLimitReached,
+        ] = saved;
     }
     origin(node) {
         if (!node)
@@ -232,8 +238,10 @@ export class StrategicAccessAnalysis extends Visitor {
     visitVariableDeclaration(node) {
         const site = this.origin(node.initializer);
         this.visit(node.initializer, node);
-        if (this.conservativeEscapes && site &&
-            (this.callableDepth === 0 || !node.isAny(8 | 16)))
+        if (this.conservativeEscapes &&
+            site &&
+            (this.callableDepth === 0 ||
+                !node.isAny(8 | 16)))
             site.escaped = true;
         this.scopes.at(-1)?.set(node.name.text, site);
     }
@@ -322,7 +330,9 @@ export class StrategicAccessAnalysis extends Visitor {
             this.visit(arg, node);
             const site = before || this.origin(arg);
             args.push(site);
-            if (!site && arg.kind === NodeKind.Binary && arg.operator === 101) {
+            if (!site &&
+                arg.kind === NodeKind.Binary &&
+                arg.operator === 101) {
                 const assigned = this.origin(arg.left);
                 if (assigned)
                     assigned.escaped = true;
@@ -336,13 +346,29 @@ export class StrategicAccessAnalysis extends Visitor {
                     arg.escaped = true;
             return;
         }
-        if (!fn?.body || this.expanding.has(fn) || this.expanding.size >= 8 || this.helperExpansions >= 1024) {
-            const intrinsic = !this.conservativeEscapes && node.expression.kind === NodeKind.Identifier && [
-                "idof", "offsetof", "sizeof", "nameof",
-                "isDefined", "isReference", "isManaged", "isInteger", "isFloat",
-                "isString", "isBoolean", "isNullable",
-                "unchecked", "changetype", "reinterpret",
-            ].includes(node.expression.text);
+        if (!fn?.body ||
+            this.expanding.has(fn) ||
+            this.expanding.size >= 8 ||
+            this.helperExpansions >= 1024) {
+            const intrinsic = !this.conservativeEscapes &&
+                node.expression.kind === NodeKind.Identifier &&
+                [
+                    "idof",
+                    "offsetof",
+                    "sizeof",
+                    "nameof",
+                    "isDefined",
+                    "isReference",
+                    "isManaged",
+                    "isInteger",
+                    "isFloat",
+                    "isString",
+                    "isBoolean",
+                    "isNullable",
+                    "unchecked",
+                    "changetype",
+                    "reinterpret",
+                ].includes(node.expression.text);
             if (!intrinsic) {
                 if (receiver)
                     receiver.escaped = true;
@@ -355,7 +381,8 @@ export class StrategicAccessAnalysis extends Visitor {
         if (!receiver && !args.some(Boolean))
             return;
         this.helperExpansions++;
-        if (this.conservativeEscapes && fn.signature.parameters.slice(node.args.length).some((p) => p.initializer)) {
+        if (this.conservativeEscapes &&
+            fn.signature.parameters.slice(node.args.length).some((p) => p.initializer)) {
             if (receiver)
                 receiver.escaped = true;
             for (const arg of args)
@@ -386,8 +413,15 @@ export class StrategicAccessAnalysis extends Visitor {
         this.expanding.add(fn);
         this.visit(fn.body);
         this.expanding.delete(fn);
-        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings] =
-            saved;
+        [
+            this.scopes,
+            this.paths,
+            this.terminated,
+            this.thisSite,
+            this.namespace,
+            this.callableScopeStart,
+            this.varBindings,
+        ] = saved;
     }
     callable(node) {
         const binding = (name) => this.binding(name);
@@ -441,8 +475,18 @@ export class StrategicAccessAnalysis extends Visitor {
         if (node.typeParameters?.length)
             this.genericDepth--;
         this.callableDepth--;
-        [this.scopes, this.paths, this.terminated, this.thisSite, this.namespace, this.callableScopeStart, this.varBindings, this.pathLimitReached, this.callableSiteStart, this.helperExpansions] =
-            saved;
+        [
+            this.scopes,
+            this.paths,
+            this.terminated,
+            this.thisSite,
+            this.namespace,
+            this.callableScopeStart,
+            this.varBindings,
+            this.pathLimitReached,
+            this.callableSiteStart,
+            this.helperExpansions,
+        ] = saved;
     }
     visitClassDeclaration(node, isDefault = false, parent = null) {
         if (node.typeParameters?.length)
@@ -505,7 +549,9 @@ export class StrategicAccessAnalysis extends Visitor {
     }
     fork(node, branch, outcome) {
         const saved = this.paths;
-        this.paths = this.pathLimitReached ? saved : saved.map((path) => new Map(path).set(branch, outcome));
+        this.paths = this.pathLimitReached
+            ? saved
+            : saved.map((path) => new Map(path).set(branch, outcome));
         this.terminated = false;
         this.visit(node);
         const remaining = this.paths;
@@ -655,12 +701,14 @@ export class StrategicAccessAnalysis extends Visitor {
         }
     }
     visitUnaryPrefixExpression(node) {
-        if (node.operator === 87 || node.operator === 88)
+        if (node.operator === 87 ||
+            node.operator === 88)
             this.recordWrite(node.operand);
         super.visitUnaryPrefixExpression(node);
     }
     visitUnaryPostfixExpression(node) {
-        if (node.operator === 87 || node.operator === 88)
+        if (node.operator === 87 ||
+            node.operator === 88)
             this.recordWrite(node.operand);
         super.visitUnaryPostfixExpression(node);
     }
@@ -669,7 +717,9 @@ export class StrategicAccessAnalysis extends Visitor {
             this.recordWrite(node.left);
         if (node.operator === 101) {
             const site = this.origin(node.right);
-            if (this.conservativeEscapes && site && parent?.kind !== NodeKind.Expression)
+            if (this.conservativeEscapes &&
+                site &&
+                parent?.kind !== NodeKind.Expression)
                 site.escaped = true;
             this.visit(node.right);
             if (node.left.kind === NodeKind.Identifier) {
@@ -680,12 +730,19 @@ export class StrategicAccessAnalysis extends Visitor {
                         [...origin].every(([key, value]) => path.get(key) === value)));
                 const inLoop = this.exits.some((exit) => exit.loop);
                 const assigned = !(this.conservativeEscapes && inLoop) &&
-                    (accessProbability(this.paths) === 1 || (!this.conservativeEscapes && sameContext)) ? site : null;
+                    (accessProbability(this.paths) === 1 ||
+                        (!this.conservativeEscapes && sameContext))
+                    ? site
+                    : null;
                 let found = false;
                 for (let i = this.scopes.length - 1; i >= 0; i--)
                     if (this.scopes[i].has(name)) {
                         found = true;
-                        if (this.conservativeEscapes && (this.callableDepth === 0 || i < this.callableScopeStart || this.varBindings.has(name) || !assigned)) {
+                        if (this.conservativeEscapes &&
+                            (this.callableDepth === 0 ||
+                                i < this.callableScopeStart ||
+                                this.varBindings.has(name) ||
+                                !assigned)) {
                             if (site)
                                 site.escaped = true;
                             const previous = this.scopes[i].get(name);

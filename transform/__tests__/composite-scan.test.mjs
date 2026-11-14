@@ -12,8 +12,12 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-composite-scan-"));
 try {
-  const configs = ["incremental", "minimal", "stub"].map(runtime => ({runtime, mode:"SIMD", trace:false}));
-  configs.push({runtime:"incremental",mode:"SIMD",trace:true});
+  const configs = ["incremental", "minimal", "stub"].map((runtime) => ({
+    runtime,
+    mode: "SIMD",
+    trace: false,
+  }));
+  configs.push({ runtime: "incremental", mode: "SIMD", trace: true });
   for (const { runtime, mode, trace } of configs) {
     const binary = path.join(dir, "runs.wasm");
     const flags = [
@@ -74,7 +78,11 @@ try {
     instance.exports.start();
     allocations = 0;
     assert.equal(instance.exports.verify(), 4461378);
-    assert.equal(allocations, 0, "composite boundary scanning does not allocate");
+    assert.equal(
+      allocations,
+      0,
+      "composite boundary scanning does not allocate",
+    );
   }
   console.log(
     `Composite scanner: randomized structure, every UTF-16 code unit in every wide lane, cross-batch escape runs, truncation and physical memory end passed (${configs.length} configurations); zero allocations`,

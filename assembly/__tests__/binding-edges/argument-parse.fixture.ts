@@ -10,6 +10,7 @@ type Identity<T> = T;
 namespace M {
   type Item = f32;
 
+
   @json export class Row {
     value: Identity<Item> = 1.5;
   }

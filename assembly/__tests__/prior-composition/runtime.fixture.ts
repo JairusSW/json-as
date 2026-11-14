@@ -7,20 +7,24 @@
 
 import { JSON } from "../..";
 
+
 @json class RawOwner {
   value: JSON.Raw = JSON.Raw.from("0");
   tail: i32 = 0;
 }
+
 
 @json class ValueOwner {
   value: JSON.Value = JSON.Value.from<i32>(-9);
   tail: i32 = 0;
 }
 
+
 @json class NullableRaw {
   value: JSON.Raw | null = null;
   tail: i32 = 0;
 }
+
 
 @json class Maps {
   a!: Map<string, JSON.Raw>;
@@ -30,6 +34,7 @@ let calls: i32 = 0;
 function next(): i32 {
   return ++calls;
 }
+
 
 @json class Row {
 
@@ -42,6 +47,7 @@ class Operands {
     return ++calls;
   }
 
+
   @operator("[]") get(_index: i32): i32 {
     return ++calls;
   }
@@ -49,21 +55,25 @@ class Operands {
 const left = new Operands(),
   right = new Operands();
 
+
 @json class SumRow {
   first: i32 = left + right;
   second: i32 = 0;
 }
+
 
 @json class IndexRow {
   first: i32 = left[0];
   second: i32 = 0;
 }
 
+
 @json class Omission {
 
   @omitif('JSON.stringify<string>("x").length == 0') value: i32 = 7;
   tail: i32 = 9;
 }
+
 
 @json class Generic<T> {
   value: T;
@@ -72,14 +82,17 @@ const left = new Operands(),
   }
 }
 
+
 @json class Concrete {
   value: usize = 0;
 }
+
 
 @json class CustomValues extends Array<JSON.Value> {
   constructor() {
     super();
   }
+
 
   @deserializer("array") decode(_source: string): CustomValues {
     calls++;
@@ -87,6 +100,7 @@ const left = new Operands(),
     out.push(JSON.Value.from<i32>(99));
     return out;
   }
+
 
   @serializer("array") encode(_self: CustomValues): string {
     return "[99]";

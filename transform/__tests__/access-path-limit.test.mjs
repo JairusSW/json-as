@@ -16,16 +16,37 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-path-limit-"));
 try {
   for (const enabled of [false, true]) {
     const wasm = path.join(dir, `${enabled}.wasm`);
-    const result = spawnSync(process.execPath, ["node_modules/assemblyscript/bin/asc.js",
-      "assembly/__tests__/access-path-limit.fixture.ts", "--transform", "./transform",
-      "--runtime", "stub", "-O0", "-o", wasm], {
-      cwd: root, env: { ...process.env, JSON_ACCESS_SPECIALIZATION: String(enabled) },
-      encoding: "utf8", timeout: 60000,
-    });
+    const result = spawnSync(
+      process.execPath,
+      [
+        "node_modules/assemblyscript/bin/asc.js",
+        "assembly/__tests__/access-path-limit.fixture.ts",
+        "--transform",
+        "./transform",
+        "--runtime",
+        "stub",
+        "-O0",
+        "-o",
+        wasm,
+      ],
+      {
+        cwd: root,
+        env: { ...process.env, JSON_ACCESS_SPECIALIZATION: String(enabled) },
+        encoding: "utf8",
+        timeout: 60000,
+      },
+    );
     assert.equal(result.status, 0, result.stderr || result.error?.message);
-    const instance = new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(wasm)), {
-      env: { abort() { throw Error("abort"); } },
-    });
+    const instance = new WebAssembly.Instance(
+      new WebAssembly.Module(fs.readFileSync(wasm)),
+      {
+        env: {
+          abort() {
+            throw Error("abort");
+          },
+        },
+      },
+    );
     assert.equal(instance.exports.guarded(0), 42);
     assert.equal(instance.exports.guarded(3), 0);
     assert.equal(instance.exports.helperGraph(), 14680064);

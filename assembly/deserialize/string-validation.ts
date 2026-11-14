@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-
 @inline
 function isHexDigit(c: u16): bool {
   return (

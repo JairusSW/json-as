@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { PublicState as State, make } from "./enum-model.fixture";
 
+
 @json class Owner {
   value: State = make();
 }

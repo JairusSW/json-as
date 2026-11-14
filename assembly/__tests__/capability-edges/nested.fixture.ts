@@ -7,9 +7,11 @@
 
 import { JSON } from "../..";
 
+
 @json class Generic<T> {
   value!: T;
 }
+
 
 @json class Root {
   field!: Generic<i32>;

@@ -7,6 +7,7 @@
 
 import * as Runtime from "../index";
 
+
 @json
 class Record {
   id: i32 = 0;

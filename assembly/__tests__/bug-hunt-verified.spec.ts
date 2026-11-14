@@ -8,8 +8,12 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 import { POW_TEN_TABLE_32, POW_TEN_TABLE_64 } from "../globals/tables";
-import { deserializeTypedArray_NAIVE, deserializeArrayBuffer_NAIVE } from "../deserialize/naive/typedarray";
+import {
+  deserializeTypedArray_NAIVE,
+  deserializeArrayBuffer_NAIVE,
+} from "../deserialize/naive/typedarray";
 import { deserializeDate } from "../deserialize/naive/date";
+
 
 @json
 class DynamicRecord {
@@ -17,10 +21,12 @@ class DynamicRecord {
   rate: f32 = 0;
 }
 
+
 @json
 class EscModel {
   str: string = "default";
 }
+
 
 @json
 class TwoIntFields {
@@ -28,11 +34,13 @@ class TwoIntFields {
   n: i32 = 42;
 }
 
+
 @json
 class TwoFloatFields {
   b: f64 = 99.0;
   f: f64 = 42.0;
 }
+
 
 @json
 class ChildRecord {
@@ -40,15 +48,18 @@ class ChildRecord {
   name: string = "";
 }
 
+
 @json
 class ParentRecord {
   children: ChildRecord[] = [];
 }
 
+
 @json
 class ContainerWithSet {
   items: Set<i32> = new Set<i32>();
 }
+
 
 @json
 class ContainerWithStaticArray {
@@ -56,7 +67,9 @@ class ContainerWithStaticArray {
 }
 
 describe("Fix 1: Dynamic number decoding in JSON.Obj and JSON.Arr", () => {
-  const obj = JSON.parse<JSON.Obj>('{"count":30,"rate":1.5,"big":9007199254740991,"flag":1}');
+  const obj = JSON.parse<JSON.Obj>(
+    '{"count":30,"rate":1.5,"big":9007199254740991,"flag":1}',
+  );
   expect(obj.getAs<i32>("count")).toBe(30);
   expect(obj.getAs<u32>("count")).toBe(30);
   expect(obj.getAs<i64>("count")).toBe(30);
@@ -99,9 +112,9 @@ describe("Fix 5: NAIVE deserializeEscapedStringField rejects invalid escape", ()
 });
 
 describe("Fix 6: NAIVE deserializeTypedArray_NAIVE with leading whitespace", () => {
-  const json = '  [10, 20, 30]';
+  const json = "  [10, 20, 30]";
   const ptr = changetype<usize>(json);
-  const end = ptr + (<usize>json.length << 1);
+  const end = ptr + ((<usize>json.length) << 1);
   const arr = deserializeTypedArray_NAIVE<Int32Array>(ptr, end);
   expect(arr[0]).toBe(10);
   expect(arr[1]).toBe(20);
@@ -114,7 +127,7 @@ describe("Fix 6: NAIVE deserializeTypedArray_NAIVE with leading whitespace", () 
 describe("Fix 7: deserializeDate with leading whitespace", () => {
   const json = '  "2020-01-01T00:00:00.000Z"';
   const ptr = changetype<usize>(json);
-  const end = ptr + (<usize>json.length << 1);
+  const end = ptr + ((<usize>json.length) << 1);
   const d = deserializeDate(ptr, end);
   expect(d.getUTCFullYear()).toBe(2020);
 });
@@ -144,7 +157,9 @@ describe("Fix 15: Leading whitespace support across collection types", () => {
   const mapDirect = JSON.parse<Map<string, i32>>('  {"x": 1, "y": 2}');
   expect(mapDirect.size).toBe(2);
 
-  const staticArr = JSON.parse<ContainerWithStaticArray>('{"items": [5, 6, 7]}');
+  const staticArr = JSON.parse<ContainerWithStaticArray>(
+    '{"items": [5, 6, 7]}',
+  );
   expect(staticArr.items.length).toBe(3);
 
   const intArr = JSON.parse<i32[]>("  [100, 200]");
@@ -218,41 +233,77 @@ describe("Fix 21: Date error propagation", () => {
 
 class ZeroReader {
   __INITIALIZE(): void {}
-  __DESERIALIZE_SLOW<T>(_start: usize, _end: usize, _out: T): usize { return 0; }
+  __DESERIALIZE_SLOW<T>(_start: usize, _end: usize, _out: T): usize {
+    return 0;
+  }
 }
 
 describe("Zero-returning child readers propagate failure in arrays and Maps", () => {
-  expect((): void => { JSON.parse<ZeroReader[]>("[{}]"); }).toThrow();
-  expect((): void => { JSON.parse<Map<string, ZeroReader>>('{"x":{}}'); }).toThrow();
+  expect((): void => {
+    JSON.parse<ZeroReader[]>("[{}]");
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<Map<string, ZeroReader>>('{"x":{}}');
+  }).toThrow();
 });
 
+
 @json
-class UnsignedRecord { a: u32 = 1; b: u32 = 2; }
+class UnsignedRecord {
+  a: u32 = 1;
+  b: u32 = 2;
+}
 
 describe("Empty signed and unsigned field tokens reject after a valid prefix", () => {
-  expect((): void => { JSON.parse<UnsignedRecord>('{"a":1,"b":}'); }).toThrow();
-  expect((): void => { JSON.parse<TwoIntFields>('{"b":1,"n":-}'); }).toThrow();
-  expect((): void => { JSON.parse<TwoFloatFields>('{"b":1,"f":-}'); }).toThrow();
+  expect((): void => {
+    JSON.parse<UnsignedRecord>('{"a":1,"b":}');
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<TwoIntFields>('{"b":1,"n":-}');
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<TwoFloatFields>('{"b":1,"f":-}');
+  }).toThrow();
 });
 
 describe("Narrow integer kernels preserve values and reject missing delimiters", () => {
   const out: u8[] = [];
-  const input = '[0,1,12,123,255,10,2]';
+  const input = "[0,1,12,123,255,10,2]";
   expect(JSON.stringify(JSON.parse<u8[]>(input, out))).toBe(input);
-  expect(JSON.stringify(JSON.parse<i8[]>('[-128,-1,0,127]'))).toBe('[-128,-1,0,127]');
-  expect((): void => { JSON.parse<u8[]>('[1,]'); }).toThrow();
-  expect((): void => { JSON.parse<i32[]>('[1,]'); }).toThrow();
-  expect((): void => { JSON.parse<i8[]>('[-]'); }).toThrow();
-  expect((): void => { JSON.parse<u8[]>('[1,,2]'); }).toThrow();
+  expect(JSON.stringify(JSON.parse<i8[]>("[-128,-1,0,127]"))).toBe(
+    "[-128,-1,0,127]",
+  );
+  expect((): void => {
+    JSON.parse<u8[]>("[1,]");
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<i32[]>("[1,]");
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<i8[]>("[-]");
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<u8[]>("[1,,2]");
+  }).toThrow();
 });
 
 describe("Malformed escaped Map keys reach the public error boundary", () => {
-  expect((): void => { JSON.parse<Map<string, i32>>('{"\\z":1}'); }).toThrow();
-  expect((): void => { JSON.parse<Map<i32, i32>>('{"\\z":1}'); }).toThrow();
+  expect((): void => {
+    JSON.parse<Map<string, i32>>('{"\\z":1}');
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<Map<i32, i32>>('{"\\z":1}');
+  }).toThrow();
 });
 
 describe("Packed narrow-array kernels validate complete UTF16 digit lanes", () => {
-  expect((): void => { JSON.parse<u8[]>('[12x,123,4]'); }).toThrow();
-  expect((): void => { JSON.parse<u8[]>('[1a,123,4]'); }).toThrow();
-  expect((): void => { JSON.parse<u8[]>('[\u0131\u0132,123,4]'); }).toThrow();
+  expect((): void => {
+    JSON.parse<u8[]>("[12x,123,4]");
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<u8[]>("[1a,123,4]");
+  }).toThrow();
+  expect((): void => {
+    JSON.parse<u8[]>("[\u0131\u0132,123,4]");
+  }).toThrow();
 });

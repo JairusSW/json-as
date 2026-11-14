@@ -8,16 +8,19 @@
 import { JSON } from "../index";
 import { appendNativeArray } from "../util/nativeArray";
 
+
 @json
 export class WarningRow {
   value: i32 = 0;
   label: string = "";
 }
 
+
 @json
 class ExtendedRow extends WarningRow {
   extra: i32 = 0;
 }
+
 
 @json
 class WarningOwner {

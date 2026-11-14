@@ -9,11 +9,13 @@ import { JSON as J } from "../index";
 
 const JSON: i32 = 3;
 
+
 @json
 class Nested {
   value: i32 = 0;
   values: Array<i32> = [];
 }
+
 
 @json
 class Outer {

@@ -21,7 +21,9 @@ export class ArrowBase {
 
   @omitif((self) => self.hidden == 7) hidden: i32 = 7;
 
+
   @omitif(() => true) zero: i32 = 8;
+
 
   @omitif('this.label == "skip"') label: string = "skip";
 }

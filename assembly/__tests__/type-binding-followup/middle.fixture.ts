@@ -8,10 +8,12 @@
 import { JSON } from "../../index";
 import { Middle } from "./omission-base";
 
+
 @json
 class Numbers extends Middle<i32> {
   tag: string = "numbers";
 }
+
 
 @json
 class Texts extends Middle<string> {

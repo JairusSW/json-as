@@ -15,20 +15,35 @@ const root = path.resolve(import.meta.dirname, "../..");
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-intellisense-"));
 try {
   const fixture = path.join(dir, "decorators.ts");
-  fs.writeFileSync(fixture, `
+  fs.writeFileSync(
+    fixture,
+    `
     @json({ lazy }) class Strategic {}
     @json({ nolazy }) class Eager {}
     @json({ lazy: true }) class Enabled {}
     @json({ lazy: false }) class Disabled {}
     @json({ lazy: "strategic" }) class Deferred {}
     class Fields { @lazy value: string = ""; }
-  `);
-  const result = spawnSync(process.execPath, [
-    "node_modules/typescript/bin/tsc", "--noEmit", "--skipLibCheck",
-    "--experimentalDecorators", "--target", "esnext", "assembly/index.d.ts", fixture,
-  ], { cwd: root, encoding: "utf8" });
+  `,
+  );
+  const result = spawnSync(
+    process.execPath,
+    [
+      "node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--skipLibCheck",
+      "--experimentalDecorators",
+      "--target",
+      "esnext",
+      "assembly/index.d.ts",
+      fixture,
+    ],
+    { cwd: root, encoding: "utf8" },
+  );
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  console.log("Decorator IntelliSense: shorthand, options, and field decorator passed");
+  console.log(
+    "Decorator IntelliSense: shorthand, options, and field decorator passed",
+  );
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }

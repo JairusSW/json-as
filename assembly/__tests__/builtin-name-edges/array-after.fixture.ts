@@ -13,6 +13,7 @@ class Holder {
   child: Array<i32> = new Array<i32>();
 }
 
+
 @json
 export class Array<T> {
   value: T = changetype<T>(3);

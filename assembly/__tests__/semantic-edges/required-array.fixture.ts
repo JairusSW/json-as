@@ -7,12 +7,14 @@
 
 import { JSON } from "../..";
 
+
 @json class Custom extends Array<JSON.Value> {
   marker: i32;
   constructor(marker: i32) {
     super();
     this.marker = marker;
   }
+
 
   @serializer("string") encode(_self: Custom): string {
     return '"custom"';

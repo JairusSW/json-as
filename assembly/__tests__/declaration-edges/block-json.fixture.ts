@@ -12,8 +12,10 @@ class Encoder {
   }
 }
 
+
 @json class Item {
   value: i32 = 7;
+
 
   @serializer("number") encode(self: Item): string {
     let value: i32 = 0;
@@ -24,6 +26,7 @@ class Encoder {
     return JSON.stringify(value);
   }
 }
+
 
 @json class Outer {
   before: i32 = 1;

@@ -27,6 +27,7 @@ export function shortcutCount(): i32 {
   return shortcuts;
 }
 
+
 @json
 class Row {
   value!: i64;
@@ -34,6 +35,7 @@ class Row {
 }
 
 namespace Model {
+
   @json
   export class Coordinates {
     ä!: i64;
@@ -42,9 +44,11 @@ namespace Model {
   }
 }
 
+
 @json
 class Token {
   value!: i64;
+
 
   @deserializer("number")
   decode(source: string): Token {
@@ -54,6 +58,7 @@ class Token {
     return out;
   }
 }
+
 
 @json
 class Mixed {
@@ -85,9 +90,7 @@ export function verify(): i32 {
     '{ "ä": 9007199254740993, "日本": -7, "z": 9 }',
   );
   assert(point.ä == 9007199254740993 && point.日本 == -7 && point.z == 9);
-  assert(
-    JSON.stringify(point) == '{"ä":9007199254740993,"日本":-7,"z":9}',
-  );
+  assert(JSON.stringify(point) == '{"ä":9007199254740993,"日本":-7,"z":9}');
 
   const mixedCases = [
     '{ "token": 7, "text": "quoted\\\"text", "raw": null, "flag": true }',

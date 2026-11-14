@@ -85,7 +85,10 @@ export function deserializeFloat_NAIVE<T>(srcStart: usize, srcEnd: usize): T {
 
 /** Caller has already checked the complete token grammar. */
 @inline
-export function deserializeValidatedFloat_NAIVE<T>(srcStart: usize, srcEnd: usize): T {
+export function deserializeValidatedFloat_NAIVE<T>(
+  srcStart: usize,
+  srcEnd: usize,
+): T {
   if (sizeof<T>() == 8) return <T>parseDecimalF64(srcStart, srcEnd);
   return <T>parseDecimalF32(srcStart, srcEnd);
 }

@@ -10,6 +10,7 @@ function callback(): i32 {
   return 7;
 }
 
+
 @json class WithField {
   callback: () => i32 = callback;
   value: i32 = 0;

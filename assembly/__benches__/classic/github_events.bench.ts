@@ -209,20 +209,49 @@ class Comment {
 // replaying fields already decoded before a localized fallback.
 @json
 class Payload {
+
   @optional commits!: Commit[];
+
+
   @optional distinct_size!: i32;
+
+
   @optional description!: string;
+
+
   @optional master_branch!: string;
+
+
   @optional ref!: string | null;
+
+
   @optional push_id!: i64;
+
+
   @optional ref_type!: string;
+
+
   @optional head!: string;
+
+
   @optional before!: string;
+
+
   @optional size!: i32;
+
+
   @optional forkee!: Forkee | null;
+
+
   @optional issue!: Issue | null;
+
+
   @optional action!: string;
+
+
   @optional comment!: Comment | null;
+
+
   @optional pages!: Page[];
 }
 

@@ -7,6 +7,7 @@
 
 import { JSON } from "../index";
 
+
 @json
 class Child {
   value: f32 = 0;
@@ -15,6 +16,7 @@ class Child {
 
 namespace Consumer {
   type f32 = i32;
+
 
   @json
   class Parent {

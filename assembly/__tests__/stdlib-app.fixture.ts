@@ -13,7 +13,8 @@ import { UtilitySession } from "./stdlib-app/util/session";
 
 function check<T>(): void {
   const value = JSON.parse<T>('{"id":7}');
-  if (JSON.stringify<T>(value) != '{"id":7}') throw new Error("application model skipped");
+  if (JSON.stringify<T>(value) != '{"id":7}')
+    throw new Error("application model skipped");
 }
 export function verify(): i32 {
   check<OrdinarySession>();

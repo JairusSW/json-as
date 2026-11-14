@@ -10,9 +10,11 @@ function callback(): i32 {
   return 7;
 }
 
+
 @json class CallbackOnly {
   callback: () => i32 = callback;
 }
+
 
 @json class WithField {
   callback: () => i32 = callback;

@@ -8,8 +8,10 @@
 import { JSON } from "../..";
 export let calls: i32 = 0;
 
+
 @json class Codec {
   value: i32 = 7;
+
 
   @deserializer("object") decode(_source: string): Codec {
     calls++;

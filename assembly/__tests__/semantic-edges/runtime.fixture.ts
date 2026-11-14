@@ -9,12 +9,14 @@ import { JSON } from "../..";
 type Item = i32;
 type Identity<Item> = Item;
 
+
 @json class AliasRow {
   value: Identity<f32> = 1.5;
 }
 namespace M {
   type Item = f32;
   type Value = Item;
+
 
   @json export class Row {
     value: Value = 1.5;
@@ -31,13 +33,16 @@ class Raw extends JSON.Raw {
   }
 }
 
+
 @json class Lazy<T> {
   value!: JSON.Lazy<T>;
 }
 
+
 @json class ConcreteDate {
   value!: JSON.Lazy<Stamp>;
 }
+
 
 @json class ConcreteRaw {
   value!: JSON.Lazy<Raw>;
@@ -57,13 +62,16 @@ class Operand {
     return ++calls;
   }
 
+
   @operator.prefix("+") static positive(_value: Operand): i32 {
     return ++calls;
   }
 
+
   @operator.prefix("~") static invert(_value: Operand): i32 {
     return ++calls;
   }
+
 
   @operator.prefix("!") static not(_value: Operand): bool {
     calls++;
@@ -75,34 +83,41 @@ function next(): i32 {
 }
 const operand = new Operand();
 
+
 @json class Row {
   first: i32 = -operand;
   second: i32 = 0;
 }
 
+
 @json class Nested {
   value: Row | null = null;
 }
+
 
 @json class PlusRow {
   first: i32 = +operand;
   second: i32 = 0;
 }
 
+
 @json class TildeRow {
   first: i32 = ~operand;
   second: i32 = 0;
 }
+
 
 @json class NotRow {
   first: bool = !operand;
   second: i32 = 0;
 }
 
+
 @json class CallRow {
   first: i32 = next();
   second: i32 = 0;
 }
+
 
 @json class Envelope<T> {
   value: T | null = null;
@@ -148,6 +163,7 @@ class Numbers extends Array<i32> {
     return super.push(value + 1);
   }
 }
+
 
 @json class NumbersField {
   value: Numbers = new Numbers();

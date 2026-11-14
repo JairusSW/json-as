@@ -7,6 +7,7 @@
 
 import { JSON } from "../..";
 
+
 @json class Owner<T> {
   value!: JSON.Lazy<T>;
 }

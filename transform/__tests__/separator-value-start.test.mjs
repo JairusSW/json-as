@@ -56,7 +56,13 @@ try {
   const configs = ["incremental", "minimal", "stub"].flatMap((runtime) =>
     ["NAIVE", "SWAR", "SIMD"].flatMap((mode) =>
       ["false", "true"].flatMap((strict) =>
-        ["0", "1"].map((fast) => ({ runtime, mode, strict, fast, trace: false })),
+        ["0", "1"].map((fast) => ({
+          runtime,
+          mode,
+          strict,
+          fast,
+          trace: false,
+        })),
       ),
     ),
   );
@@ -99,37 +105,43 @@ try {
         stdio: "pipe",
       },
     );
-    const { instance } = await WebAssembly.instantiate(fs.readFileSync(output), {
-      env: {
-        abort(message, file, line, column) {
-          throw new Error(`${JSON.stringify(config)}: ${line}:${column}`);
+    const { instance } = await WebAssembly.instantiate(
+      fs.readFileSync(output),
+      {
+        env: {
+          abort(message, file, line, column) {
+            throw new Error(`${JSON.stringify(config)}: ${line}:${column}`);
+          },
+        },
+        rtrace: {
+          oninit() {},
+          onalloc() {},
+          onresize() {},
+          onmove() {},
+          onfree() {},
+          onvisit() {
+            return 1;
+          },
+          oncollect() {},
+          oninterrupt() {},
+          onyield() {},
+          onload(pointer) {
+            return pointer;
+          },
+          onstore(pointer) {
+            return pointer;
+          },
         },
       },
-      rtrace: {
-        oninit() {},
-        onalloc() {},
-        onresize() {},
-        onmove() {},
-        onfree() {},
-        onvisit() {
-          return 1;
-        },
-        oncollect() {},
-        oninterrupt() {},
-        onyield() {},
-        onload(pointer) {
-          return pointer;
-        },
-        onstore(pointer) {
-          return pointer;
-        },
-      },
-    });
+    );
     instance.exports.start();
     assert.equal(instance.exports.verify(), 1);
     if (config.fast === "1" && !config.trace) {
       assert.ok(instance.exports.shortcutCount() > 0, "shortcut must execute");
-      assert.ok(instance.exports.commaCount() > 0, "comma shortcut must execute");
+      assert.ok(
+        instance.exports.commaCount() > 0,
+        "comma shortcut must execute",
+      );
     } else {
       assert.equal(instance.exports.shortcutCount(), 0);
       assert.equal(instance.exports.commaCount(), 0);

@@ -8,13 +8,16 @@
 import { JSON } from "../../index";
 import { __heap_base } from "memory";
 
+
 @json({ lazy: "strategic" })
 class ShadowedParserModel {
   value: i32 = 7;
   unused: string = "unused";
 }
 class ShadowedParser {
-  parse<T>(_data: string): T { return instantiate<T>(); }
+  parse<T>(_data: string): T {
+    return instantiate<T>();
+  }
 }
 export function hoistedLocalParser(): i32 {
   {
@@ -33,6 +36,7 @@ function collectWithRoot<T>(root: T): void {
     if (ptr >= __heap_base) __unpin(ptr);
   }
 }
+
 
 @json({ lazy: "strategic" })
 class Vec3 {
@@ -269,16 +273,36 @@ class Scalars {
   j: f64 = 0;
 }
 
+
 @json({ lazy: "strategic" })
-class ReviewSignedByte { value: i8 = 0; }
+class ReviewSignedByte {
+  value: i8 = 0;
+}
+
+
 @json({ lazy: "strategic" })
-class ReviewSignedShort { value: i16 = 0; }
+class ReviewSignedShort {
+  value: i16 = 0;
+}
+
+
 @json({ lazy: "strategic" })
-class ReviewOptionalByte { @optional value: i8 = -1; }
+class ReviewOptionalByte {
+
+  @optional value: i8 = -1;
+}
+
+
 @json({ lazy: "strategic" })
-class ReviewUnsignedByte { value: u8 = 0; }
+class ReviewUnsignedByte {
+  value: u8 = 0;
+}
+
+
 @json({ lazy: "strategic" })
-class ReviewUnsignedShort { value: u16 = 0; }
+class ReviewUnsignedShort {
+  value: u16 = 0;
+}
 export function reviewSignedByte(): i32 {
   const value = JSON.parse<ReviewSignedByte>('{"value":-1}');
   return i32(value.value);
@@ -350,6 +374,7 @@ export function scalars(): string {
 
 type Small = i32;
 
+
 @json({ lazy: "strategic" })
 class AliasedScalar {
   value: Small = 0;
@@ -367,6 +392,7 @@ export function conditionalAlias(condition: bool): string {
     : before.toString();
 }
 
+
 @json({ lazy: "strategic" })
 class ApiDefaults {
   id!: i64;
@@ -377,17 +403,25 @@ export function apiFastCapability(): bool {
   return changetype<ApiDefaults>(0).__DESERIALIZE_FAST_ENABLED();
 }
 export function apiSummary(): string {
-  const value = JSON.parse<ApiDefaults>('{"id":7,"title":"hello","tags":["a","b"]}');
+  const value = JSON.parse<ApiDefaults>(
+    '{"id":7,"title":"hello","tags":["a","b"]}',
+  );
   return value.id.toString() + ":" + value.title;
 }
 
 let defaultCalls: i32 = 0;
 class DefaultWithEffects {
-  constructor() { defaultCalls++; }
+  constructor() {
+    defaultCalls++;
+  }
 }
+
+
 @json({ lazy: "strategic" })
 class EffectfulDefaults {
   child!: DefaultWithEffects;
+
+
   @optional tail: i32 = 0;
 }
 export function effectfulDefaultCapability(): bool {
@@ -400,14 +434,19 @@ export function effectfulDefaultCount(): i32 {
 }
 
 class InheritedDefaultWithEffects extends DefaultWithEffects {}
+
+
 @json({ lazy: "strategic" })
 class InheritedEffectfulDefaults {
   child!: InheritedDefaultWithEffects;
+
+
   @optional tail: i32 = 0;
 }
 export function inheritedEffectfulDefaultCapability(): bool {
   return changetype<InheritedEffectfulDefaults>(0).__DESERIALIZE_FAST_ENABLED();
 }
+
 
 @json
 class LifecycleDefault {
@@ -418,9 +457,13 @@ class LifecycleDefault {
     return this;
   }
 }
+
+
 @json({ lazy: "strategic" })
 class LifecycleDefaults {
   child!: LifecycleDefault;
+
+
   @optional tail: i32 = 0;
 }
 export function lifecycleDefaultCapability(): bool {
@@ -433,10 +476,13 @@ export function lifecycleDefaultCount(): i32 {
 }
 
 export function fullStringFields(): string {
-  const value = JSON.parse<Texts>(' { "always" : "a\\\\b", "likely" : "hello", "rare" : "world" } ');
+  const value = JSON.parse<Texts>(
+    ' { "always" : "a\\\\b", "likely" : "hello", "rare" : "world" } ',
+  );
   collectWithRoot(value);
   return value.always + ":" + value.likely + ":" + value.rare;
 }
+
 
 @json({ lazy: "strategic" })
 class NullableTexts {
@@ -447,8 +493,13 @@ class NullableTexts {
 export function fullNullableStrings(): string {
   const value = JSON.parse<NullableTexts>('{"a":"hi\\u0021", "b":null}');
   collectWithRoot(value);
-  return (value.a === null ? "null" : value.a!) + ":" + i32(value.b === null).toString();
+  return (
+    (value.a === null ? "null" : value.a!) +
+    ":" +
+    i32(value.b === null).toString()
+  );
 }
+
 
 @json({ lazy: "strategic" })
 class StrategicFlags {
@@ -457,17 +508,35 @@ class StrategicFlags {
 }
 
 export function fullBooleanFields(): string {
-  const flags = JSON.parse<StrategicFlags>(' { "first" : true, "second" : false } ');
-  return i32(flags.first).toString() + ":" + i32(flags.second).toString() + ":" + JSON.stringify(flags);
+  const flags = JSON.parse<StrategicFlags>(
+    ' { "first" : true, "second" : false } ',
+  );
+  return (
+    i32(flags.first).toString() +
+    ":" +
+    i32(flags.second).toString() +
+    ":" +
+    JSON.stringify(flags)
+  );
 }
 
 export function booleanFieldVariants(): string {
   const compact = JSON.parse<StrategicFlags>('{"first":true,"second":false}');
   const reordered = JSON.parse<StrategicFlags>('{"second":true,"first":false}');
-  const omitted = JSON.parse<StrategicFlags>('{}');
-  return i32(compact.first).toString() + ":" + i32(compact.second).toString() + ":" +
-    i32(reordered.first).toString() + ":" + i32(reordered.second).toString() + ":" +
-    i32(omitted.first).toString() + ":" + i32(omitted.second).toString();
+  const omitted = JSON.parse<StrategicFlags>("{}");
+  return (
+    i32(compact.first).toString() +
+    ":" +
+    i32(compact.second).toString() +
+    ":" +
+    i32(reordered.first).toString() +
+    ":" +
+    i32(reordered.second).toString() +
+    ":" +
+    i32(omitted.first).toString() +
+    ":" +
+    i32(omitted.second).toString()
+  );
 }
 
 export function invalidBooleanField(): void {
@@ -475,13 +544,18 @@ export function invalidBooleanField(): void {
 }
 
 export function invalidBooleanFieldReuse(): void {
-  JSON.parse<StrategicFlags>('{"first":tru,"second":false}', new StrategicFlags());
+  JSON.parse<StrategicFlags>(
+    '{"first":tru,"second":false}',
+    new StrategicFlags(),
+  );
 }
+
 
 @json({ lazy: "auto" })
 class ImplicitAutoArray {
   value: i32[];
 }
+
 
 @json
 class ImplicitWrappedArray {
@@ -492,22 +566,29 @@ class ImplicitArraySubclass extends Array<i32> {
   tag: i32 = 7;
 }
 
+
 @json
 class ImplicitSubclassArray {
+
   @lazy value: ImplicitArraySubclass;
 }
 
 type NullableArrayAlias = i32[] | null;
 
+
 @json
 class ImplicitNullableArray {
+
   @lazy value: NullableArrayAlias;
 }
 
 namespace ShadowedArrayRuntime {
   const JSON: i32 = 3;
+
+
   @json
   class ImplicitTypedArray {
+
     @lazy value: Uint8Array;
   }
   export function length(): i32 {
@@ -521,20 +602,33 @@ export function implicitArrayConstruction(): string {
   const subclass = new ImplicitSubclassArray();
   const nullable = new ImplicitNullableArray();
   const nullablePresent = JSON.parse<ImplicitNullableArray>('{"value":[ 1 ]}');
-  const parsed = JSON.parse<ImplicitAutoArray>('{}');
-  return auto.value.length.toString() + ":" + wrapped.value.length.toString() + ":" +
-    parsed.value.length.toString() + ":" + ShadowedArrayRuntime.length().toString() + ":" +
-    subclass.value.tag.toString() + ":" + i32(nullable.value === null).toString() + ":" +
-    JSON.stringify(nullablePresent);
+  const parsed = JSON.parse<ImplicitAutoArray>("{}");
+  return (
+    auto.value.length.toString() +
+    ":" +
+    wrapped.value.length.toString() +
+    ":" +
+    parsed.value.length.toString() +
+    ":" +
+    ShadowedArrayRuntime.length().toString() +
+    ":" +
+    subclass.value.tag.toString() +
+    ":" +
+    i32(nullable.value === null).toString() +
+    ":" +
+    JSON.stringify(nullablePresent)
+  );
 }
+
 
 @json
 class LazyReferenceStates {
+
   @optional @lazy value: string | null = null;
 }
 
 export function lazyReferenceStates(): string {
-  const absent = JSON.parse<LazyReferenceStates>('{}');
+  const absent = JSON.parse<LazyReferenceStates>("{}");
   const present = JSON.parse<LazyReferenceStates>('{"value":"hello"}');
   const explicitNull = JSON.parse<LazyReferenceStates>('{"value":null}');
   const first = present.value;
@@ -549,9 +643,19 @@ export function lazyReferenceStates(): string {
   }
   const second = present.value;
   present.value = "set";
-  return i32(absent.value === null).toString() + ":" + first! + ":" + second! + ":" +
-    i32(explicitNull.value === null).toString() + ":" + present.value!;
+  return (
+    i32(absent.value === null).toString() +
+    ":" +
+    first! +
+    ":" +
+    second! +
+    ":" +
+    i32(explicitNull.value === null).toString() +
+    ":" +
+    present.value!
+  );
 }
+
 
 @json({ lazy: "strategic" })
 class NestedVec {
@@ -566,7 +670,9 @@ export function nestedFullRead(): string {
 }
 
 export function nestedReaderFallback(): string {
-  const parent = JSON.parse<NestedVec>('{"child":{"z":3.5,"unknown":0,"x":1.5,"y":2.5}}');
+  const parent = JSON.parse<NestedVec>(
+    '{"child":{"z":3.5,"unknown":0,"x":1.5,"y":2.5}}',
+  );
   const child = parent.child;
   collectWithRoot(child);
   return (child.x + child.y + child.z).toString();
@@ -579,6 +685,7 @@ export function nestedReaderReordered(): string {
   return (child.x + child.y + child.z).toString();
 }
 
+
 @json({ lazy: "strategic" })
 class NestedCodecFallback {
   probe!: Probe;
@@ -586,20 +693,33 @@ class NestedCodecFallback {
 }
 export function nestedCodecFallback(): string {
   calls = 0;
-  const value = JSON.parse<NestedCodecFallback>('{"probe":7,"unknown":1,"tail":2}');
+  const value = JSON.parse<NestedCodecFallback>(
+    '{"probe":7,"unknown":1,"tail":2}',
+  );
   return value.probe.n.toString() + ":" + calls.toString();
 }
+
 
 @json({ lazy: "strategic" })
 class PureNestedFallback {
   child!: Vec3;
+
+
   @optional tail: i32 = 0;
 }
 export function pureNestedFallback(): string {
-  const value = JSON.parse<PureNestedFallback>('{"child":{"x":1.5,"y":2.5,"z":3.5},"unknown":1,"tail":2}');
+  const value = JSON.parse<PureNestedFallback>(
+    '{"child":{"x":1.5,"y":2.5,"z":3.5},"unknown":1,"tail":2}',
+  );
   const child = value.child;
   const before = mask(child);
-  return before.toString() + ":" + (child.x + child.y + child.z).toString() + ":" + value.tail.toString();
+  return (
+    before.toString() +
+    ":" +
+    (child.x + child.y + child.z).toString() +
+    ":" +
+    value.tail.toString()
+  );
 }
 export function nestedPartialRead(): string {
   const parent = JSON.parse<NestedVec>('{"child":{"x":1.5,"y":2.5,"z":3.5}}');
@@ -608,18 +728,22 @@ export function nestedPartialRead(): string {
   return before.toString() + ":" + child.x.toString();
 }
 
+
 @json({ lazy: "strategic" })
 class NestedVecArray {
   items: Vec3[] = [];
 }
 export function nestedArrayFullRead(): string {
-  const parent = JSON.parse<NestedVecArray>('{"items":[{"x":1.5,"y":2.5,"z":3.5}]}');
+  const parent = JSON.parse<NestedVecArray>(
+    '{"items":[{"x":1.5,"y":2.5,"z":3.5}]}',
+  );
   const item = parent.items[0];
   const before = mask(item);
   const sum = item.x + item.y + item.z;
   collectWithRoot(item);
   return before.toString() + ":" + sum.toString();
 }
+
 
 @json({ lazy: "strategic" })
 class NestedCodecArray {
@@ -628,18 +752,24 @@ class NestedCodecArray {
 }
 export function nestedCodecArrayFallback(): string {
   calls = 0;
-  const value = JSON.parse<NestedCodecArray>('{"items":[7],"unknown":1,"tail":2}');
+  const value = JSON.parse<NestedCodecArray>(
+    '{"items":[7],"unknown":1,"tail":2}',
+  );
   return value.items[0].n.toString() + ":" + calls.toString();
 }
 
 export function nestedArrayPartialRead(): string {
-  const parent = JSON.parse<NestedVecArray>('{"items":[{"x":1.5,"y":2.5,"z":3.5}]}');
+  const parent = JSON.parse<NestedVecArray>(
+    '{"items":[{"x":1.5,"y":2.5,"z":3.5}]}',
+  );
   const item = parent.items[0];
   const before = mask(item);
   return before.toString() + ":" + item.x.toString();
 }
 export function nestedArrayLoopRead(): string {
-  const parent = JSON.parse<NestedVecArray>('{"items":[{"x":1.5,"y":2.5,"z":3.5},{"x":4.5,"y":5.5,"z":6.5}]}');
+  const parent = JSON.parse<NestedVecArray>(
+    '{"items":[{"x":1.5,"y":2.5,"z":3.5},{"x":4.5,"y":5.5,"z":6.5}]}',
+  );
   const values = parent.items;
   let masks: i32 = 0;
   let sum: f32 = 0;
@@ -651,10 +781,13 @@ export function nestedArrayLoopRead(): string {
   return masks.toString() + ":" + sum.toString();
 }
 
+
 @json({ lazy: "strategic" })
 class OverwrittenNestedInner {
   probe!: Probe;
 }
+
+
 @json({ lazy: "strategic" })
 class OverwrittenNestedOuter {
   child!: OverwrittenNestedInner;
@@ -666,36 +799,57 @@ export function overwrittenNestedChild(): string {
   return value.child.probe.n.toString() + ":" + calls.toString();
 }
 
+
 @json({ lazy: "strategic" })
 class AliasedNestedVec {
+
   @alias("wire") child!: Vec3;
 }
 export function aliasedNestedFullRead(): string {
-  const parent = JSON.parse<AliasedNestedVec>('{"wire":{"x":1.5,"y":2.5,"z":3.5}}');
+  const parent = JSON.parse<AliasedNestedVec>(
+    '{"wire":{"x":1.5,"y":2.5,"z":3.5}}',
+  );
   const child = parent.child;
   const before = mask(child);
   return before.toString() + ":" + (child.x + child.y + child.z).toString();
 }
 
+
 @json({ lazy: "strategic" })
 class MissingNestedDefaults {
+
   @optional x: i32 = 1;
+
+
   @optional y: i32 = 7;
+
+
   @optional z: string = "tail";
 }
+
+
 @json({ lazy: "strategic" })
 class MissingNestedParent {
   child!: MissingNestedDefaults;
 }
 export function missingNestedDefaults(): string {
   const parent = JSON.parse<MissingNestedParent>('{"child":{"x":3}}');
-  return parent.child.x.toString() + ":" + parent.child.y.toString() + ":" + parent.child.z;
+  return (
+    parent.child.x.toString() +
+    ":" +
+    parent.child.y.toString() +
+    ":" +
+    parent.child.z
+  );
 }
+
 
 @json({ lazy: "all" })
 class ExplicitNestedLazy {
   x: i32 = 0;
 }
+
+
 @json({ lazy: "strategic" })
 class StrategicWithExplicitChild {
   child!: ExplicitNestedLazy;
@@ -703,9 +857,17 @@ class StrategicWithExplicitChild {
 export function explicitLazyNested(): string {
   const parent = JSON.parse<StrategicWithExplicitChild>('{"child":{"x":7}}');
   const child = parent.child;
-  const before = i32(load<u64>(changetype<usize>(child), offsetof<ExplicitNestedLazy>("__x_lz")) >>> 32 == 0xffffffff);
+  const before = i32(
+    load<u64>(
+      changetype<usize>(child),
+      offsetof<ExplicitNestedLazy>("__x_lz"),
+    ) >>>
+      32 ==
+      0xffffffff,
+  );
   return before.toString() + ":" + child.x.toString();
 }
+
 
 @json({ lazy: "strategic" })
 class MissingArrayParent {
@@ -718,11 +880,25 @@ export function missingArrayDefaults(): string {
 }
 
 export function nestedArrayWhitespaceAndReordering(): string {
-  const parent = JSON.parse<MissingArrayParent>(' { "items" : [ { "z" : "a\\u2028b", "x" : 4 }, { "y" : 8, "x" : 5 } ] } ');
+  const parent = JSON.parse<MissingArrayParent>(
+    ' { "items" : [ { "z" : "a\\u2028b", "x" : 4 }, { "y" : 8, "x" : 5 } ] } ',
+  );
   const first = parent.items[0];
   const second = parent.items[1];
   collectWithRoot(parent);
-  return first.x.toString() + ":" + first.y.toString() + ":" + first.z.length.toString() + ":" + second.x.toString() + ":" + second.y.toString() + ":" + second.z;
+  return (
+    first.x.toString() +
+    ":" +
+    first.y.toString() +
+    ":" +
+    first.z.length.toString() +
+    ":" +
+    second.x.toString() +
+    ":" +
+    second.y.toString() +
+    ":" +
+    second.z
+  );
 }
 
 export function nestedEmptyArray(): i32 {
@@ -732,7 +908,9 @@ export function nestedEmptyArray(): i32 {
 }
 
 export function nestedFullReadAfterGC(): string {
-  const parent = JSON.parse<AliasedNestedVec>('{"wire":{"x":1.5,"y":2.5,"z":3.5}}');
+  const parent = JSON.parse<AliasedNestedVec>(
+    '{"wire":{"x":1.5,"y":2.5,"z":3.5}}',
+  );
   const child = parent.child;
   collectWithRoot(child);
   const before = mask(child);
@@ -770,8 +948,10 @@ export function nestedArrayGrowthAfterGC(): string {
 
 type ProbeArrayAlias = Probe[];
 
+
 @json({ lazy: "all" })
 class EagerArrayForms {
+
   @lazy decorated!: Probe[];
   wrapped!: JSON.Lazy<ProbeArrayAlias>;
   implicit!: Probe[];
@@ -779,14 +959,30 @@ class EagerArrayForms {
 
 export function arrayFormsDecodeEagerly(): string {
   calls = 0;
-  const value = JSON.parse<EagerArrayForms>('{"decorated":[7],"wrapped":[8],"implicit":[9]}');
+  const value = JSON.parse<EagerArrayForms>(
+    '{"decorated":[7],"wrapped":[8],"implicit":[9]}',
+  );
   const before = calls;
-  return before.toString() + ":" + value.decorated[0].n.toString() + ":" + value.wrapped[0].n.toString() + ":" + value.implicit[0].n.toString() + ":" + calls.toString();
+  return (
+    before.toString() +
+    ":" +
+    value.decorated[0].n.toString() +
+    ":" +
+    value.wrapped[0].n.toString() +
+    ":" +
+    value.implicit[0].n.toString() +
+    ":" +
+    calls.toString()
+  );
 }
+
 
 @json
 class SharedArrayDefaults {
+
   @lazy a: i32[] = [];
+
+
   @lazy b: i32[] = this.a;
 }
 
@@ -797,10 +993,12 @@ export function eagerArraysRespectReuseOwnership(): string {
   return first + "|" + JSON.stringify(value);
 }
 
+
 @json
 class GenericArrayField<T> {
   value!: JSON.Lazy<T>;
 }
+
 
 @json
 class ConcreteInheritedArray extends GenericArrayField<Probe[]> {
@@ -811,14 +1009,28 @@ export function inheritedGenericArrayDecodesEagerly(): string {
   calls = 0;
   const value = JSON.parse<ConcreteInheritedArray>('{"value":[7],"tail":9}');
   const before = calls;
-  return before.toString() + ":" + value.value[0].n.toString() + ":" + value.tail.toString() + ":" + calls.toString();
+  return (
+    before.toString() +
+    ":" +
+    value.value[0].n.toString() +
+    ":" +
+    value.tail.toString() +
+    ":" +
+    calls.toString()
+  );
 }
 
 export function genericArrayFieldDecodesEagerly(): string {
   calls = 0;
   const value = JSON.parse<GenericArrayField<Probe[]>>('{"value":[7]}');
   const before = calls;
-  return before.toString() + ":" + value.value[0].n.toString() + ":" + calls.toString();
+  return (
+    before.toString() +
+    ":" +
+    value.value[0].n.toString() +
+    ":" +
+    calls.toString()
+  );
 }
 
 export function genericTypedArrayFieldDecodesEagerly(): string {
@@ -828,43 +1040,80 @@ export function genericTypedArrayFieldDecodesEagerly(): string {
 
 export function genericNullableArrayFieldDecodesEagerly(): string {
   calls = 0;
-  const present = JSON.parse<GenericArrayField<Probe[] | null>>('{"value":[7]}');
+  const present =
+    JSON.parse<GenericArrayField<Probe[] | null>>('{"value":[7]}');
   const before = calls;
-  const absent = JSON.parse<GenericArrayField<Probe[] | null>>('{"value":null}');
+  const absent =
+    JSON.parse<GenericArrayField<Probe[] | null>>('{"value":null}');
   const items = present.value;
-  return before.toString() + ":" + (items === null ? -1 : items[0].n).toString() + ":" + i32(absent.value === null).toString() + ":" + calls.toString();
+  return (
+    before.toString() +
+    ":" +
+    (items === null ? -1 : items[0].n).toString() +
+    ":" +
+    i32(absent.value === null).toString() +
+    ":" +
+    calls.toString()
+  );
 }
 
 class ProbeArraySubclass extends Array<Probe> {}
 
+
 @json
 class SubclassArrayField {
+
   @lazy value!: ProbeArraySubclass;
+
+
   @optional tail: i32 = 0;
 }
 
 export function subclassArrayFallbackDoesNotReplay(): string {
   calls = 0;
-  const value = JSON.parse<SubclassArrayField>('{"value":[7],"unknown":1,"tail":9}');
-  return calls.toString() + ":" + value.value[0].n.toString() + ":" + value.tail.toString();
+  const value = JSON.parse<SubclassArrayField>(
+    '{"value":[7],"unknown":1,"tail":9}',
+  );
+  return (
+    calls.toString() +
+    ":" +
+    value.value[0].n.toString() +
+    ":" +
+    value.tail.toString()
+  );
 }
 
 export function subclassArrayFieldDecodesEagerly(): string {
   calls = 0;
   const value = JSON.parse<SubclassArrayField>('{"value":[7]}');
   const before = calls;
-  return before.toString() + ":" + value.value[0].n.toString() + ":" + calls.toString();
+  return (
+    before.toString() +
+    ":" +
+    value.value[0].n.toString() +
+    ":" +
+    calls.toString()
+  );
 }
 
 export function genericSubclassArrayFieldDecodesEagerly(): string {
   calls = 0;
-  const value = JSON.parse<GenericArrayField<ProbeArraySubclass>>('{"value":[7]}');
+  const value =
+    JSON.parse<GenericArrayField<ProbeArraySubclass>>('{"value":[7]}');
   const before = calls;
-  return before.toString() + ":" + value.value[0].n.toString() + ":" + calls.toString();
+  return (
+    before.toString() +
+    ":" +
+    value.value[0].n.toString() +
+    ":" +
+    calls.toString()
+  );
 }
+
 
 @json
 class CustomArraySubclass extends Array<i32> {
+
   @deserializer("number") decode(data: string): CustomArraySubclass {
     calls++;
     const out = new CustomArraySubclass();
@@ -873,8 +1122,10 @@ class CustomArraySubclass extends Array<i32> {
   }
 }
 
+
 @json
 class CustomArrayField {
+
   @lazy value!: CustomArraySubclass;
 }
 
@@ -882,15 +1133,19 @@ export function customArrayFieldDecodesEagerly(): string {
   calls = 0;
   const value = JSON.parse<CustomArrayField>('{"value":7}');
   const before = calls;
-  return before.toString() + ":" + value.value[0].toString() + ":" + calls.toString();
+  return (
+    before.toString() + ":" + value.value[0].toString() + ":" + calls.toString()
+  );
 }
 
 namespace ShadowArrayName {
+
   @json
   export class Uint8Array {
     n: i32 = 0;
   }
 }
+
 
 @json
 class ShadowArrayHolder {
@@ -907,36 +1162,61 @@ export function dynamicArrayStillDefersElements(): string {
   const before = JSON.Value.slotIsLazy(unchecked(value._vals[0]));
   const item = value.getAs<JSON.Obj>(0);
   const after = JSON.Value.slotIsLazy(unchecked(value._vals[0]));
-  return i32(before).toString() + ":" + item.getAs<f64>("n").toString() + ":" + i32(after).toString();
+  return (
+    i32(before).toString() +
+    ":" +
+    item.getAs<f64>("n").toString() +
+    ":" +
+    i32(after).toString()
+  );
 }
 
 export function genericDynamicArrayFieldDecodesEagerly(): string {
   const value = JSON.parse<GenericArrayField<JSON.Arr>>('{"value":[{"n":7}]}');
-  const eager = load<u64>(changetype<usize>(value), offsetof<GenericArrayField<JSON.Arr>>("__value_lz")) == u64.MAX_VALUE;
+  const eager =
+    load<u64>(
+      changetype<usize>(value),
+      offsetof<GenericArrayField<JSON.Arr>>("__value_lz"),
+    ) == u64.MAX_VALUE;
   const array = value.value;
   const elementLazy = JSON.Value.slotIsLazy(unchecked(array._vals[0]));
   return i32(eager).toString() + ":" + i32(elementLazy).toString();
 }
 
+
 @json
 class DynamicArrayField {
+
   @lazy value!: JSON.Arr;
 }
 
 export function dynamicArrayFieldDecodesEagerly(): string {
   const value = JSON.parse<DynamicArrayField>('{"value":[ { "n":7 } ]}');
   const wire = JSON.stringify(value);
-  return wire + ":" + i32(JSON.Value.slotIsLazy(unchecked(value.value._vals[0]))).toString();
+  return (
+    wire +
+    ":" +
+    i32(JSON.Value.slotIsLazy(unchecked(value.value._vals[0]))).toString()
+  );
 }
+
 
 @json({ lazy: "strategic" })
 class NullableVecArray {
   items!: (Vec3 | null)[];
 }
 export function nullableNestedArrayRead(): string {
-  const parent = JSON.parse<NullableVecArray>('{"items":[null,{"x":1.5,"y":2.5,"z":3.5}]}');
+  const parent = JSON.parse<NullableVecArray>(
+    '{"items":[null,{"x":1.5,"y":2.5,"z":3.5}]}',
+  );
   const child = parent.items[1];
   if (child === null) return "bad";
   const before = mask(child);
-  return i32(parent.items[0] === null).toString() + ":" + before.toString() + ":" + (child.x + child.y + child.z).toString();
+  return (
+    i32(parent.items[0] === null).toString() +
+    ":" +
+    before.toString() +
+    ":" +
+    (child.x + child.y + child.z).toString()
+  );
 }

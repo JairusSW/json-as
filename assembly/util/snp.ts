@@ -33,10 +33,16 @@ export function snp<T extends number>(srcStart: usize, srcEnd: usize): T {
     markProductionParseError();
     return <T>0;
   }
-  if (srcStart < srcEnd && (load<u16>(srcStart) == 101 || load<u16>(srcStart) == 69)) {
+  if (
+    srcStart < srcEnd &&
+    (load<u16>(srcStart) == 101 || load<u16>(srcStart) == 69)
+  ) {
     srcStart += 2;
     let divide = false;
-    if (srcStart < srcEnd && (load<u16>(srcStart) == 45 || load<u16>(srcStart) == 43)) {
+    if (
+      srcStart < srcEnd &&
+      (load<u16>(srcStart) == 45 || load<u16>(srcStart) == 43)
+    ) {
       divide = load<u16>(srcStart) == 45;
       srcStart += 2;
     }
@@ -65,8 +71,10 @@ export function snp<T extends number>(srcStart: usize, srcEnd: usize): T {
 }
 
 function pow10(exponent: u32): u64 {
-  if (exponent < 10) return load<u32>(POW_TEN_TABLE_32 + (<usize>exponent << 2));
-  if (exponent < 20) return load<u64>(POW_TEN_TABLE_64 + (<usize>exponent << 3));
+  if (exponent < 10)
+    return load<u32>(POW_TEN_TABLE_32 + ((<usize>exponent) << 2));
+  if (exponent < 20)
+    return load<u64>(POW_TEN_TABLE_64 + ((<usize>exponent) << 3));
   if (exponent >= 64) return 0;
   let result: u64 = 1;
   let base: u64 = 10;

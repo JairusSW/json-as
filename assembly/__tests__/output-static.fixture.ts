@@ -7,6 +7,7 @@
 
 import { JSON } from "..";
 
+
 @json
 class OutputControl {
   n: i32 = 7;
@@ -22,10 +23,12 @@ function copyText(value: string): string {
 // Each host invocation runs in a new instance: a failing static write must not
 // contaminate another case or the interned strings used by its expectations.
 export function run(kind: i32): i32 {
-  const wide = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-  const target = kind == 0 || kind == 1 || kind == 5 || kind == 10 || kind == 11
-    ? JSON.stringify<bool>(false)
-    : wide;
+  const wide =
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+  const target =
+    kind == 0 || kind == 1 || kind == 5 || kind == 10 || kind == 11
+      ? JSON.stringify<bool>(false)
+      : wide;
   const original = copyText(target);
   let expected = "";
   let result = "";

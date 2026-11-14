@@ -15,9 +15,11 @@ class HiddenRows<T> extends Array<T> {
   }
 }
 
+
 @json class Row {
   value: i32 = 7;
 }
+
 
 @json class Owner {
   flags: HiddenRows<bool> = new HiddenRows<bool>();

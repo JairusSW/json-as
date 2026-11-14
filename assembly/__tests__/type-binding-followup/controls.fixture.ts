@@ -7,16 +7,19 @@
 
 import { JSON } from "../../index";
 
+
 @json
 class Decorated<T> {
 
   @omitif((self: Decorated<T>) => isInteger<T>()) value!: T;
 }
 
+
 @json
 class Numbers extends Decorated<i32> {
   tag: string = "numbers";
 }
+
 
 @json
 class Texts extends Decorated<string> {
@@ -27,10 +30,12 @@ class StringForm<T> {
   @omitif("isInteger<T>()") value!: T;
 }
 
+
 @json
 class StringNumbers extends StringForm<i32> {
   tag: string = "numbers";
 }
+
 
 @json
 class StringTexts extends StringForm<string> {

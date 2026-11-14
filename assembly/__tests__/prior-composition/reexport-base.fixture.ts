@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { RenamedBase as Parent } from "./base-barrel.fixture";
 
+
 @json class Child extends Parent {
   tail: i32 = 9;
 }

@@ -7,6 +7,7 @@
 
 import { JSON } from "../index";
 
+
 @json
 class Record {
   id: i32 = 0;
@@ -18,6 +19,7 @@ export function read(input: string): string {
   const value = JSON.parse<Record>(input);
   return value.id.toString() + value.title + value.flag.toString();
 }
+
 
 @json({ nolazy })
 class BenchmarkRecord {

@@ -8,10 +8,12 @@
 import { JSON } from "../../index";
 import { NativeDate, makeNative } from "./native-model";
 
+
 @json
 class Date {
   value: i32 = 3;
 }
+
 
 @json
 class Both {
@@ -19,11 +21,13 @@ class Both {
   local: Date = new Date();
 }
 
+
 @json
 class Nested {
   values: NativeDate[] = [];
   optional: NativeDate | null = null;
 }
+
 
 @json
 class Implicit {

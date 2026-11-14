@@ -7,13 +7,16 @@
 
 import { JSON } from "../..";
 
+
 @json class Inner {
   value: i32 = 0;
+
 
   @serializer("object") encode(self: Inner): string {
     return '{"value":' + self.value.toString() + "}";
   }
 }
+
 
 @json class Outer {
   inner: Inner = new Inner();

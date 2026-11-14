@@ -7,9 +7,11 @@
 
 import { JSON } from "../../index";
 
+
 @json class Base {
   value: JSON.Lazy<i32> = 1;
 }
+
 
 @json class Child extends Base {
 

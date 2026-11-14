@@ -77,7 +77,9 @@ export function deserializeStaticArrayFloat<T extends StaticArray<any>>(
       if (code == COMMA || isSpace(code)) break;
       ptr += 2;
     }
-    unchecked((out[index] = JSON.__deserializeValue<valueof<T>>(tokenStart, ptr)));
+    unchecked(
+      (out[index] = JSON.__deserializeValue<valueof<T>>(tokenStart, ptr)),
+    );
     while (ptr < bodyEnd && isSpace(load<u16>(ptr))) ptr += 2;
     if (index + 1 < count) ptr += 2;
   }

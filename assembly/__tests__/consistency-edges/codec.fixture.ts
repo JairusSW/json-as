@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { PublicToken as Token, make } from "./codec-model.fixture";
 
+
 @json class Owner {
   value: Token = make();
 }

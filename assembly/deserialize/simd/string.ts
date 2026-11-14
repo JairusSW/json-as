@@ -8,7 +8,12 @@
 import { invalidateStringFieldTrace, claimStringBuffer } from "../parseMode";
 import { bs } from "../../../lib/as-bs";
 import { OBJECT, TOTAL_OVERHEAD } from "rt/common";
-import { STRING_SIZE_MASK, allocateObject, allocateCopiedString, canAllocateCopiedString } from "../../util/runtime";
+import {
+  STRING_SIZE_MASK,
+  allocateObject,
+  allocateCopiedString,
+  canAllocateCopiedString,
+} from "../../util/runtime";
 import { __heap_base } from "memory";
 import { QUOTE } from "../../custom/chars";
 import { BACK_SLASH } from "../../custom/chars";

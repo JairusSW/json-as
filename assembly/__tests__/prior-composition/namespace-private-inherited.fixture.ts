@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { Model } from "./namespace-private-model.fixture";
 
+
 @json class Child extends Model.Base {
   tail: i32 = 9;
 }

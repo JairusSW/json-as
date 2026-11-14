@@ -13,9 +13,11 @@ function omitted(_self: Base): bool {
   return true;
 }
 
+
 @json export class Base {
 
   @alias("wire") value: JSON.Lazy<string> = text();
+
 
   @omitif(omitted) ignored: i32 = 7;
 }

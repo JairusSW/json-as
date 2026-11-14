@@ -8,9 +8,11 @@
 import { JSON as Json } from "json-as";
 const JSON: i32 = 3;
 
+
 @json class Child {
   value: i32 = JSON;
 }
+
 
 @json class Row {
   child!: Child;

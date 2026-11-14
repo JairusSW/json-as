@@ -76,8 +76,13 @@ export function generateCursorParser(
     const read = `srcStart = JSON.__cursorRead<${member.type}>(srcStart, srcEnd, changetype<usize>(out), ${field}, depth + 1);`;
     if (!specializedFields?.has(member.name)) return read;
     const validator = objectValidators?.get(member.name);
-    const skip = validator ? `this.${validator.method}` : genericFields?.has(member.name) ? `JSON.__cursorSkipGeneric<${member.type}>` :
-      isScalarType(member.type) ? `JSON.__cursorSkipScalar<${member.type}>` : `JSON.__cursorSkipGeneric<${member.type}>`;
+    const skip = validator
+      ? `this.${validator.method}`
+      : genericFields?.has(member.name)
+        ? `JSON.__cursorSkipGeneric<${member.type}>`
+        : isScalarType(member.type)
+          ? `JSON.__cursorSkipScalar<${member.type}>`
+          : `JSON.__cursorSkipGeneric<${member.type}>`;
     return `if (isDefined(changetype<__JSON_PLAN>(0).__json_skip_${member.name})) {
       const skipped = ${skip}(srcStart, srcEnd);
       if (skipped) srcStart = skipped;
@@ -193,7 +198,9 @@ function readLazy(member: Property, field: string): string {
     ? `store<u32>(changetype<usize>(out), 0xffffffff, ${field} + 4);`
     : `store<u64>(changetype<usize>(out), u64.MAX_VALUE, ${field});
        if (isManaged<${member.lazyInner}>()) JSON.__linkObject(changetype<usize>(out), load<usize>(changetype<usize>(out), ${offset}), false);`;
-  const eagerArray = member.lazyMaybeArray ? `JSON.__isArrayField<${member.lazyInner}>() || ` : "";
+  const eagerArray = member.lazyMaybeArray
+    ? `JSON.__isArrayField<${member.lazyInner}>() || `
+    : "";
   return `if (${eagerArray}isDefined(changetype<__JSON_PLAN>(0).__json_eager_${member.lazyProperty || member.name})) {
     if (isDefined(changetype<__JSON_PLAN>(0).__json_child_${member.lazyProperty || member.name})) {
       srcStart = JSON.__cursorReadPlanned(changetype<${member.lazyInner}>(0), changetype<__JSON_PLAN>(0).__json_child_${member.lazyProperty || member.name}(), srcStart, srcEnd, changetype<usize>(out), ${offset}, depth + 1);

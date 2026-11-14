@@ -17,6 +17,7 @@ function two(): i32 {
   return value.length;
 }
 
+
 @json class Row {
   value: i32 = one() + two();
 }

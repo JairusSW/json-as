@@ -10,6 +10,7 @@ import * as model from "./composition-enum.fixture";
 import { State as Reexported } from "./review-enum-barrel.fixture";
 let target: JSON.Obj | null = null;
 
+
 @json class EmptyManual {
   __SERIALIZE(_ptr: usize): void {
     target!.delete("b");
@@ -23,10 +24,12 @@ class Defaults {
   }
 }
 
+
 @json class GetterOwner {
   first: i32 = Defaults.next;
   second: i32 = 0;
 }
+
 
 @json class Child {
   value: i32 = 0;
@@ -35,18 +38,22 @@ class Defaults {
   }
 }
 
+
 @json class ConstructorOwner {
   child: Child = new Child();
   second: i32 = 0;
 }
 
+
 @json class NamespaceOwner {
   value: model.State = model.State.Off;
 }
 
+
 @json class BarrelOwner {
   value: Reexported = Reexported.Off;
 }
+
 
 @json class GeneratedRaw extends JSON.Raw {
   n: i32 = 0;

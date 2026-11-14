@@ -7,6 +7,7 @@
 
 import { JSON } from "../../index";
 
+
 @json class Record {
   value: string = "a\u0000b";
   digit: string = "left\u00001right";

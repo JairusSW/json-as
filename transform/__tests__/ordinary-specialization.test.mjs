@@ -13,63 +13,169 @@ import { spawnSync } from "node:child_process";
 
 const root = path.resolve(import.meta.dirname, "../..");
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "json-as-ordinary-"));
-const written = path.join(root, "assembly/__tests__/ordinary-specialization.fixture.tmp.ts");
+const written = path.join(
+  root,
+  "assembly/__tests__/ordinary-specialization.fixture.tmp.ts",
+);
 const enabled = process.env.JSON_ORDINARY_CONTROL !== "1";
 const review = process.env.PROBE_REVIEW === "1";
 const quick = !!process.env.PROBE_QUICK;
 let checks = 0;
 try {
   for (const mode of quick ? ["SWAR"] : ["NAIVE", "SWAR", "SIMD"])
-    for (const runtime of quick || review ? ["incremental"] : ["incremental", "minimal", "stub"])
+    for (const runtime of quick || review
+      ? ["incremental"]
+      : ["incremental", "minimal", "stub"])
       for (const strict of quick ? [false] : [false, true])
         for (const fast of quick || review ? [true] : [false, true]) {
           const wasm = path.join(dir, "probe.wasm");
-          const result = spawnSync(process.execPath, [
-            "node_modules/assemblyscript/bin/asc.js",
-            "assembly/__tests__/ordinary-specialization.fixture.ts",
-            "--transform", "./transform", "--runtime", runtime, "-O3", "-o", wasm,
-            ...(mode === "SIMD" ? ["--enable", "simd"] : []),
-          ], { cwd: root, env: { ...process.env, JSON_MODE: mode,
-            JSON_WRITE: checks === 0 ? "assembly/__tests__/ordinary-specialization.fixture.ts" : "",
-            JSON_STRATEGIC_LAZINESS: "", JSON_ACCESS_SPECIALIZATION: enabled ? "true" : "false", JSON_STRICT: String(strict),
-            JSON_USE_FAST_PATH: fast ? "1" : "0" }, encoding: "utf8" });
-          assert.equal(result.status, 0, result.stderr || result.error?.message);
+          const result = spawnSync(
+            process.execPath,
+            [
+              "node_modules/assemblyscript/bin/asc.js",
+              "assembly/__tests__/ordinary-specialization.fixture.ts",
+              "--transform",
+              "./transform",
+              "--runtime",
+              runtime,
+              "-O3",
+              "-o",
+              wasm,
+              ...(mode === "SIMD" ? ["--enable", "simd"] : []),
+            ],
+            {
+              cwd: root,
+              env: {
+                ...process.env,
+                JSON_MODE: mode,
+                JSON_WRITE:
+                  checks === 0
+                    ? "assembly/__tests__/ordinary-specialization.fixture.ts"
+                    : "",
+                JSON_STRATEGIC_LAZINESS: "",
+                JSON_ACCESS_SPECIALIZATION: enabled ? "true" : "false",
+                JSON_STRICT: String(strict),
+                JSON_USE_FAST_PATH: fast ? "1" : "0",
+              },
+              encoding: "utf8",
+            },
+          );
+          assert.equal(
+            result.status,
+            0,
+            result.stderr || result.error?.message,
+          );
           assert.doesNotMatch(result.stdout + result.stderr, /WARNING AS\d+/);
           if (checks === 0 && enabled) {
             const generated = fs.readFileSync(written, "utf8");
-            assert.match(generated, /JSON\.parse<Record, __JSON_OrdinaryPlan_\d+>\(input\)/);
+            assert.match(
+              generated,
+              /JSON\.parse<Record, __JSON_OrdinaryPlan_\d+>\(input\)/,
+            );
             assert.match(generated, /JSON\.parse<NoLazyConfig>\(/);
             assert.match(generated, /JSON\.parse<NoLazyChild>\(/);
-            assert.match(generated, /JSON\.parse<LazyConfig, __JSON_OrdinaryPlan_\d+>\(/);
+            assert.match(
+              generated,
+              /JSON\.parse<LazyConfig, __JSON_OrdinaryPlan_\d+>\(/,
+            );
             assert.match(generated, /JSON\.parse<DisabledLazyConfig>\(/);
-            assert.match(generated, /JSON\.parse<EnabledLazyConfig, __JSON_OrdinaryPlan_\d+>\(/);
-            assert.match(generated, /JSON\.parse<EnabledNoLazyConfig, __JSON_OrdinaryPlan_\d+>\(/);
-            assert.match(generated, /function readGeneric<Model>\([\s\S]*?JSON\.parse<Model>\(data\)/);
-            assert.match(generated, /class GenericReader<Model>[\s\S]*?JSON\.parse<Model>\(data\)/);
-            assert.match(generated, /function full\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
-            assert.match(generated, /function escape\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
-            assert.match(generated, /function serialized\(\)[\s\S]*?JSON\.parse<Record>\(input\)/);
-            assert.match(generated, /JSON\.parse<Child, __JSON_OrdinaryPlan_\d+>/);
-            assert.match(generated, /JSON\.parse<DecoratedChild, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(
+              generated,
+              /JSON\.parse<EnabledLazyConfig, __JSON_OrdinaryPlan_\d+>\(/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<EnabledNoLazyConfig, __JSON_OrdinaryPlan_\d+>\(/,
+            );
+            assert.match(
+              generated,
+              /function readGeneric<Model>\([\s\S]*?JSON\.parse<Model>\(data\)/,
+            );
+            assert.match(
+              generated,
+              /class GenericReader<Model>[\s\S]*?JSON\.parse<Model>\(data\)/,
+            );
+            assert.match(
+              generated,
+              /function full\(\)[\s\S]*?JSON\.parse<Record>\(input\)/,
+            );
+            assert.match(
+              generated,
+              /function escape\(\)[\s\S]*?JSON\.parse<Record>\(input\)/,
+            );
+            assert.match(
+              generated,
+              /function serialized\(\)[\s\S]*?JSON\.parse<Record>\(input\)/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<Child, __JSON_OrdinaryPlan_\d+>/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<DecoratedChild, __JSON_OrdinaryPlan_\d+>/,
+            );
             assert.match(generated, /JSON\.parse<GenericChild>\(/);
-            assert.match(generated, /JSON\.parse<GenericChild, __JSON_OrdinaryPlan_\d+>/);
-            assert.match(generated, /JSON\.parse<GenericTextChild, __JSON_OrdinaryPlan_\d+>/);
-            assert.match(generated, /JSON\.parse<GenericRecord<f32>, __JSON_OrdinaryPlan_\d+>/);
-            assert.match(generated, /JSON\.parse<Scalars, __JSON_OrdinaryPlan_\d+>/);
-            assert.match(generated, /JSON\.parse<AliasTypes, __JSON_OrdinaryPlan_\d+>/);
-            assert.match(generated, /JSON\.parse<Namespaced\.Data, __JSON_OrdinaryPlan_\d+>/);
-            assert.match(generated, /JSON\.parse<ObjectHolder, __JSON_OrdinaryPlan_\d+>/);
-            assert.match(generated, /JSON\.parse<NullableHolder, __JSON_OrdinaryPlan_\d+>/);
-            assert.match(generated, /JSON\.parse<WideHolder, __JSON_OrdinaryPlan_\d+>/);
-            assert.match(generated, /function objectPartialAfterGC\(\)[\s\S]*?JSON\.parse<ObjectHolder, __JSON_OrdinaryPlan_\d+>/);
+            assert.match(
+              generated,
+              /JSON\.parse<GenericChild, __JSON_OrdinaryPlan_\d+>/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<GenericTextChild, __JSON_OrdinaryPlan_\d+>/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<GenericRecord<f32>, __JSON_OrdinaryPlan_\d+>/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<Scalars, __JSON_OrdinaryPlan_\d+>/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<AliasTypes, __JSON_OrdinaryPlan_\d+>/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<Namespaced\.Data, __JSON_OrdinaryPlan_\d+>/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<ObjectHolder, __JSON_OrdinaryPlan_\d+>/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<NullableHolder, __JSON_OrdinaryPlan_\d+>/,
+            );
+            assert.match(
+              generated,
+              /JSON\.parse<WideHolder, __JSON_OrdinaryPlan_\d+>/,
+            );
+            assert.match(
+              generated,
+              /function objectPartialAfterGC\(\)[\s\S]*?JSON\.parse<ObjectHolder, __JSON_OrdinaryPlan_\d+>/,
+            );
             assert.match(generated, /JSON\.parse<SharedHolder>\(/);
           }
           let exports;
-          const decode = (ptr) => Buffer.from(exports.memory.buffer, ptr,
-            new DataView(exports.memory.buffer).getUint32(ptr - 4, true) & 0x7fffffff).toString("utf16le");
-          exports = new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(wasm)), {
-            env: { abort(m, f, l, c) { throw Error(`${decode(m)} (${decode(f)}:${l}:${c})`); } },
-          }).exports;
+          const decode = (ptr) =>
+            Buffer.from(
+              exports.memory.buffer,
+              ptr,
+              new DataView(exports.memory.buffer).getUint32(ptr - 4, true) &
+                0x7fffffff,
+            ).toString("utf16le");
+          exports = new WebAssembly.Instance(
+            new WebAssembly.Module(fs.readFileSync(wasm)),
+            {
+              env: {
+                abort(m, f, l, c) {
+                  throw Error(`${decode(m)} (${decode(f)}:${l}:${c})`);
+                },
+              },
+            },
+          ).exports;
           assert.equal(exports.returnedAssignment(), 42);
           assert.equal(exports.noLazyConfig(), 7);
           assert.equal(exports.noLazyInherited(), 7);
@@ -106,26 +212,64 @@ try {
           assert.equal(exports.defaultArgument(), 42);
           assert.equal(decode(exports.defaultStringArgument()), "hello");
           checks += 29;
-          for (const [name, expected] of Object.entries({ partial: 7, eagerPartial: 7, full: "7:hello:some text",
-            escaped: "some text", serialized: '{"id":7,"title":"hello","body":"some text"}', reordered: 8,
-            stored: "some text", throughUnchecked: "some text", reused: "8:changed", escapedString: 9,
-            nullableString: 10, nullableNull: 11, aliased: 12, aliasTypesPartial: 22, aliasTypesEager: 22, codecEffects: 113, genericCodecEffects: 128, genericInheritedCodecEffects: 129,
-            inheritedPartial: 14, inheritedFull: "parent:text",
-            decoratedInheritedPartial: 15, genericInherited: "16:parent", genericInheritedPartial: 2, genericInheritedStringPartial: 30, genericInheritedStringEager: 30,
-            genericScalarPartial: 26, genericScalarFull: "26:1.5:hello", genericStringPartial: 27, genericStringEager: 27,
-            scalarPartial: 17, scalarFull: "17:-9:42:1.25:true", namespaced: 18,
-            objectPartial: 19, objectPartialAfterGC: 19, objectEager: 19, objectFull: "19:7:hello:1,2,3",
-            nullableObject: 23, nullableObjectNull: 24,
-            widePartial: 25, wideEager: 25,
-            objectEscaped: '{"id":19,"child":{"value":7,"label":"hello","values":[1,2,3]}}', sharedDefault: "20:0",
-            initializerEffects: 11 })) {
+          for (const [name, expected] of Object.entries({
+            partial: 7,
+            eagerPartial: 7,
+            full: "7:hello:some text",
+            escaped: "some text",
+            serialized: '{"id":7,"title":"hello","body":"some text"}',
+            reordered: 8,
+            stored: "some text",
+            throughUnchecked: "some text",
+            reused: "8:changed",
+            escapedString: 9,
+            nullableString: 10,
+            nullableNull: 11,
+            aliased: 12,
+            aliasTypesPartial: 22,
+            aliasTypesEager: 22,
+            codecEffects: 113,
+            genericCodecEffects: 128,
+            genericInheritedCodecEffects: 129,
+            inheritedPartial: 14,
+            inheritedFull: "parent:text",
+            decoratedInheritedPartial: 15,
+            genericInherited: "16:parent",
+            genericInheritedPartial: 2,
+            genericInheritedStringPartial: 30,
+            genericInheritedStringEager: 30,
+            genericScalarPartial: 26,
+            genericScalarFull: "26:1.5:hello",
+            genericStringPartial: 27,
+            genericStringEager: 27,
+            scalarPartial: 17,
+            scalarFull: "17:-9:42:1.25:true",
+            namespaced: 18,
+            objectPartial: 19,
+            objectPartialAfterGC: 19,
+            objectEager: 19,
+            objectFull: "19:7:hello:1,2,3",
+            nullableObject: 23,
+            nullableObjectNull: 24,
+            widePartial: 25,
+            wideEager: 25,
+            objectEscaped:
+              '{"id":19,"child":{"value":7,"label":"hello","values":[1,2,3]}}',
+            sharedDefault: "20:0",
+            initializerEffects: 11,
+          })) {
             const actual = exports[name]();
-            assert.equal(typeof expected === "string" ? decode(actual) : actual, expected,
-              `${mode}/${runtime}/${strict}/${fast}/${name}`);
+            assert.equal(
+              typeof expected === "string" ? decode(actual) : actual,
+              expected,
+              `${mode}/${runtime}/${strict}/${fast}/${name}`,
+            );
             checks++;
           }
         }
-  console.log(`Ordinary ${enabled ? "specialization" : "eager control"}: ${checks} checks passed`);
+  console.log(
+    `Ordinary ${enabled ? "specialization" : "eager control"}: ${checks} checks passed`,
+  );
 } finally {
   if (fs.existsSync(written)) fs.unlinkSync(written);
   fs.rmSync(dir, { recursive: true, force: true });

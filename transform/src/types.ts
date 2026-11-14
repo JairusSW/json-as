@@ -368,7 +368,8 @@ export class Src {
     const names = new Set<string>();
     for (const statement of this.imports) {
       if (statement.namespaceName) names.add(statement.namespaceName.text);
-      for (const declaration of statement.declarations || []) names.add(declaration.name.text);
+      for (const declaration of statement.declarations || [])
+        names.add(declaration.name.text);
     }
     return [...names];
   }

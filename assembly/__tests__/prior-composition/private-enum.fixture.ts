@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { PublicState } from "./private-model.fixture";
 
+
 @json class Owner {
   value: PublicState = 0;
 }

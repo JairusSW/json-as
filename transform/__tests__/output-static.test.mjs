@@ -19,24 +19,45 @@ try {
   for (const runtime of ["incremental", "minimal", "stub"]) {
     for (const mode of ["NAIVE", "SWAR", "SIMD"]) {
       const output = path.join(dir, `${runtime}-${mode}.wasm`);
-      execFileSync(process.execPath, [
-        path.join(root, "node_modules/assemblyscript/bin/asc.js"),
-        "assembly/__tests__/output-static.fixture.ts",
-        "--transform", "./transform", "--runtime", runtime,
-        "-O3", "--noAssert", "--uncheckedBehavior", "always",
-        ...(mode === "SIMD" ? ["--enable", "simd"] : []),
-        "-o", output,
-      ], {
-        cwd: root,
-        env: { ...process.env, JSON_MODE: mode, JSON_STRICT: "false", JSON_USE_FAST_PATH: "1", JSON_AS_LIBRARY_SOURCE: "assembly/index" },
-        stdio: "pipe",
-      });
+      execFileSync(
+        process.execPath,
+        [
+          path.join(root, "node_modules/assemblyscript/bin/asc.js"),
+          "assembly/__tests__/output-static.fixture.ts",
+          "--transform",
+          "./transform",
+          "--runtime",
+          runtime,
+          "-O3",
+          "--noAssert",
+          "--uncheckedBehavior",
+          "always",
+          ...(mode === "SIMD" ? ["--enable", "simd"] : []),
+          "-o",
+          output,
+        ],
+        {
+          cwd: root,
+          env: {
+            ...process.env,
+            JSON_MODE: mode,
+            JSON_STRICT: "false",
+            JSON_USE_FAST_PATH: "1",
+            JSON_AS_LIBRARY_SOURCE: "assembly/index",
+          },
+          stdio: "pipe",
+        },
+      );
       const module = new WebAssembly.Module(fs.readFileSync(output));
       for (let kind = 0; kind < 13; kind++) {
         // Literal corruption must not contaminate later cases. Guest checks
         // use owned copies, not identically interned expectation literals.
         const guest = new WebAssembly.Instance(module, {
-          env: { abort(_message, _file, line, column) { throw new Error(`guest abort ${line}:${column}`); } },
+          env: {
+            abort(_message, _file, line, column) {
+              throw new Error(`guest abort ${line}:${column}`);
+            },
+          },
         }).exports;
         assert.equal(guest.run(kind), 0, `${runtime}/${mode}/case ${kind}`);
         checks++;

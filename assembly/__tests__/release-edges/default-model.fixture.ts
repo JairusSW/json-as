@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-
 @json export class Base<T = i32> {
   value: T = changetype<T>(0);
 }

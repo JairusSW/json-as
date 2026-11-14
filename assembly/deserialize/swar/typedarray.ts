@@ -87,7 +87,8 @@ function parseLooseFloatFallback<E>(
  */
 @inline
 function exactTypedArray<T>(): bool {
-  return idof<T>() == idof<Int8Array>() ||
+  return (
+    idof<T>() == idof<Int8Array>() ||
     idof<T>() == idof<Uint8Array>() ||
     idof<T>() == idof<Uint8ClampedArray>() ||
     idof<T>() == idof<Int16Array>() ||
@@ -97,7 +98,8 @@ function exactTypedArray<T>(): bool {
     idof<T>() == idof<Int64Array>() ||
     idof<T>() == idof<Uint64Array>() ||
     idof<T>() == idof<Float32Array>() ||
-    idof<T>() == idof<Float64Array>();
+    idof<T>() == idof<Float64Array>()
+  );
 }
 
 export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
@@ -127,9 +129,10 @@ export function deserializeTypedArray_SWAR<T extends ArrayLike<number>>(
   }
 
   const elementSize = sizeof<valueof<T>>();
-  const maxElements = dst || !exactTypedArray<T>()
-    ? countArrayElements(srcStart, srcEnd)
-    : i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
+  const maxElements =
+    dst || !exactTypedArray<T>()
+      ? countArrayElements(srcStart, srcEnd)
+      : i32((<usize>(srcEnd - srcStart)) >> 2) + 1;
   let out = changetype<T>(
     dst || changetype<usize>(instantiate<T>(maxElements)),
   );

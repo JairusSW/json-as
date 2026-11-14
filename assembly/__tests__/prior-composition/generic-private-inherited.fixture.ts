@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { Base } from "./generic-private-model.fixture";
 
+
 @json class Child extends Base<i32> {
   tail: i32 = 9;
 }

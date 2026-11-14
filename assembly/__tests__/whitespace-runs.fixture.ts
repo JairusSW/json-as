@@ -15,6 +15,7 @@ export function selectPrettyScanner(): void {
   prettyScanner = true;
 }
 
+
 @inline function scan(start: usize, end: usize): usize {
   if (numericRowScanner)
     return JSON.Util.__skipNumericRowWhitespace(start, end);

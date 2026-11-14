@@ -7,10 +7,13 @@
 
 import { JSON } from "../index";
 
+
 @json
 class GlobalRecord {
   id: i32 = 0;
   body: string = "";
 }
 
-export const globalRecord = JSON.parse<GlobalRecord>('{"id":42,"body":"hello"}');
+export const globalRecord = JSON.parse<GlobalRecord>(
+  '{"id":42,"body":"hello"}',
+);

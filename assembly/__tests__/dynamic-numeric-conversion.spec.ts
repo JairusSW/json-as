@@ -26,15 +26,25 @@ function check<S>(source: S): void {
 }
 
 describe("Numeric getters match native casts across stored representations", () => {
-  check<i8>(-7); check<u8>(250);
-  check<i16>(-1234); check<u16>(60000);
-  check<i32>(-123456); check<u32>(4000000000);
-  check<i64>(-17592186044417); check<i64>(-7);
-  check<u64>(9007199254740993); check<u64>(7);
-  check<i64>(i64.MIN_VALUE); check<i64>(i64.MAX_VALUE); check<u64>(u64.MAX_VALUE);
-  check<f32>(-7.5); check<f64>(-7.5);
-  check<f32>(-0.0); check<f64>(-0.0);
-  check<bool>(true); check<bool>(false);
+  check<i8>(-7);
+  check<u8>(250);
+  check<i16>(-1234);
+  check<u16>(60000);
+  check<i32>(-123456);
+  check<u32>(4000000000);
+  check<i64>(-17592186044417);
+  check<i64>(-7);
+  check<u64>(9007199254740993);
+  check<u64>(7);
+  check<i64>(i64.MIN_VALUE);
+  check<i64>(i64.MAX_VALUE);
+  check<u64>(u64.MAX_VALUE);
+  check<f32>(-7.5);
+  check<f64>(-7.5);
+  check<f32>(-0.0);
+  check<f64>(-0.0);
+  check<bool>(true);
+  check<bool>(false);
 });
 
 describe("Parsed and container numeric getters convert consistently", () => {

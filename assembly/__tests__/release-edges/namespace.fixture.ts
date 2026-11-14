@@ -8,13 +8,16 @@
 import { JSON } from "../..";
 import { Models } from "./barrel.fixture";
 
+
 @json class Child extends Models.Base {
   tail: i32 = 9;
 }
 
+
 @json class EnumOwner {
   value: Models.State = Models.State.Off;
 }
+
 
 @json class LazyOwner {
   value: Models.Deferred = Models.make();

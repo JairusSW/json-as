@@ -84,7 +84,9 @@ const reads = {
     ],
   },
 };
-const selectedNames = args.includes("--smoke") ? ["github"] : Object.keys(reads);
+const selectedNames = args.includes("--smoke")
+  ? ["github"]
+  : Object.keys(reads);
 const selectedModes = args.includes("--smoke") ? ["SWAR"] : ["SWAR", "SIMD"];
 
 // Null-only fields are represented as nullable strings for this exact capture;
@@ -556,7 +558,8 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
       }
   }
   const candidatePatch = run("git", ["diff", "--binary", "HEAD"]);
-  if (candidatePatch) fs.writeFileSync(path.join(base, "tracked-source.patch"), candidatePatch);
+  if (candidatePatch)
+    fs.writeFileSync(path.join(base, "tracked-source.patch"), candidatePatch);
   write(manifestFile, {
     created: new Date().toISOString(),
     candidate: run("git", ["rev-parse", "HEAD"]).trim(),
@@ -765,10 +768,20 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
         rows.push(row);
       }
   write(path.join(base, "summary.json"), rows);
-  const dirty = manifest.candidateDirty ?? fs.existsSync(path.join(base, "tracked-source.patch"));
-  const power = [...new Set(environment.audits.map((audit) =>
-    audit.power.includes("AC Power") ? "AC power" : audit.power.includes("Battery Power") ? "battery" : "unknown power",
-  ))].join(" and ");
+  const dirty =
+    manifest.candidateDirty ??
+    fs.existsSync(path.join(base, "tracked-source.patch"));
+  const power = [
+    ...new Set(
+      environment.audits.map((audit) =>
+        audit.power.includes("AC Power")
+          ? "AC power"
+          : audit.power.includes("Battery Power")
+            ? "battery"
+            : "unknown power",
+      ),
+    ),
+  ].join(" and ");
   const lines = [
     "# Strategic laziness: captured API reads",
     "",

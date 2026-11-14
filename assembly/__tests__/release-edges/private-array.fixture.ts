@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { DeferredArray, array } from "./private-model.fixture";
 
+
 @json class Owner {
   value: DeferredArray = array();
 }

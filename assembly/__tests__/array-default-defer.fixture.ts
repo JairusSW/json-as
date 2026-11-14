@@ -7,39 +7,66 @@
 
 import { JSON } from "../index";
 
+
 @json
 class Pure {
+
   @optional n: i32 = 7;
+
+
   @optional values: i32[] = [];
+
+
   @optional others: string[] = [];
+
+
   @optional text: string = "default";
+
+
   @optional tail: i32 = 0;
 }
+
 
 @json
 class Internal extends Pure {
   private hidden: i32 = 19;
-  read(): i32 { return this.hidden; }
+  read(): i32 {
+    return this.hidden;
+  }
 }
 
 let calls: i32 = 0;
 class Defaults {
-  static get next(): i32 { return ++calls; }
+  static get next(): i32 {
+    return ++calls;
+  }
 }
+
+
 @json
 class Effect {
+
   @optional first: i32 = Defaults.next;
+
+
   @optional tail: i32 = 0;
 }
 
 const shared = new Pure();
+
+
 @json
 class Shared {
+
   @optional child: Pure = shared;
+
+
   @optional tail: i32 = 0;
 }
 
 let readerState: i32 = 0;
+
+
 @json
 class Manual {
   n: i32 = 0;
@@ -48,16 +75,25 @@ class Manual {
     return 0;
   }
 }
+
+
 @json
 class ObservedDefault {
+
   @optional saved: i32 = readerState;
+
+
   @optional child: Manual | null = null;
 }
 
 namespace Model {
+
   @json
   export class Named {
+
     @optional value: i32 = 13;
+
+
     @optional tail: i32 = 0;
   }
 }
@@ -77,7 +113,7 @@ export function allocationCase(): i32 {
 
 export function verify(): i32 {
   const documents = [
-    '[{}]',
+    "[{}]",
     '[{"tail":9}]',
     '[{"tail":9,"n":2}]',
     '[{"tail":9,"text":"default","n":2}]',
@@ -94,7 +130,9 @@ export function verify(): i32 {
     assert(row === old);
     assert(row.n == (i < 2 ? 7 : 2));
     assert(row.tail == (i == 0 ? 0 : 9));
-    assert(row.text == "default" && row.values.length == 0 && row.others.length == 0);
+    assert(
+      row.text == "default" && row.values.length == 0 && row.others.length == 0,
+    );
     assert(values.length == 2 && values[0] == 1);
     assert(JSON.stringify(fresh) == JSON.stringify(out));
   }
@@ -111,15 +149,22 @@ export function verify(): i32 {
   calls = 0;
   const effect = JSON.parse<Effect[]>('[{"tail":9}]', new Array<Effect>());
   assert(calls == 1 && effect[0].first == 1);
-  const internal = JSON.parse<Internal[]>('[{"tail":9}]', new Array<Internal>());
+  const internal = JSON.parse<Internal[]>(
+    '[{"tail":9}]',
+    new Array<Internal>(),
+  );
   assert(internal[0].read() == 19 && internal[0].n == 7);
   const sharing = JSON.parse<Shared[]>('[{"tail":9}]', new Array<Shared>());
   assert(sharing[0].child === shared);
-  const named = JSON.parse<Model.Named[]>('[{"tail":9}]', new Array<Model.Named>());
+  const named = JSON.parse<Model.Named[]>(
+    '[{"tail":9}]',
+    new Array<Model.Named>(),
+  );
   assert(named[0].value == 13);
   readerState = 0;
   const observed = JSON.parse<ObservedDefault[]>(
-    '[{"child":{"n":7}}]', new Array<ObservedDefault>(),
+    '[{"child":{"n":7}}]',
+    new Array<ObservedDefault>(),
   );
   assert(readerState == 1 && observed[0].saved == 0);
   assert(observed[0].child!.n == 7);

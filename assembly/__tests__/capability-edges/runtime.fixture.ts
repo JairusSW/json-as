@@ -7,6 +7,7 @@
 
 import { JSON } from "../..";
 
+
 @json class Generic<T> {
 
   @optional value!: T;
@@ -22,6 +23,7 @@ class Bytes extends Uint8Array {
   }
 }
 
+
 @json class ByteOwner {
   value: Bytes = new Bytes(0);
 }
@@ -33,6 +35,7 @@ class Values extends Array<JSON.Value> {
     changetype<Array<JSON.Value>>(this)[index] = JSON.Value.from<i32>(99);
   }
 }
+
 
 @json class Child {
   n: i32 = 7;

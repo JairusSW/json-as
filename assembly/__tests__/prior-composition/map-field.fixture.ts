@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 class Numbers extends Map<string, i32> {}
 
+
 @json class Owner {
   value: Numbers = new Numbers();
 }

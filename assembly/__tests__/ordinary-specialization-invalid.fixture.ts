@@ -7,6 +7,7 @@
 
 import { JSON } from "../index";
 
+
 @json
 class Record {
   id: i32 = 0;
@@ -29,6 +30,7 @@ export function makeInput(which: i32): string {
   return '{"id":7,"ignored":"\u0122"}';
 }
 
+
 @json
 class Nullable {
   id: i32 = 0;
@@ -39,6 +41,7 @@ export function readNullable(input: string): i32 {
   const value = JSON.parse<Nullable>(input);
   return value.id;
 }
+
 
 @json
 class Numeric {
@@ -55,16 +58,25 @@ export function readNumeric(input: string): i32 {
 }
 
 export function makeNumericInput(which: i32): string {
-  if (which == 0) return '{"id":7,"signed":-2,"unsigned":3,"decimal":1.5e2,"flag":true}';
-  if (which == 1) return '{"id":7,"signed":1.5,"unsigned":3,"decimal":1.5,"flag":true}';
-  if (which == 2) return '{"id":7,"signed":1,"unsigned":-2,"decimal":1.5,"flag":true}';
-  if (which == 3) return '{"id":7,"signed":1e2,"unsigned":3,"decimal":1.5,"flag":true}';
-  if (which == 4) return '{"id":7,"signed":1,"unsigned":3,"decimal":{},"flag":true}';
-  if (which == 5) return '{"id":7,"signed":1,"unsigned":3,"decimal":1.5,"flag":null}';
-  if (which == 6) return '{"id":7,"signed":01,"unsigned":3,"decimal":1.5,"flag":true}';
-  if (which == 7) return '{"id":7,"signed":1,"unsigned":3,"decimal":1e,"flag":true}';
+  if (which == 0)
+    return '{"id":7,"signed":-2,"unsigned":3,"decimal":1.5e2,"flag":true}';
+  if (which == 1)
+    return '{"id":7,"signed":1.5,"unsigned":3,"decimal":1.5,"flag":true}';
+  if (which == 2)
+    return '{"id":7,"signed":1,"unsigned":-2,"decimal":1.5,"flag":true}';
+  if (which == 3)
+    return '{"id":7,"signed":1e2,"unsigned":3,"decimal":1.5,"flag":true}';
+  if (which == 4)
+    return '{"id":7,"signed":1,"unsigned":3,"decimal":{},"flag":true}';
+  if (which == 5)
+    return '{"id":7,"signed":1,"unsigned":3,"decimal":1.5,"flag":null}';
+  if (which == 6)
+    return '{"id":7,"signed":01,"unsigned":3,"decimal":1.5,"flag":true}';
+  if (which == 7)
+    return '{"id":7,"signed":1,"unsigned":3,"decimal":1e,"flag":true}';
   return '{"id":7,"signed":1,"unsigned":-0,"decimal":1.5,"flag":true}';
 }
+
 
 @json
 class Nested {
@@ -72,6 +84,7 @@ class Nested {
   label: string | null = null;
   values: Array<i32> = [];
 }
+
 
 @json
 class Parent {
@@ -85,15 +98,23 @@ export function readNested(input: string): i32 {
 }
 
 export function makeNestedInput(which: i32): string {
-  if (which == 0) return '{"id":7,"child":{"count":1,"label":"ok","values":[1,2]}}';
-  if (which == 1) return '{"id":7,"child":{"count":"wrong","label":"ok","values":[1]}}';
-  if (which == 2) return '{"id":7,"child":{"count":1,"label":"ok","values":[1,"wrong"]}}';
-  if (which == 3) return '{"id":7,"child":{"count":1,"label":"bad\\q","values":[]}}';
-  if (which == 4) return '{"id":7,"child":{"label":null,"values":[],"count":1}}';
-  if (which == 5) return '{"id":7,"child":{"count":1,"label":null,"values":[],"extra":2}}';
-  if (which == 6) return '{"id":7,"child":{"count":1,"label":null,"values":[1,]}}';
+  if (which == 0)
+    return '{"id":7,"child":{"count":1,"label":"ok","values":[1,2]}}';
+  if (which == 1)
+    return '{"id":7,"child":{"count":"wrong","label":"ok","values":[1]}}';
+  if (which == 2)
+    return '{"id":7,"child":{"count":1,"label":"ok","values":[1,"wrong"]}}';
+  if (which == 3)
+    return '{"id":7,"child":{"count":1,"label":"bad\\q","values":[]}}';
+  if (which == 4)
+    return '{"id":7,"child":{"label":null,"values":[],"count":1}}';
+  if (which == 5)
+    return '{"id":7,"child":{"count":1,"label":null,"values":[],"extra":2}}';
+  if (which == 6)
+    return '{"id":7,"child":{"count":1,"label":null,"values":[1,]}}';
   return '{"id":7,"child":{"count":1,"label":"\x01","values":[]}}';
 }
+
 
 @json
 class Generic<T> {
@@ -128,22 +149,49 @@ type ReviewCount = i32;
 type ReviewFlag = boolean;
 namespace FloatAliasScope {
   type f32 = i32;
-  @json class AliasRecord { id: i32 = 0; value: ReviewAmount = 0; }
-  export function read(input: string): i32 { return JSON.parse<AliasRecord>(input).id; }
+
+
+  @json class AliasRecord {
+    id: i32 = 0;
+    value: ReviewAmount = 0;
+  }
+  export function read(input: string): i32 {
+    return JSON.parse<AliasRecord>(input).id;
+  }
 }
 namespace IntegerAliasScope {
   type i32 = u32;
-  @json class AliasRecord { id: u32 = 0; value: ReviewCount = 0; }
-  export function read(input: string): u32 { return JSON.parse<AliasRecord>(input).id; }
+
+
+  @json class AliasRecord {
+    id: u32 = 0;
+    value: ReviewCount = 0;
+  }
+  export function read(input: string): u32 {
+    return JSON.parse<AliasRecord>(input).id;
+  }
 }
 namespace BooleanAliasScope {
   type boolean = i32;
-  @json class AliasRecord { id: i32 = 0; value: ReviewFlag = false; }
-  export function read(input: string): i32 { return JSON.parse<AliasRecord>(input).id; }
+
+
+  @json class AliasRecord {
+    id: i32 = 0;
+    value: ReviewFlag = false;
+  }
+  export function read(input: string): i32 {
+    return JSON.parse<AliasRecord>(input).id;
+  }
 }
-export function readAliasFloat(input: string): i32 { return FloatAliasScope.read(input); }
-export function readAliasInteger(input: string): u32 { return IntegerAliasScope.read(input); }
-export function readAliasBoolean(input: string): i32 { return BooleanAliasScope.read(input); }
+export function readAliasFloat(input: string): i32 {
+  return FloatAliasScope.read(input);
+}
+export function readAliasInteger(input: string): u32 {
+  return IntegerAliasScope.read(input);
+}
+export function readAliasBoolean(input: string): i32 {
+  return BooleanAliasScope.read(input);
+}
 export function makeAliasInput(which: i32): string {
   if (which == 0 || which == 3 || which == 6) return '{"id":7,"value":"wrong"}';
   if (which == 1) return '{"id":7,"value":1.5}';

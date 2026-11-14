@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import * as model from "./base.fixture";
 
+
 @json class Child extends model.Base {
   tail: i32 = 9;
 }

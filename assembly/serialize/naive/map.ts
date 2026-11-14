@@ -43,6 +43,7 @@ import { serializeRaw } from "./raw";
   JSON.__serialize<V>(value);
 }
 
+
 @inline
 function serializeMapKey<K>(key: K): void {
   if (isString<K>()) {
@@ -61,8 +62,10 @@ function serializeCallbackMap<T extends Map<any, any>>(src: T): void {
   let wrote = false;
   for (let i = 0; i < keys.length; i++) {
     const key = unchecked(keys[i]);
-    if (!changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeHas(key)) continue;
-    const value = changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeGet(key);
+    if (!changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeHas(key))
+      continue;
+    const value =
+      changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeGet(key);
     if (wrote) {
       store<u16>(bs.offset, COMMA);
       bs.offset += 2;
@@ -78,7 +81,8 @@ function serializeCallbackMap<T extends Map<any, any>>(src: T): void {
 }
 
 export function serializeMap<T extends Map<any, any>>(src: T): void {
-  const srcSize = changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeSize();
+  const srcSize =
+    changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeSize();
 
   if (srcSize == 0) {
     bs.proposeSize(4);

@@ -9,6 +9,7 @@ import { JSON } from "../..";
 import { Base, reset, count } from "./base.fixture";
 const INITIAL_COUNT: i32 = 99;
 
+
 @json class Child extends Base<i32> {
   tail: i32 = 9;
 }

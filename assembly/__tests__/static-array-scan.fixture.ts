@@ -7,11 +7,13 @@
 
 import { JSON } from "../index";
 
+
 @json class Row {
   n: i32 = 0;
   numbers: i64[] = [];
   labels: string[] = [];
 }
+
 
 @json class Root {
   rows: Row[] = [];

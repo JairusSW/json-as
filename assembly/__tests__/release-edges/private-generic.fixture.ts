@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { DeferredGeneric, generic } from "./private-model.fixture";
 
+
 @json class Owner {
   value: DeferredGeneric<i32> = generic();
 }

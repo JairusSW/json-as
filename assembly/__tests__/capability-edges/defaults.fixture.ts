@@ -12,12 +12,15 @@ import { JSON } from "../..";
 
   @optional value: T = <T>7;
 
+
   @optional other: i32 = 8;
 }
+
 
 @json class Parent {
   child: Child<i32> | null = null;
 }
+
 
 @json class Initialized {
   child: Child<i32> = new Child<i32>();

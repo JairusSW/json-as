@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { DeferredEnum, en } from "./private-model.fixture";
 
+
 @json class Owner {
   value: DeferredEnum = en();
 }

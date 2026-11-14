@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 type Item = JSON.Lazy<i32>;
 
+
 @json class Row<Item> {
   value!: Item;
 }

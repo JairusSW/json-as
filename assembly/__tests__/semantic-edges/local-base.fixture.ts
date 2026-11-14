@@ -10,6 +10,7 @@ class Base {
   value: i32 = 7;
 }
 
+
 @json class Child extends Base {
   tail: i32 = 9;
 }

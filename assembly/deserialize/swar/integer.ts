@@ -171,13 +171,9 @@ export function deserializeIntegerField_SWAR<T extends number>(
   }
   // Check the terminator first so longer runs keep the general scan.
   // The complete ten-code-unit window is bounded before any wide load.
-  if (
-    !isDefined(ASC_RTRACE) &&
-    srcStart <= srcEnd &&
-    srcEnd - srcStart >= 20
-  ) {
+  if (!isDefined(ASC_RTRACE) && srcStart <= srcEnd && srcEnd - srcStart >= 20) {
     const tail = load<u32>(srcStart, 16);
-    const last = <u32><u16>tail - ASCII_ZERO;
+    const last = <u32>(<u16>tail) - ASCII_ZERO;
     const next = <u32>(tail >> 16) - ASCII_ZERO;
     if (last <= 9 && next > 9) {
       const prefix = parse8Digits_PairMul(

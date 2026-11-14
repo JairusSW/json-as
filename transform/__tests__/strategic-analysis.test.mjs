@@ -43,7 +43,9 @@ function analyze(body) {
   );
   const analysis = new StrategicAccessAnalysis(
     (call, shadowed) =>
-      call.expression.property?.text === "parse" && !shadowed("JSON") ? {} : null,
+      call.expression.property?.text === "parse" && !shadowed("JSON")
+        ? {}
+        : null,
     undefined,
     true,
   );
@@ -55,28 +57,55 @@ const probability = (site, field) =>
   accessProbability(site.origin);
 {
   const parser = new Parser();
-  const helpers = ['function h0(value: Vec3): i32 { return value.x; }'];
+  const helpers = ["function h0(value: Vec3): i32 { return value.x; }"];
   for (let i = 1; i <= 5; i++)
-    helpers.push(`function h${i}(value: Vec3): i32 { return ${Array(8).fill(`h${i - 1}(value)`).join(' + ')}; }`);
-  parser.parseFile(`${helpers.join('\n')} function run(): i32 { const value = JSON.parse<Vec3>("{}"); return h5(value); }`, "helpers.ts", true);
-  const analysis = new StrategicAccessAnalysis((call) => call.expression.property?.text === "parse" ? {} : null, undefined, true);
+    helpers.push(
+      `function h${i}(value: Vec3): i32 { return ${Array(8)
+        .fill(`h${i - 1}(value)`)
+        .join(" + ")}; }`,
+    );
+  parser.parseFile(
+    `${helpers.join("\n")} function run(): i32 { const value = JSON.parse<Vec3>("{}"); return h5(value); }`,
+    "helpers.ts",
+    true,
+  );
+  const analysis = new StrategicAccessAnalysis(
+    (call) => (call.expression.property?.text === "parse" ? {} : null),
+    undefined,
+    true,
+  );
   analysis.visit(parser.sources[0]);
   assert.equal(analysis.sites[0].escaped, true);
   assert.ok((analysis.sites[0].accesses.get("x") || []).length <= 1024);
 }
-const manyGuards = Array.from({ length: 14 }, () => 'if (a) { if (b) return; }').join('\n');
-const boundedSites = analyze(`const v = JSON.parse<Vec3>("{}"); ${manyGuards} v.x;`);
+const manyGuards = Array.from(
+  { length: 14 },
+  () => "if (a) { if (b) return; }",
+).join("\n");
+const boundedSites = analyze(
+  `const v = JSON.parse<Vec3>("{}"); ${manyGuards} v.x;`,
+);
 assert.equal(boundedSites[0].escaped, true);
 {
   const parser = new Parser();
-  parser.parseFile(`function costly(a: bool, b: bool): void { const v = JSON.parse<Vec3>("{}"); ${manyGuards} v.x; } function simple(): void { const v = JSON.parse<Vec3>("{}"); v.x; }`, "bounded.ts", true);
-  const analysis = new StrategicAccessAnalysis((call) => call.expression.property?.text === "parse" ? {} : null, undefined, true);
+  parser.parseFile(
+    `function costly(a: bool, b: bool): void { const v = JSON.parse<Vec3>("{}"); ${manyGuards} v.x; } function simple(): void { const v = JSON.parse<Vec3>("{}"); v.x; }`,
+    "bounded.ts",
+    true,
+  );
+  const analysis = new StrategicAccessAnalysis(
+    (call) => (call.expression.property?.text === "parse" ? {} : null),
+    undefined,
+    true,
+  );
   analysis.visit(parser.sources[0]);
   assert.equal(analysis.sites[0].escaped, true);
   assert.equal(analysis.sites[1].escaped, false);
   assert.equal(probability(analysis.sites[1], "x"), 1);
 }
-let traversalSites = analyze('const v = JSON.parse<Vec3>("{}"); `${v.x}:${v.y}`;');
+let traversalSites = analyze(
+  'const v = JSON.parse<Vec3>("{}"); `${v.x}:${v.y}`;',
+);
 assert.equal(probability(traversalSites[0], "x"), 1);
 assert.equal(probability(traversalSites[0], "y"), 1);
 traversalSites = analyze('const v = JSON.parse<Vec3>("{}"); v.tag`value`;');
@@ -90,12 +119,18 @@ assert.equal(traversalSites[0].escaped, false);
 assert.equal(probability(traversalSites[0], "x"), 1);
 traversalSites = analyze('let v = other; return v = JSON.parse<Vec3>("{}");');
 assert.equal(traversalSites[0].escaped, true);
-traversalSites = analyze('let v = other; const alias = (v = JSON.parse<Vec3>("{}")); alias.x;');
+traversalSites = analyze(
+  'let v = other; const alias = (v = JSON.parse<Vec3>("{}")); alias.x;',
+);
 assert.equal(traversalSites[0].escaped, true);
-assert.equal(analyze('if (a) { var JSON = local(); } JSON.parse<Vec3>("{}");').length, 0);
+assert.equal(
+  analyze('if (a) { var JSON = local(); } JSON.parse<Vec3>("{}");').length,
+  0,
+);
 for (const conservative of [false, true]) {
   const parser = new Parser();
-  parser.parseFile(`
+  parser.parseFile(
+    `
     function read(value: Vec3): void { value.x; }
     function alternate(value: Vec3): void { value.y; }
     function probe(): void {
@@ -115,9 +150,15 @@ for (const conservative of [false, true]) {
       if (true) { var JSON = local(); }
       JSON.parse<Vec3>("{}");
     }
-  `, "strategic-hoisted.ts", true);
+  `,
+    "strategic-hoisted.ts",
+    true,
+  );
   const analysis = new StrategicAccessAnalysis(
-    (call, shadowed) => call.expression.property?.text === "parse" && !shadowed("JSON") ? {} : null,
+    (call, shadowed) =>
+      call.expression.property?.text === "parse" && !shadowed("JSON")
+        ? {}
+        : null,
     undefined,
     conservative,
   );
@@ -226,39 +267,71 @@ sites = analyze(`const v = JSON.parse<Vec3>("{}"); const list = [v];`);
 assert.equal(sites[0].escaped, true);
 sites = analyze(`const v = JSON.parse<Vec3>("{}"); const box = { value: v };`);
 assert.equal(sites[0].escaped, true);
-sites = analyze(`const v = JSON.parse<Vec3>("{}"); const later = (): void => { v.x; };`);
+sites = analyze(
+  `const v = JSON.parse<Vec3>("{}"); const later = (): void => { v.x; };`,
+);
 assert.equal(sites[0].escaped, true);
-sites = analyze(`const v = JSON.parse<Vec3>("{}"); const address = changetype<usize>(v);`);
+sites = analyze(
+  `const v = JSON.parse<Vec3>("{}"); const address = changetype<usize>(v);`,
+);
 assert.equal(sites[0].escaped, true);
-sites = analyze(`const v = JSON.parse<Vec3>("{}"); const alias = unchecked(v); alias.x;`);
+sites = analyze(
+  `const v = JSON.parse<Vec3>("{}"); const alias = unchecked(v); alias.x;`,
+);
 assert.equal(sites[0].escaped, true);
 sites = analyze(`const v = JSON.parse<Vec3>("{}"); isManaged(v);`);
 assert.equal(sites[0].escaped, true);
-sites = analyze(`const v = JSON.parse<Vec3>("{}"); const choice = a ? v : other; choice.x;`);
+sites = analyze(
+  `const v = JSON.parse<Vec3>("{}"); const choice = a ? v : other; choice.x;`,
+);
 assert.equal(sites[0].escaped, true);
 sites = analyze(`const v = JSON.parse<Vec3>("{}"); const alias = v; alias.x;`);
 assert.equal(sites[0].escaped, false);
-sites = analyze(`const first = JSON.parse<Vec3>("{}"); const second = JSON.parse<Vec3>("{}"); let value = first; if (a) value = second; value.x;`);
+sites = analyze(
+  `const first = JSON.parse<Vec3>("{}"); const second = JSON.parse<Vec3>("{}"); let value = first; if (a) value = second; value.x;`,
+);
 assert.equal(sites[0].escaped, true);
 assert.equal(sites[1].escaped, true);
-sites = analyze(`let value = JSON.parse<Vec3>("{}"); if (a) value = JSON.parse<Vec3>("{}"); value.x;`);
+sites = analyze(
+  `let value = JSON.parse<Vec3>("{}"); if (a) value = JSON.parse<Vec3>("{}"); value.x;`,
+);
 assert.equal(sites[0].escaped, true);
 assert.equal(sites[1].escaped, true);
-sites = analyze(`let value = other; for (let i = 0; i < 3; i++) { value.x; value = JSON.parse<Vec3>("{}"); }`);
+sites = analyze(
+  `let value = other; for (let i = 0; i < 3; i++) { value.x; value = JSON.parse<Vec3>("{}"); }`,
+);
 assert.equal(sites[0].escaped, true);
-sites = analyze(`function read(value: Vec3, n: i32 = value.x): i32 { return n; } const value = JSON.parse<Vec3>("{}"); read(value);`);
+sites = analyze(
+  `function read(value: Vec3, n: i32 = value.x): i32 { return n; } const value = JSON.parse<Vec3>("{}"); read(value);`,
+);
 assert.ok(sites[0].escaped || sites[0].accesses.has("x"));
 {
   const parser = new Parser();
-  parser.parseFile(`function read(): i32 { return value.x; } const value = JSON.parse<Vec3>("{}");`, "global.ts", true);
-  const analysis = new StrategicAccessAnalysis((call) => call.expression.property?.text === "parse" ? {} : null, undefined, true);
+  parser.parseFile(
+    `function read(): i32 { return value.x; } const value = JSON.parse<Vec3>("{}");`,
+    "global.ts",
+    true,
+  );
+  const analysis = new StrategicAccessAnalysis(
+    (call) => (call.expression.property?.text === "parse" ? {} : null),
+    undefined,
+    true,
+  );
   analysis.visit(parser.sources[0]);
   assert.equal(analysis.sites[0].escaped, true);
 }
 {
   const parser = new Parser();
-  parser.parseFile(`{ const value = JSON.parse<Vec3>("{}"); }`, "global-block.ts", true);
-  const analysis = new StrategicAccessAnalysis((call) => call.expression.property?.text === "parse" ? {} : null, undefined, true);
+  parser.parseFile(
+    `{ const value = JSON.parse<Vec3>("{}"); }`,
+    "global-block.ts",
+    true,
+  );
+  const analysis = new StrategicAccessAnalysis(
+    (call) => (call.expression.property?.text === "parse" ? {} : null),
+    undefined,
+    true,
+  );
   analysis.visit(parser.sources[0]);
   assert.equal(analysis.sites[0].escaped, true);
 }

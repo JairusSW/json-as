@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { Middle } from "./ancestor-model.fixture";
 
+
 @json class Leaf extends Middle {
   leaf: i32 = 4;
 }

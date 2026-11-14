@@ -14,8 +14,10 @@ class State {
   @alias("return srcStart;")
   value: i32 = 7;
 
+
   @alias("return srcStart + 2;")
   other: i32 = 8;
+
 
   @alias("return srcStartX;")
   control: i32 = 0;

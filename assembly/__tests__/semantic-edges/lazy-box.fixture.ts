@@ -7,9 +7,11 @@
 
 import { JSON } from "../..";
 
+
 @json class Holder {
   value!: JSON.Lazy<JSON.Box<i32>>;
 }
+
 
 @json class Generic<T> {
   value!: JSON.Lazy<T>;

@@ -14,6 +14,7 @@ class Shifted extends Map<string, u64> {
   }
 }
 
+
 @json class Custom extends Map<string, u64> {
 
   @serializer("object") encode(_self: Custom): string {

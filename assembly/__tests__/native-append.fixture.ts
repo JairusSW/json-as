@@ -25,6 +25,7 @@ class Rows extends Array<Row> {
     return super.push(value);
   }
 
+
   @operator("[]=")
   assign(index: i32, value: Row): void {
     setters++;
@@ -39,12 +40,14 @@ class Labels extends Array<string | null> {
     return super.push("changed");
   }
 
+
   @operator("[]=")
   assign(index: i32, value: string | null): void {
     setters++;
     changetype<Array<string | null>>(this)[index] = "changed";
   }
 }
+
 
 @json
 class Owner {
@@ -152,7 +155,8 @@ export function managedStorage(): i32 {
   const rows = newNativeArray<Array<Row | null>>(16);
   __pin(changetype<usize>(rows));
   for (let i = 0; i < 65; i++) {
-    const row = new Row(); row.n = i;
+    const row = new Row();
+    row.n = i;
     __pin(changetype<usize>(row));
     appendNativeArray(rows, row);
     __unpin(changetype<usize>(row));

@@ -13,9 +13,11 @@ import {
   makeGeneric,
 } from "./review-alias-model.fixture";
 
+
 @json class LazyOwner {
   child: PublicLazy = make();
 }
+
 
 @json class GenericOwner {
   child: PublicAlias = makeGeneric();

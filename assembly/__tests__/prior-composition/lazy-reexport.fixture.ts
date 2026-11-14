@@ -8,6 +8,7 @@
 import { JSON } from "../..";
 import { PublicLazy, calls, make } from "./lazy-barrel.fixture";
 
+
 @json class Owner {
   value: PublicLazy = make();
 }

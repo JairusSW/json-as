@@ -13,10 +13,12 @@ namespace Model {
     On,
   }
 
+
   @json class Item {
     n: i32 = 3;
   }
   type ObjectAlias = Item;
+
 
   @json export class Base {
     value: Numbers = [1, 2];
@@ -24,6 +26,7 @@ namespace Model {
     item: ObjectAlias = new Item();
   }
 }
+
 
 @json class Child extends Model.Base {
   tail: i32 = 9;

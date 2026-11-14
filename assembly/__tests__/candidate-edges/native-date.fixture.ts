@@ -8,6 +8,7 @@
 import { JSON } from "../../index";
 import { Date as ModelDate } from "./date.fixture";
 
+
 @json
 class Both {
   native: Date = new Date(0);

@@ -13,7 +13,9 @@ class SeededSizedMap extends Map<string, i32> {
     super();
     super.set("seed", 1);
   }
-  get size(): i32 { return 0; }
+  get size(): i32 {
+    return 0;
+  }
 }
 
 describe("Map subclasses clear seeded storage inside arrays", () => {

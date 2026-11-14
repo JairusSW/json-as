@@ -13,10 +13,13 @@ export function parseDiagnosticsFlag(value) {
         case undefined:
         case "":
         case "true":
-        case "1": return true;
+        case "1":
+            return true;
         case "false":
-        case "0": return false;
-        default: throw new Error("JSON_DIAGNOSTICS must be true or false");
+        case "0":
+            return false;
+        default:
+            throw new Error("JSON_DIAGNOSTICS must be true or false");
     }
 }
 export function collectOriginalMethods(sources) {
@@ -33,10 +36,10 @@ export function collectOriginalMethods(sources) {
     return methods;
 }
 export function diagnosticsRuntimeRoot(sources) {
-    const source = sources.find(source => source.internalPath.endsWith("assembly/index") &&
-        source.statements.some(statement => statement.kind === NodeKind.NamespaceDeclaration &&
+    const source = sources.find((source) => source.internalPath.endsWith("assembly/index") &&
+        source.statements.some((statement) => statement.kind === NodeKind.NamespaceDeclaration &&
             statement.name.text === "JSON" &&
-            ["Value", "Obj", "Arr", "Raw"].every(name => statement.members.some(member => member.kind === NodeKind.ClassDeclaration &&
+            ["Value", "Obj", "Arr", "Raw"].every((name) => statement.members.some((member) => member.kind === NodeKind.ClassDeclaration &&
                 member.name?.text === name))));
     return source?.internalPath.slice(0, -"assembly/index".length);
 }
@@ -65,10 +68,14 @@ function trap(range) {
 }
 export function lowerDiagnostics(source, originalMethods, runtimeRoot) {
     const path = runtimeRoot !== undefined && source.internalPath.startsWith(runtimeRoot)
-        ? source.internalPath.slice(runtimeRoot.length) : "";
-    const library = path === "assembly/index" || path.startsWith("assembly/deserialize/") ||
-        path.startsWith("assembly/serialize/") || path.startsWith("assembly/util/") ||
-        path.startsWith("assembly/custom/") || path.startsWith("lib/");
+        ? source.internalPath.slice(runtimeRoot.length)
+        : "";
+    const library = path === "assembly/index" ||
+        path.startsWith("assembly/deserialize/") ||
+        path.startsWith("assembly/serialize/") ||
+        path.startsWith("assembly/util/") ||
+        path.startsWith("assembly/custom/") ||
+        path.startsWith("lib/");
     class Lower extends Visitor {
         generated = false;
         returnType = null;
@@ -78,8 +85,9 @@ export function lowerDiagnostics(source, originalMethods, runtimeRoot) {
             return Node.createCallExpression(Node.createPropertyAccessExpression(Node.createIdentifierExpression("JSON", range), Node.createIdentifierExpression("__trap", range), range), this.returnType ? [this.returnType] : null, [], range);
         }
         visitMethodDeclaration(node) {
-            if (!library && (originalMethods.has(node) ||
-                !/^__(?:DESERIALIZE|SERIALIZE)/.test(node.name.text)))
+            if (!library &&
+                (originalMethods.has(node) ||
+                    !/^__(?:DESERIALIZE|SERIALIZE)/.test(node.name.text)))
                 return;
             const previous = this.generated;
             const previousReturn = this.returnType;
@@ -105,7 +113,8 @@ export function lowerDiagnostics(source, originalMethods, runtimeRoot) {
                 replace(parent, node, Node.createReturnStatement(this.trapCall(node.range), node.range));
         }
         visitCallExpression(node, parent) {
-            if ((library || this.generated) && node.expression.kind === NodeKind.Identifier &&
+            if ((library || this.generated) &&
+                node.expression.kind === NodeKind.Identifier &&
                 node.expression.text === "abort") {
                 replace(parent, node, this.trapCall(node.range));
             }

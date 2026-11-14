@@ -9,6 +9,7 @@ import { JSON } from "../..";
 type T = i32;
 type Identity<U> = U;
 
+
 @json class Holder<T> {
   value: Identity<T>;
   constructor(value: T) {

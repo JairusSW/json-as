@@ -55,7 +55,11 @@ export function allocateCopiedString(source: usize, size: usize): usize {
 // Library-owned pointer publication. Other runtimes retain their own barrier;
 // the transform can inline the installed incremental implementation here.
 @inline
-export function linkObject(parent: usize, child: usize, expectMultiple: bool = false): void {
+export function linkObject(
+  parent: usize,
+  child: usize,
+  expectMultiple: bool = false,
+): void {
   __link(parent, child, expectMultiple);
 }
 

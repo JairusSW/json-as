@@ -7,9 +7,11 @@
 
 import { JSON as Json } from "json-as";
 
+
 @json class RawOwner {
   value: Json.Raw = Json.Raw.from("99");
 }
+
 
 @json class ValueOwner {
   value: Json.Value = Json.Value.from<i32>(99);

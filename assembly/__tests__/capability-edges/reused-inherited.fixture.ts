@@ -7,13 +7,16 @@
 
 import { JSON } from "../..";
 
+
 @json class Base {
   anchor: i32 = 1;
 }
 
+
 @json class State extends Base {
 
   @optional value: i32 = 7;
+
 
   @optional other: i32 = 8;
 }
