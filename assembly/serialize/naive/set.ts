@@ -42,7 +42,12 @@ function serializePrimitiveSet<T extends Set<any>>(src: T): void {
       store<u16>(bs.offset, COMMA);
       bs.offset += 2;
     }
-    if (isBoolean<indexof<T>>()) serializeBoolUnsafe(<bool>value);
+    // Strings cannot invoke user code. The managed src parameter roots its
+    // entries and remaining keys while string escaping allocates.
+    if (isString<indexof<T>>()) {
+      if (isNullable<indexof<T>>()) JSON.__serialize<indexof<T>>(value);
+      else serializeString(value as string);
+    } else if (isBoolean<indexof<T>>()) serializeBoolUnsafe(<bool>value);
     else if (isInteger<indexof<T>>()) serializeIntegerUnsafe<indexof<T>>(value);
     else if (sizeof<indexof<T>>() == 4) serializeFloat32Unsafe(<f32>value);
     else serializeFloat64Unsafe(<f64>value);
@@ -82,7 +87,8 @@ export function serializeSet<T extends Set<any>>(src: T): void {
   if (
     isBoolean<indexof<T>>() ||
     isInteger<indexof<T>>() ||
-    isFloat<indexof<T>>()
+    isFloat<indexof<T>>() ||
+    isString<indexof<T>>()
   ) {
     serializePrimitiveSet<T>(src);
     return;
