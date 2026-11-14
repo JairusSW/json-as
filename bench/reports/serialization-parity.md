@@ -7,7 +7,7 @@ about 1.48 MB versus native's 0.30 MB. Historical captures remain available,
 but their Lottie throughput and parity ratios are superseded. The runner now
 discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
-is pending; the isolated AS-before/after screens are unaffected.
+is reported below; the isolated AS-before/after screens are unaffected.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -150,3 +150,25 @@ Validation passes the exact-body allocator and hygiene/fallback tests, 117
 static-output checks, retained-output tests across nine configurations, 1,728
 root/field/reuse string-oracle checks, and 288 packed-consumer operations across
 36 configurations. Typecheck, lint and license-header checks also pass.
+
+## Current clean source-aligned qualification
+
+Commit `10da43f7`, Apple M4 Max on AC power, five alternating fresh-process
+pairs per corpus under the shared timing lock. All complete-output checks pass.
+The preceding capture that overlapped profile compilation was excluded.
+
+| Corpus | Source layout | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---|---:|---:|---:|
+| twitter | pretty | 5.85 | 10.51 | 0.56× |
+| canada | pretty | 0.91 | 1.24 | 0.73× |
+| citm_catalog | pretty | 3.46 | 10.18 | 0.34× |
+| poet | pretty | 15.19 | 22.66 | 0.67× |
+| github_events | pretty | 5.30 | 16.45 | 0.32× |
+| gsoc-2018 | pretty | 7.37 | 15.97 | 0.46× |
+| lottie | pretty | 23.26 | 21.60 | 1.08× |
+| otfcc | min | 35.72 | 24.23 | 1.47× |
+| fgo | min | 37.97 | 21.16 | 1.79× |
+
+The [raw capture](data/serialization-aligned-10da43f7.json.gz) retains all
+process samples, logs and provenance. Lottie, OTFCC and FGO pass the 90%
+threshold; the other six do not, so the complete goal remains unmet.
