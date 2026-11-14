@@ -28,7 +28,9 @@ declare class JSONConfig {
    * - `"strategic"` - start with deferred fields, then specialize each visible
    *   parse site using its field accesses. Guaranteed reads become eager;
    *   conditional reads use weighted branch probabilities and decode costs.
-   *   Unknown/escaping uses keep their deferred representation.
+   *   Unknown/escaping uses keep their deferred representation. Untouched fields
+   *   serialize from their saved JSON ranges; reads after the first serialization
+   *   do not trigger early materialization before that output.
    * Array-typed fields always parse eagerly, including fields marked `@lazy`.
    *
    * @example

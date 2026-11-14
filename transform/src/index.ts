@@ -704,6 +704,30 @@ export class JSONTransform extends Visitor {
           return null;
         return child;
       },
+      false,
+      (call, shadowed) => {
+        if (call.expression.kind !== NodeKind.PropertyAccess) return false;
+        const method = call.expression as PropertyAccessExpression;
+        if (method.property.text !== "stringify") return false;
+        let receiver = method.expression;
+        const parts: string[] = [];
+        while (receiver.kind === NodeKind.PropertyAccess) {
+          const property = receiver as PropertyAccessExpression;
+          parts.unshift(property.property.text);
+          receiver = property.expression;
+        }
+        if (receiver.kind !== NodeKind.Identifier) return false;
+        const root = (receiver as IdentifierExpression).text;
+        if (shadowed(root)) return false;
+        parts.unshift(root);
+        const binding = this.sources
+          .get(call.range.source)
+          .getImportedBinding(parts.join(".") + ".Value", this.parser);
+        return (
+          binding?.source.internalPath === runtimeRoot + "assembly/index" &&
+          binding.name === "JSON.Value"
+        );
+      },
     );
     for (const source of sources) analysis.visit(source);
     let id = 0;
@@ -781,7 +805,9 @@ export class JSONTransform extends Visitor {
             ? 20
             : lazyTypeCost(canonical, ownerSource, this.parser);
         const decision = materializationDecision(
-          site.accesses.get(declaration.name.text) || [],
+          (site.serializationAccesses ?? site.accesses).get(
+            declaration.name.text,
+          ) || [],
           decodeCost,
           site.origin,
         );

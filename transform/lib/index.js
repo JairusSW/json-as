@@ -402,6 +402,30 @@ export class JSONTransform extends Visitor {
                 member.decorators?.some((decorator) => decorator.name.text.toLowerCase() === "deserializer"))))
                 return null;
             return child;
+        }, false, (call, shadowed) => {
+            if (call.expression.kind !== NodeKind.PropertyAccess)
+                return false;
+            const method = call.expression;
+            if (method.property.text !== "stringify")
+                return false;
+            let receiver = method.expression;
+            const parts = [];
+            while (receiver.kind === NodeKind.PropertyAccess) {
+                const property = receiver;
+                parts.unshift(property.property.text);
+                receiver = property.expression;
+            }
+            if (receiver.kind !== NodeKind.Identifier)
+                return false;
+            const root = receiver.text;
+            if (shadowed(root))
+                return false;
+            parts.unshift(root);
+            const binding = this.sources
+                .get(call.range.source)
+                .getImportedBinding(parts.join(".") + ".Value", this.parser);
+            return (binding?.source.internalPath === runtimeRoot + "assembly/index" &&
+                binding.name === "JSON.Value");
         });
         for (const source of sources)
             analysis.visit(source);
@@ -455,7 +479,7 @@ export class JSONTransform extends Visitor {
                     : applicationClass
                         ? 20
                         : lazyTypeCost(canonical, ownerSource, this.parser);
-                const decision = materializationDecision(site.accesses.get(declaration.name.text) || [], decodeCost, site.origin);
+                const decision = materializationDecision((site.serializationAccesses ?? site.accesses).get(declaration.name.text) || [], decodeCost, site.origin);
                 if (DEBUG)
                     console.log(`[strategic] ${site.source.internalPath}:${site.call.range.start} ${declaration.name.text}: ${JSON.stringify(decision)}`);
                 if (decision.eager) {

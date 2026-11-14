@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep strategic eager-read plans when forwarding through json-as serialization. Copy untouched deferred fields, serialize current materialized or assigned values, and keep later reads from pulling decoding ahead of the first output. Preserve conservative behavior for ordinary schemas and application-owned writers.
+
 - Expand a stock incremental-GC marking call at compile time without changing collection pacing or state transitions. Unknown runtimes, tracing, profiling, finalizers, and affected aliases retain the original path.
 
 - Reduce native-model serialization overhead with adaptive owned output, grouped plain-string reservations, compile-time digit pairs, and bounded integer inlining. Every call still produces a fresh owning result.
