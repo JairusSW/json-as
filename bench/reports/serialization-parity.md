@@ -516,3 +516,24 @@ from zero through 33 UTF-16 units is checked with controls/surrogates at every
 position, plus longer block boundaries. It passes 1,872 exact root/field/reuse
 checks across 12 configurations on the restored writer. The earlier native
 table remains the current retained implementation's qualification.
+
+## Unicode literal-packing regression found during constant-store work
+
+The baseline at `0680127d` cannot compile an ordinary SIMD model with
+`@alias("hello😀")`: it emits a surrogate code unit as a positive i16x8 lane,
+which AssemblyScript rejects with AS200. A second packed-word path emits
+negative JavaScript u32 words as invalid hexadecimal source such as `0x-ff9c`
+for high-BMP aliases. Both failures are reproduced in the
+[regression capture](data/serialization-unicode-literal-regression.json.gz).
+
+Constant construction now sign-extends SIMD i16 lanes and keeps packed u32
+words unsigned through the shared helper. The new regression executes 3,105
+cases: exact literal bytes, cursor and surrounding write fences across six
+SIMD/runtime configurations, plus public Unicode serialization/fresh/reused
+parsing across nine backend/runtime configurations. The existing publication
+matrix passes 48 checks; typecheck, lint, formatting and licenses pass.
+
+All nine classic models were rebuilt with complete output/GC oracles, and
+their binaries remain byte-for-byte identical to the qualified `e1ab611f`
+implementation. No additional timing claim is made for this correctness fix;
+the preceding native table still describes those exact classic binaries.

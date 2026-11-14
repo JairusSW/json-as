@@ -9176,7 +9176,9 @@ function toU16(data: string, offset: number = 0): number {
 }
 
 function toU32(data: string, offset: number = 0): number {
-  return (data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0);
+  return (
+    ((data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0)) >>> 0
+  );
 }
 
 function toU48(data: string, offset: number = 0): bigint {
@@ -9240,6 +9242,10 @@ function toMemCCheck(data: string): string {
   return out.slice(4);
 }
 
+function signedCodeUnit(data: string, offset: number): number {
+  return (data.charCodeAt(offset) << 16) >> 16;
+}
+
 function strToNum(
   data: string,
   simd: boolean = false,
@@ -9252,21 +9258,21 @@ function strToNum(
     out.push([
       "v128",
       "i16x8(" +
-        data.charCodeAt(offset + 0) +
+        signedCodeUnit(data, offset + 0) +
         ", " +
-        data.charCodeAt(offset + 1) +
+        signedCodeUnit(data, offset + 1) +
         ", " +
-        data.charCodeAt(offset + 2) +
+        signedCodeUnit(data, offset + 2) +
         ", " +
-        data.charCodeAt(offset + 3) +
+        signedCodeUnit(data, offset + 3) +
         ", " +
-        data.charCodeAt(offset + 4) +
+        signedCodeUnit(data, offset + 4) +
         ", " +
-        data.charCodeAt(offset + 5) +
+        signedCodeUnit(data, offset + 5) +
         ", " +
-        data.charCodeAt(offset + 6) +
+        signedCodeUnit(data, offset + 6) +
         ", " +
-        data.charCodeAt(offset + 7) +
+        signedCodeUnit(data, offset + 7) +
         ")",
     ]);
     offset += 8;
@@ -9285,8 +9291,7 @@ function strToNum(
   }
 
   while (n >= 2) {
-    const value =
-      (data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0);
+    const value = toU32(data, offset);
     out.push(["u32", value.toString()]);
     offset += 2;
     n -= 2;

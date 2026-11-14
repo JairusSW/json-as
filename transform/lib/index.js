@@ -6099,7 +6099,7 @@ function toU16(data, offset = 0) {
     return data.charCodeAt(offset + 0);
 }
 function toU32(data, offset = 0) {
-    return (data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0);
+    return (((data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0)) >>> 0);
 }
 function toU48(data, offset = 0) {
     return ((BigInt(data.charCodeAt(offset + 2)) << 32n) |
@@ -6149,6 +6149,9 @@ function toMemCCheck(data) {
         out += ` && codeS${(index += 2)} == ${toU16(data, offset >> 1)}`;
     return out.slice(4);
 }
+function signedCodeUnit(data, offset) {
+    return (data.charCodeAt(offset) << 16) >> 16;
+}
 function strToNum(data, simd = false, offset = 0) {
     const out = [];
     let n = data.length;
@@ -6156,21 +6159,21 @@ function strToNum(data, simd = false, offset = 0) {
         out.push([
             "v128",
             "i16x8(" +
-                data.charCodeAt(offset + 0) +
+                signedCodeUnit(data, offset + 0) +
                 ", " +
-                data.charCodeAt(offset + 1) +
+                signedCodeUnit(data, offset + 1) +
                 ", " +
-                data.charCodeAt(offset + 2) +
+                signedCodeUnit(data, offset + 2) +
                 ", " +
-                data.charCodeAt(offset + 3) +
+                signedCodeUnit(data, offset + 3) +
                 ", " +
-                data.charCodeAt(offset + 4) +
+                signedCodeUnit(data, offset + 4) +
                 ", " +
-                data.charCodeAt(offset + 5) +
+                signedCodeUnit(data, offset + 5) +
                 ", " +
-                data.charCodeAt(offset + 6) +
+                signedCodeUnit(data, offset + 6) +
                 ", " +
-                data.charCodeAt(offset + 7) +
+                signedCodeUnit(data, offset + 7) +
                 ")",
         ]);
         offset += 8;
@@ -6186,7 +6189,7 @@ function strToNum(data, simd = false, offset = 0) {
         n -= 4;
     }
     while (n >= 2) {
-        const value = (data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0);
+        const value = toU32(data, offset);
         out.push(["u32", value.toString()]);
         offset += 2;
         n -= 2;
