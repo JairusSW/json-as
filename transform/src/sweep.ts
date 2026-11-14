@@ -50,6 +50,7 @@ const ALLOCATOR_ALIASES = new Set([
   "__visit_members",
   "__visit_globals",
   "__collect",
+  "__link",
   "__finalize",
   "__typeinfo",
   "__heap_base",
@@ -243,15 +244,17 @@ export function specializeSweepRuns(
   // whose schemas do not already use it. Unknown or modified Array code keeps
   // the original visitor, independently of native-block coalescing.
   const arraySource = sources.find((s) => s.internalPath === "~lib/array");
+  const stockArray =
+    !!arraySource &&
+    createHash("sha256").update(arraySource.text).digest("hex") ===
+      "b219355bec6fc830bf9b41662986aa81e657a701f71ea472749746779ee951cc" &&
+    createHash("sha256").update(toString(arraySource)).digest("hex") ===
+      "772b61ebcbc0d53c44b14082751c1d7f9e855c31b2b7aa1bc6b5bf541e56c017";
   if (
     hasStaticI64ArraySchema &&
     !aliases?.has("Array") &&
     !aliases?.has("i64") &&
-    arraySource &&
-    createHash("sha256").update(arraySource.text).digest("hex") ===
-      "b219355bec6fc830bf9b41662986aa81e657a701f71ea472749746779ee951cc" &&
-    createHash("sha256").update(toString(arraySource)).digest("hex") ===
-      "772b61ebcbc0d53c44b14082751c1d7f9e855c31b2b7aa1bc6b5bf541e56c017"
+    stockArray
   ) {
     class SkipStaticBuffer extends Visitor {
       visitExpressionStatement(
@@ -374,4 +377,35 @@ export function specializeSweepRuns(
     [Node.createReturnStatement(call, capability.range)],
     capability.range,
   );
+  const snapshot = fn(target, "canSnapshotCallbackKeys");
+  const mapSource = sources.find((s) => s.internalPath === "~lib/map");
+  if (
+    snapshot?.body &&
+    toString(snapshot.body).replace(/\s/g, "") === "{returnfalse;}" &&
+    stockArray &&
+    mapSource &&
+    !["Array", "ArrayBuffer", "Map"].some((name) => aliases?.has(name)) &&
+    createHash("sha256").update(mapSource.text).digest("hex") ===
+      "a4c9b2bea009a72c4e488de2538935829b15687a1f0addf35fe514dfe9bd4c4b" &&
+    createHash("sha256").update(toString(mapSource)).digest("hex") ===
+      "19ea21ef272adb182d9eb9e44282fb6e7c65e1b5aa265576931969b1af9d4935"
+  ) {
+    snapshot.body = Node.createBlockStatement(
+      [
+        Node.createReturnStatement(
+          Node.createCallExpression(
+            Node.createIdentifierExpression(
+              capability.name.text,
+              snapshot.range,
+            ),
+            null,
+            [],
+            snapshot.range,
+          ),
+          snapshot.range,
+        ),
+      ],
+      snapshot.range,
+    );
+  }
 }

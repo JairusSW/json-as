@@ -5,6 +5,8 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
+import { newNativeArray } from "../../util/nativeArray";
+import { canSnapshotCallbackKeys, linkObject } from "../../util/runtime";
 import { NativeMap } from "../../util/native-collections";
 import { bs } from "../../../lib/as-bs";
 import { JSON } from "../..";
@@ -52,10 +54,46 @@ function serializeMapKey<K>(key: K): void {
   } else JSON.__serialize<string>(JSON.internal.stringify<K>(key));
 }
 
+// Keep snapshot allocation on the same guarded path as native parser arrays.
+function snapshotCallbackKeys<T extends Map<any, any>>(src: T): indexof<T>[] {
+  if (!canSnapshotCallbackKeys())
+    return changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeKeys();
+  const ptr = changetype<usize>(src);
+  const count = load<i32>(
+    ptr,
+    offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"),
+  );
+  const entries = load<usize>(
+    ptr,
+    offsetof<Map<indexof<T>, valueof<T>>>("entries"),
+  );
+  const live = changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeSize();
+  const out = newNativeArray<Array<indexof<T>>>(<usize>live);
+  const outPtr = changetype<usize>(out);
+  const data = load<usize>(outPtr, offsetof<ArrayBufferView>("dataStart"));
+  const stride = mapEntrySize<indexof<T>, valueof<T>>();
+  const shift = <u32>alignof<indexof<T>>();
+  let length = 0;
+  for (let i = 0; i < count; i++) {
+    const entry = changetype<SerializableMapEntry<indexof<T>, valueof<T>>>(
+      entries + <usize>i * stride,
+    );
+    if ((entry.taggedNext & 1) != 0) continue;
+    const key = entry.key;
+    store<indexof<T>>(data + ((<usize>length) << shift), key);
+    if (isManaged<indexof<T>>())
+      linkObject(outPtr, changetype<usize>(key), true);
+    length++;
+  }
+  // No allocation occurs during copying. Publish length after reference barriers.
+  store<i32>(outPtr, length, offsetof<Array<indexof<T>>>("length_"));
+  return out;
+}
+
 // Snapshot original keys, read each value when visited, skip deleted keys,
 // and defer additions until a later call. Rehash cannot move this iteration.
 function serializeCallbackMap<T extends Map<any, any>>(src: T): void {
-  const keys = changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeKeys();
+  const keys = snapshotCallbackKeys<T>(src);
   bs.proposeSize(4 + <u32>keys.length * 4);
   store<u16>(bs.offset, BRACE_LEFT);
   bs.offset += 2;

@@ -427,3 +427,43 @@ sealed source/runtime/binary provenance, every sample and process log. Three
 of nine pass 90% parity. Six typed workloads remain below it, so the goal
 remains active and unmet. These are current native ratios; the preceding
 paired AS-before/after gate supplies causal evidence for the retained changes.
+
+## Guarded callback-map key snapshots
+
+CITM's profile places its temporary Map key arrays on the ordinary allocator
+path. Callback serializers now construct that snapshot through the existing
+native-array factory. Keys remain managed and traced; reference barriers and
+length publication precede all callbacks. Capacity uses the live key count,
+not the number of live plus deleted entry slots. Values are still read when
+visited, deleted keys are skipped, and additions wait until the next call.
+
+The transform enables this path only with recognized collector, allocator,
+Array and Map source/AST layouts and no conflicting aliases. Unknown sources,
+modified ASTs, instrumentation, finalizers and other runtimes keep nativeKeys.
+
+Eight alternating original-classic fresh-process pairs compare final candidate
+binaries against sealed `f68c4749` binaries. Apple M4 Max/AC, SIMD/incremental,
+no validation, shared timing lock; background VM activity is audited.
+
+| Corpus | Previous µs | Snapshot µs | Median latency delta |
+|---|---:|---:|---:|
+| citm_catalog | 119.845 | 117.365 | -2.07% |
+| gsoc-2018 | 396.055 | 389.120 | -1.75% |
+
+CITM improves in eight of eight pairs; its paired geometric-mean change is
+-1.93%, with a 95% paired-percentile bootstrap interval of -2.98% to -0.95%.
+GSOC improves in five pairs; its interval is -3.35% to -0.01%, with a -1.68%
+paired mean. Intervals use 20,000 seeded resamples without multiplicity
+correction; GSOC is borderline and an earlier confirmation was flat. All seven
+other corpus binaries are byte-for-byte identical. The preceding prototype
+screen and both independent confirmations remain in the
+[raw capture](data/serialization-map-snapshot-screen.json.gz), together with
+patches, scripts, hashes, process audits and validation logs.
+
+Validation: nine complete owned-model/GC oracles; 375 capability, mutation,
+rehash, GC and retained-output checks across 15 configurations; 243 existing
+Map callback/codec checks; 288 packed-consumer checks across 36 configurations;
+24 exact fallback/finalizer binary and runtime-event configurations; transform
+source/AST/alias guards; typecheck, lint, formatting and license headers. Forced
+collection inside callbacks is tested on incremental; minimal requires explicit
+roots rather than implicit active-stack rooting. Full native refresh follows.

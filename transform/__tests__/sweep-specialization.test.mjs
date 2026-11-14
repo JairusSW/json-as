@@ -43,6 +43,11 @@ function fixture(kind = "stock") {
     false,
   );
   parser.parseFile(
+    fs.readFileSync("node_modules/assemblyscript/std/assembly/map.ts", "utf8"),
+    "~lib/map.ts",
+    false,
+  );
+  parser.parseFile(
     "export function application():usize { __collect(); return __new(8,3); }",
     "app.ts",
     false,
@@ -60,6 +65,7 @@ for (const kind of [
   "tlsf",
   "ast",
   "alias",
+  "link-alias",
   "allocator",
 ]) {
   const sources = fixture(kind);
@@ -83,7 +89,11 @@ for (const kind of [
   const application = toString(app);
   specializeSweepRuns(
     sources,
-    kind === "alias" ? new Map([["__free", "customFree"]]) : null,
+    kind === "alias"
+      ? new Map([["__free", "customFree"]])
+      : kind === "link-alias"
+        ? new Map([["__link", "customLink"]])
+        : null,
   );
   assert.equal(toString(app), application);
   assert.deepEqual(
@@ -108,6 +118,10 @@ for (const kind of [
   assert.doesNotMatch(
     toString(outputAllocator),
     /if \(total >= threshold\) interrupt\(\)/,
+  );
+  assert.match(
+    toString(find(target, "canSnapshotCallbackKeys")),
+    /return canCoalesceSweepRuns\(\)/,
   );
   const capability = toString(find(target, "canCoalesceSweepRuns"));
   assert.match(capability, /return __json_as_sweep_capability\(/);
@@ -185,4 +199,45 @@ for (const kind of [
 }
 console.log(
   "Static numeric-array scanning: schema activation, source and AST layout fallbacks, untouched global collector passed",
+);
+
+for (const kind of [
+  "stock",
+  "array-source",
+  "array-ast",
+  "map-source",
+  "map-ast",
+  "array-alias",
+  "buffer-alias",
+  "map-alias",
+]) {
+  const sources = fixture();
+  const target = sources.find(
+    (s) => s.internalPath === "assembly/util/runtime",
+  );
+  const array = sources.find((s) => s.internalPath === "~lib/array");
+  const map = sources.find((s) => s.internalPath === "~lib/map");
+  if (kind === "array-source") array.text += "\n// unknown";
+  if (kind === "map-source") map.text += "\n// unknown";
+  if (kind === "array-ast")
+    array.statements.unshift(SimpleParser.parseStatement("trace('modified');"));
+  if (kind === "map-ast")
+    map.statements.unshift(SimpleParser.parseStatement("trace('modified');"));
+  const alias = {
+    "array-alias": "Array",
+    "buffer-alias": "ArrayBuffer",
+    "map-alias": "Map",
+  }[kind];
+  specializeSweepRuns(
+    sources,
+    alias ? new Map([[alias, "CustomCollection"]]) : null,
+  );
+  assert.equal(
+    toString(find(target, "canSnapshotCallbackKeys").body).replace(/\s/g, ""),
+    kind === "stock" ? "{returncanCoalesceSweepRuns();}" : "{returnfalse;}",
+    kind,
+  );
+}
+console.log(
+  "Callback snapshot capability: collection source, AST and alias guards passed",
 );
