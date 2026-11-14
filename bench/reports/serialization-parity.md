@@ -906,3 +906,76 @@ The [raw archive](data/serialization-float-loops-rejected.json.gz) contains all 
 source prototypes, all samples/audits, sealed binaries' manifests, the full
 baseline float outputs, independent oracle, scripts, full-model build logs and
 function disassemblies. The original source is restored.
+
+## Matched native-code diagnostics and unresolved screens
+
+The missing printed ARM64 disassembly was a tooling limitation, not a reason
+to infer instructions from Wasm. d8's module serializer provides compiled code
+bytes. A read-only parser for the pinned V8 15.2.20 cache format validates the
+version, imported/declared function counts, total code bytes, every code header,
+and final tiering-budget boundary. Its layout follows the pinned
+[V8 serializer](https://raw.githubusercontent.com/v8/v8/15.2.20/src/wasm/wasm-serialization.cc)
+and [import-status representation](https://raw.githubusercontent.com/v8/v8/15.2.20/src/wasm/well-known-imports.h).
+This is a diagnostic parser, not a general cache loader; it never deserializes
+or executes a saved native cache.
+
+Extracted function bytes are aligned in a Mach-O text section for `otool`.
+Printed native address ranges are matched to cache function indices and exact
+instruction sizes. Same-process sampled PCs then map to instruction offsets.
+Serialized call operands are relocated tags, so their printed destination
+addresses must not be interpreted as live callees. Native-code snapshots are
+diagnostic artifacts; the serialization benchmarks still create fresh owning
+output strings.
+
+A two-function control computes correct u64/u32 quotients before capture. Its
+actual native instructions use `umulh` and shifts for division by 100,000,000,
+and `umull` and shifts for division by 10,000. Replacing these constant divisions
+on the assumption that they emit hardware divide instructions is unwarranted.
+
+| Capture / function | Native instruction bytes | Samples / all samples |
+|---|---:|---:|
+| Serialization-only diagnostic, generated writer 97 | 19,848 | 3,249 / 3,362 |
+| Actual retained classic binary, decimal formatter 29 | 5,020 | 1,508 / 3,380 |
+| Actual retained classic binary, root writer 132 | 14,280 | 214 / 3,380 |
+
+The classic capture includes both parsing and serialization; its percentages
+must not be compared directly with the serialization-only program. Three
+prominent formatter PCs at decimal-result publication receive 347 samples.
+These sampled locations do not establish branch-misprediction cost. They
+motivated testing an equivalent branchless helper rather than assuming a win.
+Both captures use sealed retained binaries and the same-process code snapshot;
+they are profiling diagnostics, not fresh native throughput qualification.
+
+Four additional candidates remain **unretained**:
+
+- Skipping a high-product calculation for a zero cached-power low limb preserves
+  exact arithmetic. Its four-pair Canada screen observes -1.43% median latency,
+  without an independent confirmation; this is preliminary.
+- Stable entry storage restricted to string-valued Maps changes only CITM's
+  binary. It passes 4,212 checks across nine configurations plus all nine model/GC
+  oracles. Its timing capture has substantial overlapping VM/indexing activity.
+- Restricting stable entries to preflighted object writers changes CITM/GSoC
+  only; FGO and the other six binaries stay identical. It passes 555 callback/GC
+  checks and 375 snapshot-lifetime checks across 15 configurations each, plus
+  all nine model/GC oracles. Its CITM baseline ranges from 100.61 to 177.30 µs
+  under overlapping builds and VM activity, preventing a performance conclusion.
+- Branchless decimal-result publication matches 448 random array outputs
+  (113,376 independently checked numbers), 156 explicit edge outputs, and all
+  nine model/GC oracles. Its first screen shows no Canada gain. Late FGO baseline
+  samples range from 1.285 to 2.861 ms amid host activity; the complete screen
+  cannot qualify a corpus-wide change. The zero-limb variant passes the same
+  numeric/output checks.
+
+No services or other agents' work were stopped. The shared timing lock was used
+and released for every capture; other repositories' non-timing builds were
+permitted by the host policy and are recorded in the audits. No production
+formatter or Map change from these screens is retained. The original installed
+sources and all nine main benchmark images/manifests are restored. The latest
+qualified native table remains `e9971446`: **three of nine clear 90%**.
+
+The [sealed archive](data/serialization-pc-diagnostics-and-pending-trials.json.gz)
+preserves 168 timing records, process audits, all four prototypes and build
+logs, exact numeric outputs, native snapshots, matched PC logs, parser and
+annotation scripts, division controls, both diagnostic Wasm images and required
+third-party notices. These unresolved screens must not be used as performance
+claims.
