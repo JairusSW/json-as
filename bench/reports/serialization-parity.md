@@ -628,3 +628,49 @@ throughput evidence. The decoder reports a V8-version mismatch, retained in
 its output. Symbolized samples point to generated root writers, string scanning,
 GC traversal and CITM callback-map key snapshots. They motivate investigation;
 they do not change the qualified native table.
+
+## Callback-free generated Map values
+
+A generated type certificate now supports a bounded instance check for nested
+references. The original no-argument form still certifies only flat scalar
+models for `JSON.Value`; a nonnegative depth checks fields for Map traversal.
+The returned declaring-type ID must match the actual type, preventing inherited
+certificates from authorizing a subclass's manual or custom serializer. No
+object fields, startup allocations or serialized-output cache are added.
+
+For primitive/string keys, the guarded native Map path checks every value
+before emitting any entry. Exact generated models and primitive native arrays
+can then traverse stored entries without allocating a key snapshot or hashing
+keys again. Custom codecs, omission predicates, deferred fields, uncertain
+subtypes and graphs beyond the depth bound retain the snapshot path. The
+existing collector/layout capability gate also preserves fallbacks for unknown
+sources, runtimes, instrumentation, allocator aliases and finalizers.
+
+The initial six-pair AS-before/after screen improved median CITM latency
+15.55% and GSOC 14.18%. An independent eight-pair confirmation measured:
+
+| Corpus | Baseline µs | Candidate µs | Median latency delta | Paired 95% interval |
+|---|---:|---:|---:|---:|
+| citm_catalog | 118.100 | 101.395 | −14.14% | −15.31% to −13.27% |
+| gsoc-2018 | 400.015 | 341.965 | −14.51% | −15.69% to −13.77% |
+
+Every confirmation pair improved. Seven other classic binaries are unchanged.
+These are original classic-harness measurements on shared Apple M4 Max/AC,
+SIMD/incremental, validation disabled, with alternating fresh processes, the
+host timing lock and executed-binary hash checks. Intervals use paired
+geometric means; point deltas use process medians. This is not a refreshed
+native parity table, and the six typed workloads remain below the goal.
+
+Validation includes 555 graph/alias/callback/GC/legacy-marker checks across 15
+configurations, with warning-free compilation asserted for each; 375 existing
+snapshot lifetime/callback/rehash checks; 288 packed-consumer operations across
+36 configurations; and 162 installed-tarball checks across six AssemblyScript
+0.28.18 configurations. The inherited manual-serializer certificate test was
+observed failing on the initial prototype before the declaring-type guard was
+added. All nine complete-output/retained-model GC oracles, all 51 warning
+configurations, typecheck, lint and license checks pass.
+
+[Raw screen, confirmation and validation](data/serialization-callback-free-map.json.gz)
+retain all samples, full-corpus binary hashes, source patches, execution audits,
+compiler conditions and lower-bound consumer artifacts. A full native refresh
+on the committed implementation follows separately.

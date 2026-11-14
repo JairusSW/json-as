@@ -118,6 +118,37 @@ function serializeCallbackMap<T extends Map<any, any>>(src: T): void {
   bs.offset += 2;
 }
 
+// Validate the entire graph before emitting any value. No allocation or user
+// callback occurs during this pass, so a later effectful value can safely
+// select the original snapshot policy for the whole map.
+export function canSerializeMapWithoutCallbacks<T extends Map<any, any>>(
+  src: T,
+): bool {
+  if (!canSnapshotCallbackKeys()) return false;
+  if (
+    !(isString<indexof<T>>() || isBoolean<indexof<T>>() ||
+      isInteger<indexof<T>>() || isFloat<indexof<T>>())
+  ) return false;
+  const ptr = changetype<usize>(src);
+  const count = load<i32>(
+    ptr,
+    offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"),
+  );
+  const entries = load<usize>(
+    ptr,
+    offsetof<Map<indexof<T>, valueof<T>>>("entries"),
+  );
+  const stride = mapEntrySize<indexof<T>, valueof<T>>();
+  for (let i = 0; i < count; i++) {
+    const entry = changetype<SerializableMapEntry<indexof<T>, valueof<T>>>(
+      entries + <usize>i * stride,
+    );
+    if ((entry.taggedNext & 1) != 0) continue;
+    if (!JSON.__serializeCallbackFree<valueof<T>>(entry.value)) return false;
+  }
+  return true;
+}
+
 export function serializeMap<T extends Map<any, any>>(src: T): void {
   const srcSize =
     changetype<NativeMap<indexof<T>, valueof<T>>>(src).nativeSize();
@@ -141,8 +172,10 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
       isDefined(valueType.__SERIALIZE_CUSTOM) ||
       !(valueType instanceof JSON.Raw)
     ) {
-      serializeCallbackMap<T>(src);
-      return;
+      if (!canSerializeMapWithoutCallbacks<T>(src)) {
+        serializeCallbackMap<T>(src);
+        return;
+      }
     }
   }
 
@@ -152,14 +185,14 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
   bs.offset += 2;
 
   const srcPtr = changetype<usize>(src);
-  const initialEntriesOffset = load<i32>(srcPtr, offsetof<T>("entriesOffset"));
+  const initialEntriesOffset = load<i32>(srcPtr, offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"));
   const stride = mapEntrySize<indexof<T>, valueof<T>>();
   for (let i = 0; i < initialEntriesOffset; i++) {
     // A custom key/value serializer can re-enter user code and mutate this
     // map. Reload its storage on every iteration so a rehash cannot leave a
     // stale backing pointer live across callbacks.
-    if (i >= load<i32>(srcPtr, offsetof<T>("entriesOffset"))) break;
-    const entries = load<usize>(srcPtr, offsetof<T>("entries"));
+    if (i >= load<i32>(srcPtr, offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"))) break;
+    const entries = load<usize>(srcPtr, offsetof<Map<indexof<T>, valueof<T>>>("entries"));
     const entry = changetype<SerializableMapEntry<indexof<T>, valueof<T>>>(
       entries + <usize>i * stride,
     );

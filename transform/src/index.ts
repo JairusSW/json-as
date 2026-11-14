@@ -8253,6 +8253,28 @@ export class JSONTransform extends Visitor {
       ),
     );
 
+    const ownType =
+      node.name.text +
+      (node.typeParameters?.length
+        ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
+        : "");
+    const callbackFreeSerializer =
+      !schema.custom &&
+      !schema.parent?.custom &&
+      !hasManualSerializer(node) &&
+      schema.members.every(
+        (member) =>
+          !member.flags.has(PropertyFlags.OmitIf) &&
+          !member.flags.has(PropertyFlags.Lazy),
+      );
+    const callbackFreeFields = callbackFreeSerializer
+      ? schema.members
+          .map(
+            (member) =>
+              `${this.runtimeReference()}.__serializeCallbackFree<${member.type}>(load<${member.type}>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})), depth + 1)`,
+          )
+          .join(" && ") || "true"
+      : "false";
     const serializerPure =
       !schema.custom &&
       !schema.parent?.custom &&
@@ -8265,14 +8287,14 @@ export class JSONTransform extends Visitor {
             isString(member.type) ||
             isEnum(stripNull(member.type), source, this.parser)),
       );
-    const ownType =
-      node.name.text +
-      (node.typeParameters?.length
-        ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
-        : "");
+    // Value keeps the flat certificate by default. Map traversal requests a
+    // bounded instance check and verifies the returned declaring type too.
     node.members.push(
       SimpleParser.parseClassMember(
-        `__SERIALIZE_PURE_TYPE(): u32 { return ${serializerPure ? `idof<${ownType}>()` : "0"}; }`,
+        `__SERIALIZE_PURE_TYPE(depth: i32 = -1): u32 {
+  if (depth < 0) return ${serializerPure ? `idof<${ownType}>()` : "0"};
+  return (${callbackFreeFields}) ? idof<${ownType}>() : 0;
+}`,
         node,
       ),
     );
@@ -8501,7 +8523,7 @@ export class JSONTransform extends Visitor {
         : "");
     node.members.push(
       SimpleParser.parseClassMember(
-        `__SERIALIZE_PURE_TYPE(): u32 { return ${hasManualSerializer(node) ? "0" : `idof<${ownType}>()`}; }`,
+        `__SERIALIZE_PURE_TYPE(_depth: i32 = -1): u32 { return ${hasManualSerializer(node) ? "0" : `idof<${ownType}>()`}; }`,
         node,
       ),
     );
