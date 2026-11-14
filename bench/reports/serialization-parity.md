@@ -1,5 +1,14 @@
 # Native-struct serialization parity
 
+**Methodology correction:** the historical native rows below used minified
+input while the AS classic writers usually serialized a pretty-derived model.
+This is materially unequal for Lottie: preserved raw fields make the AS output
+about 1.48 MB versus native's 0.30 MB. Historical captures remain available,
+but their Lottie throughput and parity ratios are superseded. The runner now
+discovers the AS writer's actual initialization input and uses that layout for
+native serialization and output-byte accounting. Source-aligned qualification
+is pending; the isolated AS-before/after screens are unaffected.
+
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
 initial three-corpus screen is not whole-corpus qualification.
@@ -95,6 +104,10 @@ The [raw screen](data/serialization-demand-hint-screen.json.gz) retains samples,
 logs, binary hashes, model source, code patch and the preceding CPU capture.
 This is an isolated before/after screen; regular-harness native ratios and
 full classic coverage still need requalification.
+
+The later `316baea7` run is retained as a [superseded raw capture](data/serialization-316baea7-unmatched-layout.json.gz)
+because it completed before source-layout matching was corrected. It must not
+be used for a Lottie parity verdict.
 
 ## All-classic qualification at `420b0ed0`
 
