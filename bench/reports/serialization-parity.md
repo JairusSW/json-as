@@ -9,6 +9,8 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
+Latest full qualification: [callback-free Map implementation `e48e0489`](#native-refresh-after-callback-free-map-traversal). Three of nine workloads meet the 90% gate; near parity remains unmet.
+
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
 initial three-corpus screen is not whole-corpus qualification.

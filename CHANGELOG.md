@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Reduce native-model serialization overhead with adaptive owned output, grouped plain-string reservations, compile-time digit pairs, and bounded integer inlining. Every call still produces a fresh owning result.
+
+- Traverse callback-free generated Map values directly from native entries after bounded type checks. Preserve snapshot iteration for custom codecs, effectful omission, deferred fields, uncertain subtypes, and unsupported runtime layouts.
+
+- Correct signed SIMD lanes and unsigned packed words when generating Unicode aliases and literal stores.
+
 - Accept `@json({ lazy })` for the default access-based parsing strategy and `@json({ nolazy })` to disable it for a class and its descendants, including for eager benchmark controls.
 
 - Respect function-scoped `var` shadowing when resolving receivers and helpers in strategic access analysis.
