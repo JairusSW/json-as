@@ -2533,6 +2533,7 @@ export class JSONTransform extends Visitor {
                 mem.lazyPacked = !!lzInner.packed;
                 mem.lazyScalar = !!lzInner.scalar;
                 mem.lazyInner = lzInner.inner;
+                mem.byteSize = 0;
                 mem.lazyProperty = lzInner.propertyName;
                 const parameters = source.classTypeParameters(node);
                 const scope = source
@@ -2777,7 +2778,7 @@ export class JSONTransform extends Visitor {
                     `  } else if (__s != 0) {\n` +
                     `    const __hi = <usize>(__s >>> 32);\n` +
                     `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
-                    `    bs.ensureSize(<u32>__len);\n` +
+                    `    bs.proposeSize(<u32>__len);\n` +
                     `    memory.copy(bs.offset, __hi, __len);\n` +
                     `    bs.offset += __len;\n` +
                     `  } else {\n` +
@@ -2792,13 +2793,13 @@ export class JSONTransform extends Visitor {
                 `  } else if (__s != 0) {\n` +
                 `    const __hi = <usize>(__s >>> 32);\n` +
                 `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
-                `    bs.ensureSize(<u32>__len);\n` +
+                `    bs.proposeSize(<u32>__len);\n` +
                 `    memory.copy(bs.offset, __hi, __len);\n` +
                 `    bs.offset += __len;\n` +
                 `  } else {\n` +
                 (member.lazyScalar
                     ? `    JSON.__serializeLazyValue<${T}>(0);\n`
-                    : `    bs.ensureSize(8);\n` +
+                    : `    bs.proposeSize(8);\n` +
                         `    store<u64>(bs.offset, 0x006c006c0075006e);\n` +
                         `    bs.offset += 8;\n`) +
                 `  }\n` +

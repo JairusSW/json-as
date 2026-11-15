@@ -1775,3 +1775,30 @@ implementation and passes on this one. Final images match both captures.
 
 [Raw sources, images, checks and 48 timing records](data/serialization-nested-numeric-rows.json.gz).
 The latest full native gate remains **3/9**; near parity is still unfinished.
+
+## Lazy output reservation accounting
+
+Before tightening numeric reservations, a regression probe found that generated
+lazy writers could forward a large saved range without adding it to `stackSize`.
+A following `bs.proposeSize` could therefore reserve less than the actual cursor
+plus its requested bytes. The probe uses `JSON.__serialize` followed by a 1 MiB
+whitespace append and stops on a capacity assertion **before** an unsafe write.
+It fails on the preceding implementation.
+
+Saved ranges and absent-null branches now propose their actual byte length.
+Materialized values already account for their bytes through the ordinary typed
+writer, so lazy slots no longer add a fixed integer-slot estimate to the object's
+entry reservation. Keys and punctuation remain pre-reserved once. This restores
+the same cumulative-budget contract for deferred and materialized values.
+
+The new suite passes **108 checks** across all three backends and runtimes with
+strictness off/on. It forces explicit deferral and checks materialized strings,
+scalar/wide integer defaults, boolean/float defaults, both missing and materialized
+nulls, size transitions, exact output and capacity for the following write.
+The full strategic serializer suite passes **760 checks / 38 configurations**.
+All nine classic images are **byte-identical** and their model/retained-GC oracles
+pass. Typecheck, lint and licenses pass. This correctness fix makes no timing
+claim and does not alter the native table.
+
+[Reproducer, generated sources, unchanged images and validation logs](data/serialization-lazy-budget.json.gz).
+The numeric reservation-tightening prototype remains separate and unretained.

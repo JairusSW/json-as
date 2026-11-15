@@ -4017,6 +4017,9 @@ export class JSONTransform extends Visitor {
         mem.lazyPacked = !!lzInner.packed;
         mem.lazyScalar = !!lzInner.scalar;
         mem.lazyInner = lzInner.inner; // inner type T for the deser/ser codegen
+        // Deferred ranges and materialized values account for their own bytes.
+        // The fixed object reservation covers only keys and punctuation.
+        mem.byteSize = 0;
         mem.lazyProperty = lzInner.propertyName;
         const parameters = source.classTypeParameters(node);
         const scope = source
@@ -4401,7 +4404,7 @@ export class JSONTransform extends Visitor {
             `  } else if (__s != 0) {\n` + // range -> raw bytes verbatim
             `    const __hi = <usize>(__s >>> 32);\n` +
             `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
-            `    bs.ensureSize(<u32>__len);\n` +
+            `    bs.proposeSize(<u32>__len);\n` +
             `    memory.copy(bs.offset, __hi, __len);\n` +
             `    bs.offset += __len;\n` +
             `  } else {\n` + // absent -> default scalar
@@ -4418,14 +4421,14 @@ export class JSONTransform extends Visitor {
           `  } else if (__s != 0) {\n` + // range -> raw bytes verbatim (zero-copy)
           `    const __hi = <usize>(__s >>> 32);\n` +
           `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
-          `    bs.ensureSize(<u32>__len);\n` +
+          `    bs.proposeSize(<u32>__len);\n` +
           `    memory.copy(bs.offset, __hi, __len);\n` +
           `    bs.offset += __len;\n` +
           `  } else {\n` + // absent
           // A 64-bit scalar (i64/u64/f64/...) defaults to 0, not null; refs to null.
           (member.lazyScalar
             ? `    JSON.__serializeLazyValue<${T}>(0);\n`
-            : `    bs.ensureSize(8);\n` +
+            : `    bs.proposeSize(8);\n` +
               `    store<u64>(bs.offset, 0x006c006c0075006e);\n` +
               `    bs.offset += 8;\n`) +
           `  }\n` +
