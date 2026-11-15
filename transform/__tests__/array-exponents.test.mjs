@@ -12,6 +12,12 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { stockArrayExponentData } from "../lib/array-exponents.js";
 const root = path.resolve(import.meta.dirname, "../..");
+const regenerated = spawnSync(
+  process.execPath,
+  ["scripts/update-array-exponent-data.mjs", "--check"],
+  { cwd: root, encoding: "utf8" },
+);
+assert.equal(regenerated.status, 0, regenerated.stdout + regenerated.stderr);
 const source = fs.readFileSync(
   path.join(root, "node_modules/xjb-as/assembly/xjb.ts"),
   "utf8",
