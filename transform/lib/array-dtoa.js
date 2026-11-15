@@ -134,8 +134,17 @@ export function specializeArrayDtoa(sources, aliases) {
         prefix = "__json_array_" + ++ordinal + "_";
     const renamed = new Map(FUNCTIONS.map((name) => [name, prefix + name]));
     const rounding = prefix + "round10";
-    let products = 0;
+    let products = 0, lowProducts = 0;
     class Rewrite extends Visitor {
+        visitVariableDeclaration(node, parent) {
+            if (node.name.text === "lo" &&
+                node.initializer &&
+                toString(node.initializer) === "pLo64 + umul64hi(pLo, y)") {
+                node.initializer = SimpleParser.parseExpression("pLo64 + (pLo == 0 ? 0 : umul64hi(pLo, y))");
+                lowProducts++;
+            }
+            super.visitVariableDeclaration(node, parent);
+        }
         visitCallExpression(node, parent) {
             if (node.expression.kind === NodeKind.Identifier) {
                 const identifier = node.expression;
@@ -163,7 +172,7 @@ export function specializeArrayDtoa(sources, aliases) {
         new Rewrite().visit(copy.body);
         return copy;
     });
-    if (products !== 2)
+    if (products !== 2 || lowProducts !== 2)
         return null;
     const declaration = SimpleParser.parseTopLevelStatement(`@global @inline function ${rounding}(a:u64, carry:u64):u64 {
     const low = (a & 0xffffffff) * 10 + (carry & 0xffffffff);

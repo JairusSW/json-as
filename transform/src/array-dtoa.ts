@@ -15,6 +15,7 @@ import {
   IdentifierExpression,
   Node,
   Source,
+  VariableDeclaration,
 } from "assemblyscript/dist/assemblyscript.js";
 import { diagnosticsRuntimeRoot } from "./diagnostics.js";
 import { arrayRowSourceInfo } from "./array-row-safety.js";
@@ -193,8 +194,26 @@ export function specializeArrayDtoa(
     prefix = "__json_array_" + ++ordinal + "_";
   const renamed = new Map(FUNCTIONS.map((name) => [name, prefix + name]));
   const rounding = prefix + "round10";
-  let products = 0;
+  let products = 0,
+    lowProducts = 0;
   class Rewrite extends Visitor {
+    visitVariableDeclaration(
+      node: VariableDeclaration,
+      parent: Node | null,
+    ): void {
+      if (
+        node.name.text === "lo" &&
+        node.initializer &&
+        toString(node.initializer) === "pLo64 + umul64hi(pLo, y)"
+      ) {
+        node.initializer = SimpleParser.parseExpression(
+          "pLo64 + (pLo == 0 ? 0 : umul64hi(pLo, y))",
+        );
+        lowProducts++;
+      }
+      super.visitVariableDeclaration(node, parent);
+    }
+
     visitCallExpression(node: CallExpression, parent: Node | null): void {
       if (node.expression.kind === NodeKind.Identifier) {
         const identifier = node.expression as IdentifierExpression;
@@ -229,7 +248,7 @@ export function specializeArrayDtoa(
     new Rewrite().visit(copy.body!);
     return copy;
   });
-  if (products !== 2) return null;
+  if (products !== 2 || lowProducts !== 2) return null;
   const declaration =
     SimpleParser.parseTopLevelStatement(`@global @inline function ${rounding}(a:u64, carry:u64):u64 {
     const low = (a & 0xffffffff) * 10 + (carry & 0xffffffff);

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Skip a wide multiplication for zero cached-power low limbs in the verified stock `Array<f64>` formatter. Keep scalar formatting, import binding guards, and fallback behavior unchanged.
+
 - Specialize multiply-ten rounding in the verified stock `Array<f64>` formatter, preserving scalar formatting and application-supplied formatter bindings. Unknown sources, compiler aliases, and conflicting generated names retain safe handling.
 
 - Reduce redundant managed aliases when serializing string-bearing array records. Keep managed receivers rooted across callbacks and collection, resolve alias identities at compile time, and retain existing wide-integer and generic paths.

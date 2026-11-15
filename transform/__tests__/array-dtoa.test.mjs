@@ -146,13 +146,19 @@ for (const kind of [
   );
   assert.match(toString(helper), /4294967295/);
   assert.ok(dtoa.statements.some((node) => node.name?.text === selected.entry));
+  const prefix = selected.entry.slice(0, -"dtoa_buffered".length);
+  const clonedText = dtoa.statements
+    .filter((node) => node.name?.text.startsWith(prefix))
+    .map(toString)
+    .join("\n");
+  assert.equal(clonedText.match(/pLo == 0/g)?.length, 2);
   if (kind === "collision")
     assert.equal(selected.entry, "__json_array_1_dtoa_buffered");
   else assert.equal(selected.entry, "__json_array_dtoa_buffered");
   const after = sources.map(toString);
   assert.equal(specializeArrayDtoa(sources, aliases), null);
   assert.deepEqual(sources.map(toString), after);
-  checks += 7;
+  checks += 8;
 }
 console.log(
   `Array dtoa: ${checks} source/AST/binding/hygiene/fallback/idempotence checks passed`,
