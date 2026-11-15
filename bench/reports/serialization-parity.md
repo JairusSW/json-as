@@ -2617,3 +2617,61 @@ complete outputs and end seals](data/serialization-overlap32-native.json.gz).
 Large unchanged input/output files are hash-linked to the earlier suffix
 archive. Shared-host audits are preserved; this is not an isolated-host or
 per-engine RSS claim. The all-nine near-parity objective remains unfinished.
+
+## Tiny strings and Unicode routing: global variants rejected
+
+Two additional families were measured against the retained bounded-tail
+implementation. None is included in production.
+
+An exact SIMD classifier for two/three UTF-16 units passes **672** SIMD
+root/field/reuse checks, **108** callback/reservation/GC checks and all nine
+complete-model/retained-GC oracles. The independent eight-pair all-nine capture
+(144 records), following a separate four-corpus screen (32 records), finds:
+
+| Corpus | Tiny-string latency delta | 95% paired interval |
+|---|---:|---:|
+| twitter | **+0.52%** | +0.31% to +0.77% |
+| github_events | **+0.63%** | +0.23% to +0.99% |
+| poet | **−4.56%** | −6.95% to −2.24% |
+
+Other six intervals cross zero. The Poet improvement does not justify slowing
+the shared writer for the other two workloads. A three-character-only variant
+also passes the string/GC controls and five complete-model oracles, but its
+40-record screen encounters substantial late timing variability alongside
+browser/GPU/window-server activity in the host audits. It is inconclusive;
+no causation or qualified benefit is inferred from that screen.
+
+The next family addresses long BMP strings: the signed packed main classifier
+can flag ordinary U+8000–D7FF, after which the 16-byte loop can keep copying a
+long run without entering the existing 32-byte exact Unicode helper. One
+variant routes the remaining run through that helper after a clean block.
+A second also replaces the helper's classifier with low/high-byte unzips,
+masking ASCII tests by a zero high byte and testing surrogate high bytes.
+Each passes **672** string checks, **108** callback/reservation/GC checks and
+five complete-model/retained-GC oracles before timing.
+
+A separate balanced capture uses all six orders of baseline, routing and
+routing-plus-unzip: **90 fresh-process records** across five corpora.
+Negative values below mean lower serialization latency:
+
+| Corpus | Routing delta (95% interval) | Routing plus unzip (95% interval) |
+|---|---:|---:|
+| twitter | −0.94% (−2.07% to +0.19%) | −1.10% (−2.65% to +0.30%) |
+| citm_catalog | **+1.52% (+0.40% to +2.73%)** | **+0.99% (+0.03% to +2.39%)** |
+| github_events | **−1.48% (−2.55% to −0.61%)** | **−1.54% (−2.76% to −0.31%)** |
+| poet | −0.83% (−2.88% to +1.20%) | −1.36% (−3.77% to +1.05%) |
+| gsoc-2018 | −0.08% (−1.72% to +1.75%) | −0.59% (−2.10% to +0.35%) |
+
+All direct unzip-versus-routing intervals cross zero. Both global variants
+are rejected because of the CITM regressions; fewer classifier expressions do
+not establish lower whole-model cost. No native-code or hardware-cycle cause
+is inferred from these results.
+
+These are AS-to-AS experiments on Apple M4 Max/arm64/AC, V8 15.2.20,
+AssemblyScript 0.28.20, SIMD/incremental, validation off and cache zero, using
+the original classic owning-model harness. Each timing batch holds the shared
+host lock and retains host/memory audits and end-image seals. The production
+source and current native table remain unchanged at **4/9**.
+
+[Raw 306 process records, prototypes, executable images, correctness logs,
+statistics, host audits and seals](data/serialization-tiny-and-unicode-rejected.json.gz).
