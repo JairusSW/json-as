@@ -63,6 +63,7 @@ export class ArrayRowSerializers {
   private names: Set<string> | null;
   private arrayUses = new Set<ClassDeclaration>();
   private derived = new Set<ClassDeclaration>();
+  private eligibleRows = new Set<ClassDeclaration>();
   private unknownBase = false;
   private rows: { id: string; writer: string }[] = [];
   private declarations = new Map<Source, Node[]>();
@@ -176,6 +177,8 @@ export class ArrayRowSerializers {
           );
         if (type.name !== "Array" || type.arguments.length !== 1) return false;
         const element = type.arguments[0];
+        if (element.declaration?.kind === NodeKind.ClassDeclaration)
+          return this.eligibleRows.has(element.declaration as ClassDeclaration);
         return (
           !element.declaration &&
           !element.nullable &&
@@ -218,6 +221,8 @@ export class ArrayRowSerializers {
     }
     new BindBody().visit(body);
     if (receiver) return;
+    this.eligibleRows.add(node);
+
     node.members.push(
       SimpleParser.parseClassMember(MARKER + "(): void {}", node),
     );

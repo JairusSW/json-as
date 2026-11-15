@@ -13,6 +13,7 @@ export declare class ArrayRowSerializers {
     private names;
     private arrayUses;
     private derived;
+    private eligibleRows;
     private unknownBase;
     private rows;
     private declarations;

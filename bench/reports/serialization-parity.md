@@ -1742,3 +1742,36 @@ at this checkpoint.
 
 [Raw full native capture and end seals](data/serialization-numeric-row-native.json.gz).
 Near parity remains unfinished: three of nine corpora meet 90% of native throughput.
+
+## Nested numeric row proof
+
+A completed closed-row proof can now support a parent containing arrays of
+that row type. The existing proof excludes callbacks throughout the child;
+nullable child elements use the established null branch. Unproved, recursive,
+custom-codec and inherited children retain the ordinary path. This adds only
+a constant-time lookup during field eligibility, without graph expansion.
+
+The generated CITM writer now selects `SeatCategory` as well as `Price` and
+`Area`. Two independent 12-pair captures compare with `abd0b5db`'s exact binary:
+
+| Capture | Baseline median | Candidate median | Paired latency change | 95% interval | Pairs faster |
+|---|---:|---:|---:|---:|---:|
+| Initial screen | 94.135 µs | 93.565 µs | −0.77% | −1.41% to −0.37% | 12/12 |
+| Independent confirmation | 94.07 µs | 93.76 µs | −0.60% | −0.98% to −0.30% | 12/12 |
+
+All nine final images reproduce the screened candidates. The eight non-CITM
+images remain byte-identical to the preceding production version. Original
+classic harness, Apple M4 Max/arm64/AC, SIMD/incremental, validation off and
+cache zero; each batch uses a separate shared timing-lock hold with process,
+VM and power audits. These are shared-host AS-before/after measurements, not
+an updated native table or proof of isolated-host performance.
+
+The expanded row suite passes **156 checks**, including forced stock collection
+inside nested output growth, nullable grandchildren, forward declarations,
+self-recursive fallbacks and effectful children. Existing roots **90**, safety
+**16**, packed-consumer **360/36**, all nine model/retained-GC oracles,
+typecheck, lint and licenses pass. The selection assertion fails on the prior
+implementation and passes on this one. Final images match both captures.
+
+[Raw sources, images, checks and 48 timing records](data/serialization-nested-numeric-rows.json.gz).
+The latest full native gate remains **3/9**; near parity is still unfinished.

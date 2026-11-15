@@ -152,7 +152,32 @@ try {
         read(g.fallbacks()),
         '{"collisions":[{"value":5}],"customs":[7],"parents":[{"value":8,"other":9}]}',
       );
-      checks += 5;
+      assert.equal(
+        g.nestedSelected(),
+        actualRuntime === "incremental" ? 1 : 0,
+        "nested numeric row selection",
+      );
+      for (const [count, width] of [
+        [1, 0],
+        [40, 16000],
+      ]) {
+        const groups = JSON.parse(read(g.nested(count, width)));
+        assert.equal(groups.length, count);
+        for (let i = 0; i < count; i++) {
+          assert.equal(groups[i].tag, 4);
+          assert.equal(groups[i].items[0], null);
+          assert.equal(groups[i].items[1].values.length, width);
+          for (let j = 0; j < width; j++)
+            assert.equal(groups[i].items[1].values[j], i * width + j);
+        }
+        checks++;
+      }
+      assert.equal(read(g.nestedFallback()), '{"values":[{"items":[7]}]}');
+      assert.equal(
+        read(g.graphFallbacks()),
+        '{"values":[{"items":[]}]}|{"values":[{"children":[]}]}',
+      );
+      checks += 8;
     }
   }
   console.log(`Array row serialization: ${checks} checks passed`);

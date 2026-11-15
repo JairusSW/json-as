@@ -48,6 +48,7 @@ export class ArrayRowSerializers {
     names;
     arrayUses = new Set();
     derived = new Set();
+    eligibleRows = new Set();
     unknownBase = false;
     rows = [];
     declarations = new Map();
@@ -125,6 +126,8 @@ export class ArrayRowSerializers {
             if (type.name !== "Array" || type.arguments.length !== 1)
                 return false;
             const element = type.arguments[0];
+            if (element.declaration?.kind === NodeKind.ClassDeclaration)
+                return this.eligibleRows.has(element.declaration);
             return (!element.declaration &&
                 !element.nullable &&
                 !element.arguments.length &&
@@ -163,6 +166,7 @@ export class ArrayRowSerializers {
         new BindBody().visit(body);
         if (receiver)
             return;
+        this.eligibleRows.add(node);
         node.members.push(SimpleParser.parseClassMember(MARKER + "(): void {}", node));
         const getter = SimpleParser.parseTopLevelStatement(`@global @inline function ${id}(): u32 { return idof<${className}>(); }`);
         const worker = SimpleParser.parseTopLevelStatement(`@global @inline function ${writer}<${arrayType} extends any[]>(${input}: ${arrayType}, ${length}: i32): void {

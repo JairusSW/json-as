@@ -15,6 +15,11 @@ type __json_as_flat_strings_1_array = i32;
 type i64 = i32;
 
 @json({ nolazy })
+class ForwardGroup { items: Row[] = []; }
+@json({ nolazy })
+class ForwardGroups { values: ForwardGroup[] = [new ForwardGroup()]; }
+
+@json({ nolazy })
 class Row {
   signed: i8 = -1;
   unsigned: u16 = 65535;
@@ -138,4 +143,58 @@ export function fallbacks(): string {
   assert(!isDefined(changetype<ParentRow>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS));
   assert(!isDefined(changetype<ChildRow>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS));
   return J.stringify(value);
+}
+
+@json({ nolazy })
+class Group {
+  tag: i32 = 4;
+  items: (Row | null)[] = [];
+}
+@json({ nolazy })
+class Groups {
+  values: Group[] = [];
+}
+export function nestedSelected(): bool {
+  return isDefined(changetype<Group>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS);
+}
+function makeGroups(count: i32, width: i32): Group[] {
+  const rows = makeRows(count, width);
+  const groups = new Array<Group>(count);
+  for (let i = 0; i < count; i++) {
+    const group = new Group();
+    group.items = [null, rows[i]];
+    groups[i] = group;
+  }
+  return groups;
+}
+@inline
+function writeGroups(groups: Group[], requireCollection: bool): string {
+  const before = gcSteps();
+  const result = J.stringify(groups);
+  if (isDefined(__rowGcSteps) && requireCollection) {
+    assert(gcSteps() > before, "Collection must run inside nested serialization");
+  }
+  return result;
+}
+export function nested(count: i32, width: i32): string {
+  return writeGroups(makeGroups(count, width), count == 40);
+}
+
+@json({ nolazy })
+class EffectGroup { items: Custom[] = [new Custom()]; }
+@json({ nolazy })
+class EffectGroups { values: EffectGroup[] = [new EffectGroup()]; }
+export function nestedFallback(): string {
+  assert(!isDefined(changetype<EffectGroup>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS));
+  return J.stringify(new EffectGroups());
+}
+
+@json({ nolazy })
+class RecursiveGroup { children: RecursiveGroup[] = []; }
+@json({ nolazy })
+class RecursiveGroups { values: RecursiveGroup[] = [new RecursiveGroup()]; }
+export function graphFallbacks(): string {
+  assert(isDefined(changetype<ForwardGroup>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS) == (ASC_RUNTIME == 2));
+  assert(!isDefined(changetype<RecursiveGroup>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS));
+  return J.stringify(new ForwardGroups()) + "|" + J.stringify(new RecursiveGroups());
 }
