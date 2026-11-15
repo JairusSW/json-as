@@ -2518,3 +2518,59 @@ remains **4/9**; near parity is unfinished.
 [Raw 124 measurement process records, rejected source variants, images,
 correctness logs, host audits and seals](data/serialization-row-width-rejected.json.gz).
 The preceding native archive supplies hash-linked unchanged baseline images.
+
+## Overlapping clean-string tails on the current writer
+
+The earlier tail experiment was rejected on its original baseline. A recheck
+against `be2c3d81` now establishes a useful result with the later string-writer
+and generated-record changes. The main packed scan is unchanged. When it has
+consumed a clean prefix and fewer than 32 bytes remain, classify the final
+32 source bytes once and copy both vectors on a clean result. Both loads stay
+inside the payload; conservative hits retain the existing Unicode/escape path.
+The source and destination overlap only with their own already-copied prefixes.
+No output or classification cache is introduced.
+
+An initial four-pair screen is followed by an independent eight-pair all-nine
+confirmation, with **144 alternating fresh-process records**. Negative numbers
+below mean lower serialization latency:
+
+| Corpus | Paired geometric latency delta | 95% paired bootstrap interval |
+|---|---:|---:|
+| canada | −0.36% | −1.46% to +0.78% |
+| twitter | **−2.13%** | **−2.84% to −1.60%** |
+| citm_catalog | −0.79% | −1.69% to −0.10% |
+| github_events | **−5.04%** | **−6.01% to −4.09%** |
+| poet | +0.19% | −2.05% to +2.78% |
+| gsoc-2018 | **−2.39%** | **−2.75% to −2.02%** |
+| lottie | +0.13% | −0.43% to +0.56% |
+| otfcc | −1.04% | −2.30% to +0.36% |
+| fgo | −0.98% | −2.32% to +0.08% |
+
+Twitter, GitHub and GSoC improve in all eight pairs. Poet remains noisy, and
+no other corpus has a resolved slowdown. CITM's preceding four-pair screen
+was +0.15%, so its small confirmation change is not promoted as an independent
+major improvement. All captures use the original classic owning-model harness,
+Apple M4 Max/arm64/AC, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental, validation off and JSON_CACHE=0. The shared timing lock covers
+each batch; raw process/VM/power audits preserve background activity. These are
+AS-to-AS implementation comparisons, not a refreshed native table.
+
+The production source reproduces **all nine measured Wasm images exactly**.
+The expanded oracle adds lengths 47–49 to the existing control/surrogate checks
+at every position. **2,016** root/field/reuse checks across twelve configurations,
+**324** callback/reservation/GC checks across nine configurations, **156** numeric
+row checks and **90** array-root/lifetime checks pass. **360** actual-tarball
+consumer operations across **36** configurations and **51** warning configurations
+also pass, with AS201 enabled, as do typecheck, lint, licenses and formatting.
+
+A separate local escape-cursor prototype aggregates per-block expansion and
+publishes the output cursor once. It passes the model/string/GC controls, but
+its four-pair screen establishes no useful gain: CITM −0.04%, GitHub +0.34%,
+Poet +0.95%, and GSoC +0.17%. It is rejected rather than combined with the tail
+change. This isolation keeps the retained result attributable to the tail.
+
+[Raw 208 process records, prototypes, production images, source/image seals,
+complete-model and correctness logs, host audits and statistics](data/serialization-overlap32-retained.json.gz).
+The preceding native archive supplies hash-linked baseline images. The latest
+full native qualification still measures `be2c3d81` at **4/9**; this change needs
+its own native refresh, and the all-nine near-parity objective remains open.

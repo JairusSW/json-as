@@ -121,6 +121,30 @@ export function serializeStringRangeReservedAt_SIMD(
       dst += 32;
     }
 
+    // A completed clean prefix permits a payload-bounded overlapping tail.
+    // Reuse the packed classifier instead of scanning sixteen bytes and then
+    // checking a second overlapping vector. Hits retain the Unicode fallback.
+    if (srcStart > srcEnd32Fast && srcStart < srcEnd && srcSize >= 32) {
+      const tailFirst = load<v128>(srcEnd - 32);
+      const tailSecond = load<v128>(srcEnd - 16);
+      const tailBytes = i8x16.narrow_i16x8_s(tailFirst, tailSecond);
+      const tailSpecial = v128.or(
+        i8x16.eq(tailBytes, BYTE_QUOTE),
+        v128.or(
+          i8x16.eq(tailBytes, BYTE_BACKSLASH),
+          i8x16.lt_s(tailBytes, BYTE_SPACE),
+        ),
+      );
+      if (!v128.any_true(tailSpecial)) {
+        const tailDst = dstStart + 2 + srcSize - 32;
+        store<v128>(tailDst, tailFirst);
+        store<v128>(tailDst, tailSecond, 16);
+        store<u16>(dstStart, 34);
+        store<u16>(tailDst + 32, 34);
+        return tailDst + 34;
+      }
+    }
+
     const srcEnd16Fast = srcEnd - 16;
 
     while (srcStart <= srcEnd16Fast) {

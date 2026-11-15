@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Finish clean SIMD string tails with a payload-bounded overlapping 32-byte copy. Preserve exceptional Unicode handling and output ownership, avoiding a second tail scan without caching output.
+
 - Retire unused numeric reservation estimates after completed nested record writers. Preserve caller credits, buffer relocation and existing callback/GC fallbacks, without adding bookkeeping to standalone or deferred records.
 
 - Resume packed SIMD scanning in clean string suffixes from the exceptional writer, preserving Unicode handling, escape expansion, fresh output, and existing buffer/GC ownership.

@@ -38,7 +38,15 @@ const specialUnits = [
   0xe000,
   0xffff,
 ];
-for (const length of [...Array.from({ length: 34 }, (_, i) => i), 63, 64, 65]) {
+for (const length of [
+  ...Array.from({ length: 34 }, (_, i) => i),
+  47,
+  48,
+  49,
+  63,
+  64,
+  65,
+]) {
   const base = "a".repeat(length);
   tails.push(base, "😀".repeat(length), "\uffff".repeat(length));
   for (let at = 0; at < length; at++) {
