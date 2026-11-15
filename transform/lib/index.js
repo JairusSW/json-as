@@ -5358,6 +5358,36 @@ export class JSONTransform extends Visitor {
             console.log(INITIALIZE);
             console.log(DESERIALIZE_CUSTOM || DESERIALIZE);
         }
+        if (!hasTypeParams &&
+            !node.extendsType &&
+            !SERIALIZE_CUSTOM &&
+            !hasManualSerializer(node) &&
+            !node.members.some((member) => member.name.text === "__SERIALIZE_STRING_FIELDS")) {
+            const scope = source
+                .getQualifiedName(node)
+                .split(".")
+                .slice(0, -1)
+                .join(".");
+            const parameters = source.classTypeParameters(node);
+            let wide = false;
+            let strings = false;
+            for (const member of schema.members) {
+                if (member.flags.has(PropertyFlags.Lazy))
+                    continue;
+                const type = source.resolveTypeMeaning(member.type, scope, this.parser, parameters);
+                if (!type.declaration && ["i64", "u64"].includes(type.name)) {
+                    wide = true;
+                    break;
+                }
+                if (!type.arguments.length &&
+                    isString(type.name) &&
+                    (!type.declaration ||
+                        type.declaration.range.source.internalPath === "~lib/string"))
+                    strings = true;
+            }
+            if (!wide && strings)
+                node.members.push(SimpleParser.parseClassMember("__SERIALIZE_STRING_FIELDS(): void {}", node));
+        }
         const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
         const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
         const DESERIALIZE_CUSTOM_METHOD = DESERIALIZE_CUSTOM

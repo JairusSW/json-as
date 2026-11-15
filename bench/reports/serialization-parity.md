@@ -1240,3 +1240,80 @@ The [raw evidence](data/serialization-medium-string-screens.json.gz) includes
 96 timed process records, both prototypes/images, all correctness logs, named
 controls, symbolic WAT, Unicode route audit and per-file SHA-256 seals. Production
 sources remain unchanged. The native parity gate is still **3/9**.
+
+## String-bearing array rows: fewer managed aliases
+
+Generated string-bearing records can use the existing pointer-argument element
+entry. The element's managed method receiver still roots it; the array remains
+managed and its backing pointer is reloaded after callbacks. No pinning, output
+cache, collector change or allocation-policy change is introduced.
+
+The transform emits a compile-time hint only on plain, nongeneric model
+declarations with a native string field and no direct native i64/u64 field.
+Classification uses resolved type identity, including preserved aliases and
+shadowed builtin names. Generic and inherited declarations do not introduce a
+new hint. Presence queries do not invoke application members. Virtual custom
+serializer dispatch, nullable elements and existing inherited hints remain valid.
+
+Applying the entry to every generated row regresses CITM by 5.10% (eight-pair
+95% interval +4.57% to +5.83%). Restricting it to string-bearing rows removes
+most of that cost, but an independent capture still observes +0.86%. Retaining
+the established wide-integer row path restores **CITM's entire benchmark binary
+byte-for-byte**. GSoC, OTFCC and FGO also retain their baseline images.
+
+All nine final production images match the measured restricted prototype
+exactly. The Canada, GitHub and Poet images also match the earlier string-row
+prototype, allowing those exact-image captures to be retained. Twitter and
+Lottie receive a separate eight-pair capture after the final restriction.
+
+| Corpus | Latest paired geometric latency delta | Paired 95% interval | Evidence |
+|---|---:|---:|---|
+| twitter | +0.06% | -0.51% to +0.65% | Unresolved |
+| canada | -1.31% | -1.76% to -0.67% | Independent confirmation; 7/8 faster |
+| citm_catalog | 0 | Identical binary | Original wide-integer path |
+| poet | +0.45% | -0.60% to +1.43% | Initial -2.58% gain did not repeat |
+| github_events | -0.48% | -0.78% to -0.19% | Latest capture; initial interval crossed zero |
+| gsoc-2018 | 0 | Identical binary | Unchanged |
+| lottie | -0.91% | -1.69% to -0.31% | Focused final-image screen |
+| otfcc | 0 | Identical binary | Unchanged |
+| fgo | 0 | Identical binary | Unchanged |
+
+Canada's separate initial eight-pair capture is -1.60% (-2.69% to -0.34%),
+also 7/8 faster, with the same final binary. Other small movements are not
+claimed as independently repeated gains. These are AS-before/after results,
+not a new native comparison. The latest native gate remains the earlier
+**3/9** qualification until refreshed on this implementation.
+
+Measurements use alternating fresh processes, the original classic harness,
+SIMD/incremental, validation off, JSON_CACHE=0, Apple M4 Max/arm64/AC and V8
+15.2.20. Process, VM and power audits preserve shared-host interference. The
+balanced CITM probe uses all six three-variant orders twice. An unrelated
+nested-object confirmation interrupted by an explicit user pause is preserved
+separately; its 20 records are excluded from qualification.
+
+A matched named diagnostic image reproduces every non-custom section of the
+measured Poet image. Its root serializer's shadow-stack frame falls from 16 to
+8 bytes, and its static shadow-store sites from 7 to 4. This demonstrates the
+eliminated alias bookkeeping; it is not a cycle attribution or a claim that the
+initial Poet timing gain repeated.
+
+Validation on the final source:
+
+- Nine full owning-model and retained-GC oracles pass, with exact final/prototype
+  binary equality for every workload.
+- 63 new checks cover collection after a serializer clears its owning array,
+  heap-string descendants, nullable slots, inherited application-member
+  collisions, alias identity and actual compiler-emission selection/fallback.
+- 555 callback-free Map checks, 375 snapshot-lifetime checks and 1,872 string
+  oracle checks pass on the restricted prototype.
+- Actual tarball consumers pass 324 operations across 36 configurations.
+- All 51 compiler-warning configurations pass, with AS201 enabled.
+- Strategic serialization passes 760 checks across 38 configurations.
+- Typecheck, lint and license headers pass.
+
+The [sealed evidence](data/serialization-array-row-roots.json.gz) preserves
+source variants, final-source images and WAT controls, all available raw samples
+and audits, lifetime controls, fallback probes and per-file SHA-256 values.
+It also retains the unshipped Unicode-prefix, forced-inlining and nested-object
+experiments, plus the old stable-Map retries. No throughput claim is made for
+those candidates. Near parity remains unfinished.
