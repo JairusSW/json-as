@@ -2174,3 +2174,38 @@ pending. Parent `49b15495` has all hosted gates green.
 
 [All 426 process records, representations, compiler comparisons, stock proofs,
 float/state/model controls, sources, images and end seals](data/serialization-array-exponents.json.gz).
+
+## Current GitHub profile and rejected marking-inline screen
+
+A fresh serialization-only profile on `788a1866` repeats the earlier split:
+27.6% of samples in the SIMD range string writer, 26.7% in `__visit`, 9.8%
+in the output allocator's sweep interrupt, and 6.3% in member traversal.
+These are sampled function locations, not independent causal costs. The V8
+profile decoder warns of a version mismatch; native-symbol labels are not used.
+The model is parsed once from the recorded pretty input, then each operation
+returns fresh owning output. This diagnostic does not replace the classic
+native throughput table.
+
+An isolated prototype adds `@inline` to the existing stock `__visit` after the
+retained marking-body expansion. It leaves GC pacing, roots, list transitions,
+and output ownership unchanged. Complete owning-model and retained-GC oracles
+pass for CITM, GitHub Events and Poet. The three images grow by 1.2–2.3 KiB.
+A four-pair screen alternates fresh baseline/candidate processes under the
+shared host lock:
+
+| Corpus | Baseline µs | Candidate µs | Median latency delta |
+|---|---:|---:|---:|
+| citm_catalog | 84.615 | 84.980 | +0.43% |
+| github_events | 8.310 | 8.265 | −0.54% |
+| poet | 195.985 | 198.275 | +1.17% |
+
+This small screen does not establish a useful improvement, and the prototype
+is **not retained**. Apple M4 Max/arm64/AC, original classic owning-model
+harness, SIMD/incremental, validation disabled, JSON_CACHE=0, and the same
+compiler/engine settings as the native refresh above. Background processes and
+memory audits are preserved; no isolated-host claim is made. All baseline and
+candidate image end seals pass. The production implementation and full native
+table remain unchanged at **4/9** above the 90% gate.
+
+[Raw profile, 24 paired-screen process records, prototype, model oracles,
+audits, sources and sealed images](data/serialization-visit-inline-screen.json.gz).
