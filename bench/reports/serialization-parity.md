@@ -9,7 +9,7 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full qualification: [array-only rounding implementation `a189859c`](#full-native-refresh-at-a189859c). Three of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full qualification: [zero-limb implementation `ff771e31`](#full-native-refresh-at-ff771e31), with identical images after helper-binding hardening `33bdeaab`. Three of nine workloads meet the 90% gate; near parity remains unmet.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -1966,3 +1966,93 @@ runtime, model-oracle or seal failure. **3/9** meet the gate; near parity is sti
 unfinished. Lint and License headers pass on `a189859c`; hosted Tests are running.
 
 [All 186 paired/native process records, controls and end seals](data/serialization-array-dtoa.json.gz).
+
+## Skip zero cached-power low limbs in array formatting
+
+The private stock `Array<f64>` formatter skips `umul64hi(pLo, y)` when `pLo`
+is zero. The product is then exactly zero. Original scalar functions remain
+unchanged. An untimed counter build observes **222,160 zero low limbs out of
+222,160 opportunities** in the Canada model oracle's two layouts; Twitter
+never enters this array rounding route in that census. Counters are absent
+from the measured images.
+
+| Capture | Canada baseline median | Candidate median | Paired latency change | 95% interval | Pairs faster |
+|---|---:|---:|---:|---:|---:|
+| Initial screen | 2037.535 µs | 1971.690 µs | −3.26% | −3.97% to −2.66% | 12/12 |
+| Independent production confirmation | 2035.625 µs | 1968.120 µs | −3.63% | −4.89% to −2.76% | 12/12 |
+
+Twitter remains unresolved: screen −0.13% (95% −0.35% to +0.08%); confirmation
++0.18% (−0.07% to +0.47%). Seven other corpus images and a scalar-only control
+are byte-identical to the preceding implementation. Final production matches
+the screened prototype. Separate shared-lock holds, original classic harness,
+Apple M4 Max/arm64/AC, SIMD/incremental, compatibility, validation off, cache zero;
+source/image seals and host/power/memory audits accompany all samples.
+
+The formatter matrix passes **1,684,200** exact arithmetic comparisons and
+**1,848 arrays / 239,736 values across 21 configurations** before helper-binding
+hardening. All nine complete-model and retained-GC oracles pass. The unit suite
+checks both zero-limb sites and unchanged originals. A separate output-budget
+census at parent `e1b98813` finds that all nine warm workloads already use direct
+owned output; it does not support attributing this gain to removal of staging
+copies. Those probes are untimed and preserve their instrumentation separately.
+
+### Resolved helper-import proof
+
+A further regression exposed that rendered source/AST fingerprints do not cover
+an import's resolved module path. A prior transform could redirect the stock
+formatter's helper import while the original helper source remained present.
+Both the array specialization and the earlier decimal-clamp optimization now
+require that resolved import to select the verified helper source.
+
+The AST reproducer fails before the fix. A real compiler control redirects the
+import to a helper with an invocation counter. Its effects now match the
+unspecialized reference exactly. **76 array guard checks**, **86 decimal-clamp
+checks**, **1,844,600 arithmetic comparisons**, **2,024 arrays / 262,568 values
+across 23 configurations**, and **324,990 existing decimal-clamp runtime checks**
+pass. All nine benchmark images rebuilt at `33bdeaab` are byte-identical to the
+captured `ff771e31` images. Typecheck, lint, licenses and focused formatting pass;
+compiler diagnostics are checked in the runtime/image builds. The raw archive
+includes the measured source versions as well as the final hardened sources.
+
+## Full native refresh at ff771e31
+
+The accepted independent repeat completes **90 process records**, five
+alternating AS/native pairs per corpus, with **57 periodic host/memory audits**.
+Its source, Wasm, native model and input end seals pass. Production images were
+reused from the independently rebuilt, model/retained-GC-checked candidate;
+native hashes were verified unchanged. The preparation and proof are retained.
+
+The first complete native capture is preserved but excluded from this table.
+It overlaps heavy compiler/test/editor activity, and native Canada spans
+**1.665–2.846 ms**. The repeat's native Canada range is **1.646–1.693 ms**.
+Selection of the repeat was made because of the observed interference before
+its results were known. It is still a shared-host capture with background
+audits, not an isolated-host or per-engine peak-RSS measurement.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.44 | 10.46 | 0.71× |
+| canada | 1.04 | 1.25 | 0.83× |
+| citm_catalog | 5.92 | 10.41 | 0.57× |
+| poet | 16.77 | 23.44 | 0.72× |
+| github_events | 6.98 | 16.58 | 0.42× |
+| gsoc-2018 | 9.38 | 16.77 | 0.56× |
+| lottie | 25.04 | 23.21 | 1.08× |
+| otfcc | 36.90 | 24.38 | 1.51× |
+| fgo | 38.88 | 22.51 | 1.73× |
+
+Apple M4 Max/arm64/AC, original classic owning-model harness, V8 15.2.20,
+AssemblyScript 0.28.20, SIMD/incremental, compatibility, validation off,
+JSON_CACHE=0. GCC 16.2.0, `-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4 at
+`3b0b2b53`. Source-aligned models and actual UTF-8 output bytes; fresh owning
+output from both writers, with no serialized-output caching.
+
+The independent paired **−3.63% Canada latency** result establishes the AS-only
+change. Other full-table movements are not individually attributed to it.
+**3/9** workloads meet the 90% native gate; six remain below target. The gate
+returns 1 for that unmet target, with no runtime, oracle or seal failure. Near
+parity remains unfinished. Lint and License headers pass on `ff771e31` and
+`33bdeaab`; their full hosted Tests workflows are still running at this checkpoint.
+
+[All 276 process records, both native captures, counters, guard regressions,
+sources, images and end seals](data/serialization-array-zero-limb.json.gz).
