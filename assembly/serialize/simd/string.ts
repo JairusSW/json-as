@@ -247,7 +247,7 @@ export function serializeStringRangeReservedAt_SIMD(
       // A clean suffix after an escape uses the same checked Unicode loop.
       // Keep its cursor local instead of updating shared state per vector.
       if (srcStart <= srcEnd16) {
-        const next = copyCleanUnicode(srcStart, srcEnd, bs.offset);
+        const next = copyCleanAfterEscape(srcStart, srcEnd, bs.offset);
         bs.offset += next - srcStart;
         srcStart = next;
       }
@@ -584,4 +584,26 @@ function write_u_escape(code: u16): void {
   store<u32>(bs.offset, U_MARKER); // "\u"
   store<u64>(bs.offset, u16_to_hex4_swar(code), 4);
   bs.offset += 12;
+}
+
+/** Resume the packed clean scan after expansion, retaining the Unicode path
+ * for conservative hits and the final partial vector. */
+function copyCleanAfterEscape(src: usize, end: usize, dst: usize): usize {
+  const end32 = end - 32;
+  while (src <= end32) {
+    const first = load<v128>(src);
+    const second = load<v128>(src, 16);
+    const bytes = i8x16.narrow_i16x8_s(first, second);
+    const special = v128.or(
+      i8x16.eq(bytes, BYTE_QUOTE),
+      v128.or(i8x16.eq(bytes, BYTE_BACKSLASH), i8x16.lt_s(bytes, BYTE_SPACE)),
+    );
+    if (v128.any_true(special)) break;
+    store<v128>(dst, first);
+    store<v128>(dst, second, 16);
+    src += 32;
+    dst += 32;
+  }
+  if (src == end) return src;
+  return copyCleanUnicode(src, end, dst);
 }

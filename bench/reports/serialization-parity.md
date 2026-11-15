@@ -9,7 +9,7 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full qualification: [exponent-metadata implementation `f6f0fb99`](#full-native-refresh-at-f6f0fb99). Four of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full qualification: [packed suffix continuation](#full-native-refresh-with-suffix-continuation). Four of nine workloads meet the 90% gate; near parity remains unmet.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -2209,3 +2209,89 @@ table remain unchanged at **4/9** above the 90% gate.
 
 [Raw profile, 24 paired-screen process records, prototype, model oracles,
 audits, sources and sealed images](data/serialization-visit-inline-screen.json.gz).
+
+## Packed scanning in exceptional string suffixes
+
+The exceptional string writer previously continued clean runs through the
+Unicode copier, whose packed loop also computes exact surrogate masks. A new
+private continuation first uses the existing initial writer's cheaper packed
+classification. Conservative hits and partial vectors retain the original
+Unicode copier. The caller advances its output cursor by the consumed source
+bytes. Source bounds, capacity accounting, escape expansion, managed roots and
+output ownership remain unchanged; no output or classification cache is added.
+
+The retained implementation is the simple bounds-hardened continuation.
+An independent eight-pair all-nine confirmation alternates fresh processes
+against `245543f4`, with every sample retained:
+
+| Corpus | Paired geometric latency delta | Paired 95% interval |
+|---|---:|---:|
+| canada | −0.06% | −0.47% to +0.37% |
+| twitter | +0.00% | −0.84% to +0.57% |
+| citm_catalog | +0.10% | −0.11% to +0.28% |
+| github_events | +0.43% | −0.03% to +0.96% |
+| poet | +0.41% | −1.81% to +2.43% |
+| gsoc-2018 | **−7.31%** | **−7.75% to −6.82%** |
+| lottie | −0.41% | −0.85% to −0.09% |
+| otfcc | −0.53% | −2.53% to +0.81% |
+| fgo | −1.10% | −3.34% to +0.62% |
+
+GSoC is faster in all eight pairs. No slowdown resolves in the other corpora;
+Poet remains noisy, with four pairs faster and four slower. The earlier
+four-pair all-nine screen agrees on the GSoC improvement. Intervals use 20,000
+deterministic paired bootstrap resamples of process log-ratios. These are
+shared-host implementation comparisons, not replacement native ratios or
+isolated-host results.
+
+Two alternatives are rejected. A nibble-table classifier passes all 65,536
+UTF-16 unit comparisons and string/model oracles, but its four-pair screen
+regresses GitHub, Poet and GSoC by approximately 7–10% median latency. Restricting
+suffix entry to sparse actual expansions and returning immediately on another
+hit reduces the GSoC gain to 3.92% and causes a resolved Poet regression of
+2.18% (95% +1.16% to +3.28%, slower in all eight pairs). Neither is retained.
+No specific register-allocation or instruction-layout cause is inferred.
+
+The retained source passes all nine complete-model and retained-GC oracles,
+**2,016** exact string-oracle checks across all backends/strictness/fast settings,
+**324** callback/GC checks across nine backend/runtime configurations, **90**
+array-root checks, **360** packed-consumer operations across **36** configurations,
+and all **51** compiler-warning configurations. AS201 stays enabled. The expanded
+string oracle adds 864 long clean suffixes followed by controls, quotes,
+backslashes, BMP text and paired/unpaired surrogates at every vector-tail size.
+Typecheck, lint, licenses and focused formatting pass.
+
+## Full native refresh with suffix continuation
+
+Five alternating fresh-process AS/native pairs per corpus produce **90 records**
+with **57 periodic host/memory audits**. The qualified candidate images are reused;
+all nine Wasm images, compiler-source hash, native models and input end seals pass.
+The scalar-only control remains byte-identical. Both writers emit fresh owning
+output on every operation; serialized output caching remains disabled.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.44 | 10.89 | 0.68× |
+| canada | 1.17 | 1.25 | 0.94× |
+| citm_catalog | 5.92 | 10.49 | 0.56× |
+| poet | 16.61 | 23.78 | 0.70× |
+| github_events | 7.01 | 16.61 | 0.42× |
+| gsoc-2018 | **10.16** | **17.06** | **0.60×** |
+| lottie | 24.17 | 22.46 | 1.08× |
+| otfcc | 36.31 | 24.55 | 1.48× |
+| fgo | 37.83 | 22.39 | 1.69× |
+
+Apple M4 Max/arm64/AC, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
+original classic owning-model harness, SIMD/incremental, validation off and
+JSON_CACHE=0. GCC 16.2.0, `-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4 at
+`3b0b2b53`. Actual UTF-8 output bytes and matched initialization layouts are
+preserved. Background activity is audited; this is not an isolated-host or
+per-engine peak-RSS measurement. The independent AS-before/after capture
+establishes the GSoC improvement; other full-table shifts are not attributed
+to the implementation.
+
+**4/9** still meet the 90% gate: Canada, Lottie, OTFCC and FGO. The gate's exit
+status 1 reflects the five remaining below-target corpora, with no runtime,
+oracle or seal failure. Near parity across all nine remains unfinished.
+
+[All 610 measurement records, rejected variants, UTF-16 proof, validation logs,
+sources, images and end seals](data/serialization-escape-suffix.json.gz).

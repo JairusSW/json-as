@@ -61,6 +61,28 @@ for (let value = 0; value < 625; value++) {
     tails.push("a".repeat(prefix) + pattern + "z".repeat(40));
 }
 valid.push(tails);
+const suffixes = [];
+for (const prefix of [0, 7, 15])
+  for (let tail = 0; tail < 32; tail++)
+    for (const special of [
+      "",
+      '"',
+      "\\",
+      "\n",
+      "\0",
+      "\uffff",
+      "\ud800",
+      "\udc00",
+      "😀",
+    ])
+      suffixes.push(
+        "a".repeat(prefix) +
+          '"' +
+          "x".repeat(256 + tail) +
+          special +
+          "z".repeat(33),
+      );
+valid.push(suffixes);
 const invalid = [
   '["x",]',
   '["x",,"y"]',
