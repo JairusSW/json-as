@@ -1199,3 +1199,44 @@ contains both full-writer screens (80 process records), trial sources and images
 proof/runtime controls, model checks and per-file SHA-256 values. It supplements
 the earlier archive's isolated lane-classifier probe. The qualified native
 parity table remains unchanged at **3/9**, and the goal is still unfinished.
+
+### Medium-string block classification: two rejected variants
+
+Two further prototypes combine the overlapping blocks used for strings of
+8–15 UTF-16 units. The first packs both blocks into byte lanes, conservatively
+routing high Unicode through the complete writer. The second combines exact
+16-bit predicates, preserving the original control/escape/surrogate test.
+Both produce fresh output and retain the established escape fallback.
+
+Each passes 1,872 root/field/reuse string-oracle checks, 324 callback-order and
+retained-GC checks, and all nine complete-model/GC oracles. Each is then screened
+with eight alternating fresh-process pairs per workload, using the retained
+3a9a7913 images, original harness, SIMD/incremental, validation off, cache zero,
+Apple M4 Max/AC and the shared host lock. Process/memory audits are preserved.
+
+| Candidate | Workload | Paired geometric latency delta | Paired 95% interval |
+|---|---|---:|---:|
+| Packed | CITM | -0.53% | -1.48% to +0.36% |
+| Packed | Poet | +8.44% | +6.47% to +10.78% |
+| Packed | GitHub | -0.20% | -0.94% to +0.59% |
+| Exact predicate | CITM | +0.23% | -1.25% to +2.11% |
+| Exact predicate | Poet | +7.84% | +6.56% to +8.81% |
+| Exact predicate | GitHub | +0.19% | -0.67% to +1.05% |
+
+All eight Poet pairs are slower for both candidates. Neither is retained.
+The packed variant conservatively falls back on all 99 medium strings in Poet,
+although none contains an actual escape or surrogate. That is not a sufficient
+causal explanation: the exact-predicate variant also regresses.
+
+Named diagnostic images reproduce every non-custom section of their measured
+images. Comparing symbolic functions shows that only the medium writer changes;
+the general string writer remains identical. Binaryen also swaps the order of
+the general string writer and a TLSF batch-allocation helper in both candidates,
+rewriting references elsewhere. This is a verified layout difference, **not
+proof that it causes the slowdown**. The audit preserves both structural and
+symbolic comparisons rather than attributing every byte difference to new work.
+
+The [raw evidence](data/serialization-medium-string-screens.json.gz) includes
+96 timed process records, both prototypes/images, all correctness logs, named
+controls, symbolic WAT, Unicode route audit and per-file SHA-256 seals. Production
+sources remain unchanged. The native parity gate is still **3/9**.
