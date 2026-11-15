@@ -9,7 +9,7 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full qualification: [numeric-row implementation `abd0b5db`](#full-native-refresh-at-abd0b5db). Three of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full qualification: [reservation-accounting implementation `4dc112c8`](#full-native-refresh-at-4dc112c8). Three of nine workloads meet the 90% gate; near parity remains unmet.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -1842,3 +1842,43 @@ typecheck, lint and licenses pass.
 
 [Sources, policy probes, images, checks and 48 timing records](data/serialization-row-reservation-accounting.json.gz).
 The previous full native table remains authoritative at **3/9** until refreshed.
+
+
+## Full native refresh at 4dc112c8
+
+The final accounting implementation completes **90 process records**, five
+alternating fresh-process AS/native pairs per corpus, with **58 periodic host
+and memory audits**. All source, Wasm, native-model and input seals pass after
+capture. Complete model outputs and retained-GC oracles pass. Every prepared
+Wasm image matches the independently qualified candidate.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.31 | 10.65 | 0.69× |
+| canada | 0.96 | 1.23 | 0.78× |
+| citm_catalog | 5.76 | 10.23 | 0.56× |
+| poet | 16.48 | 23.07 | 0.71× |
+| github_events | 6.92 | 16.71 | 0.41× |
+| gsoc-2018 | 9.45 | 17.18 | 0.55× |
+| lottie | 25.04 | 22.90 | 1.09× |
+| otfcc | 36.54 | 24.41 | 1.50× |
+| fgo | 38.99 | 22.55 | 1.73× |
+
+Same original classic owning-model harness, Apple M4 Max/arm64/AC, V8 15.2.20,
+AssemblyScript 0.28.20, SIMD/incremental, compatibility mode, validation off and
+JSON_CACHE=0. Native uses GCC 16.2.0, `-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4
+at pinned `3b0b2b53`. Source-aligned inputs and actual UTF-8 output bytes remain
+the throughput denominator. Both writers return fresh owning output without
+output caching. These are shared-host measurements with recorded background
+activity, not isolated-host results.
+
+The accounting change's **−9.78%** paired latency confirmation establishes its
+AS-only effect; movements between the full-table snapshots are not individually
+attributed to it. The other eight AS images remain byte-identical to the prior
+implementation. The 90% native gate still returns status 1 for **six below-target
+workloads**, rather than for a runtime or correctness failure. **3/9** clear the
+gate, so near parity remains unfinished.
+
+Lint and License headers pass on `4dc112c8`; full hosted Tests are still running
+at this checkpoint. Earlier baseline `89a92a60` has all three hosted gates green.
+[Full raw native capture and end seals](data/serialization-row-accounting-native.json.gz).
