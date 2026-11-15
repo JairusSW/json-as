@@ -82,7 +82,12 @@ try {
           expected,
           `${mode}/${runtime}/compound/${value}`,
         );
-        checks += 3;
+        assert.equal(
+          decode(g.rows(value)),
+          "[" + expected + "]",
+          `${mode}/${runtime}/rows/${value}`,
+        );
+        checks += 4;
         if (++count % 512 === 0 && runtime !== "stub") g.__collect();
       }
     }

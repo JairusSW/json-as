@@ -11,6 +11,13 @@ import { JSON } from "../../index";
 @json class Row {
   value: i32 = 7;
 }
+
+@json class Rows {
+  values: Row[] = [];
+}
+export function serializeRows(): string {
+  return JSON.stringify([new Row()]);
+}
 export function flags(): i32 {
   return (
     (<i32>JSON_STRICT) |

@@ -7,12 +7,16 @@
 
 import { JSON } from "../index";
 
-
 @json
 class IntegerRecord {
   s: i64 = 0;
   u: u64 = 0;
   values: i64[] = [];
+}
+
+@json
+class IntegerCollection {
+  values: IntegerRecord[] = [];
 }
 
 export function signed(value: i64): string {
@@ -29,4 +33,12 @@ export function compound(value: u64): string {
   out.u = value;
   out.values = [<i64>value, <i64>~value];
   return JSON.stringify(out);
+}
+
+export function rows(value: u64): string {
+  const out = new IntegerRecord();
+  out.s = <i64>value;
+  out.u = value;
+  out.values = [<i64>value, <i64>~value];
+  return JSON.stringify([out]);
 }

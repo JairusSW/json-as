@@ -2472,3 +2472,49 @@ current executable images, profiles, native instructions, correctness logs,
 audits and seals](data/serialization-record-native.json.gz). Large native
 inputs and outputs are SHA-256 checked against the hash-linked earlier suffix
 archive rather than duplicated.
+
+## Integer-row width dispatch: rejected after countercases
+
+The next probes isolate the nine/ten-digit shortcut inside generated writers.
+They preserve the original formatting arithmetic, output ownership, callbacks,
+and allocation behavior. Each timing capture alternates fresh V8 processes
+under the shared host lock on Apple M4 Max/arm64, AC power, with the original
+owning-model harness, validation off and cache zero. Raw host/memory audits,
+image hashes, complete-model/retained-GC checks and prototypes are retained.
+These are AS-to-AS experiments, not new native throughput qualifications.
+
+A broad nested-field variant changes four classic images. Its four-pair
+geometric latency changes are Twitter **+0.92%**, CITM **−1.92%**, GitHub
+**+0.69%**, and Lottie **+0.81%**. It is rejected.
+
+Restricting the shortcut to already-certified numeric row workers changes only
+CITM; the other eight classic images are byte-identical. A separate twelve-pair
+confirmation improves CITM latency by **2.04%**, with all twelve pairs faster.
+However, a 10,000-row countercase using three integer fields in the range 0–9
+regresses **14.98% for i32** and **7.41% for i64** over four pairs each.
+A corpus win does not justify those regressions; this variant is also rejected.
+
+The final variant retains the original 0–99 branches before testing long widths:
+
+| Capture | Pairs | Paired geometric latency change |
+|---|---:|---:|
+| CITM, complete owning model | 6 | +0.13% |
+| i32 rows, values 0–9 | 4 | −0.20% |
+| i64 rows, values 0–9 | 4 | −0.05% |
+| i32 rows, values 123–10,122 | 4 | +0.12% |
+| i64 rows, values 123–10,122 | 4 | +1.15% |
+
+This removes the large tiny-number regression but establishes no useful CITM
+improvement. None of the new writer implementations is retained. Canonical
+runtime binding, foreign-module and fresh-symbol controls passed during the
+prototype; exact formatting passed **114,660 comparisons** across all three
+backends and runtimes. The retained tests now exercise numeric row serialization
+as well as root/field/array routes, and serialization during repeated compiler
+invocations. After removing the experimental writer, **114,660** integer,
+**156** row/GC and **189** declaration/configuration checks pass, together with
+build, typecheck, lint, licenses and focused formatting. The full native gate
+remains **4/9**; near parity is unfinished.
+
+[Raw 124 measurement process records, rejected source variants, images,
+correctness logs, host audits and seals](data/serialization-row-width-rejected.json.gz).
+The preceding native archive supplies hash-linked unchanged baseline images.
