@@ -61,8 +61,8 @@ const BINDINGS = new Set([
   "i32",
 ]);
 
-/** Expand the stock marking call without changing GC pacing or transitions. */
-export function inlineGcMarking(
+/** Recognize the collector sources without changing their AST. */
+export function hasStockMarkingRuntime(
   sources: Source[],
   aliases: Map<string, string> | null,
 ): boolean {
@@ -82,6 +82,15 @@ export function inlineGcMarking(
     )
       return false;
   }
+  return true;
+}
+
+/** Expand the stock marking call without changing GC pacing or transitions. */
+export function inlineGcMarking(
+  sources: Source[],
+  aliases: Map<string, string> | null,
+): boolean {
+  if (!hasStockMarkingRuntime(sources, aliases)) return false;
   const runtime = sources.find((s) => s.internalPath === "~lib/rt/itcms")!;
   const object = runtime.statements.find(
     (n) =>

@@ -74,6 +74,7 @@ import {
   toString,
 } from "./util.js";
 import { Visitor } from "./visitor.js";
+import { ArrayRowSerializers } from "./array-row.js";
 import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
@@ -461,6 +462,7 @@ export class JSONTransform extends Visitor {
   public sources: SourceSet = new SourceSet();
   public imports: ImportStatement[] = [];
   public simdStatements = new Map<Source, string[]>();
+  public arrayRows: ArrayRowSerializers | null = null;
 
   public visitedClasses: Set<string> = new Set<string>();
 
@@ -8034,6 +8036,12 @@ export class JSONTransform extends Visitor {
       SERIALIZE_CUSTOM || SERIALIZE,
       node,
     );
+    this.arrayRows?.add(
+      node,
+      schema,
+      source,
+      SERIALIZE_METHOD as MethodDeclaration,
+    );
     const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
     const DESERIALIZE_CUSTOM_METHOD = DESERIALIZE_CUSTOM
       ? SimpleParser.parseClassMember(DESERIALIZE_CUSTOM, node)
@@ -8903,6 +8911,7 @@ export class JSONTransform extends Visitor {
         visitNamedTypeNode(_type: NamedTypeNode): void {}
       }
       const bind = new BindGeneratedReferences();
+      this.arrayRows?.bind(node, bind);
       for (const schema of this.schemas.get(node.internalPath) || []) {
         for (const member of schema.node.members) {
           if (member.kind === NodeKind.FieldDeclaration) {
@@ -9189,6 +9198,12 @@ export default class Transformer extends Transform {
     const numericConstants = pureNumericConstants(parser.sources);
     transformer.pureNumericConstants = numericConstants.constants;
     transformer.numericConstantShadows = numericConstants.shadowed;
+    transformer.arrayRows = new ArrayRowSerializers(
+      sources,
+      parser,
+      transformer.sources,
+      this.program.options,
+    );
     transformer.prepareStrategicLaziness(sources);
     transformer.prepareOrdinarySpecialization(sources);
     transformer.prepareLazyOverrides(sources);
@@ -9232,7 +9247,11 @@ export default class Transformer extends Transform {
       hasStaticI64ArraySchema,
     );
 
-    inlineGcMarking(parser.sources, this.program.options.globalAliases);
+    const knownGc = inlineGcMarking(
+      parser.sources,
+      this.program.options.globalAliases,
+    );
+    transformer.arrayRows?.finish(parser.sources, knownGc);
     specializeDecimalClamps(parser.sources, this.program.options.globalAliases);
 
     for (const [source, statements] of transformer.simdStatements) {

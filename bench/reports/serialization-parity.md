@@ -1653,3 +1653,48 @@ errors separately. Screens use the original classic harness, Apple M4 Max /
 arm64 / AC, V8 15.2.20, SIMD/incremental, validation off and cache zero. Shared
 host locks cover complete timing batches; concurrent non-timing work remains
 visible in the audits. Native qualification is unchanged: **3/9 at 0.90**.
+
+## Closed numeric row borrowing: production qualification
+
+The generated array worker now borrows a closed numeric row while keeping its
+owning native array rooted. It is limited to non-generic, top-level leaf schemas
+with integer/boolean fields and non-null wide-integer arrays. Custom codecs,
+inheritance, conditional omission, lazy storage, uncertain descendants, array
+subclasses, instrumentation, foreign GC hooks, shared memory and unverified
+runtime implementations retain the established path. Runtime dependencies must
+match both reviewed source and semantic AST fingerprints. Generated symbols are
+reserved against application identifiers, and emitted type aliases retain their
+original bindings.
+
+The final implementation reproduces the screened CITM binary exactly. The other
+eight classic binaries are byte-identical to `6f69d211`. All nine complete-model
+and retained-GC oracles pass. An independent 12-pair confirmation on Apple M4 Max,
+arm64, AC power, with the shared host timing lock measured:
+
+| CITM serialization | Baseline | Candidate | Paired latency change |
+|---|---:|---:|---:|
+| Median latency | 95.24 µs | 93.62 µs | −1.64% [−2.49%, −0.87%] |
+
+Eleven of twelve pairs favor the candidate. The interval bootstraps paired log
+ratios (20,000 resamples); it is not the ratio of the medians. This repeats the
+initial −2.02% screen. The original classic harness, fresh owning output,
+SIMD/incremental runtime, validation off, JSON_CACHE=0 and source-aligned model
+are unchanged. The capture retains power, process and memory audits; the host
+was shared, not isolated. This is an AS before/after result, not a refreshed
+simdjson ratio. The latest full native gate remains three of nine workloads.
+
+Correctness checks passed: 96 active-row/binding/collision/subclass/fallback
+checks; 16 runtime/source/AST/hook selection checks; 90 existing array-root
+checks; 36 GC-marking checks; 555 map callback checks; 375 map snapshot-lifetime
+checks; 760 strategic serialization checks; 324 packed-consumer operations across
+36 configurations; and all 51 warning configurations with AS201 enabled.
+The active-row test forces the stock collector at output-buffer growth and
+counts collector steps **inside serialization**, after input construction. That
+instrumentation is diagnostic only and is absent from the measured binaries.
+Typechecking, lint and license checks also pass.
+
+[Raw confirmation, sealed binaries, sources and validation logs](data/serialization-numeric-row-production.json.gz)
+retain the final implementation and its exact measured image. The reviewed hash
+manifest can be reproduced with `node scripts/update-array-row-runtime.mjs`
+after rebuilding the transform; dependency changes require review before
+refreshing that certificate.

@@ -50,7 +50,7 @@ const BINDINGS = new Set([
     "isDefined",
     "i32",
 ]);
-export function inlineGcMarking(sources, aliases) {
+export function hasStockMarkingRuntime(sources, aliases) {
     if (diagnosticsRuntimeRoot(sources) === undefined)
         return false;
     if (aliases &&
@@ -62,6 +62,11 @@ export function inlineGcMarking(sources, aliases) {
             createHash("sha256").update(source.text).digest("hex") !== expected)
             return false;
     }
+    return true;
+}
+export function inlineGcMarking(sources, aliases) {
+    if (!hasStockMarkingRuntime(sources, aliases))
+        return false;
     const runtime = sources.find((s) => s.internalPath === "~lib/rt/itcms");
     const object = runtime.statements.find((n) => n.kind === NodeKind.ClassDeclaration &&
         n.name.text === "Object");

@@ -17,6 +17,7 @@ import { NodeKind } from "./types.js";
 import { Property, PropertyFlags, Schema, SourceSet, typeMeaningText, } from "./types.js";
 import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from "./util.js";
 import { Visitor } from "./visitor.js";
+import { ArrayRowSerializers } from "./array-row.js";
 import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
@@ -251,6 +252,7 @@ export class JSONTransform extends Visitor {
     sources = new SourceSet();
     imports = [];
     simdStatements = new Map();
+    arrayRows = null;
     visitedClasses = new Set();
     pureNumericConstants = new Set();
     numericConstantShadows = new Set();
@@ -5389,6 +5391,7 @@ export class JSONTransform extends Visitor {
                 node.members.push(SimpleParser.parseClassMember("__SERIALIZE_STRING_FIELDS(): void {}", node));
         }
         const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
+        this.arrayRows?.add(node, schema, source, SERIALIZE_METHOD);
         const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
         const DESERIALIZE_CUSTOM_METHOD = DESERIALIZE_CUSTOM
             ? SimpleParser.parseClassMember(DESERIALIZE_CUSTOM, node)
@@ -5888,6 +5891,7 @@ export class JSONTransform extends Visitor {
                 visitNamedTypeNode(_type) { }
             }
             const bind = new BindGeneratedReferences();
+            this.arrayRows?.bind(node, bind);
             for (const schema of this.schemas.get(node.internalPath) || []) {
                 for (const member of schema.node.members) {
                     if (member.kind === NodeKind.FieldDeclaration) {
@@ -6125,6 +6129,7 @@ export default class Transformer extends Transform {
         const numericConstants = pureNumericConstants(parser.sources);
         transformer.pureNumericConstants = numericConstants.constants;
         transformer.numericConstantShadows = numericConstants.shadowed;
+        transformer.arrayRows = new ArrayRowSerializers(sources, parser, transformer.sources, this.program.options);
         transformer.prepareStrategicLaziness(sources);
         transformer.prepareOrdinarySpecialization(sources);
         transformer.prepareLazyOverrides(sources);
@@ -6146,7 +6151,8 @@ export default class Transformer extends Transform {
         specializeObjectBarrier(parser.sources);
         const hasStaticI64ArraySchema = [...transformer.schemas.values()].some((schemas) => schemas.some((schema) => schema.members.some((member) => /(?:^|[<,])Array<i64>(?:$|[>,|])/.test(member.type.replace(/\s/g, "")))));
         specializeSweepRuns(parser.sources, this.program.options.globalAliases, hasStaticI64ArraySchema);
-        inlineGcMarking(parser.sources, this.program.options.globalAliases);
+        const knownGc = inlineGcMarking(parser.sources, this.program.options.globalAliases);
+        transformer.arrayRows?.finish(parser.sources, knownGc);
         specializeDecimalClamps(parser.sources, this.program.options.globalAliases);
         for (const [source, statements] of transformer.simdStatements) {
             for (const statement of statements)

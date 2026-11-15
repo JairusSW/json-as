@@ -6,4 +6,5 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { Source } from "assemblyscript/dist/assemblyscript.js";
+export declare function hasStockMarkingRuntime(sources: Source[], aliases: Map<string, string> | null): boolean;
 export declare function inlineGcMarking(sources: Source[], aliases: Map<string, string> | null): boolean;
