@@ -97,8 +97,14 @@ try {
       assert.equal(g.selected(), 1);
       for (let i = 0; i < 3; i++)
         assert.equal(read(g.verify()), "[null,42]", mode + "/" + runtime);
+      for (let i = 0; i < 3; i++)
+        assert.equal(
+          read(g.verifyReplacedOwner()),
+          '{"items":[null,42,{"n":1,"label":"rooted"}],"tail":9}',
+          mode + "/" + runtime,
+        );
       assert.equal(read(g.collision()), '[{"text":"x"}]|7:1');
-      checks += 5;
+      checks += 8;
     }
   // Removing only the hint must leave excluded writers byte-identical, while
   // changing a string-row writer. This checks real compiler output, not timing.

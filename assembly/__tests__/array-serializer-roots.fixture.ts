@@ -8,18 +8,23 @@
 import { JSON } from "../index";
 let owner: (Base | null)[] = [];
 let calls: i32 = 0;
+let replaceOwner: bool = false;
+
 
 @json({ nolazy }) class Base {
   n: i32 = 1;
   label: string = "rooted";
 }
 
+
 @json class Effect extends Base {
   extra: i32 = 9;
 
+
   @serializer('number') encode(self: Effect): string {
     calls++;
-    owner.length = 0;
+    if (replaceOwner) holderOwner!.items = [];
+    else owner.length = 0;
     if (ASC_RUNTIME == 2) __collect();
     const pressure = new Array<Effect>();
     for (let i = 0; i < 1024; i++) pressure.push(new Effect());
@@ -38,10 +43,36 @@ function makeChild(): Base {
 }
 export function verify(): string {
   calls = 0;
+  replaceOwner = false;
   owner = [null, makeChild()];
   const result = JSON.stringify(owner);
   assert(calls == 1);
   assert(owner.length == 0);
+  return result;
+}
+
+
+@json({ nolazy })
+class Holder {
+  items: (Base | null)[] = [];
+  tail: i32 = 9;
+}
+
+let holderOwner: Holder | null = null;
+
+function makeItems(): (Base | null)[] {
+  return [null, makeChild(), new Base()];
+}
+
+export function verifyReplacedOwner(): string {
+  calls = 0;
+  replaceOwner = true;
+  const value = new Holder();
+  value.items = makeItems();
+  holderOwner = value;
+  const result = JSON.stringify(value);
+  assert(calls == 1);
+  assert(value.items.length == 0);
   return result;
 }
 
@@ -56,6 +87,7 @@ class ApplicationBase {
     return 7;
   }
 }
+
 
 @json({ nolazy })
 class ApplicationChild extends ApplicationBase {

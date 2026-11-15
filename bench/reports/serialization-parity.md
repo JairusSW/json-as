@@ -9,7 +9,7 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full qualification: [marking-call implementation `e9971446`](#native-refresh-after-marking-call-expansion). Three of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full qualification: [array-row implementation `6f69d211`](#full-native-refresh-at-6f69d211). Three of nine workloads meet the 90% gate; near parity remains unmet.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -1354,3 +1354,56 @@ The [raw qualification](data/serialization-array-rows-native.json.gz) preserves
 model/driver sources, compiler conditions, input/output hashes and end seals.
 All earlier snapshots remain available. Near parity for the six remaining
 workloads is still unachieved.
+
+## Owning-array replacement control and rejected scanner screens
+
+Two further isolated candidates are **not retained**. Both use sealed 6f69d211
+baseline images, eight alternating fresh-process pairs, the original classic
+harness, SIMD/incremental, validation off and JSON_CACHE=0. Apple M4 Max / arm64,
+AC power and V8 15.2.20; every sample retains process and VM audits under the
+shared timing lock. These shared-host screens do not refresh the native gate.
+
+Replacing the pointer-entry loop's managed `src.dataStart` access with a raw
+native-layout load removes one static shadow-stack store from the Poet Wasm.
+The backing pointer is still reloaded after callbacks. A new lifetime control
+replaces the parent's owning-array field during a custom child serializer,
+forces incremental collection with allocation pressure, then serializes the
+next element of the original array. Baseline and candidate pass 54 checks
+across three modes and three runtimes. The production regression fixture now
+covers that replacement, in addition to clearing the existing array; its full
+suite passes **90 checks**, with no compiler warnings.
+
+| Raw backing-pointer reload | Paired geometric latency delta | Paired 95% interval |
+|---|---:|---:|
+| canada | +0.11% | -0.20% to +0.44% |
+| poet | -0.80% | -2.46% to +0.99% |
+| github_events | -0.70% | -1.51% to +0.05% |
+
+All intervals cross zero. The raw-load rewrite remains unretained.
+
+A compile-only native-code capture of the matched named Poet image shows V8
+already unrolls the existing 32-byte scan four times. Rather than duplicating
+that loop, the second candidate combines two adjacent masks before one escape
+reduction, scanning 64 bytes at a time. It preserves bounds and the established
+exceptional fallback. The candidate passes 1,872 string oracle checks, 324
+reservation/GC checks, and complete model/retained-GC oracles for all four
+screened corpora. Correctness does not establish a performance improvement:
+
+| Combined 64-byte masks | Paired geometric latency delta | Paired 95% interval |
+|---|---:|---:|
+| twitter | +0.38% | +0.06% to +0.65% |
+| citm_catalog | +0.09% | -0.41% to +0.49% |
+| poet | +3.13% | +2.18% to +3.96% |
+| github_events | +1.68% | +0.61% to +2.99% |
+
+Poet is slower in all eight pairs. The combined-mask candidate is rejected;
+no specific machine-code cause is inferred from these timings. Production
+serialization remains unchanged. Only the stronger lifetime regression and
+these records are added.
+
+The [sealed archive](data/serialization-native-load-and-string64.json.gz)
+contains 93 files in 87 deduplicated SHA-256 blobs: all 112 timing records,
+source variants, baseline and candidate images, build/oracle logs, replacement
+controls, process/VM/power audits and the compile-only native-code diagnostic.
+All measured image hashes are rechecked after capture. Native parity remains
+**3/9 at 0.90**, with the full table immediately above still authoritative.
