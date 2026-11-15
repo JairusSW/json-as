@@ -9,7 +9,7 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full qualification: [reservation-accounting implementation `4dc112c8`](#full-native-refresh-at-4dc112c8). Three of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full qualification: [array-only rounding implementation `a189859c`](#full-native-refresh-at-a189859c). Three of nine workloads meet the 90% gate; near parity remains unmet.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -1882,3 +1882,87 @@ gate, so near parity remains unfinished.
 Lint and License headers pass on `4dc112c8`; full hosted Tests are still running
 at this checkpoint. Earlier baseline `89a92a60` has all three hosted gates green.
 [Full raw native capture and end seals](data/serialization-row-accounting-native.json.gz).
+
+## Array-only multiply-ten rounding
+
+The stock buffered `Array<f64>` writer now uses a private formatter clone whose
+two multiply-ten-plus-carry operations use bounded 32-bit limbs. The result is
+exactly the high 64 bits of `a * 10 + carry`. Scalar writers retain their existing
+formatter. This scope avoids the Poet regression seen with the earlier global
+arithmetic experiment; it does not change Float64Array or StaticArray dispatch.
+
+Selection requires known source and AST fingerprints, including the formatter's
+helper, and follows the actual array import through named/star/local reexports.
+An application-supplied wrapper is preserved. Unknown sources and non-JSON
+compiler aliases decline selection; generated identifiers avoid application
+names. Both raw and previously clamp-specialized stock formatters are supported.
+
+| Capture | Canada baseline median | Candidate median | Paired latency change | 95% interval | Pairs faster |
+|---|---:|---:|---:|---:|---:|
+| Initial array-only screen | 2129.470 µs | 2035.935 µs | −5.12% | −5.79% to −4.50% | 12/12 |
+| Independent guarded confirmation | 2140.320 µs | 2052.455 µs | −4.67% | −5.42% to −4.01% | 12/12 |
+
+Twitter has no resolved change: initial paired latency −0.10% (95% −1.00% to
++0.75%); confirmation +0.50% (−0.37% to +1.55%). Seven other corpus images and
+a scalar-only control are byte-identical to the preceding production version.
+The guarded production images match the initial prototype. A clone-only control
+also leaves all nine images unchanged, so cloning by itself does not explain
+the screen result; arithmetic can still influence compiler inlining and layout.
+
+Both captures use separate shared-lock holds on Apple M4 Max/arm64/AC, original
+classic harness, SIMD/incremental, compatibility mode, validation off and cache
+zero. Every process sample and host/memory audit is retained. These are
+shared-host AS-before/after measurements, not isolated-host or peak-RSS claims.
+
+Validation includes 68 source/AST/binding/hygiene/fallback/idempotence checks;
+1,684,200 exact BigInt comparisons and 1,848 arrays / 239,736 numeric values
+across 21 backend/runtime/diagnostics/control configurations. f64 output matches
+the JavaScript canonical oracle exactly; f32 checks numeric round trips and
+unchanged baseline formatting. The prototype also passed 400,100 arithmetic
+cases per version and 448 baseline/candidate array comparisons with 113,376
+numeric values per version. Explicit boundaries include signed zero,
+subnormals, notation thresholds, extreme finite values and non-finite nulls.
+
+All nine complete-model and retained-GC oracles pass. Existing row/GC 156,
+reservation/default/capacity 162, strategic serialization 760/38 configurations,
+packed consumer 360/36 and warning 51 configurations pass. AS201 remains enabled.
+Typecheck, lint, licenses and focused formatting pass. All three hosted gates
+are green on parent `581f7f2c`; candidate `a189859c` has its own CI run.
+
+[Sources, binaries, controls, paired samples and native refresh](data/serialization-array-dtoa.json.gz).
+
+## Full native refresh at a189859c
+
+The guarded array-only rounding implementation completes **90 process records**,
+five alternating fresh-process AS/native pairs per corpus, with **57 periodic
+host and memory audits**. All source, Wasm, native-model and input seals pass
+after capture. Every prepared image matches the independently confirmed candidate.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.41 | 10.74 | 0.69× |
+| canada | 1.03 | 1.27 | 0.81× |
+| citm_catalog | 5.93 | 10.51 | 0.56× |
+| poet | 16.86 | 23.93 | 0.70× |
+| github_events | 6.95 | 16.64 | 0.42× |
+| gsoc-2018 | 9.46 | 17.09 | 0.55× |
+| lottie | 25.32 | 23.03 | 1.10× |
+| otfcc | 35.57 | 24.52 | 1.45× |
+| fgo | 39.16 | 22.37 | 1.75× |
+
+Apple M4 Max/arm64/AC, original classic owning-model harness, V8 15.2.20,
+AssemblyScript 0.28.20, SIMD/incremental, compatibility mode, validation off and
+JSON_CACHE=0. Native uses GCC 16.2.0, `-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4
+at pinned `3b0b2b53`. Source-aligned models and actual UTF-8 output bytes remain
+the throughput denominator. Both writers return fresh owning output without
+output caching. Shared-host load and power audits accompany the raw samples;
+this is not an isolated-host comparison.
+
+The independent **−4.67% Canada latency** confirmation establishes the AS-only
+change. Movements in the other full-table rows are not attributed to this patch;
+seven AS images are unchanged and Twitter has no resolved paired difference.
+The native gate exits 1 because **six workloads remain below 90%**, with no
+runtime, model-oracle or seal failure. **3/9** meet the gate; near parity is still
+unfinished. Lint and License headers pass on `a189859c`; hosted Tests are running.
+
+[All 186 paired/native process records, controls and end seals](data/serialization-array-dtoa.json.gz).
