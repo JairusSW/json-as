@@ -1317,3 +1317,40 @@ and audits, lifetime controls, fallback probes and per-file SHA-256 values.
 It also retains the unshipped Unicode-prefix, forced-inlining and nested-object
 experiments, plus the old stable-Map retries. No throughput claim is made for
 those candidates. Near parity remains unfinished.
+
+## Full native refresh at 6f69d211
+
+Five alternating fresh-process pairs per corpus, using the original classic AS
+harness and source-aligned complete owning models. Serialization creates fresh
+strings in both engines. Apple M4 Max / arm64 / AC; AssemblyScript 0.28.20,
+V8 15.2.20, SIMD/incremental, validation off and JSON_CACHE=0. Native uses GCC
+16.2.0, C++26 reflection, -O3/-DNDEBUG/-mcpu=native, and simdjson 5.0.4 at
+3b0b2b53aaffb46208817821dce2cd47a5e6bb2a. GB/s uses actual UTF-8 output bytes.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.60 | 10.97 | 0.69× |
+| canada | 0.98 | 1.27 | 0.77× |
+| citm_catalog | 5.22 | 10.47 | 0.50× |
+| poet | 16.37 | 23.95 | 0.68× |
+| github_events | 6.92 | 16.52 | 0.42× |
+| gsoc-2018 | 9.47 | 17.19 | 0.55× |
+| lottie | 25.61 | 23.39 | 1.10× |
+| otfcc | 37.01 | 24.74 | 1.50× |
+| fgo | 39.13 | 22.51 | 1.74× |
+
+The complete gate still clears **3/9** at the 0.90 threshold and correctly
+returns status 1. All 90 process records and complete output checks finish.
+Source/input, Wasm, generated native-model and executable seals pass after
+capture. The host audit retains 57 periodic power/VM/process/RSS snapshots;
+these are shared-host observations, not isolation or per-engine peak RSS claims.
+
+Changes from earlier native tables are not attributed to the array-row patch:
+CITM/GSoC/OTFCC/FGO images are unchanged, and native timings also move between
+captures. The paired AS-before/after evidence above isolates the smaller change.
+
+The [raw qualification](data/serialization-array-rows-native.json.gz) preserves
+198 sealed artifacts, all samples and logs, host audits, final Wasm images,
+model/driver sources, compiler conditions, input/output hashes and end seals.
+All earlier snapshots remain available. Near parity for the six remaining
+workloads is still unachieved.
