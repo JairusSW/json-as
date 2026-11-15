@@ -1148,11 +1148,54 @@ is equivalent for any mask. An isolated probe passes 2,097,152 checks (all UTF-1
 values in every lane, baseline and candidate) and emits a 496-byte native scan
 versus 512 bytes. Each unrolled block uses two lane transfers, OR and a direct
 branch, replacing the reduction, transfer, comparison, Boolean result and
-branch. This is static-code and correctness evidence only: **no full-writer
-performance result or retained classifier change is claimed**.
+branch. The full writer subsequently passes the 1,872 string-oracle checks, 324
+retained-output/GC checks, and all nine model oracles. Its eight-pair screen
+finds no resolved benefit: CITM -1.02% (95% interval -2.50% to +0.53%),
+Poet +1.45% (-1.15% to +4.01%), and GitHub +0.57% (-0.48% to +1.75%).
+The classifier change is **not retained**.
 
 The [raw archive](data/serialization-mask-and-cold-trials.json.gz) preserves
 both unretained candidates, all samples/audits, oracle results, exact named and
 native snapshots, source/seal comparisons, stack classifier and the isolated
 mask probe. Production sources are restored. The current native gate remains
 **3/9**, qualified on `3a9a7913`; near parity is still unfinished.
+
+
+### Compile-time closed serializer graphs: unretained screen
+
+A separate prototype proves closed, nonrecursive generated model graphs before
+lazy lowering. The existing positive-depth callback certificate can then return
+its type identity without visiting every child. Its negative-depth certificate
+for dynamic boxing stays unchanged. Runtime type-ID, tracing/finalizer
+capability checks and callback snapshot policy remain unchanged; no runtime
+method or public flag is added.
+
+The proof rejects uncertain or effectful types, known descendants, custom codecs,
+omission predicates, explicit deferred fields, generic models and unknown native
+references. It follows resolved declarations across aliases and modules, includes
+excluded modules when finding descendants, and bounds depth and total work.
+Fifteen proof groups pass. Eighteen backend/runtime/enabled-control configurations
+verify exact output, native-container override handling, mutation during callbacks
+and actual removal of child-certificate visits. Existing callback-free Map and
+snapshot-lifetime matrices pass 555 and 375 checks respectively. All nine complete
+model/retained-GC oracles pass. Non-mutating certificate recording reproduces the
+regular CITM binary exactly. Only CITM and GSoC benchmark images change; the other
+seven remain byte-identical to the retained baseline.
+
+Eight alternating fresh-process pairs on Apple M4 Max/AC, original classic
+harness, SIMD/incremental, validation off and cache zero give:
+
+| Workload | Baseline median µs | Candidate median µs | Paired geometric latency delta | Paired 95% interval |
+|---|---:|---:|---:|---:|
+| CITM | 96.645 | 97.680 | +1.21% | -0.49% to +3.13% |
+| GSoC | 332.225 | 329.430 | -0.97% | -2.96% to +0.94% |
+
+Neither interval establishes an improvement. The prototype is **not retained**;
+production transform and runtime sources are restored. These are shared-host
+measurements with process, memory and power audits, not an isolation claim.
+
+The [sealed evidence](data/serialization-closed-and-mask-screens.json.gz)
+contains both full-writer screens (80 process records), trial sources and images,
+proof/runtime controls, model checks and per-file SHA-256 values. It supplements
+the earlier archive's isolated lane-classifier probe. The qualified native
+parity table remains unchanged at **3/9**, and the goal is still unfinished.
