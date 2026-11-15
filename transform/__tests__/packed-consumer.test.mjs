@@ -65,6 +65,13 @@ export function forwarded():string {
  const first=Json.stringify(value);const second=Runtime.JSON.stringify(value);assert(changetype<usize>(first)!=changetype<usize>(second));
  return before.toString()+"|"+first+"|"+second;
 }
+@json({nolazy}) class NumericRow { n:i64=9007199254740993; values:i32[]=[1,2]; }
+@json({nolazy}) class NumericRows { rows:NumericRow[]=[]; }
+export function numericRows():string {
+ assert(isDefined(changetype<NumericRow>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS)==(ASC_RUNTIME==2));
+ const owner=new NumericRows();owner.rows=[new NumericRow()];
+ return Runtime.JSON.stringify(owner);
+}
 export function run():string {
  assert(fromRaw(toRaw('{"x":1}'))=='{"x":1}'&&toBox<i32>(7).value==7&&JSONMode.SWAR==0&&JSONMode.SIMD==1&&JSONMode.NAIVE==2);
  calls=0;const generic=Json.parse<Generic<Codec>>('{"value":7}');assert(generic.value.value==99&&calls==1);
@@ -133,7 +140,11 @@ export function run():string {
             read(g.forwarded()),
             '1|{"needed":7,"text":"\\u0061"}|{"needed":7,"text":"\\u0061"}',
           );
-          checks += 9;
+          assert.equal(
+            read(g.numericRows()),
+            '{"rows":[{"n":9007199254740993,"values":[1,2]}]}',
+          );
+          checks += 10;
           console.log(
             `Packed consumer: ${entry}/${mode}/${runtime}/strict=${strict}`,
           );
