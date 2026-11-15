@@ -1407,3 +1407,87 @@ source variants, baseline and candidate images, build/oracle logs, replacement
 controls, process/VM/power audits and the compile-only native-code diagnostic.
 All measured image hashes are rechecked after capture. Native parity remains
 **3/9 at 0.90**, with the full table immediately above still authoritative.
+
+## Disabled metadata, reservation sizes and loop interaction: unretained
+
+The installed AssemblyScript 0.28.20 runtime exposes no string-metadata bit.
+Nevertheless, the SIMD writer compares its completed byte count and writes the
+unchanged `rtSize` back after a clean long string. A two-site compile-time guard
+removes those comparisons/writes when the flag is zero. It preserves the
+nonzero-flag path: twelve control builds across three runtimes verify identical
+images with a synthetic nonzero flag and correct scalar/field output with zero.
+The synthetic flag is an **emission-preservation control**, not a compatibility
+claim for an unpatched runtime executing flagged strings.
+
+The guard passes 1,872 string-oracle checks, 324 reservation/GC checks and all
+nine complete-model/retained-GC oracles. Its nine-corpus eight-pair screen is
+mixed:
+
+| Corpus | Paired geometric latency delta | Paired 95% interval |
+|---|---:|---:|
+| twitter | -1.44% | -2.32% to -0.42% |
+| canada | +0.32% | -0.52% to +1.14% |
+| citm_catalog | +0.09% | approximately 0.00% to +0.20% |
+| poet | +5.57% | +3.50% to +7.72% |
+| github_events | -3.55% | -4.16% to -2.95% |
+| gsoc-2018 | -1.88% | -2.45% to -1.41% |
+| lottie | -6.51% | -6.77% to -6.24% |
+| otfcc | -0.60% | -2.43% to +1.06% |
+| fgo | -0.07% | -1.95% to +1.24% |
+
+CITM's tiny interval endpoint is below the printed latency precision; an
+independent balanced capture crosses zero. No meaningful CITM change is claimed.
+The Poet regression prevents retaining this guard as-is.
+
+A matched named Poet image preserves every non-custom section of the measured
+candidate. Same-process PC/native-cache captures show its general scanner's
+11,232 instruction bytes are **identical** to baseline. The enclosing serializer
+shrinks from 4,904 to 4,424 instruction bytes without increasing loop unrolling.
+The samples do not establish why it slows down; neither register allocation nor
+instruction placement is asserted as the cause.
+
+Two attempts to mitigate the tradeoff are also unretained:
+
+- Reuse sizes already read for reservation in callback-free generated schemas.
+  Five complete-model/GC oracles, the string/reservation suites, 90 array-root
+  checks, 555 callback-free Map checks and 375 snapshot checks pass. Its separate
+  eight-pair screen still slows Poet by **2.85%** (95% +0.98% to +4.82%). The
+  prototype would additionally require a conservative allocator/instrumentation
+  proof before production use; no such unproven path is shipped.
+- Advance the existing pointer-selected string-row loop by native byte offsets,
+  retaining backing-storage reloads, managed receivers and virtual codecs. Both
+  versions pass 90 root/GC checks and four complete-model/retained-GC oracles.
+  The loop alone regresses Poet and Lottie.
+
+A final balanced four-variant capture compares both changes independently and
+together against baseline, with each variant occupying every measurement
+position equally over eight groups:
+
+| Corpus | Metadata guard | Byte-offset loop | Both |
+|---|---:|---:|---:|
+| citm_catalog | -0.30% | -0.06% | -0.18% |
+| poet | +5.27% | +2.07% | +4.42% |
+| github_events | -3.90% | -0.50% | -3.23% |
+| lottie | -5.69% | +1.07% | -5.09% |
+
+All CITM intervals cross zero. Metadata-only Poet is slower in all eight groups
+(95% +4.05% to +6.66%); its GitHub and Lottie gains repeat (respectively -4.99%
+to -2.89%, and -6.59% to -4.16%). The offset loop does not remove the regression.
+All production and compiled-transform source is restored.
+
+These are AS-before/after screens, using sealed images, the original classic
+harness, SIMD/incremental, validation off, JSON_CACHE=0, Apple M4 Max/arm64/AC
+and V8 15.2.20. Shared timing locks cover each complete capture; process/VM/power
+audits preserve concurrent non-timing work. They are not isolated-host claims.
+
+The next route audit records 8,934 Poet rows: every `id` is 36 UTF-16 units;
+8,692 names have at most three units; descriptions span 0 to 1,108 units, with
+821 in the 16–31 range. This motivates investigating bounded-string dispatch
+rather than repeating the eight-to-fifteen-unit classifier experiments. It is
+a distribution observation, not evidence of an optimization.
+
+The [sealed archive](data/serialization-metadata-size-and-loop-screens.json.gz)
+contains all **352** timing records, variant sources/images, controls, complete
+model/GC logs, matched native diagnostics and the length audit. End image seals
+pass. The native comparison is unchanged: **3/9 at the 0.90 gate**, still short
+of near parity.
