@@ -1802,3 +1802,43 @@ claim and does not alter the native table.
 
 [Reproducer, generated sources, unchanged images and validation logs](data/serialization-lazy-budget.json.gz).
 The numeric reservation-tightening prototype remains separate and unretained.
+
+## Retire unused numeric row reservations
+
+A completed, callback-free borrowed row now retains its caller's outstanding
+reservation and replaces only its own conservative estimate with bytes actually
+written. Relative offsets survive buffer growth. Nullable rows and proved nested
+rows use the same accounting. This relies on the preceding lazy-budget fix so
+forwarded ranges participate in the cumulative budget too.
+
+An allocation-policy probe on the real CITM schema found 1,359,480 reserved bytes
+for 1,000,250 output bytes, selecting staging plus a copy. The candidate reduces
+the reserved count to 1,053,194 and learns a 1,068,822-byte owned allocation. Warm
+outputs are then produced directly as fresh managed strings. Twitter and Poet
+already use owned output and their probe results are unchanged. These instrumented
+observations establish the policy switch, not its individual cycle cost.
+
+| Capture | Baseline median | Candidate median | Paired latency change | 95% interval | Pairs faster |
+|---|---:|---:|---:|---:|---:|
+| Initial screen | 93.515 µs | 84.68 µs | −9.41% | −10.11% to −8.73% | 12/12 |
+| Independent final confirmation | 94.31 µs | 85.275 µs | −9.78% | −10.59% to −9.19% | 12/12 |
+
+The final images match the initial prototype even after the lazy-budget fix.
+All eight non-CITM images are byte-identical to the preceding production version.
+All nine full-model and retained-GC oracles pass. Original classic harness,
+Apple M4 Max/arm64/AC, SIMD/incremental, validation off, cache zero; separate
+shared-lock holds with source/image seals and host/power/memory audits. These
+are shared-host AS-before/after captures, not a refreshed native comparison.
+
+The expanded reservation suite passes **162 checks** across backends, runtimes
+and strictness: large deferred/materialized prefixes followed by numeric rows,
+future typed fields, and a caller holding a 1 MiB reservation across the writer.
+It validates exact output and capacity before the following append. A direct
+unused-row-budget assertion fails with the preceding writer and passes here.
+The **156** row suite retains forced GC inside output growth. Strategic **760/38**,
+packed **360/36**, map callback **555**, map lifetime **375**, the owned-output
+allocation/retention controls across nine configurations, source-safety **16**,
+typecheck, lint and licenses pass.
+
+[Sources, policy probes, images, checks and 48 timing records](data/serialization-row-reservation-accounting.json.gz).
+The previous full native table remains authoritative at **3/9** until refreshed.

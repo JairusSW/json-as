@@ -69,13 +69,19 @@ try {
           },
         ).exports;
         for (const materialized of [false, true])
-          for (const [length, append] of [
-            [0, false],
-            [65536, true],
-            [3, false],
+          for (const [length, append, held] of [
+            [0, false, false],
+            [65536, true, false],
+            [65536, true, true],
+            [3, false, false],
           ]) {
             const text = read(
-              g.render(length, Number(materialized), Number(append)),
+              g.render(
+                length,
+                Number(materialized),
+                Number(append),
+                Number(held),
+              ),
             );
             const expected = {
               first: "x".repeat(length),
@@ -85,6 +91,8 @@ try {
               flag: true,
               ratio: 1.5,
               missing: null,
+              rows: Array.from({ length: 64 }, (_, n) => ({ n })),
+              future: [42, 43],
             };
             assert.equal(
               text,
@@ -92,6 +100,10 @@ try {
             );
             checks++;
           }
+        const unused = g.rowBudget(3000);
+        if (runtime === "incremental") assert.equal(unused, 0);
+        else assert.ok(unused > 0);
+        checks++;
       }
   console.log(
     `Lazy reservation: ${checks} deferred/materialized/default/capacity checks passed`,

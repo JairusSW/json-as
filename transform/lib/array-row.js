@@ -141,12 +141,22 @@ export class ArrayRowSerializers {
             stem = "__json_as_flat_strings_" + suffix++;
             symbols = [
                 stem,
-                ...["id", "write", "array", "source", "length", "index", "ptr"].map((name) => stem + "_" + name),
+                ...[
+                    "id",
+                    "write",
+                    "array",
+                    "source",
+                    "length",
+                    "index",
+                    "ptr",
+                    "reserved",
+                    "begin",
+                ].map((name) => stem + "_" + name),
             ];
         } while (symbols.some((name) => this.names.has(name)));
         for (const symbol of symbols)
             this.names.add(symbol);
-        const [id, writer, arrayType, input, length, index, pointer] = symbols.slice(1);
+        const [id, writer, arrayType, input, length, index, pointer, reserved, begin,] = symbols.slice(1);
         const body = cloneNode(serializer.body);
         let receiver = false;
         const className = node.name.text;
@@ -171,9 +181,13 @@ export class ArrayRowSerializers {
         const getter = SimpleParser.parseTopLevelStatement(`@global @inline function ${id}(): u32 { return idof<${className}>(); }`);
         const worker = SimpleParser.parseTopLevelStatement(`@global @inline function ${writer}<${arrayType} extends any[]>(${input}: ${arrayType}, ${length}: i32): void {
       for (let ${index} = 0; ${index} < ${length}; ${index}++) {
+        const ${reserved} = bs.stackSize;
+        const ${begin} = bs.offset - bs.buffer;
         const ${pointer} = JSON.__serializeFlatNumericElement<${arrayType}>(changetype<usize>(${input}), ${index});
         if (isNullable<valueof<${arrayType}>>() && ${pointer} == 0) JSON.__serialize<valueof<${arrayType}>>(changetype<valueof<${arrayType}>>(${pointer}));
         else ${toString(body)}
+        // Keep every caller reservation; retire only this completed row's unused estimate.
+        bs.stackSize = (${reserved} >= ${begin} ? ${reserved} : ${begin}) + (bs.offset - bs.buffer - ${begin});
         store<u16>(bs.offset, 44); bs.offset += 2;
       }
     }`);

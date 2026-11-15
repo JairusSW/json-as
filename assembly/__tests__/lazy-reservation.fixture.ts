@@ -8,6 +8,9 @@
 import { JSON } from "../index";
 import { bs } from "../../lib/as-bs";
 
+@json({ nolazy })
+class BudgetRow { n: i64 = 0; }
+
 @json
 class LazyBudget {
   first: JSON.Lazy<string> = "";
@@ -17,20 +20,28 @@ class LazyBudget {
   @optional flag: JSON.Lazy<bool> = true;
   @optional ratio: JSON.Lazy<f64> = 1.5;
   @optional missing!: JSON.Lazy<string | null>;
+  @optional rows: BudgetRow[] = [];
+  @optional future: i64[] = [];
 }
 
-export function render(length: i32, materialized: bool, append: bool): string {
+export function render(length: i32, materialized: bool, append: bool, held: bool): string {
+  assert(isDefined(changetype<BudgetRow>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS) == (ASC_RUNTIME == 2));
   const text = "x".repeat(length);
   const value = JSON.parse<LazyBudget>('{"first":"' + text + '"}');
   if (materialized) {
     assert(value.first.length == length);
     value.missing = null;
   }
+  for (let i = 0; i < 64; i++) {
+    const row = new BudgetRow(); row.n = i; value.rows.push(row);
+  }
+  value.future = [42, 43];
   bs.reset();
+  const tail = 1 << 20;
+  if (append && held) bs.proposeSize(tail);
   JSON.__serialize(value);
   if (append) {
-    const tail = 1 << 20;
-    bs.proposeSize(tail);
+    if (!held) bs.proposeSize(tail);
     assert(bs.offset - bs.buffer + tail <= bs.bufferSize,
       "The next reservation must cover the actual write cursor");
     for (let end = bs.offset + tail; bs.offset < end; bs.offset += 2) {
@@ -40,4 +51,18 @@ export function render(length: i32, materialized: bool, append: bool): string {
   assert(bs.stackSize >= bs.offset - bs.buffer,
     "Lazy output bytes must remain in the reservation budget");
   return bs.out<string>();
+}
+
+export function rowBudget(count: i32): i32 {
+  const rows = new Array<BudgetRow>(count);
+  for (let i = 0; i < count; i++) {
+    const row = new BudgetRow(); row.n = i; rows[i] = row;
+  }
+  bs.reset();
+  JSON.__serialize(rows);
+  const unused = bs.stackSize - (bs.offset - bs.buffer);
+  if (ASC_RUNTIME == 2) assert(unused == 0,
+    "Unused row estimates must be retired");
+  bs.reset();
+  return <i32>unused;
 }
