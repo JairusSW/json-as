@@ -19,7 +19,14 @@ import {
   Source,
 } from "assemblyscript/dist/assemblyscript.js";
 import { INTEGER_TYPES } from "./scalars.js";
-import { NodeKind, PropertyFlags, Schema, SourceSet, Src } from "./types.js";
+import {
+  NodeKind,
+  PropertyFlags,
+  Schema,
+  SourceSet,
+  Src,
+  TypeMeaning,
+} from "./types.js";
 import { cloneNode, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
 import { diagnosticsRuntimeRoot } from "./diagnostics.js";
@@ -62,6 +69,8 @@ const MARKER = "__SERIALIZE_FLAT_NUMERIC_FIELDS";
 export class ArrayRowSerializers {
   private names: Set<string> | null;
   private arrayUses = new Set<ClassDeclaration>();
+  private nestedRecords = new Set<ClassDeclaration>();
+  private recordReservationCount = 0;
   private derived = new Set<ClassDeclaration>();
   private eligibleRows = new Set<ClassDeclaration>();
   private unknownBase = false;
@@ -111,6 +120,7 @@ export class ArrayRowSerializers {
             parser,
             parameters,
           );
+          this.rememberRecord(type);
           if (
             type.name === "Array" &&
             !type.declaration &&
@@ -124,6 +134,84 @@ export class ArrayRowSerializers {
         }
       }
     }
+  }
+
+  private rememberRecord(type: TypeMeaning): void {
+    if (type.declaration?.kind === NodeKind.ClassDeclaration)
+      this.nestedRecords.add(type.declaration as ClassDeclaration);
+    for (const argument of type.arguments) this.rememberRecord(argument);
+  }
+
+  /** Retire completed nested records' unused numeric capacity estimates. */
+  finishRecord(
+    node: ClassDeclaration,
+    schema: Schema,
+    source: Src,
+    serializer: MethodDeclaration,
+  ): void {
+    if (
+      !this.names ||
+      !this.nestedRecords.has(node) ||
+      schema.custom ||
+      !schema.static ||
+      node.typeParameters?.length ||
+      schema.members.some((member) => member.flags.has(PropertyFlags.Lazy))
+    )
+      return;
+    const scope = source
+      .getQualifiedName(node)
+      .split(".")
+      .slice(0, -1)
+      .join(".");
+    const parameters = source.classTypeParameters(node);
+    if (
+      !schema.members.some((member) => {
+        const type = source.resolveTypeMeaning(
+          member.type,
+          scope,
+          this.parser,
+          parameters,
+        );
+        return (
+          !type.declaration &&
+          !type.nullable &&
+          !type.arguments.length &&
+          (INTEGER_TYPES.includes(type.name) ||
+            type.name === "f32" ||
+            type.name === "f64")
+        );
+      })
+    )
+      return;
+
+    let reserved: string, begin: string;
+    do {
+      const index = this.recordReservationCount++;
+      reserved = `__json_record_reserved_${index}`;
+      begin = `__json_record_begin_${index}`;
+    } while (this.names.has(reserved) || this.names.has(begin));
+    this.names.add(reserved);
+    this.names.add(begin);
+    const start = SimpleParser.parseStatement(
+      `const ${reserved} = bs.stackSize;`,
+    );
+    const offset = SimpleParser.parseStatement(
+      `const ${begin} = bs.offset - bs.buffer;`,
+    );
+    // Preserve all caller credits and use relative offsets across buffer growth.
+    const end = SimpleParser.parseStatement(
+      `bs.stackSize = (${reserved} >= ${begin} ? ${reserved} : ${begin}) + (bs.offset - bs.buffer - ${begin});`,
+    );
+    class BindRange extends Visitor {
+      _visit(child: Node, parent: Node | null): void {
+        child.range = serializer.range;
+        super._visit(child, parent);
+      }
+    }
+    new BindRange().visit([start, offset, end]);
+    const body = serializer.body as BlockStatement;
+    body.statements.unshift(start, offset);
+    body.statements.push(end);
   }
 
   add(

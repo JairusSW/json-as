@@ -11,6 +11,8 @@ is reported below; the isolated AS-before/after screens are unaffected.
 
 Latest full qualification: [packed suffix continuation](#full-native-refresh-with-suffix-continuation). Four of nine workloads meet the 90% gate; near parity remains unmet.
 
+Latest implementation comparison: [nested record reservations](#nested-record-reservations), with lower Twitter and GitHub latency. This AS-before/after capture does not replace the native table.
+
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
 initial three-corpus screen is not whole-corpus qualification.
@@ -2295,3 +2297,76 @@ oracle or seal failure. Near parity across all nine remains unfinished.
 
 [All 610 measurement records, rejected variants, UTF-16 proof, validation logs,
 sources, images and end seals](data/serialization-escape-suffix.json.gz).
+
+## Nested record reservations
+
+Generated records reserve worst-case numeric widths before emitting values.
+Completed nested writers now retire only their unused estimates, preserving
+all caller credits and computing positions relative to the current buffer.
+This extends the existing numeric-row accounting to mixed nested records.
+Eligibility uses resolved field/collection references and the existing verified
+runtime/source/alias gate. Custom, deferred and generic writers retain their
+original handling. Pure string records and standalone records gain no extra
+bookkeeping. Existing borrowed numeric workers retain their original accounting.
+No output cache, new managed metadata, tracing or GC pacing change is introduced.
+
+An untimed policy probe on the unrestricted prototype reduced warmed owned
+capacities from 898,070 to 840,762 bytes for Twitter, 1,068,822 to 1,016,386 for
+CITM, and 124,940 to 118,598 for GitHub. Each still uses one learned owning
+allocation rather than repeated growth. Smaller capacity alone is not a speed
+claim: CITM subsequently shows no resolved throughput improvement.
+
+The unrestricted prototype also changes the standalone benchmark result writer.
+Its independent eight-pair screen resolves a small Poet slowdown (+1.12%,
+95% +0.08% to +2.16%), although the timed Poet string records are unchanged.
+That version is **not retained**; no instruction-layout cause is asserted.
+The retained version restricts accounting to nested record declarations.
+Canada, Poet, GSoC, OTFCC and FGO then remain **byte-identical** to `1fc04dc9`.
+
+Eight independent alternating fresh-process pairs for each changed image:
+
+| Corpus | Before GB/s | After GB/s | Paired geometric latency delta | Paired 95% interval |
+|---|---:|---:|---:|---:|
+| twitter | 7.409 | 7.516 | **−1.57%** | **−2.19% to −1.16%** |
+| citm_catalog | 5.930 | 5.937 | −0.06% | −0.28% to +0.21% |
+| github_events | 7.008 | 7.397 | **−5.29%** | **−6.01% to −4.42%** |
+| lottie | 25.404 | 25.437 | −0.27% | −0.78% to +0.21% |
+
+Twitter and GitHub are faster in all eight pairs. GB/s uses median process
+latency and actual UTF-8 output bytes; paired intervals use 20,000 deterministic
+bootstrap resamples of log-ratios. Apple M4 Max/arm64/AC, original classic owning
+models and harness, V8 15.2.20, AssemblyScript 0.28.20, SIMD/incremental,
+validation off and JSON_CACHE=0. Fresh owning output on every operation.
+Host/memory audits and power state are preserved; this is shared-host evidence,
+not an isolated-host or per-engine peak-RSS claim. All image end seals pass.
+The production transform reproduces the exact measured images on all nine
+corpora. **No new native ratios are claimed**; the last full native gate is 4/9.
+
+The permanent regression first fails on the parent with 40,024 excess reserved
+bytes. It now passes **162** output/reservation/capacity-transition/mutation/
+retained-GC checks across nine backend/runtime configurations. It is registered
+in `test:transform`. Current checks also pass: **760** strategic serialization
+checks across 38 configurations, **90** array-root checks, **156** numeric-row
+checks, **16** row-safety checks, **555** graph/alias/callback/GC checks,
+**360** actual-tarball consumer operations across 36 configurations, and **51**
+warning configurations with AS201 enabled. Typecheck, lint, licenses and focused
+formatting pass. Hosted final-commit CI remains a separate gate.
+
+Two additional prototypes are rejected. Mixed string-row borrowing passes model
+oracles but its four-pair screen changes Twitter by +0.40%, CITM by +7.45%, and
+GitHub by −0.24% median latency. Paired large-schema array iteration changes
+Twitter by +0.12%, CITM by −0.15%, GitHub by +0.06%, and Lottie by −0.37%; it
+establishes no useful gain, and no successful outlining mechanism is inferred.
+A synthetic Binaryen control confirms that the installed native optimizer does
+not honor the newer serialized inline hint. No shared toolchain is changed.
+
+A separate stress case shrinks a managed-reference array, collects, then grows
+its length before overwriting old slots. It aborts on the parent, the prototype,
+and plain AssemblyScript without json-as or its transform. Those reproducers
+are retained for upstream diagnosis, not claimed fixed here. The reservation
+regression appends initialized rows instead.
+
+[Raw 336 process records, rejected prototypes, policy observations, source/image
+seals, correctness logs and plain-AS control](data/serialization-record-reservations.json.gz).
+The previous complete native inputs/outputs remain in the hash-linked suffix
+archive above.

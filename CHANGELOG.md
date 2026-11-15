@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Retire unused numeric reservation estimates after completed nested record writers. Preserve caller credits, buffer relocation and existing callback/GC fallbacks, without adding bookkeeping to standalone or deferred records.
+
 - Resume packed SIMD scanning in clean string suffixes from the exceptional writer, preserving Unicode handling, escape expansion, fresh output, and existing buffer/GC ownership.
 
 - Precompute verified float-array exponent metadata when building the transform, emitting a private read-only table for the stock `Array<f64>` writer. Preserve formatter state and scalar code, retain source/binding/alias fallbacks, and cache only immutable metadata bytes during compilation.

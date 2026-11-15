@@ -12,12 +12,16 @@ export declare class ArrayRowSerializers {
     private parser;
     private names;
     private arrayUses;
+    private nestedRecords;
+    private recordReservationCount;
     private derived;
     private eligibleRows;
     private unknownBase;
     private rows;
     private declarations;
     constructor(sources: Source[], parser: Parser, sourceSet: SourceSet, options: Options);
+    private rememberRecord;
+    finishRecord(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
     add(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
     bind(source: Source, visitor: Visitor): void;
     finish(sources: Source[], knownGc: boolean): void;

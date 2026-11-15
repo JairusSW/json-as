@@ -6,7 +6,7 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { INTEGER_TYPES } from "./scalars.js";
-import { NodeKind, PropertyFlags } from "./types.js";
+import { NodeKind, PropertyFlags, } from "./types.js";
 import { cloneNode, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
 import { diagnosticsRuntimeRoot } from "./diagnostics.js";
@@ -47,6 +47,8 @@ export class ArrayRowSerializers {
     parser;
     names;
     arrayUses = new Set();
+    nestedRecords = new Set();
+    recordReservationCount = 0;
     derived = new Set();
     eligibleRows = new Set();
     unknownBase = false;
@@ -83,6 +85,7 @@ export class ArrayRowSerializers {
                     if (field.type?.kind !== NodeKind.NamedType)
                         continue;
                     const type = source.resolveTypeMeaning(toString(field.type), scope, parser, parameters);
+                    this.rememberRecord(type);
                     if (type.name === "Array" &&
                         !type.declaration &&
                         type.arguments.length === 1 &&
@@ -92,6 +95,58 @@ export class ArrayRowSerializers {
                 }
             }
         }
+    }
+    rememberRecord(type) {
+        if (type.declaration?.kind === NodeKind.ClassDeclaration)
+            this.nestedRecords.add(type.declaration);
+        for (const argument of type.arguments)
+            this.rememberRecord(argument);
+    }
+    finishRecord(node, schema, source, serializer) {
+        if (!this.names ||
+            !this.nestedRecords.has(node) ||
+            schema.custom ||
+            !schema.static ||
+            node.typeParameters?.length ||
+            schema.members.some((member) => member.flags.has(PropertyFlags.Lazy)))
+            return;
+        const scope = source
+            .getQualifiedName(node)
+            .split(".")
+            .slice(0, -1)
+            .join(".");
+        const parameters = source.classTypeParameters(node);
+        if (!schema.members.some((member) => {
+            const type = source.resolveTypeMeaning(member.type, scope, this.parser, parameters);
+            return (!type.declaration &&
+                !type.nullable &&
+                !type.arguments.length &&
+                (INTEGER_TYPES.includes(type.name) ||
+                    type.name === "f32" ||
+                    type.name === "f64"));
+        }))
+            return;
+        let reserved, begin;
+        do {
+            const index = this.recordReservationCount++;
+            reserved = `__json_record_reserved_${index}`;
+            begin = `__json_record_begin_${index}`;
+        } while (this.names.has(reserved) || this.names.has(begin));
+        this.names.add(reserved);
+        this.names.add(begin);
+        const start = SimpleParser.parseStatement(`const ${reserved} = bs.stackSize;`);
+        const offset = SimpleParser.parseStatement(`const ${begin} = bs.offset - bs.buffer;`);
+        const end = SimpleParser.parseStatement(`bs.stackSize = (${reserved} >= ${begin} ? ${reserved} : ${begin}) + (bs.offset - bs.buffer - ${begin});`);
+        class BindRange extends Visitor {
+            _visit(child, parent) {
+                child.range = serializer.range;
+                super._visit(child, parent);
+            }
+        }
+        new BindRange().visit([start, offset, end]);
+        const body = serializer.body;
+        body.statements.unshift(start, offset);
+        body.statements.push(end);
     }
     add(node, schema, source, serializer) {
         if (!this.names ||
