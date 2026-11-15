@@ -9,7 +9,7 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full qualification: [zero-limb implementation `ff771e31`](#full-native-refresh-at-ff771e31), with identical images after helper-binding hardening `33bdeaab`. Three of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full qualification: [exponent-metadata implementation `f6f0fb99`](#full-native-refresh-at-f6f0fb99). Four of nine workloads meet the 90% gate; near parity remains unmet.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -2056,3 +2056,121 @@ parity remains unfinished. Lint and License headers pass on `ff771e31` and
 
 [All 276 process records, both native captures, counters, guard regressions,
 sources, images and end seals](data/serialization-array-zero-limb.json.gz).
+
+## Build-time exponent metadata for private array formatting
+
+The regular-normal path of the verified `Array<f64>` formatter now reads
+precomputed exponent preparation instead of recalculating it for each value.
+The irregular and subnormal paths retain their existing code. The table stores
+power high/adjusted-low limbs, decimal exponent, shift and `h`; the original
+`gPow10Hi` effect is preserved. Scalar formatting remains unchanged.
+
+The table covers all 2,048 exponent encodings in **64 KiB**. It is calculated
+when building the transform, with a reproducible generator checked against the
+stock formatter's known source version. A consumer compilation decodes immutable
+bytes once, then creates fresh AST nodes and bindings per program. Known source,
+AST, import-target and compiler-alias guards remain required. Generated names
+include the new table in collision checks.
+
+A single static literal carries the binary UTF-16 payload. This reduces generated
+expressions from 8,192 integers to one literal, and the data is absent from the
+scalar-only and seven inactive corpus images. The affected classic binaries grow
+by about 65 KiB. No per-value output or serialized JSON is cached. The static
+literal's pointer is used for binary reads, with no runtime table construction.
+
+| Capture | Canada baseline median | Candidate median | Paired latency change | 95% interval | Pairs faster |
+|---|---:|---:|---:|---:|---:|
+| Initial numeric-table screen | 1972.575 µs | 1775.790 µs | −10.32% | −11.16% to −9.51% | 12/12 |
+| Interleaved single-literal comparison | 1943.480 µs | 1772.350 µs | −8.53% | −8.99% to −7.95% | 12/12 |
+| Independent production confirmation | 1958.395 µs | 1773.690 µs | −9.87% | −10.48% to −9.28% | 12/12 |
+
+The interleaved three-way comparison found the numeric representation about
+0.54% faster on Canada, while the single-literal float-array fixture compiled
+about 3.06% faster than that numeric prototype. Final generation moves the BigInt
+work out of consumer compilations. It was selected for its much smaller AST and
+confirmed runtime gain. Twitter's final paired result is unresolved: −0.18%
+(95% −0.37% to approximately 0.00%). Seven other corpus images and the scalar-only
+control are byte-identical to the preceding implementation.
+
+All captures use separate shared-lock holds, Apple M4 Max/arm64/AC, original
+classic harness, SIMD/incremental, compatibility mode, validation off and cache
+zero. Every execution and compiler sample is retained with host/memory audits.
+Compiler RSS is the Darwin child measurement, distinct from runtime-engine RSS.
+
+### Final compiler cost
+
+The final implementation is compared with a frozen `49b15495` transform bundle
+using twelve alternating fresh CLI-process pairs per fixture and common explicit
+`assembly/index` binding. Scalar-only compiled output is byte-identical between
+versions. There is **no resolved compiler-cost change** in either fixture:
+
+| Fixture | Baseline median | Candidate median | Paired wall-time change | 95% interval |
+|---|---:|---:|---:|---:|
+| Scalar-only | 794.571 ms | 793.446 ms | −0.01% | −0.31% to +0.30% |
+| Float arrays | 932.929 ms | 931.282 ms | −0.14% | −0.49% to +0.21% |
+
+Earlier prototype and pre-final compiler captures are preserved separately.
+They are not substituted for these final results.
+
+### Correctness and emission
+
+**52,864 independent checks** compare all 618 stock cached powers with exact
+normalized BigInt powers, all 2,048 exponent rows and 8,192 cells with the actual
+Wasm calculations, and the emitted byte layout across incremental/minimal/stub
+runtimes. The **99** source/AST/binding/hygiene/fallback checks include a collision
+with the table name, unknown cached sources, and UTF-8 source emission of the
+literal. Existing formatter checks pass **1,844,600** arithmetic comparisons and
+**2,024 arrays / 262,568 values across 23 configurations**. The larger array oracle
+also compares **448 outputs and exported formatter state**, with 113,376 numeric
+values per version. Source aliases and redirected helper effects retain fallback.
+
+The literal required preserving lone UTF-16 units when emitting quoted source
+through UTF-8. Eight round trips include every UTF-16 unit; three tagged-template
+raw-part controls prevent the fix from changing raw template text. Final images
+rebuilt after that scope check match every independently measured candidate image.
+All nine complete-model and retained-GC oracles pass. Packed consumer **360/36**
+and compiler warnings **51 configurations** pass; AS201 remains enabled. Typecheck,
+lint, licenses, generator reproducibility and focused formatting pass.
+
+## Full native refresh at f6f0fb99
+
+**90 process records**, five alternating fresh-process AS/native pairs per corpus,
+complete with **56 periodic host/memory audits**. Source, Wasm, native model and
+input end seals pass. Qualified model/retained-GC-checked images are reused and
+native model/input hashes are unchanged. Canada AS spans 1.742–1.769 ms and
+native 1.600–1.634 ms in this batch.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.55 | 10.92 | 0.69× |
+| canada | 1.19 | 1.29 | 0.92× |
+| citm_catalog | 5.95 | 10.51 | 0.57× |
+| poet | 16.67 | 24.09 | 0.69× |
+| github_events | 6.99 | 16.80 | 0.42× |
+| gsoc-2018 | 9.44 | 17.09 | 0.55× |
+| lottie | 25.49 | 23.20 | 1.10× |
+| otfcc | 36.27 | 24.65 | 1.47× |
+| fgo | 37.92 | 22.09 | 1.72× |
+
+Apple M4 Max/arm64/AC, original classic owning-model harness, V8 15.2.20,
+AssemblyScript 0.28.20, SIMD/incremental, compatibility, validation off,
+JSON_CACHE=0. GCC 16.2.0, `-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4 at
+`3b0b2b53`. Source-aligned models and actual UTF-8 output bytes; both writers
+return fresh owning output without output caching. Shared-host conditions and
+background activity are recorded, rather than claimed isolated.
+
+**Canada now meets the 90% gate at 92.4% of native.** Together with Lottie,
+OTFCC and FGO, that makes **4/9**. The gate still exits 1 for five below-target
+workloads, with no runtime/oracle/seal failure. The independent AS-only result
+establishes the Canada change; other full-table movements are not attributed
+to this implementation. Near parity across all nine remains unfinished.
+
+Hosted Lint and License pass on `f6f0fb99`. Tests caught a canonical-shard command
+registration error before the new suite ran. Test-only revision `e5b5b4e6` moves
+regeneration inside its canonical test module. The metadata suite, three shard
+tests, and all 47 benchmark-tooling tests pass locally after correction. Runtime
+and compiled transform code are unchanged by that fix. Final hosted Tests are
+pending. Parent `49b15495` has all hosted gates green.
+
+[All 426 process records, representations, compiler comparisons, stock proofs,
+float/state/model controls, sources, images and end seals](data/serialization-array-exponents.json.gz).
