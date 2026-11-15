@@ -1491,3 +1491,44 @@ contains all **352** timing records, variant sources/images, controls, complete
 model/GC logs, matched native diagnostics and the length audit. End image seals
 pass. The native comparison is unchanged: **3/9 at the 0.90 gate**, still short
 of near parity.
+
+## Bounded strings and flat array workers: unretained
+
+Two bounded clean-string writers target strings of 16–63 UTF-16 units. Both
+retain the existing escape/surrogate fallback and metadata semantics. Each
+passes 1,872 string checks, 324 reservation/GC checks, 90 array-root checks
+and four complete-model/retained-GC oracles. An initial compact-loop screen
+suggests a GitHub gain, but an independent balanced three-variant capture does
+not resolve it. Explicitly unrolling those bounded blocks improves GitHub
+while regressing Poet and CITM:
+
+| Corpus | Compact loop latency delta (95% interval) | Explicit blocks latency delta (95% interval) |
+|---|---:|---:|
+| citm_catalog | +0.07% (-0.31% to +0.45%) | +1.02% (+0.59% to +1.49%) |
+| poet | -0.31% (-1.72% to +1.34%) | +3.89% (+2.01% to +5.80%) |
+| github_events | -0.76% (-1.81% to +0.24%) | -2.08% (-2.96% to -1.18%) |
+| lottie | -0.47% (-1.52% to +0.33%) | -0.72% (-1.72% to +0.09%) |
+
+A separate prototype moves plain string-row serialization into a generated
+raw-pointer array worker. It retains the owning array, reloads native storage,
+and falls back for nulls and unexpected subtypes. A second version batches
+reservations over up to sixteen exact-type rows. Both pass complete CITM,
+Poet and GitHub model/retained-GC oracles. The plain worker and the gated
+chunk worker also pass nine runtime/backend selection checks and 81 callback,
+array-replacement, growth and GC outputs. These checks are not a complete
+proof for arbitrary allocator hooks, lexical bindings or reservation overflow;
+no such unproven path is shipped.
+
+The independent balanced capture resolves no improvement from the plain
+worker. The chunk worker regresses Poet by **4.52%** (95% +3.14% to +6.01%,
+slower in all twelve groups); CITM and GitHub intervals cross zero. All source
+and compiled-transform edits are restored. Neither family is retained.
+
+The [sealed archive](data/serialization-bounded-and-flat-array-screens.json.gz)
+contains **364 timing records**, original/candidate sources and images,
+correctness logs, callback/GC fixtures, process/VM/power audits and end-image
+hash verification. It comprises 147 files in 118 deduplicated blobs. Captures
+use the original classic harness, Apple M4 Max/arm64/AC, V8 15.2.20,
+SIMD/incremental, validation off and JSON_CACHE=0 under the shared timing lock.
+They measure AS-before/after changes, not a new native comparison or an
+isolated host. The full native table remains unchanged: **3/9 at 0.90**.
