@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Specialize multiply-ten rounding in the verified stock `Array<f64>` formatter, preserving scalar formatting and application-supplied formatter bindings. Unknown sources, compiler aliases, and conflicting generated names retain safe handling.
+
 - Reduce redundant managed aliases when serializing string-bearing array records. Keep managed receivers rooted across callbacks and collection, resolve alias identities at compile time, and retain existing wide-integer and generic paths.
 
 - Skip a pure decimal-rounding product when a clamp already fixes the result. Apply only to the verified stock formatter and helper, retaining original code for unknown sources, bindings, and compiler aliases.

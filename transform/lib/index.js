@@ -18,6 +18,7 @@ import { Property, PropertyFlags, Schema, SourceSet, typeMeaningText, } from "./
 import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from "./util.js";
 import { Visitor } from "./visitor.js";
 import { ArrayRowSerializers } from "./array-row.js";
+import { specializeArrayDtoa } from "./array-dtoa.js";
 import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
@@ -6155,6 +6156,7 @@ export default class Transformer extends Transform {
         const knownGc = inlineGcMarking(parser.sources, this.program.options.globalAliases);
         transformer.arrayRows?.finish(parser.sources, knownGc);
         specializeDecimalClamps(parser.sources, this.program.options.globalAliases);
+        specializeArrayDtoa(parser.sources, this.program.options.globalAliases);
         for (const [source, statements] of transformer.simdStatements) {
             for (const statement of statements)
                 source.statements.unshift(SimpleParser.parseTopLevelStatement(statement));
