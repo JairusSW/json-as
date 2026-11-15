@@ -1532,3 +1532,57 @@ use the original classic harness, Apple M4 Max/arm64/AC, V8 15.2.20,
 SIMD/incremental, validation off and JSON_CACHE=0 under the shared timing lock.
 They measure AS-before/after changes, not a new native comparison or an
 isolated host. The full native table remains unchanged: **3/9 at 0.90**.
+
+## SIMD mask isolation: unretained
+
+A matched compile-only ARM64 inspection shows V8 rematerializing three SIMD
+classification constants inside each 32-byte block. Passing those constants
+as vector arguments is insufficient: Binaryen removes the constant arguments.
+Loading them from a static 48-byte table keeps the vectors in registers; the
+matched named image preserves every non-custom section of the measured image.
+This changes classification plumbing, not serialized-result caching.
+
+Keeping masks in both the main scanner and its Unicode helper passes 1,872
+string checks, 324 reservation/GC checks, 90 root checks, the scalar startup
+control and all nine complete-model/retained-GC oracles. Its eight-pair
+nine-corpus screen improves GSoC but regresses Poet. An independent balanced
+twelve-group capture repeats both effects. Restoring only the original Unicode
+helper removes the clear GSoC benefit:
+
+| Corpus | Masks in both scanners (95% interval) | Main scanner only (95% interval) |
+|---|---:|---:|
+| citm_catalog | -0.26% (-0.72% to +0.12%) | +0.38% (-0.16% to +0.94%) |
+| poet | +4.63% (+3.15% to +6.17%) | +1.46% (-0.08% to +3.08%) |
+| github_events | +0.13% (-0.34% to +0.59%) | +0.01% (-0.57% to +0.62%) |
+| gsoc-2018 | -3.48% (-3.89% to -3.02%) | -0.43% (-1.03% to +0.47%) |
+
+Two further isolations each pass the string, reservation and root suites plus
+four complete-model/retained-GC oracles. The Unicode-only variant leaves the
+main scanner unchanged. The ASCII-block helper is inlined by Binaryen, keeping
+the public scanner's three scalar parameters; it adds no helper call in the
+measured Poet image. A separate balanced twelve-group capture still finds
+unacceptable Poet tradeoffs:
+
+| Corpus | Unicode helper only (95% interval) | Inlined ASCII-block helper (95% interval) |
+|---|---:|---:|
+| citm_catalog | +0.10% (-0.15% to +0.29%) | +0.26% (-0.02% to +0.53%) |
+| poet | +6.62% (+4.78% to +8.34%) | +6.43% (+3.62% to +9.27%) |
+| github_events | -0.96% (-1.60% to -0.34%) | -2.78% (-3.52% to -2.10%) |
+| gsoc-2018 | -2.72% (-3.79% to -1.74%) | -1.44% (-2.23% to -0.69%) |
+
+All entries are paired geometric **latency** deltas against the frozen
+6f69d211 baseline; negative means faster. No specific spill, instruction-layout
+or microarchitectural cause is established for Poet's regressions. None of
+these candidates is retained, and production source is restored.
+
+The [sealed archive](data/serialization-string-mask-isolation.json.gz)
+preserves **432 process records** in 155 files / 140 deduplicated blobs,
+including raw timing/host audits, source and image seals, correctness logs,
+compile-only native diagnostics and runners. An initial scalar-startup harness
+failure inherited SIMD mode into a non-SIMD compile; its diagnostic is retained
+separately, and the corrected SWAR harness passes. The completed captures use
+the original classic harness, Apple M4 Max/arm64/AC, V8 15.2.20,
+SIMD/incremental, validation off and JSON_CACHE=0. Each uses the shared timing
+lock; concurrent non-timing work is audited, so these are not isolated-host
+claims. No new native qualification is claimed: **3/9 at 0.90** remains the
+current result.
