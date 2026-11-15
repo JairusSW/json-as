@@ -1586,3 +1586,70 @@ SIMD/incremental, validation off and JSON_CACHE=0. Each uses the shared timing
 lock; concurrent non-timing work is audited, so these are not isolated-host
 claims. No new native qualification is claimed: **3/9 at 0.90** remains the
 current result.
+
+## Matched CITM attribution and numeric-row experiments
+
+A new named CITM classic image matches every non-custom section of the frozen
+baseline. The original harness is captured with same-process native regions,
+code cache and 100-microsecond sampling. Of 16,576 total ticks, 3,009 contain
+the actual serializer root or its benchmark closure. The generated root
+contains 57.0% of those ticks; sweep, mark and member-visit routines together
+contain 16.2%; 16.5% are unmapped. These are sampled locations, not hardware
+cycle attribution. The root includes substantial inlined integer, literal and
+array work, so its percentage does not isolate one operation.
+
+Three investigations follow:
+
+- Retain entry storage for compile-time string-valued Maps on the verified
+  runtime path. Existing callback and snapshot policies remain unchanged.
+  It passes 4,212 string/retention checks, 555 callback checks, 375 snapshot
+  checks, 90 root checks and all nine model/GC oracles. Only CITM changes,
+  but twelve pairs resolve no gain: **+0.17%** latency (95% -0.18% to +0.58%).
+- Compute five-to-eight-digit integer pairs and padded trailing groups from
+  independent quotients rather than serial remainders. It passes 85,995 exact
+  numeric comparisons, 90 root checks and all nine model/GC oracles. The
+  nine-corpus screen finds no CITM/Twitter gain and regresses Poet **7.32%**
+  (95% +6.08% to +8.57%). It is rejected. An unchanged rebuild reproduces all
+  nine frozen images exactly. Matched Poet native snapshots show only the
+  large-integer helper and benchmark-result serializer changing; its main
+  scanner, Unicode helper and root writer remain byte-identical. The slowdown
+  is not attributed to active integer arithmetic.
+- Borrow exact-type numeric rows through a generated raw-pointer array worker,
+  retaining the owning array. Ordinary workers regress CITM. Inlining removes
+  most of that penalty. Removing per-element type tests only for classes with
+  no known descendants gives a CITM gain, but unconditional runtime plumbing
+  also changes unrelated images and regresses Poet.
+
+Each row-worker form passes its complete-model/retained-GC oracles and the
+existing 90-root regression. These are experimental probes, **not complete
+qualification** of foreign GC hooks and binding/collision cases. None is
+retained. The strict unresolved-base prototype emits no workers and is not
+timed; the corrected native-base version explicitly verifies emission for
+CITM's Price and Area classes.
+
+| Numeric-row variant | CITM paired latency delta | 95% interval |
+|---|---:|---:|
+| Broad worker | +5.79% | +5.06% to +6.37% |
+| Worker restricted to array-field uses | +6.36% | +5.57% to +7.11% |
+| Inlined worker | +1.05% | +0.46% to +1.76% |
+| Inlined closed-leaf worker | -1.56% | -2.15% to -0.86% |
+| Closed-leaf worker, conditional runtime injection | **-2.02%** | **-2.92% to -1.13%** |
+
+The first two rows share a balanced twelve-group capture; inlining and leaf
+selection have separate balanced captures. The leaf form's Poet regression is
+**+2.31%** (+0.70% to +3.98%). The final variant instead injects runtime code
+only when eligible workers exist, preserving **all eight non-CITM benchmark
+images byte-for-byte**. Its independent twelve-pair screen is faster in 11/12
+pairs. That is a promising first screen for this exact image; an independent
+repeat and full callback/binding qualification remain necessary before keeping
+it. No production source has changed.
+
+The [sealed archive](data/serialization-citm-row-and-integer-screens.json.gz)
+contains **480 process records**, 367 files in 213 deduplicated blobs, all
+candidate/control sources and images, correctness logs, inactive-image and
+unchanged-rebuild controls, matched profile/native diagnostics, process/VM/power
+audits and end-image seals. It also preserves the prototype type/selector
+errors separately. Screens use the original classic harness, Apple M4 Max /
+arm64 / AC, V8 15.2.20, SIMD/incremental, validation off and cache zero. Shared
+host locks cover complete timing batches; concurrent non-timing work remains
+visible in the audits. Native qualification is unchanged: **3/9 at 0.90**.
