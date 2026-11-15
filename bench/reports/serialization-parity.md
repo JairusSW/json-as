@@ -9,7 +9,7 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full qualification: [array-row implementation `6f69d211`](#full-native-refresh-at-6f69d211). Three of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full qualification: [numeric-row implementation `abd0b5db`](#full-native-refresh-at-abd0b5db). Three of nine workloads meet the 90% gate; near parity remains unmet.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -1698,3 +1698,47 @@ retain the final implementation and its exact measured image. The reviewed hash
 manifest can be reproduced with `node scripts/update-array-row-runtime.mjs`
 after rebuilding the transform; dependency changes require review before
 refreshing that certificate.
+
+
+## Full native refresh at abd0b5db
+
+Measured on `89a92a60`, whose only follow-up is installed-package coverage; the
+production implementation is `abd0b5db`. All nine images match the qualified
+production candidates exactly. Five alternating fresh-process pairs per corpus,
+90 process records, and 58 periodic host/power/memory audits were retained.
+Source, input, native model and Wasm seals pass after the final sample. Output
+and retained-model oracles pass throughout. The 0.90 gate returns status 1
+because six workloads remain below the target, rather than from a runtime or
+correctness failure.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.40 | 10.64 | 0.69× |
+| canada | 0.97 | 1.27 | 0.77× |
+| citm_catalog | 5.24 | 10.27 | 0.51× |
+| poet | 16.78 | 23.98 | 0.70× |
+| github_events | 6.93 | 16.58 | 0.42× |
+| gsoc-2018 | 9.39 | 17.05 | 0.55× |
+| lottie | 24.81 | 22.09 | 1.12× |
+| otfcc | 36.85 | 24.56 | 1.50× |
+| fgo | 39.18 | 22.40 | 1.75× |
+
+Conditions: Apple M4 Max/arm64, AC power, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental, compatibility mode, validation off, JSON_CACHE=0. Native is
+GCC 16.2.0 with simdjson 5.0.4 at pinned `3b0b2b53`, `-O3 -DNDEBUG -mcpu=native`.
+Both writers produce fresh owning output. Native serializes owned C++ structs
+into a fresh `std::string`; no output cache is used. Actual UTF-8 output bytes
+and source-aligned inputs are unchanged. The shared lock excludes concurrent
+timing batches; recorded background work means this is not an isolated host.
+Changes from the earlier full native table are not attributed to the patch;
+the independent 12-pair AS-before/after confirmation establishes its effect.
+
+The packed-consumer gate was extended to assert selection of the numeric worker
+under incremental GC through **both public entrypoints**, and fallback under
+minimal/stub. All **360 operations across 36 configurations** pass on the actual
+tarball, including exact wide-integer output. Lint and license CI pass on both
+implementation and test commits; the full Tests workflows remain in progress
+at this checkpoint.
+
+[Raw full native capture and end seals](data/serialization-numeric-row-native.json.gz).
+Near parity remains unfinished: three of nine corpora meet 90% of native throughput.
