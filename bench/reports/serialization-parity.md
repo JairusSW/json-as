@@ -9,7 +9,7 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full qualification: [packed suffix continuation](#full-native-refresh-with-suffix-continuation). Four of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full qualification: [nested-record refresh](#full-native-refresh-after-nested-record-accounting). Four of nine workloads meet the 90% gate; near parity remains unmet.
 
 Latest implementation comparison: [nested record reservations](#nested-record-reservations), with lower Twitter and GitHub latency. This AS-before/after capture does not replace the native table.
 
@@ -2370,3 +2370,105 @@ regression appends initialized rows instead.
 seals, correctness logs and plain-AS control](data/serialization-record-reservations.json.gz).
 The previous complete native inputs/outputs remain in the hash-linked suffix
 archive above.
+
+## Full native refresh after nested-record accounting
+
+The retained `be2c3d81` images pass a fresh five-pair AS/native comparison for
+all nine corpora: **90 process records and 57 periodic host/memory audits**.
+Complete model/output oracles, compiler sources, native inputs/models and all
+nine AS image seals pass after capture. The gate exits 1 solely because five
+corpora remain below 90%; no runtime or oracle failure occurs.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.50 | 10.76 | 0.70× |
+| canada | 1.17 | 1.27 | 0.92× |
+| citm_catalog | 5.89 | 10.49 | 0.56× |
+| poet | 16.39 | 22.76 | 0.72× |
+| github_events | 7.39 | 16.54 | 0.45× |
+| gsoc-2018 | 10.21 | 16.71 | 0.61× |
+| lottie | 25.11 | 22.97 | 1.09× |
+| otfcc | 35.79 | 24.10 | 1.49× |
+| fgo | 38.76 | 22.24 | 1.74× |
+
+Apple M4 Max/arm64/AC, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
+SIMD/incremental, validation off, JSON_CACHE=0, original classic owning-model
+harness. Native: GCC 16.2.0, `-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4 at
+`3b0b2b53`. Models use matched initialization layouts, and GB/s counts actual
+UTF-8 output bytes. Both writers produce fresh owning strings every operation;
+neither caches serialized output. Shared-host background load is audited;
+this is not an isolated-host or per-engine peak-RSS claim. Only the independent
+AS comparison above establishes the nested-record implementation's Twitter
+and GitHub gains; shifts in other full-table rows are not attributed to it.
+**4/9** still pass: Canada, Lottie, OTFCC and FGO.
+
+### Current serialization-only attribution
+
+Three named classic modules match **every non-custom Wasm section** of the
+qualified GitHub, CITM and Poet images. A copy of the original JS runner starts
+and stops V8's CPU profiler at the serialization benchmark's log boundaries.
+Thus deserialization samples are excluded without changing the AS program,
+model, code layout or benchmark loops. Three fresh-process captures per corpus
+use 100-microsecond sampling and retain power/process/memory audits. These
+profiles diagnose work; their elapsed times are not throughput evidence.
+The sampled interval includes the existing serialization warmup and completion
+reporting, rather than claiming instruction costs for the timed loop alone.
+
+| Corpus | Samples across three captures | Main sampled work |
+|---|---:|---|
+| github_events | 7,531 | Shared string writer 42.60%; generated array dispatcher 20.59% |
+| citm_catalog | 7,953 | Generated `Citm.__SERIALIZE` 64.98%; integer-array writer 3.76% |
+| poet | 4,549 | Shared string writer 65.44%; short-string writer 13.76%; array dispatcher 15.67% |
+
+Mark, sweep and member-visit frames together account for approximately 17% of
+GitHub samples, substantially less than the older isolated serialization
+fixture suggested. That earlier fixture remains archived but should not guide
+claims about the current classic loop. No C++ symbol attribution from a
+version-mismatched tick processor is used here. Source inspection also confirms
+that stock `Object.isPointerfree` already handles String/ArrayBuffer IDs before
+an RTTI lookup, ruling out a redundant marking special case.
+
+A separate same-process native-PC/code-cache capture verifies 159 functions and
+628,128 compiled bytes. The actual `Citm.__SERIALIZE` is function 156, with
+41,464 instruction bytes and 1,761 directly sampled PCs. Its hot locations
+include numeric-row fields and array-header loads interleaved with literal
+construction and integer width handling. This identifies locations, not memory
+stall cycles or a single dominant operation; no hardware-counter claim is made.
+
+### Three rejected follow-up probes
+
+The old paired-array experiment still called a shared inline element helper.
+A new variant duplicates the helper's dispatch directly at the two call sites.
+It retains nullable/custom/subtype handling and backing-pointer reloads, and
+emitted Wasm now contains a separate `Performance.__SERIALIZE` function where
+the baseline inlines it. All nine model/retained-GC oracles and 90 forced
+root/callback checks pass. Its four-pair median changes are Twitter +0.71%,
+CITM +0.65%, GitHub −0.88%, and Lottie −0.35%. Actual outlining does not establish
+a useful improvement; this version is rejected.
+
+A global nine/ten-digit-first width ladder changes only dispatch order, retaining
+all original arithmetic. It passes **85,995 exact integer comparisons** across
+nine backend/runtime configurations and all nine model/GC oracles. The
+four-pair all-nine screen improves CITM median latency by 1.76% but regresses
+Poet by 3.08%, so it is rejected. A possible next experiment is private,
+proof-gated field formatting that leaves standalone and pure-string modules
+unchanged; no such implementation is included in this capture.
+
+Finally, a preload variant moves field loads to the start of already-proved
+callback-free numeric row workers, retaining the managed owner and per-row
+reservation accounting. Only CITM changes; the other eight images remain
+byte-identical. All nine model/GC oracles and **156 row/forced-collection checks**
+pass, but the four-pair screen is 0.93% slower. It is also rejected.
+
+The production tree retains none of these three probes. The verified native
+result remains **4/9**, and the full near-parity objective is unfinished.
+Hosted [Tests](https://github.com/JairusSW/json-as/actions/runs/43757607219),
+[Lint](https://github.com/JairusSW/json-as/actions/runs/43757607397) and
+[License headers](https://github.com/JairusSW/json-as/actions/runs/43757607180)
+all pass on the retained implementation commit `be2c3d81`.
+
+[Raw 202 measurement process records, ten diagnostic captures, prototypes,
+current executable images, profiles, native instructions, correctness logs,
+audits and seals](data/serialization-record-native.json.gz). Large native
+inputs and outputs are SHA-256 checked against the hash-linked earlier suffix
+archive rather than duplicated.
