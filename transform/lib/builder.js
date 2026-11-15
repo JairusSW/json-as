@@ -445,7 +445,23 @@ export class ASTBuilder extends Visitor {
                     break;
                 }
                 default: {
-                    ++i;
+                    const code = str.charCodeAt(i);
+                    const unpaired = quote !== 96 &&
+                        code >= 0xd800 &&
+                        code <= 0xdfff &&
+                        (code < 0xdc00
+                            ? !(str.charCodeAt(i + 1) >= 0xdc00 &&
+                                str.charCodeAt(i + 1) <= 0xdfff)
+                            : !(str.charCodeAt(i - 1) >= 0xd800 &&
+                                str.charCodeAt(i - 1) <= 0xdbff));
+                    if (unpaired) {
+                        if (i > off)
+                            sb.push(str.substring(off, i));
+                        sb.push("\\u" + code.toString(16));
+                        off = ++i;
+                    }
+                    else
+                        ++i;
                     break;
                 }
             }

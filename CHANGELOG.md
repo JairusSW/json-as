@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Precompute verified float-array exponent metadata when building the transform, emitting a private read-only table for the stock `Array<f64>` writer. Preserve formatter state and scalar code, retain source/binding/alias fallbacks, and cache only immutable metadata bytes during compilation.
+
+- Preserve lone UTF-16 units when writing quoted generated literals as UTF-8, while retaining tagged-template raw text.
+
 - Skip a wide multiplication for zero cached-power low limbs in the verified stock `Array<f64>` formatter. Verify resolved helper sources before array rounding or decimal-clamp specialization, preserving redirected helper effects and stock scalar formatting.
 
 - Specialize multiply-ten rounding in the verified stock `Array<f64>` formatter, preserving scalar formatting and application-supplied formatter bindings. Unknown sources, compiler aliases, and conflicting generated names retain safe handling.

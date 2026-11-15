@@ -89,9 +89,11 @@ function fixture(kind) {
     dtoa.statements.find((node) => node.path?.value === "./xjb").internalPath =
       "~lib/xjb-as/assembly/intercept";
   }
-  if (kind === "collision")
+  if (kind === "collision" || kind === "table-collision")
     parser.parseFile(
-      "const __json_array_dtoa_buffered=1;function scope():string{return `${__json_array_round10}`;}",
+      kind === "table-collision"
+        ? "const __json_array_decimal_table=1;"
+        : "const __json_array_dtoa_buffered=1;function scope():string{return `${__json_array_round10}`;}",
       "collision.ts",
       false,
     );
@@ -104,6 +106,7 @@ for (const kind of [
   "star",
   "local-export",
   "collision",
+  "table-collision",
   "dtoa-text",
   "xjb-text",
   "dtoa-ast",
@@ -139,6 +142,7 @@ for (const kind of [
     "star",
     "local-export",
     "collision",
+    "table-collision",
     "json-alias",
   ].includes(kind);
   assert.equal(!!selected, expected, kind);
@@ -156,19 +160,35 @@ for (const kind of [
   );
   assert.match(toString(helper), /4294967295/);
   assert.ok(dtoa.statements.some((node) => node.name?.text === selected.entry));
+  const table = dtoa.statements.find(
+    (node) =>
+      node.declarations?.[0]?.name.text ===
+      selected.entry.slice(0, -"dtoa_buffered".length) + "decimal_table",
+  );
+  const data = table.declarations[0].initializer.args[0].value;
+  assert.equal(data.length, 32768);
+  assert.equal(
+    SimpleParser.parseExpression(
+      Buffer.from(
+        toString(table.declarations[0].initializer.args[0]),
+        "utf8",
+      ).toString("utf8"),
+    ).value,
+    data,
+  );
   const prefix = selected.entry.slice(0, -"dtoa_buffered".length);
   const clonedText = dtoa.statements
     .filter((node) => node.name?.text.startsWith(prefix))
     .map(toString)
     .join("\n");
   assert.equal(clonedText.match(/pLo == 0/g)?.length, 2);
-  if (kind === "collision")
+  if (kind === "collision" || kind === "table-collision")
     assert.equal(selected.entry, "__json_array_1_dtoa_buffered");
   else assert.equal(selected.entry, "__json_array_dtoa_buffered");
   const after = sources.map(toString);
   assert.equal(specializeArrayDtoa(sources, aliases), null);
   assert.deepEqual(sources.map(toString), after);
-  checks += 8;
+  checks += 10;
 }
 console.log(
   `Array dtoa: ${checks} source/AST/binding/hygiene/fallback/idempotence checks passed`,
