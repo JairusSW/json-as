@@ -2574,3 +2574,46 @@ complete-model and correctness logs, host audits and statistics](data/serializat
 The preceding native archive supplies hash-linked baseline images. The latest
 full native qualification still measures `be2c3d81` at **4/9**; this change needs
 its own native refresh, and the all-nine near-parity objective remains open.
+
+## Full native refresh after bounded tails
+
+The exact retained implementation `7e84db95` now has its own full native
+qualification: **90 process records**, five alternating fresh-process AS/native
+pairs per corpus, and **56 periodic host/memory audits**. All nine complete-model
+and retained-GC oracles passed before capture; source, input, Wasm and native
+image seals pass afterward. The gate exits 1 because **4/9**, rather than all
+nine, reach 90% of native throughput. There is no runtime or oracle failure.
+
+| Corpus | json-as GB/s | simdjson GB/s | Ratio |
+|---|---:|---:|---:|
+| twitter | 7.533 | 10.719 | 0.703× |
+| canada | 1.169 | 1.261 | 0.927× |
+| citm_catalog | 5.953 | 10.507 | 0.567× |
+| poet | 16.789 | 24.115 | 0.696× |
+| github_events | 7.752 | 16.568 | 0.468× |
+| gsoc-2018 | 10.440 | 17.051 | 0.612× |
+| lottie | 25.463 | 23.278 | 1.094× |
+| otfcc | 36.849 | 24.622 | 1.497× |
+| fgo | 39.225 | 22.471 | 1.746× |
+
+Apple M4 Max/arm64/AC, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
+SIMD/incremental, compatibility, validation off and JSON_CACHE=0. Native uses
+the unchanged GCC 16.2.0 `-O3 -DNDEBUG -mcpu=native` images and simdjson 5.0.4
+at `3b0b2b53`. Inputs match the classic initialization layout, usually pretty;
+OTFCC and FGO use minified input. Both writers consume owning native models
+and return fresh owning output each operation. Throughput uses actual UTF-8
+output bytes. No serialized-output caching or GC pacing change is introduced.
+
+The separate paired AS comparison above isolates the bounded-tail effect.
+Changes between this native table and an older table also include host/run
+variation in both engines and are not attributed entirely to the tail. Poet
+illustrates the distinction: json-as measures 16.79 GB/s here while native
+measures 24.12 GB/s, so its ratio is lower than in the preceding capture even
+though neither this cross-batch change nor the noisy paired Poet result proves
+a serializer regression.
+
+[Raw 90 process records, host audits, sources, native and Wasm images,
+complete outputs and end seals](data/serialization-overlap32-native.json.gz).
+Large unchanged input/output files are hash-linked to the earlier suffix
+archive. Shared-host audits are preserved; this is not an isolated-host or
+per-engine RSS claim. The all-nine near-parity objective remains unfinished.
