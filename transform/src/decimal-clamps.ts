@@ -14,6 +14,7 @@ import {
   ExpressionStatement,
   FunctionDeclaration,
   IfStatement,
+  ImportStatement,
   Node,
   Source,
   TernaryExpression,
@@ -99,7 +100,13 @@ export function specializeDecimalClamps(
       !peer ||
       hash(peer.text) !== STOCK_XJB ||
       hash(toString(source)) !== DTOA_AST ||
-      hash(toString(peer)) !== XJB_AST
+      hash(toString(peer)) !== XJB_AST ||
+      source.statements.some(
+        (node) =>
+          node.kind === NodeKind.Import &&
+          (node as ImportStatement).internalPath.replaceAll("\\", "/") !==
+            peerPath,
+      )
     )
       continue;
     const plans = ["toDecimalDoubleNormal", "toDecimalDouble"].map((name) => {

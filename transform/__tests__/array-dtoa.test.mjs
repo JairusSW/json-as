@@ -80,6 +80,15 @@ function fixture(kind) {
       SimpleParser.parseStatement("trace('unknown');"),
     );
   if (kind === "array-text") array.text += "\n// unknown array writer\n";
+  if (kind === "peer-binding") {
+    parser.parseFile(
+      'export * from "./xjb";export function umul64hiCarry(a:u64,b:u64,c:u64):u64{return 0;}',
+      "~lib/xjb-as/assembly/intercept.ts",
+      false,
+    );
+    dtoa.statements.find((node) => node.path?.value === "./xjb").internalPath =
+      "~lib/xjb-as/assembly/intercept";
+  }
   if (kind === "collision")
     parser.parseFile(
       "const __json_array_dtoa_buffered=1;function scope():string{return `${__json_array_round10}`;}",
@@ -99,6 +108,7 @@ for (const kind of [
   "xjb-text",
   "dtoa-ast",
   "peer-ast",
+  "peer-binding",
   "array-ast",
   "array-text",
   "wrapper",

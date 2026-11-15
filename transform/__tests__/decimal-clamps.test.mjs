@@ -24,6 +24,7 @@ for (const kind of [
   "xjb-body",
   "signature",
   "binding",
+  "peer-binding",
   "missing-peer",
   "alias",
   "qualified-alias",
@@ -72,6 +73,15 @@ for (const kind of [
     dtoa.statements.find(
       (s) => s.declarations,
     ).declarations[0].foreignName.text = "other";
+  if (kind === "peer-binding") {
+    parser.parseFile(
+      'export * from "./xjb";export function umul64hiCarry(a:u64,b:u64,c:u64):u64{return 0;}',
+      root + "intercept.ts",
+      false,
+    );
+    dtoa.statements.find((node) => node.path?.value === "./xjb").internalPath =
+      root + "intercept";
+  }
   const aliases =
     kind === "alias"
       ? new Map([["umul64hiCarry", "other"]])

@@ -181,7 +181,12 @@ export function specializeArrayDtoa(
     !DTOA_AST.has(hash(toString(source))) ||
     !peer ||
     hash(peer.text) !== PEER_TEXT ||
-    hash(toString(peer)) !== PEER_AST
+    hash(toString(peer)) !== PEER_AST ||
+    source.statements.some(
+      (node) =>
+        node.kind === NodeKind.Import &&
+        moduleSource(sources, (node as ImportStatement).internalPath) !== peer,
+    )
   )
     return null;
 

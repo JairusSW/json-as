@@ -17,13 +17,23 @@ for (const mode of ["NAIVE", "SWAR", "SIMD"])
   for (const runtime of ["incremental", "minimal", "stub"])
     for (const diagnostics of [false, true])
       configs.push({ mode, runtime, diagnostics, control: "" });
-for (const control of ["disabled", "collision", "wrapper"])
+for (const control of [
+  "disabled",
+  "collision",
+  "wrapper",
+  "peer-binding",
+  "peer-binding-reference",
+])
   configs.push({
     mode: "SIMD",
     runtime: "incremental",
     diagnostics: true,
     control,
   });
+const selectedConfigs = process.env.PROBE_QUICK
+  ? configs.filter((config) => config.control.startsWith("peer-binding"))
+  : configs;
+const peerCalls = [];
 let cases = 0,
   numbers = 0,
   math = 0;
@@ -55,6 +65,16 @@ export default class extends Base {
    for(const node of additions)if(node.kind===NodeKind.Import){const original=index.statements.find(n=>n.path?.value==='./assembly/dtoa');node.internalPath=original.internalPath;}
    new Range(index).visit(additions);index.statements.push(...additions);
   }
+  if(control.startsWith('peer-binding')){
+   const peer=parser.sources.find(s=>s.internalPath===dtoa.internalPath.slice(0,-'dtoa'.length)+'xjb');
+   const normalized=peer.normalizedPath.slice(0,-'xjb.ts'.length)+'intercept.ts';
+   parser.parseFile(peer.text+String.fromCharCode(10)+'let __json_test_peer_count:i32=0;@global function __json_test_peer_calls():i32{return __json_test_peer_count;}',normalized,false);
+   const intercepted=parser.sources.find(s=>s.normalizedPath===normalized);
+   const fn=intercepted.statements.find(n=>n.name?.text==='umul64hiCarry');
+   const increment=SimpleParser.parseStatement('__json_test_peer_count++;');new Range(intercepted).visit(increment);fn.body.statements.unshift(increment);
+   dtoa.statements.find(n=>n.kind===NodeKind.Import&&n.path?.value==='./xjb').internalPath=intercepted.internalPath;
+   if(control==='peer-binding-reference')dtoa.text+=' // disable stock-source selection';
+  }
   super.afterParse(parser);
   const helper=dtoa.statements.find(n=>/^__json_array_(?:\\d+_)?round10$/.test(n.name?.text||''));
   const selected=entry.statements.find(n=>n.name?.text==='selected');const result=SimpleParser.parseStatement('return '+Number(!!helper)+';');new Range(entry).visit(result);selected.body.statements=[result];
@@ -64,15 +84,15 @@ export default class extends Base {
    new Route().visit(optimized.body);
    if(control==='collision'&&helper.name.text!=='__json_array_1_round10')throw Error('Collision not avoided');
   }
-  if(control==='wrapper'){
-   const fn=entry.statements.find(n=>n.name?.text==='wrapperCalls');const call=SimpleParser.parseStatement('return __json_test_dtoa_calls();');new Range(entry).visit(call);fn.body.statements=[call];
+  if(control==='wrapper'||control.startsWith('peer-binding')){
+   const fn=entry.statements.find(n=>n.name?.text==='wrapperCalls');const call=SimpleParser.parseStatement('return '+(control==='wrapper'?'__json_test_dtoa_calls':'__json_test_peer_calls')+'();');new Range(entry).visit(call);fn.body.statements=[call];
   }
  }
 }
 `,
 );
 try {
-  for (const config of configs) {
+  for (const config of selectedConfigs) {
     const output = path.join(dir, "probe.wasm");
     const result = spawnSync(
       process.execPath,
@@ -125,7 +145,14 @@ try {
     ).exports;
     assert.equal(
       g.selected(),
-      config.control === "disabled" || config.control === "wrapper" ? 0 : 1,
+      [
+        "disabled",
+        "wrapper",
+        "peer-binding",
+        "peer-binding-reference",
+      ].includes(config.control)
+        ? 0
+        : 1,
     );
     const mask = (1n << 64n) - 1n;
     let state = 91284317n;
@@ -214,7 +241,20 @@ try {
         }
     if (config.control === "wrapper")
       assert.ok(g.wrapperCalls() > 0, "An application wrapper must still run");
+    if (config.control.startsWith("peer-binding")) {
+      assert.ok(
+        g.wrapperCalls() > 0,
+        "The rebound arithmetic helper must still run",
+      );
+      peerCalls.push(g.wrapperCalls());
+    }
   }
+  assert.equal(peerCalls.length, 2);
+  assert.equal(
+    peerCalls[0],
+    peerCalls[1],
+    "Helper effects must match the unspecialized reference",
+  );
   const scalar = path.join(dir, "scalar.ts");
   const scalarTransform = path.join(dir, "scalar-transform.mjs");
   fs.writeFileSync(
@@ -265,7 +305,7 @@ try {
     "Scalar-only Wasm must remain byte-identical",
   );
   console.log(
-    `Array dtoa runtime: ${math} exact math checks; ${cases} arrays / ${numbers} numeric values across ${configs.length} mode/runtime/diagnostic/control configurations; scalar-only image unchanged`,
+    `Array dtoa runtime: ${math} exact math checks; ${cases} arrays / ${numbers} numeric values across ${selectedConfigs.length} mode/runtime/diagnostic/control configurations; scalar-only image unchanged`,
   );
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });

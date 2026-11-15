@@ -55,7 +55,10 @@ export function specializeDecimalClamps(sources, aliases) {
         if (!peer ||
             hash(peer.text) !== STOCK_XJB ||
             hash(toString(source)) !== DTOA_AST ||
-            hash(toString(peer)) !== XJB_AST)
+            hash(toString(peer)) !== XJB_AST ||
+            source.statements.some((node) => node.kind === NodeKind.Import &&
+                node.internalPath.replaceAll("\\", "/") !==
+                    peerPath))
             continue;
         const plans = ["toDecimalDoubleNormal", "toDecimalDouble"].map((name) => {
             const fn = source.statements.find((n) => n.kind === NodeKind.FunctionDeclaration &&
