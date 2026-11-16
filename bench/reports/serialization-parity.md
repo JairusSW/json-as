@@ -4036,3 +4036,46 @@ on the retained production-code commit `6e8ffe28`.
 include both candidates, exact images, preparation/build logs, statistics and
 final source/image seals. The archive links the retained native baseline by
 verified content hash.
+
+### Empty-string direct stores: performance not qualified
+
+An unretained prototype writes the two quotes with one `u32` store for a zero
+payload, before calling the short-string writer. Its guard is inside existing
+short-string branches of the SIMD managed-string and pre-reserved pointer
+entries, including private text-record clones. Long-string scanning, escaping,
+metadata and output ownership are unchanged.
+
+All nine complete-model/retained-GC oracles pass. Separate tests pass **468**
+root/field/retention checks across three backends and three runtimes, with
+positive counters showing eight direct-path calls per SIMD configuration and
+zero in NAIVE/SWAR. The parser/string oracle also passes **624** checks across
+strictness and fast-path settings in SIMD. These are correctness results, not
+performance evidence.
+
+An input-shape audit, excluding object keys, finds 143 empty string values out
+of 4,754 in Twitter, five out of 752 in GitHub, and six out of 26,802 in Poet.
+CITM and GSoC contain no empty string values. These are input counts rather
+than measured writer-call counts. The audit and input hashes are retained.
+
+The three-corpus screen completes **48 fresh process records**, eight paired
+runs per corpus, with all source/image end seals passing. Its late measurements
+become highly variable: GitHub baseline/candidate times rise from approximately
+7 µs earlier in the batch to 18.22/18.04 µs; Poet's final pair is
+349.71/229.11 µs, versus baseline times near 170 µs earlier. Process audits at
+those points include substantial editor/language-server, browser and system
+activity. This coincidence is not proof that a particular process caused the
+slowdown; it is sufficient reason not to treat the capture as a stable
+profitability test. No other process was stopped and no samples were removed.
+
+All three paired bootstrap intervals cross zero and are wide. The raw point
+estimates are **not** accepted as gains or regressions. Both variants' medians
+and the full raw paired statistics remain in the archive rather than being
+used to justify a production decision. The prototype stays unretained pending
+a steadier-host screen. The shared timing hold released normally. Measurements
+used battery power, Apple M4 Max/arm64, the original owning classic harness,
+SIMD/incremental, validation off and cache zero. The current production source
+and 4/9 native table remain unchanged.
+
+[Empty-string prototype, model and positive-path tests, all 48 samples and host audits](data/serialization-empty-string-screen.json.gz)
+include images, build logs, input-shape audit, statistics and final seals, with
+the native baseline linked by verified content hash.
