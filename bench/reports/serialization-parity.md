@@ -3051,8 +3051,8 @@ The production countercase capture uses eight alternating fresh-process pairs:
 | 256 ASCII units | **+1.55%** | +1.37% to +1.75% |
 
 This is a documented tradeoff, not a universally faster string path. The
-complete native comparison remains the preceding **4/9** qualification until
-this production implementation receives its own native refresh.
+complete native refresh below independently qualifies this production
+implementation at **4/9**; the remaining five corpora are still below the 90% target.
 
 ### Alternatives rejected
 
@@ -3093,3 +3093,70 @@ near-parity objective remains unfinished.
 
 [Raw 626 process records / 1,508 benchmark records, sources, images, independent
 production confirmation, countercases, oracles, exclusions and audits](data/serialization-unicode-routing.json.gz).
+
+## Committed Unicode implementation: full native refresh
+
+Fresh builds of committed `f02a5194` pass all nine complete-output and
+retained-GC model oracles. Five alternating AS/native pairs per corpus retain
+**90 fresh-process records**. Source, input, native-model, Wasm and complete
+output seals pass after capture. The threshold gate exits 1 solely because
+**4/9** corpora meet 90%; no execution or oracle failure is hidden by that exit.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio | 90% gate |
+|---|---:|---:|---:|---|
+| twitter | 7.527 | 10.541 | 0.714× | Below target |
+| canada | 1.159 | 1.257 | 0.922× | Pass |
+| citm_catalog | 6.170 | 10.411 | 0.593× | Below target |
+| poet | 18.261 | 23.751 | 0.769× | Below target |
+| github_events | 7.640 | 16.351 | 0.467× | Below target |
+| gsoc-2018 | 10.296 | 16.905 | 0.609× | Below target |
+| lottie | 24.553 | 22.706 | 1.082× | Pass |
+| otfcc | 35.957 | 24.418 | 1.473× | Pass |
+| fgo | 38.558 | 22.099 | 1.745× | Pass |
+
+This is a fresh native comparison, not an AS-to-AS delta against the preceding
+capture. Poet's independently paired production improvement remains **6.03%**
+lower latency; the native ratio here is **0.769×**. The documented ASCII
+countercase regressions remain applicable.
+
+Apple M4 Max / arm64 / AC, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off and `JSON_CACHE=0`. Original
+classic owning-model/owning-struct harnesses produce fresh output per operation;
+GB/s uses actual UTF-8 output bytes. Native: GCC 16.2.0,
+`-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4 at `3b0b2b53`. Shared-host capture
+holds the timing lock and retains **57 host/power/memory audits**;
+this is not an isolated-host or per-engine peak-RSS claim.
+
+[All 90 process records, audits, committed sources, images and end seals](data/serialization-unicode-native.json.gz).
+
+### Experimental wide-integer array reuse
+
+A separate probe reuses the already-generated verified row integer formatter
+for native `i64[]`/`u64[]` writes. It adds no new table and leaves narrower
+writers, native storage access, output reservation and GC ownership unchanged.
+It changes only CITM's model image; the other eight match committed production.
+
+**706,706 exact output/bounds checks across eleven configurations** pass,
+including signed/unsigned extremes, random values, native subclass storage,
+retained collection, generated-name collisions and modified-formatter effects.
+All nine model/retained-GC oracles pass. The initial twelve alternating pairs
+show CITM latency **−0.75%**, paired 95% interval **−1.26% to −0.24%**, faster in
+**10/12** pairs. The independent reverse-order twelve-pair repeat is **−0.67%**,
+interval **−1.61% to +0.33%**, faster in **10/12** pairs; it does not independently
+resolve a CITM improvement. A separate six-pair native-array counter screen
+checks complete outputs for every process:
+
+| Array magnitudes | Paired latency delta | 95% interval |
+|---|---:|---:|
+| One digit | +0.90% | −0.16% to +2.13% |
+| Four digits | −0.36% | −1.46% to +0.87% |
+| Nine digits | **−15.77%** | −16.65% to −14.78% |
+| Ten digits | +0.19% | −1.55% to +2.06% |
+| Thirteen digits | +0.12% | −1.43% to +1.83% |
+
+The synthetic nine-digit benefit is real within this screen, but the targeted
+CITM gain remains small and independently unresolved. **The probe is not
+retained in production and is not included in the native table.**
+
+[Experimental source, images, full-model oracles, exact checks, 60 fresh-process
+records / 108 benchmark records and host audits](data/serialization-triplet-array-probe.json.gz).
