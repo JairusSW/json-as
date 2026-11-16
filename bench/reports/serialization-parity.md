@@ -3604,3 +3604,42 @@ typechecking, lint, license headers and focused formatting pass locally.
 all **306** timing records, source and image seals, host audits, both prototypes,
 production-image equality, and correctness/forced-collection controls. The
 artifact references unchanged baseline blobs in the preceding native archive.
+
+### Full native qualification of the common-escape implementation
+
+The committed `e7054b7d` implementation completes a fresh **90-process** native
+comparison: five alternating AS/native pairs for each of all nine classic
+corpora. All complete-model/retained-GC oracles and final source, input, native,
+Wasm and output seals pass. All nine production images match the independently
+measured lane prototype. The threshold command exits 1 solely because five
+corpora remain below 90%; there is no execution or seal failure.
+
+| Corpus | json-as GB/s | simdjson GB/s | AS/native |
+|---|---:|---:|---:|
+| twitter | 7.981 | 10.582 | 0.754× |
+| canada | 1.170 | 1.256 | 0.932× |
+| citm_catalog | 6.141 | 10.199 | 0.602× |
+| poet | 19.571 | 23.454 | 0.834× |
+| github_events | 8.271 | 16.417 | 0.504× |
+| gsoc-2018 | 11.334 | 16.714 | 0.678× |
+| lottie | 27.351 | 22.574 | 1.212× |
+| otfcc | 35.861 | 24.074 | 1.490× |
+| fgo | 38.949 | 22.240 | 1.751× |
+
+The gate remains **4/9**, so the objective is unfinished. Differences from a
+previous absolute-rate table are not causal implementation deltas; the
+independent paired AS captures above establish those deltas. In particular,
+Poet's native ratio falls even though its absolute AS throughput increases.
+
+Conditions remain Apple M4 Max/arm64/AC, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off, cache zero, original classic
+owning models and fresh owning output per operation. The native compiler is
+GCC 16.2.0 with `-O3 -DNDEBUG -mcpu=native`, using simdjson 5.0.4 at `3b0b2b53`.
+Rates count actual UTF-8 output bytes. All **58** host audits report AC power;
+process and memory samples describe a shared host, not an isolated machine or
+per-engine peak RSS. The shared timing lock released normally after 171 seconds.
+
+[Raw native qualification](data/serialization-common-escape-native.json.gz)
+preserves the 90 process records, audits, inputs/output references, prepared
+models, exact binaries, source snapshots and final seals. It links the separate
+306-record AS comparison artifact rather than combining those experiments.
