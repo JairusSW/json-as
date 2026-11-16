@@ -3740,3 +3740,68 @@ timing lock releases between captures. These are shared-host measurements.
 preserves both captures, exact images, prototype, forced-collection controls,
 model results, audits and statistics, linked to the qualified baseline. Neither
 this experiment nor the single-escape screen changes the 4/9 native result.
+
+### Separated clean scan and bulk copy: rejected
+
+A distinct prototype removes interleaved vector stores from the initial clean
+scan and the clean Unicode/post-escape continuation loops. Each completed clean
+prefix is copied once with bounded `memory.copy`; escaping, surrogate handling,
+reservations and logical output cursors retain their existing behavior. It adds
+no classification or output cache.
+
+The prototype passes **1,556,802 exact string/record/reuse checks across three
+runtimes**, including positive public/private execution checks and retained GC.
+Additional O0/O3 candidate/control checks cover input/output aliasing, static
+output targets, existing fields, ephemeral rows and retained results: **9,464
+checks** and **4,632 collections inside candidate copy paths** pass. The first
+GC fixture lacked a visible top-level typed-row use and did not select the
+private helper. Adding an exercised existing-row path establishes that selection
+before the final passing run. All nine full-model/retained-GC oracles pass.
+
+Eight balanced fresh-process pairs for each corpus produce:
+
+| Corpus | Serialization latency delta | Paired 95% interval |
+|---|---:|---:|
+| twitter | +10.78% | +9.83% to +11.81% |
+| canada | +0.53% | +0.32% to +0.75% |
+| citm_catalog | +0.80% | -0.36% to +1.92% |
+| poet | +38.21% | +36.49% to +39.54% |
+| github_events | +24.62% | +23.54% to +25.52% |
+| gsoc-2018 | +31.79% | +31.05% to +32.56% |
+| lottie | -1.25% | -2.71% to +0.18% |
+| otfcc | -0.49% | -1.18% to +0.13% |
+| fgo | +2.09% | +0.33% to +4.89% |
+
+Twitter, Canada, Poet, GitHub and GSoC are slower in all eight pairs. No corpus
+establishes an improvement. The separated-copy strategy is **not retained**;
+the fused production scan/copy loop and its 4/9 native qualification remain
+unchanged. This experiment establishes a regression for these complete images,
+not an instruction-level attribution of copy-call or memory-bandwidth costs.
+
+All **144** records and final source/prototype/image seals pass. Conditions
+remain Apple M4 Max/AC, original owning-model harness, SIMD/incremental,
+validation off, cache zero and fresh owning output. Power/process/memory audits
+are retained per record. The shared timing lock releases normally after the
+batch; these remain shared-host measurements.
+
+[Raw separated scan/copy evidence](data/serialization-scan-copy-screen.json.gz)
+preserves the rejected prototype, exact images, complete correctness/GC controls,
+all measurements, paired statistics, audits and seals, linked to the qualified
+baseline artifact.
+
+### Current CITM output-policy control
+
+A counter-only diagnostic on the current complete CITM schema checks whether
+the earlier allocation fix still selects its intended path. It applies counters
+after the existing source/runtime proofs, leaving those selections active;
+it does not enable rtrace or claim an executable-identical throughput probe.
+After three warm calls, sixteen serializations produce sixteen distinct owning
+outputs with **16 owned allocations, zero managed-buffer growths, zero trim
+copies and zero staging copies**. Full output comparisons and retained results
+survive collection. This counts output-policy events, not all process allocations.
+
+Each result is 1,000,250 UTF-16 bytes, with 1,000,758 bytes of final reservation
+demand and a 1,016,386-byte learned allocation. No new policy change is warranted
+by this control. The source, injector, Wasm, input hash, driver and per-call
+counts are included in the separated scan/copy archive above as a distinct
+**non-timing diagnostic**; they are not part of its 144 measurement records.
