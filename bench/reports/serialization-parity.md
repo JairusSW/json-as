@@ -3643,3 +3643,30 @@ per-engine peak RSS. The shared timing lock released normally after 171 seconds.
 preserves the 90 process records, audits, inputs/output references, prepared
 models, exact binaries, source snapshots and final seals. It links the separate
 306-record AS comparison artifact rather than combining those experiments.
+
+### Current diagnostic attribution
+
+Fifteen serialization-only CPU profiles (three per below-target corpus) use
+named modules whose every noncustom executable section exactly matches the
+qualified image. The 100 µs sampling interval, profile runner, AC-power/process
+and memory audits, named-image hashes and final seals are retained. The shared
+timing lock released normally after 28 seconds. These are diagnostic samples,
+not throughput measurements or causal ablations.
+
+| Corpus | Largest sampled function | Share of pooled samples |
+|---|---|---:|
+| github_events | SIMD string range writer | 37.7% |
+| twitter | Generated Status serializer | 33.2% |
+| gsoc-2018 | SIMD string range writer | 74.6% |
+| citm_catalog | Generated Citm serializer | 62.2% |
+| poet | Private text-record range writer | 48.1% |
+
+GitHub also samples 13.1% in `__visit`; CITM samples 9.7% in the sweep interrupt,
+8.7% in `__visit` and 3.6% in the member visitor. Inlined work appears under its
+caller, so the generated Citm function's share is not a measurement of field
+stores alone. The profiles motivate separate string and generated-traversal
+investigations. They do not justify weakening ownership or callback semantics.
+
+[Raw diagnostic profiles](data/serialization-common-escape-profiles.json.gz)
+preserve all fifteen captures, exact named modules, executable-section hashes,
+runner and host audits, with a link to the qualified native artifact.
