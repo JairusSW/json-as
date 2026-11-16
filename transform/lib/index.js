@@ -5395,6 +5395,7 @@ export class JSONTransform extends Visitor {
         const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
         this.arrayRows?.add(node, schema, source, SERIALIZE_METHOD);
         this.arrayRows?.finishRecord(node, schema, source, SERIALIZE_METHOD);
+        this.arrayRows?.borrowRecord(node, schema, source, SERIALIZE_METHOD);
         const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
         const DESERIALIZE_CUSTOM_METHOD = DESERIALIZE_CUSTOM
             ? SimpleParser.parseClassMember(DESERIALIZE_CUSTOM, node)

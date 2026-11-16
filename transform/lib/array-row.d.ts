@@ -22,9 +22,15 @@ export declare class ArrayRowSerializers {
     private unknownBase;
     private rows;
     private declarations;
+    private closedRecords;
+    private manualSerializers;
+    private borrowedRecordEntry;
+    private borrowedRecordCount;
     constructor(sources: Source[], parser: Parser, sourceSet: SourceSet, options: Options);
     private rememberRecord;
     finishRecord(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
+    borrowRecord(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
+    private borrowedEntry;
     private rewriteTextRecord;
     add(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
     bind(source: Source, visitor: Visitor): void;

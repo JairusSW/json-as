@@ -12,6 +12,7 @@ export declare class TextRecordWriters {
     private indexSource;
     private entry;
     constructor(parser: Parser, names: Set<string>);
+    get verified(): boolean;
     rewrite(serializer: MethodDeclaration, fields: number): void;
     private create;
 }

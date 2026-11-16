@@ -60,6 +60,10 @@ export class TextRecordWriters {
     )!;
   }
 
+  get verified(): boolean {
+    return this.stringSource !== null;
+  }
+
   rewrite(serializer: MethodDeclaration, fields: number): void {
     if (!this.stringSource || !this.indexSource) return;
     const calls: CallExpression[] = [];

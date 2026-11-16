@@ -8052,6 +8052,12 @@ export class JSONTransform extends Visitor {
       source,
       SERIALIZE_METHOD as MethodDeclaration,
     );
+    this.arrayRows?.borrowRecord(
+      node,
+      schema,
+      source,
+      SERIALIZE_METHOD as MethodDeclaration,
+    );
     const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
     const DESERIALIZE_CUSTOM_METHOD = DESERIALIZE_CUSTOM
       ? SimpleParser.parseClassMember(DESERIALIZE_CUSTOM, node)

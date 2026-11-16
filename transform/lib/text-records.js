@@ -39,6 +39,9 @@ export class TextRecordWriters {
         this.stringSource = parser.sources.find((s) => s.internalPath === root + "assembly/serialize/simd/string");
         this.indexSource = parser.sources.find((s) => s.internalPath === root + "assembly/serialize/index/string");
     }
+    get verified() {
+        return this.stringSource !== null;
+    }
     rewrite(serializer, fields) {
         if (!this.stringSource || !this.indexSource)
             return;

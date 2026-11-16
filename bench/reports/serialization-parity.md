@@ -3328,3 +3328,74 @@ native gate remains **4/9**, as qualified above.
 
 [Probe source/images, 108 samples, model/GC oracles, exhaustive boundary checks,
 positive execution controls, audits and seals](data/serialization-tail16-screen.json.gz).
+
+## Borrow children from closed generated record owners
+
+A generated child's default serializer receives its storage pointer explicitly.
+On qualified closed graphs its implicit receiver is unused, but ordinary managed
+calls still introduce duplicate shadow-stack stores. A bounded compile-time
+proof now permits fresh child loads to call a private pointer entry while the
+managed owner keeps the complete child graph traced. No output or classification
+cache, runtime state, public decorator, or reader change is added.
+
+The proof requires verified runtime/string sources and plain generated fields;
+it rejects unmanaged classes, inheritance/known descendants, manual/custom
+serializers, deferred fields, omission predicates, uncertain bindings, floats,
+unsupported native references, recursive/forward-unknown graphs, and excessive
+analysis depth/work. Nullable preloaded locals retain rooted dispatch. Caller
+and loaded child types must resolve to the same known declaration; emitted type
+spellings remain in their original scope. Generated runtime receiver use also
+forces the original path.
+
+The unmanaged exclusion is necessary: a prototype that borrowed through an
+unmanaged owner traps after forced collection and replacement allocations.
+The identical rooted control passes. The guarded prototype passes 1,200
+unmanaged-owner stress checks across twelve configurations; the original unsafe
+probe remains deliberately red. This was an unpublished prototype defect, not
+an existing-library regression.
+
+The GitHub named-image audit removes fourteen static shadow-stack store sites
+from the array dispatcher (57 to 43). These are static sites, not executed
+instruction counts. Named baseline/candidate non-custom Wasm sections match the
+actual screened images. Only Twitter, GitHub and GSoC change; the other six
+corpus images remain byte-identical. Wasm sizes decrease by 114, 208 and 68
+bytes respectively.
+
+Two independent eight-pair captures, with reversed variant order in the second,
+retain **96 fresh-process records**, power/process/memory audits and complete
+source/prototype/image seals. They compare the guarded prototype against
+`fdf9abc2`'s production implementation (runtime equivalent to `77ee0cd6`).
+Negative percentages below mean lower serialization latency.
+
+| Corpus | First latency delta | Independent repeat | Repeat paired 95% interval |
+|---|---:|---:|---:|
+| twitter | -0.30% | -0.41% | -0.84% to -0.02% |
+| github_events | -1.23% | -0.62% | -1.05% to -0.17% |
+| gsoc-2018 | -0.72% | +0.08% | -0.47% to +0.73% |
+
+Twitter and GitHub repeat small improvements; GSoC remains unresolved. These
+are shared-host Apple M4 Max/arm64/AC results, not isolation claims. Conditions
+remain SIMD/incremental/compatibility, validation off, `JSON_CACHE=0`, original
+classic owning-model harness, fresh owning output each operation, V8 15.2.20 /
+Node 26.4.0 / AssemblyScript 0.28.20. No native throughput is inferred from these
+AS-only comparisons; the preceding full-native 4/9 gate remains the latest
+qualified native table until refreshed.
+
+Final production transform images match the measured guarded prototype on all
+nine corpora, and all complete-model/retained-GC oracles pass. The permanent
+borrowed-record suite passes **8,064 output checks across eighteen configurations**
+(NAIVE/SWAR/SIMD, incremental/minimal/stub, O0/O3), including 4,608 collections
+at borrowed entries, additional leaf-allocation stress, unmanaged-owner
+fallbacks, nullable children and arrays. Separate prototype controls cover
+custom mutations, modified runtime helpers, aliases, receiver shadowing and
+inherited dispatch. Full text-record, integer-row, root/reservation, Map callback
+and installed-consumer validation is retained with the raw evidence.
+
+The final local gates pass: **2,457,142** text-record checks, **403,832** integer
+oracle comparisons, **16/90/162** safety/root/reservation checks, **555/375** Map
+callback/lifetime checks, **360** actual-tarball operations across **36** consumer
+configurations, and **51** warning-free native/WASI/test configurations. AS201
+remains enabled. Transform build, typecheck, lint and license headers pass.
+
+[Raw paired samples, audits, exact images, generated-code audit, GC counterexample,
+controls and production validation](data/serialization-borrowed-records.json.gz).

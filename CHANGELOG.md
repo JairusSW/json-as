@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Avoid duplicate managed child aliases in verified, closed generated serializers. Keep managed owners traced across allocation and GC, and retain rooted dispatch for unmanaged, inherited, custom, deferred, or uncertain graphs.
+
 - Avoid redundant SIMD string header updates on runtimes without clean-string metadata, while preserving metadata-aware runtime behavior.
 
 - Route upper-BMP prefixes in verified flat text-array records through an exact two-vector scanner. Preserve public ASCII/escape paths, Unicode semantics and fresh output without adding classification or output caching.

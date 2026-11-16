@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
+import { Node, } from "assemblyscript/dist/assemblyscript.js";
 import { INTEGER_TYPES } from "./scalars.js";
 import { NodeKind, PropertyFlags, } from "./types.js";
 import { cloneNode, SimpleParser, toString } from "./util.js";
@@ -59,6 +60,10 @@ export class ArrayRowSerializers {
     unknownBase = false;
     rows = [];
     declarations = new Map();
+    closedRecords = new Set();
+    manualSerializers = new Set();
+    borrowedRecordEntry = null;
+    borrowedRecordCount = 0;
     constructor(sources, parser, sourceSet, options) {
         this.parser = parser;
         this.names = arrayRowSafety(parser.sources, options);
@@ -66,6 +71,16 @@ export class ArrayRowSerializers {
             return;
         this.integerWriters = new RowIntegerWriters(parser, this.names);
         this.textWriters = new TextRecordWriters(parser, this.names);
+        const manual = this.manualSerializers;
+        class FindManual extends Visitor {
+            visitClassDeclaration(node, isDefault = false, parent) {
+                if (node.members.some((member) => member.name?.text?.startsWith("__SERIALIZE")))
+                    manual.add(node);
+                super.visitClassDeclaration(node, isDefault, parent);
+            }
+        }
+        for (const source of parser.sources)
+            new FindManual().visit(source.statements);
         for (const input of sources) {
             const source = sourceSet.get(input);
             for (const statement of input.statements) {
@@ -173,6 +188,122 @@ export class ArrayRowSerializers {
         const body = serializer.body;
         body.statements.unshift(start, offset);
         body.statements.push(end);
+    }
+    borrowRecord(node, schema, source, serializer) {
+        if (!this.names ||
+            !this.textWriters?.verified ||
+            this.unknownBase ||
+            ++this.borrowedRecordCount > 512 ||
+            node.extendsType ||
+            node.typeParameters?.length ||
+            this.derived.has(node) ||
+            this.manualSerializers.has(node) ||
+            schema.custom ||
+            !schema.static ||
+            node.decorators?.some((decorator) => toString(decorator.name) === "unmanaged") ||
+            !node.range.source.statements.includes(node))
+            return;
+        const parameters = source.classTypeParameters(node);
+        const safe = (type, depth = 0) => {
+            if (depth > 8)
+                return false;
+            if (type.declaration)
+                return this.closedRecords.has(type.declaration);
+            if (!type.arguments.length) {
+                if (type.name === "string" || type.name === "String")
+                    return true;
+                return (!type.nullable &&
+                    (INTEGER_TYPES.includes(type.name) ||
+                        type.name === "bool" ||
+                        type.name === "boolean"));
+            }
+            return (type.name === "Array" &&
+                type.arguments.length === 1 &&
+                safe(type.arguments[0], depth + 1));
+        };
+        if (!schema.members.every((member) => member.node.kind === NodeKind.FieldDeclaration &&
+            !member.custom &&
+            ![
+                PropertyFlags.Lazy,
+                PropertyFlags.OmitIf,
+                PropertyFlags.OmitNull,
+            ].some((flag) => member.flags.has(flag)) &&
+            safe(source.resolveTypeMeaning(member.type, "", this.parser, parameters))))
+            return;
+        let receiver = false;
+        class FindReceiver extends Visitor {
+            visitThisExpression() {
+                receiver = true;
+            }
+        }
+        new FindReceiver().visit(serializer.body);
+        if (receiver)
+            return;
+        this.closedRecords.add(node);
+        const parser = this.parser;
+        const closedRecords = this.closedRecords;
+        const entry = () => this.borrowedEntry();
+        class BorrowCalls extends Visitor {
+            visitCallExpression(call, parent) {
+                if (call.expression.kind === NodeKind.PropertyAccess &&
+                    ["__serializeObject", "__serialize"].includes(call.expression.property.text) &&
+                    call.typeArguments?.length === 1 &&
+                    call.args.length === 1) {
+                    const type = source.resolveTypeMeaning(toString(call.typeArguments[0]), "", parser, parameters);
+                    const argument = call.args[0];
+                    if (type.declaration &&
+                        closedRecords.has(type.declaration) &&
+                        argument.kind === NodeKind.Call) {
+                        const load = argument;
+                        if (load.expression.kind === NodeKind.Identifier &&
+                            toString(load.expression) === "load" &&
+                            load.typeArguments?.length === 1 &&
+                            source.resolveTypeMeaning(toString(load.typeArguments[0]), "", parser, parameters).declaration === type.declaration) {
+                            const raw = SimpleParser.parseExpression("load<usize>(0)").typeArguments[0];
+                            class Bind extends Visitor {
+                                _visit(child, owner) {
+                                    child.range = load.typeArguments[0].range;
+                                    super._visit(child, owner);
+                                }
+                            }
+                            new Bind().visit(raw);
+                            load.typeArguments[0] = raw;
+                            call.expression = Node.createIdentifierExpression(entry(), call.expression.range);
+                        }
+                    }
+                }
+                super.visitCallExpression(call, parent);
+            }
+        }
+        new BorrowCalls().visit(serializer.body);
+    }
+    borrowedEntry() {
+        if (this.borrowedRecordEntry)
+            return this.borrowedRecordEntry;
+        let index = 0, name;
+        do {
+            name = "__json_borrow_record_" + index++;
+        } while (this.names.has(name));
+        this.names.add(name);
+        const root = diagnosticsRuntimeRoot(this.parser.sources);
+        const runtime = this.parser.sources.find((source) => source.internalPath === root + "assembly/index");
+        const helper = SimpleParser.parseTopLevelStatement(`@global @inline function ${name}<T>(ptr: usize): void {
+      if (isNullable<T>() && ptr == 0) {
+        JSON.__serialize<T>(changetype<T>(ptr));
+        return;
+      }
+      changetype<nonnull<T>>(0).__SERIALIZE(ptr);
+    }`);
+        class Bind extends Visitor {
+            _visit(child, parent) {
+                child.range = runtime.range;
+                super._visit(child, parent);
+            }
+        }
+        new Bind().visit(helper);
+        runtime.statements.push(helper);
+        this.borrowedRecordEntry = name;
+        return name;
     }
     rewriteTextRecord(node, schema, source, serializer) {
         if (!this.textWriters ||
