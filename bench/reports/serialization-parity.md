@@ -3508,3 +3508,26 @@ license headers and focused formatting pass.
 
 [All 80 timing records, host audits, isolated variants, native-alias/user-shadow/
 descendant controls, detached-parent GC tests, production images and validation](data/serialization-borrow-extension.json.gz).
+
+
+## Scalar-box/rooted-parent implementation: full native refresh
+
+The fresh capture qualifies committed **`f893ca6b`** in **90 fresh-process records** (five alternating AS/native pairs per corpus). All nine complete-model/retained-GC oracles and final source/input/native/Wasm/output seals pass. All **57** power/process/memory audits report AC. The wrapper finishes and releases normally; exit 1 records the unmet 90% threshold, with **4/9** corpora passing.
+
+| Corpus | json-as GB/s | simdjson GB/s | AS/native |
+|---|---:|---:|---:|
+| twitter | 7.796 | 10.229 | 0.762× |
+| canada | 1.175 | 1.263 | 0.930× |
+| citm_catalog | 6.223 | 10.428 | 0.597× |
+| poet | 19.411 | 22.812 | 0.851× |
+| github_events | 7.868 | 16.060 | 0.490× |
+| gsoc-2018 | 10.418 | 16.496 | 0.632× |
+| lottie | 26.075 | 21.646 | 1.205× |
+| otfcc | 36.682 | 24.192 | 1.516× |
+| fgo | 38.545 | 22.299 | 1.729× |
+
+Conditions remain Apple M4 Max/arm64/AC, original classic owning-model and simdjson owning-struct harnesses, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20, SIMD/incremental/compatibility, validation off and `JSON_CACHE=0`. Native uses GCC 16.2.0, `-O3 -DNDEBUG -mcpu=native`, and simdjson 5.0.4 at `3b0b2b53`. Rates count actual UTF-8 output bytes; every operation creates fresh owning output. Background activity is audited, not claimed isolated or attributed as per-engine RSS.
+
+These absolute rates do not establish implementation deltas. The independent AS-to-AS comparison above establishes Twitter −0.54% and Canada −1.60% latency; seven unchanged corpus images also vary between captures. The near-parity objective remains unfinished.
+
+[All 90 records, 57 audits, raw process logs, exact sources/images, model/input references and end seals](data/serialization-borrow-extension-native.json.gz).
