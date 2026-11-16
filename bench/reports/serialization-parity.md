@@ -3865,3 +3865,44 @@ the final production implementation directly.
 Final package validation passes **360 actual-tarball operations across 36
 configurations**. All **51 native/WASI/test warning configurations** pass with
 AS201 enabled. These local gates do not imply completion of hosted CI.
+
+### Current native comparison: battery-power characterization
+
+The fresh native comparison of committed `6e8ffe28` completes **90 processes**,
+five alternating AS/native pairs per corpus. All complete-model/retained-GC
+oracles and final source/input/native/Wasm/output seals pass. All nine images
+match the qualified production candidate. **All 57 host audits report battery
+power**, from 100% to 98%; both configured power profiles report `powermode 2`.
+This is a battery-power characterization, not an AC-qualified refresh.
+
+| Corpus | json-as GB/s | simdjson GB/s | AS/native |
+|---|---:|---:|---:|
+| twitter | 8.033 | 10.741 | 0.748× |
+| canada | 1.167 | 1.262 | 0.925× |
+| citm_catalog | 6.290 | 10.412 | 0.604× |
+| poet | 19.316 | 23.877 | 0.809× |
+| github_events | 8.178 | 16.398 | 0.499× |
+| gsoc-2018 | 11.738 | 16.660 | 0.705× |
+| lottie | 27.377 | 22.825 | 1.200× |
+| otfcc | 36.150 | 24.266 | 1.490× |
+| fgo | 38.047 | 21.881 | 1.739× |
+
+The battery-power gate is **4/9** at 90%; its exit 1 reflects the five below-target
+corpora, with no execution or seal error. Near parity remains unfinished.
+The independent -1.18% / -4.77% implementation deltas above were measured on AC
+power and remain separate. Do not interpret changes between AC and battery
+absolute-rate tables as implementation deltas. Seven corpus binaries are
+unchanged by this implementation.
+
+Other conditions remain Apple M4 Max/arm64, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off, cache zero and fresh owning
+output through the original classic harnesses. Native uses GCC 16.2.0,
+`-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4 at `3b0b2b53`. Rates count actual
+UTF-8 output bytes. Process/memory audits describe a shared host; the lock
+released normally after 168 seconds.
+
+[Raw battery-power native comparison](data/serialization-static-map-native.json.gz)
+preserves all 90 records, 57 power/host audits, sources, models, exact images,
+input/output references and final seals, linked to the separate AC paired-change
+artifact. The preceding common-escape capture remains the last full AC native
+qualification until an AC refresh completes.
