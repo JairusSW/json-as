@@ -2971,3 +2971,42 @@ all-nine near-parity goal remains unfinished.
 
 [Raw 412 process records / 892 benchmark records, prototypes, production images,
 source proofs, correctness logs, audits and statistics](data/serialization-text-records.json.gz).
+
+## Full native refresh after private text records
+
+The committed implementation **`6d45901f`** was rebuilt on all nine corpora
+and qualified in **90 fresh process records**: five alternating AS/native pairs
+per corpus, with **57** periodic host/memory audits. All complete-model and
+retained-GC oracles, source/input/native/Wasm/output end seals pass. The gate
+exits 1 solely because **4/9**, rather than all nine, meet the 90% threshold.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.564 | 10.602 | 0.713× |
+| canada | 1.160 | 1.261 | 0.920× |
+| citm_catalog | 6.193 | 10.382 | 0.596× |
+| poet | 17.342 | 23.411 | 0.741× |
+| github_events | 7.630 | 16.439 | 0.464× |
+| gsoc-2018 | 10.242 | 16.821 | 0.609× |
+| lottie | 24.475 | 22.625 | 1.082× |
+| otfcc | 36.262 | 24.266 | 1.494× |
+| fgo | 38.479 | 22.258 | 1.729× |
+
+Poet improves in the independent AS-to-AS confirmation above, but its native
+ratio is lower in this capture because native throughput also moves between
+captures. The paired comparison establishes the implementation's **3.49% lower
+latency**, not a cross-batch ratio subtraction. No changes in the eight
+byte-identical images are attributed to the text entry. Canada, Lottie, OTFCC
+and FGO still pass; the five other corpora remain below target.
+
+Conditions remain Apple M4 Max/arm64/AC, V8 15.2.20, Node 26.4.0,
+AssemblyScript 0.28.20, SIMD/incremental/compatibility, validation off and
+JSON_CACHE=0, original source-aligned classic owning-model harness. Native:
+GCC 16.2.0, `-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4 at `3b0b2b53`.
+Both engines produce fresh owning output. Actual UTF-8 output bytes determine
+the rates. Shared-host power/process/memory audits are preserved; this is not
+an isolated-host or per-engine peak-RSS measurement. The all-nine near-parity
+goal remains unfinished.
+
+[Current native samples, 57 audits, committed source snapshot, native/Wasm
+images, compiler/power metadata and end seals](data/serialization-text-record-native.json.gz).
