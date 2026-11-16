@@ -11,6 +11,7 @@ import { Visitor } from "./visitor.js";
 export declare class ArrayRowSerializers {
     private parser;
     private names;
+    private integerWriters;
     private arrayUses;
     private nestedRecords;
     private recordReservationCount;

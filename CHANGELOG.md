@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Use a private three-digit lookup for nine-digit magnitudes in verified numeric-row `i64`/`u64` fields. Preserve the existing width checks, narrower and standalone writers, large-integer padding, output bounds, and source/runtime fallbacks.
+
 - Finish clean SIMD string tails with a payload-bounded overlapping 32-byte copy. Preserve exceptional Unicode handling and output ownership, avoiding a second tail scan without caching output.
 
 - Retire unused numeric reservation estimates after completed nested record writers. Preserve caller credits, buffer relocation and existing callback/GC fallbacks, without adding bookkeeping to standalone or deferred records.

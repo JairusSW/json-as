@@ -2786,3 +2786,76 @@ Production remains unchanged; the full native gate is still **4/9**.
 [Matched modules, complete executable-section proofs, native caches/disassembly,
 call-site maps, bounded-leaf source/model/GC controls and 36 measurement
 processes / 144 benchmark records](data/serialization-private-text-diagnosis.json.gz).
+
+## Nine-digit triplets for wide numeric rows
+
+The retained follow-up changes the arithmetic for nine-digit magnitudes in
+resolved `i64`/`u64` fields of already-verified numeric array rows. It keeps
+all width checks and the other widths unchanged, and leaves standalone and
+narrower integer writers alone. Three immutable UTF-16 triplets replace four
+digit-pair loads plus a leading digit. The private table is **6,002 bytes**,
+including one padding code unit for the last bounded load; it has no managed
+startup allocation or output cache. Overlapping stores stay inside the
+existing 20-byte magnitude reservation. Large `u64` trailing groups retain the
+original writer. CITM Wasm grows from 239,165 to 244,611 bytes: a net
+**5,446-byte** increase, including the table and private code.
+
+An initial six-pair CITM screen improves latency by **5.54%**, interval
+**5.16–5.98%**, with 6/6 pairs faster. A separate balanced confirmation uses
+all six baseline/inline/outlined execution orders twice, **36 fresh processes**:
+
+| Variant | Paired CITM latency delta | 95% interval | Faster pairs |
+|---|---:|---:|---:|
+| Retained inline triplets | **−5.19%** | −5.65% to −4.69% | 12/12 |
+| Unretained outlined triplets | −5.08% | −5.52% to −4.59% | 12/12 |
+
+The outlined variant establishes no advantage. Production reproduces the
+retained measured image exactly on all nine corpora; only CITM changes.
+The other eight remain byte-identical to the parent.
+
+This is a tradeoff, not a claim that every integer distribution improves.
+A balanced same-source countercase batch (**18 processes / 90 benchmarks**)
+compares all three variants. For the retained wide-field writer:
+
+| Row magnitudes | Paired latency delta | 95% interval |
+|---|---:|---:|
+| 0–9 | +0.96% | −0.27% to +2.11% |
+| Around 1,000 | +0.76% | +0.01% to +1.90% |
+| Around 100,000,000 | **−12.77%** | −13.16% to −12.32% |
+| Around 1,000,000,000 | +1.82% | +0.91% to +2.85% |
+| Around 1,000,000,000,000 | +0.13% | −0.97% to +1.25% |
+
+Each row contains three fields with mixed positive/negative values. The
+scoped implementation retains the existing 32-bit writer: its small-i32
+counter image is byte-identical to its control. The initial broader prototype
+changed i32 fields too and regressed its small-i32 counter by 1.94%; it is
+not retained. Separate initial wide-only and outlined counter captures remain
+in the archive, including their smaller countercase regressions.
+
+The permanent suite passes **403,832 exact-output/guard assertions across
+11 configurations**, covering all modes and runtimes, signed minima, unsigned
+maxima, every decimal boundary, random values, triplet-table endpoints,
+colliding helper names, and observable effects from an AST-modified formatter.
+Four configurations positively select the private helper and actively test
+its output reservations. The test injects guards using the actual emitted
+helper name after analysis. Initial prototype guards incorrectly named a
+helper that the collision-avoidance pass then renamed; their `isDefined`
+fallback meant they did not exercise bounds. Those initial runs provide
+output comparisons only, and are superseded by the permanent positive guards.
+All nine complete-model/retained-GC oracles, the 16 row-safety checks and 156
+row/forced-GC checks pass. Actual-tarball consumers pass **360 operations
+across 36 configurations**; all **51 warning configurations** pass with AS201
+enabled. Transform build, typecheck, lint, license headers and focused
+formatting pass.
+
+Captures use Apple M4 Max/arm64/AC, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental, validation off and cache zero, original classic models,
+fresh owning output and the shared timing lock. Raw host/memory audits,
+source/image seals, full counter outputs and paired bootstrap statistics are
+retained. The new evidence isolates AS implementation changes; it does **not**
+refresh the native throughput table. That table's gate is still **4/9**, and
+the all-nine near-parity objective remains unfinished.
+
+[Triplet prototypes, measured and production images, corrected guard tests,
+model/GC controls, countercases, 114 measurement processes / 282 benchmark
+records, audits and seals](data/serialization-row-triplets.json.gz).

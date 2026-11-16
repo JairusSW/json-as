@@ -31,6 +31,7 @@ import { cloneNode, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
 import { diagnosticsRuntimeRoot } from "./diagnostics.js";
 import { arrayRowSafety } from "./array-row-safety.js";
+import { RowIntegerWriters } from "./row-integers.js";
 
 const NATIVE_BASES = new Set([
   "Map",
@@ -68,6 +69,7 @@ const MARKER = "__SERIALIZE_FLAT_NUMERIC_FIELDS";
 /** Keep a row's owning array rooted while its callback-free writer borrows it. */
 export class ArrayRowSerializers {
   private names: Set<string> | null;
+  private integerWriters: RowIntegerWriters | null = null;
   private arrayUses = new Set<ClassDeclaration>();
   private nestedRecords = new Set<ClassDeclaration>();
   private recordReservationCount = 0;
@@ -85,6 +87,7 @@ export class ArrayRowSerializers {
   ) {
     this.names = arrayRowSafety(parser.sources, options);
     if (!this.names) return;
+    this.integerWriters = new RowIntegerWriters(parser, this.names);
     for (const input of sources) {
       const source = sourceSet.get(input);
       for (const owner of source.getClasses()) {
@@ -354,6 +357,7 @@ export class ArrayRowSerializers {
       }
     }
     new BindRange().visit([getter, worker]);
+    this.integerWriters!.rewrite(worker as FunctionDeclaration, source, node);
     node.range.source.statements.push(getter, worker);
     const declarations = this.declarations.get(node.range.source) ?? [];
     declarations.push(getter, worker);
