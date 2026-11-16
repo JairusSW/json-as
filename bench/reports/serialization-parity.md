@@ -3943,3 +3943,36 @@ from being mistaken for proof that the proposed fast path was exercised.
 retain both prototypes, preparation/oracle scripts and logs, candidate images,
 all 48 timing records, statistics, and source/image seals. Unchanged blobs link
 to the preceding static-Map native archive by verified content hash.
+
+### Borrow scalar floating-point records: unresolved screen
+
+A separate, unretained transform prototype admits non-null native `f32`/`f64`
+fields to the existing closed-record classification used for borrowed child
+calls. It changes that classification only, preserving the actual field types
+and numeric writers. It does not extend native floating-point array or Box
+eligibility. Only Twitter changes among the nine classic images; the other
+eight remain byte-identical. All nine full-model and retained-GC oracles pass.
+
+A targeted fixture adds 9,351 checks across NAIVE/SWAR/SIMD and
+incremental/minimal/stub at `-O3`: exact `f64` numeric round trips, `f32` rounding
+round trips, finite extremes, signed zero, nonfinite-to-null behavior, an alias,
+nullable fallback and retained output. Instrumented borrowed helpers force two
+collections per call. Counters show 513 calls in each incremental configuration
+and zero in minimal/stub, which retain their existing fallback. Initial fixture
+checks were corrected to compare `f32` at its actual precision and to exercise a
+non-null child; a nullable child takes the separate existing lazy-value entry.
+The passing final fixture and execution logs are retained.
+
+Twelve alternating fresh-process pairs on Twitter give **+0.29%** paired elapsed
+time (bootstrap 95% **-0.33% to +0.93%**, five of twelve pairs faster). Separate
+medians are 59.865 µs for production and 59.955 µs for the candidate. This does
+not establish a gain, so the eligibility extension remains unretained. The
+shared lock released normally; every sample records battery power plus process
+and memory audits. Original owning-model harnesses, validation off, cache zero,
+Apple M4 Max/arm64 and the existing SIMD/incremental configuration are unchanged.
+This is not an AC-qualified native comparison. The full native table remains 4/9.
+
+[Raw scalar-float borrowing screen](data/serialization-borrow-floats-screen.json.gz)
+contains the prototype, full model/oracle sources and logs, images, all 24 timing
+records, statistics and final source/image seals, with unchanged blobs linked
+to the preceding native archive by content hash.
