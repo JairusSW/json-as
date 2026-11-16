@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Retire numeric-batch row estimates without counting enclosing-array comma credits twice. Preserve caller-held reservations and the original row writer accounting across batch boundaries and nullable rows.
+
 - Preserve native literal-store widths when a model shadows integer or vector type names. Emit helpers in an independent scope only where needed, including generated row separators; ordinary generated code stays unchanged.
 
 - Batch reservations for verified numeric-only array rows. Keep output cursors local within bounded batches, compute capacity in 64 bits, and retain original writers for nested objects, effectful rows, shadowed width types, and oversized bounds.

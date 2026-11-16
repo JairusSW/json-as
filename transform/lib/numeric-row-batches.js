@@ -168,7 +168,10 @@ export class NumericRowBatches {
           ${comma(dst)}
         }
         bs.offset=${dst};
-        bs.stackSize=max<usize>(${reserved},${begin})+(bs.offset-bs.buffer-${begin});
+        bs.stackSize=max<usize>(
+          ${reserved}+(${dst}-bs.buffer-${begin}-(<usize>(${end}-${start})<<1)),
+          ${dst}-bs.buffer-2
+        );
         ${start}=${end};
       }
     }`);

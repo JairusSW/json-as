@@ -100,10 +100,16 @@ try {
             );
             checks++;
           }
-        const unused = g.rowBudget(3000);
-        if (runtime === "incremental") assert.equal(unused, 0);
-        else assert.ok(unused > 0);
-        checks++;
+        for (const count of [0, 1, 2, 3, 15, 16, 17, 31, 32, 33, 3000])
+          for (const credit of [0, 65536])
+            for (const nullable of [false, true]) {
+              const unused = g.rowBudget(count, credit, Number(nullable));
+              const context = `${mode}/${runtime}/${strict}/${count}/${credit}/${nullable}`;
+              if (runtime === "incremental" || count === 0)
+                assert.equal(unused, credit, context);
+              else assert.ok(unused > credit, context);
+              checks++;
+            }
       }
   console.log(
     `Lazy reservation: ${checks} deferred/materialized/default/capacity checks passed`,

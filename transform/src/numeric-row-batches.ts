@@ -192,6 +192,9 @@ export class NumericRowBatches {
           else ${bytes}+=<u64>(${bound});
         }`
       : `${bytes}+=<u64>(${bound})*<u64>(${end}-${start});`;
+    // The array already reserved each comma. Match the original per-row
+    // retirement: keep caller credits plus row bytes, with a floor at the
+    // cursor before the final comma when no caller credits remain.
     worker.body = SimpleParser.parseStatement(`{
       for(let ${start}=0;${start}<${length};) {
         const ${end}=${start}+min<i32>(16,${length}-${start});
@@ -213,7 +216,10 @@ export class NumericRowBatches {
           ${comma(dst)}
         }
         bs.offset=${dst};
-        bs.stackSize=max<usize>(${reserved},${begin})+(bs.offset-bs.buffer-${begin});
+        bs.stackSize=max<usize>(
+          ${reserved}+(${dst}-bs.buffer-${begin}-(<usize>(${end}-${start})<<1)),
+          ${dst}-bs.buffer-2
+        );
         ${start}=${end};
       }
     }`) as BlockStatement;

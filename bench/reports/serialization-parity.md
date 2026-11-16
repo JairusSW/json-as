@@ -9,9 +9,9 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full qualification: [nested-record refresh](#full-native-refresh-after-nested-record-accounting). Four of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full native capture: [numeric batches and literal bindings](#refreshed-native-comparison-and-literal-bindings), at `a6fde560`. Four of nine workloads meet the 90% gate. The subsequent [comma-credit correction](#numeric-batch-comma-credit-correction) is validated but awaits remeasurement; near parity remains unmet.
 
-Latest implementation comparison: [nested record reservations](#nested-record-reservations), with lower Twitter and GitHub latency. This AS-before/after capture does not replace the native table.
+Latest measured implementation comparison: [bounded numeric row batches](#bounded-numeric-row-batches--retained). This AS-before/after capture does not replace the native table, and it predates the comma-credit correction.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -4625,3 +4625,34 @@ The nullable dispatch concern does not reproduce as a defect.
 recipes, statistics and host audits](data/serialization-closed-record-growth.json.gz)
 retain this countercheck. Embedded files and production-baseline references
 were independently reloaded and hash-verified after packing.
+
+
+## Numeric-batch comma-credit correction
+
+Hosted Tests on `a6fde560` fail the existing lazy-reservation gate with
+“Unused row estimates must be retired”; seven other test shards pass. The
+[failed shard](https://github.com/JairusSW/json-as/actions/runs/43963540495/job/133636904870)
+is reproduced locally. Diagnostic counts show two extra reserved bytes per
+row: counts 1, 16, 17 and 3,000 leave 2, 32, 34 and 6,000 bytes respectively.
+The parent array already reserves comma/closing punctuation, while batch
+retirement adds those emitted bytes a second time.
+
+Retirement now matches the original row-by-row accounting. It preserves the
+caller reservation plus actual row bytes, excluding already-owned commas,
+with the original floor immediately before the final comma. Capacity bounds,
+batch selection, emitted values, original-worker overflow fallback and GC
+handling are unchanged.
+
+Expanded lazy-reservation regressions pass **936 checks** across eighteen
+backend/runtime/strictness configurations, including nullable rows, zero and
+held caller credits, and counts around 16-row boundaries. The same matrix
+passes with batching disabled, establishing original-worker parity. The
+expanded regression is confirmed failing before the correction.
+
+Additional gates pass: **312** row checks; **162** reservation-transition checks;
+the nine-configuration owned-output allocation gate; **51** warning-free
+compiler configurations with AS201 enabled; build, typecheck, lint and license
+checks. Hosted CI on the corrected commit and its matched throughput comparison
+remain separate, pending gates. The historical native table and paired timing
+results describe their recorded snapshots; no new timing claim is made for
+this correction.

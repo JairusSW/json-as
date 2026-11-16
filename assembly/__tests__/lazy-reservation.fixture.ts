@@ -53,16 +53,31 @@ export function render(length: i32, materialized: bool, append: bool, held: bool
   return bs.out<string>();
 }
 
-export function rowBudget(count: i32): i32 {
+function unusedBudget<T>(rows: T, credit: i32): i32 {
+  bs.reset();
+  bs.proposeSize(credit);
+  JSON.__serialize(rows);
+  const unused = bs.stackSize - (bs.offset - bs.buffer);
+  if (ASC_RUNTIME == 2) assert(unused == <usize>credit,
+    "Unused row estimates must be retired while preserving caller credits");
+  bs.reset();
+  return <i32>unused;
+}
+
+export function rowBudget(count: i32, credit: i32, nullable: bool): i32 {
+  if (nullable) {
+    const rows = new Array<BudgetRow | null>(count);
+    for (let i = 0; i < count; i++) {
+      if (i % 3 == 2) rows[i] = null;
+      else {
+        const row = new BudgetRow(); row.n = i; rows[i] = row;
+      }
+    }
+    return unusedBudget(rows, credit);
+  }
   const rows = new Array<BudgetRow>(count);
   for (let i = 0; i < count; i++) {
     const row = new BudgetRow(); row.n = i; rows[i] = row;
   }
-  bs.reset();
-  JSON.__serialize(rows);
-  const unused = bs.stackSize - (bs.offset - bs.buffer);
-  if (ASC_RUNTIME == 2) assert(unused == 0,
-    "Unused row estimates must be retired");
-  bs.reset();
-  return <i32>unused;
+  return unusedBudget(rows, credit);
 }
