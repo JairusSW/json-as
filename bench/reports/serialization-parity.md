@@ -3399,3 +3399,40 @@ remains enabled. Transform build, typecheck, lint and license headers pass.
 
 [Raw paired samples, audits, exact images, generated-code audit, GC counterexample,
 controls and production validation](data/serialization-borrowed-records.json.gz).
+
+## Closed-record borrowing: committed full native refresh
+
+The full native capture qualifies **`77846e2d`** in **90 fresh-process records**:
+five alternating AS/native process pairs per corpus, using the original classic
+owning-model and simdjson owning-struct harnesses. All nine complete-model and
+retained-GC oracles pass. Final source/input/native/Wasm/output seals pass, and
+all **57** power/process/memory audits report AC power. The capture finishes
+normally; its exit status is 1 solely because the 90% gate still passes **4/9**.
+
+| Corpus | json-as GB/s | simdjson GB/s | AS/native | Gate |
+|---|---:|---:|---:|---|
+| twitter | 7.800 | 10.712 | 0.728× | Below target |
+| canada | 1.160 | 1.263 | 0.918× | Pass |
+| citm_catalog | 6.223 | 10.433 | 0.596× | Below target |
+| poet | 19.158 | 23.791 | 0.805× | Below target |
+| github_events | 8.121 | 16.470 | 0.493× | Below target |
+| gsoc-2018 | 10.724 | 16.918 | 0.634× | Below target |
+| lottie | 26.790 | 22.744 | 1.178× | Pass |
+| otfcc | 36.661 | 24.311 | 1.508× | Pass |
+| fgo | 38.725 | 21.837 | 1.773× | Pass |
+
+Conditions: Apple M4 Max / arm64 / AC, V8 15.2.20, Node 26.4.0,
+AssemblyScript 0.28.20, SIMD/incremental/compatibility, validation off and
+`JSON_CACHE=0`. Native uses GCC 16.2.0 with `-O3 -DNDEBUG -mcpu=native` and
+simdjson 5.0.4 at `3b0b2b53`. Rates count actual UTF-8 output bytes. Every
+operation creates fresh owning output; there is no serialized-output cache.
+Host activity is audited, not claimed isolated or attributed as per-engine RSS.
+
+This refresh measures absolute rates, not causal implementation deltas.
+Independent AS-to-AS comparisons above establish the small Twitter/GitHub
+improvements. Six unchanged corpus images, including Poet, also change measured
+rates between captures; those differences are not attributed to borrowing.
+The five remaining below-target corpora keep the near-parity objective open.
+
+[All 90 records, 57 audits, raw process logs, exact committed sources/images,
+inputs/model references and final seals](data/serialization-borrow-record-native.json.gz).
