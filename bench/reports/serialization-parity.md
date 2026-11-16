@@ -3709,3 +3709,34 @@ and memory audits are retained; these remain shared-host measurements.
 [Raw single-escape screen](data/serialization-single-escape-screen.json.gz)
 includes the rejected sources/images, oracle fixture/results, all timings,
 statistics, audits and seals, linked to the qualified baseline artifact.
+
+### Borrow native Map strings: no confirmed improvement
+
+A separate prototype borrows native string keys and values directly from their
+rooted Map while writing them, avoiding additional managed aliases. It selects
+only string-to-string Maps; other key/value types retain the original capture
+and callback ordering. The pointer-only helper clones the current public SIMD
+writer without changing its formatting or buffer semantics. This is an isolated
+prototype, not a production proof or new runtime option.
+
+It passes **288** fresh/field/nullable/subclass output and retention checks at
+O0/O3, with **10,080 collections inside the borrowed writer**. All nine full
+model/retained-GC oracles pass. **Only CITM changes; eight other corpus binaries
+remain byte-identical** to the qualified baseline.
+
+| CITM comparison | Paired serialization latency delta | Paired 95% interval | Faster pairs |
+|---|---:|---:|---:|
+| Initial twelve pairs | -0.84% | -1.70% to -0.09% | 9/12 |
+| Independent reversed-order twelve pairs | -0.06% | -0.46% to +0.29% | 7/12 |
+
+The small initial gain does not repeat. The prototype is **not retained**;
+production code is unchanged. All **48** fresh-process records and final
+source/prototype/image seals pass, with per-record power/process/memory audits.
+Both batches use the original owning-model harness, Apple M4 Max/AC,
+SIMD/incremental, validation off, cache zero and fresh owning output. The shared
+timing lock releases between captures. These are shared-host measurements.
+
+[Raw Map-string borrowing evidence](data/serialization-map-string-borrow-screen.json.gz)
+preserves both captures, exact images, prototype, forced-collection controls,
+model results, audits and statistics, linked to the qualified baseline. Neither
+this experiment nor the single-escape screen changes the 4/9 native result.
