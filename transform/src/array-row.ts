@@ -38,6 +38,7 @@ import { arrayRowSafety } from "./array-row-safety.js";
 import { RowIntegerWriters } from "./row-integers.js";
 import { TextRecordWriters } from "./text-records.js";
 import { ClosedMapProof } from "./closed-map.js";
+import { RecordCursorWriters } from "./record-cursors.js";
 
 const NATIVE_BASES = new Set([
   "Map",
@@ -92,6 +93,7 @@ export class ArrayRowSerializers {
   private borrowedRecordEntry: string | null = null;
   private borrowedRecordCount = 0;
   private closedMapProof: ClosedMapProof | null = null;
+  private recordCursors: RecordCursorWriters | null = null;
 
   constructor(
     sources: Source[],
@@ -107,8 +109,10 @@ export class ArrayRowSerializers {
       this.names,
       options.hasFeature(Feature.Simd),
     );
-    if (this.textWriters.verified)
+    if (this.textWriters.verified) {
       this.closedMapProof = new ClosedMapProof(parser, this.names);
+      this.recordCursors = new RecordCursorWriters(parser, this.names);
+    }
     const root = diagnosticsRuntimeRoot(parser.sources)!;
     const runtime = parser.sources.find(
       (source) => source.internalPath === root + "assembly/index",
@@ -454,6 +458,18 @@ export class ArrayRowSerializers {
       }
     }
     new BorrowCalls().visit(serializer.body!);
+    const cursor = this.recordCursors?.rewrite(
+      node,
+      source,
+      serializer,
+      closed,
+    );
+    if (cursor) {
+      node.range.source.statements.push(cursor);
+      const declarations = this.declarations.get(node.range.source) ?? [];
+      declarations.push(cursor);
+      this.declarations.set(node.range.source, declarations);
+    }
   }
 
   private borrowedEntry(): string {

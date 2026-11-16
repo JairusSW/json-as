@@ -74,13 +74,15 @@ export function calls():i32{return __borrowEffectCallsRead();}
 for (const [name, source] of Object.entries(fixtures))
   fs.writeFileSync(
     path.join(dir, name + ".ts"),
-    source.replace("'../../../assembly/index'", JSON.stringify(runtime)),
+    source.replace("'../../../assembly/index'", JSON.stringify(runtime)) +
+      "\nexport function cursorCalls():i32{return __borrowCursorCallsRead();}",
   );
 fs.writeFileSync(
   path.join(dir, "transform.mjs"),
   `
 import Base from ${JSON.stringify(url("transform/lib/index.js"))};
 import {ArrayRowSerializers} from ${JSON.stringify(url("transform/lib/array-row.js"))};
+import {RecordCursorWriters} from ${JSON.stringify(url("transform/lib/record-cursors.js"))};
 import {Visitor} from ${JSON.stringify(url("transform/lib/visitor.js"))};
 import {SimpleParser} from ${JSON.stringify(url("transform/lib/util.js"))};
 import {diagnosticsRuntimeRoot} from ${JSON.stringify(url("transform/lib/diagnostics.js"))};
@@ -89,11 +91,13 @@ const bind=(node,range)=>{const visitor=new Bind();visitor.range=range;visitor.v
 export default class extends Base{
  afterParse(parser){
   const original=ArrayRowSerializers.prototype.borrowRecord;
+  const originalCursor=RecordCursorWriters.prototype.rewrite;
+  if(process.env.PROBE_CURSOR_DISABLED==='true')RecordCursorWriters.prototype.rewrite=()=>null;
   if(process.env.PROBE_DISABLED==='true')ArrayRowSerializers.prototype.borrowRecord=()=>{};
-  try{super.afterParse(parser);}finally{ArrayRowSerializers.prototype.borrowRecord=original;}
+  try{super.afterParse(parser);}finally{ArrayRowSerializers.prototype.borrowRecord=original;RecordCursorWriters.prototype.rewrite=originalCursor;}
   const runtime=parser.sources.find(s=>s.internalPath===diagnosticsRuntimeRoot(parser.sources)+'assembly/index');
-  const helpers=runtime.statements.filter(n=>n.name?.text?.startsWith('__json_borrow_record_'));
-  for(const helper of helpers){const body=SimpleParser.parseTopLevelStatement('function probe():void{__borrowEffectCalls++;__collect();__collect();}').body;bind(body,helper.range);helper.body.statements.unshift(...body.statements);}
+  const helpers=parser.sources.flatMap(s=>s.statements).filter(n=>/^__json_(?:borrow_record|cursor_record)_\\d+$/.test(n.name?.text));
+  for(const helper of helpers){const body=SimpleParser.parseTopLevelStatement('function probe():void{__borrowEffectCallsHit();'+(helper.name.text.startsWith('__json_cursor_record_')?'__borrowCursorCallsHit();':'')+'__collect();__collect();}').body;bind(body,helper.range);helper.body.statements.unshift(...body.statements);}
   class Stress extends Visitor{visitClassDeclaration(node,isDefault,parent){
    if(['LeafChild','BoxChild'].includes(node.name.text)){
     const method=node.members.find(m=>m.name?.text==='__SERIALIZE');
@@ -101,13 +105,13 @@ export default class extends Base{
     bind(body,method.range);method.body.statements.unshift(...body.statements);
    }super.visitClassDeclaration(node,isDefault,parent);
   }}for(const source of parser.sources)new Stress().visit(source.statements);
-  const nodes=[SimpleParser.parseTopLevelStatement('let __borrowEffectCalls:i32=0;'),SimpleParser.parseTopLevelStatement('@global function __borrowEffectCallsRead():i32{return __borrowEffectCalls;}')];
+  const nodes=[SimpleParser.parseTopLevelStatement('let __borrowCursorCalls:i32=0;'),SimpleParser.parseTopLevelStatement('@global function __borrowCursorCallsRead():i32{return __borrowCursorCalls;}'),SimpleParser.parseTopLevelStatement('@global function __borrowCursorCallsHit():void{__borrowCursorCalls++;}'),SimpleParser.parseTopLevelStatement('let __borrowEffectCalls:i32=0;'),SimpleParser.parseTopLevelStatement('@global function __borrowEffectCallsRead():i32{return __borrowEffectCalls;}'),SimpleParser.parseTopLevelStatement('@global function __borrowEffectCallsHit():void{__borrowEffectCalls++;}')];
   bind(nodes,runtime.range);runtime.statements.push(...nodes);
  }
 }
 `,
 );
-const compile = (name, mode, opt, disabled = false) => {
+const compile = (name, mode, opt, disabled = false, cursorDisabled = false) => {
   const output = path.join(dir, "entry.wasm");
   const result = spawnSync(
     process.execPath,
@@ -134,6 +138,7 @@ const compile = (name, mode, opt, disabled = false) => {
         JSON_USE_FAST_PATH: "1",
         JSON_CACHE: "0",
         PROBE_DISABLED: String(disabled),
+        PROBE_CURSOR_DISABLED: String(cursorDisabled),
       },
     },
   );
@@ -172,12 +177,39 @@ try {
     for (const opt of ["-O0", "-O3"])
       configurations.push({ mode, opt, disabled: false });
   configurations.push({ mode: "SIMD", opt: "-O3", disabled: true });
-  for (const { mode, opt, disabled } of configurations) {
-    const { g, read, input } = compile("effects", mode, opt, disabled),
+  configurations.push({
+    mode: "SWAR",
+    opt: "-O3",
+    disabled: false,
+    cursorDisabled: true,
+  });
+  configurations.push({
+    mode: "SIMD",
+    opt: "-O3",
+    disabled: false,
+    cursorDisabled: true,
+  });
+  for (const {
+    mode,
+    opt,
+    disabled,
+    cursorDisabled = false,
+  } of configurations) {
+    const { g, read, input } = compile(
+        "effects",
+        mode,
+        opt,
+        disabled,
+        cursorDisabled,
+      ),
       held = [];
     for (let i = 0; i < 32; i++) {
       const text =
-          "汉語 " + i + ' "\\\n' + String.fromCharCode(0xd800 + (i % 16)),
+          "汉語 " +
+          i +
+          ' "\\\n' +
+          String.fromCharCode(0xd800 + (i % 16)) +
+          (i === 31 ? "x".repeat(32768) : ""),
         ptr = input(text);
       const expected = {
         boxed:
@@ -213,11 +245,17 @@ try {
       effects++;
     }
     assert.equal(g.calls(), disabled ? 0 : 128);
+    assert.equal(g.cursorCalls(), disabled || cursorDisabled ? 0 : 128);
+    console.log("cursor path calls", g.cursorCalls());
     assert.equal(g.effectCalls(), 96);
     console.log(
       mode,
       opt,
-      disabled ? "rooted control" : "borrowed",
+      disabled
+        ? "rooted control"
+        : cursorDisabled
+          ? "borrowed control"
+          : "cursor",
       "mutation, boxes, detached ownership and retained GC pass",
     );
   }
@@ -227,7 +265,11 @@ try {
         const { g, read, input } = compile(name, mode, opt);
         for (let i = 0; i < 64; i++) {
           const text =
-              "汉語 " + i + ' "\\\n' + String.fromCharCode(0xd800 + (i % 16)),
+              "汉語 " +
+              i +
+              ' "\\\n' +
+              String.fromCharCode(0xd800 + (i % 16)) +
+              (i === 31 ? "x".repeat(32768) : ""),
             ptr = input(text),
             out = g.__pin(g.run(ptr));
           g.__collect();
@@ -245,14 +287,21 @@ try {
           identities++;
         }
         assert.equal(g.calls(), name === "native" ? 64 : 0);
-        console.log(name, mode, opt, "identity and GC pass");
+        assert.equal(g.cursorCalls(), name === "native" ? 64 : 0);
+        console.log(
+          name,
+          mode,
+          opt,
+          "identity and GC pass; cursor calls",
+          g.cursorCalls(),
+        );
       }
   console.log(
     "Borrowed record effects:",
     effects,
     "mutation/boxed/detached checks;",
     identities,
-    "alias/shadow/descendant checks; nineteen configurations",
+    "alias/shadow/descendant checks; twenty-one configurations",
   );
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });

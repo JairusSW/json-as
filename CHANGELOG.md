@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Return proven-pure child serializers' output cursors directly to their parents. Preserve reservation credits, buffer growth, declaration-scoped aliases, callbacks and GC fallbacks without adding output caching or a public option.
+
 - Remove Map callback prepasses for verified, closed generated record types. Include excluded sources when checking descendants, and preserve runtime/source fallbacks for uncertain or effectful values.
 
 - Expand common SIMD string escapes a block at a time using compile-time shuffle data under the verified stock-runtime/source guard. Preserve Unicode/control fallbacks, output reuse and unsupported-runtime behavior.

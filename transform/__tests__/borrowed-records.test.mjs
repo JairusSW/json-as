@@ -50,17 +50,18 @@ export default class extends Base {
   super.afterParse(parser);
   const runtime=parser.sources.find(s=>s.internalPath.endsWith('/assembly/index'));
   if(!runtime)throw Error('Missing runtime');
-  const helpers=runtime.statements.filter(n=>n.name?.text?.startsWith('__json_borrow_record_'));
+  const helpers=parser.sources.flatMap(s=>s.statements).filter(n=>/^__json_(?:borrow_record|cursor_record)_\\d+$/.test(n.name?.text));
   const active=process.env.PROBE_RUNTIME==='incremental';
-  if(helpers.length!==(active?1:0))throw Error('Unexpected borrowed entry count: '+helpers.length);
+  if(helpers.filter(n=>n.name.text.startsWith('__json_borrow_record_')).length!==(active?1:0))throw Error('Unexpected borrowed entry count');
+  if(helpers.filter(n=>n.name.text.startsWith('__json_cursor_record_')).length!==(active?4:0))throw Error('Unexpected cursor entry count');
   for(const helper of helpers){
-   const body=SimpleParser.parseTopLevelStatement('function probe():void{__borrowRecordCalls++;__collect();}').body;
+   const body=SimpleParser.parseTopLevelStatement('function probe():void{__borrowRecordHit();__collect();}').body;
    bind(body,helper.range);helper.body.statements.unshift(...body.statements);
   }
   class Stress extends Visitor {
    visitClassDeclaration(node,isDefault,parent){
     const method=node.members.find(m=>m.name?.text==='__SERIALIZE');
-    if(node.name.text==='RawOwner'&&toString(method.body).includes('__json_borrow_record_'))throw Error('Unmanaged owners must retain managed roots');
+    if(node.name.text==='RawOwner'&&/__json_(?:borrow_record|cursor_record)_/.test(toString(method.body)))throw Error('Unmanaged owners must retain managed roots');
     if(active&&node.name.text==='Leaf'){
      const body=SimpleParser.parseTopLevelStatement('function stress():void{__collect();__collect();__collect();for(let i=0;i<128;i++){const scratch=__new(16,idof<ArrayBuffer>());memory.fill(scratch,0,16);}}').body;
      bind(body,method.range);method.body.statements.unshift(...body.statements);
@@ -69,7 +70,7 @@ export default class extends Base {
    }
   }
   for(const source of parser.sources)new Stress().visit(source.statements);
-  const declarations=[SimpleParser.parseTopLevelStatement('let __borrowRecordCalls:i32=0;'),SimpleParser.parseTopLevelStatement('@global function __borrowRecordCallsRead():i32{return __borrowRecordCalls;}')];
+  const declarations=[SimpleParser.parseTopLevelStatement('let __borrowRecordCalls:i32=0;'),SimpleParser.parseTopLevelStatement('@global function __borrowRecordCallsRead():i32{return __borrowRecordCalls;}'),SimpleParser.parseTopLevelStatement('@global function __borrowRecordHit():void{__borrowRecordCalls++;}')];
   bind(declarations,runtime.range);runtime.statements.push(...declarations);
  }
 }

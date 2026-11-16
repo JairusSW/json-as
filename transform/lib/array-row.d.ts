@@ -28,6 +28,7 @@ export declare class ArrayRowSerializers {
     private borrowedRecordEntry;
     private borrowedRecordCount;
     private closedMapProof;
+    private recordCursors;
     constructor(sources: Source[], parser: Parser, sourceSet: SourceSet, options: Options);
     private rememberRecord;
     finishMapProof(knownGc: boolean): void;
