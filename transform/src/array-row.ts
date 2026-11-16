@@ -85,6 +85,7 @@ export class ArrayRowSerializers {
   private rows: { id: string; writer: string }[] = [];
   private declarations = new Map<Source, Node[]>();
   private closedRecords = new Set<ClassDeclaration>();
+  private nativeScalarBox: ClassDeclaration | null = null;
   private manualSerializers = new Set<ClassDeclaration>();
   private borrowedRecordEntry: string | null = null;
   private borrowedRecordCount = 0;
@@ -99,6 +100,20 @@ export class ArrayRowSerializers {
     if (!this.names) return;
     this.integerWriters = new RowIntegerWriters(parser, this.names);
     this.textWriters = new TextRecordWriters(parser, this.names);
+    const root = diagnosticsRuntimeRoot(parser.sources)!;
+    const runtime = parser.sources.find(
+      (source) => source.internalPath === root + "assembly/index",
+    )!;
+    const namespace = runtime.statements.find(
+      (statement) =>
+        statement.kind === NodeKind.NamespaceDeclaration &&
+        (statement as NamespaceDeclaration).name.text === "JSON",
+    ) as NamespaceDeclaration;
+    this.nativeScalarBox = namespace.members.find(
+      (member) =>
+        member.kind === NodeKind.ClassDeclaration &&
+        (member as ClassDeclaration).name.text === "Box",
+    ) as ClassDeclaration;
     const manual = this.manualSerializers;
     class FindManual extends Visitor {
       visitClassDeclaration(
@@ -272,8 +287,8 @@ export class ArrayRowSerializers {
     body.statements.push(end);
   }
 
-  /** Borrow freshly loaded children only while a traced, callback-free owner
-   * keeps their complete graph alive. Uncertain graphs retain managed roots. */
+  /** Borrow freshly loaded pure children while their managed owner stays rooted.
+   * An uncertain parent must never become an eligible borrowed child itself. */
   borrowRecord(
     node: ClassDeclaration,
     schema: Schema,
@@ -300,6 +315,22 @@ export class ArrayRowSerializers {
     const parameters = source.classTypeParameters(node);
     const safe = (type: TypeMeaning, depth = 0): boolean => {
       if (depth > 8) return false;
+      if (
+        this.nativeScalarBox &&
+        type.declaration === this.nativeScalarBox &&
+        !this.derived.has(this.nativeScalarBox) &&
+        type.arguments.length === 1
+      ) {
+        const value = type.arguments[0];
+        return (
+          !value.declaration &&
+          !value.nullable &&
+          !value.arguments.length &&
+          (INTEGER_TYPES.includes(value.name) ||
+            value.name === "bool" ||
+            value.name === "boolean")
+        );
+      }
       if (type.declaration)
         return this.closedRecords.has(type.declaration as ClassDeclaration);
       if (!type.arguments.length) {
@@ -326,13 +357,13 @@ export class ArrayRowSerializers {
             PropertyFlags.Lazy,
             PropertyFlags.OmitIf,
             PropertyFlags.OmitNull,
-          ].some((flag) => member.flags.has(flag)) &&
-          safe(
-            source.resolveTypeMeaning(member.type, "", this.parser, parameters),
-          ),
+          ].some((flag) => member.flags.has(flag)),
       )
     )
       return;
+    const closed = schema.members.every((member) =>
+      safe(source.resolveTypeMeaning(member.type, "", this.parser, parameters)),
+    );
     let receiver = false;
     class FindReceiver extends Visitor {
       visitThisExpression(): void {
@@ -341,7 +372,7 @@ export class ArrayRowSerializers {
     }
     new FindReceiver().visit(serializer.body!);
     if (receiver) return;
-    this.closedRecords.add(node);
+    if (closed) this.closedRecords.add(node);
     const parser = this.parser;
     const closedRecords = this.closedRecords;
     const entry = () => this.borrowedEntry();

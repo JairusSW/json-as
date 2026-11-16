@@ -3436,3 +3436,75 @@ The five remaining below-target corpora keep the near-parity objective open.
 
 [All 90 records, 57 audits, raw process logs, exact committed sources/images,
 inputs/model references and final seals](data/serialization-borrow-record-native.json.gz).
+
+## Native scalar boxes and rooted uncertain parents
+
+A follow-up separates two compile-time facts: a generated parent remains rooted
+by its existing caller, while a freshly loaded child can have a fully proven
+callback-free graph. Unknown fields no longer disqualify every child call in
+that parent. The parent is still not certified as a pure child of another
+object. Existing unmanaged/inheritance/manual/custom/deferred/omission/runtime
+fallbacks remain in place.
+
+The proof also recognizes the verified runtime's native integer/Boolean
+`JSON.Box<T>` declaration. User classes with the same name do not qualify, and
+known descendants disable the native Box certificate. Floats and unknown
+arguments retain their prior handling. No runtime classifier, metadata table,
+output cache or public option is added.
+
+Three prototypes isolate box recognition, rooted-parent selection and their
+combination. Complete Twitter model/retained-GC oracles pass for all three.
+The combined prototype passes all nine complete-model/retained-GC oracles;
+only Twitter and Canada images change, with the other seven byte-identical.
+Twitter selects ten pure-child call sites, compared with five in the previous
+production implementation (seven for boxes alone, eight for parent selection).
+Canada selects one additional site.
+
+The initial eight-pair screen retains **48 fresh processes**: all four variants
+on Twitter and baseline/combined on Canada. Boxes alone remain unresolved on
+Twitter (-0.02%, interval -0.25% to +0.29%); parent-only selection regresses
+0.37% (+0.17% to +0.61%) and is not retained independently. A separate adjacent,
+reversed-order comparison retains **32 fresh processes** for the combined
+variant. Negative percentages mean reduced serialization latency.
+
+| Corpus | Combined initial screen | Independent confirmation | Confirmation paired 95% interval |
+|---|---:|---:|---:|
+| twitter | -0.23% | -0.54% | -0.65% to -0.40% |
+| canada | -1.43% | -1.60% | -1.67% to -1.54% |
+
+Both workloads are faster in all eight confirmation pairs. These are shared-host
+Apple M4 Max/arm64/AC comparisons using the original classic owning-model
+harness, SIMD/incremental/compatibility, validation off, `JSON_CACHE=0`, and
+fresh owning output per operation. Source, prototype and every prepared image
+are sealed before/after each capture. The variants are measured against
+`4161e591` (production code `77846e2d`). These AS-only deltas do not replace the
+preceding 90-process native table or change its 4/9 qualification.
+
+The final production images match the measured combined prototype exactly on
+all nine corpora. The new permanent suite passes **1,792 mutation/box/detached
+ownership/retained-output checks plus 768 binding checks across nineteen
+configurations**. It forces collection and replacement allocations inside
+borrowed entries and leaf writers. A callback replaces a child before its
+serialization, or after an earlier child has been emitted. Another callback
+removes its parent from both the containing array and global references;
+construction and serialization run as separate Wasm calls so constructor
+frames cannot retain it. The original rooted control passes too. Native aliases
+select the optimization; a same-named generic user class and known native Box
+subclass preserve their original representation and rooted path.
+
+Separate prototype controls retain 2,304 mutation/boxed/GC checks, 768 binding
+checks and 8,064 lifetime checks. The permanent original lifetime suite remains
+unchanged and is rerun against production. The experimental wrappers depend
+on the original method shape: reproduce them from `4161e591` or the archived
+baseline sources, rather than applying their textual probe to the new method.
+
+Final local production gates pass: **8,064** lifetime checks (4,608 collections
+at borrowed entries), **2,560** new permanent effect/binding checks, **2,457,142**
+text-record checks, **403,832** integer oracle comparisons, **16/90/162** safety/
+root/reservation checks, **555/375** Map callback/lifetime checks, **360**
+actual-tarball operations across **36** configurations, and **51** warning-free
+native/WASI/test configurations with AS201 enabled. Build, typecheck, lint,
+license headers and focused formatting pass.
+
+[All 80 timing records, host audits, isolated variants, native-alias/user-shadow/
+descendant controls, detached-parent GC tests, production images and validation](data/serialization-borrow-extension.json.gz).

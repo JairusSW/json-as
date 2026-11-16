@@ -23,6 +23,7 @@ export declare class ArrayRowSerializers {
     private rows;
     private declarations;
     private closedRecords;
+    private nativeScalarBox;
     private manualSerializers;
     private borrowedRecordEntry;
     private borrowedRecordCount;

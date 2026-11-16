@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Recognize stock integer/Boolean boxes by declaration when proving serializer effects. Borrow pure children from rooted parents while keeping uncertain parents themselves on rooted dispatch.
+
 - Avoid duplicate managed child aliases in verified, closed generated serializers. Keep managed owners traced across allocation and GC, and retain rooted dispatch for unmanaged, inherited, custom, deferred, or uncertain graphs.
 
 - Avoid redundant SIMD string header updates on runtimes without clean-string metadata, while preserving metadata-aware runtime behavior.
