@@ -4487,3 +4487,31 @@ shared-host battery results, not isolated-host measurements.
 retain all samples, audits, source/compiler/runtime files, binaries, recipes,
 outputs and end seals. Every embedded blob and external content reference was
 independently reloaded and SHA-256 checked after packing.
+
+
+## Private-only first-escape fusion — unretained
+
+A narrower follow-up applies the earlier linear first-escape fusion only to
+the existing private text-record range writer. The public shared writer is
+unchanged. All nine complete-model/retained-GC checks pass; only Poet's executable
+changes, with eight byte-identical production controls. The prototype also passes
+204,214 exact string/buffer/alias/row checks across eight configurations, including
+8,464 forced common-block collections and positive private-path counters.
+
+Twelve alternating fresh-process Poet pairs show no resolved improvement:
+173.510 versus 173.925 microseconds median, paired geometric elapsed-time change
+**-0.13%**, bootstrap 95% interval **-1.39% to +1.11%**, faster in seven pairs.
+The median ratio and paired geometric change are different summaries. The
+prototype is not retained and the native gate stays **4/9**.
+
+The shared host lock covers all 24 processes on Apple M4 Max/arm64, V8 15.2.20,
+SIMD/incremental, validation off/cache zero, original classic owning-output
+harness. All 24 process power checks and twelve periodic host checks report
+battery power. Audits show active background VM and editor processes, including
+samples above 80% CPU; this is a busy-host screen, not isolated qualification.
+It establishes no benefit worth a further confirmation. No other work was stopped.
+
+[Prototype, all images/model outputs, correctness logs, recipes, raw samples,
+statistics and host audits](data/serialization-private-first-escape.json.gz)
+retain the experiment with verified content hashes and links to the sealed
+production baseline.
