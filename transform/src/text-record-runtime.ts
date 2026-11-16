@@ -30,8 +30,8 @@ export const TEXT_RECORD_SOURCES = new Map<string, readonly [string, string]>([
   [
     "assembly/serialize/simd/string",
     [
-      "35c896f19f0ed12ed4a60cff3aaa01c72b5a4fabcf8de559446b1bc1c1269204",
-      "ef4cbf2d21ace6d030bec7b8a74e8d0c4d974cf66f51ffa34066241cc57555ec",
+      "a2c5d2c3a660386c46795bca9a45c518f08caaefdf772576f447aed14ebeddf5",
+      "7d77728fcfe980eae854393b32b42bcc98aa203367d8f0487d21b3f02f7f355b",
     ],
   ],
   [

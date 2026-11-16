@@ -3160,3 +3160,88 @@ retained in production and is not included in the native table.**
 
 [Experimental source, images, full-model oracles, exact checks, 60 fresh-process
 records / 108 benchmark records and host audits](data/serialization-triplet-array-probe.json.gz).
+
+## Remove bookkeeping when clean-string metadata is unavailable
+
+The installed AssemblyScript 0.28.20 runtime exposes a zero clean-string flag.
+The SIMD root and pointer writers still checked the completed output length
+and could write the unchanged size back into each clean source string. Two
+compile-time guards now eliminate that check/store when the flag is zero.
+The scanner, escaping, reservation, GC pacing and output ownership remain
+unchanged. Nonzero metadata behavior is preserved; no new cache or state is
+introduced. Text-record source/semantic-AST fingerprints are refreshed for
+these exact source changes.
+
+### Current baseline attribution
+
+Nine serialization-only profiles use named GitHub/Twitter/GSoC images whose
+non-custom Wasm sections match their qualified baseline images exactly. Across
+three captures per workload:
+
+| Workload | Samples | Largest sampled frames |
+|---|---:|---|
+| GitHub | 7,366 | String range writer 38.15%; array dispatcher 23.45%; GC visit 11.16% |
+| Twitter | 6,364 | Status writer 33.63%; string range writer 27.34%; GC visit 8.82% |
+| GSoC | 7,069 | String range writer 73.66%; Org dispatcher 9.17%; Map dispatcher 5.15% |
+
+These locate sampled work; they are not additive causal costs, post-change
+profiles, throughput evidence or hardware-counter measurements. The profiler
+starts/stops at the serialization log boundaries, including existing warmup
+and completion reporting while excluding parsing benchmarks.
+
+### Independent production comparison
+
+All nine production binaries match the first screened prototype byte for byte.
+Two independent eight-pair all-nine captures retain **288 fresh-process records**.
+The second reverses baseline/candidate order and verifies a complete current
+source hash before/after capture, in addition to image seals. Both retain
+power, process and memory context.
+
+| Corpus | First paired latency delta | Independent production delta | Production 95% interval |
+|---|---:|---:|---:|
+| canada | +0.23% | +0.13% | -0.99% to +1.30% |
+| twitter | -2.07% | -2.17% | -2.41% to -1.84% |
+| citm_catalog | -0.55% | -0.50% | -1.04% to -0.11% |
+| github_events | -5.28% | -5.71% | -6.48% to -5.18% |
+| poet | -6.86% | -1.00% | -3.26% to +1.48% |
+| gsoc-2018 | -3.32% | -3.39% | -3.74% to -3.10% |
+| lottie | -6.54% | -6.52% | -7.72% to -4.59% |
+| otfcc | -0.04% | +0.24% | -0.65% to +1.17% |
+| fgo | +0.74% | +0.08% | -0.66% to +0.83% |
+
+GitHub, Twitter, GSoC and Lottie improve in every production-confirmation pair.
+CITM repeats a smaller improvement (6/8 faster pairs). Poet's large first-screen
+change does **not** resolve in the independent repeat; no Poet improvement is
+claimed for this guard. Canada, OTFCC and FGO also remain unresolved. No corpus
+has a statistically resolved regression in these captures.
+
+The same guard was rejected on an older implementation because it regressed
+Poet. The current private text writer and code layout differ; these results
+qualify the current production images and do not invalidate that older result.
+
+### Correctness and conditions
+
+The new regression is red without the guards and passes **114 output/header/
+emission checks across twelve builds**. With flag zero, scalar and field output
+survives collection and source header sizes remain unchanged. With a synthetic
+nonzero flag, guarded/control Wasm images are byte-identical in all three
+runtimes. That is an emission-preservation control, **not** a claim that stock
+AssemblyScript can execute metadata-tagged strings.
+
+**1,012,764** prototype string/reuse checks across three runtimes and all nine
+model/retained-GC oracles pass. Production additionally passes **2,457,142**
+text-record checks across thirteen configurations, **2,016** string-oracle checks,
+**16 / 156 / 90 / 162** safety/row/root/reservation checks, **360** actual-tarball
+operations across **36** configurations and **51** warning-free configurations
+with AS201 enabled. Build, typecheck, lint and license checks pass. The new
+metadata regression is registered in the transform suite.
+
+Apple M4 Max/arm64/AC, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off, `JSON_CACHE=0`, original classic
+owning-model harness and fresh output per operation. Each timing batch holds
+the shared host lock. Shared-host activity is audited; no isolated-host or
+per-engine peak-RSS claim is made. The latest full native gate remains the
+preceding **4/9**; a native refresh for these guards is still required.
+
+[Production and prototype sources/images, 288 process records, nine diagnostic
+profiles, exact checks, model oracles, controls, audits and seals](data/serialization-zero-metadata.json.gz).

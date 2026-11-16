@@ -65,7 +65,7 @@ export function serializeString_SIMD(src: string): void {
   }
   const next = serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dst);
   bs.offset = next;
-  if (next - dst == <usize>srcSize + 4)
+  if (STRING_CLEAN_FLAG != 0 && next - dst == <usize>srcSize + 4)
     object.rtSize = taggedSize | STRING_CLEAN_FLAG;
 }
 
@@ -440,7 +440,11 @@ export function serializeStringPointerReservedAt_SIMD(
     taggedSize,
     dstStart,
   );
-  if (taggedSize >= 32 && next - dstStart == <usize>taggedSize + 4)
+  if (
+    STRING_CLEAN_FLAG != 0 &&
+    taggedSize >= 32 &&
+    next - dstStart == <usize>taggedSize + 4
+  )
     object.rtSize = taggedSize | STRING_CLEAN_FLAG;
   return next;
 }
