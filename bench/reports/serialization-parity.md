@@ -3010,3 +3010,86 @@ goal remains unfinished.
 
 [Current native samples, 57 audits, committed source snapshot, native/Wasm
 images, compiler/power metadata and end seals](data/serialization-text-record-native.json.gz).
+
+## Verified Unicode scan for flat text-array records
+
+The private text entry now checks the first eight code units of long strings
+with two payload-bounded `u64` loads. When that prefix contains an upper-BMP
+unit, a private reader uses an exact two-vector escape/control/surrogate mask.
+This avoids the ordinary signed-packed classifier's conservative Unicode hit.
+ASCII prefixes retain the existing public range writer; short/medium paths,
+Unicode fallback, buffer ownership, GC pacing and output freshness remain.
+There is no new classification or serialized-output cache. Existing resolved
+schema, native-array reference, stock-runtime/source and alias/hook guards apply.
+
+An executable installed-runtime probe returns `STRING_METADATA_MASK=0` and
+`STRING_SIZE_MASK=0xffffffff`: the optional clean-string metadata is disabled
+on AssemblyScript 0.28.20. A bulk-copy probe failed its positive-execution
+assertion and was **not timed**. The retained change targets the active scanner.
+
+### Production qualification
+
+The prototype's eight-pair confirmation improves Poet 6.71% (95% interval
+−8.49% to −4.62%), faster in 8/8 pairs. Production reorders the short and long
+helpers, so it is measured independently rather than assumed byte-equivalent:
+
+| Actual production comparison | Paired latency delta | 95% interval | Faster pairs |
+|---|---:|---:|---:|
+| Poet, twelve balanced orders | **−6.03%** | −7.57% to −4.59% | **12/12** |
+
+All nine production model/retained-GC oracles pass; the other eight corpus
+images remain byte-identical to the preceding qualified implementation.
+The production countercase capture uses eight alternating fresh-process pairs:
+
+| Three-string row values | Paired latency delta | 95% interval |
+|---|---:|---:|
+| Three ASCII units | +0.56% | −0.48% to +1.60% |
+| Three Chinese units | +0.07% | −1.06% to +1.07% |
+| Quoted three-unit text | **+2.02%** | +0.30% to +3.77% |
+| Sixteen ASCII units | **+5.16%** | +4.60% to +5.79% |
+| 64 ASCII units | **+3.00%** | +2.54% to +3.44% |
+| 256 ASCII units | **+1.55%** | +1.37% to +1.75% |
+
+This is a documented tradeoff, not a universally faster string path. The
+complete native comparison remains the preceding **4/9** qualification until
+this production implementation receives its own native refresh.
+
+### Alternatives rejected
+
+Both global medium-string packed classifiers pass 1,012,404 output checks and
+all nine model oracles each. Their balanced 162-process screen provides no
+useful broad gain: one regresses Poet 0.91%, Canada 0.72% and OTFCC 1.66%; the
+other regresses Poet 1.50%. Neither is retained.
+
+Global conservative-hit verification also passes 1,012,764 output checks and
+all nine model oracles per variant. Its separate 162-process screen improves
+Poet 6.24%, but regresses GitHub 0.90% and GSoC 1.27%. Extending verification to
+post-escape suffixes regresses GitHub 1.37% and GSoC 2.61%. Both are rejected.
+Private always-exact, loop-routing, vector-setup, shorter-prefix and length-gated
+variants are preserved as diagnostics; none replaces the measured production.
+Initial parallel private-oracle/model batches shared scratch outputs. Those
+checks are excluded; isolated paths and reruns provide qualification.
+
+### Validation and conditions
+
+**2,457,142 exact checks across thirteen configurations** pass. They include
+all three modes/runtimes, generated-name collision, modified short/long writer
+callbacks, retained-output collection, exhaustive code units at long-vector
+boundaries, and actual forced collection in each long field of temporary arrays
+(**966** collections in the three explicit lifetime cases). The reusable-row
+fixture uses a real global array rather than an unused type declaration.
+
+The existing row-source safety, row and array-root suites pass **16 / 156 / 90**
+checks. **360** actual-tarball consumer operations across **36** configurations
+and **51** warning configurations pass, with AS201 enabled. Build, typecheck,
+lint, headers and focused formatting pass.
+
+Apple M4 Max/arm64/AC, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off, JSON_CACHE=0, original classic
+owning-model harness. Each timing batch holds the shared host lock, preserves
+raw process/memory/power audits, and verifies image seals. No isolated-host,
+per-engine peak-RSS or new native-throughput claim is made. The all-nine
+near-parity objective remains unfinished.
+
+[Raw 626 process records / 1,508 benchmark records, sources, images, independent
+production confirmation, countercases, oracles, exclusions and audits](data/serialization-unicode-routing.json.gz).

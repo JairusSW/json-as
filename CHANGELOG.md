@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Route upper-BMP prefixes in verified flat text-array records through an exact two-vector scanner. Preserve public ASCII/escape paths, Unicode semantics and fresh output without adding classification or output caching.
+
 - Specialize verified flat text-array record writers with a private, payload-bounded SIMD entry for three-code-unit strings. Keep public callers, other lengths, escape handling, source/runtime fallbacks, and fresh output unchanged.
 
 - Use a private three-digit lookup for nine-digit magnitudes in verified numeric-row `i64`/`u64` fields. Preserve the existing width checks, narrower and standalone writers, large-integer padding, output bounds, and source/runtime fallbacks.

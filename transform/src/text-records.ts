@@ -11,6 +11,9 @@ import {
   DecoratorNode,
   FunctionDeclaration,
   IfStatement,
+  IdentifierExpression,
+  VariableDeclaration,
+  VariableStatement,
   MethodDeclaration,
   Node,
   Parser,
@@ -93,17 +96,24 @@ export class TextRecordWriters {
       ) as FunctionDeclaration | undefined;
     const original = find(source, "serializeShortStringReservedAt_SIMD");
     const originalEntry = find(index, "serializeStringPointerReservedAt");
-    if (!original || !originalEntry) return null;
-    let suffix = 0,
-      short: string,
-      entry: string;
+    const originalRange = find(source, "serializeStringRangeReservedAt_SIMD");
+    const originalPointer = find(
+      source,
+      "serializeStringPointerReservedAt_SIMD",
+    );
+    if (!original || !originalEntry || !originalRange || !originalPointer)
+      return null;
+    let suffix = 0;
+    let symbols: string[];
     do {
       const stem = "__json_text_record_" + suffix++;
-      short = stem + "_short";
-      entry = stem + "_entry";
-    } while (this.names.has(short) || this.names.has(entry));
-    this.names.add(short);
-    this.names.add(entry);
+      symbols = ["short", "entry", "range", "pointer", "mask", "select"].map(
+        (name) => stem + "_" + name,
+      );
+    } while (symbols.some((name) => this.names.has(name)));
+    for (const name of symbols) this.names.add(name);
+    const [short, entry, rangeName, pointerName, maskName, selectName] =
+      symbols;
     const sc = cloneNode(original) as FunctionDeclaration;
     const ec = cloneNode(originalEntry) as FunctionDeclaration;
     sc.name.text = short;
@@ -132,8 +142,75 @@ export class TextRecordWriters {
       store<u16>(dstStart+6,third);store<u16>(dstStart+8,34);
       return dstStart+10;
     }`);
+    const range = cloneNode(originalRange) as FunctionDeclaration;
+    const pointer = cloneNode(originalPointer) as FunctionDeclaration;
+    range.name.text = rangeName;
+    pointer.name.text = pointerName;
+    pointer.decorators = [
+      ...(pointer.decorators ?? []),
+      cloneNode(global) as DecoratorNode,
+    ];
+    const mask =
+      SimpleParser.parseTopLevelStatement(`@inline function ${maskName}(a:v128,b:v128):v128 {
+      const escaped=v128.or(v128.or(i16x8.eq(a,SPLAT_0022),i16x8.eq(b,SPLAT_0022)),v128.or(i16x8.eq(a,SPLAT_005C),i16x8.eq(b,SPLAT_005C)));
+      const controls=i16x8.lt_u(i16x8.min_u(a,b),SPLAT_0020);
+      const surrogates=v128.or(i16x8.eq(v128.and(a,SURROGATE_MASK),SURROGATE_BASE),i16x8.eq(v128.and(b,SURROGATE_MASK),SURROGATE_BASE));
+      return v128.or(escaped,v128.or(controls,surrogates));
+    }`);
+    // The signed packed ASCII scan treats upper BMP text as a conservative hit.
+    // Two bounded words test the first eight code units without a vector bitmask.
+    // Use the exact two-vector predicate only when that prefix has an upper unit.
+    const select =
+      SimpleParser.parseTopLevelStatement(`@inline function ${selectName}(src:usize,size:u32,dst:usize):usize {
+      if((load<u64>(src)|load<u64>(src,8))&0x8000800080008000)return ${rangeName}(src,size,dst);
+      return serializeStringRangeReservedAt_SIMD(src,size,dst);
+    }`);
+    let predicates = 0;
+    class Predicates extends Visitor {
+      visitVariableDeclaration(node: VariableDeclaration, parent: Node): void {
+        if (node.name.text === "special" && predicates === 0) {
+          node.initializer = (
+            SimpleParser.parseStatement(
+              `const x=${maskName}(first,second);`,
+            ) as VariableStatement
+          ).declarations[0].initializer;
+          predicates++;
+        } else if (node.name.text === "tailSpecial") {
+          node.initializer = (
+            SimpleParser.parseStatement(
+              `const x=${maskName}(tailFirst,tailSecond);`,
+            ) as VariableStatement
+          ).declarations[0].initializer;
+          predicates++;
+        }
+        super.visitVariableDeclaration(node, parent);
+      }
+    }
+    new Predicates().visit(range.body!);
+    if (predicates !== 2) return null;
+    class PointerCalls extends Visitor {
+      visitCallExpression(call: CallExpression, parent: Node): void {
+        if (
+          call.expression.kind === NodeKind.Identifier &&
+          (call.expression as IdentifierExpression).text ===
+            "serializeStringRangeReservedAt_SIMD"
+        )
+          (call.expression as IdentifierExpression).text = selectName;
+        super.visitCallExpression(call, parent);
+      }
+    }
+    new PointerCalls().visit(pointer.body!);
     let changed = 0;
     class Redirect extends Visitor {
+      visitCallExpression(call: CallExpression, parent: Node): void {
+        if (
+          call.expression.kind === NodeKind.Identifier &&
+          (call.expression as IdentifierExpression).text ===
+            "serializeStringPointerReservedAt_SIMD"
+        )
+          (call.expression as IdentifierExpression).text = pointerName;
+        super.visitCallExpression(call, parent);
+      }
       visitIfStatement(node: IfStatement, parent: Node): void {
         if (toString(node.condition) === "size < 16") {
           node.ifTrue = SimpleParser.parseStatement(`{
@@ -157,7 +234,8 @@ export class TextRecordWriters {
     }
     new Bind(original.range).visit(sc);
     new Bind(originalEntry.range).visit(ec);
-    source.statements.push(sc);
+    new Bind(originalRange.range).visit([mask, select, range, pointer]);
+    source.statements.push(sc, mask, select, range, pointer);
     index.statements.push(ec);
     this.entry = entry;
     return entry;

@@ -16,8 +16,8 @@ import { JSON } from "../index";
 export function allocInput(bytes: i32): usize {
   return __new(bytes, idof<string>());
 }
-let rootRows: TextRecord[] | null = null;
 const record = new TextRecord();
+const reuseRows: TextRecord[] = [record];
 export function run(source: string): string {
   const values = JSON.parse<string[]>(source);
   const rows: TextRecord[] = new Array<TextRecord>();
@@ -34,5 +34,17 @@ export function reuse(source: string): string {
   record.a = source;
   record.b = source;
   record.c = source;
-  return JSON.stringify([record]);
+  return JSON.stringify(reuseRows);
+}
+
+export function ephemeral(source: string, n: i32): string {
+  const rows: TextRecord[] = [];
+  for (let i = 0; i < n; i++) {
+    const row = new TextRecord();
+    row.a = source + i.toString();
+    row.b = i.toString() + source;
+    row.c = source + ":" + i.toString();
+    rows.push(row);
+  }
+  return JSON.stringify(rows);
 }
