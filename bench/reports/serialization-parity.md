@@ -4139,3 +4139,77 @@ native comparison. Production and the **4/9** gate remain unchanged.
 [Closed-array prototype, correctness controls, all three captures and audits](data/serialization-closed-arrays-screen.json.gz)
 retain source and images, build/oracle logs, statistics and verified references
 to the preceding native baseline archive.
+
+### Retained direct child cursors (`8638db4f`)
+
+Verified pure children now return their completed output cursor directly to the
+parent. The generated helper reuses the existing borrowed-record proof and
+rooted owner; it publishes the input cursor before the existing reservation,
+then retires reservation credits using the local completed cursor and returns
+it without a final builder publication/reload. The ordinary public/root writer
+still publishes its final cursor. Unknown, custom, deferred, inherited and
+unsupported-runtime cases keep established dispatch. No public option, output
+cache, or runtime classification cache is added.
+
+Helpers retain their declaring module's type and runtime bindings and are
+registered with the existing generated-declaration binding pass. An early
+matcher missed statement forms and selected no calls; the next prototype
+exposed a shadowed-JSON compilation failure before helpers were registered.
+Neither faulty version was timed. Permanent tests retain the alias/shadow and
+positive-path cases that caught those mistakes. AST nodes are rewritten;
+serialized aliases embedded in strings/comments are not globally replaced.
+
+A six-group screen visits all six orders of production, direct cursors and a
+more complex cursor-aware reservation variant. An independent twelve-group
+confirmation repeats the balanced orders with a different sequence. The
+retained direct-cursor results are paired elapsed-time changes:
+
+| Corpus | Initial change | Confirmation change | Confirmation 95% interval | Faster confirmation pairs |
+|---|---:|---:|---:|---:|
+| twitter | -1.74% | **-2.28%** | **-3.75% to -0.75%** | 11/12 |
+| github_events | -2.10% | +0.10% | -0.97% to +1.29% | 6/12 |
+| gsoc-2018 | -1.84% | -0.20% | -1.31% to +0.95% | 7/12 |
+| canada | -0.29% | +0.30% | -0.43% to +1.03% | 6/12 |
+
+Twitter repeats an improvement; the other three changes remain unresolved.
+The initial Twitter interval is -2.86% to -0.68%, with all six groups faster.
+Confirmation medians are 61.815/61.075 µs; the paired 2.28% result is not the
+ratio of those separate medians. CITM, Poet, Lottie, OTFCC and FGO retain their
+preceding production images byte-for-byte. All nine final production images
+match the measured direct-cursor prototype exactly.
+
+The extra cursor-aware reservation variant also improves Twitter, but provides
+no reliably repeated additional benefit over the simpler change. Its GSoC
+screen is -2.77% (-5.12% to -0.55%), versus +0.93% (-0.89% to +2.79%) in the
+independent confirmation. GitHub and Canada remain unresolved. It is not
+included in production, and the builder API is unchanged.
+
+All **216** measured process records report battery power and retain process
+and memory audits. Both shared timing holds release normally. The original
+owning classic harness, Apple M4 Max/arm64, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental, validation off and cache zero are unchanged. These are
+AS-before/after comparisons, not isolated-host measurements or a refreshed
+simdjson table. The latest complete native comparison remains the earlier
+**4/9** result until the committed implementation is remeasured.
+
+Production validation passes:
+
+- All nine full-model and retained-GC oracles; exact measured/production images.
+- **2,304** mutation/boxed/detached checks plus **768** alias/shadow/descendant
+  checks across 21 configurations. Controls disable just cursor passing or all
+  borrowing. Positive counters distinguish the new cursor path from fallback.
+  Large payloads force buffer growth while callbacks replace later children.
+- **8,064** lifetime/output checks across 18 configurations and **4,608** forced
+  collections at borrowed entries, covering all three backends and runtimes.
+- **1,304** closed-Map checks across 50 configurations; **16** safety, **90**
+  array-root and **162** reservation checks.
+- Actual npm packed consumer: **360** operations across 36 configurations.
+  Compiler warning gate: **51** configurations, with AS201 enabled.
+- CI runtime-compatibility commands: **25** slow and **26** fast checks.
+- Transform build/typecheck, lint, focused formatting and license headers.
+  Hosted checks for the new commit are tracked separately.
+
+[Paired experiments, exact images, production sources and validation logs](data/serialization-record-cursors.json.gz)
+preserve both prototypes, all 216 samples, source/image end seals, production
+commit identity and verified baseline references. Only the direct-cursor
+variant is retained.
