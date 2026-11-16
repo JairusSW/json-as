@@ -4117,7 +4117,9 @@ screen runs and a separate twelve-pair confirmation, all fresh processes:
 | github_events | -0.62% | -0.11% | -0.72% to +0.69% |
 | poet | +0.52% | -1.75% | -3.16% to -0.51% |
 
-The initial screen resolves no gain. Poet's confirmation result motivates one
+The initial screen crosses a power-source transition and is not qualified as
+a causal comparison; its statistics above are diagnostic only. Poet's entirely
+AC confirmation result motivates one
 independent sixteen-pair check: production/candidate medians are
 169.525/168.475 µs, but the paired change is **-0.46%**, with bootstrap 95%
 **-1.70% to +0.72%**, nine of sixteen pairs faster. That does not establish a
@@ -4126,11 +4128,13 @@ is not used to justify another production path. No hardware-level cause is
 inferred from these timing differences.
 
 All **192** process records preserve power, process and memory audits and pass
-source/image end seals. Three independent shared timing holds release
-normally. Measurements use battery power, Apple M4 Max/arm64, the original
-owning classic harness, SIMD/incremental, validation off and cache zero. These
-AS-before/after results do not refresh the native comparison. Production and
-the **4/9** gate remain unchanged.
+source/image end seals. The initial 64-record screen contains **35 battery and
+29 AC** audits, including one pair crossing the transition. The 96-record
+confirmation and 32-record Poet repeat are **entirely AC**. No sample was
+removed. Three independent shared timing holds release normally. Measurements
+use Apple M4 Max/arm64, the original owning classic harness, SIMD/incremental,
+validation off and cache zero. These AS-before/after results do not refresh the
+native comparison. Production and the **4/9** gate remain unchanged.
 
 [Closed-array prototype, correctness controls, all three captures and audits](data/serialization-closed-arrays-screen.json.gz)
 retain source and images, build/oracle logs, statistics and verified references
