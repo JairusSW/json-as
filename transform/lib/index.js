@@ -6175,6 +6175,7 @@ export default class Transformer extends Transform {
             console.log("[transform]: Finished generating " +
                 transformer.schemas.size +
                 " schemas");
+        transformer.arrayRows?.finishMapProof(knownGc);
     }
 }
 function toU16(data, offset = 0) {

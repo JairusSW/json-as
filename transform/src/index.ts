@@ -9305,6 +9305,7 @@ export default class Transformer extends Transform {
           transformer.schemas.size +
           " schemas",
       );
+    transformer.arrayRows?.finishMapProof(knownGc);
   }
 }
 

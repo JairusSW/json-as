@@ -3805,3 +3805,63 @@ demand and a 1,016,386-byte learned allocation. No new policy change is warrante
 by this control. The source, injector, Wasm, input hash, driver and per-call
 counts are included in the separated scan/copy archive above as a distinct
 **non-timing diagnostic**; they are not part of its 144 measurement records.
+
+## Compile-time closed Map values: remove the complete prepass
+
+The earlier closed-graph certificate experiment still visited every Map entry.
+The retained implementation instead folds the complete callback prepass away
+for string-keyed Maps whose concrete generated value type is already covered by
+the closed-record effect proof. Declaration-scoped constant type-ID helpers
+preserve lexical bindings; the compiler resolves the condition without runtime
+classification, caches or new public options. Uncertain/effectful/deferred
+values keep the existing policy. The Map serializer itself must pass source
+and semantic-AST hashes, alongside the existing runtime/string-writer proofs.
+
+Qualification exposed an important counterexample: a manual serializer override
+in an excluded source could be missed by the initial prototype. Its callback
+deleted an original entry and added 128 entries; the prototype emitted an added
+entry while the control did not. Ancestor discovery now shares the existing
+all-source class walk, so excluded sources affect proof eligibility even though
+their schemas are not generated. The corrected candidate and controls both
+emit only the original eligible key. The permanent test covers exported and
+global-only bases, custom mutation, nullable/deferred values, numeric keys,
+same-named foreign/local classes, helper-name collisions, and source/AST guards.
+
+The production implementation reproduces **all nine measured prototype images
+exactly**. Only CITM and GSoC differ from the preceding production; seven corpus
+images remain byte-identical. The safe ancestor discovery does not change these
+benchmark images. Two separate twelve-pair captures retain **96 fresh processes**:
+
+| Corpus | Initial latency delta | Independent production repeat | Repeat paired 95% interval | Repeat faster pairs |
+|---|---:|---:|---:|---:|
+| citm_catalog | -1.20% | **-1.18%** | -1.64% to -0.61% | 10/12 |
+| gsoc-2018 | -5.00% | **-4.77%** | -5.13% to -4.44% | 12/12 |
+
+The repeat medians give **6.25 → 6.33 GB/s** for CITM and **11.38 → 11.95 GB/s**
+for GSoC. Rates count actual UTF-8 output bytes. These are paired AS comparisons;
+the previous full native table remains the last native qualification until its
+refresh. Improvements are not added to earlier deltas.
+
+Conditions remain Apple M4 Max/arm64/AC, original classic owning models/harness,
+V8 15.2.20, AssemblyScript 0.28.20, SIMD/incremental/compatibility, validation off,
+cache zero, and fresh owning output per operation. Source/prototype/image end
+seals pass, with per-record power/process/memory audits. Locks release between
+captures. Shared-host audits are not an isolation or per-engine peak-RSS claim.
+
+Local checks pass **1,304 checks across 50 permanent configurations**, all nine
+complete-model/retained-GC oracles, 555 callback/graph checks, 375 snapshot/lifetime
+checks, 1,792 effect checks plus 768 binding checks, 8,064 borrowed-lifetime checks
+with 4,608 collections, and 16/90/162 safety/root/reservation checks. Build,
+typecheck, lint and license checks pass. Package and warning gates are tracked
+separately below; hosted CI remains a separate requirement.
+
+[Raw closed-Map evidence](data/serialization-static-map-proof.json.gz) preserves
+both captures, exact baseline/prototype/production images, source and guard
+snapshots, the unsafe prototype counterexample and corrected controls, model
+results, statistics, audits and seals. Restore the linked baseline transform
+for the historical experimental scripts; the registered permanent test verifies
+the final production implementation directly.
+
+Final package validation passes **360 actual-tarball operations across 36
+configurations**. All **51 native/WASI/test warning configurations** pass with
+AS201 enabled. These local gates do not imply completion of hosted CI.

@@ -27,8 +27,10 @@ export declare class ArrayRowSerializers {
     private manualSerializers;
     private borrowedRecordEntry;
     private borrowedRecordCount;
+    private closedMapProof;
     constructor(sources: Source[], parser: Parser, sourceSet: SourceSet, options: Options);
     private rememberRecord;
+    finishMapProof(knownGc: boolean): void;
     finishRecord(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
     borrowRecord(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
     private borrowedEntry;

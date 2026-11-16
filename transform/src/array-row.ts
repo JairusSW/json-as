@@ -37,6 +37,7 @@ import { diagnosticsRuntimeRoot } from "./diagnostics.js";
 import { arrayRowSafety } from "./array-row-safety.js";
 import { RowIntegerWriters } from "./row-integers.js";
 import { TextRecordWriters } from "./text-records.js";
+import { ClosedMapProof } from "./closed-map.js";
 
 const NATIVE_BASES = new Set([
   "Map",
@@ -90,6 +91,7 @@ export class ArrayRowSerializers {
   private manualSerializers = new Set<ClassDeclaration>();
   private borrowedRecordEntry: string | null = null;
   private borrowedRecordCount = 0;
+  private closedMapProof: ClosedMapProof | null = null;
 
   constructor(
     sources: Source[],
@@ -105,6 +107,8 @@ export class ArrayRowSerializers {
       this.names,
       options.hasFeature(Feature.Simd),
     );
+    if (this.textWriters.verified)
+      this.closedMapProof = new ClosedMapProof(parser, this.names);
     const root = diagnosticsRuntimeRoot(parser.sources)!;
     const runtime = parser.sources.find(
       (source) => source.internalPath === root + "assembly/index",
@@ -120,7 +124,13 @@ export class ArrayRowSerializers {
         (member as ClassDeclaration).name.text === "Box",
     ) as ClassDeclaration;
     const manual = this.manualSerializers;
-    class FindManual extends Visitor {
+    const derived = this.derived;
+    let unknownBase = false;
+    class InspectClasses extends Visitor {
+      constructor(private source: Src) {
+        super();
+      }
+
       visitClassDeclaration(
         node: ClassDeclaration,
         isDefault = false,
@@ -132,11 +142,30 @@ export class ArrayRowSerializers {
           )
         )
           manual.add(node);
+        if (node.extendsType) {
+          const scope = this.source
+            .getQualifiedName(node)
+            .split(".")
+            .slice(0, -1)
+            .join(".");
+          const parameters = this.source.classTypeParameters(node);
+          const type = this.source.resolveTypeMeaning(
+            toString(node.extendsType),
+            scope,
+            parser,
+            parameters,
+          );
+          if (type.declaration?.kind === NodeKind.ClassDeclaration)
+            derived.add(type.declaration as ClassDeclaration);
+          else if (parameters.has(type.name) || !NATIVE_BASES.has(type.name))
+            unknownBase = true;
+        }
         super.visitClassDeclaration(node, isDefault, parent);
       }
     }
     for (const source of parser.sources)
-      new FindManual().visit(source.statements);
+      new InspectClasses(sourceSet.get(source)).visit(source.statements);
+    this.unknownBase = unknownBase;
     for (const input of sources) {
       const source = sourceSet.get(input);
       // Top-level typed arrays also include root parse results, which have no
@@ -172,22 +201,6 @@ export class ArrayRowSerializers {
           .slice(0, -1)
           .join(".");
         const parameters = source.classTypeParameters(owner);
-        if (owner.extendsType) {
-          const type = source.resolveTypeMeaning(
-            toString(owner.extendsType),
-            scope,
-            parser,
-            parameters,
-          );
-          if (type.declaration?.kind === NodeKind.ClassDeclaration) {
-            this.derived.add(type.declaration as ClassDeclaration);
-          } else if (
-            parameters.has(type.name) ||
-            !NATIVE_BASES.has(type.name)
-          ) {
-            this.unknownBase = true;
-          }
-        }
         for (const member of owner.members) {
           if (member.kind !== NodeKind.FieldDeclaration) continue;
           const field = member as FieldDeclaration;
@@ -218,6 +231,10 @@ export class ArrayRowSerializers {
     if (type.declaration?.kind === NodeKind.ClassDeclaration)
       this.nestedRecords.add(type.declaration as ClassDeclaration);
     for (const argument of type.arguments) this.rememberRecord(argument);
+  }
+
+  finishMapProof(knownGc: boolean): void {
+    if (knownGc) this.closedMapProof?.lower(this.closedRecords);
   }
 
   /** Retire completed nested records' unused numeric capacity estimates. */

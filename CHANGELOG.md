@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove Map callback prepasses for verified, closed generated record types. Include excluded sources when checking descendants, and preserve runtime/source fallbacks for uncertain or effectful values.
+
 - Expand common SIMD string escapes a block at a time using compile-time shuffle data under the verified stock-runtime/source guard. Preserve Unicode/control fallbacks, output reuse and unsupported-runtime behavior.
 
 - Recognize stock integer/Boolean boxes by declaration when proving serializer effects. Borrow pure children from rooted parents while keeping uncertain parents themselves on rooted dispatch.
