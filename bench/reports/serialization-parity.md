@@ -4079,3 +4079,59 @@ and 4/9 native table remain unchanged.
 [Empty-string prototype, model and positive-path tests, all 48 samples and host audits](data/serialization-empty-string-screen.json.gz)
 include images, build logs, input-shape audit, statistics and final seals, with
 the native baseline linked by verified content hash.
+
+### Borrow closed object-array elements: no repeated gain
+
+An unretained prototype reuses the existing closed-record proof to select
+pointer-only element calls in the ordinary native-array loop. The owning array
+stays managed; eligible elements use a zero method receiver with their actual
+pointer passed separately. This differs from the earlier outlined string-row
+worker: it keeps the established array loop and does not batch reservations or
+clone element bodies. Existing numeric-array workers retain priority.
+
+Selection uses declaration-scoped constant type-ID helpers and the existing
+whole-source descendant/manual-codec exclusions. It requires the stock runtime
+and library proof, incremental GC, exact built-in static Array type, managed
+eligible elements, and no tracing/finalizer hooks. Nullable elements retain
+normal null emission. All uncertain cases use the established dispatcher.
+No output or classification cache is added.
+
+All nine complete-model/retained-GC oracles pass. Positive tests pass **306**
+checks across three backends and three runtimes, covering nullable elements,
+shared children, escaped/Unicode strings, detached outer owners, native Map
+and nested-array fallbacks, and retained output. The instrumented selected loop
+forces two collections and allocation pressure per element. Each incremental
+configuration records 64 selected elements; minimal/stub record zero and keep
+the existing fallback. A further **72** callback/owner-replacement/GC controls
+pass, adapted from the functional portion of the array-root suite; its older
+hint-specific bytecode assertions are not used to qualify this distinct path.
+
+Only Twitter, CITM, GitHub and Poet images change; Canada, GSoC, Lottie, OTFCC
+and FGO remain byte-identical. The four changed corpora receive eight paired
+screen runs and a separate twelve-pair confirmation, all fresh processes:
+
+| Corpus | Initial elapsed-time change | Confirmation change | Confirmation 95% interval |
+|---|---:|---:|---:|
+| twitter | -0.45% | -0.31% | -0.73% to +0.11% |
+| citm_catalog | -0.86% | -0.25% | -0.74% to +0.10% |
+| github_events | -0.62% | -0.11% | -0.72% to +0.69% |
+| poet | +0.52% | -1.75% | -3.16% to -0.51% |
+
+The initial screen resolves no gain. Poet's confirmation result motivates one
+independent sixteen-pair check: production/candidate medians are
+169.525/168.475 µs, but the paired change is **-0.46%**, with bootstrap 95%
+**-1.70% to +0.72%**, nine of sixteen pairs faster. That does not establish a
+repeated benefit. The prototype remains unretained; a single favorable capture
+is not used to justify another production path. No hardware-level cause is
+inferred from these timing differences.
+
+All **192** process records preserve power, process and memory audits and pass
+source/image end seals. Three independent shared timing holds release
+normally. Measurements use battery power, Apple M4 Max/arm64, the original
+owning classic harness, SIMD/incremental, validation off and cache zero. These
+AS-before/after results do not refresh the native comparison. Production and
+the **4/9** gate remain unchanged.
+
+[Closed-array prototype, correctness controls, all three captures and audits](data/serialization-closed-arrays-screen.json.gz)
+retain source and images, build/oracle logs, statistics and verified references
+to the preceding native baseline archive.
