@@ -3670,3 +3670,42 @@ investigations. They do not justify weakening ownership or callback semantics.
 [Raw diagnostic profiles](data/serialization-common-escape-profiles.json.gz)
 preserve all fifteen captures, exact named modules, executable-section hashes,
 runner and host audits, with a link to the qualified native artifact.
+
+### Single common escape: rejected
+
+A distinct prototype replaces the common shuffle-table path when exactly one
+UTF-16 unit needs a two-unit escape. It writes the escape directly and copies
+the bounded remainder of the eight-unit block. Unknown controls and surrogate
+candidates retain the existing fallback. No cache or harness change is involved.
+
+The prototype passes **518,934 exact incremental-runtime string/record/reuse
+checks**, with positive public/private execution counters and retained-output
+GC, and all nine full-model/retained-GC oracles. The initial private execution
+assertion exposed a fixture coverage gap; explicit upper-BMP prefixes exercise
+the private entry before the final complete passing run. No wrong-output bug
+was observed. Eight balanced fresh-process pairs per corpus then give:
+
+| Corpus | Serialization latency delta | Paired 95% interval |
+|---|---:|---:|
+| twitter | +4.75% | +3.64% to +5.89% |
+| canada | -0.49% | -1.54% to +0.34% |
+| citm_catalog | -0.55% | -0.93% to -0.20% |
+| poet | +0.10% | -1.08% to +1.33% |
+| github_events | +2.37% | +1.05% to +4.13% |
+| gsoc-2018 | +5.67% | +4.28% to +6.85% |
+| lottie | +0.08% | -0.90% to +0.91% |
+| otfcc | +1.43% | -1.66% to +6.22% |
+| fgo | +0.46% | -0.46% to +1.45% |
+
+Twitter, GitHub and GSoC are slower in **all eight pairs**. CITM's small gain
+does not justify those regressions. The prototype is **not retained**;
+production sources are unchanged, and the native gate remains 4/9.
+
+All **144** records and final source/prototype/image seals pass. Conditions
+remain Apple M4 Max/AC, the original owning-model harness, SIMD/incremental,
+validation off, cache zero and fresh owning output. Per-record power, process
+and memory audits are retained; these remain shared-host measurements.
+
+[Raw single-escape screen](data/serialization-single-escape-screen.json.gz)
+includes the rejected sources/images, oracle fixture/results, all timings,
+statistics, audits and seals, linked to the qualified baseline artifact.
