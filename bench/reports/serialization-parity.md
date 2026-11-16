@@ -4515,3 +4515,71 @@ It establishes no benefit worth a further confirmation. No other work was stoppe
 statistics and host audits](data/serialization-private-first-escape.json.gz)
 retain the experiment with verified content hashes and links to the sealed
 production baseline.
+
+
+## Nullable child cursors and shared growth — unretained
+
+A same-process native-PC capture of GitHub's generated root array serializer
+validates every executable section against the current benchmark image. Its
+compiled body has 86,928 native instruction bytes and 34 stack slots. Sampled
+locations include repeated reservation checks and stack stores. This is a
+location diagnostic, not evidence of hardware stalls or a causal attribution.
+
+Two independent prototypes follow that diagnosis:
+
+- Nullable children of fully proved closed owners call an existing pure-child
+  cursor writer when non-null, retaining the original null operation. Lifetime,
+  declaration, descendant and callback restrictions remain. The initial text
+  adapter consumed a nested type argument and failed compilation; AST cloning
+  corrects it before qualification. Both changed images subsequently reproduce
+  exactly from the saved final source.
+- Shared growth moves only the body after `requiredSize > bufferSize` to an
+  out-of-line helper. Capacity arithmetic, growth policy, renewal, ownership and
+  GC operations are unchanged. Every rebuilt corpus Wasm is smaller. Smaller
+  code is not a profitability result.
+
+Both pass all nine complete-model and retained-GC oracles. Nullable cursors pass
+8,064 output checks across eighteen backend/runtime/optimization configurations,
+with 4,992 collections at borrowed entries. Shared growth passes the nine-runtime
+owned-reservation gate, 162 reservation-transition checks and 324 callback-order,
+GC and retained-output checks. Initial source/pattern adapter failures are
+retained separately and are not counted as passing validation.
+
+The initial balanced comparison retains 120 fresh processes. Nullable cursors
+change only Twitter and GitHub; seven images are byte-identical to production.
+Its six-pair elapsed-time changes are -0.93% for Twitter (95% interval -2.31% to
++0.20%) and -1.29% for GitHub (-4.37% to +1.76%). Neither establishes a gain, so
+the nullable extension is not retained.
+
+Shared growth receives an independent twelve-pair all-corpus confirmation,
+adding 216 processes. Negative changes below mean faster serialization.
+
+| Corpus | Initial paired change | Confirmation paired change | Confirmation 95% interval |
+|---|---:|---:|---:|
+| twitter | -1.47% | +0.14% | -1.08% to +1.26% |
+| canada | +0.62% | +1.29% | +0.84% to +1.74% |
+| citm_catalog | -0.64% | -0.91% | -2.04% to +0.25% |
+| poet | +1.08% | -0.58% | -2.23% to +1.11% |
+| github_events | -2.27% | +0.30% | -0.97% to +1.55% |
+| gsoc-2018 | +0.62% | +0.02% | -1.40% to +1.53% |
+| lottie | -1.31% | +0.86% | -0.91% to +2.83% |
+| otfcc | -1.14% | -0.27% | -3.07% to +2.01% |
+| fgo | -2.77% | -0.78% | -3.15% to +1.71% |
+
+The Twitter/FGO improvements do not repeat reliably. Canada's slowdown grows
+to **1.29%**, with the interval wholly above zero. The broad growth change is
+rejected; no production code or native qualification changes, and the gate
+remains **4/9**. A subsequent record-only experiment is separate from these
+results.
+
+All 336 process power samples and 224 periodic host audits report AC power.
+These runs use Apple M4 Max/arm64, V8 15.2.20, AssemblyScript 0.28.20, original
+classic owning-model harnesses, SIMD/incremental/compatibility, validation off,
+JSON_CACHE=0, fresh output. Independent shared timing holds finish normally.
+Background VM/editor activity is retained in the audits; these are shared-host
+results. No process was stopped, and no samples are discarded. Absolute rates
+are not compared causally with the separate battery-powered native table.
+
+[Both prototypes, 336 process records, correctness and reproduction evidence,
+exact images, recipes, native-PC/cache diagnostic and audits](data/serialization-nullable-cursors-cold-growth.json.gz)
+retain the work with content hashes and sealed production-baseline references.
