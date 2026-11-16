@@ -7,6 +7,7 @@
 
 import {
   BlockStatement,
+  CallExpression,
   ClassDeclaration,
   FieldDeclaration,
   FunctionDeclaration,
@@ -17,6 +18,7 @@ import {
   Options,
   Parser,
   Source,
+  VariableStatement,
 } from "assemblyscript/dist/assemblyscript.js";
 import { INTEGER_TYPES } from "./scalars.js";
 import {
@@ -32,6 +34,7 @@ import { Visitor } from "./visitor.js";
 import { diagnosticsRuntimeRoot } from "./diagnostics.js";
 import { arrayRowSafety } from "./array-row-safety.js";
 import { RowIntegerWriters } from "./row-integers.js";
+import { TextRecordWriters } from "./text-records.js";
 
 const NATIVE_BASES = new Set([
   "Map",
@@ -70,7 +73,9 @@ const MARKER = "__SERIALIZE_FLAT_NUMERIC_FIELDS";
 export class ArrayRowSerializers {
   private names: Set<string> | null;
   private integerWriters: RowIntegerWriters | null = null;
+  private textWriters: TextRecordWriters | null = null;
   private arrayUses = new Set<ClassDeclaration>();
+  private textArrayUses = new Set<ClassDeclaration>();
   private nestedRecords = new Set<ClassDeclaration>();
   private recordReservationCount = 0;
   private derived = new Set<ClassDeclaration>();
@@ -88,8 +93,35 @@ export class ArrayRowSerializers {
     this.names = arrayRowSafety(parser.sources, options);
     if (!this.names) return;
     this.integerWriters = new RowIntegerWriters(parser, this.names);
+    this.textWriters = new TextRecordWriters(parser, this.names);
     for (const input of sources) {
       const source = sourceSet.get(input);
+      // Top-level typed arrays also include root parse results, which have no
+      // enclosing schema field. Resolve their element declaration in this source.
+      for (const statement of input.statements) {
+        if (statement.kind !== NodeKind.Variable) continue;
+        for (const declaration of (statement as VariableStatement)
+          .declarations) {
+          const types = declaration.type ? [declaration.type] : [];
+          if (declaration.initializer?.kind === NodeKind.Call)
+            types.push(
+              ...((declaration.initializer as CallExpression).typeArguments ??
+                []),
+            );
+          for (const node of types) {
+            const type = source.resolveTypeMeaning(toString(node), "", parser);
+            if (
+              !type.declaration &&
+              type.name === "Array" &&
+              type.arguments.length === 1 &&
+              type.arguments[0].declaration?.kind === NodeKind.ClassDeclaration
+            )
+              this.textArrayUses.add(
+                type.arguments[0].declaration as ClassDeclaration,
+              );
+          }
+        }
+      }
       for (const owner of source.getClasses()) {
         const scope = source
           .getQualifiedName(owner)
@@ -217,12 +249,63 @@ export class ArrayRowSerializers {
     body.statements.push(end);
   }
 
+  private rewriteTextRecord(
+    node: ClassDeclaration,
+    schema: Schema,
+    source: Src,
+    serializer: MethodDeclaration,
+  ): void {
+    if (
+      !this.textWriters ||
+      (!this.arrayUses.has(node) && !this.textArrayUses.has(node)) ||
+      this.unknownBase ||
+      this.derived.has(node) ||
+      node.extendsType ||
+      node.typeParameters?.length ||
+      schema.custom ||
+      !schema.static ||
+      schema.members.length < 3 ||
+      schema.members.length > 64 ||
+      !node.range.source.statements.includes(node) ||
+      node.members.some((member) => member.name.text === "__SERIALIZE")
+    )
+      return;
+    const parameters = source.classTypeParameters(node);
+    if (
+      !schema.members.every((member) => {
+        if (
+          member.node.kind !== NodeKind.FieldDeclaration ||
+          member.custom ||
+          member.flags.has(PropertyFlags.Lazy) ||
+          member.flags.has(PropertyFlags.OmitIf) ||
+          member.flags.has(PropertyFlags.OmitNull)
+        )
+          return false;
+        const type = source.resolveTypeMeaning(
+          member.type,
+          "",
+          this.parser,
+          parameters,
+        );
+        return (
+          !type.declaration &&
+          !type.nullable &&
+          !type.arguments.length &&
+          (type.name === "string" || type.name === "String")
+        );
+      })
+    )
+      return;
+    this.textWriters.rewrite(serializer, schema.members.length);
+  }
+
   add(
     node: ClassDeclaration,
     schema: Schema,
     source: Src,
     serializer: MethodDeclaration,
   ): void {
+    this.rewriteTextRecord(node, schema, source, serializer);
     if (
       !this.names ||
       this.unknownBase ||

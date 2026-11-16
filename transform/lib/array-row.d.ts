@@ -12,7 +12,9 @@ export declare class ArrayRowSerializers {
     private parser;
     private names;
     private integerWriters;
+    private textWriters;
     private arrayUses;
+    private textArrayUses;
     private nestedRecords;
     private recordReservationCount;
     private derived;
@@ -23,6 +25,7 @@ export declare class ArrayRowSerializers {
     constructor(sources: Source[], parser: Parser, sourceSet: SourceSet, options: Options);
     private rememberRecord;
     finishRecord(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
+    private rewriteTextRecord;
     add(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
     bind(source: Source, visitor: Visitor): void;
     finish(sources: Source[], knownGc: boolean): void;

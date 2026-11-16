@@ -2897,3 +2897,77 @@ The five under-threshold corpora still require further improvement.
 
 [Full 90-process native refresh, 56 host audits, source/input/native/Wasm/output
 seals, current sources and images](data/serialization-row-triplet-native.json.gz).
+
+## Private SIMD entry for flat text-array records
+
+A private generated-field entry handles exactly three UTF-16 code units with
+one bounded `u32` load and one bounded `u16` load. It builds a SIMD classifier
+from those six source bytes, copies clean text, and sends escapes or surrogates
+to the complete existing writer. Other lengths retain the original public
+short-string caller. There is no new classification or serialized-output cache.
+
+Selection is limited to closed, top-level, non-generic static schemas with
+3–64 resolved native string fields and a proven native array use in a schema
+field or top-level typed declaration/call. Custom codecs, lazy/conditional
+fields, inheritance/subtypes, uncertain bases and unknown runtime hooks retain
+the original path. The existing stock incremental-runtime proof is reused;
+eight additional string/helper sources must match both raw source and normalized
+semantic AST before rewriting. Generated names are collision-checked. Borrowed
+string-row loops and changes to Map traversal are **not** part of this change.
+
+The initial balanced five-variant capture uses ten orders, followed by an
+independent eight-order four-variant confirmation. Both retain the original
+classic Poet program and fresh owning output:
+
+| Capture | Private-entry latency delta | 95% paired interval |
+|---|---:|---:|
+| Initial ten-order comparison | **−3.56%** | −4.83% to −2.43% |
+| Independent eight-order confirmation | **−3.49%** | −6.09% to −1.27% |
+
+The production Poet image matches the confirmed prototype exactly. The other
+eight production images remain byte-identical to the preceding implementation.
+An eight-pair countercase capture covers empty, one-, two-, three-, seven-,
+sixteen-, 64- and 256-unit values, Chinese text, and quoted three-unit text.
+ASCII/Chinese three-unit rows improve 6.23%/5.97%; empty/one-/two-unit intervals
+cross zero. Quoted three-unit rows are +1.09% with an unresolved interval of
+−0.22% to +2.36%. Longer countercases improve, but their shifts are not attributed
+to the fixed-size branch, which they do not execute.
+
+### Rejected alternatives
+
+- A four-digit integer table improves CITM 1.64% in its screen, but adds about
+  74 KiB over triplets and slows small integer rows 1.56%; it is rejected.
+- A global version of the three-unit entry slows Twitter 0.33% and GitHub 0.59%
+  in its four-pair screen. A shared ASCII predicate split slows Twitter 2.19%
+  (95% interval +1.85% to +2.57%) in the six-pair full-corpus screen. Neither is
+  retained; the private caller leaves those corpus images unchanged.
+- Hoisting Map entries establishes no useful gain. That controlled-input
+  diagnostic also lacks a sufficient proof against foreign scalar/unmanaged
+  codec callbacks; it is not eligible for production.
+- Borrowed string-row loops and removing their reservation retirement establish
+  no reliable gain. A whole-array string-size prepass is 5.96% slower initially
+  and 7.11% slower in confirmation. Keeping the output cursor across that whole
+  array is 8.27% slower (95% interval +4.96% to +11.11%). All are rejected.
+
+### Validation and measurement scope
+
+**1,370,388 exact record/reuse checks across eleven configurations** pass,
+including all backends/runtimes, positive helper selection, generated-name
+collisions, modified-string-writer callback preservation, retained outputs
+across collection, exhaustive three-unit code positions, edge products and
+random triples. The nine complete owning-model/retained-GC oracles pass.
+The existing suites add **16** row-source safety checks, **156** row checks,
+**90** array/receiver/GC checks, **360** packed-consumer operations across
+**36** configurations and **51** warning-free configurations with AS201 enabled.
+Build, typecheck, lint, headers and focused formatting pass.
+
+Apple M4 Max/arm64/AC, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off and JSON_CACHE=0. Every timing
+batch takes the shared host lock; process/memory/power audits and raw samples
+are retained. These are shared-host AS-to-AS measurements, not an isolated-host
+or per-engine peak-RSS claim. The latest full native table remains the preceding
+**4/9** qualification; no refreshed simdjson ratio is claimed here. The full
+all-nine near-parity goal remains unfinished.
+
+[Raw 412 process records / 892 benchmark records, prototypes, production images,
+source proofs, correctness logs, audits and statistics](data/serialization-text-records.json.gz).

@@ -12,6 +12,7 @@ import { Visitor } from "./visitor.js";
 import { diagnosticsRuntimeRoot } from "./diagnostics.js";
 import { arrayRowSafety } from "./array-row-safety.js";
 import { RowIntegerWriters } from "./row-integers.js";
+import { TextRecordWriters } from "./text-records.js";
 const NATIVE_BASES = new Set([
     "Map",
     "Set",
@@ -48,7 +49,9 @@ export class ArrayRowSerializers {
     parser;
     names;
     integerWriters = null;
+    textWriters = null;
     arrayUses = new Set();
+    textArrayUses = new Set();
     nestedRecords = new Set();
     recordReservationCount = 0;
     derived = new Set();
@@ -62,8 +65,28 @@ export class ArrayRowSerializers {
         if (!this.names)
             return;
         this.integerWriters = new RowIntegerWriters(parser, this.names);
+        this.textWriters = new TextRecordWriters(parser, this.names);
         for (const input of sources) {
             const source = sourceSet.get(input);
+            for (const statement of input.statements) {
+                if (statement.kind !== NodeKind.Variable)
+                    continue;
+                for (const declaration of statement
+                    .declarations) {
+                    const types = declaration.type ? [declaration.type] : [];
+                    if (declaration.initializer?.kind === NodeKind.Call)
+                        types.push(...(declaration.initializer.typeArguments ??
+                            []));
+                    for (const node of types) {
+                        const type = source.resolveTypeMeaning(toString(node), "", parser);
+                        if (!type.declaration &&
+                            type.name === "Array" &&
+                            type.arguments.length === 1 &&
+                            type.arguments[0].declaration?.kind === NodeKind.ClassDeclaration)
+                            this.textArrayUses.add(type.arguments[0].declaration);
+                    }
+                }
+            }
             for (const owner of source.getClasses()) {
                 const scope = source
                     .getQualifiedName(owner)
@@ -151,7 +174,39 @@ export class ArrayRowSerializers {
         body.statements.unshift(start, offset);
         body.statements.push(end);
     }
+    rewriteTextRecord(node, schema, source, serializer) {
+        if (!this.textWriters ||
+            (!this.arrayUses.has(node) && !this.textArrayUses.has(node)) ||
+            this.unknownBase ||
+            this.derived.has(node) ||
+            node.extendsType ||
+            node.typeParameters?.length ||
+            schema.custom ||
+            !schema.static ||
+            schema.members.length < 3 ||
+            schema.members.length > 64 ||
+            !node.range.source.statements.includes(node) ||
+            node.members.some((member) => member.name.text === "__SERIALIZE"))
+            return;
+        const parameters = source.classTypeParameters(node);
+        if (!schema.members.every((member) => {
+            if (member.node.kind !== NodeKind.FieldDeclaration ||
+                member.custom ||
+                member.flags.has(PropertyFlags.Lazy) ||
+                member.flags.has(PropertyFlags.OmitIf) ||
+                member.flags.has(PropertyFlags.OmitNull))
+                return false;
+            const type = source.resolveTypeMeaning(member.type, "", this.parser, parameters);
+            return (!type.declaration &&
+                !type.nullable &&
+                !type.arguments.length &&
+                (type.name === "string" || type.name === "String"));
+        }))
+            return;
+        this.textWriters.rewrite(serializer, schema.members.length);
+    }
     add(node, schema, source, serializer) {
+        this.rewriteTextRecord(node, schema, source, serializer);
         if (!this.names ||
             this.unknownBase ||
             !this.arrayUses.has(node) ||
