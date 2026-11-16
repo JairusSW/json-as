@@ -4189,7 +4189,14 @@ and memory audits. Both shared timing holds release normally. The original
 owning classic harness, Apple M4 Max/arm64, V8 15.2.20, AssemblyScript 0.28.20,
 SIMD/incremental, validation off and cache zero are unchanged. These are
 AS-before/after comparisons, not isolated-host measurements or a refreshed
-simdjson table. The latest complete native comparison remains the earlier
+simdjson table. A minimized root-only probe with `type u64 = u8` also exposes an older literal
+store-binding problem: its output contains NULs in property names. It selects
+no numeric row batches and produces identical malformed output using the
+pre-batch `d00c220a` transform and the current transform. This is retained as a
+separate **unfixed pre-existing diagnostic**, not claimed as a passing runtime
+alias test or fixed by the scope guard.
+
+The latest complete native comparison remains the earlier
 **4/9** result until the committed implementation is remeasured.
 
 Production validation passes:
@@ -4333,3 +4340,103 @@ all **386 processes**, both prototype sources, correctness recipes/logs,
 independent model outputs, prepared image manifests, statistics and power
 records. Content hashes link unchanged files to the prior direct-cursor
 artifact. Every embedded blob was decoded and hash-verified after packing.
+
+## Bounded numeric row batches — retained
+
+Production `28fa22f1`, with binding guard `75e12041`, batches reservations for the existing proved numeric-only
+array workers. Each batch covers at most sixteen rows, and its writer keeps a
+local output cursor. Constant-size rows need no size prepass; rows with native
+integer arrays sum their length-based upper bounds. The sum and per-array
+bounds are evaluated in **u64 before narrowing**. A chunk above the conservative
+capacity limit uses the original per-row writer, with its correct start index.
+Caller reservation credits are preserved and unused batch estimates are
+retired after writing.
+
+This is restricted to generated workers already covered by the stock
+runtime/source, field/type, inheritance and callback-effect proofs. A positive
+call allowlist additionally excludes nested object-array dispatch and other
+uncertain calls. The managed owning array remains traced; row pointers are
+reloaded after reservation growth. Nullable elements and aliased field types
+retain their existing semantics. Helpers participate in declaration-scoped
+runtime binding. Cursor replacement changes AST nodes, so alias text resembling
+a generated assignment cannot redirect the rewrite. No output/classification
+cache, runtime tuning option or benchmark-model change is added.
+
+The pre-batch executable-identical profiles attribute approximately 63% of
+CITM's samples to its generated root serializer. A same-process native-PC
+capture maps its hottest region to numeric rows with nested integer arrays,
+including repeated capacity-state updates and native length reads. These are
+sampling observations, not hardware-cycle attribution. The profile and code
+cache decoder validate the pinned V8 layout and exact executable-section
+continuity before interpreting sampled PCs.
+
+Two prototype comparisons and a separate measurement of the hardened production
+image retain **64 fresh processes**. All were on **AC power**, with original
+classic owning-model harnesses and no validation/cache. Negative paired
+elapsed-time changes are faster:
+
+| Capture | Baseline median µs | Candidate median µs | Paired elapsed-time change | 95% interval | Faster pairs |
+|---|---:|---:|---:|---:|---:|
+| Initial prototype | 82.795 | 81.330 | -2.13% | -3.22% to -0.99% | 7/8 |
+| Independent prototype repeat | 80.535 | 78.900 | -2.72% | -4.13% to -1.36% | 10/12 |
+| Hardened production | 81.620 | 78.640 | **-2.99%** | **-4.16% to -1.86%** | **11/12** |
+
+The production median rates are **6.130 → 6.362 GB/s**, counting the actual
+500,299 UTF-8 output bytes. Median-rate ratios and paired geometric changes are
+different summaries; neither is a new simdjson ratio. Only CITM's image changes;
+the other eight corpus images are byte-identical to the preceding production.
+CITM grows from 251,978 to 260,069 Wasm bytes. This is code size, not RSS.
+
+A follow-up binding guard leaves scopes that redefine u64, u32, i32 or usize
+on the original writer. Six added backend/control cases verify that selection
+and compilation; unshadowed controls also compare full output. All nine images
+rebuilt after this guard are **byte-identical to the measured production images**.
+A separate source-hash/image-continuity record links the guarded code to the
+capture without presenting different source hashes as equal.
+
+
+Integration found and fixed an eligibility gap before final qualification:
+looking only for the already-lowered nested-array call spelling admitted a
+nested row too early in generation. The existing nested-row test returned
+truncated JSON and failed. The positive call allowlist now leaves that row on
+its original writer. The failed early integration and test-injector attempts
+are retained as diagnostics, **not counted as passing validation**. The final
+production image differs from the initial prototype because capacity arithmetic
+and scope/cursor handling were hardened, so it was independently remeasured.
+
+Final validation passes:
+
+- **300 row checks** across fifteen backend/runtime/instrumented configurations,
+  including batch boundaries, nullable constants, full-width signed/unsigned
+  integers, native arrays, aliases, helper-name collisions, nested/effectful
+  fallbacks, forced GC at growth, positive batch/fallback execution counters,
+  forced original-worker dispatch, capacity values exceeding u32, and native-width
+  scope selection controls.
+- **162 reservation checks**, including retained outputs, future appends,
+  caller-held credits and mutation/reuse transitions.
+- **360 packed-consumer operations across 36 configurations** and **51
+  warning-free compiler configurations**, with AS201 still enabled.
+- **16 source/runtime safety checks**, all nine complete-model and retained-GC
+  oracles, transform build/typecheck, lint and license checks.
+
+Conditions: Apple M4 Max/arm64, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off, JSON_CACHE=0, fresh owning output.
+Every capture used the shared timing lock, released between independent
+batches. Per-process power, process and memory audits and pre/post source/image
+seals are retained. Background applications were active; these are shared-host
+results, not isolated-host or per-engine RSS measurements.
+
+[Numeric-batch sources, qualification and diagnostic profiles](data/serialization-numeric-batches.json.gz)
+contain the three complete comparisons, prototype and final images, source and
+build/test recipes, failed-attempt diagnostics, exact model outputs, CPU/PC
+profiles and native-cache decoder. Content hashes link unchanged files to the
+prior direct-cursor artifact, and every embedded blob is decoded and verified
+after packing. A minimized root-only probe with `type u64 = u8` also exposes an older literal
+store-binding problem: its output contains NULs in property names. It selects
+no numeric row batches and produces identical malformed output using the
+pre-batch `d00c220a` transform and the current transform. This is retained as a
+separate **unfixed pre-existing diagnostic**, not claimed as a passing runtime
+alias test or fixed by the scope guard.
+
+The latest complete native comparison remains the earlier
+**4/9** table until refreshed. The all-corpus near-parity goal is unfinished.

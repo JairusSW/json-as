@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Batch reservations for verified numeric-only array rows. Keep output cursors local within bounded batches, compute capacity in 64 bits, and retain original writers for nested/effectful or oversized cases.
+- Batch reservations for verified numeric-only array rows. Keep output cursors local within bounded batches, compute capacity in 64 bits, and retain original writers for nested objects, effectful rows, shadowed width types, and oversized bounds.
 
 - Return proven-pure child serializers' output cursors directly to their parents. Preserve reservation credits, buffer growth, declaration-scoped aliases, callbacks and GC fallbacks without adding output caching or a public option.
 
