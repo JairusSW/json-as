@@ -3282,3 +3282,49 @@ hold finished normally and retained **57 host/power/memory audits**;
 this is not an isolated-host or per-engine peak-RSS claim.
 
 [All 90 process records, audits, committed source snapshot, images and end seals](data/serialization-zero-metadata-native.json.gz).
+
+## Narrow overlapping string tails: rejected
+
+A separate probe handles at most sixteen remaining bytes after the clean
+32-byte loop with one payload-bounded overlapping `v128` load/store, retaining
+the existing 32-byte tail for larger remainders. Public writers use the packed
+classifier; private text-record writers retain their exact surrogate/control
+mask. Opening/closing quotes, output length, reservation and exceptional fallback
+remain unchanged. No output or classification cache is added.
+
+**1,405,980 exact record/reuse checks across three runtimes** pass. They cover
+every UTF-16 unit at tail boundaries, edge/random surrogate combinations and
+retained-output GC. Separate counters positively verify public execution in
+all runtimes and private execution only in the eligible incremental runtime.
+All nine complete-model/retained-GC oracles also pass.
+
+A six-pair all-nine screen retains **108 fresh-process records** and verifies
+complete source, prototype and binary seals before/after timing:
+
+| Corpus | Paired latency delta | 95% paired interval |
+|---|---:|---:|
+| canada | -0.86% | -2.04% to +0.22% |
+| twitter | -0.88% | -2.11% to +0.34% |
+| citm_catalog | +0.43% | +0.01% to +0.87% |
+| github_events | +0.00% | -0.66% to +0.64% |
+| poet | -1.82% | -5.24% to +1.40% |
+| gsoc-2018 | +0.11% | -0.55% to +0.76% |
+| lottie | -0.57% | -1.30% to +0.21% |
+| otfcc | +0.42% | -0.33% to +1.43% |
+| fgo | -0.03% | -0.75% to +0.64% |
+
+No workload establishes a useful gain. CITM's +0.43% screen has a marginal
+positive lower endpoint near benchmark print precision; it is not a reason
+to retain this change. The probe is **rejected**, and production source/binaries
+remain unchanged. This is a negative optimization screen, not a new native
+qualification or an explanation of machine-code costs.
+
+Apple M4 Max/arm64/AC, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off, `JSON_CACHE=0`, original classic
+owning-model harness and fresh owning output. The shared timing hold finished
+normally; process/memory/power context and all seals are retained. No
+isolated-host or per-engine peak-RSS claim is made. The committed production
+native gate remains **4/9**, as qualified above.
+
+[Probe source/images, 108 samples, model/GC oracles, exhaustive boundary checks,
+positive execution controls, audits and seals](data/serialization-tail16-screen.json.gz).
