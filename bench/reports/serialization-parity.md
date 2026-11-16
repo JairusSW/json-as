@@ -3976,3 +3976,63 @@ This is not an AC-qualified native comparison. The full native table remains 4/9
 contains the prototype, full model/oracle sources and logs, images, all 24 timing
 records, statistics and final source/image seals, with unchanged blobs linked
 to the preceding native archive by content hash.
+
+### Preloaded string sizes: rejected after confirmation
+
+Generated object serializers read string sizes when reserving capacity and
+again at the cursor-returning string entry. Two unretained prototypes snapshot
+non-null pointers and sizes within those existing callback-free reservation
+groups and pass the known size to a private SIMD entry. They do not move
+snapshots across custom-codec boundaries, cache outputs, or change the scan and
+escape algorithms. The first prototype accidentally omitted the original
+entry's `@inline` hint; the second preserves it. They are measured separately.
+
+Each prototype passes all nine complete-model/retained-GC oracles and **10,455**
+targeted checks across SIMD/incremental, minimal and stub. These cover exact
+wide-integer/alias and escaped/NUL/Unicode string outputs, retained results,
+callback mutation of a later field, and forced collection inside the candidate
+entry. Positive counters exercise 6,954 incremental entry calls; minimal/stub
+retain the existing proof fallback. Nine additional production/prototype/stress
+callback controls pass across the three runtimes. The first minimal fixture
+cleared its global owner before manually collecting without pinning the local
+owner; production reproduces that failure too. The corrected minimal control
+pins the owner, consistent with that collector's global/pinned-root traversal;
+incremental still tests normal unpinned stack rooting.
+
+Each screen uses eight alternating fresh-process pairs per below-target corpus:
+
+| Corpus | First wrapper elapsed-time change | Inline-preserving change | Inline 95% interval |
+|---|---:|---:|---:|
+| twitter | +10.97% | +0.45% | -0.03% to +0.95% |
+| citm_catalog | -0.39% | +0.30% | -0.18% to +0.87% |
+| github_events | +16.35% | +0.31% | -0.65% to +1.20% |
+| poet | -2.18% | +0.23% | -2.71% to +2.91% |
+| gsoc-2018 | +7.15% | -0.73% | -1.31% to -0.14% |
+
+Preserving the inline hint removes the first wrapper's large regressions, but
+its initial GSoC gain does not survive a separate twelve-pair confirmation with
+reversed order policy and independently launched processes:
+
+| Corpus | Confirmation elapsed-time change | Paired bootstrap 95% interval | Faster pairs |
+|---|---:|---:|---:|
+| gsoc-2018 | -0.25% | -0.72% to +0.18% | 7/12 |
+| github_events | +0.57% | +0.24% to +0.96% | 1/12 |
+| twitter | +0.79% | +0.51% to +1.07% | 1/12 |
+
+Positive changes mean slower serialization. Both candidates are rejected. The
+confirmation does not establish a GSoC benefit and resolves small regressions
+for GitHub and Twitter. No particular register-allocation or machine-code cause
+is inferred from the throughput measurements.
+
+All **232** process records retain battery-power, process and memory audits;
+each of the three shared timing holds released normally. The original owning
+classic harness, Apple M4 Max/arm64, SIMD/incremental, validation off and cache
+zero are unchanged. Absolute medians from separate battery captures are not
+used as causal comparisons. Production source and the 4/9 native table remain
+unchanged. Hosted Tests, Lint and License headers are now confirmed successful
+on the retained production-code commit `6e8ffe28`.
+
+[Sealed prototypes, model and stress oracles, all timing records and audits](data/serialization-string-snapshots-screen.json.gz)
+include both candidates, exact images, preparation/build logs, statistics and
+final source/image seals. The archive links the retained native baseline by
+verified content hash.
