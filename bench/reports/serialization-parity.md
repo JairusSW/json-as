@@ -4250,3 +4250,86 @@ engine/model hashes are retained.
 [Complete native capture and source/image seals](data/serialization-record-cursors-native.json.gz)
 link the paired change evidence and unchanged input/output artifacts by
 verified content hash. The PR remains draft; the all-corpus goal is unfinished.
+
+## First-escape fusion screens — not retained
+
+Starting from `007b0ed5` (production code `8638db4f`), two AST-only
+experiments consume the first common escape block using its existing
+classification instead of classifying that block again in the expansion loop.
+The resuming variant then restarts the packed 32-byte clean scan. The linear
+variant continues the 16-byte loop instead, avoiding the extra resume flag.
+Both preserve the complete unknown-control/surrogate fallback and existing
+growth checks, rebase the destination after growth, and adjust overlapping tails
+to account for expansion. Neither adds a cache or changes the classic models,
+public APIs, owning-output policy, validation setting, or benchmark harness.
+
+Each variant passed **204,214 exact mask/UTF-16/buffer/alias/row checks** across
+eight configurations, including **8,466 forced collections**. Each also passed
+**624 static-string root/field/reuse checks** across four SIMD configurations,
+and all nine independent complete-output and retained-GC model oracles. The
+first prototype used unsupported AssemblyScript labels; it was corrected to an
+explicit resume flag before any timing. That failed compile is not validation.
+
+The initial screen contains 80 fresh processes: eight alternating pairs for
+Twitter, CITM, GitHub, Poet and GSoC. A separate reverse-order confirmation
+contains 144 fresh processes: eight pairs for all nine corpora. Every sample
+in both batches was on **battery power**. Paired geometric elapsed-time changes
+below are candidate/baseline minus one; negative is faster. Intervals are
+paired bootstrap 95% intervals, not native-engine ratio estimates.
+
+| Corpus | First screen | Confirmation | Confirmation 95% interval |
+|---|---:|---:|---:|
+| twitter | +0.83% | +1.04% | -0.10% to +2.05% |
+| canada | Not measured | -0.09% | -0.79% to +0.63% |
+| citm_catalog | +0.44% | +0.36% | -1.16% to +2.00% |
+| poet | +0.65% | +1.60% | -0.66% to +3.43% |
+| github_events | +0.39% | +0.43% | -1.54% to +2.49% |
+| gsoc-2018 | -9.21% | -7.65% | -9.52% to -5.63% |
+| lottie | Not measured | +0.92% | -1.77% to +4.78% |
+| otfcc | Not measured | -3.91% | -6.72% to -1.21% |
+| fgo | Not measured | -2.76% | -9.22% to +3.55% |
+
+GSoC improved in all eight pairs in each battery-only batch. The changes for
+Twitter and Poet trend slower, although their individual intervals include
+zero. These results do not establish improved all-corpus parity.
+
+A third, **162-process** screen compares baseline, resuming and linear using
+all six order permutations for all nine corpora. Its power audit records
+**141 battery samples and 21 AC samples**: AC started before the last CITM
+triplet. No triplet straddled the power transition. All six Twitter and Canada
+triplets remained entirely battery-only. The pooled third-batch statistics are
+retained as descriptive raw output, but the mixed-power all-corpus comparison
+is **unqualified** and is not used to claim normal-power performance.
+
+The battery-only Twitter comparison in that third batch measures:
+
+| Variant | Paired elapsed-time change | 95% interval | Faster pairs |
+|---|---:|---:|---:|
+| Resuming | +1.17% | +0.09% to +2.50% | 2/6 |
+| Linear | -2.92% | -4.35% to -1.54% | 6/6 |
+
+The linear variant's pooled GSoC result trends strongly slower (+31.51%), but
+that value includes its last AC triplet and is **not a qualified uniform-power
+estimate**. It is retained rather than silently dropping or pooling away the
+power change. No separate complete uniform-power confirmation of linear was
+performed.
+
+**Selection: neither variant is retained.** Resuming repeats the GSoC benefit
+but gives back Twitter performance, a workload already below the target.
+Linear has no demonstrated all-corpus benefit and no completed uniform-power
+confirmation. Production code and the latest verified native table remain
+unchanged at **4/9 passing the 90% target**.
+
+Conditions remain Apple M4 Max/arm64, V8 15.2.20, SIMD/incremental,
+compatibility parsing, validation off and JSON_CACHE=0. Fresh processes use the
+original owning-model harnesses. Per-sample process, memory and power audits
+are preserved; background applications were active, so these are not
+isolated-host measurements. Source, prototype and all nine image hashes pass
+the pre/post seals in every batch. No timing job remains live from these
+screens, and each host lock was released between batches.
+
+[Raw first-escape experiments](data/serialization-first-escape.json.gz) contain
+all **386 processes**, both prototype sources, correctness recipes/logs,
+independent model outputs, prepared image manifests, statistics and power
+records. Content hashes link unchanged files to the prior direct-cursor
+artifact. Every embedded blob was decoded and hash-verified after packing.
