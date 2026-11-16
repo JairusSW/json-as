@@ -2675,3 +2675,67 @@ source and current native table remain unchanged at **4/9**.
 
 [Raw 306 process records, prototypes, executable images, correctness logs,
 statistics, host audits and seals](data/serialization-tiny-and-unicode-rejected.json.gz).
+
+## Private text-record helpers: array scope works, kernels remain unretained
+
+The next experiment avoids changing the shared short-string writer. Generated
+static records with at least three direct native string fields receive private
+helpers. The first variant clones the SIMD pointer entry; the second preserves
+the index wrapper's original short/long dispatch. A balanced six-order capture
+compares both with baseline over the three changed corpora (**54 processes**).
+
+The dispatch-preserving variant improves Poet by **4.66%** (95% paired interval
+**−6.12% to −3.35%**, faster in 6/6 groups), but slows Twitter by **0.34%**
+(+0.13% to +0.53%). GSoC has no resolved change. The simpler pointer-entry
+variant improves Poet by 2.64% with a wider interval and resolves no Twitter or
+GSoC improvement. Neither broad variant is retained.
+
+Restricting selection to records used as array elements changes **only Poet**;
+the other eight images become byte-identical to the qualified baseline. Poet
+itself remains byte-identical to the previously measured dispatch-preserving
+variant. This demonstrates code-generation isolation without using corpus or
+class names. It does not establish that the kernel is universally beneficial.
+
+The targeted positive oracle asserts actual helper selection and passes
+**5,364 exact record/reuse checks across incremental, minimal and stub**, with
+retained outputs checked after collection. The initial prototype adapter had
+source/destination arguments reversed; the positive oracle and model checks
+caught that before timing. The corrected adapter passes those controls.
+Generic string checks alone did not exercise this new path.
+
+Countercases serialize arrays of 1,000 three-field records with ten string
+patterns, using six alternating fresh-process pairs per implementation. Each
+process reports ten benchmarks and verifies every complete output. Four
+successive kernels were tested (**48 processes / 480 benchmark records**):
+
+- The original private three-character shortcut improves clean ASCII/BMP
+  three-character fields by approximately 8%, but regresses two-character
+  fields by 4.08% and a quoted three-character value by 8.08%.
+- A bounded zero-through-three-character dispatch removes the extra scalar
+  rescan after a failed vector check, but does not establish acceptable
+  behavior across the countercases.
+- Forcing that private helper inline improves several tiny-string countercases
+  by roughly 17–20%, yet an independent **twelve-pair Poet confirmation** is
+  **6.04% slower** (95% +4.67% to +7.26%, slower in 12/12 pairs).
+- A hybrid keeps tiny scalar cases inline and the vector kernel out of line.
+  Empty/one-/two-character countercases improve, but three-character, quoted,
+  and seven-character cases slow by roughly 3–4%. Its separate **twelve-pair
+  Poet confirmation** is **12.33% slower** (+10.40% to +14.28%, 12/12 slower).
+
+All four pass the positive oracle. The inlined and hybrid variants also pass
+all nine complete-model/retained-GC oracles, with eight byte-identical controls.
+The two real-workload confirmations add **48 processes**. Synthetic gains,
+fewer calls, and smaller scope are insufficient evidence of a whole-model
+improvement. No register-allocation, instruction-cache, or frame-cost cause is
+claimed without a matched native-code diagnosis.
+
+All captures use Apple M4 Max/arm64/AC, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental, validation off and cache zero, fresh owning output and the
+original classic harness. Separate shared-lock holds cover independent
+batches; raw process/VM/power audits and end-image seals are preserved.
+Production is unchanged at the `7e84db95` implementation, and the native gate
+remains **4/9**.
+
+[Raw 150 measurement processes / 582 benchmark records, source variants,
+positive controls, adapter diagnostic, countercases, images, model/GC checks,
+audits, statistics and seals](data/serialization-private-text-probes.json.gz).
