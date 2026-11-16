@@ -4583,3 +4583,45 @@ are not compared causally with the separate battery-powered native table.
 [Both prototypes, 336 process records, correctness and reproduction evidence,
 exact images, recipes, native-PC/cache diagnostic and audits](data/serialization-nullable-cursors-cold-growth.json.gz)
 retain the work with content hashes and sealed production-baseline references.
+
+
+## Growth only in proved record writers — unretained
+
+A narrower prototype redirects reservations only in compiler-proved closed
+record serializers and their existing cursor helpers. It conditionally creates
+private shared-growth helpers; scalar, string and native-array runtime writers
+retain their original reservation path. Selection uses the existing effect,
+ownership, declaration and descendant proof, with no model/corpus names or
+public option.
+
+All nine complete-model/retained-GC oracles pass. The borrowed-owner stress
+fixture passes 8,064 output checks across eighteen configurations, with 4,608
+collections at borrowed entries. Twitter, CITM, GitHub and GSoC images change;
+Canada, Poet, Lottie, OTFCC and FGO remain byte-identical to production.
+
+Eight alternating fresh-process pairs per changed corpus yield:
+
+| Corpus | Baseline median µs | Candidate median µs | Paired elapsed-time change | 95% interval |
+|---|---:|---:|---:|---:|
+| twitter | 59.920 | 59.990 | +0.13% | -1.19% to +1.52% |
+| citm_catalog | 76.990 | 77.210 | +0.51% | -0.83% to +1.60% |
+| github_events | 6.990 | 6.910 | -0.65% | -1.59% to +0.41% |
+| gsoc-2018 | 263.525 | 263.750 | +0.03% | -0.73% to +0.68% |
+
+No interval establishes an improvement. The narrower change is also not
+retained; the native gate stays **4/9**. All 64 process samples and 44 periodic
+host audits report AC power. The shared timing hold finishes normally, with
+source/prototype/image end seals passing. Conditions remain Apple M4 Max/arm64,
+V8 15.2.20, original classic owning-output harness, SIMD/incremental/compatibility,
+validation off and JSON_CACHE=0. Background-load audits are retained.
+
+A separate nullable-alias control passes 54 checks in eighteen configurations
+on unchanged production: a foreign nullable model alias coexists with a
+same-named local class; null/non-null serialization and null transitions across
+GC produce the expected data in all backends/runtimes and strictness settings.
+The nullable dispatch concern does not reproduce as a defect.
+
+[Prototype, exact images/model outputs, 64 records, correctness controls,
+recipes, statistics and host audits](data/serialization-closed-record-growth.json.gz)
+retain this countercheck. Embedded files and production-baseline references
+were independently reloaded and hash-verified after packing.
