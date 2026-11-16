@@ -198,3 +198,30 @@ export function graphFallbacks(): string {
   assert(!isDefined(changetype<RecursiveGroup>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS));
   return J.stringify(new ForwardGroups()) + "|" + J.stringify(new RecursiveGroups());
 }
+
+@json({ nolazy })
+class LiteralAliasRow {
+  @alias("bs.offset = __dst;") value: i32 = 7;
+  values: i32[] = [1, 2];
+}
+@json({ nolazy })
+class LiteralAliasRows { rows: LiteralAliasRow[] = [new LiteralAliasRow()]; }
+export function literalAlias(): string {
+  return J.stringify(new LiteralAliasRows());
+}
+
+const __json_numeric_batch_0_original: i32 = 19;
+@json({ nolazy })
+class ConstantRow {
+  signed: src = -9223372036854775808;
+  wide: u64 = 18446744073709551615;
+  enabled: bool = true;
+}
+@json({ nolazy })
+class ConstantRows { rows: (ConstantRow | null)[] = []; }
+export function constantRows(count: i32): string {
+  assert(__json_numeric_batch_0_original == 19);
+  const value = new ConstantRows();
+  for (let i = 0; i < count; i++) value.rows.push(i % 3 == 0 ? null : new ConstantRow());
+  return J.stringify(value);
+}

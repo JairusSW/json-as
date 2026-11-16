@@ -39,6 +39,7 @@ import { RowIntegerWriters } from "./row-integers.js";
 import { TextRecordWriters } from "./text-records.js";
 import { ClosedMapProof } from "./closed-map.js";
 import { RecordCursorWriters } from "./record-cursors.js";
+import { NumericRowBatches } from "./numeric-row-batches.js";
 
 const NATIVE_BASES = new Set([
   "Map",
@@ -94,6 +95,7 @@ export class ArrayRowSerializers {
   private borrowedRecordCount = 0;
   private closedMapProof: ClosedMapProof | null = null;
   private recordCursors: RecordCursorWriters | null = null;
+  private numericBatches: NumericRowBatches | null = null;
 
   constructor(
     sources: Source[],
@@ -112,6 +114,7 @@ export class ArrayRowSerializers {
     if (this.textWriters.verified) {
       this.closedMapProof = new ClosedMapProof(parser, this.names);
       this.recordCursors = new RecordCursorWriters(parser, this.names);
+      this.numericBatches = new NumericRowBatches(this.names);
     }
     const root = diagnosticsRuntimeRoot(parser.sources)!;
     const runtime = parser.sources.find(
@@ -696,9 +699,11 @@ export class ArrayRowSerializers {
     }
     new BindRange().visit([getter, worker]);
     this.integerWriters!.rewrite(worker as FunctionDeclaration, source, node);
-    node.range.source.statements.push(getter, worker);
+    const batches =
+      this.numericBatches?.rewrite(worker as FunctionDeclaration) ?? [];
+    node.range.source.statements.push(getter, worker, ...batches);
     const declarations = this.declarations.get(node.range.source) ?? [];
-    declarations.push(getter, worker);
+    declarations.push(getter, worker, ...batches);
     this.declarations.set(node.range.source, declarations);
     this.rows.push({ id, writer });
   }
