@@ -3240,8 +3240,45 @@ Apple M4 Max/arm64/AC, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
 SIMD/incremental/compatibility, validation off, `JSON_CACHE=0`, original classic
 owning-model harness and fresh output per operation. Each timing batch holds
 the shared host lock. Shared-host activity is audited; no isolated-host or
-per-engine peak-RSS claim is made. The latest full native gate remains the
-preceding **4/9**; a native refresh for these guards is still required.
+per-engine peak-RSS claim is made. The full native qualification below
+includes these guards and remains **4/9**.
 
 [Production and prototype sources/images, 288 process records, nine diagnostic
 profiles, exact checks, model oracles, controls, audits and seals](data/serialization-zero-metadata.json.gz).
+
+## Zero-metadata guard: committed full native refresh
+
+The native refresh qualifies committed `77ee0cd6` with **90 fresh-process records**:
+five alternating AS/native pairs per corpus. Source, input, native models, all
+nine Wasm images and complete output seals pass after capture. All production
+images are the exact ones qualified by the model/retained-GC oracles and the
+independent AS confirmation above. The 90% threshold gate exits 1 solely because
+**4/9** pass; no execution, coverage or integrity failure is hidden by that exit.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio | 90% gate |
+|---|---:|---:|---:|---|
+| twitter | 7.733 | 10.435 | 0.741× | Below target |
+| canada | 1.156 | 1.262 | 0.916× | Pass |
+| citm_catalog | 6.078 | 10.403 | 0.584× | Below target |
+| poet | 19.544 | 23.178 | 0.843× | Below target |
+| github_events | 8.121 | 16.457 | 0.493× | Below target |
+| gsoc-2018 | 10.751 | 16.990 | 0.633× | Below target |
+| lottie | 26.607 | 22.780 | 1.168× | Pass |
+| otfcc | 36.089 | 24.364 | 1.481× | Pass |
+| fgo | 38.617 | 22.315 | 1.731× | Pass |
+
+This table is a fresh native comparison, not an AS-to-AS causal delta against
+the preceding table. Only the independent comparisons above establish the
+metadata guard's implementation changes. In particular, Poet's higher observed
+native ratio does not turn its unresolved AS confirmation into a proven guard
+improvement. GitHub, CITM, GSoC, Twitter and Poet remain below the 90% goal.
+
+Apple M4 Max/arm64/AC, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off, `JSON_CACHE=0`, original classic
+owning-model/owning-struct harnesses and fresh owning output every operation.
+GB/s counts actual UTF-8 output bytes. Native: GCC 16.2.0,
+`-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4 at `3b0b2b53`. The shared timing
+hold finished normally and retained **57 host/power/memory audits**;
+this is not an isolated-host or per-engine peak-RSS claim.
+
+[All 90 process records, audits, committed source snapshot, images and end seals](data/serialization-zero-metadata-native.json.gz).
