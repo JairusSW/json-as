@@ -2739,3 +2739,50 @@ remains **4/9**.
 [Raw 150 measurement processes / 582 benchmark records, source variants,
 positive controls, adapter diagnostic, countercases, images, model/GC checks,
 audits, statistics and seals](data/serialization-private-text-probes.json.gz).
+
+## Matched-code diagnosis of the private-helper regressions
+
+Named diagnostic modules reproduce **every non-custom Wasm section** of the
+measured baseline, simple private helper, forced-inline and hybrid images.
+This disproves the initial hypothesis that the regressions add a separate
+`Poem.__SERIALIZE` call: all four keep record serialization inside the array
+writer. Instead, the array writer itself becomes substantially larger.
+
+| Variant | Array writer Wasm bytes | Native instruction bytes | Native stack slots | Static Wasm call sites |
+|---|---:|---:|---:|---:|
+| Baseline | 921 | 4,904 | 16 | 16 |
+| Simple private helper | 921 | 4,904 | 16 | 16 |
+| Forced inline | 2,822 | 12,852 | 20 | 25 |
+| Hybrid | 1,803 | 8,428 | 16 | 25 |
+
+Native code is captured by compiling the matched modules with TurboFan,
+without instantiating them or executing the benchmarks. The pinned V8 cache
+reader verifies function counts, total native-code bytes, offsets and trailing
+budgets before disassembly. These are code-shape observations, not measured
+cycles, dynamic call counts, cache misses or proof of a unique slowdown cause.
+The hybrid's unchanged stack-slot count alone already prevents attributing
+both regressions solely to a larger frame.
+
+A final bounded leaf kernel stays out of line and handles lengths zero through
+seven without expanding the array writer. It passes the positive **5,364**
+record/reuse checks across three runtimes and all nine model/retained-GC
+oracles. Only Poet changes; the other eight images remain byte-identical.
+Its matched array writer retains **921 Wasm bytes**, **4,904 native instruction
+bytes**, **16 stack slots** and **16 static call sites**.
+
+The leaf kernel is still not retained. Its separate six-pair size countercases
+(**12 processes / 120 benchmarks**) are mixed, and an independent twelve-pair
+Poet confirmation (**24 processes**) establishes no gain: **+1.80%** paired
+latency, 95% interval **−0.30% to +3.83%**, faster in only 4/12 pairs.
+Preserving the caller's size and frame is insufficient qualification.
+
+The compile-only diagnostics run without a timing hold; no module startup or
+model serialization is executed. The countercase and confirmation captures
+use separate shared-lock holds on Apple M4 Max/arm64/AC, V8 15.2.20,
+AssemblyScript 0.28.20, SIMD/incremental, validation off and cache zero, with
+fresh owning output and raw host/memory audits. Source/image seals pass.
+Production remains unchanged; the full native gate is still **4/9**.
+
+[Matched modules, complete executable-section proofs, native caches/disassembly,
+call-site maps, bounded-leaf source/model/GC controls and 36 measurement
+processes / 144 benchmark records](data/serialization-private-text-diagnosis.json.gz).
