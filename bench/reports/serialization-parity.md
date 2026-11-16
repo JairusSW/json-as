@@ -4213,3 +4213,40 @@ Production validation passes:
 preserve both prototypes, all 216 samples, source/image end seals, production
 commit identity and verified baseline references. Only the direct-cursor
 variant is retained.
+
+### Full native refresh after direct child cursors
+
+The committed implementation is remeasured at `44c4820c` (production code
+`8638db4f`). All 90 fresh process records, nine complete model/retained-GC
+oracles, and final source/input/native/Wasm/output seals pass. All **59** host
+audits report battery power. This is a battery-power characterization, with
+shared-host audits; it is not an AC-qualified or isolated-host claim.
+
+| Corpus | json-as GB/s | simdjson GB/s | Ratio | 90% gate |
+|---|---:|---:|---:|---|
+| twitter | 8.018 | 10.427 | 0.769× | Below target |
+| canada | 1.149 | 1.243 | 0.924× | Pass |
+| citm_catalog | 6.236 | 10.264 | 0.608× | Below target |
+| poet | 19.306 | 23.064 | 0.837× | Below target |
+| github_events | 8.190 | 16.043 | 0.510× | Below target |
+| gsoc-2018 | 11.596 | 16.685 | 0.695× | Below target |
+| lottie | 26.669 | 21.860 | 1.220× | Pass |
+| otfcc | 34.193 | 23.486 | 1.456× | Pass |
+| fgo | 37.179 | 21.177 | 1.756× | Pass |
+
+The gate remains **4/9**. The capture exits 1 solely because five corpora remain
+below the 0.90 threshold; execution, model checks and source/image seals pass.
+Differences between this table and earlier native captures are not causal
+implementation deltas. The two independent paired AS comparisons above
+establish the Twitter change separately.
+
+Conditions: Apple M4 Max/arm64, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off, JSON_CACHE=0, original classic
+owning-model harnesses and fresh owning output. Native simdjson 5.0.4 remains
+pinned at `3b0b2b53`, with GCC 16.2.0, `-O3 -DNDEBUG -mcpu=native`. Rates count
+actual UTF-8 output bytes. Host power/process/memory telemetry and independent
+engine/model hashes are retained.
+
+[Complete native capture and source/image seals](data/serialization-record-cursors-native.json.gz)
+link the paired change evidence and unchanged input/output artifacts by
+verified content hash. The PR remains draft; the all-corpus goal is unfinished.
