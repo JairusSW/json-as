@@ -11,5 +11,5 @@ export declare class NumericRowBatches {
     private names;
     private nextIndex;
     constructor(names: Set<string>);
-    rewrite(worker: FunctionDeclaration, source: Src, parser: Parser): FunctionDeclaration[];
+    rewrite(worker: FunctionDeclaration, source: Src, parser: Parser, comma: (target: string) => string): FunctionDeclaration[];
 }

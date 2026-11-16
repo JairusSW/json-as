@@ -562,6 +562,7 @@ export class ArrayRowSerializers {
     schema: Schema,
     source: Src,
     serializer: MethodDeclaration,
+    comma: (target: string) => string,
   ): void {
     this.rewriteTextRecord(node, schema, source, serializer);
     if (
@@ -688,7 +689,7 @@ export class ArrayRowSerializers {
         else ${toString(body)}
         // Keep every caller reservation; retire only this completed row's unused estimate.
         bs.stackSize = (${reserved} >= ${begin} ? ${reserved} : ${begin}) + (bs.offset - bs.buffer - ${begin});
-        store<u16>(bs.offset, 44); bs.offset += 2;
+        ${comma("bs.offset")}
       }
     }`);
     class BindRange extends Visitor {
@@ -704,6 +705,7 @@ export class ArrayRowSerializers {
         worker as FunctionDeclaration,
         source,
         this.parser,
+        comma,
       ) ?? [];
     node.range.source.statements.push(getter, worker, ...batches);
     const declarations = this.declarations.get(node.range.source) ?? [];

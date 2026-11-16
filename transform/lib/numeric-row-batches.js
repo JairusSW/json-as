@@ -14,7 +14,7 @@ export class NumericRowBatches {
     constructor(names) {
         this.names = names;
     }
-    rewrite(worker, source, parser) {
+    rewrite(worker, source, parser, comma) {
         for (const name of ["u64", "u32", "i32", "usize"]) {
             const type = source.resolveTypeMeaning(name, "", parser);
             if (type.name !== name ||
@@ -165,7 +165,7 @@ export class NumericRowBatches {
           if(isNullable<valueof<${array}>>() && ${pointer}==0) {
             store<u64>(${dst},30399761348886638);${dst}+=8;
           } else ${rowText}
-          store<u16>(${dst},44);${dst}+=2;
+          ${comma(dst)}
         }
         bs.offset=${dst};
         bs.stackSize=max<usize>(${reserved},${begin})+(bs.offset-bs.buffer-${begin});

@@ -37,7 +37,7 @@ export declare class ArrayRowSerializers {
     borrowRecord(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
     private borrowedEntry;
     private rewriteTextRecord;
-    add(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;
+    add(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration, comma: (target: string) => string): void;
     bind(source: Source, visitor: Visitor): void;
     finish(sources: Source[], knownGc: boolean): void;
 }

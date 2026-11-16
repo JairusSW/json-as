@@ -75,6 +75,7 @@ import {
 } from "./util.js";
 import { Visitor } from "./visitor.js";
 import { ArrayRowSerializers } from "./array-row.js";
+import { LiteralStoreBindings } from "./literal-store-bindings.js";
 import { specializeArrayDtoa } from "./array-dtoa.js";
 import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
@@ -464,6 +465,7 @@ export class JSONTransform extends Visitor {
   public imports: ImportStatement[] = [];
   public simdStatements = new Map<Source, string[]>();
   public arrayRows: ArrayRowSerializers | null = null;
+  private literalStoreBindings = new LiteralStoreBindings();
 
   public visitedClasses: Set<string> = new Set<string>();
 
@@ -8045,6 +8047,7 @@ export class JSONTransform extends Visitor {
       schema,
       source,
       SERIALIZE_METHOD as MethodDeclaration,
+      (target) => this.getStores(",", false, target, node).join("\n"),
     );
     this.arrayRows?.finishRecord(
       node,
@@ -8973,11 +8976,31 @@ export class JSONTransform extends Visitor {
     data: string,
     simd: boolean = false,
     target: string = "bs.offset",
+    model?: ClassDeclaration,
   ): string[] {
     const out: string[] = [];
     const sizes = strToNum(data, simd);
+    const declaration = model ?? this.schema?.node;
     let offset = 0;
     for (const [size, num] of sizes) {
+      const scoped =
+        this.parser &&
+        declaration &&
+        this.literalStoreBindings.store(
+          this.parser,
+          this.sources,
+          declaration,
+          size,
+          target,
+          num,
+          offset,
+        );
+      if (scoped) {
+        out.push(scoped);
+        offset +=
+          size === "v128" ? 16 : size === "u64" ? 8 : size === "u32" ? 4 : 2;
+        continue;
+      }
       if (size == "v128" && simd) {
         const owner = this.schema.node.range.source;
         let statements = this.simdStatements.get(owner);

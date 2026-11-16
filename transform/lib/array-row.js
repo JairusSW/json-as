@@ -389,7 +389,7 @@ export class ArrayRowSerializers {
             return;
         this.textWriters.rewrite(serializer, schema.members.length);
     }
-    add(node, schema, source, serializer) {
+    add(node, schema, source, serializer, comma) {
         this.rewriteTextRecord(node, schema, source, serializer);
         if (!this.names ||
             this.unknownBase ||
@@ -485,7 +485,7 @@ export class ArrayRowSerializers {
         else ${toString(body)}
         // Keep every caller reservation; retire only this completed row's unused estimate.
         bs.stackSize = (${reserved} >= ${begin} ? ${reserved} : ${begin}) + (bs.offset - bs.buffer - ${begin});
-        store<u16>(bs.offset, 44); bs.offset += 2;
+        ${comma("bs.offset")}
       }
     }`);
         class BindRange extends Visitor {
@@ -496,7 +496,7 @@ export class ArrayRowSerializers {
         }
         new BindRange().visit([getter, worker]);
         this.integerWriters.rewrite(worker, source, node);
-        const batches = this.numericBatches?.rewrite(worker, source, this.parser) ?? [];
+        const batches = this.numericBatches?.rewrite(worker, source, this.parser, comma) ?? [];
         node.range.source.statements.push(getter, worker, ...batches);
         const declarations = this.declarations.get(node.range.source) ?? [];
         declarations.push(getter, worker, ...batches);

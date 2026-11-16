@@ -296,23 +296,23 @@ try {
   `,
   );
   for (const mode of ["NAIVE", "SWAR", "SIMD"])
-    for (const shadow of [false, true]) {
+    for (const shadow of [false, "u64", "u16"]) {
       fs.writeFileSync(
         widthSource,
         `
         import {JSON} from ${JSON.stringify(runtimeImport)};
-        ${shadow ? "type u64=u8;" : ""}
+        ${shadow ? "type " + shadow + "=u8;" : ""}
         @json({nolazy}) class Row { value:i32=7; values:i32[]=[]; }
         @json({nolazy}) class Rows { rows:Row[]=[]; }
         export function model():i32 { return new Row().value; }
-        export function run():string {
+        export function run(reuse:bool):string {
           const out=new Rows();
           for(let i=0;i<33;i++) {
             const row=new Row();
             for(let j=0;j<80;j++)row.values.push(i*80+j);
             out.rows.push(row);
           }
-          return JSON.stringify(out);
+          return reuse ? JSON.stringify(out,"\uffff".repeat(20000)) : JSON.stringify(out);
         }
       `,
       );
@@ -338,7 +338,7 @@ try {
             ...process.env,
             JSON_MODE: mode,
             JSON_CACHE: "0",
-            PROBE_WIDTH_SHADOW: String(shadow),
+            PROBE_WIDTH_SHADOW: String(shadow === "u64"),
           },
         },
       );
@@ -357,26 +357,22 @@ try {
           },
         },
       ).exports;
-      // The shadowed case verifies compile-time fallback selection. The
-      // unshadowed control additionally exercises complete serialized output.
-      if (shadow) {
-        assert.equal(instance.model(), 7);
+      assert.equal(instance.model(), 7);
+      for (const reuse of [false, true]) {
+        const pointer = instance.run(reuse);
+        const text = Buffer.from(
+          instance.memory.buffer,
+          pointer,
+          new DataView(instance.memory.buffer).getUint32(pointer - 4, true),
+        ).toString("utf16le");
+        assert.deepEqual(JSON.parse(text), {
+          rows: Array.from({ length: 33 }, (_, i) => ({
+            value: 7,
+            values: Array.from({ length: 80 }, (_, j) => i * 80 + j),
+          })),
+        });
         checks++;
-        continue;
       }
-      const pointer = instance.run();
-      const text = Buffer.from(
-        instance.memory.buffer,
-        pointer,
-        new DataView(instance.memory.buffer).getUint32(pointer - 4, true),
-      ).toString("utf16le");
-      assert.deepEqual(JSON.parse(text), {
-        rows: Array.from({ length: 33 }, (_, i) => ({
-          value: 7,
-          values: Array.from({ length: 80 }, (_, j) => i * 80 + j),
-        })),
-      });
-      checks++;
     }
   console.log(`Array row serialization: ${checks} checks passed`);
 } finally {

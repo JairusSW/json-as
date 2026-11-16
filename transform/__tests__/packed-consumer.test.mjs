@@ -58,6 +58,12 @@ let calls:i32=0;
 @json class Generic<T> { value!:T; }
 @json class Owner { value:Set<i32>|null=null; }
 class Values extends Array<Json.Value> { constructor() { super(); } }
+namespace WidthAlias {
+ type u64=u8;
+ @json({nolazy}) class Record { value:i32=7; }
+ export function encode():string { return Json.stringify(new Record()); }
+}
+export function widthAlias():string { return WidthAlias.encode(); }
 @json({lazy:"strategic"}) class Forwarded { needed:i32=0; text:string=""; }
 function forwardedMask(value:Forwarded):i32 { return i32(load<u64>(changetype<usize>(value),offsetof<Forwarded>("__needed_lz"))>>>32==0xffffffff); }
 export function forwarded():string {
@@ -144,7 +150,8 @@ export function run():string {
             read(g.numericRows()),
             '{"rows":[{"n":9007199254740993,"values":[1,2]}]}',
           );
-          checks += 10;
+          assert.equal(read(g.widthAlias()), '{"value":7}');
+          checks += 11;
           console.log(
             `Packed consumer: ${entry}/${mode}/${runtime}/strict=${strict}`,
           );

@@ -26,6 +26,7 @@ export declare class JSONTransform extends Visitor {
     imports: ImportStatement[];
     simdStatements: Map<Source, string[]>;
     arrayRows: ArrayRowSerializers | null;
+    private literalStoreBindings;
     visitedClasses: Set<string>;
     pureNumericConstants: Set<string>;
     numericConstantShadows: Set<string>;
@@ -80,7 +81,7 @@ export declare class JSONTransform extends Visitor {
     visitImportStatement(node: ImportStatement): void;
     visitSource(node: Source): void;
     addImports(node: Source): void;
-    getStores(data: string, simd?: boolean, target?: string): string[];
+    getStores(data: string, simd?: boolean, target?: string, model?: ClassDeclaration): string[];
     isValidType(type: string, node: ClassDeclaration): boolean;
 }
 export default class Transformer extends Transform {

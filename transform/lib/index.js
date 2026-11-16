@@ -18,6 +18,7 @@ import { Property, PropertyFlags, Schema, SourceSet, typeMeaningText, } from "./
 import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from "./util.js";
 import { Visitor } from "./visitor.js";
 import { ArrayRowSerializers } from "./array-row.js";
+import { LiteralStoreBindings } from "./literal-store-bindings.js";
 import { specializeArrayDtoa } from "./array-dtoa.js";
 import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
@@ -254,6 +255,7 @@ export class JSONTransform extends Visitor {
     imports = [];
     simdStatements = new Map();
     arrayRows = null;
+    literalStoreBindings = new LiteralStoreBindings();
     visitedClasses = new Set();
     pureNumericConstants = new Set();
     numericConstantShadows = new Set();
@@ -5393,7 +5395,7 @@ export class JSONTransform extends Visitor {
                 node.members.push(SimpleParser.parseClassMember("__SERIALIZE_STRING_FIELDS(): void {}", node));
         }
         const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
-        this.arrayRows?.add(node, schema, source, SERIALIZE_METHOD);
+        this.arrayRows?.add(node, schema, source, SERIALIZE_METHOD, (target) => this.getStores(",", false, target, node).join("\n"));
         this.arrayRows?.finishRecord(node, schema, source, SERIALIZE_METHOD);
         this.arrayRows?.borrowRecord(node, schema, source, SERIALIZE_METHOD);
         const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
@@ -5928,11 +5930,21 @@ export class JSONTransform extends Visitor {
             }
         }
     }
-    getStores(data, simd = false, target = "bs.offset") {
+    getStores(data, simd = false, target = "bs.offset", model) {
         const out = [];
         const sizes = strToNum(data, simd);
+        const declaration = model ?? this.schema?.node;
         let offset = 0;
         for (const [size, num] of sizes) {
+            const scoped = this.parser &&
+                declaration &&
+                this.literalStoreBindings.store(this.parser, this.sources, declaration, size, target, num, offset);
+            if (scoped) {
+                out.push(scoped);
+                offset +=
+                    size === "v128" ? 16 : size === "u64" ? 8 : size === "u32" ? 4 : 2;
+                continue;
+            }
             if (size == "v128" && simd) {
                 const owner = this.schema.node.range.source;
                 let statements = this.simdStatements.get(owner);
