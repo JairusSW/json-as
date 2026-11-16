@@ -3906,3 +3906,40 @@ preserves all 90 records, 57 power/host audits, sources, models, exact images,
 input/output references and final seals, linked to the separate AC paired-change
 artifact. The preceding common-escape capture remains the last full AC native
 qualification until an AC refresh completes.
+
+### Mixed-record integer writers: no confirmed improvement
+
+Two isolated experiments target GitHub's mixed string/integer records. The first
+extends the existing private nine-digit integer writer to closed records whose
+fields are native strings and non-null `i64`/`u64`. The second also uses the
+existing triplet table for five- through eight-digit values, matching the
+observed GitHub ID widths. Neither changes production source. In each trial,
+only the GitHub Wasm changes; the other eight classic images remain identical
+to the retained static-Map implementation. All nine complete-output and
+retained-GC model oracles pass for both trials.
+
+| Experiment | Paired elapsed-time change | Bootstrap 95% interval | Faster pairs |
+|---|---:|---:|---:|
+| Existing private writer on mixed records | +0.24% | -0.44% to +1.01% | 6/12 |
+| Five- through eight-digit triplets as well | +0.42% | -0.69% to +1.78% | 6/12 |
+
+Positive changes mean slower serialization. Neither screen establishes an
+improvement, so both remain unretained. The second trial's separate medians are
+7.155 µs for production and 7.150 µs for the candidate; their near equality does
+not override the unresolved paired interval. Each screen uses twelve
+alternating fresh-process pairs, the original owning-model harness, the shared
+host timing lock, validation disabled and cache zero. Every sample retains
+power, process and memory audits. Both screens ran on battery and are not an
+AC-qualified native comparison. The latest full native table above is unchanged.
+
+The first trial passes 366,408 exact signed/unsigned/alias/string/retention
+checks; the expanded triplet trial passes 652,824. Both cover NAIVE, SWAR and
+SIMD with incremental, minimal and stub runtimes at `-O3`. Positive execution
+counters establish that incremental builds run the private writer and that
+minimal/stub retain their existing fallback. This prevents a passing oracle
+from being mistaken for proof that the proposed fast path was exercised.
+
+[Raw mixed-record screens](data/serialization-mixed-wide-screen.json.gz)
+retain both prototypes, preparation/oracle scripts and logs, candidate images,
+all 48 timing records, statistics, and source/image seals. Unchanged blobs link
+to the preceding static-Map native archive by verified content hash.
