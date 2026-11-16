@@ -2859,3 +2859,41 @@ the all-nine near-parity objective remains unfinished.
 [Triplet prototypes, measured and production images, corrected guard tests,
 model/GC controls, countercases, 114 measurement processes / 282 benchmark
 records, audits and seals](data/serialization-row-triplets.json.gz).
+
+
+## Wide-row triplet native refresh
+
+The complete refresh on **`d1f322e8`** retains **90 fresh process records**
+(five alternating AS/native pairs per corpus) and **56 host/memory audits**.
+All source, input, native, Wasm and output end seals pass. Exit status 1 is
+solely the unchanged **4/9** threshold result, not an oracle or runtime failure.
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio |
+|---|---:|---:|---:|
+| twitter | 7.608 | 10.689 | 0.712× |
+| canada | 1.175 | 1.271 | 0.925× |
+| citm_catalog | 6.246 | 10.509 | 0.594× |
+| poet | 17.052 | 22.548 | 0.756× |
+| github_events | 7.732 | 16.589 | 0.466× |
+| gsoc-2018 | 10.436 | 17.084 | 0.611× |
+| lottie | 25.306 | 22.910 | 1.105× |
+| otfcc | 36.324 | 24.483 | 1.484× |
+| fgo | 39.073 | 22.505 | 1.736× |
+
+CITM now measures **6.246 GB/s**, or **59.4%** of native throughput. The
+independent balanced AS-to-AS confirmation above, rather than cross-batch
+absolute times, establishes its **5.19% lower latency**. Other eight images
+remain byte-identical to the parent. In particular, Poet's changed native
+ratio is not attributed to the integer formatter: both engines' absolute
+results vary across captures.
+
+Conditions remain Apple M4 Max/arm64/AC, original source-aligned classic
+owning-model harness, V8 15.2.20, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off and cache zero. Native remains
+GCC 16.2.0 with `-O3 -DNDEBUG -mcpu=native`, simdjson 5.0.4 at `3b0b2b53`.
+Rates use actual UTF-8 output bytes; every operation produces fresh owning
+output. The shared-host audits are not an isolated-host or peak-RSS claim.
+The five under-threshold corpora still require further improvement.
+
+[Full 90-process native refresh, 56 host audits, source/input/native/Wasm/output
+seals, current sources and images](data/serialization-row-triplet-native.json.gz).
