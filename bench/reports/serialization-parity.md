@@ -4193,8 +4193,8 @@ simdjson table. A minimized root-only probe with `type u64 = u8` also exposes an
 store-binding problem: its output contains NULs in property names. It selects
 no numeric row batches and produces identical malformed output using the
 pre-batch `d00c220a` transform and the current transform. This is retained as a
-separate **unfixed pre-existing diagnostic**, not claimed as a passing runtime
-alias test or fixed by the scope guard.
+separate pre-existing diagnostic, not claimed as fixed by the scope guard.
+The subsequent native-width binding fix below resolves it.
 
 The latest complete native comparison remains the earlier
 **4/9** result until the committed implementation is remeasured.
@@ -4435,8 +4435,55 @@ after packing. A minimized root-only probe with `type u64 = u8` also exposes an 
 store-binding problem: its output contains NULs in property names. It selects
 no numeric row batches and produces identical malformed output using the
 pre-batch `d00c220a` transform and the current transform. This is retained as a
-separate **unfixed pre-existing diagnostic**, not claimed as a passing runtime
-alias test or fixed by the scope guard.
+separate pre-existing diagnostic, not claimed as fixed by the scope guard.
+The subsequent native-width binding fix below resolves it.
 
-The latest complete native comparison remains the earlier
-**4/9** table until refreshed. The all-corpus near-parity goal is unfinished.
+The subsequent complete native comparison below refreshes the gate. The
+all-corpus near-parity goal is unfinished.
+
+
+## Refreshed native comparison and literal bindings
+
+At `a6fde560`, generated literal stores preserve native widths even when a
+model scope shadows width names. Declaration-scoped helpers handle those cases;
+ordinary scopes retain their direct stores. All nine benchmark images are
+byte-identical to the measured numeric-batch implementation. The earlier
+root-only alias diagnostic now passes.
+
+Validation passes 3,135 literal-store checks across 18 configurations, 312 row
+checks, 396 packed-consumer operations across 36 configurations, and 51
+warning-free compiler configurations with AS201 enabled. Build, typecheck, lint,
+license checks, all nine complete-model oracles and retained-output GC checks
+pass.
+
+A fresh five-pair alternating comparison measures actual UTF-8 output bytes:
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput fraction | At least 90% |
+|---|---:|---:|---:|---|
+| twitter | 7.781 | 10.290 | 0.756 | no |
+| canada | 1.129 | 1.242 | 0.909 | yes |
+| citm_catalog | 6.326 | 10.363 | 0.611 | no |
+| poet | 19.061 | 22.330 | 0.854 | no |
+| github_events | 8.307 | 16.382 | 0.507 | no |
+| gsoc-2018 | 11.438 | 15.797 | 0.724 | no |
+| lottie | 25.901 | 21.737 | 1.192 | yes |
+| otfcc | 31.800 | 22.319 | 1.425 | yes |
+| fgo | 37.936 | 21.240 | 1.786 | yes |
+
+The gate remains **4/9**. These are refreshed cross-engine measurements, not
+causal deltas against earlier captures. The separate paired numeric-batch
+qualification above establishes the approximately 3% CITM elapsed-time reduction.
+
+Conditions: Apple M4 Max/arm64, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation off, JSON_CACHE=0, fresh owning output.
+The native comparison uses simdjson 5.0.4 at
+`3b0b2b53aaffb46208817821dce2cd47a5e6bb2a`, GCC 16.2.0 with C++26 reflection,
+`-O3 -DNDEBUG -mcpu=native`. Complete flags are retained in the manifest.
+The shared timing lock covers all 90 fresh processes; all 60 host audits report
+battery power. Background process and memory audits are retained. These are
+shared-host battery results, not isolated-host measurements.
+
+[Complete native capture and scoped-literal evidence](data/serialization-numeric-batches-native.json.gz)
+retain all samples, audits, source/compiler/runtime files, binaries, recipes,
+outputs and end seals. Every embedded blob and external content reference was
+independently reloaded and SHA-256 checked after packing.
