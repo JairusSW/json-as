@@ -14,7 +14,15 @@ export class NumericRowBatches {
     constructor(names) {
         this.names = names;
     }
-    rewrite(worker) {
+    rewrite(worker, source, parser) {
+        for (const name of ["u64", "u32", "i32", "usize"]) {
+            const type = source.resolveTypeMeaning(name, "", parser);
+            if (type.name !== name ||
+                type.declaration ||
+                type.nullable ||
+                type.arguments.length)
+                return [];
+        }
         const loop = worker.body?.statements[0];
         if (loop?.kind !== NodeKind.For)
             return [];

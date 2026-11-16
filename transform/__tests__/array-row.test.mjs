@@ -277,6 +277,107 @@ try {
       }
     }
   }
+  const runtimeImport = path
+    .relative(dir, path.join(root, "assembly/index"))
+    .split(path.sep)
+    .join("/");
+  const widthSource = path.join(dir, "batch-width.ts");
+  const widthTransform = path.join(dir, "width-transform.mjs");
+  fs.writeFileSync(
+    widthTransform,
+    `
+    import Base from ${JSON.stringify(path.join(root, "transform/lib/index.js"))};
+    export default class extends Base { afterParse(parser) {
+      super.afterParse(parser);
+      const source=parser.sources.find(s=>s.internalPath.endsWith("batch-width"));
+      const selected=source.statements.some(n=>/^__json_numeric_batch_\\d+_capacity$/.test(n.name?.text));
+      if(selected !== (process.env.PROBE_WIDTH_SHADOW !== "true")) throw Error("Wrong numeric-width binding selection");
+    }}
+  `,
+  );
+  for (const mode of ["NAIVE", "SWAR", "SIMD"])
+    for (const shadow of [false, true]) {
+      fs.writeFileSync(
+        widthSource,
+        `
+        import {JSON} from ${JSON.stringify(runtimeImport)};
+        ${shadow ? "type u64=u8;" : ""}
+        @json({nolazy}) class Row { value:i32=7; values:i32[]=[]; }
+        @json({nolazy}) class Rows { rows:Row[]=[]; }
+        export function model():i32 { return new Row().value; }
+        export function run():string {
+          const out=new Rows();
+          for(let i=0;i<33;i++) {
+            const row=new Row();
+            for(let j=0;j<80;j++)row.values.push(i*80+j);
+            out.rows.push(row);
+          }
+          return JSON.stringify(out);
+        }
+      `,
+      );
+      const output = path.join(dir, "batch-width.wasm");
+      const compiled = spawnSync(
+        process.execPath,
+        [
+          "node_modules/assemblyscript/bin/asc.js",
+          widthSource,
+          "--transform",
+          widthTransform,
+          "--runtime",
+          "incremental",
+          "-O3",
+          "-o",
+          output,
+          ...(mode === "SIMD" ? ["--enable", "simd"] : []),
+        ],
+        {
+          cwd: root,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            JSON_MODE: mode,
+            JSON_CACHE: "0",
+            PROBE_WIDTH_SHADOW: String(shadow),
+          },
+        },
+      );
+      assert.equal(compiled.status, 0, compiled.stdout + compiled.stderr);
+      assert.doesNotMatch(
+        compiled.stdout + compiled.stderr,
+        /(?:WARNING|INFO) AS\d+/,
+      );
+      const instance = new WebAssembly.Instance(
+        new WebAssembly.Module(fs.readFileSync(output)),
+        {
+          env: {
+            abort() {
+              throw Error("Numeric-width alias abort");
+            },
+          },
+        },
+      ).exports;
+      // The shadowed case verifies compile-time fallback selection. The
+      // unshadowed control additionally exercises complete serialized output.
+      if (shadow) {
+        assert.equal(instance.model(), 7);
+        checks++;
+        continue;
+      }
+      const pointer = instance.run();
+      const text = Buffer.from(
+        instance.memory.buffer,
+        pointer,
+        new DataView(instance.memory.buffer).getUint32(pointer - 4, true),
+      ).toString("utf16le");
+      assert.deepEqual(JSON.parse(text), {
+        rows: Array.from({ length: 33 }, (_, i) => ({
+          value: 7,
+          values: Array.from({ length: 80 }, (_, j) => i * 80 + j),
+        })),
+      });
+      checks++;
+    }
   console.log(`Array row serialization: ${checks} checks passed`);
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });

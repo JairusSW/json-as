@@ -14,10 +14,11 @@ import {
   FunctionDeclaration,
   IfStatement,
   Node,
+  Parser,
   PropertyAccessExpression,
   VariableStatement,
 } from "assemblyscript/dist/assemblyscript.js";
-import { NodeKind } from "./types.js";
+import { NodeKind, Src } from "./types.js";
 import { cloneNode, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
 
@@ -27,7 +28,23 @@ export class NumericRowBatches {
 
   constructor(private names: Set<string>) {}
 
-  rewrite(worker: FunctionDeclaration): FunctionDeclaration[] {
+  rewrite(
+    worker: FunctionDeclaration,
+    source: Src,
+    parser: Parser,
+  ): FunctionDeclaration[] {
+    // These names are emitted as arithmetic types in the declaring module.
+    // A local alias must not silently narrow capacity or cursor arithmetic.
+    for (const name of ["u64", "u32", "i32", "usize"]) {
+      const type = source.resolveTypeMeaning(name, "", parser);
+      if (
+        type.name !== name ||
+        type.declaration ||
+        type.nullable ||
+        type.arguments.length
+      )
+        return [];
+    }
     const loop = (worker.body as BlockStatement | null)?.statements[0] as
       ForStatement | undefined;
     if (loop?.kind !== NodeKind.For) return [];

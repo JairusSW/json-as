@@ -496,7 +496,7 @@ export class ArrayRowSerializers {
         }
         new BindRange().visit([getter, worker]);
         this.integerWriters.rewrite(worker, source, node);
-        const batches = this.numericBatches?.rewrite(worker) ?? [];
+        const batches = this.numericBatches?.rewrite(worker, source, this.parser) ?? [];
         node.range.source.statements.push(getter, worker, ...batches);
         const declarations = this.declarations.get(node.range.source) ?? [];
         declarations.push(getter, worker, ...batches);
