@@ -26,6 +26,7 @@ import { TEXT_RECORD_SOURCES } from "./text-record-runtime.js";
 import { NodeKind } from "./types.js";
 import { cloneNode, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
+import { rewriteCommonEscapes } from "./common-escapes.js";
 
 /** Preserve the public short-string caller while specializing flat text records. */
 export class TextRecordWriters {
@@ -36,6 +37,7 @@ export class TextRecordWriters {
   constructor(
     parser: Parser,
     private names: Set<string>,
+    simd: boolean,
   ) {
     const root = diagnosticsRuntimeRoot(parser.sources);
     if (root === undefined) return;
@@ -58,6 +60,7 @@ export class TextRecordWriters {
     this.indexSource = parser.sources.find(
       (s) => s.internalPath === root + "assembly/serialize/index/string",
     )!;
+    if (simd) rewriteCommonEscapes(this.stringSource, this.names);
   }
 
   get verified(): boolean {

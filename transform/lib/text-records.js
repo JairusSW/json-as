@@ -13,12 +13,13 @@ import { TEXT_RECORD_SOURCES } from "./text-record-runtime.js";
 import { NodeKind } from "./types.js";
 import { cloneNode, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
+import { rewriteCommonEscapes } from "./common-escapes.js";
 export class TextRecordWriters {
     names;
     stringSource = null;
     indexSource = null;
     entry = null;
-    constructor(parser, names) {
+    constructor(parser, names, simd) {
         this.names = names;
         const root = diagnosticsRuntimeRoot(parser.sources);
         if (root === undefined)
@@ -38,6 +39,8 @@ export class TextRecordWriters {
         }
         this.stringSource = parser.sources.find((s) => s.internalPath === root + "assembly/serialize/simd/string");
         this.indexSource = parser.sources.find((s) => s.internalPath === root + "assembly/serialize/index/string");
+        if (simd)
+            rewriteCommonEscapes(this.stringSource, this.names);
     }
     get verified() {
         return this.stringSource !== null;

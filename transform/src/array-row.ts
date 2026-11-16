@@ -10,6 +10,7 @@ import {
   CallExpression,
   ClassDeclaration,
   FieldDeclaration,
+  Feature,
   FunctionDeclaration,
   MethodDeclaration,
   NamedTypeNode,
@@ -99,7 +100,11 @@ export class ArrayRowSerializers {
     this.names = arrayRowSafety(parser.sources, options);
     if (!this.names) return;
     this.integerWriters = new RowIntegerWriters(parser, this.names);
-    this.textWriters = new TextRecordWriters(parser, this.names);
+    this.textWriters = new TextRecordWriters(
+      parser,
+      this.names,
+      options.hasFeature(Feature.Simd),
+    );
     const root = diagnosticsRuntimeRoot(parser.sources)!;
     const runtime = parser.sources.find(
       (source) => source.internalPath === root + "assembly/index",

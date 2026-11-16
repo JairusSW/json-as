@@ -3531,3 +3531,76 @@ Conditions remain Apple M4 Max/arm64/AC, original classic owning-model and simdj
 These absolute rates do not establish implementation deltas. The independent AS-to-AS comparison above establishes Twitter −0.54% and Canada −1.60% latency; seven unchanged corpus images also vary between captures. The near-parity objective remains unfinished.
 
 [All 90 records, 57 audits, raw process logs, exact sources/images, model/input references and end seals](data/serialization-borrow-extension-native.json.gz).
+
+## Bulk common escapes in verified SIMD string writers
+
+The transform now expands quote, backslash and `b/t/n/f/r` escapes for eight
+UTF-16 units with a static 256-row shuffle table. Other controls and conservative
+Unicode/surrogate candidates retain the complete existing path. The growth
+check covers both vector stores, including padding, and the logical output
+cursor advances only by the actual expansion. Buffer credits, fresh owning
+output and existing alias/static-output handling are preserved.
+
+The table is built during transformation, not during serialization. There is
+no output/classification cache, runtime metadata classifier or public flag.
+Lowering runs only with SIMD enabled after the existing stock-runtime and eight
+string-source/semantic-AST checks pass. Unknown sources/hooks and unsupported
+runtime configurations keep their original behavior. Physical AssemblyScript
+runtime sources are unchanged; private record helpers clone the verified
+lowered body. All nine final production images match the measured lane-mask
+prototype exactly.
+
+Decoded-value inspection identifies 13,721 common escapes in GSoC, 1,228 in
+Twitter, 155 in GitHub, two in CITM and none in Poet. These counts exclude object
+keys and do not attribute executed paths or elapsed cost. They motivate the
+probe; they are not performance evidence.
+
+Two isolated prototypes compare byte-mask conversion with a direct eight-lane
+bitmask. Each passes **1,556,298 exact checks across three runtimes** and all
+nine full-model/retained-GC oracles. The first balanced six-pair, three-variant
+all-nine screen retains **162 fresh processes**. A separate adjacent,
+reversed-order eight-pair comparison of the lane version retains **144**.
+Negative percentages indicate lower serialization latency.
+
+| Corpus | Lane initial delta | Independent confirmation | Confirmation paired 95% interval |
+|---|---:|---:|---:|
+| twitter | -2.54% | -1.72% | -2.69% to -0.26% |
+| canada | +0.52% | +0.17% | -0.30% to +0.72% |
+| citm_catalog | +0.08% | +0.17% | -0.38% to +0.84% |
+| poet | -1.68% | +1.35% | -0.62% to +3.26% |
+| github_events | -1.26% | -1.67% | -2.42% to -0.82% |
+| gsoc-2018 | -5.36% | -5.37% | -6.80% to -4.00% |
+| lottie | -3.27% | -2.57% | -4.09% to -0.91% |
+| otfcc | +0.08% | +0.01% | -0.73% to +0.81% |
+| fgo | -0.85% | +1.00% | -0.62% to +2.86% |
+
+Twitter, GitHub, GSoC and Lottie repeat improvements. The other five remain
+unresolved; notably Poet and FGO have wider intervals and opposite point
+estimates between captures. No slowdown resolves statistically in these
+captures. Conditions remain Apple M4 Max/arm64/AC, the original classic
+owning-model harness, SIMD/incremental/compatibility, validation off,
+`JSON_CACHE=0`, and fresh owning output per operation. Every record retains
+power/process/memory audits. Both captures seal current sources, prototype
+files and all prepared images before/after execution. These are shared-host,
+AS-only comparisons; the preceding full native 4/9 table remains the latest
+native qualification until refreshed.
+
+The new permanent suite passes **204,214 exact mask/UTF-16/buffer/alias/row
+checks across eight configurations**, with **8,464 forced common-block
+collections** and explicit positive public/private execution counters. It
+covers all lane masks, all code units next to escapes, unknown controls,
+surrogates, output/input aliasing, static destinations, ephemeral rows and
+retained results. Original-control, minimal/stub and NAIVE/SWAR configurations
+verify selection/fallback behavior. An additional four-build prototype suite
+passes **7,320** forced-GC/output-alias/static-output/row/retained checks.
+
+The broader text-record, metadata, borrowed-owner/effect, array-root and
+reservation regressions pass. The packed artifact passes **360 operations in
+36 configurations**. Compiler warnings remain enabled, including AS201, and
+all **51 native/WASI/test configurations** are warning-free. Transform build,
+typechecking, lint, license headers and focused formatting pass locally.
+
+[Raw common-escape evidence](data/serialization-common-escapes.json.gz) retains
+all **306** timing records, source and image seals, host audits, both prototypes,
+production-image equality, and correctness/forced-collection controls. The
+artifact references unchanged baseline blobs in the preceding native archive.

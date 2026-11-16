@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Expand common SIMD string escapes a block at a time using compile-time shuffle data under the verified stock-runtime/source guard. Preserve Unicode/control fallbacks, output reuse and unsupported-runtime behavior.
+
 - Recognize stock integer/Boolean boxes by declaration when proving serializer effects. Borrow pure children from rooted parents while keeping uncertain parents themselves on rooted dispatch.
 
 - Avoid duplicate managed child aliases in verified, closed generated serializers. Keep managed owners traced across allocation and GC, and retain rooted dispatch for unmanaged, inherited, custom, deferred, or uncertain graphs.

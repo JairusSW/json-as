@@ -71,7 +71,7 @@ export class ArrayRowSerializers {
         if (!this.names)
             return;
         this.integerWriters = new RowIntegerWriters(parser, this.names);
-        this.textWriters = new TextRecordWriters(parser, this.names);
+        this.textWriters = new TextRecordWriters(parser, this.names, options.hasFeature(16));
         const root = diagnosticsRuntimeRoot(parser.sources);
         const runtime = parser.sources.find((source) => source.internalPath === root + "assembly/index");
         const namespace = runtime.statements.find((statement) => statement.kind === NodeKind.NamespaceDeclaration &&
