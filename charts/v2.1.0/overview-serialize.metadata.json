@@ -1,0 +1,873 @@
+{
+  "caption": "2026-11-17 • v2.1.0 • ea0e631d/b1caea01 (+11 source snapshots) • arm64 • V8 version 15.2.20 / simdjson 5.0.4 native typed value • strict false / typed fields; raw lexeme boundaries • fast 1 / n/a",
+  "records": [
+    {
+      "id": "9fe39ba3-db73-44c5-8f4b-29103cf68784",
+      "measuredAt": "2026-11-17T05:32:21.319Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "b1caea01ef1a41960f3716a424504514abc4eb75c5caf6c252f51a144d7feaee",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "mode": "all",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "5d2a0d37-e0c9-4e3b-9d2d-8dfcc8f5997b",
+      "measuredAt": "2026-11-17T05:30:03.567Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "fbc9cc99ba8d065c5024e10110a44c00a935016f28367b4e6e538608bac16ee2",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "badcbc2f-57d0-4559-ad51-c9bd9f87376a",
+      "measuredAt": "2026-11-17T05:30:06.195Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "fbc9cc99ba8d065c5024e10110a44c00a935016f28367b4e6e538608bac16ee2",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "53672ede-646d-4427-bd9b-f983fbce772d",
+      "measuredAt": "2026-11-17T05:30:08.810Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "fbc9cc99ba8d065c5024e10110a44c00a935016f28367b4e6e538608bac16ee2",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "05259f8c-d009-44b2-b173-46cbb79947d4",
+      "measuredAt": "2026-11-17T05:32:29.552Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "b1caea01ef1a41960f3716a424504514abc4eb75c5caf6c252f51a144d7feaee",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "mode": "all",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "b5db5b9f-f88b-480a-9d29-e3a4f6cd615b",
+      "measuredAt": "2026-11-17T05:31:40.068Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "60995532f7aac9c607164c1ab6c672835ae0459c14a5be50690538dad73a977d",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "7309d881-2249-4299-9567-0e114af4dd35",
+      "measuredAt": "2026-11-17T05:31:45.797Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "60995532f7aac9c607164c1ab6c672835ae0459c14a5be50690538dad73a977d",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "141d625c-4b97-412b-907e-9070fdae4d19",
+      "measuredAt": "2026-11-17T05:31:50.426Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "60995532f7aac9c607164c1ab6c672835ae0459c14a5be50690538dad73a977d",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "5ef43a9a-1001-435f-95b9-f72b6daf5d93",
+      "measuredAt": "2026-11-17T05:32:35.421Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "b1caea01ef1a41960f3716a424504514abc4eb75c5caf6c252f51a144d7feaee",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "mode": "all",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "733cb554-ae72-4118-b6bd-a29bdf9fbf65",
+      "measuredAt": "2026-11-17T05:31:56.280Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "659d60a6b5f9578fa71aaa3399b5fb3a61ff79c54ffb78d3a0e8ecea21b8b6d7",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "111b3b61-e981-474b-bbd7-4b5e33857a1f",
+      "measuredAt": "2026-11-17T05:32:04.981Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "659d60a6b5f9578fa71aaa3399b5fb3a61ff79c54ffb78d3a0e8ecea21b8b6d7",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "31ee21b0-6ab4-4bc4-875b-89842a7692ec",
+      "measuredAt": "2026-11-17T05:32:13.716Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "b1caea01ef1a41960f3716a424504514abc4eb75c5caf6c252f51a144d7feaee",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "8d9efb1f-5580-4624-9eca-5a599739f6d9",
+      "measuredAt": "2026-11-17T05:32:27.241Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "b1caea01ef1a41960f3716a424504514abc4eb75c5caf6c252f51a144d7feaee",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "mode": "all",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "7d6405af-745b-4d8f-be2c-8684b2154e69",
+      "measuredAt": "2026-11-17T05:31:23.630Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "dca7839b5290991a5488ebf1b1de91ede8498adda6ec66a08c412ebf08ed46be",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "00a7da75-a11c-4303-b9e4-858f8e54c97a",
+      "measuredAt": "2026-11-17T05:31:29.689Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "dca7839b5290991a5488ebf1b1de91ede8498adda6ec66a08c412ebf08ed46be",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "a76c0b3b-43c9-4aa6-b0bf-d21dcee01c1f",
+      "measuredAt": "2026-11-17T05:31:35.729Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "60995532f7aac9c607164c1ab6c672835ae0459c14a5be50690538dad73a977d",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "4e591069-ce1d-4c26-b9f8-980e38430fb1",
+      "measuredAt": "2026-11-17T05:32:24.907Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "b1caea01ef1a41960f3716a424504514abc4eb75c5caf6c252f51a144d7feaee",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "mode": "all",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "1ddd7521-8c30-46ce-8f43-b52647ece149",
+      "measuredAt": "2026-11-17T05:31:05.493Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "540f90d4c1d56d42845b0921e69d88cc17a88a0755ad92a9ae4d9992f81ba120",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "1a927adf-d201-444e-a462-c23b0d74ab12",
+      "measuredAt": "2026-11-17T05:31:11.570Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "540f90d4c1d56d42845b0921e69d88cc17a88a0755ad92a9ae4d9992f81ba120",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "e35f0d35-2f81-4eb0-acf8-cdd3e3a9d4af",
+      "measuredAt": "2026-11-17T05:31:17.740Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "d37117513530123ffcdb2c719bcdd4ef9bf78dc2fe186430b8a02dae3ff86047",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "67cc1f3d-1eda-4899-b291-047a2d10df86",
+      "measuredAt": "2026-11-17T05:32:23.140Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "b1caea01ef1a41960f3716a424504514abc4eb75c5caf6c252f51a144d7feaee",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "mode": "all",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "291082b2-71b1-4d4b-a232-4a99aa2a6650",
+      "measuredAt": "2026-11-17T05:30:44.677Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "0e1ed144a82918f4f149f792f63b1ee67d1a966123dec572c52508bb8cff6ccf",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "4b256597-ad18-455b-916b-d2f17ae0f300",
+      "measuredAt": "2026-11-17T05:30:52.436Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "0e1ed144a82918f4f149f792f63b1ee67d1a966123dec572c52508bb8cff6ccf",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "eac44ef6-5ae9-4f88-a2e8-3d7d13df9b34",
+      "measuredAt": "2026-11-17T05:31:00.201Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "4e7548f9ca063ed4f3a5474354bfc9fcd25b65d689e5d4c901f79035538984bd",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "997951f0-2242-48db-bc39-ccb1bcb5b797",
+      "measuredAt": "2026-11-17T05:32:22.468Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "b1caea01ef1a41960f3716a424504514abc4eb75c5caf6c252f51a144d7feaee",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "js",
+        "runtime": "v8",
+        "mode": "all",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "1239895e-3640-4d10-8912-5c04693974c5",
+      "measuredAt": "2026-11-17T05:30:18.808Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "364f83011fb4c4e234f1b0b4ae5aa91dca1f26750975ddbb80ed6bcd159c1e13",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "NAIVE",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "4919da01-4802-4ee0-9396-2f1608818e46",
+      "measuredAt": "2026-11-17T05:30:28.789Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "364f83011fb4c4e234f1b0b4ae5aa91dca1f26750975ddbb80ed6bcd159c1e13",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SWAR",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "fbc76b99-b50a-4417-ae8a-29baff663159",
+      "measuredAt": "2026-11-17T05:30:39.095Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "b7d5e62b63c9c46a8742144cb0ae52f7f03de5bf2850dd5eab832f5964bd9b0e",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": null
+      },
+      "settings": {
+        "language": "as",
+        "runtime": "v8",
+        "mode": "SIMD",
+        "strict": "false",
+        "fastPath": "1",
+        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
+      }
+    },
+    {
+      "id": "d3018851-30a5-41d0-b83e-099ee9dec49b",
+      "measuredAt": "2026-11-17T07:13:33.681Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "4921d6ad32a39af6abf4d951de8e10b0292e7c663e2a45beef58bfb45fa59c47",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": "simdjson 5.0.4 native typed value"
+      },
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "46c58062-d175-4221-803b-59a80c21d30c",
+      "measuredAt": "2026-11-17T07:13:34.540Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "4921d6ad32a39af6abf4d951de8e10b0292e7c663e2a45beef58bfb45fa59c47",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": "simdjson 5.0.4 native typed value"
+      },
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "78a9ab0d-f762-418b-a93d-4eefc13e9769",
+      "measuredAt": "2026-11-17T07:13:35.357Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "4921d6ad32a39af6abf4d951de8e10b0292e7c663e2a45beef58bfb45fa59c47",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": "simdjson 5.0.4 native typed value"
+      },
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "2d8d37e8-5f6b-478f-be31-19d64cfffa9b",
+      "measuredAt": "2026-11-17T07:13:36.111Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "4921d6ad32a39af6abf4d951de8e10b0292e7c663e2a45beef58bfb45fa59c47",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": "simdjson 5.0.4 native typed value"
+      },
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "a730c823-dd8e-4433-8380-16b0ea739a48",
+      "measuredAt": "2026-11-17T07:13:36.932Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "4921d6ad32a39af6abf4d951de8e10b0292e7c663e2a45beef58bfb45fa59c47",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": "simdjson 5.0.4 native typed value"
+      },
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "08bc04a8-1ace-4d54-88fb-025ecdb032aa",
+      "measuredAt": "2026-11-17T07:13:37.715Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "4921d6ad32a39af6abf4d951de8e10b0292e7c663e2a45beef58bfb45fa59c47",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": "simdjson 5.0.4 native typed value"
+      },
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    },
+    {
+      "id": "9565298e-0736-42ce-9983-2683ce1a1572",
+      "measuredAt": "2026-11-17T07:13:39.238Z",
+      "source": {
+        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+        "treeHash": "4921d6ad32a39af6abf4d951de8e10b0292e7c663e2a45beef58bfb45fa59c47",
+        "version": "2.1.0",
+        "branch": "main"
+      },
+      "architecture": "arm64",
+      "hardwareModel": "Apple M4 Max",
+      "engines": {
+        "v8": "V8 version 15.2.20",
+        "node": "v26.4.0",
+        "runtime": "simdjson 5.0.4 native typed value"
+      },
+      "settings": {
+        "language": "native",
+        "runtime": "native",
+        "strict": "typed fields; raw lexeme boundaries",
+        "fastPath": "n/a",
+        "outputPolicy": "fresh owning native typed value; copied strings and containers; native fields to fresh UTF-8 string"
+      }
+    }
+  ]
+}
