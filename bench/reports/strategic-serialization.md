@@ -63,9 +63,6 @@ writer observes the whole object. Its slower result is retained, not attributed
 to the new fix. Allocation counts use separate RTRACE builds and are not RSS or
 timed-instrumented measurements.
 
-The [raw evidence](data/strategic-serialization-forwarding.json.gz) preserves all
-samples/audits, payload, compiler flags, source/binary seals, measured harness,
-read decisions, tracked patch, red/green checks and classic binary hashes. The
-reporter received smoke-export and wording corrections after timing; the original
-measured harness snapshot still matches the recorded SHA. Near parity for eager
-native-struct serialization remains a separate, unfinished goal.
+Raw benchmark dumps are excluded from the source tree. The table above is a
+historical measurement summary, not a fresh qualification. Near parity for
+eager native-struct serialization remains a separate, unfinished objective.
