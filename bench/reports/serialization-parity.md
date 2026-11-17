@@ -4786,3 +4786,69 @@ preserves both captures, exact candidate images, output/GC oracles, prototype,
 recipes, statistics, correctness logs and host audits. Baseline images/sources
 are linked to the preceding packed-Unicode archive by SHA-256. Embedded bytes
 and the referenced artifact are independently hash-verified.
+
+## Refreshed attribution and closed Map value borrowing — unretained
+
+Fifteen new serialization-only CPU profiles refresh the five below-target
+corpora after the private packed-Unicode change. Every named module matches
+all noncustom executable sections of its qualified production image. Three
+captures per corpus use a 100 µs sampling interval:
+
+| Corpus | Largest sampled function | Pooled sample share |
+|---|---|---:|
+| github_events | SIMD string-range writer | 39.3% |
+| twitter | Generated Status serializer | 33.2% |
+| gsoc-2018 | SIMD string-range writer | 78.5% |
+| citm_catalog | Generated Citm serializer | 63.0% |
+| poet | Private text-record range writer | 44.6% |
+
+GitHub also samples 25.0% in its generated object-array serialization dispatch
+and 11.3% in `__visit`. CITM samples 10.3% in sweep interrupts, 9.0% in `__visit`
+and 3.7% in the member visitor. Inlined work is attributed to its caller; these
+are diagnostic samples, not throughput measurements or causal ablations.
+All twelve periodic profile host audits report AC power.
+
+The next prototype reuses the existing closed-Map effect certificate to borrow
+values from their rooted owning Map. Eligible string-keyed Maps hoist stable
+backing storage, traverse native entries without per-iteration mutation reloads,
+and invoke the generated value writer through its raw pointer. The Map remains
+managed/rooted; nullable values, deleted entries and native subclass storage are
+preserved. Custom, inherited/uncertain, deferred, modified-source and unsupported
+runtime cases keep the existing dispatch. No persistent cache or GC pacing is
+introduced. Only CITM and GSoC images change; seven classic controls remain
+byte-identical.
+
+Correctness passes **1,440** fresh/nullable/subclass/field/deletion-hole and
+retained-output checks across eight configurations, including **19,116** forced
+collections inside the borrowed value writer. The existing closed-Map controls,
+adapted to count the selected branch, pass **1,304 checks across fifty
+configurations**, including hidden/manual serializer overrides, callback
+mutation, declaration collisions and source/semantic guard failures. All nine
+full-model/retained-GC oracles pass before timing.
+
+Eight alternating fresh-process pairs per changed corpus give:
+
+| Corpus | Paired elapsed-time change | 95% interval | Faster pairs |
+|---|---:|---:|---:|
+| citm_catalog | +0.86% | -0.63% to +2.41% | 3/8 |
+| gsoc-2018 | +0.53% | -1.61% to +3.42% | 4/8 |
+
+Neither interval resolves a gain. These paired geometric estimates are not
+ratios of independent process medians. The probe is **not retained**, and the
+qualified native gate stays **4/9**. The initial screen does not establish a
+universal regression; it supplies no evidence supporting integration.
+
+The timing batch waited for the live Wago host-lock owner, acquired the lock
+normally, completed all **32 fresh processes**, passed source/prototype/image
+end seals and released it. All **24** periodic timing host audits report AC.
+Conditions remain Apple M4 Max/arm64, V8 15.2.20, original classic owning-model
+harnesses, SIMD/incremental/compatibility, validation off, JSON_CACHE=0 and fresh
+owning output each operation. Host-load, memory and power audits remain
+available; neither this screen nor the CPU profiles claim host isolation.
+
+[Raw profiles and Map countercheck](data/serialization-map-record-borrow-countercheck.json.gz)
+retain the fifteen diagnostic profiles separately from the thirty-two timing
+records, exact named/candidate images, output oracles, prototypes, correctness
+logs, recipes, statistics, audits and seals. Baseline sources/images reference
+the preceding packed-Unicode artifact by SHA-256. Embedded bytes and the linked
+artifact are independently hash-verified. Production code is unchanged.
