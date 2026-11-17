@@ -6,6 +6,7 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { ClassDeclaration, Parser } from "assemblyscript/dist/assemblyscript.js";
+export declare const CLOSED_MAP_SOURCE: readonly [string, string];
 export declare class ClosedMapProof {
     private names;
     private source;

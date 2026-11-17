@@ -15,11 +15,17 @@ import { Transform } from "assemblyscript/transform";
 import "../transform/lib/index.js";
 import { arrayRowAstFingerprint } from "../transform/lib/array-row-safety.js";
 import { ARRAY_ROW_SOURCES } from "../transform/lib/array-row-runtime.js";
+import { CLOSED_MAP_SOURCE } from "../transform/lib/closed-map.js";
 
 const entries = [];
+const mapKey = "own:assembly/serialize/naive/map";
+const expectedSources = new Map([
+  ...ARRAY_ROW_SOURCES,
+  [mapKey, CLOSED_MAP_SOURCE],
+]);
 class Inspect extends Transform {
   afterParse(parser) {
-    for (const key of ARRAY_ROW_SOURCES.keys()) {
+    for (const key of expectedSources.keys()) {
       const internalPath = key.replace(/^own:/, "");
       const source = parser.sources.find(
         (input) => input.internalPath === internalPath,
@@ -42,7 +48,7 @@ const result = await asc.main(
 );
 assert.match(String(result.error), /ARRAY_ROW_MANIFEST_COMPLETE/);
 const changed = entries.filter(([key, actual]) => {
-  const expected = ARRAY_ROW_SOURCES.get(key);
+  const expected = expectedSources.get(key);
   return !expected || actual.some((value, index) => value !== expected[index]);
 });
 if (process.argv.includes("--check")) {
@@ -64,8 +70,24 @@ if (process.argv.includes("--check")) {
     target,
     header +
       "export const ARRAY_ROW_SOURCES = new Map<string, readonly [string, string]>(" +
-      JSON.stringify(entries, null, 2) +
+      JSON.stringify(
+        entries.filter(([key]) => key !== mapKey),
+        null,
+        2,
+      ) +
       ");\n",
+  );
+  const mapTarget = "transform/src/closed-map.ts";
+  fs.writeFileSync(
+    mapTarget,
+    fs
+      .readFileSync(mapTarget, "utf8")
+      .replace(
+        /export const CLOSED_MAP_SOURCE: readonly \[string, string\] = \[[\s\S]*?\];/,
+        "export const CLOSED_MAP_SOURCE: readonly [string, string] = " +
+          JSON.stringify(entries.find(([key]) => key === mapKey)[1], null, 2) +
+          ";",
+      ),
   );
   console.log(
     `Updated ${entries.length} reviewed source and AST fingerprints; rebuild the transform before testing.`,

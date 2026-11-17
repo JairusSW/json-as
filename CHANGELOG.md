@@ -13,6 +13,7 @@ The public parse/stringify signatures and MPL-2.0 license are unchanged. See the
 ### Changes
 
 - Refresh reviewed runtime fingerprints after formatting-only changes, and check them early in source and release CI. Improve packed-consumer abort diagnostics.
+- Restore explicit compiler-warning exceptions instead of the empty list that suppressed every warning. Keep AS201 enabled and verify warning-free native, WASI, and test builds.
 
 - Pool native-width literal vectors in large string-bearing serializers. Keep small rows and numeric writers on immediate stores, preserve lexical bindings, and allocate no managed cache or startup objects.
 

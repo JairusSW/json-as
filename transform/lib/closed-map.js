@@ -10,6 +10,10 @@ import { arrayRowAstFingerprint } from "./array-row-safety.js";
 import { diagnosticsRuntimeRoot } from "./diagnostics.js";
 import { SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
+export const CLOSED_MAP_SOURCE = [
+    "1944047a984ccf0c3929fd4a4eced823fa02d454d60a3b0e4390d25272aa50c5",
+    "abbc0c90fd336b6b5bd8f522a0ee31c30180e5882e8067720d6fc71fc7b18fbd",
+];
 export class ClosedMapProof {
     names;
     source = null;
@@ -21,9 +25,8 @@ export class ClosedMapProof {
         const source = parser.sources.find((item) => item.internalPath === root + "assembly/serialize/naive/map");
         if (source &&
             createHash("sha256").update(source.text).digest("hex") ===
-                "53f59e4ed68f0c4dc702aa86748acb663a13d2e13e67abca2599714cbcdbb8e4" &&
-            arrayRowAstFingerprint(source.statements, root) ===
-                "abbc0c90fd336b6b5bd8f522a0ee31c30180e5882e8067720d6fc71fc7b18fbd")
+                CLOSED_MAP_SOURCE[0] &&
+            arrayRowAstFingerprint(source.statements, root) === CLOSED_MAP_SOURCE[1])
             this.source = source;
     }
     lower(models) {
