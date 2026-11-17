@@ -1,5 +1,5 @@
 {
-  "caption": "2026-11-17 • v2.1.0 • ea0e631d/74a663bd (+24 source snapshots) • arm64 • V8 version 15.2.20 / simdjson 5.0.4 native typed value • strict false / typed fields; raw lexeme boundaries / full validation • fast 1 / n/a",
+  "caption": "2026-11-17 • v2.1.0 • ea0e631d/74a663bd (+17 source snapshots) • arm64 • V8 version 15.2.20 / simdjson 5.0.4 native typed value • strict false / typed fields; raw lexeme boundaries / full validation • fast 1 / n/a",
   "records": [
     {
       "id": "f231d8e8-61c9-454a-bdf7-4dd26de412d3",
@@ -277,56 +277,6 @@
       }
     },
     {
-      "id": "7fd49406-3fbd-4779-9a01-ae09b0aedea2",
-      "measuredAt": "2026-11-17T05:56:58.985Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "36f491d52ee4cad52cd0d7be58c2770db55136f0238305b712c4ead86837b6ee",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "662deab9-1967-41d2-83e8-6824ed5705d3",
-      "measuredAt": "2026-11-17T05:57:33.347Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "36f491d52ee4cad52cd0d7be58c2770db55136f0238305b712c4ead86837b6ee",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
       "id": "a7d4795b-3de4-4a83-ac90-847d05e279e8",
       "measuredAt": "2026-11-17T07:13:41.619Z",
       "source": {
@@ -419,56 +369,6 @@
         "language": "as",
         "runtime": "v8",
         "mode": "SWAR",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "474a613d-8a83-48b5-9075-1b1288318753",
-      "measuredAt": "2026-11-17T05:45:04.991Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "c6ddf7788aab7c51665978c7029722013426747938d70325db07d51ab41c45f3",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "f40fa50a-b673-4101-80d9-7d8d8e687f3e",
-      "measuredAt": "2026-11-17T05:45:37.813Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "c6ddf7788aab7c51665978c7029722013426747938d70325db07d51ab41c45f3",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
         "strict": "false",
         "fastPath": "1",
         "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
@@ -573,56 +473,6 @@
       }
     },
     {
-      "id": "b714c304-878c-4121-9fb3-56ead78e8702",
-      "measuredAt": "2026-11-17T05:46:39.189Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "6244000e93cdd77c1c5fa79f2011e9291265a9263c2ef40a96396f9a1ecb8fbf",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "20a29111-26cc-4b0a-aede-14ec7ca5a56e",
-      "measuredAt": "2026-11-17T05:47:08.789Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "6244000e93cdd77c1c5fa79f2011e9291265a9263c2ef40a96396f9a1ecb8fbf",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
       "id": "b46dc76f-1ee4-4e18-b8db-c4d8dd172fe9",
       "measuredAt": "2026-11-17T07:13:50.939Z",
       "source": {
@@ -715,56 +565,6 @@
         "language": "as",
         "runtime": "v8",
         "mode": "SWAR",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "d55e4998-ca0c-422d-8e55-3479311f369b",
-      "measuredAt": "2026-11-17T05:54:43.058Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "2d3e3733f5079b43bb49621f7c568c050572c6377d8c9b064878daea5638a230",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "8e1dc0c7-fdb0-4864-8df3-a69ce3dde526",
-      "measuredAt": "2026-11-17T05:55:07.428Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "2d3e3733f5079b43bb49621f7c568c050572c6377d8c9b064878daea5638a230",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
         "strict": "false",
         "fastPath": "1",
         "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
@@ -869,56 +669,6 @@
       }
     },
     {
-      "id": "513eb1e5-0e92-4d1d-a25a-f838a8e0027d",
-      "measuredAt": "2026-11-17T05:49:20.895Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "3fea7a785700a43020412ea4fa95d5181a5cc64a6627573960df36f5d58d1ead",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "242984a9-4372-4549-a92d-13faddd02e3e",
-      "measuredAt": "2026-11-17T05:49:48.849Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "3fea7a785700a43020412ea4fa95d5181a5cc64a6627573960df36f5d58d1ead",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
       "id": "874b4d4b-9e06-4dd6-8dfa-a16a36a393eb",
       "measuredAt": "2026-11-17T07:13:58.850Z",
       "source": {
@@ -1011,56 +761,6 @@
         "language": "as",
         "runtime": "v8",
         "mode": "SWAR",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "bce92e96-8b36-48f7-8526-9d6f631a5ec0",
-      "measuredAt": "2026-11-17T05:50:32.275Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "422dcbe04dab4896a1da0f60fd575c6fc68a63863a9e5d14a01dbba0031c53e4",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "8d2b6b4d-7f59-47f3-b1f7-eacc33e812dd",
-      "measuredAt": "2026-11-17T05:50:56.525Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "422dcbe04dab4896a1da0f60fd575c6fc68a63863a9e5d14a01dbba0031c53e4",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
         "strict": "false",
         "fastPath": "1",
         "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
@@ -1165,56 +865,6 @@
       }
     },
     {
-      "id": "82988fde-05b1-4e53-98a2-bfd009174f83",
-      "measuredAt": "2026-11-17T05:52:00.383Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "07803baef929448b4740f1c06482cac0b00e66f39d04982b40914f9bbfb5df65",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "601a7fee-cc58-43b0-9a7b-c139bc15622b",
-      "measuredAt": "2026-11-17T05:52:51.977Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "07803baef929448b4740f1c06482cac0b00e66f39d04982b40914f9bbfb5df65",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
       "id": "f0e1bcd4-054d-4627-b0b9-ba8a66c1b04f",
       "measuredAt": "2026-11-17T07:14:05.399Z",
       "source": {
@@ -1313,56 +963,6 @@
       }
     },
     {
-      "id": "6919ea33-248d-4057-b624-76ee6b108c5e",
-      "measuredAt": "2026-11-17T05:53:33.088Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "d9cbe40e881b0986814c324cbbb1adb7c07530963ec6e3f4a7756182d30ab414",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "674bf25b-2192-4186-823a-94912463ee25",
-      "measuredAt": "2026-11-17T05:54:11.890Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "d9cbe40e881b0986814c324cbbb1adb7c07530963ec6e3f4a7756182d30ab414",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
       "id": "55a1e29f-7050-4559-8642-a607b8152467",
       "measuredAt": "2026-11-17T07:14:12.073Z",
       "source": {
@@ -1455,56 +1055,6 @@
         "language": "as",
         "runtime": "v8",
         "mode": "SWAR",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "5fd2e718-39cd-4d98-9204-111d12b9c358",
-      "measuredAt": "2026-11-17T05:47:37.416Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "6244000e93cdd77c1c5fa79f2011e9291265a9263c2ef40a96396f9a1ecb8fbf",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "1bef95f2-ce1f-4d64-8c21-433d80c9fb1d",
-      "measuredAt": "2026-11-17T05:48:02.856Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "6244000e93cdd77c1c5fa79f2011e9291265a9263c2ef40a96396f9a1ecb8fbf",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": null
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "v8",
-        "mode": "SIMD",
         "strict": "false",
         "fastPath": "1",
         "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"

@@ -1,5 +1,5 @@
 {
-  "caption": "2026-11-17 • v2.1.0 • ea0e631d/6a5f0cd9 (+17 source snapshots) • arm64 • WAVM version 0.0.0-prerelease / simdjson 5.0.4 native typed value / V8 version 15.2.20 • strict false / typed fields; raw lexeme boundaries / full validation • fast 1 / n/a",
+  "caption": "2026-11-17 • v2.1.0 • ea0e631d/6a5f0cd9 (+16 source snapshots) • arm64 • WAVM version 0.0.0-prerelease / simdjson 5.0.4 native typed value / V8 version 15.2.20 • strict false / typed fields; raw lexeme boundaries / full validation • fast 1 / n/a",
   "records": [
     {
       "id": "bbf3460d-edbf-4ee1-a7e6-690ccf496a2b",
@@ -277,56 +277,6 @@
       }
     },
     {
-      "id": "8adfaba2-6b50-4c6d-a27c-c690ecdeac42",
-      "measuredAt": "2026-11-17T06:20:37.436Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "f4c03d833b6f46663700656455ae8c842d78d9d2117f923b994388ef4f805dcc",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "2e27a934-5288-4c10-ad2a-d3907ec3a42c",
-      "measuredAt": "2026-11-17T06:21:29.724Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "f4c03d833b6f46663700656455ae8c842d78d9d2117f923b994388ef4f805dcc",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
       "id": "a7d4795b-3de4-4a83-ac90-847d05e279e8",
       "measuredAt": "2026-11-17T07:13:41.619Z",
       "source": {
@@ -419,56 +369,6 @@
         "language": "as",
         "runtime": "wavm",
         "mode": "SWAR",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "62a07a8e-849c-474a-9342-16e222a52761",
-      "measuredAt": "2026-11-17T05:59:38.925Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "341adf2975a1244bbb3e83be4bc6756c9747cbd23f7ce231e2b29329a2c57b7f",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "08353317-9177-4da3-9964-5fb588c0cd89",
-      "measuredAt": "2026-11-17T06:00:07.821Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "341adf2975a1244bbb3e83be4bc6756c9747cbd23f7ce231e2b29329a2c57b7f",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
         "strict": "false",
         "fastPath": "1",
         "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
@@ -573,56 +473,6 @@
       }
     },
     {
-      "id": "ec967258-e09e-437a-abcc-32cab61d3211",
-      "measuredAt": "2026-11-17T06:02:31.856Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "ac5a535724cf3b29e070f95f0f88b534d2b94b3adf658deeffc8a58fbd208e2c",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "e1e34542-3e60-4438-81a1-6b40ec001328",
-      "measuredAt": "2026-11-17T06:03:04.765Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "ac5a535724cf3b29e070f95f0f88b534d2b94b3adf658deeffc8a58fbd208e2c",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
       "id": "b46dc76f-1ee4-4e18-b8db-c4d8dd172fe9",
       "measuredAt": "2026-11-17T07:13:50.939Z",
       "source": {
@@ -715,56 +565,6 @@
         "language": "as",
         "runtime": "wavm",
         "mode": "SWAR",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "6ccc1efb-87f3-46a6-8500-b2a356219ad8",
-      "measuredAt": "2026-11-17T06:15:14.882Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "c09853e40090e1240246a266e365a82cc24a40abecbc86a1a7fe6cdb79bfedb7",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "effcb92f-a39c-4e5d-ad41-4fc36357e5a4",
-      "measuredAt": "2026-11-17T06:15:43.944Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "c09853e40090e1240246a266e365a82cc24a40abecbc86a1a7fe6cdb79bfedb7",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
         "strict": "false",
         "fastPath": "1",
         "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
@@ -869,56 +669,6 @@
       }
     },
     {
-      "id": "27d19078-dfac-4198-b6b2-5ecf44f01ab0",
-      "measuredAt": "2026-11-17T06:07:39.122Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "352c0948eb38d8f10f411ae6b9779370bdb6764b59be83dcdec18f9e8bcfc04d",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "33d047c9-0dbc-432a-8dec-1275f2a17b24",
-      "measuredAt": "2026-11-17T06:08:11.916Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "352c0948eb38d8f10f411ae6b9779370bdb6764b59be83dcdec18f9e8bcfc04d",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
       "id": "874b4d4b-9e06-4dd6-8dfa-a16a36a393eb",
       "measuredAt": "2026-11-17T07:13:58.850Z",
       "source": {
@@ -1011,56 +761,6 @@
         "language": "as",
         "runtime": "wavm",
         "mode": "SWAR",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "441bb47a-5591-4aa4-a173-b5ba5afc2033",
-      "measuredAt": "2026-11-17T06:09:28.010Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "6215804dab1e9b0f5e150e56f32bbc2c47267e9a579c5b3244fe8f02814f6498",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "1b6c4836-eca1-454f-9369-34f84766c7d3",
-      "measuredAt": "2026-11-17T06:09:57.971Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "6215804dab1e9b0f5e150e56f32bbc2c47267e9a579c5b3244fe8f02814f6498",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
         "strict": "false",
         "fastPath": "1",
         "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
@@ -1165,56 +865,6 @@
       }
     },
     {
-      "id": "eaf2e261-dfee-421f-be92-ec2dd3d60070",
-      "measuredAt": "2026-11-17T06:12:13.574Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "e631befda98a242641c3b88187814bc69300f12cfb38ad07479cbc61eeed8d14",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "dc0bf8bc-abad-4b14-b8a2-1280b588077f",
-      "measuredAt": "2026-11-17T06:12:56.774Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "e631befda98a242641c3b88187814bc69300f12cfb38ad07479cbc61eeed8d14",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
       "id": "f0e1bcd4-054d-4627-b0b9-ba8a66c1b04f",
       "measuredAt": "2026-11-17T07:14:05.399Z",
       "source": {
@@ -1313,56 +963,6 @@
       }
     },
     {
-      "id": "6c79112d-1958-48bc-87ad-7a0a68a841a1",
-      "measuredAt": "2026-11-17T06:13:49.809Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "e631befda98a242641c3b88187814bc69300f12cfb38ad07479cbc61eeed8d14",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "62851337-8d88-4724-828f-d3d10fa4cd5d",
-      "measuredAt": "2026-11-17T06:14:27.520Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "e631befda98a242641c3b88187814bc69300f12cfb38ad07479cbc61eeed8d14",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
       "id": "55a1e29f-7050-4559-8642-a607b8152467",
       "measuredAt": "2026-11-17T07:14:12.073Z",
       "source": {
@@ -1455,56 +1055,6 @@
         "language": "as",
         "runtime": "wavm",
         "mode": "SWAR",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "2d674ad2-601d-4f4c-bd3c-a333ed6d914c",
-      "measuredAt": "2026-11-17T06:03:48.806Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "ac5a535724cf3b29e070f95f0f88b534d2b94b3adf658deeffc8a58fbd208e2c",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
-        "strict": "false",
-        "fastPath": "1",
-        "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
-      }
-    },
-    {
-      "id": "d0375253-90ca-46f5-9626-f8ad342ab190",
-      "measuredAt": "2026-11-17T06:04:16.173Z",
-      "source": {
-        "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
-        "treeHash": "ac5a535724cf3b29e070f95f0f88b534d2b94b3adf658deeffc8a58fbd208e2c",
-        "version": "2.1.0",
-        "branch": "main"
-      },
-      "architecture": "arm64",
-      "hardwareModel": "Apple M4 Max",
-      "engines": {
-        "v8": "V8 version 15.2.20",
-        "node": "v26.4.0",
-        "runtime": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse"
-      },
-      "settings": {
-        "language": "as",
-        "runtime": "wavm",
-        "mode": "SIMD",
         "strict": "false",
         "fastPath": "1",
         "outputPolicy": "benchmark source (fresh, reused, lazy, or raw forwarding)"
