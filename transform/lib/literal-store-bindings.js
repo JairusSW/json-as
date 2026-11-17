@@ -12,6 +12,36 @@ export class LiteralStoreBindings {
     helpers = new Map();
     names = null;
     nextIndex = 0;
+    vectors = new Map();
+    nextVectorIndex = 0;
+    storeVector(parser, data, target, offset) {
+        let helper = this.vectors.get(data);
+        if (!helper) {
+            this.reserveNames(parser);
+            let file;
+            do {
+                helper = "__json_large_literal_" + this.nextVectorIndex++;
+                file = helper + ".ts";
+            } while (this.names.has(helper) ||
+                parser.sources.some((source) => source.normalizedPath === file || source.internalPath === helper));
+            this.names.add(helper);
+            const units = Array.from({ length: 8 }, (_, i) => data.charCodeAt(i));
+            parser.parseFile(`@lazy const DATA:usize=memory.data<u16>([${units.join(",")}],16);
+        @global @inline function ${helper}(dst:usize,offset:usize):void {
+          store<v128>(dst+offset,load<v128>(DATA));
+        }`, file, false);
+            this.vectors.set(data, helper);
+        }
+        return `${helper}(${target}, ${offset});`;
+    }
+    reserveNames(parser) {
+        if (this.names)
+            return;
+        this.names = new Set();
+        for (const source of parser.sources)
+            for (const name of arrayRowSourceInfo(source).names)
+                this.names.add(name);
+    }
     store(parser, sources, model, type, target, value, offset) {
         let native = this.native.get(model);
         if (!native)
@@ -35,12 +65,7 @@ export class LiteralStoreBindings {
             return null;
         let helper = this.helpers.get(type);
         if (!helper) {
-            if (!this.names) {
-                this.names = new Set();
-                for (const source of parser.sources)
-                    for (const name of arrayRowSourceInfo(source).names)
-                        this.names.add(name);
-            }
+            this.reserveNames(parser);
             let file;
             do {
                 helper = "__json_literal_store_" + this.nextIndex++;

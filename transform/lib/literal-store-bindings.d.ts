@@ -12,5 +12,9 @@ export declare class LiteralStoreBindings {
     private helpers;
     private names;
     private nextIndex;
+    private vectors;
+    private nextVectorIndex;
+    storeVector(parser: Parser, data: string, target: string, offset: number): string;
+    private reserveNames;
     store(parser: Parser, sources: SourceSet, model: ClassDeclaration, type: string, target: string, value: string, offset: number): string | null;
 }

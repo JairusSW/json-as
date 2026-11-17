@@ -8983,6 +8983,16 @@ export class JSONTransform extends Visitor {
     const out: string[] = [];
     const sizes = strToNum(data, simd);
     const declaration = model ?? this.schema?.node;
+    // Large string-bearing writers have enough literal traffic to amortize a
+    // second memory stream. Keep small rows and numeric writers on immediates.
+    const poolVectors =
+      simd &&
+      this.parser &&
+      declaration === this.schema?.node &&
+      this.schema.members?.length >= 16 &&
+      this.schema.members.filter((member) =>
+        /^(string|String)(\s*\|\s*null)?$/.test(member.type),
+      ).length >= 4;
     let offset = 0;
     for (const [size, num] of sizes) {
       const scoped =
@@ -9004,6 +9014,18 @@ export class JSONTransform extends Visitor {
         continue;
       }
       if (size == "v128" && simd) {
+        if (poolVectors) {
+          out.push(
+            this.literalStoreBindings.storeVector(
+              this.parser,
+              data.slice(offset >> 1, (offset >> 1) + 8),
+              target,
+              offset,
+            ),
+          );
+          offset += 16;
+          continue;
+        }
         const owner = this.schema.node.range.source;
         let statements = this.simdStatements.get(owner);
         if (!statements) this.simdStatements.set(owner, (statements = []));

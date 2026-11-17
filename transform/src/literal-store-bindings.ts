@@ -19,6 +19,51 @@ export class LiteralStoreBindings {
   private helpers = new Map<string, string>();
   private names: Set<string> | null = null;
   private nextIndex = 0;
+  private vectors = new Map<string, string>();
+  private nextVectorIndex = 0;
+
+  /** Keep literal loads in native scope even when a model shadows builtins. */
+  storeVector(
+    parser: Parser,
+    data: string,
+    target: string,
+    offset: number,
+  ): string {
+    let helper = this.vectors.get(data);
+    if (!helper) {
+      this.reserveNames(parser);
+      let file: string;
+      do {
+        helper = "__json_large_literal_" + this.nextVectorIndex++;
+        file = helper + ".ts";
+      } while (
+        this.names!.has(helper) ||
+        parser.sources.some(
+          (source) =>
+            source.normalizedPath === file || source.internalPath === helper,
+        )
+      );
+      this.names!.add(helper);
+      const units = Array.from({ length: 8 }, (_, i) => data.charCodeAt(i));
+      parser.parseFile(
+        `@lazy const DATA:usize=memory.data<u16>([${units.join(",")}],16);
+        @global @inline function ${helper}(dst:usize,offset:usize):void {
+          store<v128>(dst+offset,load<v128>(DATA));
+        }`,
+        file,
+        false,
+      );
+      this.vectors.set(data, helper);
+    }
+    return `${helper}(${target}, ${offset});`;
+  }
+
+  private reserveNames(parser: Parser): void {
+    if (this.names) return;
+    this.names = new Set();
+    for (const source of parser.sources)
+      for (const name of arrayRowSourceInfo(source).names) this.names.add(name);
+  }
 
   store(
     parser: Parser,
@@ -57,24 +102,19 @@ export class LiteralStoreBindings {
     if (native.get(type)) return null;
     let helper = this.helpers.get(type);
     if (!helper) {
-      if (!this.names) {
-        this.names = new Set();
-        for (const source of parser.sources)
-          for (const name of arrayRowSourceInfo(source).names)
-            this.names.add(name);
-      }
+      this.reserveNames(parser);
       let file: string;
       do {
         helper = "__json_literal_store_" + this.nextIndex++;
         file = helper + ".ts";
       } while (
-        this.names.has(helper) ||
+        this.names!.has(helper) ||
         parser.sources.some(
           (source) =>
             source.normalizedPath === file || source.internalPath === helper,
         )
       );
-      this.names.add(helper);
+      this.names!.add(helper);
       // A separate source gives both the parameter and intrinsic their native
       // binding. No managed storage or startup initializer is introduced.
       parser.parseFile(

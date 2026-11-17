@@ -9,9 +9,9 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full native capture: [private packed Unicode predicates](#private-packed-unicode-predicates--retained), using the qualified production images after `fc0382a4`. Four of nine workloads meet the 90% gate; near parity remains unmet.
+Latest full native capture: [private packed Unicode predicates](#private-packed-unicode-predicates--retained). It predates the new large-writer literal change; its last qualified gate is four of nine workloads. A new full native refresh is pending.
 
-Latest measured implementation comparison: the same private predicate change improves Poet in two independent paired captures. Countercase tradeoffs and complete raw evidence are recorded below.
+Latest measured implementation comparison: [bounded literal pools for large string-bearing writers](#large-string-bearing-literal-pools--retained). Twitter improves in both paired captures; GitHub remains unresolved. The overall near-parity objective is unfinished.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -4885,3 +4885,73 @@ red/green regression logs, reduced baseline controls, corrected sources,
 unchanged-image manifest, build/static checks and reproduction scripts. The
 literal-pooling prototype is separate and has not been qualified by these
 correctness results.
+
+
+## Large string-bearing literal pools — retained
+
+The refreshed profiles still attribute 33.2% of Twitter samples to its generated
+Status writer and 25.0% of GitHub samples to generated object-array dispatch.
+The earlier blanket vector-pool experiment regressed several workloads. This
+candidate limits the second memory stream to larger writers: at least sixteen
+JSON members, including four string/string-null members. Smaller rows and
+numeric writers keep immediate literal stores. This is a schema rule, with no
+corpus-name or input-data test and no new public option.
+
+Selected vector chunks use compile-time UTF-16 data and native-scope inline
+stores. Existing scoped-width fallbacks run first. Generated names avoid user
+declarations; helpers keep builtin memory/vector bindings separate from model
+aliases. Lazy compiler declarations eliminate unreachable payloads. There is no
+managed output cache, GC pacing or JSON representation change.
+
+Only Twitter's TweetUser/Status and GitHub's Forkee/Issue writers select this
+path in the classic corpus. The other seven complete modules are byte-identical.
+Two independent alternating owning-output comparisons give paired geometric
+elapsed-time changes:
+
+| Corpus | Initial, 8 pairs | Independent, 12 pairs | Repeat 95% interval | Faster repeat pairs |
+|---|---:|---:|---:|---:|
+| twitter | -3.24% | **-3.37%** | **-4.71% to -2.23%** | 12/12 |
+| github_events | -1.09% | -0.65% | -1.64% to +0.20% | 8/12 |
+
+Initial Twitter's interval is -4.33% to -2.05%, with all eight pairs faster.
+GitHub is unresolved in both captures. The repeat medians are 60.400 versus
+58.795 µs for Twitter and 7.095 versus 7.025 µs for GitHub; those median ratios
+are distinct from paired geometric effects. Intervals use 20,000 paired
+bootstrap resamples without multiplicity correction.
+
+The integrated production implementation reproduces **all nine measured
+prototype images exactly**. Its baseline source hash is reconstructed from the
+preserved preceding sources, and current engine/snapshot hashes match both
+capture starts. All source/prototype/image end seals pass. **80 fresh processes**
+ran on AC power under two separate shared-host timing holds; host process,
+memory and power audits are retained. Conditions remain Apple M4 Max/arm64,
+V8 15.2.20, AssemblyScript 0.28.20, original classic native-model harnesses,
+SIMD/incremental/compatibility, validation off, JSON_CACHE=0, and fresh owning
+output on each serialization. This is shared-host evidence, not isolation.
+
+Validation passes **312** exact vector-fence, policy-boundary, lexical-binding,
+public UTF-16 and retained-output checks in six configurations, plus **3,135**
+existing literal/cursor/fence/scoped-width/Unicode checks across eighteen
+configurations. The 15-member and three-string policies retain immediates;
+16/17-member four-string controls select pools. User DATA/helper-name collisions
+preserve their values. An unused large schema retains no pool payload and
+scalar startup allocations remain **27/27** against the control.
+
+The installed-package gate passes **468 operations across 36 configurations**,
+including a new positive large-writer case through both public entrypoints.
+All **51** warning configurations pass with AS201 enabled. Build, typecheck,
+lint and license checks pass, along with all nine complete-model/retained-GC
+oracles. Hosted CI and the next full native table remain separate pending gates.
+
+An initial prototype hook selected no code; the positive-path test caught that
+before timing. A fixture source also needed its Unicode line separators escaped.
+The subsequently isolated wide-default matcher failure and its production fix
+are documented above. No failed setup or no-selection run is counted as a
+throughput result.
+
+[Paired qualification and implementation evidence](data/serialization-large-string-literals.json.gz)
+preserves both captures, exact prototype/production images, complete outputs,
+source overrides, correctness/package logs, host audits, recipes and statistics.
+Historical baseline-image seals resolve through the hash-linked preceding
+archive. Embedded bytes and linked artifacts are independently verified. Restore
+the recorded baseline transform before replaying the prototype recipes.

@@ -5936,6 +5936,11 @@ export class JSONTransform extends Visitor {
         const out = [];
         const sizes = strToNum(data, simd);
         const declaration = model ?? this.schema?.node;
+        const poolVectors = simd &&
+            this.parser &&
+            declaration === this.schema?.node &&
+            this.schema.members?.length >= 16 &&
+            this.schema.members.filter((member) => /^(string|String)(\s*\|\s*null)?$/.test(member.type)).length >= 4;
         let offset = 0;
         for (const [size, num] of sizes) {
             const scoped = this.parser &&
@@ -5948,6 +5953,11 @@ export class JSONTransform extends Visitor {
                 continue;
             }
             if (size == "v128" && simd) {
+                if (poolVectors) {
+                    out.push(this.literalStoreBindings.storeVector(this.parser, data.slice(offset >> 1, (offset >> 1) + 8), target, offset));
+                    offset += 16;
+                    continue;
+                }
                 const owner = this.schema.node.range.source;
                 let statements = this.simdStatements.get(owner);
                 if (!statements)

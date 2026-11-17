@@ -74,6 +74,15 @@ export function unicodeRows():string {
  row.c=String.fromCharCode(55296)+"tail語".repeat(8);
  const owner=new UnicodeRows();owner.rows=[row];return Runtime.JSON.stringify(owner);
 }
+const __json_large_literal_0:i32=2, DATA:i32=3;
+@json({nolazy}) class WideLiterals {
+${Array.from({ length: 16 }, (_, i) => "long_literal_field_" + i + ':string="value' + i + '";').join("\n")}
+}
+export function wideLiterals():string {
+ assert(__json_large_literal_0+DATA==5);
+ const value=new WideLiterals();value.long_literal_field_0="updated語😀"+String.fromCharCode(0);
+ return Runtime.JSON.stringify(value);
+}
 @json({lazy:"strategic"}) class Forwarded { needed:i32=0; text:string=""; }
 function forwardedMask(value:Forwarded):i32 { return i32(load<u64>(changetype<usize>(value),offsetof<Forwarded>("__needed_lz"))>>>32==0xffffffff); }
 export function forwarded():string {
@@ -173,7 +182,18 @@ export function run():string {
               ],
             }),
           );
-          checks += 12;
+          assert.equal(
+            read(g.wideLiterals()),
+            JSON.stringify(
+              Object.fromEntries(
+                Array.from({ length: 16 }, (_, i) => [
+                  "long_literal_field_" + i,
+                  i === 0 ? "updated語😀\u0000" : "value" + i,
+                ]),
+              ),
+            ),
+          );
+          checks += 13;
           console.log(
             `Packed consumer: ${entry}/${mode}/${runtime}/strict=${strict}`,
           );

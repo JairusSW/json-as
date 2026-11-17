@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Pool native-width literal vectors in large string-bearing serializers. Keep small rows and numeric writers on immediate stores, preserve lexical bindings, and allocate no managed cache or startup objects.
+
 - Escape Unicode line separators in generated wide default-object matchers so changed documents cannot return their declared defaults.
 
 - Reduce private text-record Unicode scan work with packed ASCII tests and exact surrogate checks. Keep public string writers, bounds, output ownership and existing source/runtime fallbacks unchanged.
