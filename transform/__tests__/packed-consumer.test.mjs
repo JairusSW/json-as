@@ -64,6 +64,16 @@ namespace WidthAlias {
  export function encode():string { return Json.stringify(new Record()); }
 }
 export function widthAlias():string { return WidthAlias.encode(); }
+const BYTE_QUOTE:i32=1, BYTE_BACKSLASH:i32=2, BYTE_SPACE:i32=3;
+@json({nolazy}) class UnicodeRow { a!:string;b!:string;c!:string; }
+@json({nolazy}) class UnicodeRows { rows:UnicodeRow[]=[]; }
+export function unicodeRows():string {
+ assert(BYTE_QUOTE==1&&BYTE_BACKSLASH==2&&BYTE_SPACE==3);
+ const row=new UnicodeRow();row.a=String.fromCharCode(65535).repeat(32);
+ row.b=(String.fromCharCode(35486)+String.fromCharCode(10)+String.fromCharCode(34)).repeat(8);
+ row.c=String.fromCharCode(55296)+"tail語".repeat(8);
+ const owner=new UnicodeRows();owner.rows=[row];return Runtime.JSON.stringify(owner);
+}
 @json({lazy:"strategic"}) class Forwarded { needed:i32=0; text:string=""; }
 function forwardedMask(value:Forwarded):i32 { return i32(load<u64>(changetype<usize>(value),offsetof<Forwarded>("__needed_lz"))>>>32==0xffffffff); }
 export function forwarded():string {
@@ -151,7 +161,19 @@ export function run():string {
             '{"rows":[{"n":9007199254740993,"values":[1,2]}]}',
           );
           assert.equal(read(g.widthAlias()), '{"value":7}');
-          checks += 11;
+          assert.equal(
+            read(g.unicodeRows()),
+            JSON.stringify({
+              rows: [
+                {
+                  a: "\uffff".repeat(32),
+                  b: '語\n"'.repeat(8),
+                  c: "\ud800" + "tail語".repeat(8),
+                },
+              ],
+            }),
+          );
+          checks += 12;
           console.log(
             `Packed consumer: ${entry}/${mode}/${runtime}/strict=${strict}`,
           );

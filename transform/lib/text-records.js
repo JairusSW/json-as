@@ -118,10 +118,10 @@ export class TextRecordWriters {
             cloneNode(global),
         ];
         const mask = SimpleParser.parseTopLevelStatement(`@inline function ${maskName}(a:v128,b:v128):v128 {
-      const escaped=v128.or(v128.or(i16x8.eq(a,SPLAT_0022),i16x8.eq(b,SPLAT_0022)),v128.or(i16x8.eq(a,SPLAT_005C),i16x8.eq(b,SPLAT_005C)));
-      const controls=i16x8.lt_u(i16x8.min_u(a,b),SPLAT_0020);
+      const bytes=i8x16.narrow_i16x8_s(a,b);
+      const ascii=v128.or(i8x16.eq(bytes,BYTE_QUOTE),v128.or(i8x16.eq(bytes,BYTE_BACKSLASH),i8x16.lt_u(bytes,BYTE_SPACE)));
       const surrogates=v128.or(i16x8.eq(v128.and(a,SURROGATE_MASK),SURROGATE_BASE),i16x8.eq(v128.and(b,SURROGATE_MASK),SURROGATE_BASE));
-      return v128.or(escaped,v128.or(controls,surrogates));
+      return v128.or(ascii,surrogates);
     }`);
         const select = SimpleParser.parseTopLevelStatement(`@inline function ${selectName}(src:usize,size:u32,dst:usize):usize {
       if((load<u64>(src)|load<u64>(src,8))&0x8000800080008000)return ${rangeName}(src,size,dst);

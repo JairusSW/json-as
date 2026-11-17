@@ -9,9 +9,9 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full native capture: [numeric batches and literal bindings](#refreshed-native-comparison-and-literal-bindings), at `a6fde560`. Four of nine workloads meet the 90% gate. The subsequent [comma-credit correction](#numeric-batch-comma-credit-correction) is validated but awaits remeasurement; near parity remains unmet.
+Latest full native capture: [private packed Unicode predicates](#private-packed-unicode-predicates--retained), using the qualified production images after `fc0382a4`. Four of nine workloads meet the 90% gate; near parity remains unmet.
 
-Latest measured implementation comparison: [bounded numeric row batches](#bounded-numeric-row-batches--retained). This AS-before/after capture does not replace the native table, and it predates the comma-credit correction.
+Latest measured implementation comparison: the same private predicate change improves Poet in two independent paired captures. Countercase tradeoffs and complete raw evidence are recorded below.
 
 Work in progress on `jairus/serialize-parity`. The target is near parity with
 simdjson's fresh owning-struct serialization across the classic corpus. The
@@ -4652,7 +4652,84 @@ expanded regression is confirmed failing before the correction.
 Additional gates pass: **312** row checks; **162** reservation-transition checks;
 the nine-configuration owned-output allocation gate; **51** warning-free
 compiler configurations with AS201 enabled; build, typecheck, lint and license
-checks. Hosted CI on the corrected commit and its matched throughput comparison
-remain separate, pending gates. The historical native table and paired timing
-results describe their recorded snapshots; no new timing claim is made for
-this correction.
+checks. Hosted Tests, Lint and License headers all pass on `fc0382a4`.
+Twelve paired processes per side subsequently measure CITM at 78.235 versus
+78.850 µs median: paired elapsed-time change +0.43%, 95% interval -0.27%
+to +1.11%. This establishes no resolved timing change; the correctness fix
+is retained. The capture is included with the evidence below.
+
+
+## Private packed Unicode predicates — retained
+
+The existing guarded private text-record writer now narrows two UTF-16 vectors
+into one byte vector for quote, backslash and control detection. Signed
+saturation retains ASCII; an unsigned byte comparison prevents upper BMP
+characters from becoming false controls. Surrogates remain checked in the
+original UTF-16 vectors. Public writers, eligibility, declaration/effect checks,
+allocation behavior and output ownership are unchanged.
+
+Poet is the only changed classic module; the other eight binaries are identical
+to the corrected baseline. The prototype and integrated production images match
+byte for byte across all nine workloads.
+
+| Paired Poet capture | Baseline µs | Candidate µs | Paired elapsed change | 95% interval | Faster pairs |
+|---|---:|---:|---:|---:|---:|
+| Initial, 12 pairs | 173.265 | 167.465 | -3.62% | -6.11% to -1.22% | 10/12 |
+| Independent, 16 pairs | 171.510 | 164.500 | -4.50% | -5.87% to -3.22% | 16/16 |
+
+The independent capture corresponds to 19.232 versus 20.051 GB/s using the
+3,298,454-byte UTF-8 output. Paired geometric changes and median-rate ratios
+are distinct statistics.
+
+Fourteen text countercases were measured in eight alternating pairs each.
+Clean upper-BMP/CJK cases improve by approximately 3–13%, but the mixed
+Unicode/newline case regresses **1.40%**, interval **+0.27% to +2.77%**.
+Other intervals cross zero. This is a retained narrow tradeoff, not a universal
+string-speed improvement. Full countercase outputs and samples are preserved.
+
+Validation passes: **2,487,094** text-record checks in thirteen configurations;
+**204,214** common-escape checks in eight configurations, including 8,464 forced
+collections; **936** reservation checks; **432** installed-package operation
+checks across thirty-six configurations; **51** warning configurations with
+AS201 enabled; build, typecheck, lint and license checks. All nine complete-model
+and retained-output GC oracles pass. A first version of the new consumer fixture
+used an unsupported three-argument `String.fromCharCode`; its diagnostic is
+retained separately and is not counted as passing validation.
+
+### Full native refresh
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio | 90% gate |
+|---|---:|---:|---:|---|
+| twitter | 7.880 | 10.311 | 0.764× | Below |
+| canada | 1.154 | 1.254 | 0.920× | Pass |
+| citm_catalog | 6.389 | 10.386 | 0.615× | Below |
+| poet | 19.559 | 22.859 | 0.856× | Below |
+| github_events | 8.236 | 16.479 | 0.500× | Below |
+| gsoc-2018 | 11.647 | 16.738 | 0.696× | Below |
+| lottie | 26.688 | 21.699 | 1.230× | Pass |
+| otfcc | 35.445 | 23.836 | 1.487× | Pass |
+| fgo | 38.451 | 21.621 | 1.778× | Pass |
+
+The gate remains **4/9**. Five alternating fresh-process pairs per corpus give
+ninety processes; all fifty-nine periodic host audits report AC power.
+Conditions: Apple M4 Max/arm64, V8 15.2.20, Node 26.4.0, AssemblyScript 0.28.20,
+SIMD/incremental/compatibility, validation disabled, JSON_CACHE=0, original
+classic harnesses and fresh owning output on every operation. Native uses
+simdjson 5.0.4 (`3b0b2b53aaffb46208817821dce2cd47a5e6bb2a`), GCC 16.2.0,
+C++26 reflection, `-O3 -DNDEBUG -mcpu=native`; complete flags are archived.
+Background applications remain running and host-load audits are retained.
+
+These are independent native comparisons, not causal deltas against an earlier
+battery-powered table. The repeated paired Poet captures establish the effect
+of this implementation change. Production source hash is
+`7ac06f70c4ce88256aaf60eaab3e667a5a24d2029fc62cfbcf3f45c726043476`;
+the precommit patch, complete changed sources and exact images are sealed.
+Hosted CI is green on the preceding comma-credit commit; the new predicate
+commit requires its own hosted run.
+
+[Raw evidence](data/serialization-private-packed-unicode.json.gz) preserves
+**186 fresh processes and 394 serialization measurements**, complete outputs,
+images, statistics, host/power audits, reproduction scripts and validation logs.
+It references the preceding numeric-batch archive by SHA-256 for unchanged
+models, inputs and dependencies. Embedded bytes and the referenced archive are
+independently hash-verified.

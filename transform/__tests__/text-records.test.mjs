@@ -49,6 +49,19 @@ for (const n of [16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129]) {
         values.push(fill.repeat(pos) + special + fill.repeat(n));
   }
 }
+// Mix saturation edges and specials across both halves of each packed block.
+const packedEdges = [
+  31, 34, 92, 32767, 32768, 55295, 55296, 56319, 56320, 57343, 57344, 65535,
+];
+for (const block of [0, 16, 32, 48])
+  for (const lane of [0, 7])
+    for (const first of packedEdges)
+      for (const second of packedEdges) {
+        const chars = Array(64).fill("語");
+        chars[block + lane] = String.fromCharCode(first);
+        chars[block + lane + 8] = String.fromCharCode(second);
+        values.push(chars.join(""));
+      }
 fs.writeFileSync(
   d + "/inspect.mjs",
   `

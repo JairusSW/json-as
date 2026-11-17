@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reduce private text-record Unicode scan work with packed ASCII tests and exact surrogate checks. Keep public string writers, bounds, output ownership and existing source/runtime fallbacks unchanged.
+
 - Retire numeric-batch row estimates without counting enclosing-array comma credits twice. Preserve caller-held reservations and the original row writer accounting across batch boundaries and nullable rows.
 
 - Preserve native literal-store widths when a model shadows integer or vector type names. Emit helpers in an independent scope only where needed, including generated row separators; ordinary generated code stays unchanged.

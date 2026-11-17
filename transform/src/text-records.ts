@@ -157,12 +157,15 @@ export class TextRecordWriters {
       ...(pointer.decorators ?? []),
       cloneNode(global) as DecoratorNode,
     ];
+    // Signed narrowing preserves ASCII and maps upper BMP units to 0x80.
+    // Compare bytes unsigned for controls; detect surrogates in the original
+    // UTF-16 lanes. Only any_true consumes the combined mask's lane layouts.
     const mask =
       SimpleParser.parseTopLevelStatement(`@inline function ${maskName}(a:v128,b:v128):v128 {
-      const escaped=v128.or(v128.or(i16x8.eq(a,SPLAT_0022),i16x8.eq(b,SPLAT_0022)),v128.or(i16x8.eq(a,SPLAT_005C),i16x8.eq(b,SPLAT_005C)));
-      const controls=i16x8.lt_u(i16x8.min_u(a,b),SPLAT_0020);
+      const bytes=i8x16.narrow_i16x8_s(a,b);
+      const ascii=v128.or(i8x16.eq(bytes,BYTE_QUOTE),v128.or(i8x16.eq(bytes,BYTE_BACKSLASH),i8x16.lt_u(bytes,BYTE_SPACE)));
       const surrogates=v128.or(i16x8.eq(v128.and(a,SURROGATE_MASK),SURROGATE_BASE),i16x8.eq(v128.and(b,SURROGATE_MASK),SURROGATE_BASE));
-      return v128.or(escaped,v128.or(controls,surrogates));
+      return v128.or(ascii,surrogates);
     }`);
     // The signed packed ASCII scan treats upper BMP text as a conservative hit.
     // Two bounded words test the first eight code units without a vector bitmask.
