@@ -16,7 +16,7 @@ fi
 
 msg="$(head -n 1 "$msg_file" | tr -d '\r')"
 
-pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([[:alnum:]_.\/-]+\))?(!)?: .+'
+pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test|release)(\([[:alnum:]_.\/-]+\))?(!)?: .+'
 
 if ! printf '%s\n' "$msg" | grep -Eq "$pattern"; then
   cat <<'EOF'

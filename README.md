@@ -3,21 +3,21 @@
 ╚╝╚═╝╚═╝╝╚╝ ╩ ╩╚═╝</pre></h1>
 
 <p align="center">
+  Multi-GB/s JSON (de)serialization written in AssemblyScript utilizing elegant SIMD and SWAR algorithms
+</p>
+
+<p align="center">
   <a href="https://www.npmjs.com/package/json-as"><img src="https://img.shields.io/npm/v/json-as?logo=npm&amp;label=npm" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/json-as"><img src="https://img.shields.io/npm/dt/json-as?label=all-time%20downloads" alt="npm all-time downloads"></a>
+  <a href="https://www.npmjs.com/package/json-as"><img src="https://img.shields.io/npm/dt/json-as?label=downloads" alt="npm all-time downloads"></a>
   <a href="https://github.com/JairusSW/json-as/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/JairusSW/json-as/tests.yml?branch=main&amp;label=tests&amp;logo=github" alt="CI tests on main"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/JairusSW/json-as" alt="License"></a>
 </p>
 
 <p align="center">
-  <a href="https://docs.jairus.dev/json-as/">documentation</a> ·
+  <a href="https://docs.jairus.dev/json-as/">docs</a> ·
   <a href="#installation">installation</a> ·
-  <a href="https://docs.jairus.dev/json-as/reference/json-api">api reference</a> ·
   <a href="#examples">examples</a> ·
   <a href="#performance">benchmarks</a> ·
-  <a href="https://github.com/JairusSW/json-as/blob/main/CHANGELOG.md">changelog</a> ·
-  <a href="https://github.com/JairusSW/json-as/blob/main/CONTRIBUTING.md">contributing</a> ·
-  <a href="https://github.com/JairusSW/json-as/issues">issues</a> ·
   <a href="https://github.com/sponsors/JairusSW">sponsor me</a>
 </p>
 
@@ -51,20 +51,24 @@
 
 </details>
 
-`json-as` 2.1 compiles typed JSON readers and writers for AssemblyScript. Lazy parsing is enabled by default: visible parse sites can decode only fields the program needs. Full reads and uncertain uses keep eager behavior. Lazy parsing means access specialization; it adds no deferred slots or getters.
-
 ## Installation
-
-Install the package and its compiler peer:
 
 ```bash
 npm install json-as
-npm install --save-dev assemblyscript@^0.28.18
 ```
 
-Before 2.1.0 is published to npm, build this checkout with `npm ci`, `npm run build:transform`, and `npm pack`, then install the resulting `json-as-2.1.0.tgz` in your application. The package bundles its formatter sources; pnpm consumers do not need a separate `xjb-as` dependency.
+Add the `--transform` to your `asc` command (eg. in package.json)
 
-Register the transform in `asconfig.json`:
+```bash
+asc ... --transform json-as
+```
+
+Optionally, for additional performance, also add:
+```bash
+--enable simd
+```
+
+Alternatively, you can add it to your `asconfig.json`
 
 ```json
 {
@@ -74,8 +78,6 @@ Register the transform in `asconfig.json`:
 }
 ```
 
-Or pass `--transform json-as` to `asc`. Enable vector scanning with `--enable simd`; without it, the default scanner uses SWAR.
-
 ## Docs
 
 You can read the docs here:
@@ -83,18 +85,6 @@ You can read the docs here:
 <https://docs.jairus.dev/json-as>
 
 ## Usage
-
-Import `JSON` and enable the transform. The main entry points are:
-
-| API | Purpose |
-| --- | --- |
-| `JSON.parse<T>(text, out?)` | Parse into a typed value; optionally reuse a destination. |
-| `JSON.stringify(value, out?)` | Serialize current values; optionally reuse an output string. |
-| `JSON.validate(text)` | Check complete JSON syntax without constructing a typed value. |
-
-`validate` checks syntax, not whether the data matches a model. Use `JSON_STRICT=true` when typed parsing must validate the document and target values. Always retain the return value when supplying a reusable destination.
-
-See the [public API reference](https://docs.jairus.dev/json-as/reference/json-api).
 
 ```typescript
 import { JSON } from "json-as";
