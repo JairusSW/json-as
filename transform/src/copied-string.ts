@@ -22,7 +22,13 @@ import { diagnosticsRuntimeRoot } from "./diagnostics.js";
 
 /** Fuse string initialization with the installed incremental allocator's fill.
  * Unknown allocator bodies retain the ordinary allocate-then-copy path. */
-export function specializeCopiedStringAllocator(sources: Source[]): void {
+export function specializeCopiedStringAllocator(
+  sources: Source[],
+  aliases: Map<string, string> | null = null,
+): void {
+  // A verified stock body does not prove that the application's allocation
+  // entry resolves to it. Preserve configured hooks instead of bypassing them.
+  if (aliases?.has("__new")) return;
   const root = diagnosticsRuntimeRoot(sources);
   if (root === undefined) return;
   const target = sources.find(

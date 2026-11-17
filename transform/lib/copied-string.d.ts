@@ -6,4 +6,4 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { Source } from "assemblyscript/dist/assemblyscript.js";
-export declare function specializeCopiedStringAllocator(sources: Source[]): void;
+export declare function specializeCopiedStringAllocator(sources: Source[], aliases?: Map<string, string> | null): void;

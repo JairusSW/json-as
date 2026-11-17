@@ -80,8 +80,10 @@ export class NumericRowBatches {
             "bytes",
             "reserved",
             "begin",
+            "retired",
+            "floor",
         ].some((suffix) => this.names.has(stem + "_" + suffix)));
-        const [originalName, capacity, dst, start, end, bytes, reserved, begin] = [
+        const [originalName, capacity, dst, start, end, bytes, reserved, begin, retired, floor,] = [
             "original",
             "capacity",
             "dst",
@@ -90,6 +92,8 @@ export class NumericRowBatches {
             "bytes",
             "reserved",
             "begin",
+            "retired",
+            "floor",
         ].map((suffix) => stem + "_" + suffix);
         for (const name of [
             originalName,
@@ -100,6 +104,8 @@ export class NumericRowBatches {
             bytes,
             reserved,
             begin,
+            retired,
+            floor,
         ])
             this.names.add(name);
         const original = cloneNode(worker);
@@ -149,7 +155,7 @@ export class NumericRowBatches {
             : `${bytes}+=<u64>(${bound})*<u64>(${end}-${start});`;
         worker.body = SimpleParser.parseStatement(`{
       for(let ${start}=0;${start}<${length};) {
-        const ${end}=${start}+min<i32>(16,${length}-${start});
+        const ${end}=${start}+(${length}-${start}<=16?${length}-${start}:16);
         let ${bytes}:u64=<u64>(${end}-${start})*2;
         ${budget}
         if(${bytes}>0x3fffffff) {
@@ -168,10 +174,9 @@ export class NumericRowBatches {
           ${comma(dst)}
         }
         bs.offset=${dst};
-        bs.stackSize=max<usize>(
-          ${reserved}+(${dst}-bs.buffer-${begin}-(<usize>(${end}-${start})<<1)),
-          ${dst}-bs.buffer-2
-        );
+        const ${retired}=${reserved}+(${dst}-bs.buffer-${begin}-(<usize>(${end}-${start})<<1));
+        const ${floor}=${dst}-bs.buffer-2;
+        bs.stackSize=${retired}>${floor}?${retired}:${floor};
         ${start}=${end};
       }
     }`);

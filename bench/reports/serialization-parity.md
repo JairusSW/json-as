@@ -17,6 +17,26 @@ Prepared on `jairus/serialize-parity`. The user accepted the current performance
 checkpoint and ended further optimization. The latest nine-corpus table is the
 review baseline; full near parity across all corpora has not been achieved.
 
+## Review follow-up: generated bindings and throughput units
+
+The numeric batch writer now uses comparisons instead of application-visible
+`min`/`max` functions, while retaining its batch limits and comma-credit
+retirement. Copied-string/output allocation retains the original allocation
+entry when the compiler redirects `__new`. Regression fixtures check both
+non-generic and effectful generic arithmetic functions, plus a real
+`--use __new=customNew` allocation hook across all three backends.
+
+The classic runner now uses exact input fixture bytes for both deserialization
+rates, including whitespace. Serialization rates continue to use each engine's
+actual serialized output bytes. The nanosecond comparison gate is unchanged;
+the serialization throughput table above is unaffected by this reporting fix.
+
+All nine optimized classic serialization executables rebuilt with these fixes
+are **byte-identical** to the accepted `213db5dd` implementation. The
+[continuity manifest](data/serialization-review-bindings.json) preserves their
+hashes, build options and changed-transform hashes. No additional timing run
+was needed or performed; the accepted 4/9 performance checkpoint remains.
+
 ## Initial baseline
 
 Measured on local ARM64, on AC power, with the shared host timing lock.

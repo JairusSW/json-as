@@ -9292,7 +9292,10 @@ export default class Transformer extends Transform {
     }
 
     specializeObjectAllocator(parser.sources);
-    specializeCopiedStringAllocator(parser.sources);
+    specializeCopiedStringAllocator(
+      parser.sources,
+      this.program.options.globalAliases,
+    );
     specializeObjectBarrier(parser.sources);
     const hasStaticI64ArraySchema = [...transformer.schemas.values()].some(
       (schemas) =>

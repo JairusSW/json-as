@@ -156,3 +156,25 @@ export function classicSerializationLayout(source, rootType) {
   if (!layout) throw Error("Unrecognized classic input layout");
   return layout;
 }
+
+// Bytes per nanosecond are decimal GB/s. Parsing consumes the original input,
+// including whitespace; writing produces each engine's actual output.
+export function classicThroughput({
+  phase,
+  inputBytes,
+  asOutputBytes,
+  nativeOutputBytes,
+  asNs,
+  nativeNs,
+}) {
+  if (phase !== "deserialize" && phase !== "serialize")
+    throw new Error(`Unknown classic phase: ${phase}`);
+  return {
+    inputBytes,
+    outputBytes: asOutputBytes,
+    nativeOutputBytes,
+    asGBps: (phase === "deserialize" ? inputBytes : asOutputBytes) / asNs,
+    nativeGBps:
+      (phase === "deserialize" ? inputBytes : nativeOutputBytes) / nativeNs,
+  };
+}

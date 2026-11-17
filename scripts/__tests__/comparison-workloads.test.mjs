@@ -12,6 +12,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   literalPayload,
+  classicThroughput,
   comparisonWorkload,
   comparisonWorkloads,
   digest,
@@ -97,4 +98,36 @@ test("overview and library native baselines name the actual typed models", () =>
   assert.equal(NATIVE_MODELS.multilib.root, "Repo");
   for (const model of Object.values(NATIVE_MODELS))
     assert.ok(fs.existsSync(model.source));
+});
+
+test("classic throughput measures consumed input for parsing and produced bytes for writing", () => {
+  const text = '{\n  "label": "日本語",\n  "n": 7\n}';
+  const compact = JSON.stringify(JSON.parse(text));
+  const inputBytes = Buffer.byteLength(text);
+  const asOutputBytes = Buffer.byteLength(compact);
+  // Output representations need not have identical lengths (e.g. escaping).
+  const nativeOutputBytes = Buffer.byteLength(
+    compact.replace("日本語", "\\u65e5\\u672c\\u8a9e"),
+  );
+  assert.notEqual(inputBytes, asOutputBytes);
+  assert.notEqual(asOutputBytes, nativeOutputBytes);
+  const counts = {
+    inputBytes,
+    asOutputBytes,
+    nativeOutputBytes,
+    asNs: 2,
+    nativeNs: 4,
+  };
+  const parse = classicThroughput({ ...counts, phase: "deserialize" });
+  assert.equal(parse.asGBps, inputBytes / 2);
+  assert.equal(parse.nativeGBps, inputBytes / 4);
+  const write = classicThroughput({ ...counts, phase: "serialize" });
+  assert.equal(write.asGBps, asOutputBytes / 2);
+  assert.equal(write.nativeGBps, nativeOutputBytes / 4);
+  assert.equal(write.outputBytes, asOutputBytes);
+  assert.equal(write.nativeOutputBytes, nativeOutputBytes);
+  assert.throws(
+    () => classicThroughput({ ...counts, phase: "unknown" }),
+    /Unknown classic phase/,
+  );
 });

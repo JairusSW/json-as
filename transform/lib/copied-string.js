@@ -10,7 +10,9 @@ import { NodeKind } from "./types.js";
 import { cloneNode, SimpleParser, toString } from "./util.js";
 import { Visitor } from "./visitor.js";
 import { diagnosticsRuntimeRoot } from "./diagnostics.js";
-export function specializeCopiedStringAllocator(sources) {
+export function specializeCopiedStringAllocator(sources, aliases = null) {
+    if (aliases?.has("__new"))
+        return;
     const root = diagnosticsRuntimeRoot(sources);
     if (root === undefined)
         return;

@@ -56,9 +56,14 @@ assert.equal(
   original,
 );
 assert.equal(toString(app), application);
-const outputAllocator = rt.statements.find((s) => s.name?.text === "__json_as_allocate_output_string0");
+const outputAllocator = rt.statements.find(
+  (s) => s.name?.text === "__json_as_allocate_output_string0",
+);
 assert.ok(outputAllocator);
-assert.match(toString(outputAllocator), /id != idof<string>\(\) \|\| isDefined\(ASC_RTRACE\)/);
+assert.match(
+  toString(outputAllocator),
+  /id != idof<string>\(\) \|\| isDefined\(ASC_RTRACE\)/,
+);
 assert.match(toString(outputAllocator), /memory.fill\(ptr, 0, size\)/);
 assert.match(toString(outputAllocator), /obj.linkTo\(fromSpace, white\)/);
 assert.match(toString(helper), /return __json_as_output_allocate0\(size, id\)/);
@@ -126,4 +131,22 @@ assert.equal(
 );
 console.log(
   "Fresh-object clear: zeroing proof, actual scoped allocator, instrumentation and unknown-runtime fallback passed",
+);
+
+const redirected = fixture();
+const beforeRedirected = redirected.map(toString);
+specializeCopiedStringAllocator(redirected, new Map([["__new", "customNew"]]));
+assert.deepEqual(
+  redirected.map(toString),
+  beforeRedirected,
+  "redirected allocation must retain its original entry",
+);
+const unrelated = fixture();
+specializeCopiedStringAllocator(
+  unrelated,
+  new Map([["APPLICATION_FLAG", "1"]]),
+);
+assert.match(
+  toString(unrelated.find((s) => s.internalPath === "assembly/util/runtime")),
+  /return __json_as_output_allocate0/,
 );

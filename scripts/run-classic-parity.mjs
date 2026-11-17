@@ -15,6 +15,7 @@ import {
   CLASSIC,
   digest,
   classicSerializationLayout,
+  classicThroughput,
 } from "./lib/comparison-workloads.mjs";
 import { readSchema } from "../bench/simdjson/generate.mjs";
 const root = path.resolve(import.meta.dirname, "..");
@@ -383,11 +384,18 @@ if (args.includes("--measure")) {
         layout,
         ...ns,
         sourceLayout: serializationInputs?.[c.name] ?? layout,
-        outputBytes: fs.statSync(oracle(sourceSuite(c, layout), "as")).size,
-        asGBps: fs.statSync(oracle(sourceSuite(c, layout), "as")).size / ns.as,
-        nativeGBps:
-          fs.statSync(oracle(sourceSuite(c, layout), "native")).size /
-          ns.native,
+        ...classicThroughput({
+          phase,
+          inputBytes: fs.statSync(
+            path.join(nativeBase, "inputs", sourceSuite(c, layout) + ".json"),
+          ).size,
+          asOutputBytes: fs.statSync(oracle(sourceSuite(c, layout), "as")).size,
+          nativeOutputBytes: fs.statSync(
+            oracle(sourceSuite(c, layout), "native"),
+          ).size,
+          asNs: ns.as,
+          nativeNs: ns.native,
+        }),
         throughputFraction: ns.native / ns.as,
         pass: ns.native / ns.as >= threshold,
       };
