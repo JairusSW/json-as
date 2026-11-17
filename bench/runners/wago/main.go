@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	wago "github.com/wago-org/wago"
 	"github.com/wago-org/wasi/p1"
@@ -41,11 +40,13 @@ func main() {
 	}
 	instance, err := wago.Instantiate(compiled, wago.InstantiateOptions{
 		Imports: p1.Imports(p1.Config{
-			Stdout:   os.Stdout,
-			Stderr:   os.Stderr,
-			Args:     []string{wasmPath},
-			Preopens: map[string]string{"/": root},
-			Now:      func() int64 { return time.Now().UnixNano() },
+			Stdout: os.Stdout,
+			Stderr: os.Stderr,
+			Args:   []string{wasmPath},
+			Mounts: []p1.Preopen{{
+				GuestPath: "/", HostPath: root,
+				Read: true, Write: true, MutateDirectory: true,
+			}},
 		}),
 	})
 	if err != nil {
