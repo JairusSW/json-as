@@ -4,10 +4,8 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/json-as"><img src="https://img.shields.io/npm/v/json-as?logo=npm&amp;label=npm" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/json-as"><img src="https://img.shields.io/npm/dw/json-as?label=downloads%2Fweek" alt="npm downloads per week"></a>
-  <a href="https://www.npmjs.com/package/json-as"><img src="https://img.shields.io/npm/dm/json-as?label=downloads%2Fmonth" alt="npm downloads per month"></a>
+  <a href="https://www.npmjs.com/package/json-as"><img src="https://img.shields.io/npm/dt/json-as?label=all-time%20downloads" alt="npm all-time downloads"></a>
   <a href="https://github.com/JairusSW/json-as/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/JairusSW/json-as/tests.yml?branch=main&amp;label=tests&amp;logo=github" alt="CI tests on main"></a>
-  <a href="https://github.com/JairusSW/json-as/releases"><img src="https://img.shields.io/github/v/release/JairusSW/json-as?include_prereleases&amp;label=release" alt="GitHub release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/JairusSW/json-as" alt="License"></a>
 </p>
 
