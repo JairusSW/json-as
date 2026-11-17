@@ -151,7 +151,8 @@
     "bench:comparisons": "node ./scripts/run-comparison-benches.mjs",
     "test:package:pnpm": "npm run build:transform && npm exec --yes --package=pnpm@11.15.1 -- node transform/__tests__/pnpm-consumer.test.mjs",
     "license:check": "node ./scripts/license-headers.mjs --check",
-    "prepublishOnly": "npm run license:check"
+    "prepublishOnly": "npm run license:check",
+    "check:source-guards": "node scripts/update-array-row-runtime.mjs --check"
   },
   "type": "module",
   "types": "assembly/index.ts",

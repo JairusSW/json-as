@@ -141,11 +141,14 @@ export function run():string {
           );
           let g;
           const read = (p) =>
-            Buffer.from(
-              g.memory.buffer,
-              p,
-              new DataView(g.memory.buffer).getUint32(p - 4, true) & 0x7fffffff,
-            ).toString("utf16le");
+            !p
+              ? "<null>"
+              : Buffer.from(
+                  g.memory.buffer,
+                  p,
+                  new DataView(g.memory.buffer).getUint32(p - 4, true) &
+                    0x7fffffff,
+                ).toString("utf16le");
           g = new WebAssembly.Instance(
             new WebAssembly.Module(fs.readFileSync(wasm)),
             {

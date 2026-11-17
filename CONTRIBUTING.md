@@ -244,3 +244,22 @@ If your change affects performance:
 By contributing, you agree that your contributions will be licensed under the Mozilla Public License 2.0 (SPDX: MPL-2.0).
 
 Add the project license notice to new source files and run `npm run license:check`. Preserve upstream notices when incorporating third-party code; list those components in `NOTICE`.
+
+## Reviewed runtime source guards
+
+Some serializer optimizations require exact source and AST fingerprints. After changing or formatting a reviewed runtime file, check them with:
+
+```bash
+npm run build:transform
+npm run check:source-guards
+```
+
+A mismatch keeps the conservative runtime path active and blocks release qualification. Review the changed dependencies before refreshing the fingerprints:
+
+```bash
+node scripts/update-array-row-runtime.mjs
+npm run build:transform
+npm run check:source-guards
+```
+
+Do not refresh fingerprints just to accept an unknown runtime or application hook. Re-run the affected optimization, callback, GC, and packed-consumer tests after reviewing the change.

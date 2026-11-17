@@ -41,15 +41,33 @@ const result = await asc.main(
   { transforms: [Inspect] },
 );
 assert.match(String(result.error), /ARRAY_ROW_MANIFEST_COMPLETE/);
-const target = "transform/src/array-row-runtime.ts";
-const header = fs.readFileSync(target, "utf8").split("export const")[0];
-fs.writeFileSync(
-  target,
-  header +
-    "export const ARRAY_ROW_SOURCES = new Map<string, readonly [string, string]>(" +
-    JSON.stringify(entries, null, 2) +
-    ");\n",
-);
-console.log(
-  `Updated ${entries.length} reviewed source and AST fingerprints; rebuild the transform before testing.`,
-);
+const changed = entries.filter(([key, actual]) => {
+  const expected = ARRAY_ROW_SOURCES.get(key);
+  return !expected || actual.some((value, index) => value !== expected[index]);
+});
+if (process.argv.includes("--check")) {
+  if (changed.length) {
+    console.error("Reviewed runtime fingerprints are stale:");
+    for (const [key] of changed) console.error(`  ${key}`);
+    console.error(
+      "Review the source changes, run node scripts/update-array-row-runtime.mjs, then npm run build:transform.",
+    );
+    process.exitCode = 1;
+  } else
+    console.log(
+      `Verified ${entries.length} reviewed source and AST fingerprints.`,
+    );
+} else {
+  const target = "transform/src/array-row-runtime.ts";
+  const header = fs.readFileSync(target, "utf8").split("export const")[0];
+  fs.writeFileSync(
+    target,
+    header +
+      "export const ARRAY_ROW_SOURCES = new Map<string, readonly [string, string]>(" +
+      JSON.stringify(entries, null, 2) +
+      ");\n",
+  );
+  console.log(
+    `Updated ${entries.length} reviewed source and AST fingerprints; rebuild the transform before testing.`,
+  );
+}

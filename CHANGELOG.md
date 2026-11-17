@@ -12,6 +12,8 @@ The public parse/stringify signatures and MPL-2.0 license are unchanged. See the
 
 ### Changes
 
+- Refresh reviewed runtime fingerprints after formatting-only changes, and check them early in source and release CI. Improve packed-consumer abort diagnostics.
+
 - Pool native-width literal vectors in large string-bearing serializers. Keep small rows and numeric writers on immediate stores, preserve lexical bindings, and allocate no managed cache or startup objects.
 
 - Escape Unicode line separators in generated wide default-object matchers so changed documents cannot return their declared defaults.
@@ -74,9 +76,7 @@ The public parse/stringify signatures and MPL-2.0 license are unchanged. See the
 
 - Specialize ordinary `@json` readers at visible parse sites by default. Proven-unused supported fields are scanned without decoding; full reads and uncertain or escaping uses retain eager behavior. Set `JSON_LAZY=false` to disable this optimization.
 
-- Parse array-typed fields eagerly, including `JSON.Arr` fields using lazy markers or class-wide lazy modes. Dynamic `JSON.Arr` retains its existing deferred-element behavior.
-
-
+- Keep array-typed fields eager. Dynamic `JSON.Arr` retains its existing deferred-element behavior.
 
 - Consolidate lazy parsing into access specialization with boolean class options and `JSON_LAZY`. Remove deferred typed-field storage, strategic planning, field markers, and their source-forwarding writer paths. Hide runtime helper exports from editor completion while preserving generated calls.
 

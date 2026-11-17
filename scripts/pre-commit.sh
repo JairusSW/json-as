@@ -21,5 +21,8 @@ if ! git diff --quiet -- . ':(exclude)transform/lib'; then
   exit 1
 fi
 
+echo "Checking reviewed runtime source guards..."
+npm run check:source-guards
+
 echo "Running linter..."
 npm run lint

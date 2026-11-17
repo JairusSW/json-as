@@ -79,7 +79,7 @@ export const ARRAY_ROW_SOURCES = new Map<string, readonly [string, string]>([
   [
     "own:assembly/index",
     [
-      "150297395f3a661c12eeb2fcf8116866ea99a9602177296f7fe9970d1b83c89f",
+      "9af71b3f300988bf92bcee8f95004b9248fece52c77afa8cdee12ffcf56b6d1d",
       "17eb9cdd39d7e5d8759f28d339c55fc0a7db756489f785b4bb7784f2a20f754b",
     ],
   ],
@@ -100,7 +100,7 @@ export const ARRAY_ROW_SOURCES = new Map<string, readonly [string, string]>([
   [
     "own:lib/as-bs",
     [
-      "3f51706d9ae17c6a4e9762434608f76d0a95a32d5492309c635c42a6442e587b",
+      "74cee1fa29a713b4d00979d08148169667a22dfe9f62c258475fa293f960a10b",
       "b610b4e999d1fdb9b0e9175a1964036607d82fb41c86158a9d98f9900df63b80",
     ],
   ],
@@ -114,7 +114,7 @@ export const ARRAY_ROW_SOURCES = new Map<string, readonly [string, string]>([
   [
     "own:assembly/serialize/naive/array",
     [
-      "aa1ac4c9fd8e582c23a8995c603faf954ea89819cd9d2fc4e51f66d18d1d4820",
+      "e6fc586bea8bdf0c320b6ca4227e2535ceef1b6baba9e3bbcde025af27ea82b8",
       "4fbbb6f3293cddcf12227d173e4ad318fce33f48d9380c93f2e8f3518e66a996",
     ],
   ],
