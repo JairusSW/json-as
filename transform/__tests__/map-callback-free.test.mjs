@@ -123,7 +123,7 @@ try {
     for (let kind = 0; kind < 14; kind++) {
       assert.equal(
         !!g.eligible(kind),
-        config.enabled && [0, 7, 8, 11, 13].includes(kind),
+        config.enabled && [0, 5, 7, 8, 11, 13].includes(kind),
         JSON.stringify({ ...config, kind }),
       );
       checks++;

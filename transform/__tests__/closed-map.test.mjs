@@ -131,7 +131,7 @@ try {
       ["nullable", { a: value, b: null }, true, 2],
       ["numericKeys", { 7: value, 8: value }, false, 2],
       ["derived", { a: { child: { n: 1, extra: 2 } } }, false, 1],
-      ["deferred", { a: { value: 7 } }, false, 1],
+      ["deferred", { a: { value: 7 } }, true, 1],
       ["foreign", { a: { n: 11 } }, true, 1],
       ["local", { a: { n: 22 } }, true, 1],
     ];
