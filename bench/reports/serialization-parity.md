@@ -9,7 +9,7 @@ discovers the AS writer's actual initialization input and uses that layout for
 native serialization and output-byte accounting. Source-aligned qualification
 is reported below; the isolated AS-before/after screens are unaffected.
 
-Latest full native capture: [private packed Unicode predicates](#private-packed-unicode-predicates--retained). It predates the new large-writer literal change; its last qualified gate is four of nine workloads. A new full native refresh is pending.
+Latest full native capture: [bounded large-writer literals](#full-native-refresh-after-large-writer-literals), at `213db5dd`. Four of nine workloads meet the 90% gate; the near-parity objective remains unfinished.
 
 Latest measured implementation comparison: [bounded literal pools for large string-bearing writers](#large-string-bearing-literal-pools--retained). Twitter improves in both paired captures; GitHub remains unresolved. The overall near-parity objective is unfinished.
 
@@ -4955,3 +4955,49 @@ source overrides, correctness/package logs, host audits, recipes and statistics.
 Historical baseline-image seals resolve through the hash-linked preceding
 archive. Embedded bytes and linked artifacts are independently verified. Restore
 the recorded baseline transform before replaying the prototype recipes.
+
+
+## Full native refresh after large-writer literals
+
+The committed implementation at `213db5dd` is requalified against native
+simdjson owning structs with five alternating fresh-process pairs per corpus:
+
+| Corpus | json-as GB/s | simdjson GB/s | Throughput ratio | 90% gate |
+|---|---:|---:|---:|---|
+| twitter | 8.230 | 10.568 | 0.779× | Below |
+| canada | 1.153 | 1.260 | 0.915× | Pass |
+| citm_catalog | 6.453 | 10.374 | 0.622× | Below |
+| poet | 20.160 | 23.329 | 0.864× | Below |
+| github_events | 8.331 | 16.316 | 0.511× | Below |
+| gsoc-2018 | 11.638 | 16.760 | 0.694× | Below |
+| lottie | 26.135 | 22.386 | 1.168× | Pass |
+| otfcc | 34.608 | 23.615 | 1.466× | Pass |
+| fgo | 38.872 | 21.470 | 1.810× | Pass |
+
+The gate remains **4/9**. All **90 fresh-process records** complete; all
+**58 periodic host audits** report AC power. The harness exits 1 solely
+because the 90% gate is unmet. Source, all nine Wasm images, native binaries,
+models, inputs, outputs, engine and snapshot hashes pass their end seals.
+
+Conditions remain Apple M4 Max/arm64, V8 15.2.20, Node 26.4.0,
+AssemblyScript 0.28.20, SIMD/incremental/compatibility, validation disabled,
+JSON_CACHE=0, original classic harnesses and complete owned models serialized
+to fresh outputs every operation. Native uses simdjson 5.0.4 at `3b0b2b53`,
+GCC 16.2.0, C++26/reflection and `-O3 -DNDEBUG -mcpu=native`; exact flags are
+preserved in the manifest. Rates count each writer's actual UTF-8 output bytes,
+with source layouts aligned as above. Host-load and memory audits are retained;
+these are shared-host measurements, not isolated-host or peak-RSS claims.
+
+The two paired Twitter captures establish the **3.37%** repeated elapsed-time
+improvement. Differences between this native table and an earlier independent
+capture are not causal implementation deltas, especially for the seven
+byte-identical controls. GitHub's paired effect remains unresolved.
+
+The qualified production source hash is
+`63ab9a8af549b0c656da3fd82ff03182b8f1a03fd11c00a9250a37240bec4767`.
+[Native refresh evidence](data/serialization-large-literals-native.json.gz)
+preserves the complete samples/results, all host audits, manifests, recipes and
+end seals. Exact images and unchanged output files resolve by SHA-256 through
+the linked implementation and preceding native artifacts; embedded bytes and
+references are independently verified. Hosted CI on the code commit remains a
+separate gate. PR #256 remains draft and the full near-parity goal is active.
