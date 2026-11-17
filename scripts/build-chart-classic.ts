@@ -24,7 +24,7 @@ import {
   type BenchKind,
   type BenchResult,
 } from "./lib/bench-utils";
-import { MODE_BARS, OBJ_BAR, SIMDJSON_BAR, rgba, BASE } from "./lib/palette";
+import { MODE_BARS, SIMDJSON_BAR } from "./lib/palette";
 
 const RUNTIMES = ["v8", "wavm"] as const;
 type Runtime = (typeof RUNTIMES)[number];
@@ -83,9 +83,6 @@ const DATASETS: { key: string; label: string }[] = [
 
 // NAIVE / SWAR / SIMD retain their standard mode hues.
 const MODE_COLORS = [MODE_BARS[1], MODE_BARS[2], MODE_BARS[3]];
-// SIMD-only extra series: lazy(auto) (muted teal) and dynamic JSON.Obj (copper).
-const LAZY_BAR = { bg: rgba("mutedTeal", 0.85), border: BASE.mutedTeal };
-
 const TITLES: Record<BenchKind, string> = {
   deserialize: "Deserialization throughput of classic payloads",
   serialize: "Serialization throughput of classic payloads",
@@ -133,13 +130,6 @@ for (const runtime of [ISOLATED_RUNTIME]) {
       );
       if (eager.every((r) => !r.mbps)) continue;
       if (eager.every((r) => r.mbps > 0)) present++;
-      // SIMD-only lazy(auto) + dynamic JSON.Obj bars, appended after the modes.
-      const lazy =
-        read(runtime, "simd", `${key}-lazy-min`, kind) ??
-        ({ mbps: 0 } as BenchResult);
-      const obj =
-        read(runtime, "simd", `${key}-obj-min`, kind) ??
-        ({ mbps: 0 } as BenchResult);
       const native = readComparisonResult(`${key}-min`, kind, eager[2]);
       const js = readComparisonResult(
         `${key}-min`,
@@ -147,10 +137,7 @@ for (const runtime of [ISOLATED_RUNTIME]) {
         eager[2],
         "js-classic",
       );
-      chartData[key] =
-        kind === "serialize"
-          ? [...eager, native, js]
-          : [...eager, lazy, obj, native, js];
+      chartData[key] = [...eager, native, js];
     }
     if (present === 0) {
       console.warn(`  skip ${kind}/${runtime}: no logs found`);
@@ -163,32 +150,16 @@ for (const runtime of [ISOLATED_RUNTIME]) {
         runtimeLabel: runtime,
         yLabel: "Throughput (MB/s)",
         xLabel: "",
-        datasetLabels:
-          kind === "serialize"
-            ? [
-                "NAIVE",
-                "SWAR",
-                "SIMD",
-                "simdjson (owning)",
-                "Built-in JSON (JS/V8)",
-              ]
-            : [
-                "NAIVE",
-                "SWAR",
-                "SIMD",
-                "Lazy (subset read)",
-                kind === "serialize"
-                  ? "untouched JSON.Obj forwarding"
-                  : "JSON.Obj (subset read)",
-                "simdjson (owning)",
-                "Built-in JSON (JS/V8)",
-              ],
-        colors:
-          kind === "serialize"
-            ? [...MODE_COLORS, SIMDJSON_BAR, MODE_BARS[0]]
-            : [...MODE_COLORS, LAZY_BAR, OBJ_BAR, SIMDJSON_BAR, MODE_BARS[0]],
+        datasetLabels: [
+          "NAIVE",
+          "SWAR",
+          "SIMD",
+          "simdjson (owning)",
+          "Built-in JSON (JS/V8)",
+        ],
+        colors: [...MODE_COLORS, SIMDJSON_BAR, MODE_BARS[0]],
         // Value labels stand up off each bar top (anchor "end", rotated vertical):
-        // the six narrow same-height bars per group would otherwise overlap their
+        // the five narrow same-height bars per group would otherwise overlap their
         // labels. generateChart compensates for the datalabels dpr quirk on the
         // PNG raster path.
         labelAnchor: "end",
