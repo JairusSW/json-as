@@ -529,70 +529,70 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 - **SWAR** — *SIMD-Within-A-Register*: processes 8 bytes at a time with ordinary 64-bit integer math. The default.
 - **SIMD** — true 128-bit vector scanning. Fastest on large and string-heavy payloads; enable with `--enable simd`.
 
-📊 **[Browse the full chart set for this release →](https://github.com/JairusSW/json-as/tree/docs/charts/v2.0.0)**
+📊 **[Browse the full chart set for this release →](https://github.com/JairusSW/json-as/tree/docs/charts/v2.1.0)**
 
 ### Real-World Throughput
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/classic-payload-deserialize-v8.svg" alt="Deserialization throughput across nine classic JSON payloads">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/classic-payload-deserialize-v8.svg" alt="Deserialization throughput across nine classic JSON payloads">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/classic-payload-serialize-v8.svg" alt="Serialization throughput across nine classic JSON payloads">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/classic-payload-serialize-v8.svg" alt="Serialization throughput across nine classic JSON payloads">
 
 ### Comparison to JavaScript
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/overview-serialize.svg" alt="Performance Chart 1">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/overview-serialize.svg" alt="Performance Chart 1">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/overview-deserialize.svg" alt="Performance Chart 2">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/overview-deserialize.svg" alt="Performance Chart 2">
 
 <details>
 <summary>String serialization chart (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-serialize.svg" alt="Performance Chart 3">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/string-serialize.svg" alt="Performance Chart 3">
 
 </details>
 
 <details>
 <summary>String deserialization chart (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/string-deserialize.svg" alt="Performance Chart 4">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/string-deserialize.svg" alt="Performance Chart 4">
 
 </details>
 
 <details>
 <summary>Object serialization chart (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-serialize.svg" alt="Performance Chart 5">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/object-serialize.svg" alt="Performance Chart 5">
 
 </details>
 
 <details>
 <summary>Object deserialization chart (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/object-deserialize.svg" alt="Performance Chart 6">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/object-deserialize.svg" alt="Performance Chart 6">
 
 </details>
 
 <details>
 <summary>Primitive (de)serialize charts (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/primitive-serialize.svg" alt="Primitive serialization performance">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/primitive-serialize.svg" alt="Primitive serialization performance">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/primitive-deserialize.svg" alt="Primitive deserialization performance">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/primitive-deserialize.svg" alt="Primitive deserialization performance">
 </details>
 
 ### Library Comparison
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/library-deserialize.svg" alt="Library comparison - deserialize throughput">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/library-deserialize.svg" alt="Library comparison - deserialize throughput">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/library-serialize.svg" alt="Library comparison - serialize throughput">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/library-serialize.svg" alt="Library comparison - serialize throughput">
 
 ### Runtime Comparison
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/runtimes-deserialize.svg" alt="Deserialization throughput across WebAssembly runtimes">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/runtimes-deserialize.svg" alt="Deserialization throughput across WebAssembly runtimes">
 
 <details>
 <summary>Serialization throughput (click to expand)</summary>
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.0.0/runtimes-serialize.svg" alt="Serialization throughput across WebAssembly runtimes">
+<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/runtimes-serialize.svg" alt="Serialization throughput across WebAssembly runtimes">
 </details>
 
 ### Lazy Fields
