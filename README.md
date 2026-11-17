@@ -9,6 +9,18 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/JairusSW/json-as" alt="License"></a>
 </p>
 
+<p align="center">
+  <a href="https://docs.jairus.dev/json-as/">documentation</a> ·
+  <a href="#installation">installation</a> ·
+  <a href="https://docs.jairus.dev/json-as/reference/json-api">api reference</a> ·
+  <a href="#examples">examples</a> ·
+  <a href="#performance">benchmarks</a> ·
+  <a href="https://github.com/JairusSW/json-as/blob/main/CHANGELOG.md">changelog</a> ·
+  <a href="https://github.com/JairusSW/json-as/blob/main/CONTRIBUTING.md">contributing</a> ·
+  <a href="https://github.com/JairusSW/json-as/issues">issues</a> ·
+  <a href="https://github.com/sponsors/JairusSW">sponsor me</a>
+</p>
+
 <details>
 <summary>Table of Contents</summary>
 
@@ -25,7 +37,6 @@
   - [Overriding built-in Container Types](#overriding-built-in-container-types)
 - [Performance](#performance)
   - [Real-World Throughput](#real-world-throughput)
-  - [Comparison to JavaScript](#comparison-to-javascript)
   - [Library Comparison](#library-comparison)
   - [Runtime Comparison](#runtime-comparison)
   - [Lazy Parsing](#lazy-parsing)
@@ -749,13 +760,13 @@ A few companies and open-source projects use json-as!
 | Company/Project | Description |
 |-----------------|-------------|
 | [Impart Security](https://impart.security) | API security platform |
-| [Hypermode](https://hypermode.ai) | AI infrastructure |
+| [Hypermode](https://www.hypermode.com/) | AI infrastructure |
 | [Steer Finance](https://steer.finance) | DeFi protocol |
 | [Secretarium](https://secretarium.com) | Confidential computing |
 | [Klave](https://klave.com) | Privacy-first platform |
 | [Bifrost](https://github.com/maximhq/bifrost) | Open source project by Maxim HQ |
 | [Massa Labs](https://github.com/massalabs) | Massa blockchain tooling |
-| [Seda Protocol](https://github.com/sedaprotocl) | Wasm-based blockchain VM |
+| [Seda Protocol](https://github.com/sedaprotocol) | Wasm-based blockchain VM |
 
 ## License
 
