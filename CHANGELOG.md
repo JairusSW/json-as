@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## 2026-11-17 - v2.1.0
+
+### Upgrading from 2.0
+
+Ordinary access specialization is enabled by default. Eligible visible parse sites decode needed fields and scan past proven-unused values; full reads and uncertain uses retain eager handling. Use `@json({ nolazy })` for eager classes or `JSON_ACCESS_SPECIALIZATION=false` for a build-wide control.
+
+Explicit lazy fields and strategic classes retain deferred values. Their writers forward untouched source ranges and serialize current materialized or assigned values. Array-typed fields remain eager; deferred elements in dynamic `JSON.Arr` are unchanged.
+
+The public parse/stringify signatures and MPL-2.0 license are unchanged. See the [2.1 upgrade guide](https://docs.jairus.dev/json-as/guide/upgrading-to-2-1).
+
+### Changes
 
 - Pool native-width literal vectors in large string-bearing serializers. Keep small rows and numeric writers on immediate stores, preserve lexical bindings, and allocate no managed cache or startup objects.
 
@@ -76,7 +86,7 @@
 
 - Parse array-typed fields eagerly, including `JSON.Arr` fields using lazy markers or class-wide lazy modes. Dynamic `JSON.Arr` retains its existing deferred-element behavior.
 
-- Add opt-in `@json({ lazy: "strategic" })` parse-site specialization. Analyze guaranteed and conditionally weighted field reads, compare estimated eager/lazy costs, and generate compile-time reader plans without allocating strategy objects. Preserve ordinary explicit-lazy timing unless `JSON_STRATEGIC_LAZINESS=true` is enabled.
+- Add explicit `@json({ lazy: "strategic" })` deferred parse-site specialization. Analyze guaranteed and conditionally weighted field reads, compare estimated eager/lazy costs, and generate compile-time reader plans without allocating strategy objects. Preserve ordinary explicit-lazy timing unless `JSON_STRATEGIC_LAZINESS=true` is enabled.
 
 - Keep generated fast readers enabled for lazy fields with pure defaults. Analyze the original field initializer and resolved native defaults instead of generated storage expressions; retain non-speculative parsing for application constructors and effectful defaults.
 

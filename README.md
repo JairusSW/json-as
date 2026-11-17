@@ -22,6 +22,7 @@
   - [Library Comparison](#library-comparison)
   - [Runtime Comparison](#runtime-comparison)
   - [Lazy Fields](#lazy-fields)
+  - [Upgrading to 2.1](#upgrading-to-21)
   - [Performance Tuning](#performance-tuning)
   - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [Debugging](#debugging)
@@ -32,21 +33,22 @@
 
 </details>
 
+`json-as` 2.1 compiles typed JSON readers and writers for AssemblyScript. Ordinary `@json` classes specialize visible parse sites to decode fields the program needs. Full reads and uncertain uses keep eager behavior; explicit lazy fields support deferred materialization and source forwarding.
+
 ## Installation
+
+Install the package and its compiler peer:
 
 ```bash
 npm install json-as
+npm install --save-dev assemblyscript@^0.28.18
 ```
 
-Add the `--transform` to your `asc` command (e.g. in package.json)
+Before 2.1.0 is published to npm, build this checkout with `npm ci`, `npm run build:transform`, and `npm pack`, then install the resulting `json-as-2.1.0.tgz` in your application. The package bundles its formatter sources; pnpm consumers do not need a separate `xjb-as` dependency.
 
-```bash
---transform json-as
-```
+Register the transform in `asconfig.json`:
 
-Alternatively, add it to your `asconfig.json`
-
-```typescript
+```json
 {
   "options": {
     "transform": ["json-as"]
@@ -54,11 +56,7 @@ Alternatively, add it to your `asconfig.json`
 }
 ```
 
-Optionally, for additional performance, also add this to your `asc` command:
-
-```bash
---enable simd
-```
+Or pass `--transform json-as` to `asc`. Enable vector scanning with `--enable simd`; without it, the default scanner uses SWAR.
 
 ## Docs
 
@@ -523,11 +521,11 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 
 ## Performance
 
-`json-as` is engineered for **multi-GB/s** serialization and deserialization. I've handwritten and ideated every single algorithm from scratch with no outside resources. Every `@json` schema is compiled to specialized WebAssembly at build time, and bytes are scanned by one of three interchangeable backends:
+Every `@json` schema compiles to specialized WebAssembly. The charts below record throughput for the captured schemas, engines, and Apple M4 Max host; results depend on the workload. Three scanning backends are available:
 
 - **NAIVE** — a portable, branchy scalar scanner. The correctness baseline; needs no special CPU features.
 - **SWAR** — *SIMD-Within-A-Register*: processes 8 bytes at a time with ordinary 64-bit integer math. The default.
-- **SIMD** — true 128-bit vector scanning. Fastest on large and string-heavy payloads; enable with `--enable simd`.
+- **SIMD** — 128-bit vector scanning; enable with `--enable simd` and measure against SWAR for your workload.
 
 📊 **[Browse the full chart set for this release →](https://github.com/JairusSW/json-as/tree/docs/charts/v2.1.0)**
 
@@ -536,8 +534,6 @@ This same pattern works for subclassable built-ins like `Array`, `Map`, `Set`, a
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/classic-payload-deserialize-v8.svg" alt="Deserialization throughput across nine classic JSON payloads">
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/classic-payload-serialize-v8.svg" alt="Serialization throughput across nine classic JSON payloads">
-
-### Comparison to JavaScript
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/overview-serialize.svg" alt="Performance Chart 1">
 
@@ -617,7 +613,8 @@ function readX(input: string): f32 {
 
 Here, the transform can prove that only `point.x` is observed. It scans `y` and `name` without decoding them. Returning the object, passing it to unknown code, or serializing it whole keeps every observable field.
 
-You can also disable this like so. I'd reccomend using this for benchmarks.
+Use `{ lazy }` as shorthand for the default access strategy. To disable automatic specialization for a class and its descendants, use `{ nolazy }`. Leave out explicit lazy field markers for a fully eager benchmark control.
+
 ```ts
 @json({ nolazy })
 class EagerPoint {
@@ -662,10 +659,20 @@ Whole-object serialization therefore keeps its ordinary fields eager rather
 than dropping fields that the serializer observes. `@json({ nolazy })` remains
 an eager control for benchmarks.
 
+### Upgrading to 2.1
+
+The public parse/stringify signatures stay the same. Ordinary access specialization is enabled by default; `@json({ nolazy })` disables it per class, and `JSON_ACCESS_SPECIALIZATION=false` disables it for a build. Explicit `@lazy` / `JSON.Lazy<T>` retain their deferred representation. Array-typed fields parse eagerly, while dynamic `JSON.Arr` elements keep their existing deferred behavior.
+
+See the [2.1 upgrade guide](https://docs.jairus.dev/json-as/guide/upgrading-to-2-1) for the distinction between skipping unused decoding and forwarding untouched deferred values during serialization.
+
 ### Performance Tuning
 
 Instead of using flags for setting options, `json-as` is configured by environmental variables.
 Here's a short list:
+
+**JSON_ACCESS_SPECIALIZATION** (default: enabled) - Set to `false` to disable ordinary parse-site field skipping. Full reads and uncertain or escaping uses retain conservative eager behavior.
+
+**JSON_STRATEGIC_LAZINESS** - Set to `false` to disable parse-site eager-read plans for strategic classes; deferred fields still materialize on access. Set to `true` to apply strategic analysis to existing lazy declarations as well. This flag is separate from ordinary access specialization.
 
 **JSON_CACHE** (default: 0) - Controls the experimental internal string-cache API. Regular serialization does not use this cache; enabling it does not accelerate `JSON.stringify`. Cache storage is allocated lazily, and a disabled cache has no arena storage. Accepts `true|false`, raw bytes (`JSON_CACHE=1048576`), bits (`JSON_CACHE=512kb`, `2mb`, `1gb`), and bytes (`JSON_CACHE=64KB`, `2MB`, `1GB`).
 
