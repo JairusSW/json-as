@@ -4733,3 +4733,56 @@ images, statistics, host/power audits, reproduction scripts and validation logs.
 It references the preceding numeric-batch archive by SHA-256 for unchanged
 models, inputs and dependencies. Embedded bytes and the referenced archive are
 independently hash-verified.
+
+
+## Per-string common-escape reservation window — rejected
+
+The next isolated prototype batches only capacity checks in the guarded shared
+and private SIMD string-range writers. Each call keeps a local 128-byte
+expansion allowance, reserves physical space plus vector-store padding when it
+runs out, and charges only actual expansion to the builder. Complex control or
+surrogate handling clears the allowance before taking the original fallback.
+There is no persistent state, output cache, schema-name gate or harness change.
+
+The hypothesis was that repeated per-block capacity checks materially limit
+escaped-string writing, particularly GSoC. All nine full-model/retained-GC
+oracles pass, alongside **204,214** exact mask/UTF-16/buffer/alias/record checks
+in eight configurations, **8,464** forced common-block collections, and **936**
+reservation checks across eighteen configurations. These are prototype checks;
+production code is unchanged.
+
+An initial four-pair screen suggests modest CITM, Lottie and FGO improvements.
+An independent twelve-pair confirmation, reversing the initial order, resolves
+**no improvement in any corpus**. Paired geometric elapsed-time changes are:
+
+| Corpus | Initial change | Confirmation change | Confirmation 95% interval |
+|---|---:|---:|---:|
+| twitter | -0.24% | +0.72% | -0.70% to +2.36% |
+| canada | +1.14% | +0.17% | -0.41% to +0.77% |
+| citm_catalog | -1.54% | -0.65% | -1.62% to +0.32% |
+| poet | -1.31% | -0.66% | -1.93% to +0.71% |
+| github_events | +1.29% | +0.02% | -1.31% to +1.28% |
+| gsoc-2018 | -0.70% | -0.12% | -1.54% to +1.22% |
+| lottie | -1.44% | -0.05% | -2.25% to +2.21% |
+| otfcc | +0.57% | -0.07% | -2.31% to +2.58% |
+| fgo | -1.42% | +0.83% | -0.96% to +2.52% |
+
+Intervals use 20,000 paired bootstrap resamples without multiplicity correction.
+The confirmation does not support the initial gains or establish a GSoC benefit.
+The prototype is **not retained**; the latest qualified native gate stays
+**4/9**. This rejects this specific reservation strategy, not every possible
+string optimization.
+
+Both timing holds completed normally and released the shared host lock.
+**288 fresh processes** and **194 periodic host audits** all report AC power.
+Source, prototype and exact-image end seals pass. Conditions remain Apple M4
+Max/arm64, V8 15.2.20, original classic owning-output harness,
+SIMD/incremental/compatibility, validation disabled and JSON_CACHE=0. Process,
+memory and power audits are retained; this is a shared host, not an isolated
+machine or per-engine peak-RSS measurement.
+
+[Raw countercheck](data/serialization-escape-reservation-countercheck.json.gz)
+preserves both captures, exact candidate images, output/GC oracles, prototype,
+recipes, statistics, correctness logs and host audits. Baseline images/sources
+are linked to the preceding packed-Unicode archive by SHA-256. Embedded bytes
+and the referenced artifact are independently hash-verified.
