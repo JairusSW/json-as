@@ -609,11 +609,13 @@ class Point {
   name: string = "";
 }
 
-const point = JSON.parse<Point>(input);
-const x = point.x; // y and name can be skipped at this parse site
+function readX(input: string): f32 {
+  const point = JSON.parse<Point>(input);
+  return point.x; // y and name can be skipped at this local parse site
+}
 ```
 
-Here, we can prove syntatically that only `point.x` is accessed. So, we can take a shortcut and simply skip decoding `y` and `name`! This gives us something around a 70% speedup.
+Here, the transform can prove that only `point.x` is observed. It scans `y` and `name` without decoding them. Returning the object, passing it to unknown code, or serializing it whole keeps every observable field.
 
 You can also disable this like so. I'd reccomend using this for benchmarks.
 ```ts
@@ -623,6 +625,42 @@ class EagerPoint {
   y: f32 = 0;
 }
 ```
+
+For deferred serialization, use explicit lazy fields or a strategic class:
+
+```ts
+@json({ lazy: "strategic" })
+class Response {
+  id: i32 = 0;
+  description: string = "";
+}
+
+function forward(input: string): string {
+  const response = JSON.parse<Response>(input);
+  if (response.id == 0) return "";
+  return JSON.stringify(response);
+}
+```
+
+The visible read makes `id` eager. An untouched deferred `description` is
+serialized by copying its original JSON range, without decoding or re-escaping
+it. Reads after the first serialization do not pull decoding ahead of that
+output. `JSON.stringify` calls bound to json-as preserve this strategic read plan,
+including imported aliases and namespace imports. An application-owned method
+named `stringify` is handled conservatively.
+
+Reading a deferred field materializes it; subsequent serialization encodes its
+current value. Assignments replace the saved range, and mutations through a
+materialized child are included. Omission decorators still apply. An untouched
+custom-codec field invokes neither decoder nor serializer; accessing or replacing
+it restores the typed codec path. This is per-field source forwarding, not a
+cache of the whole output string. Array-typed fields remain eager; dynamic
+`JSON.Arr` elements retain their existing deferred behavior.
+
+Ordinary `@json` access specialization does not retain deferred source ranges.
+Whole-object serialization therefore keeps its ordinary fields eager rather
+than dropping fields that the serializer observes. `@json({ nolazy })` remains
+an eager control for benchmarks.
 
 ### Performance Tuning
 

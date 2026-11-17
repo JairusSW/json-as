@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-// Coordinate preparation and measurement through ~/benchmark-lock.py.
+// Coordinate timing measurements through ~/benchmark-lock.py.
 // Every measured sample uses a fresh process.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -25,7 +25,15 @@ const option = (name, fallback) =>
 const base = path.resolve(option("--dir", "build/perf/strategic-api-5ae2306b"));
 const manifestFile = path.join(base, "manifest.json");
 const variants = ["main", "eager", "ordinary", "lazy", "strategic"];
-const profiles = ["summary", "conditional", "full"];
+const profiles = option("--profiles", "summary,conditional,full").split(",");
+assert.ok(
+  profiles.length &&
+    profiles.every((p) =>
+      ["summary", "conditional", "full", "forward"].includes(p),
+    ),
+  "Unknown API benchmark profile",
+);
+assert.equal(new Set(profiles).size, profiles.length);
 const sha = (file) =>
   crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 const run = (command, argv, options = {}) =>
@@ -240,6 +248,16 @@ export function full(data: string, count: i32): u64 {
   let sum: u64 = 0; for (let i = 0; i < count; i++) { const value = JSON.parse<${rootType}>(data); sum += walk_${rootType}(value); } return sum;
 }
 let sink: u64 = 0;
+export function forward(data: string, count: i32): u64 {
+  let sum: u64 = 0; for (let i = 0; i < count; i++) {
+    const value = JSON.parse<${rootType}>(data); sum += summaryRead(value);
+    const output = JSON.stringify(value); sink += <u64>output.length;
+  } return sum;
+}
+export function readForwardSink(): u64 { return sink; }
+export function forwardSnapshot(data: string): string {
+  const value = JSON.parse<${rootType}>(data); sink = summaryRead(value); return JSON.stringify(value);
+}
 export function snapshot(data: string): string { const value = JSON.parse<${rootType}>(data); sink = walk_${rootType}(value); return JSON.stringify(value); }
 export function stringId(): u32 { return idof<string>(); }
 export function fastCapability(): bool { return changetype<${rootType}>(0).__DESERIALIZE_FAST_ENABLED(); }
@@ -502,6 +520,29 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
             .filter((line) => line.startsWith("[strategic]"))
             .join("\n") + "\n",
         );
+        if (variant === "strategic" && profiles.includes("forward")) {
+          const text = fs.readFileSync(source, "utf8");
+          const forward = text.indexOf("export function forward(");
+          const offset = text.indexOf(`JSON.parse<${schema.name}>`, forward);
+          assert.ok(forward >= 0 && offset >= 0);
+          for (const key of new Set(
+            reads[name].summary.map((field) => field.split(".")[0]),
+          )) {
+            const field = schema.fields.find((field) => field.key === key);
+            if (field.type.kind === "array") continue;
+            const marker = `:${offset} ${field.name}: `;
+            const line = debug
+              .split("\n")
+              .find((line) => line.includes(marker));
+            assert.ok(line, `Missing forward read plan for ${key}`);
+            assert.equal(
+              JSON.parse(line.slice(line.indexOf(marker) + marker.length))
+                .eager,
+              true,
+              key,
+            );
+          }
+        }
         run(
           process.execPath,
           [
@@ -523,16 +564,18 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
             expected(entry, profile, 16),
             `${name}/${mode}/${variant}/${profile}`,
           );
-        const snapshot = plain.decode(plain.g.snapshot(plain.input));
-        run(
-          "python3",
-          [
-            "-c",
-            "import json,sys; assert json.load(open(sys.argv[1])) == json.loads(sys.stdin.read())",
-            input,
-          ],
-          { input: snapshot },
-        );
+        for (const writer of ["snapshot", "forwardSnapshot"]) {
+          const snapshot = plain.decode(plain.g[writer](plain.input));
+          run(
+            "python3",
+            [
+              "-c",
+              "import json,sys; assert json.load(open(sys.argv[1])) == json.loads(sys.stdin.read())",
+              input,
+            ],
+            { input: snapshot },
+          );
+        }
         plain.g.__unpin(plain.input);
         const counted = await instance(entry, true);
         entry.allocations = {};
@@ -578,6 +621,10 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
       },
     ],
   });
+  fs.copyFileSync(
+    fileURLToPath(import.meta.url),
+    path.join(base, "measured-harness.mjs"),
+  );
   console.log(
     `Prepared ${entries.length} native and allocation binaries; exact snapshots and checksums verified.`,
   );
@@ -789,7 +836,7 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
     "",
     `${environment.cpu}, ${environment.arch}, Node ${environment.node}, v8 ${environment.v8}, AssemblyScript ${manifest.compiler}. Incremental runtime, -O3, compatibility mode (strict off), fast path on, diagnostics on.`,
     "",
-    `${environment.pairs} paired fresh-process groups per row and backend. Each process warms for at least 100 ms, then measures three batches; its median feeds the paired geometric means below. All raw batches are retained. GB/s uses captured UTF-8 payload bytes; input is already a pinned UTF-16 string. Timing includes JSON.parse plus the listed field reads, allocation and normal automatic collection. It excludes network, UTF-8 decoding, module startup and serialization.`,
+    `${environment.pairs} paired fresh-process groups per row and backend. Each process warms for at least 100 ms, then measures three batches; its median feeds the paired geometric means below. All raw batches are retained. GB/s uses captured UTF-8 payload bytes; input is already a pinned UTF-16 string. Timing includes JSON.parse plus the listed field reads, allocation and normal automatic collection. Forward rows also include fresh whole-object serialization. It excludes network, UTF-8 decoding and module startup.`,
     "",
     `The host used ${power} with background activity. These are shared-host measurements, not an isolated qualification. Full power/process audits are included in the capture.`,
     "",
@@ -800,13 +847,13 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
     const spec = reads[name];
     const entry = manifest.entries.find((e) => e.name === name);
     lines.push(
-      `- **${name}**, ${entry.bytes.toLocaleString("en-US")} bytes. Summary: ${spec.summary.join(", ")}. Conditional: the same summary plus ${spec.detail.join(", ")} on 1/8 of records. Full: every modeled field and array element.`,
+      `- **${name}**, ${entry.bytes.toLocaleString("en-US")} bytes. Summary: ${spec.summary.join(", ")}. Conditional: the same summary plus ${spec.detail.join(", ")} on 1/8 of records. Full: every modeled field and array element. Forward: summary reads followed by fresh whole-object serialization; the output length is consumed.`,
       `  Source: ${sources[name]}`,
     );
   }
   lines.push(
     "",
-    "Models cover every field in each fixed capture. Integer tokens use i64; decimal/exponent tokens and mixed numeric arrays use f64. Null-only fields are nullable strings and empty arrays use string elements for this capture. Neither JSON.Raw nor dynamic-object shortcuts are used. Exact full snapshots and independent integer-preserving Python checksums passed before timing.",
+    "Models cover every field in each fixed capture. Integer tokens use i64; decimal/exponent tokens and mixed numeric arrays use f64. Null-only fields are nullable strings and empty arrays use string elements for this capture. Neither JSON.Raw nor dynamic-object shortcuts are used. Full-read and read-then-forward snapshots plus independent integer-preserving Python checksums passed before timing. Forward throughput counts input bytes and includes parsing, summary reads, and fresh serialization, not isolated serialization throughput.",
     "",
   );
   for (const mode of selectedModes) {
@@ -834,13 +881,22 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
     "",
   );
   fs.writeFileSync(path.join(base, "report.md"), lines.join("\n"));
+  const harnessFile = path.join(base, "measured-harness.mjs");
+  if (fs.existsSync(harnessFile))
+    assert.equal(
+      sha(harnessFile),
+      manifest.seals.find(
+        (seal) => seal.file === fileURLToPath(import.meta.url),
+      )?.sha256,
+      "Changed measured harness snapshot",
+    );
   const capture = {
     manifest,
     environment,
     samples,
     rows,
     payloads: Object.fromEntries(
-      Object.keys(reads).map((name) => [
+      selectedNames.map((name) => [
         name,
         fs.readFileSync(path.join(base, "payloads", name + ".json"), "utf8"),
       ]),
@@ -856,6 +912,13 @@ scan(json.load(open(sys.argv[1])),sys.argv[2]);print(json.dumps(sorted(out)))
           ),
         ]),
     ),
+    measuredHarness: fs.existsSync(harnessFile)
+      ? {
+          source: fs.readFileSync(harnessFile, "utf8"),
+          sha256: sha(harnessFile),
+        }
+      : null,
+    reporterSha256: sha(fileURLToPath(import.meta.url)),
   };
   fs.writeFileSync(
     path.join(base, "capture.json.gz"),

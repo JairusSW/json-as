@@ -50,6 +50,7 @@ export class StrategicAccessAnalysis extends Visitor {
     resolveParse;
     resolveChild;
     conservativeEscapes;
+    resolveSerialization;
     pathLimitReached = false;
     callableSiteStart = 0;
     sites = [];
@@ -71,11 +72,12 @@ export class StrategicAccessAnalysis extends Visitor {
     captures = new WeakMap();
     expanding = new Set();
     byCall = new WeakMap();
-    constructor(resolveParse, resolveChild = () => null, conservativeEscapes = false) {
+    constructor(resolveParse, resolveChild = () => null, conservativeEscapes = false, resolveSerialization = () => false) {
         super();
         this.resolveParse = resolveParse;
         this.resolveChild = resolveChild;
         this.conservativeEscapes = conservativeEscapes;
+        this.resolveSerialization = resolveSerialization;
     }
     binding(name) {
         for (let i = this.scopes.length - 1; i >= 0; i--)
@@ -159,6 +161,10 @@ export class StrategicAccessAnalysis extends Visitor {
                 writes: new Set(),
                 escaped: parent.escaped || this.pathLimitReached,
                 children: new Map(),
+                parent,
+                serializationAccesses: parent.serializationAccesses
+                    ? new Map()
+                    : undefined,
             };
             parent.children.set(name, child);
             return child;
@@ -213,6 +219,18 @@ export class StrategicAccessAnalysis extends Visitor {
             }
         }
         site.accesses.set(name, paths);
+    }
+    serializationBoundary(site) {
+        while (site.parent)
+            site = site.parent;
+        const pending = [site];
+        while (pending.length) {
+            const current = pending.pop();
+            if (current.serializationAccesses)
+                continue;
+            current.serializationAccesses = new Map([...current.accesses].map(([name, paths]) => [name, paths.slice()]));
+            pending.push(...current.children.values());
+        }
     }
     visitPropertyAccessExpression(node) {
         this.read(node);
@@ -337,6 +355,15 @@ export class StrategicAccessAnalysis extends Visitor {
                 if (assigned)
                     assigned.escaped = true;
             }
+        }
+        if (!this.conservativeEscapes &&
+            this.resolveSerialization(node, this.shadowed)) {
+            if (args[0])
+                this.serializationBoundary(args[0]);
+            for (const arg of args.slice(1))
+                if (arg)
+                    arg.escaped = true;
+            return;
         }
         if (fn?.signature.parameters.some((parameter) => parameter.parameterKind === 2)) {
             if (receiver)

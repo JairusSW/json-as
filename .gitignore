@@ -21,3 +21,6 @@ assembly/__benches__/runtimes/*.ts
 *.map
 # Include essential as-test artifacts
 !.as-test/
+
+# Raw benchmark captures and result archives stay local.
+/bench/reports/data/

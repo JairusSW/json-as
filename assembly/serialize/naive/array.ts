@@ -491,6 +491,15 @@ export function serializeArray<T extends any[]>(src: T): void {
   for (let i = 0; i < len; i++) {
     // Equivalent to Array.__uget, with the backing pointer read anew after
     // each callback so growth or replacement cannot leave a stale base.
+    if (isManaged<valueof<T>>()) {
+      const type = changetype<nonnull<valueof<T>>>(0);
+      if (isDefined(type.__SERIALIZE_STRING_FIELDS) && (isDefined(type.__SERIALIZE) || isDefined(type.__SERIALIZE_CUSTOM))) {
+        serializeArrayElementPointer<valueof<T>>(load<usize>(src.dataStart + <usize>i * stride));
+        store<u16>(bs.offset, COMMA);
+        bs.offset += 2;
+        continue;
+      }
+    }
     const block = load<valueof<T>>(src.dataStart + <usize>i * stride);
     serializeArrayElement<valueof<T>>(block);
     store<u16>(bs.offset, COMMA);

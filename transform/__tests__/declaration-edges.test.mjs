@@ -156,9 +156,14 @@ try {
         assert.equal(g.flags(), flags, mode + "/configuration");
         assert.equal(g.cacheSize(), size, mode + "/cache");
         assert.equal(g.run(), 9, mode + "/valid parse");
+        assert.equal(
+          decode(g, g.serializeRows()),
+          '[{"value":7}]',
+          mode + "/fresh row writer",
+        );
         if (strict) assert.throws(() => g.invalid());
         else assert.equal(g.invalid(), 7);
-        checks += 4;
+        checks += 5;
       }
   } finally {
     keys.forEach((key, i) => {

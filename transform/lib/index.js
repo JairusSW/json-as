@@ -17,10 +17,17 @@ import { NodeKind } from "./types.js";
 import { Property, PropertyFlags, Schema, SourceSet, typeMeaningText, } from "./types.js";
 import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from "./util.js";
 import { Visitor } from "./visitor.js";
+import { ArrayRowSerializers } from "./array-row.js";
+import { LiteralStoreBindings } from "./literal-store-bindings.js";
+import { SerializerBindings } from "./serializer-bindings.js";
+import { preserveFloatCallbackPolicy } from "./array-dtoa.js";
+import { specializeArrayDtoa } from "./array-dtoa.js";
 import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
 import { specializeObjectBarrier } from "./barrier.js";
 import { specializeSweepRuns } from "./sweep.js";
+import { inlineGcMarking } from "./gc-marking.js";
+import { specializeDecimalClamps } from "./decimal-clamps.js";
 import { generateCursorParser } from "./cursor.js";
 import { StrategicAccessAnalysis, materializationDecision, } from "./strategic-laziness.js";
 import { keyDispatch } from "./key-dispatch.js";
@@ -249,6 +256,9 @@ export class JSONTransform extends Visitor {
     sources = new SourceSet();
     imports = [];
     simdStatements = new Map();
+    arrayRows = null;
+    literalStoreBindings = new LiteralStoreBindings();
+    serializerBindings = null;
     visitedClasses = new Set();
     pureNumericConstants = new Set();
     numericConstantShadows = new Set();
@@ -401,6 +411,30 @@ export class JSONTransform extends Visitor {
                 member.decorators?.some((decorator) => decorator.name.text.toLowerCase() === "deserializer"))))
                 return null;
             return child;
+        }, false, (call, shadowed) => {
+            if (call.expression.kind !== NodeKind.PropertyAccess)
+                return false;
+            const method = call.expression;
+            if (method.property.text !== "stringify")
+                return false;
+            let receiver = method.expression;
+            const parts = [];
+            while (receiver.kind === NodeKind.PropertyAccess) {
+                const property = receiver;
+                parts.unshift(property.property.text);
+                receiver = property.expression;
+            }
+            if (receiver.kind !== NodeKind.Identifier)
+                return false;
+            const root = receiver.text;
+            if (shadowed(root))
+                return false;
+            parts.unshift(root);
+            const binding = this.sources
+                .get(call.range.source)
+                .getImportedBinding(parts.join(".") + ".Value", this.parser);
+            return (binding?.source.internalPath === runtimeRoot + "assembly/index" &&
+                binding.name === "JSON.Value");
         });
         for (const source of sources)
             analysis.visit(source);
@@ -454,7 +488,7 @@ export class JSONTransform extends Visitor {
                     : applicationClass
                         ? 20
                         : lazyTypeCost(canonical, ownerSource, this.parser);
-                const decision = materializationDecision(site.accesses.get(declaration.name.text) || [], decodeCost, site.origin);
+                const decision = materializationDecision((site.serializationAccesses ?? site.accesses).get(declaration.name.text) || [], decodeCost, site.origin);
                 if (DEBUG)
                     console.log(`[strategic] ${site.source.internalPath}:${site.call.range.start} ${declaration.name.text}: ${JSON.stringify(decision)}`);
                 if (decision.eager) {
@@ -1638,7 +1672,9 @@ export class JSONTransform extends Visitor {
         return "{" + fields.join(",") + "}";
     }
     getDefaultMatcherSource(defaultJSON) {
-        const literal = JSON.stringify(defaultJSON);
+        const literal = JSON.stringify(defaultJSON)
+            .replaceAll("\u2028", "\\u2028")
+            .replaceAll("\u2029", "\\u2029");
         if (defaultJSON.length > 256)
             return (`@inline __DESERIALIZE_DEFAULT(srcStart: usize, srcEnd: usize, knownMatch: bool = false): this {\n` +
                 `  if (!knownMatch && !JSON.Util.matchesLiteral(srcStart, srcEnd, ${literal})) return changetype<this>(0);\n` +
@@ -2505,6 +2541,7 @@ export class JSONTransform extends Visitor {
                 mem.lazyPacked = !!lzInner.packed;
                 mem.lazyScalar = !!lzInner.scalar;
                 mem.lazyInner = lzInner.inner;
+                mem.byteSize = 0;
                 mem.lazyProperty = lzInner.propertyName;
                 const parameters = source.classTypeParameters(node);
                 const scope = source
@@ -2643,12 +2680,41 @@ export class JSONTransform extends Visitor {
             (isReservedPrimitive(member.type) ||
                 isString(member.type) ||
                 /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type)));
-        const directStringMembers = this.schema.static && canReserveDynamicPayloads
+        const directStringMembers = this.schema.static
             ? this.schema.members.filter((member) => !member.flags.has(PropertyFlags.Lazy) &&
+                !this.getSchema(member.type) &&
                 isString(member.type) &&
                 !defaultStringLiterals.has(member.name))
             : [];
-        const reserveDirectStringPayloads = directStringMembers.length >= 1;
+        const directStringSet = new Set(directStringMembers);
+        const stringPayloadReserves = new Map();
+        if (!canReserveDynamicPayloads && directStringSet.size) {
+            let strings = [];
+            const finish = () => {
+                if (strings.length)
+                    stringPayloadReserves.set(strings[0], strings);
+                strings = [];
+            };
+            for (const member of this.schema.members) {
+                if (member.flags.has(PropertyFlags.Lazy) ||
+                    this.getSchema(member.type) ||
+                    (!isReservedPrimitive(member.type) && !isString(member.type))) {
+                    finish();
+                }
+                else if (directStringSet.has(member)) {
+                    strings.push(member);
+                }
+            }
+            finish();
+        }
+        const stringPayloadSize = (members) => members
+            .map((member) => {
+            const size = member.nullable
+                ? "__nullableStringByteSizePointer"
+                : "__stringByteSizePointer";
+            return `JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
+        })
+            .join(" + ");
         const wideIntegerArrayCandidates = this.schema.static && canReserveDynamicPayloads
             ? this.schema.members.filter((member) => {
                 if (member.flags.has(PropertyFlags.Lazy) ||
@@ -2679,11 +2745,16 @@ export class JSONTransform extends Visitor {
                         `  }\n` +
                         `}\n`);
                 }
-                if (reserveDirectStringPayloads && isString(member.type)) {
+                if (directStringSet.has(member)) {
                     const writer = member.nullable
                         ? "__serializeNullableStringPointerReservedAt"
                         : "__serializeStringPointerReservedAt";
-                    return `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+                    const group = stringPayloadReserves.get(member);
+                    const reserve = group
+                        ? `bs.offset = __dst; bs.proposeSize(${stringPayloadSize(group)}); __dst = bs.offset;\n`
+                        : "";
+                    return (reserve +
+                        `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
                 }
                 if (directWideIntegerArrays.includes(member)) {
                     return `__dst = JSON.__serializeIntegerArrayPointerReservedAt<${member.type}>(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
@@ -2715,7 +2786,7 @@ export class JSONTransform extends Visitor {
                     `  } else if (__s != 0) {\n` +
                     `    const __hi = <usize>(__s >>> 32);\n` +
                     `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
-                    `    bs.ensureSize(<u32>__len);\n` +
+                    `    bs.proposeSize(<u32>__len);\n` +
                     `    memory.copy(bs.offset, __hi, __len);\n` +
                     `    bs.offset += __len;\n` +
                     `  } else {\n` +
@@ -2730,13 +2801,13 @@ export class JSONTransform extends Visitor {
                 `  } else if (__s != 0) {\n` +
                 `    const __hi = <usize>(__s >>> 32);\n` +
                 `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
-                `    bs.ensureSize(<u32>__len);\n` +
+                `    bs.proposeSize(<u32>__len);\n` +
                 `    memory.copy(bs.offset, __hi, __len);\n` +
                 `    bs.offset += __len;\n` +
                 `  } else {\n` +
                 (member.lazyScalar
                     ? `    JSON.__serializeLazyValue<${T}>(0);\n`
-                    : `    bs.ensureSize(8);\n` +
+                    : `    bs.proposeSize(8);\n` +
                         `    store<u64>(bs.offset, 0x006c006c0075006e);\n` +
                         `    bs.offset += 8;\n`) +
                 `  }\n` +
@@ -5264,15 +5335,8 @@ export class JSONTransform extends Visitor {
         SERIALIZE += indent + "__dst += 2;\n";
         SERIALIZE += indent + "bs.offset = __dst;\n";
         SERIALIZE += "}";
-        const directStringPayloadReserve = reserveDirectStringPayloads
-            ? directStringMembers
-                .map((member) => {
-                const size = member.nullable
-                    ? "__nullableStringByteSizePointer"
-                    : "__stringByteSizePointer";
-                return ` + JSON.${size}(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`;
-            })
-                .join("")
+        const directStringPayloadReserve = canReserveDynamicPayloads && directStringMembers.length
+            ? " + " + stringPayloadSize(directStringMembers)
             : "";
         const directWideIntegerArrayReserve = directWideIntegerArrays
             .map((member) => ` + JSON.__integerArrayReservedBytes<${member.type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(member.name)})))`)
@@ -5305,7 +5369,40 @@ export class JSONTransform extends Visitor {
             console.log(INITIALIZE);
             console.log(DESERIALIZE_CUSTOM || DESERIALIZE);
         }
+        if (!hasTypeParams &&
+            !node.extendsType &&
+            !SERIALIZE_CUSTOM &&
+            !hasManualSerializer(node) &&
+            !node.members.some((member) => member.name.text === "__SERIALIZE_STRING_FIELDS")) {
+            const scope = source
+                .getQualifiedName(node)
+                .split(".")
+                .slice(0, -1)
+                .join(".");
+            const parameters = source.classTypeParameters(node);
+            let wide = false;
+            let strings = false;
+            for (const member of schema.members) {
+                if (member.flags.has(PropertyFlags.Lazy))
+                    continue;
+                const type = source.resolveTypeMeaning(member.type, scope, this.parser, parameters);
+                if (!type.declaration && ["i64", "u64"].includes(type.name)) {
+                    wide = true;
+                    break;
+                }
+                if (!type.arguments.length &&
+                    isString(type.name) &&
+                    (!type.declaration ||
+                        type.declaration.range.source.internalPath === "~lib/string"))
+                    strings = true;
+            }
+            if (!wide && strings)
+                node.members.push(SimpleParser.parseClassMember("__SERIALIZE_STRING_FIELDS(): void {}", node));
+        }
         const SERIALIZE_METHOD = SimpleParser.parseClassMember(SERIALIZE_CUSTOM || SERIALIZE, node);
+        this.arrayRows?.add(node, schema, source, SERIALIZE_METHOD, (target) => this.getStores(",", false, target, node).join("\n"));
+        this.arrayRows?.finishRecord(node, schema, source, SERIALIZE_METHOD);
+        this.arrayRows?.borrowRecord(node, schema, source, SERIALIZE_METHOD);
         const INITIALIZE_METHOD = SimpleParser.parseClassMember(INITIALIZE, node);
         const DESERIALIZE_CUSTOM_METHOD = DESERIALIZE_CUSTOM
             ? SimpleParser.parseClassMember(DESERIALIZE_CUSTOM, node)
@@ -5475,6 +5572,20 @@ export class JSONTransform extends Visitor {
             }
         }
         node.members.push(SimpleParser.parseClassMember(`__DESERIALIZE_FAST_ENABLED(): bool { return ${!DESERIALIZE_CUSTOM && useFastPath}; }`, node));
+        const ownType = node.name.text +
+            (node.typeParameters?.length
+                ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
+                : "");
+        const callbackFreeSerializer = !schema.custom &&
+            !schema.parent?.custom &&
+            !hasManualSerializer(node) &&
+            schema.members.every((member) => !member.flags.has(PropertyFlags.OmitIf) &&
+                !member.flags.has(PropertyFlags.Lazy));
+        const callbackFreeFields = callbackFreeSerializer
+            ? schema.members
+                .map((member) => `${this.runtimeReference()}.__serializeCallbackFree<${member.type}>(load<${member.type}>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})), depth + 1)`)
+                .join(" && ") || "true"
+            : "false";
         const serializerPure = !schema.custom &&
             !schema.parent?.custom &&
             !hasManualSerializer(node) &&
@@ -5483,11 +5594,11 @@ export class JSONTransform extends Visitor {
                 (isPrimitive(member.type) ||
                     isString(member.type) ||
                     isEnum(stripNull(member.type), source, this.parser)));
-        const ownType = node.name.text +
-            (node.typeParameters?.length
-                ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
-                : "");
-        node.members.push(SimpleParser.parseClassMember(`__SERIALIZE_PURE_TYPE(): u32 { return ${serializerPure ? `idof<${ownType}>()` : "0"}; }`, node));
+        if (this.serializerBindings?.hasNativeBindings(node))
+            node.members.push(SimpleParser.parseClassMember(`__SERIALIZE_PURE_TYPE(depth: i32 = -1): u32 {
+  if (depth < 0) return ${serializerPure ? `idof<${ownType}>()` : "0"};
+  return (${callbackFreeFields}) ? idof<${ownType}>() : 0;
+}`, node));
         const reusableScalarModel = !effectful(schema) &&
             !schema.hasInternalInitializers &&
             !this.hasCustomCursorLifecycle(schema) &&
@@ -5624,7 +5735,8 @@ export class JSONTransform extends Visitor {
             (node.typeParameters?.length
                 ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
                 : "");
-        node.members.push(SimpleParser.parseClassMember(`__SERIALIZE_PURE_TYPE(): u32 { return ${hasManualSerializer(node) ? "0" : `idof<${ownType}>()`}; }`, node));
+        if (this.serializerBindings?.hasNativeBindings(node))
+            node.members.push(SimpleParser.parseClassMember(`__SERIALIZE_PURE_TYPE(_depth: i32 = -1): u32 { return ${hasManualSerializer(node) ? "0" : `idof<${ownType}>()`}; }`, node));
         node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_FAST_ENABLED(): bool { return false; }", node));
         node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_REUSE_PURE(): bool { return false; }", node));
         const INITIALIZE_EMPTY = "__INITIALIZE(): this {\n  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n  this.__JSON_INITIALIZE_FIELDS();\n  return this;\n}";
@@ -5792,6 +5904,7 @@ export class JSONTransform extends Visitor {
                 visitNamedTypeNode(_type) { }
             }
             const bind = new BindGeneratedReferences();
+            this.arrayRows?.bind(node, bind);
             for (const schema of this.schemas.get(node.internalPath) || []) {
                 for (const member of schema.node.members) {
                     if (member.kind === NodeKind.FieldDeclaration) {
@@ -5824,12 +5937,32 @@ export class JSONTransform extends Visitor {
             }
         }
     }
-    getStores(data, simd = false, target = "bs.offset") {
+    getStores(data, simd = false, target = "bs.offset", model) {
         const out = [];
         const sizes = strToNum(data, simd);
+        const declaration = model ?? this.schema?.node;
+        const poolVectors = simd &&
+            this.parser &&
+            declaration === this.schema?.node &&
+            this.schema.members?.length >= 16 &&
+            this.schema.members.filter((member) => /^(string|String)(\s*\|\s*null)?$/.test(member.type)).length >= 4;
         let offset = 0;
         for (const [size, num] of sizes) {
+            const scoped = this.parser &&
+                declaration &&
+                this.literalStoreBindings.store(this.parser, this.sources, declaration, size, target, num, offset);
+            if (scoped) {
+                out.push(scoped);
+                offset +=
+                    size === "v128" ? 16 : size === "u64" ? 8 : size === "u32" ? 4 : 2;
+                continue;
+            }
             if (size == "v128" && simd) {
+                if (poolVectors) {
+                    out.push(this.literalStoreBindings.storeVector(this.parser, data.slice(offset >> 1, (offset >> 1) + 8), target, offset));
+                    offset += 16;
+                    continue;
+                }
                 const owner = this.schema.node.range.source;
                 let statements = this.simdStatements.get(owner);
                 if (!statements)
@@ -6029,6 +6162,9 @@ export default class Transformer extends Transform {
         const numericConstants = pureNumericConstants(parser.sources);
         transformer.pureNumericConstants = numericConstants.constants;
         transformer.numericConstantShadows = numericConstants.shadowed;
+        transformer.serializerBindings = new SerializerBindings(parser, transformer.sources, this.program.options.globalAliases);
+        const stockFloatCallbacks = preserveFloatCallbackPolicy(parser.sources, this.program.options.globalAliases);
+        transformer.arrayRows = new ArrayRowSerializers(sources, parser, transformer.sources, this.program.options, (node) => transformer.serializerBindings.hasNativeBindings(node));
         transformer.prepareStrategicLaziness(sources);
         transformer.prepareOrdinarySpecialization(sources);
         transformer.prepareLazyOverrides(sources);
@@ -6046,10 +6182,15 @@ export default class Transformer extends Transform {
             }
         }
         specializeObjectAllocator(parser.sources);
-        specializeCopiedStringAllocator(parser.sources);
+        specializeCopiedStringAllocator(parser.sources, this.program.options.globalAliases);
         specializeObjectBarrier(parser.sources);
         const hasStaticI64ArraySchema = [...transformer.schemas.values()].some((schemas) => schemas.some((schema) => schema.members.some((member) => /(?:^|[<,])Array<i64>(?:$|[>,|])/.test(member.type.replace(/\s/g, "")))));
         specializeSweepRuns(parser.sources, this.program.options.globalAliases, hasStaticI64ArraySchema);
+        const knownGc = inlineGcMarking(parser.sources, this.program.options.globalAliases);
+        transformer.arrayRows?.finish(parser.sources, knownGc);
+        specializeDecimalClamps(parser.sources, this.program.options.globalAliases);
+        specializeArrayDtoa(parser.sources, this.program.options.globalAliases);
+        stockFloatCallbacks();
         for (const [source, statements] of transformer.simdStatements) {
             for (const statement of statements)
                 source.statements.unshift(SimpleParser.parseTopLevelStatement(statement));
@@ -6066,13 +6207,14 @@ export default class Transformer extends Transform {
             console.log("[transform]: Finished generating " +
                 transformer.schemas.size +
                 " schemas");
+        transformer.arrayRows?.finishMapProof(knownGc);
     }
 }
 function toU16(data, offset = 0) {
     return data.charCodeAt(offset + 0);
 }
 function toU32(data, offset = 0) {
-    return (data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0);
+    return (((data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0)) >>> 0);
 }
 function toU48(data, offset = 0) {
     return ((BigInt(data.charCodeAt(offset + 2)) << 32n) |
@@ -6122,6 +6264,9 @@ function toMemCCheck(data) {
         out += ` && codeS${(index += 2)} == ${toU16(data, offset >> 1)}`;
     return out.slice(4);
 }
+function signedCodeUnit(data, offset) {
+    return (data.charCodeAt(offset) << 16) >> 16;
+}
 function strToNum(data, simd = false, offset = 0) {
     const out = [];
     let n = data.length;
@@ -6129,21 +6274,21 @@ function strToNum(data, simd = false, offset = 0) {
         out.push([
             "v128",
             "i16x8(" +
-                data.charCodeAt(offset + 0) +
+                signedCodeUnit(data, offset + 0) +
                 ", " +
-                data.charCodeAt(offset + 1) +
+                signedCodeUnit(data, offset + 1) +
                 ", " +
-                data.charCodeAt(offset + 2) +
+                signedCodeUnit(data, offset + 2) +
                 ", " +
-                data.charCodeAt(offset + 3) +
+                signedCodeUnit(data, offset + 3) +
                 ", " +
-                data.charCodeAt(offset + 4) +
+                signedCodeUnit(data, offset + 4) +
                 ", " +
-                data.charCodeAt(offset + 5) +
+                signedCodeUnit(data, offset + 5) +
                 ", " +
-                data.charCodeAt(offset + 6) +
+                signedCodeUnit(data, offset + 6) +
                 ", " +
-                data.charCodeAt(offset + 7) +
+                signedCodeUnit(data, offset + 7) +
                 ")",
         ]);
         offset += 8;
@@ -6159,7 +6304,7 @@ function strToNum(data, simd = false, offset = 0) {
         n -= 4;
     }
     while (n >= 2) {
-        const value = (data.charCodeAt(offset + 1) << 16) | data.charCodeAt(offset + 0);
+        const value = toU32(data, offset);
         out.push(["u32", value.toString()]);
         offset += 2;
         n -= 2;

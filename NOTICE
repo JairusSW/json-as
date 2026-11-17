@@ -32,6 +32,7 @@ the following terms:
 
     Copyright (c) 2026 Jairus
     MIT License (node_modules/xjb-as/LICENSE)
+    The transform's generated exponent metadata is verified against this formatter.
 
     Includes material derived from xjb: https://github.com/xjb714/xjb
     Copyright (c) 2026 xjb714 and contributors

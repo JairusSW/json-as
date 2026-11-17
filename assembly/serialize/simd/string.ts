@@ -65,7 +65,7 @@ export function serializeString_SIMD(src: string): void {
   }
   const next = serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dst);
   bs.offset = next;
-  if (next - dst == <usize>srcSize + 4)
+  if (STRING_CLEAN_FLAG != 0 && next - dst == <usize>srcSize + 4)
     object.rtSize = taggedSize | STRING_CLEAN_FLAG;
 }
 
@@ -119,6 +119,30 @@ export function serializeStringRangeReservedAt_SIMD(
       if (v128.any_true(special)) break;
       srcStart += 32;
       dst += 32;
+    }
+
+    // A completed clean prefix permits a payload-bounded overlapping tail.
+    // Reuse the packed classifier instead of scanning sixteen bytes and then
+    // checking a second overlapping vector. Hits retain the Unicode fallback.
+    if (srcStart > srcEnd32Fast && srcStart < srcEnd && srcSize >= 32) {
+      const tailFirst = load<v128>(srcEnd - 32);
+      const tailSecond = load<v128>(srcEnd - 16);
+      const tailBytes = i8x16.narrow_i16x8_s(tailFirst, tailSecond);
+      const tailSpecial = v128.or(
+        i8x16.eq(tailBytes, BYTE_QUOTE),
+        v128.or(
+          i8x16.eq(tailBytes, BYTE_BACKSLASH),
+          i8x16.lt_s(tailBytes, BYTE_SPACE),
+        ),
+      );
+      if (!v128.any_true(tailSpecial)) {
+        const tailDst = dstStart + 2 + srcSize - 32;
+        store<v128>(tailDst, tailFirst);
+        store<v128>(tailDst, tailSecond, 16);
+        store<u16>(dstStart, 34);
+        store<u16>(tailDst + 32, 34);
+        return tailDst + 34;
+      }
     }
 
     const srcEnd16Fast = srcEnd - 16;
@@ -185,6 +209,15 @@ export function serializeStringRangeReservedAt_SIMD(
     }
     if (srcStart <= srcEnd16Fast) break;
 
+    if (srcStart < srcEnd && srcSize >= 16) {
+      const tail = load<v128>(srcEnd - 16);
+      if (!hasStringSpecial(tail)) {
+        // The overlapping prefix was already copied without expansion.
+        store<v128>(dstStart + 2 + srcSize - 16, tail);
+        srcStart = srcEnd;
+        dst = dstStart + 2 + srcSize;
+      }
+    }
     while (srcStart <= srcEnd - 2) {
       const code = load<u16>(srcStart);
       if (
@@ -238,7 +271,7 @@ export function serializeStringRangeReservedAt_SIMD(
       // A clean suffix after an escape uses the same checked Unicode loop.
       // Keep its cursor local instead of updating shared state per vector.
       if (srcStart <= srcEnd16) {
-        const next = copyCleanUnicode(srcStart, srcEnd, bs.offset);
+        const next = copyCleanAfterEscape(srcStart, srcEnd, bs.offset);
         bs.offset += next - srcStart;
         srcStart = next;
       }
@@ -407,7 +440,11 @@ export function serializeStringPointerReservedAt_SIMD(
     taggedSize,
     dstStart,
   );
-  if (taggedSize >= 32 && next - dstStart == <usize>taggedSize + 4)
+  if (
+    STRING_CLEAN_FLAG != 0 &&
+    taggedSize >= 32 &&
+    next - dstStart == <usize>taggedSize + 4
+  )
     object.rtSize = taggedSize | STRING_CLEAN_FLAG;
   return next;
 }
@@ -419,40 +456,36 @@ function serializeMediumStringReservedAt_SIMD(
   srcSize: u32,
   dstStart: usize,
 ): usize {
-  const block = load<v128>(srcStart);
-  const special = v128.or(
-    i16x8.eq(block, SPLAT_0022),
+  const first = load<v128>(srcStart);
+  if (hasStringSpecial(first))
+    return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
+  if (srcSize > 16) {
+    const last = load<v128>(srcStart + srcSize - 16);
+    if (hasStringSpecial(last))
+      return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
+    store<v128>(dstStart + 2 + srcSize - 16, last);
+  }
+  store<u16>(dstStart, 34);
+  store<v128>(dstStart + 2, first);
+  store<u16>(dstStart + 2 + srcSize, 34);
+  return dstStart + srcSize + 4;
+}
+
+
+@inline
+function hasStringSpecial(block: v128): bool {
+  return v128.any_true(
     v128.or(
-      i16x8.eq(block, SPLAT_005C),
+      i16x8.eq(block, SPLAT_0022),
       v128.or(
-        i16x8.lt_u(block, SPLAT_0020),
-        i16x8.eq(v128.and(block, SURROGATE_MASK), SURROGATE_BASE),
+        i16x8.eq(block, SPLAT_005C),
+        v128.or(
+          i16x8.lt_u(block, SPLAT_0020),
+          i16x8.eq(v128.and(block, SURROGATE_MASK), SURROGATE_BASE),
+        ),
       ),
     ),
   );
-  if (v128.any_true(special))
-    return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
-
-  store<u16>(dstStart, 34);
-  store<v128>(dstStart, block, 2);
-  let src = srcStart + 16;
-  let dst = dstStart + 18;
-  const srcEnd = srcStart + srcSize;
-  while (src < srcEnd) {
-    const code = load<u16>(src);
-    if (
-      (code >= 0xd800 && code <= 0xdfff) ||
-      code == BACK_SLASH ||
-      code == 34 ||
-      code < 32
-    )
-      return serializeStringRangeReservedAt_SIMD(srcStart, srcSize, dstStart);
-    store<u16>(dst, code);
-    src += 2;
-    dst += 2;
-  }
-  store<u16>(dst, 34);
-  return dst + 2;
 }
 
 function copyKnownCleanString(
@@ -579,4 +612,26 @@ function write_u_escape(code: u16): void {
   store<u32>(bs.offset, U_MARKER); // "\u"
   store<u64>(bs.offset, u16_to_hex4_swar(code), 4);
   bs.offset += 12;
+}
+
+/** Resume the packed clean scan after expansion, retaining the Unicode path
+ * for conservative hits and the final partial vector. */
+function copyCleanAfterEscape(src: usize, end: usize, dst: usize): usize {
+  const end32 = end - 32;
+  while (src <= end32) {
+    const first = load<v128>(src);
+    const second = load<v128>(src, 16);
+    const bytes = i8x16.narrow_i16x8_s(first, second);
+    const special = v128.or(
+      i8x16.eq(bytes, BYTE_QUOTE),
+      v128.or(i8x16.eq(bytes, BYTE_BACKSLASH), i8x16.lt_s(bytes, BYTE_SPACE)),
+    );
+    if (v128.any_true(special)) break;
+    store<v128>(dst, first);
+    store<v128>(dst, second, 16);
+    src += 32;
+    dst += 32;
+  }
+  if (src == end) return src;
+  return copyCleanUnicode(src, end, dst);
 }

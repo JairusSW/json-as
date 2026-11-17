@@ -76,6 +76,12 @@ export function canCoalesceSweepRuns(): bool {
   return false;
 }
 
+/** Native key snapshots additionally require the known collection layouts. */
+@inline
+export function canSnapshotCallbackKeys(): bool {
+  return false;
+}
+
 /** Internal backing allocator used only by the transformed incremental entry. */
 @inline
 export function allocateSmallBlock(size: usize): usize {

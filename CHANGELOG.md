@@ -2,6 +2,64 @@
 
 ## Unreleased
 
+- Pool native-width literal vectors in large string-bearing serializers. Keep small rows and numeric writers on immediate stores, preserve lexical bindings, and allocate no managed cache or startup objects.
+
+- Escape Unicode line separators in generated wide default-object matchers so changed documents cannot return their declared defaults.
+
+- Reduce private text-record Unicode scan work with packed ASCII tests and exact surrogate checks. Keep public string writers, bounds, output ownership and existing source/runtime fallbacks unchanged.
+
+- Retire numeric-batch row estimates without counting enclosing-array comma credits twice. Preserve caller-held reservations and the original row writer accounting across batch boundaries and nullable rows.
+
+- Preserve native literal-store widths when a model shadows integer or vector type names. Emit helpers in an independent scope only where needed, including generated row separators; ordinary generated code stays unchanged.
+
+- Batch reservations for verified numeric-only array rows. Keep output cursors local within bounded batches, compute capacity in 64 bits, and retain original writers for nested objects, effectful rows, shadowed width types, and oversized bounds.
+
+- Return proven-pure child serializers' output cursors directly to their parents. Preserve reservation credits, buffer growth, declaration-scoped aliases, callbacks and GC fallbacks without adding output caching or a public option.
+
+- Remove Map callback prepasses for verified, closed generated record types. Include excluded sources when checking descendants, and preserve runtime/source fallbacks for uncertain or effectful values.
+
+- Expand common SIMD string escapes a block at a time using compile-time shuffle data under the verified stock-runtime/source guard. Preserve Unicode/control fallbacks, output reuse and unsupported-runtime behavior.
+
+- Recognize stock integer/Boolean boxes by declaration when proving serializer effects. Borrow pure children from rooted parents while keeping uncertain parents themselves on rooted dispatch.
+
+- Avoid duplicate managed child aliases in verified, closed generated serializers. Keep managed owners traced across allocation and GC, and retain rooted dispatch for unmanaged, inherited, custom, deferred, or uncertain graphs.
+
+- Avoid redundant SIMD string header updates on runtimes without clean-string metadata, while preserving metadata-aware runtime behavior.
+
+- Route upper-BMP prefixes in verified flat text-array records through an exact two-vector scanner. Preserve public ASCII/escape paths, Unicode semantics and fresh output without adding classification or output caching.
+
+- Specialize verified flat text-array record writers with a private, payload-bounded SIMD entry for three-code-unit strings. Keep public callers, other lengths, escape handling, source/runtime fallbacks, and fresh output unchanged.
+
+- Use a private three-digit lookup for nine-digit magnitudes in verified numeric-row `i64`/`u64` fields. Preserve the existing width checks, narrower and standalone writers, large-integer padding, output bounds, and source/runtime fallbacks.
+
+- Finish clean SIMD string tails with a payload-bounded overlapping 32-byte copy. Preserve exceptional Unicode handling and output ownership, avoiding a second tail scan without caching output.
+
+- Retire unused numeric reservation estimates after completed nested record writers. Preserve caller credits, buffer relocation and existing callback/GC fallbacks, without adding bookkeeping to standalone or deferred records.
+
+- Resume packed SIMD scanning in clean string suffixes from the exceptional writer, preserving Unicode handling, escape expansion, fresh output, and existing buffer/GC ownership.
+
+- Precompute verified float-array exponent metadata when building the transform, emitting a private read-only table for the stock `Array<f64>` writer. Preserve formatter state and scalar code, retain source/binding/alias fallbacks, and cache only immutable metadata bytes during compilation.
+
+- Preserve lone UTF-16 units when writing quoted generated literals as UTF-8, while retaining tagged-template raw text.
+
+- Skip a wide multiplication for zero cached-power low limbs in the verified stock `Array<f64>` formatter. Verify resolved helper sources before array rounding or decimal-clamp specialization, preserving redirected helper effects and stock scalar formatting.
+
+- Specialize multiply-ten rounding in the verified stock `Array<f64>` formatter, preserving scalar formatting and application-supplied formatter bindings. Unknown sources, compiler aliases, and conflicting generated names retain safe handling.
+
+- Reduce redundant managed aliases when serializing string-bearing array records. Keep managed receivers rooted across callbacks and collection, resolve alias identities at compile time, and retain existing wide-integer and generic paths.
+
+- Skip a pure decimal-rounding product when a clamp already fixes the result. Apply only to the verified stock formatter and helper, retaining original code for unknown sources, bindings, and compiler aliases.
+
+- Keep strategic eager-read plans when forwarding through json-as serialization. Copy untouched deferred fields, serialize current materialized or assigned values, and keep later reads from pulling decoding ahead of the first output. Preserve conservative behavior for ordinary schemas and application-owned writers.
+
+- Expand a stock incremental-GC marking call at compile time without changing collection pacing or state transitions. Unknown runtimes, tracing, profiling, finalizers, and affected aliases retain the original path.
+
+- Reduce native-model serialization overhead with adaptive owned output, grouped plain-string reservations, compile-time digit pairs, and bounded integer inlining. Every call still produces a fresh owning result.
+
+- Traverse callback-free generated Map values directly from native entries after bounded type checks. Preserve snapshot iteration for custom codecs, effectful omission, deferred fields, uncertain subtypes, and unsupported runtime layouts.
+
+- Correct signed SIMD lanes and unsigned packed words when generating Unicode aliases and literal stores.
+
 - Accept `@json({ lazy })` for the default access-based parsing strategy and `@json({ nolazy })` to disable it for a class and its descendants, including for eager benchmark controls.
 
 - Respect function-scoped `var` shadowing when resolving receivers and helpers in strategic access analysis.

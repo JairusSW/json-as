@@ -105,6 +105,8 @@ export interface StrategicSite {
   declaration: ClassDeclaration;
   origin: AccessPath[];
   accesses: Map<string, AccessPath[]>;
+  serializationAccesses?: Map<string, AccessPath[]>;
+  parent?: StrategicSite;
   writes: Set<string>;
   escaped: boolean;
   children: Map<string, StrategicSite>;
@@ -158,6 +160,10 @@ export class StrategicAccessAnalysis extends Visitor {
       property: string,
     ) => ClassDeclaration | null = () => null,
     private conservativeEscapes = false,
+    private resolveSerialization: (
+      call: CallExpression,
+      shadowed: (name: string) => boolean,
+    ) => boolean = () => false,
   ) {
     super();
   }
@@ -247,6 +253,10 @@ export class StrategicAccessAnalysis extends Visitor {
         writes: new Set(),
         escaped: parent.escaped || this.pathLimitReached,
         children: new Map(),
+        parent,
+        serializationAccesses: parent.serializationAccesses
+          ? new Map()
+          : undefined,
       };
       parent.children.set(name, child);
       return child;
@@ -314,6 +324,19 @@ export class StrategicAccessAnalysis extends Visitor {
       }
     }
     site.accesses.set(name, paths);
+  }
+
+  private serializationBoundary(site: StrategicSite): void {
+    while (site.parent) site = site.parent;
+    const pending = [site];
+    while (pending.length) {
+      const current = pending.pop()!;
+      if (current.serializationAccesses) continue;
+      current.serializationAccesses = new Map(
+        [...current.accesses].map(([name, paths]) => [name, paths.slice()]),
+      );
+      pending.push(...current.children.values());
+    }
   }
 
   visitPropertyAccessExpression(node: PropertyAccessExpression): void {
@@ -467,6 +490,17 @@ export class StrategicAccessAnalysis extends Visitor {
         const assigned = this.origin((arg as BinaryExpression).left);
         if (assigned) assigned.escaped = true;
       }
+    }
+    // Strategic fields retain all observable data even when left deferred.
+    // A known writer can consume those ranges without decoding them. Ordinary
+    // unused-field elimination must still treat whole serialization as escape.
+    if (
+      !this.conservativeEscapes &&
+      this.resolveSerialization(node, this.shadowed)
+    ) {
+      if (args[0]) this.serializationBoundary(args[0]);
+      for (const arg of args.slice(1)) if (arg) arg.escaped = true;
+      return;
     }
     if (
       fn?.signature.parameters.some(

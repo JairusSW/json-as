@@ -23,6 +23,74 @@ const valid = [
   [],
   ["regrown", "values"],
 ];
+const tails = [];
+const specialUnits = [
+  ...Array.from({ length: 32 }, (_, i) => i),
+  34,
+  92,
+  0x7fff,
+  0x8000,
+  0xd7ff,
+  0xd800,
+  0xdbff,
+  0xdc00,
+  0xdfff,
+  0xe000,
+  0xffff,
+];
+for (const length of [
+  ...Array.from({ length: 34 }, (_, i) => i),
+  47,
+  48,
+  49,
+  63,
+  64,
+  65,
+]) {
+  const base = "a".repeat(length);
+  tails.push(base, "😀".repeat(length), "\uffff".repeat(length));
+  for (let at = 0; at < length; at++) {
+    for (const code of specialUnits)
+      tails.push(
+        base.slice(0, at) + String.fromCharCode(code) + base.slice(at + 1),
+      );
+    tails.push(base.slice(0, at) + "😀" + base.slice(at + 2));
+  }
+}
+const surrogateUnits = ["x", "\ud800", "\udbff", "\udc00", "\udfff"];
+for (let value = 0; value < 625; value++) {
+  let pattern = "";
+  let digits = value;
+  for (let i = 0; i < 4; i++) {
+    pattern += surrogateUnits[digits % surrogateUnits.length];
+    digits = Math.floor(digits / surrogateUnits.length);
+  }
+  for (const prefix of [7, 15, 31])
+    tails.push("a".repeat(prefix) + pattern + "z".repeat(40));
+}
+valid.push(tails);
+const suffixes = [];
+for (const prefix of [0, 7, 15])
+  for (let tail = 0; tail < 32; tail++)
+    for (const special of [
+      "",
+      '"',
+      "\\",
+      "\n",
+      "\0",
+      "\uffff",
+      "\ud800",
+      "\udc00",
+      "😀",
+    ])
+      suffixes.push(
+        "a".repeat(prefix) +
+          '"' +
+          "x".repeat(256 + tail) +
+          special +
+          "z".repeat(33),
+      );
+valid.push(suffixes);
 const invalid = [
   '["x",]',
   '["x",,"y"]',
@@ -95,8 +163,14 @@ try {
               const data = kind >= 3 ? [null, ...values, null] : values;
               const value = kind % 3 === 0 ? data : { items: data };
               const source = JSON.stringify(value, null, space);
+              const output = call(source, kind);
+              assert.equal(
+                output,
+                JSON.stringify(value),
+                `${mode}/${strict}/${fast}/${kind}: encoding`,
+              );
               assert.deepEqual(
-                JSON.parse(call(source, kind)),
+                JSON.parse(output),
                 JSON.parse(source),
                 `${mode}/${strict}/${fast}/${kind}`,
               );

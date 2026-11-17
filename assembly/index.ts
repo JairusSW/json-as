@@ -3618,6 +3618,38 @@ export namespace JSON {
     __serialize<T>(data);
   }
 
+  /** Prove callback-free serialization without invoking application code. */
+  function __serializeCallbackFree<T>(data: T, depth: i32 = 0): bool {
+    if (isBoolean<T>() || isInteger<T>() || isFloat<T>() || isString<T>())
+      return true;
+    if (!isManaged<T>()) return false;
+    const ptr = changetype<usize>(data);
+    if (ptr == 0) return isNullable<T>();
+    if (depth >= 16) return false;
+    // An inherited certificate must never authorize a subtype's override.
+    if (changetype<OBJECT>(ptr - TOTAL_OVERHEAD).rtId != idof<nonnull<T>>())
+      return false;
+    const type = changetype<nonnull<T>>(0);
+    // @ts-expect-error: transform-generated custom serializer
+    if (isDefined(type.__SERIALIZE_CUSTOM)) return false;
+    // @ts-expect-error: transform-generated effect certificate
+    if (isDefined(type.__SERIALIZE_PURE_TYPE))
+      return (
+        changetype<nonnull<T>>(data).__SERIALIZE_PURE_TYPE(depth) ==
+        idof<nonnull<T>>()
+      );
+    // A native-container subtype may implement a manual serializer without
+    // having a generated certificate of its own.
+    // @ts-expect-error: optional manual serializer
+    if (isDefined(type.__SERIALIZE)) return false;
+    if (type instanceof Array || type instanceof StaticArray)
+      return (
+        isBoolean<valueof<T>>() || isInteger<valueof<T>>() ||
+        isFloat<valueof<T>>() || isString<valueof<T>>()
+      );
+    return false;
+  }
+
   function __serialize<T>(data: T): void {
     if (isBoolean<T>()) {
       serializeBool(data as bool);

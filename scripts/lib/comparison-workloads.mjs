@@ -111,3 +111,70 @@ export function comparisonWorkloads(root) {
     (suite) => comparisonWorkload(root, suite),
   );
 }
+
+/** Identify the input used to construct the classic serialization model.
+ * Raw fields preserve this layout, so native and AS must use the same input. */
+export function classicSerializationLayout(source, rootType) {
+  const tree = ts.createSourceFile(
+    "classic.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const declarations = tree.statements
+    .filter(ts.isVariableStatement)
+    .flatMap((statement) => [...statement.declarationList.declarations]);
+  const normalize = (text) => text.replace(/\s/g, "");
+  const models = declarations.filter((declaration) => {
+    const init = declaration.initializer;
+    return (
+      init &&
+      ts.isCallExpression(init) &&
+      normalize(init.expression.getText(tree)) === "JSON.parse" &&
+      init.typeArguments?.length === 1 &&
+      normalize(init.typeArguments[0].getText(tree)) === normalize(rootType)
+    );
+  });
+  if (models.length !== 1)
+    throw Error("Expected one classic serialization model initializer");
+  const input = models[0].initializer.arguments[0];
+  if (!input || !ts.isIdentifier(input))
+    throw Error("Expected a named classic input");
+  const declaration = declarations.find(
+    (candidate) => candidate.name.getText(tree) === input.text,
+  );
+  const init = declaration?.initializer;
+  if (
+    !init ||
+    !ts.isCallExpression(init) ||
+    init.expression.getText(tree) !== "readFile" ||
+    init.arguments.length !== 1 ||
+    !ts.isStringLiteralLike(init.arguments[0])
+  )
+    throw Error("Expected the classic input to come from readFile");
+  const layout = /\.(min|pretty)\.json$/.exec(init.arguments[0].text)?.[1];
+  if (!layout) throw Error("Unrecognized classic input layout");
+  return layout;
+}
+
+// Bytes per nanosecond are decimal GB/s. Parsing consumes the original input,
+// including whitespace; writing produces each engine's actual output.
+export function classicThroughput({
+  phase,
+  inputBytes,
+  asOutputBytes,
+  nativeOutputBytes,
+  asNs,
+  nativeNs,
+}) {
+  if (phase !== "deserialize" && phase !== "serialize")
+    throw new Error(`Unknown classic phase: ${phase}`);
+  return {
+    inputBytes,
+    outputBytes: asOutputBytes,
+    nativeOutputBytes,
+    asGBps: (phase === "deserialize" ? inputBytes : asOutputBytes) / asNs,
+    nativeGBps:
+      (phase === "deserialize" ? inputBytes : nativeOutputBytes) / nativeNs,
+  };
+}
