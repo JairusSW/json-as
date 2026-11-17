@@ -13,9 +13,9 @@ Latest full native capture: [bounded large-writer literals](#full-native-refresh
 
 Latest measured implementation comparison: [bounded literal pools for large string-bearing writers](#large-string-bearing-literal-pools--retained). Twitter improves in both paired captures; GitHub remains unresolved. The overall near-parity objective is unfinished.
 
-Work in progress on `jairus/serialize-parity`. The target is near parity with
-simdjson's fresh owning-struct serialization across the classic corpus. The
-initial three-corpus screen is not whole-corpus qualification.
+Prepared on `jairus/serialize-parity`. The user accepted the current performance
+checkpoint and ended further optimization. The latest nine-corpus table is the
+review baseline; full near parity across all corpora has not been achieved.
 
 ## Initial baseline
 
@@ -4999,5 +4999,51 @@ The qualified production source hash is
 preserves the complete samples/results, all host audits, manifests, recipes and
 end seals. Exact images and unchanged output files resolve by SHA-256 through
 the linked implementation and preceding native artifacts; embedded bytes and
-references are independently verified. Hosted CI on the code commit remains a
-separate gate. PR #256 remains draft and the full near-parity goal is active.
+references are independently verified. Tests, Lint and License headers passed
+on both the code commit and the subsequent `733d1666` evidence head. The user
+accepted this checkpoint; further optimization has stopped.
+
+
+## Final Unicode probes and handoff
+
+The final private-string experiments are unretained:
+
+| Probe | Poet paired elapsed change | 95% interval | Decision |
+|---|---:|---:|---|
+| Conservative surrogate threshold, 8 pairs | +19.69% | +16.62% to +22.78% | Reject |
+| Exact high-byte unzip, initial 8 pairs | -2.53% | -4.75% to -0.55% | Required repeat |
+| Exact high-byte unzip, independent 12 pairs | +0.75% | -0.12% to +1.58% | No repeated gain; reject |
+
+Both candidates pass **2,487,094** exact record/reuse checks across thirteen
+configurations and all nine full-model/retained-GC oracles. Eight classic
+control images are identical; only Poet changes. The threshold intentionally
+adds conservative hits for ordinary upper-BMP characters, including full-width
+punctuation. Its cheaper predicate does not compensate for the extra fallback
+work in the corpus.
+
+The exact unzip also receives twenty text countercases in eight pairs:
+**16 processes / 320 measurements**. Several Unicode-only cases improve
+approximately 4–17%, but the classic-corpus gain does not repeat. Those
+synthetic wins are not substituted for the ordinary workload. A separate
+single-constant exact tag variant passes the same correctness suite, all nine
+oracles and forty baseline/candidate preflight outputs. **It was not timed and
+is not integrated**, because the user requested wrapping up.
+
+The first adapted correctness driver accidentally imported the baseline;
+that run is retained as a control, not candidate verification. The corrected
+driver checks the actual mask body before running. The initial unzip source
+also needed explicit signed-byte casts; its diagnostic is retained separately.
+Neither setup error is counted as a timing result.
+
+[Final unretained probe evidence](data/serialization-final-unicode-probes.json.gz)
+preserves **72 timed processes / 376 measurements**, source/image seals,
+statistics, correctness logs, countercase outputs, all final prototypes and the
+untimed tag variant. No source/runtime change from these probes is shipped.
+
+The accepted implementation remains `213db5dd`, with the full native table
+captured above. Its validated head `733d1666` has green Tests, Lint and License
+headers. The final evidence-only update changes this report and its archive;
+production source and benchmark binaries remain identical. Local benchmark,
+prepare, capture and retry/controller processes have all finished, and this
+thread holds no host timing lock. PR #256 is prepared for review at the accepted
+**4/9** checkpoint; full 90% parity is still an explicitly unmet future target.
