@@ -1,0 +1,690 @@
+{
+  "manifest": {
+    "schemaVersion": 1,
+    "id": "2026-11-17T07-14-58-573Z-0caa3e00-160a-4246-9235-12da408355e3",
+    "status": "complete",
+    "startedAt": "2026-11-17T07:14:58.573Z",
+    "source": {
+      "commit": "ea0e631d9a7cdc98cdaf36ce3de8837f8bd6bc0e",
+      "branch": "main",
+      "dirty": false,
+      "packageVersion": "2.1.0"
+    },
+    "host": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "cpu": "Apple M4 Max"
+    },
+    "settings": {
+      "frames": 40,
+      "mode": "NAIVE",
+      "fastPath": "1",
+      "compilerFlags": [
+        "--disableWarning",
+        "217",
+        "--disableWarning",
+        "228",
+        "--disableWarning",
+        "235",
+        "-O3",
+        "--noAssert",
+        "--uncheckedBehavior",
+        "always",
+        "--runtime",
+        "incremental",
+        "--disable",
+        "nontrapping-f2i",
+        "--disable",
+        "bulk-memory",
+        "--use",
+        "BENCH_FRAMES=40"
+      ]
+    },
+    "toolVersions": {
+      "node": "v26.4.0",
+      "go": "go version go1.27.1 darwin/arm64",
+      "wasmtime": "wasmtime 46.0.1 (823d1b8f2 2026-06-24)",
+      "wavm": "WAVM version 0.0.0-prerelease\nWAVM_ENABLE_RUNTIME:           true\nWAVM_ENABLE_STATIC_LINKING:    false\nWAVM_ENABLE_ASAN:              false\nWAVM_ENABLE_UBSAN:             false\nWAVM_ENABLE_TSAN:              false\nWAVM_ENABLE_LIBFUZZER:         false\nWAVM_ENABLE_RELEASE_ASSERTS:   false\nLLVM version:                  21.1.8\nHost target:                   arch=aarch64 os=macos cpu=apple-m4 +lse",
+      "wazero": "v1.12.0",
+      "v8": "V8 version 15.2.20",
+      "bun": "1.4.0"
+    },
+    "wagoDependencies": "module github.com/JairusSW/json-as/bench/runners/wago\n\ngo 1.22.0\n\nrequire (\n\tgithub.com/wago-org/wago v0.1.0-beta.13.0.20261117034055-7da95a9edc34\n\tgithub.com/wago-org/wasi v0.3.2-0.20261005152821-e461db531d72\n)\n\nrequire golang.org/x/sys v0.30.0 // indirect\n",
+    "runtimes": [
+      "wago",
+      "wasmtime",
+      "wavm",
+      "wazero",
+      "v8",
+      "bun"
+    ],
+    "completedAt": "2026-11-17T07:17:22.655Z"
+  },
+  "wagoDependencies": "module github.com/JairusSW/json-as/bench/runners/wago\n\ngo 1.22.0\n\nrequire (\n\tgithub.com/wago-org/wago v0.1.0-beta.13.0.20261117034055-7da95a9edc34\n\tgithub.com/wago-org/wasi v0.3.2-0.20261005152821-e461db531d72\n)\n\nrequire golang.org/x/sys v0.30.0 // indirect\n",
+  "results": {
+    "wago": {
+      "twitter": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Twitter (min)",
+          "elapsed": 847.3271670000001,
+          "bytes": 466906,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 423663.58350000007,
+          "mbps": 1102.0678155596065,
+          "gbps": 1.1020678155596064,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Twitter (min)",
+          "elapsed": 1079.4732489999997,
+          "bytes": 466906,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 269868.31224999996,
+          "mbps": 1730.1253196687605,
+          "gbps": 1.7301253196687605,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "citm_catalog": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize CITM (min)",
+          "elapsed": 1274.9962100000002,
+          "bytes": 500299,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 637498.1050000001,
+          "mbps": 784.7850779101531,
+          "gbps": 0.7847850779101531,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize CITM (min)",
+          "elapsed": 1168.933708999999,
+          "bytes": 500299,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 292233.4272499998,
+          "mbps": 1711.9841652201014,
+          "gbps": 1.7119841652201013,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "canada": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Canada (min)",
+          "elapsed": 1720.9067529999993,
+          "bytes": 2090234,
+          "operations": 500,
+          "features": [],
+          "nsPerOp": 3441813.5059999987,
+          "mbps": 607.3060020120686,
+          "gbps": 0.6073060020120685,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Canada (min)",
+          "elapsed": 4464.763082000001,
+          "bytes": 2090234,
+          "operations": 1000,
+          "features": [],
+          "nsPerOp": 4464763.082000001,
+          "mbps": 468.1623552270717,
+          "gbps": 0.4681623552270717,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      }
+    },
+    "wasmtime": {
+      "twitter": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Twitter (min)",
+          "elapsed": 632.2765840000011,
+          "bytes": 466906,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 316138.29200000054,
+          "mbps": 1476.9042909866773,
+          "gbps": 1.4769042909866774,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Twitter (min)",
+          "elapsed": 841.2276690000003,
+          "bytes": 466906,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 210306.9172500001,
+          "mbps": 2220.1171797167776,
+          "gbps": 2.2201171797167776,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "citm_catalog": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize CITM (min)",
+          "elapsed": 954.9058330000009,
+          "bytes": 500299,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 477452.91650000046,
+          "mbps": 1047.8499192495758,
+          "gbps": 1.0478499192495758,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize CITM (min)",
+          "elapsed": 724.7152100000008,
+          "bytes": 500299,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 181178.80250000017,
+          "mbps": 2761.355043176199,
+          "gbps": 2.761355043176199,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "canada": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Canada (min)",
+          "elapsed": 1191.779747000001,
+          "bytes": 2090234,
+          "operations": 500,
+          "features": [],
+          "nsPerOp": 2383559.494000002,
+          "mbps": 876.9380438212794,
+          "gbps": 0.8769380438212794,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Canada (min)",
+          "elapsed": 2754.8119189999957,
+          "bytes": 2090234,
+          "operations": 1000,
+          "features": [],
+          "nsPerOp": 2754811.9189999956,
+          "mbps": 758.7574257188347,
+          "gbps": 0.7587574257188348,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      }
+    },
+    "wavm": {
+      "twitter": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Twitter (min)",
+          "elapsed": 541.6955020129681,
+          "bytes": 466906,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 270847.75100648403,
+          "mbps": 1723.8688461135584,
+          "gbps": 1.7238688461135585,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Twitter (min)",
+          "elapsed": 661.7480820119381,
+          "bytes": 466906,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 165437.02050298452,
+          "mbps": 2822.258274359921,
+          "gbps": 2.822258274359921,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "citm_catalog": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize CITM (min)",
+          "elapsed": 838.5876280069351,
+          "bytes": 500299,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 419293.81400346756,
+          "mbps": 1193.1943264869215,
+          "gbps": 1.1931943264869214,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize CITM (min)",
+          "elapsed": 644.0205039978027,
+          "bytes": 500299,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 161005.12599945068,
+          "mbps": 3107.348271642649,
+          "gbps": 3.107348271642649,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "canada": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Canada (min)",
+          "elapsed": 1031.958377957344,
+          "bytes": 2090234,
+          "operations": 500,
+          "features": [],
+          "nsPerOp": 2063916.755914688,
+          "mbps": 1012.7511170253805,
+          "gbps": 1.0127511170253805,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Canada (min)",
+          "elapsed": 2319.00524905324,
+          "bytes": 2090234,
+          "operations": 1000,
+          "features": [],
+          "nsPerOp": 2319005.24905324,
+          "mbps": 901.3494043850749,
+          "gbps": 0.9013494043850748,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      }
+    },
+    "wazero": {
+      "twitter": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Twitter (min)",
+          "elapsed": 1299.2692130506039,
+          "bytes": 466906,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 649634.6065253019,
+          "mbps": 718.7209476067451,
+          "gbps": 0.7187209476067451,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Twitter (min)",
+          "elapsed": 1378.001627922058,
+          "bytes": 466906,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 344500.4069805145,
+          "mbps": 1355.313348080918,
+          "gbps": 1.355313348080918,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "citm_catalog": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize CITM (min)",
+          "elapsed": 1667.4071690142155,
+          "bytes": 500299,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 833703.5845071077,
+          "mbps": 600.0921781999783,
+          "gbps": 0.6000921781999783,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize CITM (min)",
+          "elapsed": 1612.5550880730152,
+          "bytes": 500299,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 403138.7720182538,
+          "mbps": 1241.0093861608202,
+          "gbps": 1.2410093861608202,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "canada": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Canada (min)",
+          "elapsed": 1995.1882060468197,
+          "bytes": 2090234,
+          "operations": 500,
+          "features": [],
+          "nsPerOp": 3990376.4120936394,
+          "mbps": 523.818753956425,
+          "gbps": 0.523818753956425,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Canada (min)",
+          "elapsed": 3577.3495849370956,
+          "bytes": 2090234,
+          "operations": 1000,
+          "features": [],
+          "nsPerOp": 3577349.5849370956,
+          "mbps": 584.2968237717687,
+          "gbps": 0.5842968237717687,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      }
+    },
+    "v8": {
+      "twitter": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Twitter (min)",
+          "elapsed": 506.7279999999994,
+          "bytes": 466906,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 253363.9999999997,
+          "mbps": 1842.8269209516764,
+          "gbps": 1.8428269209516763,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Twitter (min)",
+          "elapsed": 812.6600000000001,
+          "bytes": 466906,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 203165.00000000003,
+          "mbps": 2298.1615927940343,
+          "gbps": 2.298161592794034,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "citm_catalog": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize CITM (min)",
+          "elapsed": 825.8630000000007,
+          "bytes": 500299,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 412931.50000000035,
+          "mbps": 1211.578675882076,
+          "gbps": 1.211578675882076,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize CITM (min)",
+          "elapsed": 686.5300000000016,
+          "bytes": 500299,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 171632.50000000038,
+          "mbps": 2914.943265407186,
+          "gbps": 2.914943265407186,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "canada": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Canada (min)",
+          "elapsed": 1109.5410000000002,
+          "bytes": 2090234,
+          "operations": 500,
+          "features": [],
+          "nsPerOp": 2219082.0000000005,
+          "mbps": 941.9363502565475,
+          "gbps": 0.9419363502565475,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Canada (min)",
+          "elapsed": 2846.287,
+          "bytes": 2090234,
+          "operations": 1000,
+          "features": [],
+          "nsPerOp": 2846287,
+          "mbps": 734.3721838310754,
+          "gbps": 0.7343721838310754,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      }
+    },
+    "bun": {
+      "twitter": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Twitter (min)",
+          "elapsed": 491.65908599999955,
+          "bytes": 466906,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 245829.54299999977,
+          "mbps": 1899.3079281768848,
+          "gbps": 1.8993079281768848,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Twitter (min)",
+          "elapsed": 612.570709000001,
+          "bytes": 466906,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 153142.67725000024,
+          "mbps": 3048.830073917225,
+          "gbps": 3.048830073917225,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "citm_catalog": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize CITM (min)",
+          "elapsed": 718.5644570000004,
+          "bytes": 500299,
+          "operations": 2000,
+          "features": [],
+          "nsPerOp": 359282.2285000002,
+          "mbps": 1392.495816140819,
+          "gbps": 1.392495816140819,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize CITM (min)",
+          "elapsed": 630.1121679999994,
+          "bytes": 500299,
+          "operations": 4000,
+          "features": [],
+          "nsPerOp": 157528.04199999984,
+          "mbps": 3175.936129517819,
+          "gbps": 3.1759361295178192,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      },
+      "canada": {
+        "deserialize": {
+          "language": "assemblycript",
+          "description": "Deserialize Canada (min)",
+          "elapsed": 980.4941209999984,
+          "bytes": 2090234,
+          "operations": 500,
+          "features": [],
+          "nsPerOp": 1960988.2419999966,
+          "mbps": 1065.90848187248,
+          "gbps": 1.06590848187248,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        },
+        "serialize": {
+          "language": "assemblycript",
+          "description": "Serialize Canada (min)",
+          "elapsed": 2703.3937499999956,
+          "bytes": 2090234,
+          "operations": 1000,
+          "features": [],
+          "nsPerOp": 2703393.749999996,
+          "mbps": 773.1888852668995,
+          "gbps": 0.7731888852668996,
+          "memoryBaselineBytes": 0,
+          "memoryPeakBytes": 0,
+          "memoryRetainedBytes": 0,
+          "memoryPostGcMs": 0,
+          "heapDetail": ""
+        }
+      }
+    }
+  }
+}
