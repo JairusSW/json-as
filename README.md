@@ -33,7 +33,7 @@
 
 </details>
 
-`json-as` 2.1 compiles typed JSON readers and writers for AssemblyScript. Ordinary `@json` classes specialize visible parse sites to decode fields the program needs. Full reads and uncertain uses keep eager behavior. Lazy parsing means access specialization; it adds no deferred slots or getters.
+`json-as` 2.1 compiles typed JSON readers and writers for AssemblyScript. Lazy parsing is enabled by default: visible parse sites can decode only fields the program needs. Full reads and uncertain uses keep eager behavior. Lazy parsing means access specialization; it adds no deferred slots or getters.
 
 ## Installation
 
@@ -65,6 +65,18 @@ You can read the docs here:
 <https://docs.jairus.dev/json-as>
 
 ## Usage
+
+Import `JSON` and enable the transform. The main entry points are:
+
+| API | Purpose |
+| --- | --- |
+| `JSON.parse<T>(text, out?)` | Parse into a typed value; optionally reuse a destination. |
+| `JSON.stringify(value, out?)` | Serialize current values; optionally reuse an output string. |
+| `JSON.validate(text)` | Check complete JSON syntax without constructing a typed value. |
+
+`validate` checks syntax, not whether the data matches a model. Use `JSON_STRICT=true` when typed parsing must validate the document and target values. Always retain the return value when supplying a reusable destination.
+
+See the [public API reference](https://docs.jairus.dev/json-as/reference/json-api).
 
 ```typescript
 import { JSON } from "json-as";
@@ -527,6 +539,8 @@ Every `@json` schema compiles to specialized WebAssembly. The charts below recor
 - **SWAR** — *SIMD-Within-A-Register*: processes 8 bytes at a time with ordinary 64-bit integer math. The default.
 - **SIMD** — 128-bit vector scanning; enable with `--enable simd` and measure against SWAR for your workload.
 
+The 17 November captures predate the lazy API consolidation. Their **Lazy** series measures the retired deferred-field implementation; it is not a measurement of current access-based lazy parsing. See the [benchmark notes](https://docs.jairus.dev/json-as/guide/performance#lazy-parsing-and-dynamic-work). New lazy comparisons need fresh captures.
+
 📊 **[Browse the full chart set for this release →](https://github.com/JairusSW/json-as/tree/docs/charts/v2.1.0)**
 
 ### Real-World Throughput
@@ -628,13 +642,13 @@ Here's a short list:
 
 **JSON_DEBUG** (default: 0) - Sets the debug level. May be within range `0-3`
 
-**JSON_MODE** (default: SWAR) - Selects which mode should be used. Can be `NAIVE,SWAR,SIMD`. Note that `--enable simd` may be required.
+**JSON_MODE** - Selects `NAIVE`, `SWAR`, or `SIMD`. Without an override, SIMD is selected when the compiler enables it; otherwise SWAR is used. SIMD requires `--enable simd`.
 
 **JSON_STRICT** (default: false) - Set to `true` when compiling for complete JSON syntax validation through the checked parser or validated fallback.
 
 **JSON_DIAGNOSTICS** (default: true) - Swaps out `throw new Error` with `unreachable()` which makes wrong branch predictions essentially free if it predicts it will trap since `new Error` includes an allocation.
 
-**JSON_USE_FAST_PATH** (default: 1) - The transform emits the fast `__DESERIALIZE` implementation for generated structs by default. Set to `0`, `false`, `off`, or `no` to force slow-path-only output.
+**JSON_USE_FAST_PATH** (default: 1) - Enables generated fast readers. Set to `0`, `false`, `off`, or `no` for slow-path-only output. This setting is independent of lazy parsing and strict validation.
 
 **JSON_WRITE** (default: "") - Select a series of files to output after transform and optimization passes have completed for easy inspection. Usage: `JSON_WRITE=.path-to-file-a.ts,./path-to-file-b.ts`
 
@@ -677,7 +691,9 @@ bun run bench:as -- medium.bench.ts --wazero
 bun run bench:as -- medium.bench.ts --wago --wazero --mode simd
 ```
 
-The AS suite includes eager/lazy comparisons for deserialization, serialization, round trips, and access patterns under `assembly/__benches__/lazy/`. Classic datasets also have `*.lazy.bench.ts` variants alongside their eager and dynamic-object workloads.
+The AS suite compares `{ nolazy }` controls with access-based lazy parsing under `assembly/__benches__/lazy/`. Its access-pattern workload reads none, one, half, or all fields. Whole-object serialization observes all emitted fields, so round-trip benchmarks do not measure deferred source forwarding. Classic datasets also have `*.lazy.bench.ts` variants.
+
+Current lazy benchmarks use separate result keys from the retired deferred-field captures. Regenerate their logs before building new comparison charts.
 
 ```bash
 bun run bench:as lazy/ --mode simd
