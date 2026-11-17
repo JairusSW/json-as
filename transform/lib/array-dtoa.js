@@ -246,3 +246,81 @@ export function specializeArrayDtoa(sources, aliases) {
     new Route().visit(writer.body);
     return { entry: entry.name.text, rounding };
 }
+export function preserveFloatCallbackPolicy(sources, aliases) {
+    const root = diagnosticsRuntimeRoot(sources);
+    if (root === undefined)
+        return () => { };
+    const verified = new Map();
+    const stock = (binding, name) => {
+        if (!binding || binding.node.name.text !== name)
+            return false;
+        const source = binding.source;
+        const cached = verified.get(source);
+        if (cached !== undefined)
+            return cached;
+        const isDouble = name === "dtoa_buffered";
+        const textHash = isDouble
+            ? DTOA_TEXT
+            : "ed720d81f73ca14e9976c07a403cab139b57977f1988f526212cda40e999eee9";
+        const astHash = isDouble
+            ? "86344c325fc249dd08029a561a4ca182ab503c8579c37972dd4e4003e62d667d"
+            : "8ce6794a8299fded4b16f83dd01b7437b7e5f4e571c18341cef6915cd5a619fe";
+        const peer = moduleSource(sources, source.internalPath.replace(/\/(?:dtoa|ftoa)$/, "/xjb"));
+        const safe = hash(source.text) === textHash &&
+            hash(toString(source)) === astHash &&
+            !!peer &&
+            hash(peer.text) === STOCK_POWER_SOURCE &&
+            hash(toString(peer)) === PEER_AST &&
+            source.statements.every((node) => node.kind !== NodeKind.Import ||
+                moduleSource(sources, node.internalPath) ===
+                    peer);
+        verified.set(source, safe);
+        return safe;
+    };
+    const entries = [
+        "assembly/index",
+        "assembly/serialize/naive/float",
+        "assembly/serialize/naive/array",
+    ];
+    const safe = ![...(aliases?.keys() ?? [])].some((name) => !/^JSON_/.test(name)) &&
+        entries.every((path) => {
+            const source = moduleSource(sources, root + path);
+            if (!source)
+                return false;
+            return ["dtoa_buffered", "ftoa_buffered"].every((name) => {
+                const imported = source.statements
+                    .filter((node) => node.kind === NodeKind.Import)
+                    .flatMap((node) => {
+                    const statement = node;
+                    return (statement.declarations ?? [])
+                        .filter((item) => item.name.text === name)
+                        .map((item) => ({ statement, item }));
+                });
+                if (imported.length !== 1)
+                    return false;
+                const target = moduleSource(sources, imported[0].statement.internalPath);
+                return stock(target
+                    ? exportedFunction(sources, target, imported[0].item.foreignName.text)
+                    : null, name);
+            });
+        });
+    if (safe)
+        return () => { };
+    return () => {
+        const source = moduleSource(sources, root + "assembly/serialize/naive/map");
+        const entry = source?.statements.find((node) => node.kind === NodeKind.FunctionDeclaration &&
+            node.name.text ===
+                "canSerializeMapWithoutCallbacks");
+        if (!entry?.body)
+            return;
+        const body = SimpleParser.parseStatement("{ return false; }");
+        class Bind extends Visitor {
+            _visit(node, parent) {
+                node.range = entry.range;
+                super._visit(node, parent);
+            }
+        }
+        new Bind().visit(body);
+        entry.body = body;
+    };
+}

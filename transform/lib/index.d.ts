@@ -10,6 +10,7 @@ import { Transform } from "assemblyscript/dist/transform.js";
 import { Schema, SourceSet, Src } from "./types.js";
 import { Visitor } from "./visitor.js";
 import { ArrayRowSerializers } from "./array-row.js";
+import { SerializerBindings } from "./serializer-bindings.js";
 export declare function normalizeJsonAsBaseRel(baseRel: string): string;
 export declare function computeImportBaseRel(fromDir: string, packageDir: string, p?: {
     relative(from: string, to: string): string;
@@ -27,6 +28,7 @@ export declare class JSONTransform extends Visitor {
     simdStatements: Map<Source, string[]>;
     arrayRows: ArrayRowSerializers | null;
     private literalStoreBindings;
+    serializerBindings: SerializerBindings | null;
     visitedClasses: Set<string>;
     pureNumericConstants: Set<string>;
     numericConstantShadows: Set<string>;

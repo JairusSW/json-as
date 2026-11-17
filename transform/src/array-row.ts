@@ -102,6 +102,7 @@ export class ArrayRowSerializers {
     private parser: Parser,
     sourceSet: SourceSet,
     options: Options,
+    private nativeBindings: (model: ClassDeclaration) => boolean,
   ) {
     this.names = arrayRowSafety(parser.sources, options);
     if (!this.names) return;
@@ -401,7 +402,7 @@ export class ArrayRowSerializers {
     }
     new FindReceiver().visit(serializer.body!);
     if (receiver) return;
-    if (closed) this.closedRecords.add(node);
+    if (closed && this.nativeBindings(node)) this.closedRecords.add(node);
     const parser = this.parser;
     const closedRecords = this.closedRecords;
     const entry = () => this.borrowedEntry();

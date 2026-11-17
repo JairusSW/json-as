@@ -51,6 +51,7 @@ const ARRAY_INTEGERS = new Set(["i16", "u16", "i32", "u32", "i64", "u64"]);
 const MARKER = "__SERIALIZE_FLAT_NUMERIC_FIELDS";
 export class ArrayRowSerializers {
     parser;
+    nativeBindings;
     names;
     integerWriters = null;
     textWriters = null;
@@ -71,8 +72,9 @@ export class ArrayRowSerializers {
     closedMapProof = null;
     recordCursors = null;
     numericBatches = null;
-    constructor(sources, parser, sourceSet, options) {
+    constructor(sources, parser, sourceSet, options, nativeBindings) {
         this.parser = parser;
+        this.nativeBindings = nativeBindings;
         this.names = arrayRowSafety(parser.sources, options);
         if (!this.names)
             return;
@@ -284,7 +286,7 @@ export class ArrayRowSerializers {
         new FindReceiver().visit(serializer.body);
         if (receiver)
             return;
-        if (closed)
+        if (closed && this.nativeBindings(node))
             this.closedRecords.add(node);
         const parser = this.parser;
         const closedRecords = this.closedRecords;

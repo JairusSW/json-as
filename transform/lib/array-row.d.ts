@@ -10,6 +10,7 @@ import { Schema, SourceSet, Src } from "./types.js";
 import { Visitor } from "./visitor.js";
 export declare class ArrayRowSerializers {
     private parser;
+    private nativeBindings;
     private names;
     private integerWriters;
     private textWriters;
@@ -30,7 +31,7 @@ export declare class ArrayRowSerializers {
     private closedMapProof;
     private recordCursors;
     private numericBatches;
-    constructor(sources: Source[], parser: Parser, sourceSet: SourceSet, options: Options);
+    constructor(sources: Source[], parser: Parser, sourceSet: SourceSet, options: Options, nativeBindings: (model: ClassDeclaration) => boolean);
     private rememberRecord;
     finishMapProof(knownGc: boolean): void;
     finishRecord(node: ClassDeclaration, schema: Schema, source: Src, serializer: MethodDeclaration): void;

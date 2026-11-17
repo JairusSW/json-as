@@ -10,3 +10,4 @@ export declare function specializeArrayDtoa(sources: Source[], aliases: Map<stri
     entry: string;
     rounding: string;
 } | null;
+export declare function preserveFloatCallbackPolicy(sources: Source[], aliases: Map<string, string> | null): () => void;

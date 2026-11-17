@@ -100,7 +100,9 @@ export class LiteralStoreBindings {
       );
     }
     if (native.get(type)) return null;
-    let helper = this.helpers.get(type);
+    const vector = type === "v128";
+    const key = vector ? type + ":" + value : type;
+    let helper = this.helpers.get(key);
     if (!helper) {
       this.reserveNames(parser);
       let file: string;
@@ -118,14 +120,20 @@ export class LiteralStoreBindings {
       // A separate source gives both the parameter and intrinsic their native
       // binding. No managed storage or startup initializer is introduced.
       parser.parseFile(
-        `@global @inline function ${helper}(dst:usize,value:${type},offset:usize):void {
-          store<${type}>(dst+offset,value);
-        }`,
+        vector
+          ? `@global @inline function ${helper}(dst:usize,offset:usize):void {
+              store<v128>(dst+offset,${value});
+            }`
+          : `@global @inline function ${helper}(dst:usize,value:${type},offset:usize):void {
+              store<${type}>(dst+offset,value);
+            }`,
         file,
         false,
       );
-      this.helpers.set(type, helper);
+      this.helpers.set(key, helper);
     }
-    return `${helper}(${target}, ${value}, ${offset});`;
+    return vector
+      ? `${helper}(${target}, ${offset});`
+      : `${helper}(${target}, ${value}, ${offset});`;
   }
 }

@@ -37,6 +37,32 @@ are **byte-identical** to the accepted `213db5dd` implementation. The
 hashes, build options and changed-transform hashes. No additional timing run
 was needed or performed; the accepted 4/9 performance checkpoint remains.
 
+## Review follow-up: callback proofs and scoped vector literals
+
+Generated purity certificates now require native operation and bookkeeping
+bindings in the model's module. Shadowed intrinsics and scalar type names keep
+the snapshot policy; they cannot execute a prepass or receive a closed-record
+Map certificate. This includes generic type parameters that shadow `i32`.
+
+Map traversal also verifies the actual imported f64/f32 formatter declarations,
+their stock bodies and their shared helper bindings before using the callback-free
+path. A wrapper or unverified formatter retains snapshot traversal throughout
+that compilation. The check follows reexports to the resolved function; merely
+loading a stock formatter elsewhere is insufficient. Verification precedes our
+proven formatter rewrites, with the fallback installed after Map lowering.
+
+The scoped SIMD literal fallback now constructs its vector inside the native
+helper rather than evaluating an application-visible `i16x8` call in the model.
+Regression fixtures cover Map additions and replacement storage, f64/f32
+formatter hooks, generic width shadowing, scalar aliases and generic depth types
+across the three backends and runtimes.
+
+All nine optimized classic serialization executables remain **byte-identical**
+to the accepted measured implementation. The
+[continuity manifest](data/serialization-review-purity.json) records the final
+transform hashes and build options. These fixes introduce no new throughput
+claim or timing capture; the accepted 4/9 checkpoint is unchanged.
+
 ## Initial baseline
 
 Measured on local ARM64, on AC power, with the shared host timing lock.

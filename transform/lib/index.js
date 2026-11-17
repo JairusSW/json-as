@@ -19,6 +19,8 @@ import { cloneNode, isStdlib, removeExtension, SimpleParser, toString, } from ".
 import { Visitor } from "./visitor.js";
 import { ArrayRowSerializers } from "./array-row.js";
 import { LiteralStoreBindings } from "./literal-store-bindings.js";
+import { SerializerBindings } from "./serializer-bindings.js";
+import { preserveFloatCallbackPolicy } from "./array-dtoa.js";
 import { specializeArrayDtoa } from "./array-dtoa.js";
 import { specializeObjectAllocator } from "./allocation.js";
 import { specializeCopiedStringAllocator } from "./copied-string.js";
@@ -256,6 +258,7 @@ export class JSONTransform extends Visitor {
     simdStatements = new Map();
     arrayRows = null;
     literalStoreBindings = new LiteralStoreBindings();
+    serializerBindings = null;
     visitedClasses = new Set();
     pureNumericConstants = new Set();
     numericConstantShadows = new Set();
@@ -5591,7 +5594,8 @@ export class JSONTransform extends Visitor {
                 (isPrimitive(member.type) ||
                     isString(member.type) ||
                     isEnum(stripNull(member.type), source, this.parser)));
-        node.members.push(SimpleParser.parseClassMember(`__SERIALIZE_PURE_TYPE(depth: i32 = -1): u32 {
+        if (this.serializerBindings?.hasNativeBindings(node))
+            node.members.push(SimpleParser.parseClassMember(`__SERIALIZE_PURE_TYPE(depth: i32 = -1): u32 {
   if (depth < 0) return ${serializerPure ? `idof<${ownType}>()` : "0"};
   return (${callbackFreeFields}) ? idof<${ownType}>() : 0;
 }`, node));
@@ -5731,7 +5735,8 @@ export class JSONTransform extends Visitor {
             (node.typeParameters?.length
                 ? `<${node.typeParameters.map((parameter) => parameter.name.text).join(",")}>`
                 : "");
-        node.members.push(SimpleParser.parseClassMember(`__SERIALIZE_PURE_TYPE(_depth: i32 = -1): u32 { return ${hasManualSerializer(node) ? "0" : `idof<${ownType}>()`}; }`, node));
+        if (this.serializerBindings?.hasNativeBindings(node))
+            node.members.push(SimpleParser.parseClassMember(`__SERIALIZE_PURE_TYPE(_depth: i32 = -1): u32 { return ${hasManualSerializer(node) ? "0" : `idof<${ownType}>()`}; }`, node));
         node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_FAST_ENABLED(): bool { return false; }", node));
         node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_REUSE_PURE(): bool { return false; }", node));
         const INITIALIZE_EMPTY = "__INITIALIZE(): this {\n  memory.fill(changetype<usize>(this), 0, offsetof<this>());\n  this.__JSON_INITIALIZE_FIELDS();\n  return this;\n}";
@@ -6157,7 +6162,9 @@ export default class Transformer extends Transform {
         const numericConstants = pureNumericConstants(parser.sources);
         transformer.pureNumericConstants = numericConstants.constants;
         transformer.numericConstantShadows = numericConstants.shadowed;
-        transformer.arrayRows = new ArrayRowSerializers(sources, parser, transformer.sources, this.program.options);
+        transformer.serializerBindings = new SerializerBindings(parser, transformer.sources, this.program.options.globalAliases);
+        const stockFloatCallbacks = preserveFloatCallbackPolicy(parser.sources, this.program.options.globalAliases);
+        transformer.arrayRows = new ArrayRowSerializers(sources, parser, transformer.sources, this.program.options, (node) => transformer.serializerBindings.hasNativeBindings(node));
         transformer.prepareStrategicLaziness(sources);
         transformer.prepareOrdinarySpecialization(sources);
         transformer.prepareLazyOverrides(sources);
@@ -6183,6 +6190,7 @@ export default class Transformer extends Transform {
         transformer.arrayRows?.finish(parser.sources, knownGc);
         specializeDecimalClamps(parser.sources, this.program.options.globalAliases);
         specializeArrayDtoa(parser.sources, this.program.options.globalAliases);
+        stockFloatCallbacks();
         for (const [source, statements] of transformer.simdStatements) {
             for (const statement of statements)
                 source.statements.unshift(SimpleParser.parseTopLevelStatement(statement));
