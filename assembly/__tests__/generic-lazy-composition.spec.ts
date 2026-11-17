@@ -8,9 +8,11 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+
 @json class Generic<T> {
   value!: T;
 }
+
 
 @json class Base<T> {
   value: T = changetype<T>(0);
@@ -18,6 +20,7 @@ import { describe, expect } from "as-test";
     this.value = value;
   }
 }
+
 
 @json class Derived extends Base<string> {
   constructor() {
@@ -33,6 +36,7 @@ describe("generic inheritance preserves lazy metadata", () => {
   expect(JSON.stringify(new Base<string>("ok"))).toBe('{"value":"ok"}');
   expect(JSON.stringify(new Derived())).toBe('{"value":"ok"}');
 });
+
 
 @json class NumberDerived extends Base<i32> {
   constructor() {

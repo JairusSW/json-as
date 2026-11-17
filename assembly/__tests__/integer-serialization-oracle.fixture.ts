@@ -7,12 +7,14 @@
 
 import { JSON } from "../index";
 
+
 @json
 class IntegerRecord {
   s: i64 = 0;
   u: u64 = 0;
   values: i64[] = [];
 }
+
 
 @json
 class IntegerCollection {

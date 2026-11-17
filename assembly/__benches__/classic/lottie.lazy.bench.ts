@@ -33,23 +33,32 @@ class Layer {
   ty!: i64;
   nm!: string;
 
+
   @optional refId!: string;
+
 
   @optional parent!: JSON.Box<i64> | null;
   ks!: JSON.Raw | null;
   ao!: i64;
 
+
   @optional ef!: JSON.Raw | null;
+
 
   @optional w!: i64;
 
+
   @optional h!: i64;
+
 
   @optional shapes!: JSON.Raw | null;
 
+
   @optional sw!: i64;
 
+
   @optional sh!: i64;
+
 
   @optional sc!: string;
   ip!: f64;
@@ -59,11 +68,13 @@ class Layer {
   sr!: i64;
 }
 
+
 @json({ lazy: true })
 class Asset {
   id!: string;
   layers!: Layer[];
 }
+
 
 @json({ lazy: true })
 class Lottie {

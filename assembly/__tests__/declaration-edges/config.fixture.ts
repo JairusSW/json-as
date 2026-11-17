@@ -12,6 +12,7 @@ import { JSON } from "../../index";
   value: i32 = 7;
 }
 
+
 @json class Rows {
   values: Row[] = [];
 }

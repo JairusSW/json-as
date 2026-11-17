@@ -31,5 +31,8 @@ export function compound(value: u64): string {
   return JSON.stringify([out]);
 }
 
+
 @json
-class IntegerOwner { value: IntegerRecord[] = []; }
+class IntegerOwner {
+  value: IntegerRecord[] = [];
+}

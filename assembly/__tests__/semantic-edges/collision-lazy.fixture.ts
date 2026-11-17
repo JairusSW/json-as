@@ -9,20 +9,24 @@ import { JSON as Json } from "json-as/assembly";
 const JSON: i32 = 3;
 type Num = i32;
 
+
 @json class Concrete {
   value!: i32;
   other: i32 = JSON;
 }
 
+
 @json class Generic<T> {
   value!: T;
 }
+
 
 @json class Alias {
   value!: Num;
 }
 namespace M {
   const JSON: i32 = 4;
+
 
   @json export class Owner {
     value!: i32;

@@ -7,17 +7,20 @@
 
 import { JSON } from "../../index";
 
+
 @json
 class Item {
   n: i32 = 0;
   s: string = "";
 }
 
+
 @json
 class Base {
   value: i32 = 1;
   text: string = "base";
 }
+
 
 @json
 class Child extends Base {
@@ -26,17 +29,20 @@ class Child extends Base {
   tail: i32 = 3;
 }
 
+
 @json
 class Aliased extends Base {
 
   @alias("changed") value: i32 = 2;
 }
 
+
 @json
 class Views {
   a: Uint8Array = new Uint8Array(2);
   b: Uint8Array = Uint8Array.wrap(this.a.buffer);
 }
+
 
 @json
 class BufferAndView {
@@ -108,11 +114,13 @@ export function buffer(reuse: bool): string {
   );
 }
 
+
 @json
 class ReversedBuffer {
   view: Uint8Array = new Uint8Array(4);
   bytes: ArrayBuffer = this.view.buffer;
 }
+
 
 @json
 class OffsetViews {
@@ -120,6 +128,7 @@ class OffsetViews {
   b: Uint8Array = Uint8Array.wrap(this.a.buffer, 1, 2);
 }
 class Middle extends Base {}
+
 
 @json
 class Leaf extends Middle {

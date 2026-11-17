@@ -7,6 +7,7 @@
 
 import { JSON } from "../..";
 
+
 @json class Row {
   __src: string = "ordinary";
   value: i32 = 0;

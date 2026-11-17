@@ -29,11 +29,13 @@ class TweetMetadata {
   iso_language_code!: string;
 }
 
+
 @json({ lazy: true })
 class Hashtag {
   text!: string;
   indices!: i32[];
 }
+
 
 @json({ lazy: true })
 class UrlEntity {
@@ -42,6 +44,7 @@ class UrlEntity {
   display_url!: string;
   indices!: i32[];
 }
+
 
 @json({ lazy: true })
 class Mention {
@@ -52,12 +55,14 @@ class Mention {
   indices!: i32[];
 }
 
+
 @json({ lazy: true })
 class Size {
   w!: i32;
   h!: i32;
   resize!: string;
 }
+
 
 @json({ lazy: true })
 class MediaSizes {
@@ -66,6 +71,7 @@ class MediaSizes {
   thumb!: Size;
   large!: Size;
 }
+
 
 @json({ lazy: true })
 class Media {
@@ -80,10 +86,13 @@ class Media {
   type!: string;
   sizes!: MediaSizes;
 
+
   @optional source_status_id!: JSON.Box<i64> | null;
+
 
   @optional source_status_id_str!: string | null;
 }
+
 
 @json({ lazy: true })
 class Entities {
@@ -92,13 +101,16 @@ class Entities {
   urls!: UrlEntity[];
   user_mentions!: Mention[];
 
+
   @optional media!: Media[];
 }
+
 
 @json({ lazy: true })
 class UrlList {
   urls!: UrlEntity[];
 }
+
 
 @json({ lazy: true })
 class UserEntities {
@@ -107,11 +119,13 @@ class UserEntities {
   description!: UrlList;
 }
 
+
 @json({ lazy: true })
 class GeoJSON {
   type!: string;
   coordinates!: f64[];
 }
+
 
 @json({ lazy: true })
 class Place {
@@ -132,6 +146,7 @@ class ContributorList {
   id!: i64;
 }
 
+
 @json({ lazy: true })
 class TweetUser {
   id!: i64;
@@ -142,6 +157,7 @@ class TweetUser {
   description!: string;
   url!: string | null;
   entities!: UserEntities;
+
 
   @alias("protected")
   isProtected!: boolean;
@@ -166,6 +182,7 @@ class TweetUser {
   profile_image_url!: string;
   profile_image_url_https!: string;
 
+
   @optional profile_banner_url!: string;
   profile_link_color!: string;
   profile_sidebar_border_color!: string;
@@ -178,6 +195,7 @@ class TweetUser {
   follow_request_sent!: boolean;
   notifications!: boolean;
 }
+
 
 @json({ lazy: true })
 class Status {
@@ -199,6 +217,7 @@ class Status {
   place!: Place | null;
   contributors!: ContributorList | null;
 
+
   @optional retweeted_status!: Status | null;
   retweet_count!: i32;
   favorite_count!: i32;
@@ -206,9 +225,11 @@ class Status {
   favorited!: boolean;
   retweeted!: boolean;
 
+
   @optional possibly_sensitive!: boolean;
   lang!: string;
 }
+
 
 @json({ lazy: true })
 class SearchMetadata {
@@ -222,6 +243,7 @@ class SearchMetadata {
   since_id!: i64;
   since_id_str!: string;
 }
+
 
 @json({ lazy: true })
 class Twitter {

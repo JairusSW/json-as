@@ -30,7 +30,7 @@ const read = (suite: string, type: string): BenchResult =>
   readBenchLog(`./build/logs/as/${MODE}/${suite}.${type}.as.json`);
 
 const MBPS = "Throughput (MB/s, higher is better)";
-const LAZY = ["eager", 'lazy (access specialization)'];
+const LAZY = ["eager", "lazy (access specialization)"];
 const PAIR = [EAGER_BAR, LAZY_BAR];
 
 // Geometry-based labels (the datalabels plugin mis-places above-bar labels in
@@ -77,7 +77,10 @@ function sizeChart(kind: string, title: string, file: string) {
   const data: Record<string, BenchResult[]> = {};
   const labels: Record<string, string> = {};
   for (const [key, label] of SIZES) {
-    data[key] = [read(`access-${key}-eager`, kind), read(`access-${key}-lazy`, kind)];
+    data[key] = [
+      read(`access-${key}-eager`, kind),
+      read(`access-${key}-lazy`, kind),
+    ];
     labels[key] = label;
   }
   emit(
@@ -145,13 +148,14 @@ const ACCESS_COLORS = [
 const accData: Record<string, BenchResult[]> = {};
 const accLabels: Record<string, string> = {};
 for (const [key, label] of ACCESS_SETS) {
-  accData[key] = READ_LEVELS.map((lvl) => SWAR_READ(`access-pattern-${key}`, lvl));
+  accData[key] = READ_LEVELS.map((lvl) =>
+    SWAR_READ(`access-pattern-${key}`, lvl),
+  );
   accLabels[key] = label;
 }
 emit(
   createBarChart(accData, accLabels, {
-    title:
-      "Lazy mode access patterns (SWAR) - field reads vs eager baseline",
+    title: "Lazy mode access patterns (SWAR) - field reads vs eager baseline",
     yLabel: MBPS,
     xLabel: "",
     datasetLabels: READ_LABELS,

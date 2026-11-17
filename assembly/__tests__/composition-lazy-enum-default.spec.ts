@@ -13,6 +13,7 @@ enum LazyState {
   On,
 }
 
+
 @json class LazyEnumDefault {
   value!: LazyState;
 }

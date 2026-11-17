@@ -7,11 +7,16 @@
 
 import { JSON } from "../index";
 
+
 @json({ lazy })
 class Record {
+
   @optional id: i32 = 7;
+
+
   @optional body: string = "default";
 }
+
 
 @json({ nolazy })
 class Eager {
@@ -19,17 +24,20 @@ class Eager {
   body: string = "";
 }
 
+
 @json({ lazy: false })
 class Disabled {
   id: i32 = 0;
   body: string = "";
 }
 
+
 @json({ lazy: true })
 class Enabled {
   id: i32 = 0;
   body: string = "";
 }
+
 
 @json
 class Child extends Eager {
@@ -78,8 +86,10 @@ export function reuse(): string {
 }
 
 export function noDeferredSlots(): bool {
-  return !isDefined(changetype<Record>(0).__SET_SRC) &&
-    !isDefined(changetype<Enabled>(0).__SET_SRC);
+  return (
+    !isDefined(changetype<Record>(0).__SET_SRC) &&
+    !isDefined(changetype<Enabled>(0).__SET_SRC)
+  );
 }
 
 export function dynamic(): string {
@@ -93,6 +103,8 @@ export function dynamic(): string {
 export function internalHelper(): bool {
   const text = "42";
   const ptr = changetype<usize>(text);
-  return JSON.__cursorSkipGeneric<i32>(ptr, ptr + 4) == ptr + 4 &&
-    JSON.__cursorSkipNative(ptr, ptr + 4, 2) == ptr + 4;
+  return (
+    JSON.__cursorSkipGeneric<i32>(ptr, ptr + 4) == ptr + 4 &&
+    JSON.__cursorSkipNative(ptr, ptr + 4, 2) == ptr + 4
+  );
 }

@@ -212,6 +212,7 @@ function valIntTag<T>(): u32 {
   return isSigned<T>() ? JSON.Types.I64 : JSON.Types.U64;
 }
 
+
 @inline
 function numericCast<T, V>(value: V): T {
   if (isBoolean<T>()) return <T>(value != 0);
@@ -301,7 +302,6 @@ class LazyRef {
 }
 
 export namespace JSON {
-
   // Stateless custom adapters still require a real receiver for virtual dispatch.
   // Cache zeroed descriptors, rooted as managed objects, once per requested type.
   /* eslint-disable @typescript-eslint/no-wrapper-object-types -- AssemblyScript managed Object is required for GC rooting. */
@@ -501,9 +501,11 @@ export namespace JSON {
     return supportsCursor<T>(depth);
   }
 
+
   @inline function __cursorDefault<T>(): T {
     return createCursorDefault<T>();
   }
+
 
   @inline function __cursorRead<T>(
     start: usize,
@@ -515,33 +517,33 @@ export namespace JSON {
     return readCursorValue<T>(start, end, dst, offset, depth);
   }
 
+
   @inline function __cursorWhitespace(ptr: usize, end: usize): usize {
     return skipCursorWhitespace(ptr, end);
   }
+
 
   @inline function __cursorSkipString(ptr: usize, end: usize): usize {
     return skipCursorString(ptr, end);
   }
 
-  @inline function __cursorSkipTrustedString(
-    ptr: usize,
-    end: usize,
-  ): usize {
+
+  @inline function __cursorSkipTrustedString(ptr: usize, end: usize): usize {
     return JSON_MODE == JSONMode.SWAR
       ? skipTrustedCursorString(ptr, end)
       : skipCursorString(ptr, end);
   }
 
+
   @inline function __cursorSkipScalar<T>(ptr: usize, end: usize): usize {
     return skipCursorScalar<T>(ptr, end);
   }
 
-  @inline function __cursorSkipGeneric<T>(
-    ptr: usize,
-    end: usize,
-  ): usize {
+
+  @inline function __cursorSkipGeneric<T>(ptr: usize, end: usize): usize {
     return skipCursorGeneric<T>(ptr, end);
   }
+
 
   @inline function __cursorSkipNative(
     ptr: usize,
@@ -551,12 +553,11 @@ export namespace JSON {
     return skipCursorNative(ptr, end, kind);
   }
 
-  @inline function __cursorSkipStringArray(
-    ptr: usize,
-    end: usize,
-  ): usize {
+
+  @inline function __cursorSkipStringArray(ptr: usize, end: usize): usize {
     return skipCursorNativeArray<string>(ptr, end);
   }
+
 
   @inline function __cursorSkipNullableStringArray(
     ptr: usize,
@@ -565,33 +566,26 @@ export namespace JSON {
     return skipCursorNativeArray<string | null>(ptr, end);
   }
 
-  @inline function __cursorSkipBooleanArray(
-    ptr: usize,
-    end: usize,
-  ): usize {
+
+  @inline function __cursorSkipBooleanArray(ptr: usize, end: usize): usize {
     return skipCursorNativeArray<bool>(ptr, end);
   }
 
-  @inline function __cursorSkipSignedArray(
-    ptr: usize,
-    end: usize,
-  ): usize {
+
+  @inline function __cursorSkipSignedArray(ptr: usize, end: usize): usize {
     return skipCursorNativeArray<i32>(ptr, end);
   }
 
-  @inline function __cursorSkipUnsignedArray(
-    ptr: usize,
-    end: usize,
-  ): usize {
+
+  @inline function __cursorSkipUnsignedArray(ptr: usize, end: usize): usize {
     return skipCursorNativeArray<u32>(ptr, end);
   }
 
-  @inline function __cursorSkipFloatArray(
-    ptr: usize,
-    end: usize,
-  ): usize {
+
+  @inline function __cursorSkipFloatArray(ptr: usize, end: usize): usize {
     return skipCursorNativeArray<f64>(ptr, end);
   }
+
 
   @inline function __cursorSkipValue(
     ptr: usize,
@@ -601,9 +595,11 @@ export namespace JSON {
     return skipCheckedValue(ptr, end, depth);
   }
 
+
   @inline function __cursorScanKey(ptr: usize, end: usize): u64 {
     return scanCursorString(ptr, end);
   }
+
 
   @inline function __cursorDecodeKey(ptr: usize, end: usize): string {
     return decodeCursorKey(ptr, end);
@@ -629,10 +625,7 @@ export namespace JSON {
       let fresh = true;
       if (isReference<T>() || isManaged<T>())
         fresh = changetype<usize>(out) == 0;
-      if (
-        fresh &&
-        __cursorSupports<T>()
-      ) {
+      if (fresh && __cursorSupports<T>()) {
         if (isNullable<T>()) {
           const start = skipCursorWhitespace(
             changetype<usize>(data),
@@ -1313,6 +1306,7 @@ export namespace JSON {
     /** Map of struct type IDs to their serialization function indices */
     @lazy static METHODS: Map<u32, u32> = new Map<u32, u32>();
 
+
     @lazy private static PURE_SERIALIZERS: Set<u32> = new Set<u32>();
 
     /** Concrete, class-owned metadata only; inherited claims do not certify a subclass. */
@@ -1925,6 +1919,7 @@ export namespace JSON {
       if (this.type == JSON.Types.F64) return this.get<f64>().toString();
       return JSON.stringify<JSON.Value>(this);
     }
+
 
     @unsafe private __visit(cookie: u32): void {
       const w = this.bits;
@@ -2634,6 +2629,7 @@ export namespace JSON {
       }
       return parsed.get<JSON.Obj>();
     }
+
 
     @unsafe private __visit(cookie: u32): void {
       __visit(changetype<usize>(this._kbuf), cookie);
@@ -3534,8 +3530,10 @@ export namespace JSON {
     if (isDefined(type.__SERIALIZE)) return false;
     if (type instanceof Array || type instanceof StaticArray)
       return (
-        isBoolean<valueof<T>>() || isInteger<valueof<T>>() ||
-        isFloat<valueof<T>>() || isString<valueof<T>>()
+        isBoolean<valueof<T>>() ||
+        isInteger<valueof<T>>() ||
+        isFloat<valueof<T>>() ||
+        isString<valueof<T>>()
       );
     return false;
   }
@@ -3708,6 +3706,7 @@ export namespace JSON {
     // arrays and scalar storage on their existing allocation policy.
     return newNativeArray<T>(isManaged<valueof<nonnull<T>>>() ? 16 : 8);
   }
+
 
   @inline
   function __appendArray<T extends unknown[]>(out: T, item: valueof<T>): void {
@@ -3913,6 +3912,7 @@ export namespace JSON {
     clearAllocatedObject(changetype<usize>(value), offsetof<nonnull<T>>());
     return false;
   }
+
 
   @inline
   function __deserializePlannedObjectField<T, P>(
@@ -4163,6 +4163,7 @@ export namespace JSON {
       return compositeReuseScopeActive();
     }
 
+
     @inline
     export function reuseCompositeBuffer(value: usize, field: usize): usize {
       if (value == 0) return 0;
@@ -4183,6 +4184,7 @@ export namespace JSON {
       return code == 0x20 || code - 9 <= 4;
     }
 
+
     @inline
     export function beginObjectTrace(
       dst: usize,
@@ -4192,20 +4194,24 @@ export namespace JSON {
       return beginObjectFieldTrace(dst, srcStart, typeTag);
     }
 
+
     @inline
     export function getObjectTraceMask(slot: i32): u64 {
       return objectFieldTraceMask(slot);
     }
+
 
     @inline
     export function getObjectTraceTier(slot: i32): u8 {
       return objectFieldTraceTier(slot);
     }
 
+
     @inline
     export function getObjectTraceSeparator(slot: i32): usize {
       return objectFieldTraceSeparator(slot);
     }
+
 
     @inline
     export function saveObjectTrace(
@@ -4242,10 +4248,7 @@ export namespace JSON {
     }
     /** Internal ordered-reader specialization for small numeric rows. */
     @inline
-    function __skipNumericRowWhitespace(
-      srcStart: usize,
-      srcEnd: usize,
-    ): usize {
+    function __skipNumericRowWhitespace(srcStart: usize, srcEnd: usize): usize {
       if (
         sizeof<usize>() != 4 ||
         isDefined(ASC_RTRACE) ||

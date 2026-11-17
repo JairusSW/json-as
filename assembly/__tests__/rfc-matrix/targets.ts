@@ -31,19 +31,23 @@ export const NUM_I64: u32 = 1 << 16;
 export const NUM_U64: u32 = 1 << 17;
 export const STRING_DATE: u32 = 1 << 18;
 
+
 @json
 class RFCEagerEnvelope {
   value: JSON.Raw = JSON.Raw.from("null");
 }
+
 
 @json({ lazy: true })
 class RFCLazyEnvelope {
   value: JSON.Raw = JSON.Raw.from("null");
 }
 
+
 @json
 class RFCAnyCustom {
   value: JSON.Value = JSON.Value.empty();
+
 
   @deserializer("any")
   deserialize(data: string): RFCAnyCustom {

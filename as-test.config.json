@@ -22,17 +22,7 @@
     ]
   },
   "buildOptions": {
-    "args": [
-      "--debug",
-      "--disableWarning",
-      "217",
-      "--disableWarning",
-      "228",
-      "--disableWarning",
-      "235",
-      "--disableWarning",
-      "906"
-    ],
+    "args": ["--debug"],
     "target": "wasi"
   },
   "fuzz": {
@@ -53,17 +43,7 @@
         "JSON_AS_LIBRARY_SOURCE": "assembly/index"
       },
       "buildOptions": {
-        "args": [
-          "--transform ./",
-          "--disableWarning",
-          "217",
-          "--disableWarning",
-          "228",
-          "--disableWarning",
-          "235",
-          "--disableWarning",
-          "906"
-        ]
+        "args": ["--transform ./"]
       }
     },
     "swar": {
@@ -72,17 +52,7 @@
         "JSON_AS_LIBRARY_SOURCE": "assembly/index"
       },
       "buildOptions": {
-        "args": [
-          "--transform ./",
-          "--disableWarning",
-          "217",
-          "--disableWarning",
-          "228",
-          "--disableWarning",
-          "235",
-          "--disableWarning",
-          "906"
-        ]
+        "args": ["--transform ./"]
       }
     },
     "simd": {
@@ -91,19 +61,7 @@
         "JSON_AS_LIBRARY_SOURCE": "assembly/index"
       },
       "buildOptions": {
-        "args": [
-          "--debug",
-          "--enable simd",
-          "--transform ./",
-          "--disableWarning",
-          "217",
-          "--disableWarning",
-          "228",
-          "--disableWarning",
-          "235",
-          "--disableWarning",
-          "906"
-        ]
+        "args": ["--debug", "--enable simd", "--transform ./"]
       }
     }
   }

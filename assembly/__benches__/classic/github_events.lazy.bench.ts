@@ -31,6 +31,7 @@ class Actor {
   id!: i64;
 }
 
+
 @json({ lazy: true })
 class GhRepo {
   url!: string;
@@ -38,11 +39,13 @@ class GhRepo {
   name!: string;
 }
 
+
 @json({ lazy: true })
 class CommitAuthor {
   email!: string;
   name!: string;
 }
+
 
 @json({ lazy: true })
 class Commit {
@@ -52,6 +55,7 @@ class Commit {
   sha!: string;
   author!: CommitAuthor;
 }
+
 
 @json({ lazy: true })
 class GhUser {
@@ -72,6 +76,7 @@ class GhUser {
   following_url!: string;
 }
 
+
 @json({ lazy: true })
 class Forkee {
   description!: string;
@@ -84,6 +89,7 @@ class Forkee {
   full_name!: string;
   merges_url!: string;
   forks!: i32;
+
 
   @alias("private")
   is_private!: boolean;
@@ -115,6 +121,7 @@ class Forkee {
   assignees_url!: string;
   ssh_url!: string;
 
+
   @alias("public")
   is_public!: boolean;
   has_wiki!: boolean;
@@ -144,12 +151,14 @@ class Forkee {
   watchers!: i32;
 }
 
+
 @json({ lazy: true })
 class PullRequestRef {
   html_url!: string | null;
   patch_url!: string | null;
   diff_url!: string | null;
 }
+
 
 @json({ lazy: true })
 class Page {
@@ -160,6 +169,7 @@ class Page {
   summary!: string | null;
   action!: string;
 }
+
 
 @json({ lazy: true })
 class Issue {
@@ -183,6 +193,7 @@ class Issue {
   comments_url!: string;
   comments!: i32;
 }
+
 
 @json({ lazy: true })
 class Comment {
@@ -219,6 +230,7 @@ class Payload {
   pages!: Page[];
 }
 
+
 @json({ lazy: true })
 class GhEvent {
   type!: string;
@@ -226,10 +238,12 @@ class GhEvent {
   actor!: Actor;
   repo!: GhRepo;
 
+
   @alias("public")
   isPublic!: boolean;
   payload!: Payload;
   id!: string;
+
 
   @optional org!: Actor | null;
 }

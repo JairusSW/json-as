@@ -7,6 +7,7 @@
 
 import { JSON } from "../..";
 
+
 @json class Hidden<T = i32> {
   value: T = changetype<T>(7);
 }

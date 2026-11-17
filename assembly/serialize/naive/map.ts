@@ -125,10 +125,13 @@ export function canSerializeMapWithoutCallbacks<T extends Map<any, any>>(
   src: T,
 ): bool {
   if (!canSnapshotCallbackKeys()) return false;
-  if (
-    !(isString<indexof<T>>() || isBoolean<indexof<T>>() ||
-      isInteger<indexof<T>>() || isFloat<indexof<T>>())
-  ) return false;
+  if (!(
+    isString<indexof<T>>() ||
+    isBoolean<indexof<T>>() ||
+    isInteger<indexof<T>>() ||
+    isFloat<indexof<T>>()
+  ))
+    return false;
   const ptr = changetype<usize>(src);
   const count = load<i32>(
     ptr,
@@ -185,14 +188,24 @@ export function serializeMap<T extends Map<any, any>>(src: T): void {
   bs.offset += 2;
 
   const srcPtr = changetype<usize>(src);
-  const initialEntriesOffset = load<i32>(srcPtr, offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"));
+  const initialEntriesOffset = load<i32>(
+    srcPtr,
+    offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"),
+  );
   const stride = mapEntrySize<indexof<T>, valueof<T>>();
   for (let i = 0; i < initialEntriesOffset; i++) {
     // A custom key/value serializer can re-enter user code and mutate this
     // map. Reload its storage on every iteration so a rehash cannot leave a
     // stale backing pointer live across callbacks.
-    if (i >= load<i32>(srcPtr, offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"))) break;
-    const entries = load<usize>(srcPtr, offsetof<Map<indexof<T>, valueof<T>>>("entries"));
+    if (
+      i >=
+      load<i32>(srcPtr, offsetof<Map<indexof<T>, valueof<T>>>("entriesOffset"))
+    )
+      break;
+    const entries = load<usize>(
+      srcPtr,
+      offsetof<Map<indexof<T>, valueof<T>>>("entries"),
+    );
     const entry = changetype<SerializableMapEntry<indexof<T>, valueof<T>>>(
       entries + <usize>i * stride,
     );

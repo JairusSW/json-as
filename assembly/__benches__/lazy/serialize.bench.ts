@@ -10,6 +10,7 @@ import { bench, blackbox, dumpToFile, utf8ByteLength } from "../lib/bench";
 
 const ITER: u32 = 1_000_000;
 
+
 @json
 class Addr {
   street: string = "742 Evergreen Terrace";
@@ -19,6 +20,7 @@ class Addr {
   country: string = "United States";
 }
 
+
 @json({ nolazy })
 class SmallE {
   id: i32 = 8472;
@@ -27,6 +29,7 @@ class SmallE {
   email: string = "me@jairus.dev";
 }
 
+
 @json({ lazy: true })
 class SmallL {
   id: i32 = 8472;
@@ -34,6 +37,7 @@ class SmallL {
   active: bool = true;
   email: string = "me@jairus.dev";
 }
+
 
 @json({ nolazy })
 class MediumE {
@@ -50,6 +54,7 @@ class MediumE {
   updated: string = "2025-12-23T04:30:00Z";
 }
 
+
 @json({ lazy: true })
 class MediumL {
   id: i32 = 8472;
@@ -64,6 +69,7 @@ class MediumL {
   created: string = "2025-01-02T03:04:05Z";
   updated: string = "2025-12-23T04:30:00Z";
 }
+
 
 @json({ nolazy })
 class LargeE {
@@ -97,6 +103,7 @@ class LargeE {
   note: string =
     "All systems nominal; payload intentionally padded to a few kilobytes for the large case.";
 }
+
 
 @json({ lazy: true })
 class LargeL {

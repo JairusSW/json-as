@@ -11,6 +11,7 @@ type Identity<T> = T;
 namespace Model {
   type Inner = f32;
 
+
   @json export class Row {
     value: Identity<Inner> = 0;
   }

@@ -6,7 +6,9 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { JSON as J } from "../index";
-namespace JSON { export const application: i32 = 1; }
+namespace JSON {
+  export const application: i32 = 1;
+}
 const bs: i32 = 2;
 import { src, length, i, ptr as Pointer } from "./array-row-alias.fixture";
 
@@ -14,10 +16,18 @@ const __json_as_flat_strings_0_id: i32 = 3;
 type __json_as_flat_strings_1_array = i32;
 type i64 = i32;
 
+
 @json({ nolazy })
-class ForwardGroup { items: Row[] = []; }
+class ForwardGroup {
+  items: Row[] = [];
+}
+
+
 @json({ nolazy })
-class ForwardGroups { values: ForwardGroup[] = [new ForwardGroup()]; }
+class ForwardGroups {
+  values: ForwardGroup[] = [new ForwardGroup()];
+}
+
 
 @json({ nolazy })
 class Row {
@@ -27,6 +37,7 @@ class Row {
   enabled: bool = true;
   values: i32[] = [];
 }
+
 
 @json({ nolazy })
 class Holder {
@@ -59,6 +70,7 @@ function makeRows(count: i32, width: i32): Row[] {
   return rows;
 }
 
+
 @inline
 function writeRows(rows: Row[], requireCollection: bool): string {
   const before = gcSteps();
@@ -82,6 +94,7 @@ export function subclass(): string {
   return J.stringify(rows);
 }
 
+
 @json({ nolazy })
 class ptr {
   src: src = -9223372036854775808;
@@ -90,6 +103,7 @@ class ptr {
   pointer: Pointer = 11;
   values: i32[] = [1, 2];
 }
+
 
 @json({ nolazy })
 class PointerHolder {
@@ -102,7 +116,10 @@ export function binding(): string {
   const collision: __json_as_flat_strings_1_array = __json_as_flat_strings_0_id;
   assert(collision == 3);
   assert(JSON.application + bs == 3);
-  assert(isDefined(changetype<ptr>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS) == (ASC_RUNTIME == 2));
+  assert(
+    isDefined(changetype<ptr>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS) ==
+      (ASC_RUNTIME == 2),
+  );
   return J.stringify(value);
 }
 
@@ -111,23 +128,39 @@ export function gcSteps(): i32 {
   return 0;
 }
 
+
 @json({ nolazy })
 class Collision {
   value: i32 = 5;
-  __SERIALIZE_FLAT_NUMERIC_FIELDS(): i32 { return 91; }
+  __SERIALIZE_FLAT_NUMERIC_FIELDS(): i32 {
+    return 91;
+  }
 }
+
 
 @json({ nolazy })
 class Custom {
   value: i32 = 7;
+
+
   @serializer("number")
-  encode(self: Custom): string { return self.value.toString(); }
+  encode(self: Custom): string {
+    return self.value.toString();
+  }
 }
 
+
 @json({ nolazy })
-class ParentRow { value: i32 = 8; }
+class ParentRow {
+  value: i32 = 8;
+}
+
+
 @json({ nolazy })
-class ChildRow extends ParentRow { other: i32 = 9; }
+class ChildRow extends ParentRow {
+  other: i32 = 9;
+}
+
 
 @json({ nolazy })
 class Fallbacks {
@@ -145,11 +178,14 @@ export function fallbacks(): string {
   return J.stringify(value);
 }
 
+
 @json({ nolazy })
 class Group {
   tag: i32 = 4;
   items: (Row | null)[] = [];
 }
+
+
 @json({ nolazy })
 class Groups {
   values: Group[] = [];
@@ -167,12 +203,17 @@ function makeGroups(count: i32, width: i32): Group[] {
   }
   return groups;
 }
+
+
 @inline
 function writeGroups(groups: Group[], requireCollection: bool): string {
   const before = gcSteps();
   const result = J.stringify(groups);
   if (isDefined(__rowGcSteps) && requireCollection) {
-    assert(gcSteps() > before, "Collection must run inside nested serialization");
+    assert(
+      gcSteps() > before,
+      "Collection must run inside nested serialization",
+    );
   }
   return result;
 }
@@ -180,48 +221,84 @@ export function nested(count: i32, width: i32): string {
   return writeGroups(makeGroups(count, width), count == 40);
 }
 
+
 @json({ nolazy })
-class EffectGroup { items: Custom[] = [new Custom()]; }
+class EffectGroup {
+  items: Custom[] = [new Custom()];
+}
+
+
 @json({ nolazy })
-class EffectGroups { values: EffectGroup[] = [new EffectGroup()]; }
+class EffectGroups {
+  values: EffectGroup[] = [new EffectGroup()];
+}
 export function nestedFallback(): string {
-  assert(!isDefined(changetype<EffectGroup>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS));
+  assert(
+    !isDefined(changetype<EffectGroup>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS),
+  );
   return J.stringify(new EffectGroups());
 }
 
+
 @json({ nolazy })
-class RecursiveGroup { children: RecursiveGroup[] = []; }
-@json({ nolazy })
-class RecursiveGroups { values: RecursiveGroup[] = [new RecursiveGroup()]; }
-export function graphFallbacks(): string {
-  assert(isDefined(changetype<ForwardGroup>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS) == (ASC_RUNTIME == 2));
-  assert(!isDefined(changetype<RecursiveGroup>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS));
-  return J.stringify(new ForwardGroups()) + "|" + J.stringify(new RecursiveGroups());
+class RecursiveGroup {
+  children: RecursiveGroup[] = [];
 }
+
+
+@json({ nolazy })
+class RecursiveGroups {
+  values: RecursiveGroup[] = [new RecursiveGroup()];
+}
+export function graphFallbacks(): string {
+  assert(
+    isDefined(changetype<ForwardGroup>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS) ==
+      (ASC_RUNTIME == 2),
+  );
+  assert(
+    !isDefined(changetype<RecursiveGroup>(0).__SERIALIZE_FLAT_NUMERIC_FIELDS),
+  );
+  return (
+    J.stringify(new ForwardGroups()) + "|" + J.stringify(new RecursiveGroups())
+  );
+}
+
 
 @json({ nolazy })
 class LiteralAliasRow {
+
   @alias("bs.offset = __dst;") value: i32 = 7;
   values: i32[] = [1, 2];
 }
+
+
 @json({ nolazy })
-class LiteralAliasRows { rows: LiteralAliasRow[] = [new LiteralAliasRow()]; }
+class LiteralAliasRows {
+  rows: LiteralAliasRow[] = [new LiteralAliasRow()];
+}
 export function literalAlias(): string {
   return J.stringify(new LiteralAliasRows());
 }
 
 const __json_numeric_batch_0_original: i32 = 19;
+
+
 @json({ nolazy })
 class ConstantRow {
   signed: src = -9223372036854775808;
   wide: u64 = 18446744073709551615;
   enabled: bool = true;
 }
+
+
 @json({ nolazy })
-class ConstantRows { rows: (ConstantRow | null)[] = []; }
+class ConstantRows {
+  rows: (ConstantRow | null)[] = [];
+}
 export function constantRows(count: i32): string {
   assert(__json_numeric_batch_0_original == 19);
   const value = new ConstantRows();
-  for (let i = 0; i < count; i++) value.rows.push(i % 3 == 0 ? null : new ConstantRow());
+  for (let i = 0; i < count; i++)
+    value.rows.push(i % 3 == 0 ? null : new ConstantRow());
   return J.stringify(value);
 }

@@ -8,9 +8,11 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+
 @json class Child {
   value: i32 = 0;
 }
+
 
 @json class Mixed {
   n000: i32 = 0;
@@ -103,29 +105,41 @@ describe("Wide key dispatch keeps duplicate and missing member behavior", () => 
   expect(out.n010).toBe(0);
 });
 
+
 @json class Aliased {
 
   @alias("aAz") field0: i32 = 0;
 
+
   @alias("aZz") field1: i32 = 0;
+
 
   @alias("aaz") field2: i32 = 0;
 
+
   @alias("azz") field3: i32 = 0;
+
 
   @alias("a\u00ffz") field4: i32 = 0;
 
+
   @alias("a\u0100z") field5: i32 = 0;
+
 
   @alias("a\u7fffz") field6: i32 = 0;
 
+
   @alias("a\u8000z") field7: i32 = 0;
+
 
   @alias("a\u9fffz") field8: i32 = 0;
 
+
   @alias("a\ue000z") field9: i32 = 0;
 
+
   @alias("a\uffffz") field10: i32 = 0;
+
 
   @alias("a\u0391z") field11: i32 = 0;
 }
@@ -146,6 +160,7 @@ describe("Wide key dispatch uses unsigned UTF-16 aliases", () => {
   expect(out.field10).toBe(11);
   expect(out.field11).toBe(12);
 });
+
 
 @json class Generic<T> {
   g000: T;
@@ -213,6 +228,7 @@ describe("Wide generic dispatch bool", () => {
   expect(out.g011).toBe(true);
 });
 
+
 @json({ lazy: true }) class Lazy {
   l000: i32 = 0;
   l001: i32 = 0;
@@ -266,6 +282,7 @@ describe("Wide dispatch keeps same-length unknown-key behavior", () => {
   }
 });
 
+
 @json class MixedGeneric<T> {
   z009: T;
   z001: i32[] = [];
@@ -286,9 +303,11 @@ describe("Wide dispatch retains an originally first generic array candidate", ()
   expect(out.z008[0]).toBe(8);
 });
 
+
 @json class DuplicateAlias<T> {
 
   @alias("z999") generic: T;
+
 
   @alias("z999") fallback: i32 = 0;
   z001: i32 = 0;
@@ -362,6 +381,7 @@ describe("Wide generic dispatch string | null", () => {
   expect(out.g010 === null).toBe(true);
   expect(out.g011 === null).toBe(true);
 });
+
 
 @json({ lazy: true }) class LazyMixed {
   n000: i32 = 0;
@@ -575,6 +595,7 @@ describe("Wide nullable dispatch clears non-null reused slots", () => {
   expect(parsedLazy.z010 === null).toBe(true);
   expect(parsedLazy.z011 === null).toBe(true);
 });
+
 
 @json class GenericNullable<T> {
   q000: T = changetype<T>("sentinel");

@@ -38,20 +38,34 @@ namespace WidthAliases {
   type u16 = u8;
   type v128 = i32;
 
+
   @json({ nolazy })
   class Record {
+
     @alias("x") a: i32 = 7;
+
+
     @alias("ab") b: i32 = 8;
+
+
     @alias("long\u8000\uffff\ud83d\ude00key") c: i32 = 9;
   }
 
-  export function encode(): string { return JSON.stringify(new Record()); }
+  export function encode(): string {
+    return JSON.stringify(new Record());
+  }
 }
+
 
 @json({ nolazy })
 class GenericWidths<u64, u32, u16> {
+
   @alias("x") a: i32 = 7;
+
+
   @alias("ab") b: i32 = 8;
+
+
   @alias("long\u8000\uffff\ud83d\ude00key") c: i32 = 9;
 }
 
@@ -62,4 +76,6 @@ export function scopedWidths(generic: bool): string {
     : WidthAliases.encode();
 }
 
-export function importedWidth(): string { return JSON.stringify(new Model()); }
+export function importedWidth(): string {
+  return JSON.stringify(new Model());
+}

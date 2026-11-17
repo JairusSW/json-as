@@ -29,17 +29,20 @@ class Price {
   seatCategoryId!: i64;
 }
 
+
 @json({ lazy: true })
 class Area {
   areaId!: i64;
   blockIds!: i64[];
 }
 
+
 @json({ lazy: true })
 class SeatCategory {
   areas!: Area[];
   seatCategoryId!: i64;
 }
+
 
 @json({ lazy: true })
 class Performance {
@@ -54,6 +57,7 @@ class Performance {
   venueCode!: string;
 }
 
+
 @json({ lazy: true })
 class CitmEvent {
   description!: string | null;
@@ -65,6 +69,7 @@ class CitmEvent {
   subtitle!: string | null;
   topicIds!: i64[];
 }
+
 
 @json({ lazy: true })
 class Citm {

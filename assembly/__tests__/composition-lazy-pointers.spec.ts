@@ -8,10 +8,12 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+
 @json class PointerLazy {
   signed!: isize;
   unsigned!: usize;
 }
+
 
 @json class NativeLazyControl {
   value!: u32;

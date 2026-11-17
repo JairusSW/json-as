@@ -17,10 +17,12 @@ import {
   utf8ByteLength,
 } from "../lib/bench";
 
+
 @json({ lazy: true })
 class CanadaProperties {
   name!: string;
 }
+
 
 @json({ lazy: true })
 class CanadaGeometry {
@@ -28,12 +30,14 @@ class CanadaGeometry {
   coordinates!: Array<Array<Array<f64>>>;
 }
 
+
 @json({ lazy: true })
 class CanadaFeature {
   type!: string;
   properties!: CanadaProperties;
   geometry!: CanadaGeometry;
 }
+
 
 @json({ lazy: true })
 class Canada {

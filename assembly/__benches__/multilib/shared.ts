@@ -9,6 +9,7 @@ import { JSON, JSONMode } from "../..";
 import { readFile, utf8ByteLength } from "../lib/bench";
 import { JSON as ASJ } from "assemblyscript-json/assembly";
 
+
 @json
 export class RepoOwner {
   public login: string = "octocat";
@@ -41,6 +42,7 @@ export class RepoOwner {
   public site_admin: boolean = false;
 }
 
+
 @json
 export class RepoLicense {
   public key: string = "";
@@ -49,6 +51,7 @@ export class RepoLicense {
   public url: string | null = null;
   public node_id: string = "";
 }
+
 
 @json
 export class Repo {
@@ -236,6 +239,7 @@ export class RepoOwnerLazy {
   public site_admin: boolean = false;
 }
 
+
 @json({ lazy: true })
 export class RepoLicenseLazy {
   public key: string = "";
@@ -244,6 +248,7 @@ export class RepoLicenseLazy {
   public url: string | null = null;
   public node_id: string = "";
 }
+
 
 @json({ lazy: true })
 export class RepoLazy {

@@ -7,6 +7,7 @@
 
 import { JSON } from "../..";
 
+
 @json class Row {
   __name_val: string = "ordinary";
   name: string = "default";

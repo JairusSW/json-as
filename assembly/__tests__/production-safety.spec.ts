@@ -8,21 +8,25 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+
 @json
 class ProductionSafetyStruct {
   dynamic: JSON.Value = JSON.Value.empty();
 }
+
 
 @json
 class ProductionSafetyMapStruct {
   lookup: Map<string, JSON.Value> = new Map<string, JSON.Value>();
 }
 
+
 @json({ lazy: true })
 class ProductionSafetyLazyStruct {
   dynamic: JSON.Obj = new JSON.Obj();
   lookup: Map<string, JSON.Value> = new Map<string, JSON.Value>();
 }
+
 
 @json
 class ProductionSafetySlowStruct {
@@ -32,6 +36,7 @@ class ProductionSafetySlowStruct {
   arr: f64[] = [];
 }
 
+
 @json
 class ProductionSafetyKeyedCollectionStruct {
   a: string = "";
@@ -40,6 +45,7 @@ class ProductionSafetyKeyedCollectionStruct {
   arr: f64[] = [];
   tail: i32 = 0;
 }
+
 
 @json
 class ProductionSafetyKeyedScalarStruct {

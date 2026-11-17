@@ -7,8 +7,8 @@
 
 import { JSON } from "../..";
 
-@json class Owner {
 
+@json class Owner {
   date!: Date;
 
   raw!: JSON.Raw;
@@ -19,6 +19,7 @@ import { JSON } from "../..";
 
   arbitrary: JSON.Value = JSON.Value.empty();
 }
+
 
 @json({lazy: true}) class Auto {
   date!: Date;

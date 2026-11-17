@@ -22,9 +22,9 @@ class Vec3E {
   public z!: i32;
 }
 
+
 @json
 class Vec3L {
-
   public x!: i32;
 
   public y!: i32;
@@ -48,7 +48,8 @@ dumpToFile("access-pattern-vec3", "base");
 bench(
   "vec3 read none",
   () => {
-    JSON.parse<Vec3L>(vec3Json); blackbox(0);
+    JSON.parse<Vec3L>(vec3Json);
+    blackbox(0);
   },
   VEC3_ITER,
   vec3Bytes,
@@ -93,9 +94,9 @@ class TokenE {
   token: string = "dewf32df@#G43g3Gs!@3sdfDS#2";
 }
 
+
 @json
 class TokenL {
-
   uid: u32 = 256;
 
   token: string = "dewf32df@#G43g3Gs!@3sdfDS#2";
@@ -117,7 +118,8 @@ dumpToFile("access-pattern-token", "base");
 bench(
   "token read none",
   () => {
-    JSON.parse<TokenL>(tokenJson); blackbox(0);
+    JSON.parse<TokenL>(tokenJson);
+    blackbox(0);
   },
   TOKEN_ITER,
   tokenBytes,
@@ -165,6 +167,7 @@ class SmallE {
   expires_at: string = "2025-12-23T04:30:00Z";
 }
 
+
 @json
 class SmallL {
   authenticated: boolean = true;
@@ -194,7 +197,8 @@ dumpToFile("access-pattern-small", "base");
 bench(
   "small read none",
   () => {
-    JSON.parse<SmallL>(smallJson); blackbox(0);
+    JSON.parse<SmallL>(smallJson);
+    blackbox(0);
   },
   SMALL_ITER,
   smallBytes,
@@ -245,12 +249,14 @@ class UserPreferences {
   two_factor_enabled: boolean = false;
 }
 
+
 @json
 class RecentActivity {
   action: string = "starred";
   timestamp: string = "2025-12-22T10:15:00Z";
   target: string = "JairusSW/json-as";
 }
+
 
 @json({ nolazy })
 class MediumE {
@@ -285,6 +291,7 @@ class MediumE {
     new RecentActivity(),
   ];
 }
+
 
 @json
 class MediumL {
@@ -340,7 +347,8 @@ dumpToFile("access-pattern-medium", "base");
 bench(
   "medium read none",
   () => {
-    JSON.parse<MediumL>(mediumJson); blackbox(0);
+    JSON.parse<MediumL>(mediumJson);
+    blackbox(0);
   },
   MEDIUM_ITER,
   mediumBytes,
@@ -398,6 +406,7 @@ class RepoOwner {
   public site_admin: boolean = false;
 }
 
+
 @json
 class RepoLicense {
   public key: string = "";
@@ -406,6 +415,7 @@ class RepoLicense {
   public url: string | null = null;
   public node_id: string = "";
 }
+
 
 @json({ nolazy })
 class RepoE {
@@ -440,6 +450,7 @@ class RepoE {
   public default_branch: string = "master";
 }
 
+
 @json
 class RepoL {
   public id: i32 = 132935648;
@@ -450,8 +461,7 @@ class RepoL {
 
   public owner: RepoOwner = new RepoOwner();
 
-  public html_url: string =
-    "https://github.com/octocat/boysenberry-repo-1";
+  public html_url: string = "https://github.com/octocat/boysenberry-repo-1";
   public description: string | null = "Testing";
   public fork: boolean = true;
   public url: string =
@@ -494,7 +504,8 @@ dumpToFile("access-pattern-large", "base");
 bench(
   "large read none",
   () => {
-    JSON.parse<RepoL>(largeJson); blackbox(0);
+    JSON.parse<RepoL>(largeJson);
+    blackbox(0);
   },
   LARGE_ITER,
   largeBytes,

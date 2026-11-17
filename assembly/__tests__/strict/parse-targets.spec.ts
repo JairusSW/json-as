@@ -8,10 +8,12 @@
 import { JSON } from "../..";
 import { describe, expect } from "as-test";
 
+
 @json
 class StrictChild {
   id: i32 = 0;
 }
+
 
 @json
 class StrictStruct {
@@ -21,6 +23,7 @@ class StrictStruct {
   lookup: Map<string, i32> = new Map<string, i32>();
 }
 
+
 @json
 class StrictFastBoundsStruct {
   integer: i32 = 0;
@@ -28,6 +31,7 @@ class StrictFastBoundsStruct {
   float: f64 = 0;
   enabled: bool = false;
 }
+
 
 @json
 class StrictUnmarkedMidStruct {
@@ -41,11 +45,13 @@ class StrictUnmarkedMidStruct {
   h: i32 = 0;
 }
 
+
 @json
 class StrictStringFastBoundsStruct {
   first: string = "";
   second: string = "";
 }
+
 
 @json({ lazy: true })
 class StrictLazyStruct {

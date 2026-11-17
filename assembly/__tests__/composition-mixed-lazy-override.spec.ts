@@ -8,17 +8,21 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
+
 @json class LazyBase {
   value: i32 = 1;
 }
+
 
 @json class EagerChild extends LazyBase {
   value: i32 = 2;
 }
 
+
 @json class EagerBase {
   value: i32 = 1;
 }
+
 
 @json class LazyChild extends EagerBase {
   value: i32 = 2;

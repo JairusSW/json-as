@@ -34,6 +34,7 @@ class Sponsor {
   logo!: string;
 }
 
+
 @json({ lazy: true })
 class Author {
 
@@ -42,11 +43,13 @@ class Author {
   name!: string;
 }
 
+
 @json({ lazy: true })
 class Org {
 
   @alias("@context")
   context!: string;
+
 
   @alias("@type")
   type!: string;

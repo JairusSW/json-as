@@ -470,7 +470,10 @@ export namespace bs {
     }
     if (learnOwnedHint) {
       learnOwnedHint = false;
-      updateOwnedHint(changetype<OBJECT>(out - TOTAL_OVERHEAD).rtSize, reservedSize);
+      updateOwnedHint(
+        changetype<OBJECT>(out - TOTAL_OVERHEAD).rtSize,
+        reservedSize,
+      );
       // Keep ordinary staging allocations so switching output ownership does
       // not perturb the allocator layout of subsequent parse work. Very large
       // staging blocks would duplicate a returned string and can exhaust the

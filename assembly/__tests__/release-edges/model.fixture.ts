@@ -17,8 +17,10 @@ export namespace M {
   }
   let calls: i32 = 0;
 
+
   @json class Token {
     value: i32 = 0;
+
 
     @deserializer("number") decode(_s: string): Token {
       calls++;
