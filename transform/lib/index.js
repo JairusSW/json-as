@@ -1669,7 +1669,9 @@ export class JSONTransform extends Visitor {
         return "{" + fields.join(",") + "}";
     }
     getDefaultMatcherSource(defaultJSON) {
-        const literal = JSON.stringify(defaultJSON);
+        const literal = JSON.stringify(defaultJSON)
+            .replaceAll("\u2028", "\\u2028")
+            .replaceAll("\u2029", "\\u2029");
         if (defaultJSON.length > 256)
             return (`@inline __DESERIALIZE_DEFAULT(srcStart: usize, srcEnd: usize, knownMatch: bool = false): this {\n` +
                 `  if (!knownMatch && !JSON.Util.matchesLiteral(srcStart, srcEnd, ${literal})) return changetype<this>(0);\n` +

@@ -4852,3 +4852,36 @@ records, exact named/candidate images, output oracles, prototypes, correctness
 logs, recipes, statistics, audits and seals. Baseline sources/images reference
 the preceding packed-Unicode artifact by SHA-256. Embedded bytes and the linked
 artifact are independently hash-verified. Production code is unchanged.
+
+
+## Wide default-object literal guard correction
+
+A positive-path literal-store probe exposed an independent production parsing
+bug. Compatibility fast parsing could return declared defaults instead of
+changed input when a wide generated default-object matcher contained U+2028 or
+U+2029, in a field alias or a default string. Slow parsing and strict controls
+returned the supplied values. A reduced one-field long-alias regression fails
+on unchanged production before the correction: expected `changed`, actual
+`default`.
+
+The wide matcher interpolated `JSON.stringify(defaultJSON)` directly into
+AssemblyScript source. JavaScript preserves these two Unicode line separators
+inside JSON strings; they must be escaped when embedded as AssemblyScript
+source. The correction emits `\u2028`/`\u2029`, preserving the literal's runtime
+contents and the exact-match requirement. No parser option or runtime work is
+added.
+
+The permanent regression passes **864 checks across 36 configurations**:
+NAIVE/SWAR/SIMD, incremental/minimal/stub, strictness and fast-path settings,
+changed/exact-default values, fresh/reused destinations, and GC retention.
+Build, typecheck, lint and license gates pass. The test is wired into the
+ordinary transform suite. All **nine classic binaries rebuild byte-identically**
+to the preceding qualified images, so this correction does not change the
+reported classic throughput table or the 4/9 gate. Source-hash continuity is
+recorded separately; this is not a new timing capture.
+
+[Correction evidence](data/default-object-literal-guard.json.gz) preserves the
+red/green regression logs, reduced baseline controls, corrected sources,
+unchanged-image manifest, build/static checks and reproduction scripts. The
+literal-pooling prototype is separate and has not been qualified by these
+correctness results.

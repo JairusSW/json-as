@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Escape Unicode line separators in generated wide default-object matchers so changed documents cannot return their declared defaults.
+
 - Reduce private text-record Unicode scan work with packed ASCII tests and exact surrogate checks. Keep public string writers, bounds, output ownership and existing source/runtime fallbacks unchanged.
 
 - Retire numeric-batch row estimates without counting enclosing-array comma credits twice. Preserve caller-held reservations and the original row writer accounting across batch boundaries and nullable rows.
