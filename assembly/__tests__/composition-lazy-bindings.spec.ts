@@ -11,10 +11,9 @@ import * as lib from "..";
 import { PublicLazy } from "./composition-marker.fixture";
 import { describe, expect } from "as-test";
 
-
 @json class MarkerBindings {
-  named: J.Lazy<string> = "seed";
-  wildcard: lib.JSON.Lazy<string> = "seed";
+  named: string = "seed";
+  wildcard: string = "seed";
   alias: PublicLazy<string> = "seed";
 }
 namespace Foreign {
@@ -26,7 +25,6 @@ namespace Foreign {
     }
   }
 }
-
 
 @json class ForeignOwner {
   inner: Foreign.Lazy<i32> = new Foreign.Lazy<i32>(7);

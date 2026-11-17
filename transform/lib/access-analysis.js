@@ -29,28 +29,9 @@ export function accessProbability(paths) {
     };
     return union(paths);
 }
-export function materializationDecision(paths, decodeCost, origin = [new Map()]) {
-    const reach = accessProbability(origin);
-    const probability = reach ? Math.min(1, accessProbability(paths) / reach) : 0;
-    const expectedReads = reach
-        ? paths.reduce((sum, path) => sum + 2 ** -path.size, 0) / reach
-        : 0;
-    const eagerCost = decodeCost + expectedReads * 0.25;
-    const lazyCost = probability * (decodeCost + 4) + expectedReads * 0.5;
-    return {
-        probability,
-        expectedReads,
-        decodeCost,
-        eagerCost,
-        lazyCost,
-        eager: probability === 1 || lazyCost > eagerCost,
-    };
-}
-export class StrategicAccessAnalysis extends Visitor {
+export class AccessAnalysis extends Visitor {
     resolveParse;
     resolveChild;
-    conservativeEscapes;
-    resolveSerialization;
     pathLimitReached = false;
     callableSiteStart = 0;
     sites = [];
@@ -72,12 +53,10 @@ export class StrategicAccessAnalysis extends Visitor {
     captures = new WeakMap();
     expanding = new Set();
     byCall = new WeakMap();
-    constructor(resolveParse, resolveChild = () => null, conservativeEscapes = false, resolveSerialization = () => false) {
+    constructor(resolveParse, resolveChild = () => null) {
         super();
         this.resolveParse = resolveParse;
         this.resolveChild = resolveChild;
-        this.conservativeEscapes = conservativeEscapes;
-        this.resolveSerialization = resolveSerialization;
     }
     binding(name) {
         for (let i = this.scopes.length - 1; i >= 0; i--)
@@ -162,9 +141,6 @@ export class StrategicAccessAnalysis extends Visitor {
                 escaped: parent.escaped || this.pathLimitReached,
                 children: new Map(),
                 parent,
-                serializationAccesses: parent.serializationAccesses
-                    ? new Map()
-                    : undefined,
             };
             parent.children.set(name, child);
             return child;
@@ -220,25 +196,11 @@ export class StrategicAccessAnalysis extends Visitor {
         }
         site.accesses.set(name, paths);
     }
-    serializationBoundary(site) {
-        while (site.parent)
-            site = site.parent;
-        const pending = [site];
-        while (pending.length) {
-            const current = pending.pop();
-            if (current.serializationAccesses)
-                continue;
-            current.serializationAccesses = new Map([...current.accesses].map(([name, paths]) => [name, paths.slice()]));
-            pending.push(...current.children.values());
-        }
-    }
     visitPropertyAccessExpression(node) {
         this.read(node);
         super.visitPropertyAccessExpression(node);
     }
     visitIdentifierExpression(node, parent = null) {
-        if (!this.conservativeEscapes)
-            return;
         const site = this.binding(node.text);
         if (!site)
             return;
@@ -256,8 +218,7 @@ export class StrategicAccessAnalysis extends Visitor {
     visitVariableDeclaration(node) {
         const site = this.origin(node.initializer);
         this.visit(node.initializer, node);
-        if (this.conservativeEscapes &&
-            site &&
+        if (site &&
             (this.callableDepth === 0 ||
                 !node.isAny(8 | 16)))
             site.escaped = true;
@@ -356,15 +317,6 @@ export class StrategicAccessAnalysis extends Visitor {
                     assigned.escaped = true;
             }
         }
-        if (!this.conservativeEscapes &&
-            this.resolveSerialization(node, this.shadowed)) {
-            if (args[0])
-                this.serializationBoundary(args[0]);
-            for (const arg of args.slice(1))
-                if (arg)
-                    arg.escaped = true;
-            return;
-        }
         if (fn?.signature.parameters.some((parameter) => parameter.parameterKind === 2)) {
             if (receiver)
                 receiver.escaped = true;
@@ -377,39 +329,17 @@ export class StrategicAccessAnalysis extends Visitor {
             this.expanding.has(fn) ||
             this.expanding.size >= 8 ||
             this.helperExpansions >= 1024) {
-            const intrinsic = !this.conservativeEscapes &&
-                node.expression.kind === NodeKind.Identifier &&
-                [
-                    "idof",
-                    "offsetof",
-                    "sizeof",
-                    "nameof",
-                    "isDefined",
-                    "isReference",
-                    "isManaged",
-                    "isInteger",
-                    "isFloat",
-                    "isString",
-                    "isBoolean",
-                    "isNullable",
-                    "unchecked",
-                    "changetype",
-                    "reinterpret",
-                ].includes(node.expression.text);
-            if (!intrinsic) {
-                if (receiver)
-                    receiver.escaped = true;
-                for (const arg of args)
-                    if (arg)
-                        arg.escaped = true;
-            }
+            if (receiver)
+                receiver.escaped = true;
+            for (const arg of args)
+                if (arg)
+                    arg.escaped = true;
             return;
         }
         if (!receiver && !args.some(Boolean))
             return;
         this.helperExpansions++;
-        if (this.conservativeEscapes &&
-            fn.signature.parameters.slice(node.args.length).some((p) => p.initializer)) {
+        if (fn.signature.parameters.slice(node.args.length).some((p) => p.initializer)) {
             if (receiver)
                 receiver.escaped = true;
             for (const arg of args)
@@ -459,7 +389,7 @@ export class StrategicAccessAnalysis extends Visitor {
                     site.escaped = true;
             }
         }
-        if (this.conservativeEscapes && node.body)
+        if (node.body)
             new MarkCaptures().visit(node.body);
         const saved = [
             this.scopes,
@@ -541,22 +471,18 @@ export class StrategicAccessAnalysis extends Visitor {
     }
     visitReturnStatement(node) {
         const value = node.value;
-        if (this.conservativeEscapes) {
-            const site = this.origin(value);
-            if (site)
-                site.escaped = true;
-        }
+        const site = this.origin(value);
+        if (site)
+            site.escaped = true;
         this.visit(value);
         this.paths = [];
         this.terminated = true;
     }
     visitThrowStatement(node) {
         const value = node.value;
-        if (this.conservativeEscapes) {
-            const site = this.origin(value);
-            if (site)
-                site.escaped = true;
-        }
+        const site = this.origin(value);
+        if (site)
+            site.escaped = true;
         this.visit(value);
         this.paths = [];
         this.terminated = true;
@@ -702,21 +628,19 @@ export class StrategicAccessAnalysis extends Visitor {
         }
     }
     visitArrayLiteralExpression(node) {
-        if (this.conservativeEscapes)
-            for (const element of node.elementExpressions) {
-                const site = this.origin(element);
-                if (site)
-                    site.escaped = true;
-            }
+        for (const element of node.elementExpressions) {
+            const site = this.origin(element);
+            if (site)
+                site.escaped = true;
+        }
         super.visitArrayLiteralExpression(node);
     }
     visitObjectLiteralExpression(node) {
-        if (this.conservativeEscapes)
-            for (const value of node.values) {
-                const site = this.origin(value);
-                if (site)
-                    site.escaped = true;
-            }
+        for (const value of node.values) {
+            const site = this.origin(value);
+            if (site)
+                site.escaped = true;
+        }
         super.visitObjectLiteralExpression(node);
     }
     recordWrite(target) {
@@ -744,32 +668,21 @@ export class StrategicAccessAnalysis extends Visitor {
             this.recordWrite(node.left);
         if (node.operator === 101) {
             const site = this.origin(node.right);
-            if (this.conservativeEscapes &&
-                site &&
-                parent?.kind !== NodeKind.Expression)
+            if (site && parent?.kind !== NodeKind.Expression)
                 site.escaped = true;
             this.visit(node.right);
             if (node.left.kind === NodeKind.Identifier) {
                 const name = node.left.text;
-                const sameContext = site &&
-                    site.origin.length === this.paths.length &&
-                    site.origin.every((origin) => this.paths.some((path) => path.size === origin.size &&
-                        [...origin].every(([key, value]) => path.get(key) === value)));
                 const inLoop = this.exits.some((exit) => exit.loop);
-                const assigned = !(this.conservativeEscapes && inLoop) &&
-                    (accessProbability(this.paths) === 1 ||
-                        (!this.conservativeEscapes && sameContext))
-                    ? site
-                    : null;
+                const assigned = !inLoop && accessProbability(this.paths) === 1 ? site : null;
                 let found = false;
                 for (let i = this.scopes.length - 1; i >= 0; i--)
                     if (this.scopes[i].has(name)) {
                         found = true;
-                        if (this.conservativeEscapes &&
-                            (this.callableDepth === 0 ||
-                                i < this.callableScopeStart ||
-                                this.varBindings.has(name) ||
-                                !assigned)) {
+                        if (this.callableDepth === 0 ||
+                            i < this.callableScopeStart ||
+                            this.varBindings.has(name) ||
+                            !assigned) {
                             if (site)
                                 site.escaped = true;
                             const previous = this.scopes[i].get(name);
@@ -779,16 +692,16 @@ export class StrategicAccessAnalysis extends Visitor {
                         this.scopes[i].set(name, assigned);
                         break;
                     }
-                if (this.conservativeEscapes && !found && site)
+                if (!found && site)
                     site.escaped = true;
             }
             else if (node.left.kind === NodeKind.PropertyAccess) {
-                if (this.conservativeEscapes && site)
+                if (site)
                     site.escaped = true;
                 this.visit(node.left.expression);
             }
             else {
-                if (this.conservativeEscapes && site)
+                if (site)
                     site.escaped = true;
                 this.visit(node.left);
             }

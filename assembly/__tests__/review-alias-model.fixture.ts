@@ -7,15 +7,13 @@
 
 import { JSON } from "..";
 
-
 @json class Hidden {
   value: i32 = 7;
 }
-export type PublicLazy = JSON.Lazy<Hidden>;
+export type PublicLazy = Hidden;
 export function make(): PublicLazy {
   return new Hidden();
 }
-
 
 @json class HiddenGeneric<T> {
   value: T;

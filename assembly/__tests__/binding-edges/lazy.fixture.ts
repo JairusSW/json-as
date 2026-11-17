@@ -7,26 +7,20 @@
 
 import { JSON } from "../..";
 
-
 @json class Owner {
 
-  @lazy date!: Date;
+  date!: Date;
 
+  raw!: JSON.Raw;
 
-  @lazy raw!: JSON.Raw;
+  box!: JSON.Box<i32>;
 
+  bytes!: Uint8Array;
 
-  @lazy box!: JSON.Box<i32>;
-
-
-  @lazy bytes!: Uint8Array;
-
-
-  @lazy arbitrary!: JSON.Value;
+  arbitrary: JSON.Value = JSON.Value.empty();
 }
 
-
-@json({lazy:"all"}) class Auto {
+@json({lazy: true}) class Auto {
   date!: Date;
 }
 export function run(): string {

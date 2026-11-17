@@ -8,42 +8,28 @@
 import { JSON } from "../..";
 import { bench, blackbox, dumpToFile, utf8ByteLength } from "../lib/bench";
 
-// Lazy mode access patterns. For each canonical payload (vec3/token/small/
-// medium/large) we compare a fully-eager SWAR parse (the baseline) against a
-// lazy parse that reads a growing slice of its N deferred fields:
-//   none -> parse skeleton only, never materialize a deferred field
-//   one  -> read a single deferred field
-//   half -> read round(N / 2) deferred fields
-//   all  -> touch every deferred field (work is deferred, not removed)
-//
-// Fields are marked deferrable with explicit `@lazy` (per the maintainer's
-// request) rather than class-level `lazy: "auto"`, so each payload has a known
-// deferred-field count regardless of the auto threshold. The dedicated chart
-// (build-lazy.ts) reads the SWAR logs only - lazy is showcased in SWAR.
-//
-// Dumps: lzap-<payload>.{base,none,one,half,all}.
+// Compare eager parsing with access-specialized reads of none, one, half,
+// or all fields. No field storage is deferred to first access.
+// Dumps retain the access-pattern-* keys used by the chart builder.
 
 // ============================= vec3 (19b, N=3) ============================
-// Deferred: x, y, z. none=0, one=1, half=2, all=3.
+// Access sets: none, one, half, and all.
 
-@json
+@json({ nolazy })
 class Vec3E {
   public x!: i32;
   public y!: i32;
   public z!: i32;
 }
 
-
 @json
 class Vec3L {
 
-  @lazy public x!: i32;
+  public x!: i32;
 
+  public y!: i32;
 
-  @lazy public y!: i32;
-
-
-  @lazy public z!: i32;
+  public z!: i32;
 }
 
 const vec3Json = JSON.stringify<Vec3E>({ x: 1, y: 2, z: 3 });
@@ -58,16 +44,16 @@ bench(
   VEC3_ITER,
   vec3Bytes,
 );
-dumpToFile("lzap-vec3", "base");
+dumpToFile("access-pattern-vec3", "base");
 bench(
   "vec3 read none",
   () => {
-    blackbox(changetype<usize>(JSON.parse<Vec3L>(vec3Json)));
+    JSON.parse<Vec3L>(vec3Json); blackbox(0);
   },
   VEC3_ITER,
   vec3Bytes,
 );
-dumpToFile("lzap-vec3", "none");
+dumpToFile("access-pattern-vec3", "none");
 bench(
   "vec3 read one",
   () => {
@@ -76,7 +62,7 @@ bench(
   VEC3_ITER,
   vec3Bytes,
 );
-dumpToFile("lzap-vec3", "one");
+dumpToFile("access-pattern-vec3", "one");
 bench(
   "vec3 read half",
   () => {
@@ -86,7 +72,7 @@ bench(
   VEC3_ITER,
   vec3Bytes,
 );
-dumpToFile("lzap-vec3", "half");
+dumpToFile("access-pattern-vec3", "half");
 bench(
   "vec3 read all",
   () => {
@@ -96,25 +82,23 @@ bench(
   VEC3_ITER,
   vec3Bytes,
 );
-dumpToFile("lzap-vec3", "all");
+dumpToFile("access-pattern-vec3", "all");
 
 // ============================ token (49b, N=2) ============================
-// Deferred: uid, token. none=0, one=1, half=1, all=2.
+// Access sets: none, one, half, and all.
 
-@json
+@json({ nolazy })
 class TokenE {
   uid: u32 = 256;
   token: string = "dewf32df@#G43g3Gs!@3sdfDS#2";
 }
 
-
 @json
 class TokenL {
 
-  @lazy uid: u32 = 256;
+  uid: u32 = 256;
 
-
-  @lazy token: string = "dewf32df@#G43g3Gs!@3sdfDS#2";
+  token: string = "dewf32df@#G43g3Gs!@3sdfDS#2";
 }
 
 const tokenJson = JSON.stringify<TokenE>(new TokenE());
@@ -129,16 +113,16 @@ bench(
   TOKEN_ITER,
   tokenBytes,
 );
-dumpToFile("lzap-token", "base");
+dumpToFile("access-pattern-token", "base");
 bench(
   "token read none",
   () => {
-    blackbox(changetype<usize>(JSON.parse<TokenL>(tokenJson)));
+    JSON.parse<TokenL>(tokenJson); blackbox(0);
   },
   TOKEN_ITER,
   tokenBytes,
 );
-dumpToFile("lzap-token", "none");
+dumpToFile("access-pattern-token", "none");
 bench(
   "token read one",
   () => {
@@ -147,7 +131,7 @@ bench(
   TOKEN_ITER,
   tokenBytes,
 );
-dumpToFile("lzap-token", "one");
+dumpToFile("access-pattern-token", "one");
 bench(
   "token read half",
   () => {
@@ -156,7 +140,7 @@ bench(
   TOKEN_ITER,
   tokenBytes,
 );
-dumpToFile("lzap-token", "half");
+dumpToFile("access-pattern-token", "half");
 bench(
   "token read all",
   () => {
@@ -166,13 +150,13 @@ bench(
   TOKEN_ITER,
   tokenBytes,
 );
-dumpToFile("lzap-token", "all");
+dumpToFile("access-pattern-token", "all");
 
 // ============================ small (108b, N=4) ===========================
-// Deferred: user_id, username, role, expires_at (authenticated stays eager).
+// Access sets: none, one, half, and all.
 // none=0, one=1, half=2, all=4.
 
-@json
+@json({ nolazy })
 class SmallE {
   authenticated: boolean = true;
   user_id: i32 = 8472;
@@ -181,22 +165,17 @@ class SmallE {
   expires_at: string = "2025-12-23T04:30:00Z";
 }
 
-
 @json
 class SmallL {
   authenticated: boolean = true;
 
+  user_id: i32 = 8472;
 
-  @lazy user_id: i32 = 8472;
+  username: string = "jairus";
 
+  role: string = "admin";
 
-  @lazy username: string = "jairus";
-
-
-  @lazy role: string = "admin";
-
-
-  @lazy expires_at: string = "2025-12-23T04:30:00Z";
+  expires_at: string = "2025-12-23T04:30:00Z";
 }
 
 const smallJson = JSON.stringify<SmallE>(new SmallE());
@@ -211,16 +190,16 @@ bench(
   SMALL_ITER,
   smallBytes,
 );
-dumpToFile("lzap-small", "base");
+dumpToFile("access-pattern-small", "base");
 bench(
   "small read none",
   () => {
-    blackbox(changetype<usize>(JSON.parse<SmallL>(smallJson)));
+    JSON.parse<SmallL>(smallJson); blackbox(0);
   },
   SMALL_ITER,
   smallBytes,
 );
-dumpToFile("lzap-small", "none");
+dumpToFile("access-pattern-small", "none");
 bench(
   "small read one",
   () => {
@@ -229,7 +208,7 @@ bench(
   SMALL_ITER,
   smallBytes,
 );
-dumpToFile("lzap-small", "one");
+dumpToFile("access-pattern-small", "one");
 bench(
   "small read half",
   () => {
@@ -239,7 +218,7 @@ bench(
   SMALL_ITER,
   smallBytes,
 );
-dumpToFile("lzap-small", "half");
+dumpToFile("access-pattern-small", "half");
 bench(
   "small read all",
   () => {
@@ -251,10 +230,10 @@ bench(
   SMALL_ITER,
   smallBytes,
 );
-dumpToFile("lzap-small", "all");
+dumpToFile("access-pattern-small", "all");
 
 // =========================== medium (1.1kb, N=4) ==========================
-// Deferred: bio, website, tags, recent_activity. none=0, one=1, half=2, all=4.
+// Access sets: none, one, half, and all.
 
 @json
 class UserPreferences {
@@ -266,7 +245,6 @@ class UserPreferences {
   two_factor_enabled: boolean = false;
 }
 
-
 @json
 class RecentActivity {
   action: string = "starred";
@@ -274,8 +252,7 @@ class RecentActivity {
   target: string = "JairusSW/json-as";
 }
 
-
-@json
+@json({ nolazy })
 class MediumE {
   id: i32 = 42;
   username: string = "jairus";
@@ -309,7 +286,6 @@ class MediumE {
   ];
 }
 
-
 @json
 class MediumL {
   id: i32 = 42;
@@ -318,12 +294,10 @@ class MediumL {
   email: string = "me@jairus.dev";
   avatar_url: string = "https://avatars.githubusercontent.com/u/123456?v=4";
 
-
-  @lazy bio: string =
+  bio: string =
     "I like compilers, elegant algorithms, bare metal, simd, and wasm.";
 
-
-  @lazy website: string = "https://jairus.dev/";
+  website: string = "https://jairus.dev/";
   location: string = "Seattle, WA";
   joined_at: string = "2020-01-15T08:30:00Z";
   is_verified: boolean = true;
@@ -332,8 +306,7 @@ class MediumL {
   following_count: i32 = 39;
   preferences: UserPreferences = new UserPreferences();
 
-
-  @lazy tags: string[] = [
+  tags: string[] = [
     "typescript",
     "webassembly",
     "performance",
@@ -342,8 +315,7 @@ class MediumL {
     "json",
   ];
 
-
-  @lazy recent_activity: RecentActivity[] = [
+  recent_activity: RecentActivity[] = [
     new RecentActivity(),
     new RecentActivity(),
     new RecentActivity(),
@@ -364,16 +336,16 @@ bench(
   MEDIUM_ITER,
   mediumBytes,
 );
-dumpToFile("lzap-medium", "base");
+dumpToFile("access-pattern-medium", "base");
 bench(
   "medium read none",
   () => {
-    blackbox(changetype<usize>(JSON.parse<MediumL>(mediumJson)));
+    JSON.parse<MediumL>(mediumJson); blackbox(0);
   },
   MEDIUM_ITER,
   mediumBytes,
 );
-dumpToFile("lzap-medium", "none");
+dumpToFile("access-pattern-medium", "none");
 bench(
   "medium read one",
   () => {
@@ -382,7 +354,7 @@ bench(
   MEDIUM_ITER,
   mediumBytes,
 );
-dumpToFile("lzap-medium", "one");
+dumpToFile("access-pattern-medium", "one");
 bench(
   "medium read half",
   () => {
@@ -392,7 +364,7 @@ bench(
   MEDIUM_ITER,
   mediumBytes,
 );
-dumpToFile("lzap-medium", "half");
+dumpToFile("access-pattern-medium", "half");
 bench(
   "medium read all",
   () => {
@@ -407,10 +379,10 @@ bench(
   MEDIUM_ITER,
   mediumBytes,
 );
-dumpToFile("lzap-medium", "all");
+dumpToFile("access-pattern-medium", "all");
 
 // ============================ large (5.5kb, N=4) ==========================
-// Deferred: owner, html_url, topics, default_branch. none=0, one=1, half=2, all=4.
+// Access sets: none, one, half, and all.
 
 @json
 class RepoOwner {
@@ -426,7 +398,6 @@ class RepoOwner {
   public site_admin: boolean = false;
 }
 
-
 @json
 class RepoLicense {
   public key: string = "";
@@ -436,8 +407,7 @@ class RepoLicense {
   public node_id: string = "";
 }
 
-
-@json
+@json({ nolazy })
 class RepoE {
   public id: i32 = 132935648;
   public node_id: string = "MDEwOlJlcG9zaXRvcnkxMzI5MzU2NDg=";
@@ -470,7 +440,6 @@ class RepoE {
   public default_branch: string = "master";
 }
 
-
 @json
 class RepoL {
   public id: i32 = 132935648;
@@ -479,11 +448,9 @@ class RepoL {
   public full_name: string = "octocat/boysenberry-repo-1";
   public private: boolean = true;
 
+  public owner: RepoOwner = new RepoOwner();
 
-  @lazy public owner: RepoOwner = new RepoOwner();
-
-
-  @lazy public html_url: string =
+  public html_url: string =
     "https://github.com/octocat/boysenberry-repo-1";
   public description: string | null = "Testing";
   public fork: boolean = true;
@@ -502,15 +469,13 @@ class RepoL {
   public license: RepoLicense | null = null;
   public allow_forking: boolean = true;
 
-
-  @lazy public topics: string[] = ["wasm", "json", "simd", "assemblyscript"];
+  public topics: string[] = ["wasm", "json", "simd", "assemblyscript"];
   public visibility: string = "public";
   public forks: i32 = 20;
   public open_issues: i32 = 1;
   public watchers: i32 = 332;
 
-
-  @lazy public default_branch: string = "master";
+  public default_branch: string = "master";
 }
 
 const largeJson = JSON.stringify<RepoE>(new RepoE());
@@ -525,16 +490,16 @@ bench(
   LARGE_ITER,
   largeBytes,
 );
-dumpToFile("lzap-large", "base");
+dumpToFile("access-pattern-large", "base");
 bench(
   "large read none",
   () => {
-    blackbox(changetype<usize>(JSON.parse<RepoL>(largeJson)));
+    JSON.parse<RepoL>(largeJson); blackbox(0);
   },
   LARGE_ITER,
   largeBytes,
 );
-dumpToFile("lzap-large", "none");
+dumpToFile("access-pattern-large", "none");
 bench(
   "large read one",
   () => {
@@ -543,7 +508,7 @@ bench(
   LARGE_ITER,
   largeBytes,
 );
-dumpToFile("lzap-large", "one");
+dumpToFile("access-pattern-large", "one");
 bench(
   "large read half",
   () => {
@@ -553,7 +518,7 @@ bench(
   LARGE_ITER,
   largeBytes,
 );
-dumpToFile("lzap-large", "half");
+dumpToFile("access-pattern-large", "half");
 bench(
   "large read all",
   () => {
@@ -568,4 +533,4 @@ bench(
   LARGE_ITER,
   largeBytes,
 );
-dumpToFile("lzap-large", "all");
+dumpToFile("access-pattern-large", "all");

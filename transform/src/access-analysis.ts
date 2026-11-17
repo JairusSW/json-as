@@ -65,61 +65,26 @@ export function accessProbability(paths: AccessPath[]): number {
   return union(paths);
 }
 
-export interface AccessDecision {
-  probability: number;
-  expectedReads: number;
-  decodeCost: number;
-  eagerCost: number;
-  lazyCost: number;
-  eager: boolean;
-}
-
-/** Relative work units, deliberately inspectable rather than CPU-time claims. */
-export function materializationDecision(
-  paths: AccessPath[],
-  decodeCost: number,
-  origin: AccessPath[] = [new Map()],
-): AccessDecision {
-  const reach = accessProbability(origin);
-  const probability = reach ? Math.min(1, accessProbability(paths) / reach) : 0;
-  const expectedReads = reach
-    ? paths.reduce((sum, path) => sum + 2 ** -path.size, 0) / reach
-    : 0;
-  // A deferred first read dispatches and decodes its saved range. Subsequent
-  // reads still test the lazy slot; eager parsing avoids the first-read work.
-  const eagerCost = decodeCost + expectedReads * 0.25;
-  const lazyCost = probability * (decodeCost + 4) + expectedReads * 0.5;
-  return {
-    probability,
-    expectedReads,
-    decodeCost,
-    eagerCost,
-    lazyCost,
-    eager: probability === 1 || lazyCost > eagerCost,
-  };
-}
-
-export interface StrategicSite {
+export interface ParseSite {
   call: CallExpression;
   source: Source;
   declaration: ClassDeclaration;
   origin: AccessPath[];
   accesses: Map<string, AccessPath[]>;
-  serializationAccesses?: Map<string, AccessPath[]>;
-  parent?: StrategicSite;
+  parent?: ParseSite;
   writes: Set<string>;
   escaped: boolean;
-  children: Map<string, StrategicSite>;
+  children: Map<string, ParseSite>;
 }
 
 type Callable = FunctionDeclaration | MethodDeclaration;
 
-/** Analyze original application ASTs before lazy lowering introduces getters. */
-export class StrategicAccessAnalysis extends Visitor {
+/** Prove field reads and escapes before generating parse-site plans. */
+export class AccessAnalysis extends Visitor {
   private pathLimitReached = false;
   private callableSiteStart = 0;
-  readonly sites: StrategicSite[] = [];
-  private scopes: Map<string, StrategicSite | null>[] = [];
+  readonly sites: ParseSite[] = [];
+  private scopes: Map<string, ParseSite | null>[] = [];
   private paths: AccessPath[] = [new Map()];
   private exits: {
     breaks: AccessPath[];
@@ -135,18 +100,15 @@ export class StrategicAccessAnalysis extends Visitor {
   private callableScopeStart = 0;
   private varBindings = new Set<string>();
   private varBindingCache = new WeakMap<Node, Set<string>>();
-  private thisSite: StrategicSite | null = null;
+  private thisSite: ParseSite | null = null;
   private callableNamespaces = new WeakMap<Callable, string[]>();
   private declarations = new WeakMap<
-    Map<string, StrategicSite | null>,
+    Map<string, ParseSite | null>,
     Map<string, FunctionDeclaration>
   >();
-  private captures = new WeakMap<
-    Callable,
-    Map<string, StrategicSite | null>[]
-  >();
+  private captures = new WeakMap<Callable, Map<string, ParseSite | null>[]>();
   private expanding = new Set<Callable>();
-  private byCall = new WeakMap<CallExpression, StrategicSite>();
+  private byCall = new WeakMap<CallExpression, ParseSite>();
 
   constructor(
     private resolveParse: (
@@ -159,16 +121,11 @@ export class StrategicAccessAnalysis extends Visitor {
       owner: ClassDeclaration,
       property: string,
     ) => ClassDeclaration | null = () => null,
-    private conservativeEscapes = false,
-    private resolveSerialization: (
-      call: CallExpression,
-      shadowed: (name: string) => boolean,
-    ) => boolean = () => false,
   ) {
     super();
   }
 
-  private binding(name: string): StrategicSite | null {
+  private binding(name: string): ParseSite | null {
     for (let i = this.scopes.length - 1; i >= 0; i--)
       if (this.scopes[i].has(name)) return this.scopes[i].get(name)!;
     return null;
@@ -177,8 +134,8 @@ export class StrategicAccessAnalysis extends Visitor {
   private shadowed = (name: string): boolean =>
     this.varBindings.has(name) || this.scopes.some((scope) => scope.has(name));
 
-  private names(statements: Node[]): Map<string, StrategicSite | null> {
-    const names = new Map<string, StrategicSite | null>();
+  private names(statements: Node[]): Map<string, ParseSite | null> {
+    const names = new Map<string, ParseSite | null>();
     for (let node of statements) {
       if (node.kind === NodeKind.ExportDefault)
         node = (node as unknown as { declaration: Node }).declaration;
@@ -228,7 +185,7 @@ export class StrategicAccessAnalysis extends Visitor {
     ] = saved;
   }
 
-  private origin(node: Node | null): StrategicSite | null {
+  private origin(node: Node | null): ParseSite | null {
     if (!node) return null;
     if (node.kind === NodeKind.This) return this.thisSite;
     if (node.kind === NodeKind.Identifier)
@@ -244,7 +201,7 @@ export class StrategicAccessAnalysis extends Visitor {
       if (existing) return existing;
       const declaration = this.resolveChild(parent.declaration, name);
       if (!declaration) return null;
-      const child: StrategicSite = {
+      const child: ParseSite = {
         call: parent.call,
         source: parent.source,
         declaration,
@@ -254,9 +211,6 @@ export class StrategicAccessAnalysis extends Visitor {
         escaped: parent.escaped || this.pathLimitReached,
         children: new Map(),
         parent,
-        serializationAccesses: parent.serializationAccesses
-          ? new Map()
-          : undefined,
       };
       parent.children.set(name, child);
       return child;
@@ -288,7 +242,7 @@ export class StrategicAccessAnalysis extends Visitor {
         this.genericDepth > 0,
       );
       if (!declaration) return null;
-      const site: StrategicSite = {
+      const site: ParseSite = {
         call,
         source: call.range.source,
         declaration,
@@ -326,19 +280,6 @@ export class StrategicAccessAnalysis extends Visitor {
     site.accesses.set(name, paths);
   }
 
-  private serializationBoundary(site: StrategicSite): void {
-    while (site.parent) site = site.parent;
-    const pending = [site];
-    while (pending.length) {
-      const current = pending.pop()!;
-      if (current.serializationAccesses) continue;
-      current.serializationAccesses = new Map(
-        [...current.accesses].map(([name, paths]) => [name, paths.slice()]),
-      );
-      pending.push(...current.children.values());
-    }
-  }
-
   visitPropertyAccessExpression(node: PropertyAccessExpression): void {
     this.read(node);
     super.visitPropertyAccessExpression(node);
@@ -348,7 +289,6 @@ export class StrategicAccessAnalysis extends Visitor {
     node: IdentifierExpression,
     parent: Node | null = null,
   ): void {
-    if (!this.conservativeEscapes) return;
     const site = this.binding(node.text);
     if (!site) return;
     // The explicit handlers below track direct field reads, simple aliases and
@@ -377,7 +317,6 @@ export class StrategicAccessAnalysis extends Visitor {
     // Module and namespace variables may be read by declarations visited
     // earlier or by other modules, beyond this local access analysis.
     if (
-      this.conservativeEscapes &&
       site &&
       (this.callableDepth === 0 ||
         !node.isAny(CommonFlags.Const | CommonFlags.Let))
@@ -404,7 +343,7 @@ export class StrategicAccessAnalysis extends Visitor {
 
   private registerFunctions(
     statements: Node[],
-    scope: Map<string, StrategicSite | null>,
+    scope: Map<string, ParseSite | null>,
   ): void {
     const declarations = new Map<string, FunctionDeclaration>();
     for (let statement of statements) {
@@ -451,7 +390,7 @@ export class StrategicAccessAnalysis extends Visitor {
     this.visit(node.expression, node);
     this.visit(node.typeArguments, node);
     let fn: Callable | undefined;
-    let receiver: StrategicSite | null = null;
+    let receiver: ParseSite | null = null;
     if (node.expression.kind === NodeKind.Identifier) {
       const name = (node.expression as IdentifierExpression).text;
       if (!this.varBindings.has(name)) {
@@ -474,7 +413,7 @@ export class StrategicAccessAnalysis extends Visitor {
         ) as MethodDeclaration | undefined;
       }
     }
-    const args: (StrategicSite | null)[] = [];
+    const args: (ParseSite | null)[] = [];
     for (const arg of node.args) {
       const before = this.origin(arg);
       this.visit(arg, node);
@@ -491,17 +430,6 @@ export class StrategicAccessAnalysis extends Visitor {
         if (assigned) assigned.escaped = true;
       }
     }
-    // Strategic fields retain all observable data even when left deferred.
-    // A known writer can consume those ranges without decoding them. Ordinary
-    // unused-field elimination must still treat whole serialization as escape.
-    if (
-      !this.conservativeEscapes &&
-      this.resolveSerialization(node, this.shadowed)
-    ) {
-      if (args[0]) this.serializationBoundary(args[0]);
-      for (const arg of args.slice(1)) if (arg) arg.escaped = true;
-      return;
-    }
     if (
       fn?.signature.parameters.some(
         (parameter) => parameter.parameterKind === ParameterKind.Rest,
@@ -517,30 +445,8 @@ export class StrategicAccessAnalysis extends Visitor {
       this.expanding.size >= 8 ||
       this.helperExpansions >= 1024
     ) {
-      const intrinsic =
-        !this.conservativeEscapes &&
-        node.expression.kind === NodeKind.Identifier &&
-        [
-          "idof",
-          "offsetof",
-          "sizeof",
-          "nameof",
-          "isDefined",
-          "isReference",
-          "isManaged",
-          "isInteger",
-          "isFloat",
-          "isString",
-          "isBoolean",
-          "isNullable",
-          "unchecked",
-          "changetype",
-          "reinterpret",
-        ].includes((node.expression as IdentifierExpression).text);
-      if (!intrinsic) {
-        if (receiver) receiver.escaped = true;
-        for (const arg of args) if (arg) arg.escaped = true;
-      }
+      if (receiver) receiver.escaped = true;
+      for (const arg of args) if (arg) arg.escaped = true;
       return;
     }
     if (!receiver && !args.some(Boolean)) return;
@@ -548,7 +454,6 @@ export class StrategicAccessAnalysis extends Visitor {
     // A default argument can read an earlier argument before the function
     // body runs. Until those expressions are modeled, retain the full value.
     if (
-      this.conservativeEscapes &&
       fn.signature.parameters.slice(node.args.length).some((p) => p.initializer)
     ) {
       if (receiver) receiver.escaped = true;
@@ -566,7 +471,7 @@ export class StrategicAccessAnalysis extends Visitor {
     this.scopes = [
       ...(this.captures.get(fn) || []),
       new Map(
-        fn.signature.parameters.map((p, i): [string, StrategicSite | null] => [
+        fn.signature.parameters.map((p, i): [string, ParseSite | null] => [
           p.name.text,
           args[i] || null,
         ]),
@@ -596,15 +501,14 @@ export class StrategicAccessAnalysis extends Visitor {
     // reads to an enclosing parse; analyze its own parse sites independently.
     // Captured objects may be observed after this analysis loses track of the
     // closure. Fail closed even when a nested binding has the same spelling.
-    const binding = (name: string): StrategicSite | null => this.binding(name);
+    const binding = (name: string): ParseSite | null => this.binding(name);
     class MarkCaptures extends Visitor {
       visitIdentifierExpression(identifier: IdentifierExpression): void {
         const site = binding(identifier.text);
         if (site) site.escaped = true;
       }
     }
-    if (this.conservativeEscapes && node.body)
-      new MarkCaptures().visit(node.body);
+    if (node.body) new MarkCaptures().visit(node.body);
     const saved = [
       this.scopes,
       this.paths,
@@ -620,7 +524,7 @@ export class StrategicAccessAnalysis extends Visitor {
     this.scopes = [
       ...this.scopes.map((scope) => {
         const copy = new Map(
-          [...scope.keys()].map((name): [string, StrategicSite | null] => [
+          [...scope.keys()].map((name): [string, ParseSite | null] => [
             name,
             null,
           ]),
@@ -629,7 +533,7 @@ export class StrategicAccessAnalysis extends Visitor {
         return copy;
       }),
       new Map(
-        node.signature.parameters.map((p): [string, StrategicSite | null] => [
+        node.signature.parameters.map((p): [string, ParseSite | null] => [
           p.name.text,
           null,
         ]),
@@ -693,20 +597,20 @@ export class StrategicAccessAnalysis extends Visitor {
 
   visitReturnStatement(node: Node): void {
     const value = (node as unknown as { value: Node }).value;
-    if (this.conservativeEscapes) {
-      const site = this.origin(value);
-      if (site) site.escaped = true;
-    }
+
+    const site = this.origin(value);
+    if (site) site.escaped = true;
+
     this.visit(value);
     this.paths = [];
     this.terminated = true;
   }
   visitThrowStatement(node: Node): void {
     const value = (node as unknown as { value: Node }).value;
-    if (this.conservativeEscapes) {
-      const site = this.origin(value);
-      if (site) site.escaped = true;
-    }
+
+    const site = this.origin(value);
+    if (site) site.escaped = true;
+
     this.visit(value);
     this.paths = [];
     this.terminated = true;
@@ -746,7 +650,7 @@ export class StrategicAccessAnalysis extends Visitor {
     // Existing and subsequent sites in this source must retain all fields.
     if (paths.length > 128 || this.pathLimitReached) {
       this.pathLimitReached = true;
-      const escape = (site: StrategicSite): void => {
+      const escape = (site: ParseSite): void => {
         site.escaped = true;
         for (const child of site.children.values()) escape(child);
       };
@@ -869,20 +773,18 @@ export class StrategicAccessAnalysis extends Visitor {
   }
 
   visitArrayLiteralExpression(node: ArrayLiteralExpression): void {
-    if (this.conservativeEscapes)
-      for (const element of node.elementExpressions) {
-        const site = this.origin(element);
-        if (site) site.escaped = true;
-      }
+    for (const element of node.elementExpressions) {
+      const site = this.origin(element);
+      if (site) site.escaped = true;
+    }
     super.visitArrayLiteralExpression(node);
   }
 
   visitObjectLiteralExpression(node: ObjectLiteralExpression): void {
-    if (this.conservativeEscapes)
-      for (const value of node.values) {
-        const site = this.origin(value);
-        if (site) site.escaped = true;
-      }
+    for (const value of node.values) {
+      const site = this.origin(value);
+      if (site) site.escaped = true;
+    }
     super.visitObjectLiteralExpression(node);
   }
 
@@ -922,45 +824,22 @@ export class StrategicAccessAnalysis extends Visitor {
       const site = this.origin(node.right);
       // Assignment expressions can themselves be returned, aliased, or used
       // as receivers. Until those uses are modeled, retain the assigned value.
-      if (
-        this.conservativeEscapes &&
-        site &&
-        parent?.kind !== NodeKind.Expression
-      )
-        site.escaped = true;
+      if (site && parent?.kind !== NodeKind.Expression) site.escaped = true;
       this.visit(node.right);
       if (node.left.kind === NodeKind.Identifier) {
         const name = (node.left as IdentifierExpression).text;
-        // An existing object assigned on one branch is not the binding's value
-        // on the other branch. Keep such mutable aliases opaque unless this
-        // assignment creates the parse result in the same execution context.
-        const sameContext =
-          site &&
-          site.origin.length === this.paths.length &&
-          site.origin.every((origin) =>
-            this.paths.some(
-              (path) =>
-                path.size === origin.size &&
-                [...origin].every(([key, value]) => path.get(key) === value),
-            ),
-          );
         const inLoop = this.exits.some((exit) => exit.loop);
         const assigned =
-          !(this.conservativeEscapes && inLoop) &&
-          (accessProbability(this.paths) === 1 ||
-            (!this.conservativeEscapes && sameContext))
-            ? site
-            : null;
+          !inLoop && accessProbability(this.paths) === 1 ? site : null;
         let found = false;
         for (let i = this.scopes.length - 1; i >= 0; i--)
           if (this.scopes[i].has(name)) {
             found = true;
             if (
-              this.conservativeEscapes &&
-              (this.callableDepth === 0 ||
-                i < this.callableScopeStart ||
-                this.varBindings.has(name) ||
-                !assigned)
+              this.callableDepth === 0 ||
+              i < this.callableScopeStart ||
+              this.varBindings.has(name) ||
+              !assigned
             ) {
               if (site) site.escaped = true;
               const previous = this.scopes[i].get(name);
@@ -969,15 +848,15 @@ export class StrategicAccessAnalysis extends Visitor {
             this.scopes[i].set(name, assigned);
             break;
           }
-        if (this.conservativeEscapes && !found && site) site.escaped = true;
+        if (!found && site) site.escaped = true;
       } else if (node.left.kind === NodeKind.PropertyAccess) {
         // Storing an object in another object can expose it beyond the
         // locally tracked bindings, even when the destination is known.
-        if (this.conservativeEscapes && site) site.escaped = true;
+        if (site) site.escaped = true;
         // A write of x is not a read of x; a write of x.y does read x.
         this.visit((node.left as PropertyAccessExpression).expression);
       } else {
-        if (this.conservativeEscapes && site) site.escaped = true;
+        if (site) site.escaped = true;
         this.visit(node.left);
       }
       return;

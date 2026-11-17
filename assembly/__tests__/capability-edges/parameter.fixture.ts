@@ -6,8 +6,7 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { JSON } from "../..";
-type Item = JSON.Lazy<i32>;
-
+type Item = i32;
 
 @json class Row<Item> {
   value!: Item;

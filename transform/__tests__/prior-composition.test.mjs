@@ -49,7 +49,7 @@ const bindings = {
   "map-field": '{"value":{"x":1}}',
   "set-field": '{"value":[1,2]}',
   "quoted-omit": '{"value":7,"label":"visible"}',
-  "lazy-reexport": "0:1:7",
+  "lazy-reexport": "1:1:7",
 };
 function decode(g, p) {
   return Buffer.from(

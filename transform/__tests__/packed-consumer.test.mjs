@@ -83,10 +83,9 @@ export function wideLiterals():string {
  const value=new WideLiterals();value.long_literal_field_0="updated語😀"+String.fromCharCode(0);
  return Runtime.JSON.stringify(value);
 }
-@json({lazy:"strategic"}) class Forwarded { needed:i32=0; text:string=""; }
-function forwardedMask(value:Forwarded):i32 { return i32(load<u64>(changetype<usize>(value),offsetof<Forwarded>("__needed_lz"))>>>32==0xffffffff); }
+@json({lazy: true}) class Forwarded { needed:i32=0; text:string=""; }
 export function forwarded():string {
- const value=Json.parse<Forwarded>('{"needed":7,"text":"\\\\u0061"}');const before=forwardedMask(value);const n=value.needed;assert(n==7);
+ const value=Json.parse<Forwarded>('{"needed":7,"text":"\\\\u0061"}');const before=i32(isDefined(value.__SET_SRC));const n=value.needed;assert(n==7);
  const first=Json.stringify(value);const second=Runtime.JSON.stringify(value);assert(changetype<usize>(first)!=changetype<usize>(second));
  return before.toString()+"|"+first+"|"+second;
 }
@@ -135,7 +134,6 @@ export function run():string {
                 JSON_MODE: mode,
                 JSON_STRICT: String(strict),
                 JSON_USE_FAST_PATH: "1",
-                JSON_STRATEGIC_LAZINESS: "",
                 JSON_AS_LIBRARY_SOURCE: "",
               },
               stdio: "pipe",
@@ -163,7 +161,7 @@ export function run():string {
           assert.equal(read(g.run()), JSON.stringify(99));
           assert.equal(
             read(g.forwarded()),
-            '1|{"needed":7,"text":"\\u0061"}|{"needed":7,"text":"\\u0061"}',
+            '0|{"needed":7,"text":"a"}|{"needed":7,"text":"a"}',
           );
           assert.equal(
             read(g.numericRows()),

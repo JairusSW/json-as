@@ -49,7 +49,7 @@ const bindings = {
   writer: '{"inner":{"value":7}}',
   lazy: "float:1.5",
   parameter: "float:1.5",
-  timing: "0:7:1",
+  timing: "1:7:1",
   self: "7",
   gc: "[1,2]",
   "gc-control": "[1,2]",

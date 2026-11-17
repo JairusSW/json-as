@@ -8,13 +8,11 @@
 import { JSON } from "../..";
 import { describe, expect } from "as-test";
 
-
 @json
 class CursorChild {
   label: string = "default";
   values: f64[] = [];
 }
-
 
 @json
 class CursorRecord {
@@ -24,18 +22,15 @@ class CursorRecord {
   children: CursorChild[] = [];
   names: (string | null)[] = [];
 
-
   @alias("line-key") text: string = "unchanged";
 }
 
 let callbacks = 0;
 let sourceRestored = false;
 
-
 @json
 class CursorCustom {
   value: i32 = 0;
-
 
   @deserializer("object")
   read(data: string): CursorCustom {
@@ -48,7 +43,6 @@ class CursorCustom {
     return out;
   }
 }
-
 
 @json
 class CursorCustomContainer {
@@ -177,7 +171,6 @@ describe("Custom deserializers retain prevalidation and nested cursor source res
   expect(out.tail.get<JSON.Obj>().getAs<string>("text")).toBe("retained");
 });
 
-
 @json
 class CursorCollections {
   map: Map<string, CursorChild> = new Map<string, CursorChild>();
@@ -227,16 +220,14 @@ describe("Cursor collections validate while populating maps, sets, static arrays
   }
 });
 
-
-@json({ lazy: "all" })
+@json({ lazy: true })
 class CursorLazy {
   count: i32 = 7;
   payload: JSON.Raw = JSON.Raw.from("null");
   child: CursorChild | null = null;
 }
 
-
-@json({ lazy: "all" })
+@json({ lazy: true })
 class CursorLazyCustom {
   custom: CursorCustom | null = null;
 }
@@ -272,7 +263,6 @@ describe("Cursor lazy fields validate full ranges before deferring conversion", 
     }).toThrow();
   }
 });
-
 
 @json
 class CursorNode {
@@ -367,7 +357,6 @@ describe("Dynamic cursor parsing retains lazy slots, decoded keys and source own
   expect(arr.getAs<JSON.Obj>(3).getAs<f64>("x")).toBe(1.0);
   expect(arr.getAs<string>(4) == "\ud800").toBe(true);
 });
-
 
 @json
 class CursorTyped {

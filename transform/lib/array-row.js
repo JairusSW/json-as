@@ -183,8 +183,7 @@ export class ArrayRowSerializers {
             !this.nestedRecords.has(node) ||
             schema.custom ||
             !schema.static ||
-            node.typeParameters?.length ||
-            schema.members.some((member) => member.flags.has(PropertyFlags.Lazy)))
+            node.typeParameters?.length)
             return;
         const scope = source
             .getQualifiedName(node)
@@ -270,11 +269,7 @@ export class ArrayRowSerializers {
         };
         if (!schema.members.every((member) => member.node.kind === NodeKind.FieldDeclaration &&
             !member.custom &&
-            ![
-                PropertyFlags.Lazy,
-                PropertyFlags.OmitIf,
-                PropertyFlags.OmitNull,
-            ].some((flag) => member.flags.has(flag))))
+            ![PropertyFlags.OmitIf, PropertyFlags.OmitNull].some((flag) => member.flags.has(flag))))
             return;
         const closed = schema.members.every((member) => safe(source.resolveTypeMeaning(member.type, "", this.parser, parameters)));
         let receiver = false;
@@ -378,7 +373,6 @@ export class ArrayRowSerializers {
         if (!schema.members.every((member) => {
             if (member.node.kind !== NodeKind.FieldDeclaration ||
                 member.custom ||
-                member.flags.has(PropertyFlags.Lazy) ||
                 member.flags.has(PropertyFlags.OmitIf) ||
                 member.flags.has(PropertyFlags.OmitNull))
                 return false;
@@ -411,7 +405,6 @@ export class ArrayRowSerializers {
         if (!schema.members.every((member) => {
             if (member.node.kind !== NodeKind.FieldDeclaration ||
                 member.custom ||
-                member.flags.has(PropertyFlags.Lazy) ||
                 member.flags.has(PropertyFlags.OmitIf) ||
                 member.flags.has(PropertyFlags.OmitNull))
                 return false;

@@ -9,10 +9,8 @@ import { JSON } from "../..";
 type Identity<T> = T;
 let calls: i32 = 0;
 
-
 @json class Token {
   value: i32 = 0;
-
 
   @deserializer("number") decode(data: string): Token {
     calls++;
@@ -22,8 +20,7 @@ let calls: i32 = 0;
   }
 }
 namespace Model {
-  type Deferred = JSON.Lazy<Token>;
-
+  type Deferred = Token;
 
   @json export class Row {
     value!: Identity<Deferred>;

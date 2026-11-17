@@ -6,11 +6,10 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { JSON } from "../..";
-type Inner = JSON.Lazy<i32>;
+type Inner = i32;
 type Identity<T> = T;
 namespace Model {
-  type Inner = JSON.Lazy<f32>;
-
+  type Inner = f32;
 
   @json export class Row {
     value: Identity<Inner> = 0;

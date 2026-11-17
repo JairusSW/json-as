@@ -7,14 +7,12 @@
 
 import { JSON } from "../..";
 
-
 @json class Holder {
-  value!: JSON.Lazy<JSON.Box<i32>>;
+  value: JSON.Box<i32> = new JSON.Box<i32>(0);
 }
 
-
 @json class Generic<T> {
-  value!: JSON.Lazy<T>;
+  value!: T;
 }
 export function run(): string {
   assert(new Holder().value.value == 0);

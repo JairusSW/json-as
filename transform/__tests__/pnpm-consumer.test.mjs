@@ -201,7 +201,7 @@ try {
         `import {JSON} from "${name}/assembly";
 @json class Token {value:i32=-1;@serializer("number") encode(self:Token):string{return self.value.toString();}@deserializer("number") decode(text:string):Token {const out=new Token();out.value=<i32>parseInt(text);return out;}}
 @json export class Base<T> {n:T=changetype<T>(7);}
-@json export class Row extends Base<i32> {lazy:JSON.Lazy<i32>=2;values:i32[]=[];map:Map<string,i32>=new Map<string,i32>();token:Token=new Token();}
+@json export class Row extends Base<i32> {lazy:i32=2;values:i32[]=[];map:Map<string,i32>=new Map<string,i32>();token:Token=new Token();}
 `,
       );
       write(path.join(app, "index.ts"), fixture(name, true));

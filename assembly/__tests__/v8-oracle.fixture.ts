@@ -7,7 +7,6 @@
 
 import { JSON } from "..";
 
-
 @json class Child {
   value: i32 = 0;
   constructor() {
@@ -15,22 +14,18 @@ import { JSON } from "..";
   }
 }
 
-
 @json class Parent {
   child: Child = new Child();
 }
-
 
 @json class Leaf {
   n: i32 = 0;
 }
 
-
 @json class Pair {
   a: Leaf = new Leaf();
   b: Leaf = new Leaf();
 }
-
 
 @json class Matrix {
   rows: i32[][] = [];
@@ -38,16 +33,13 @@ import { JSON } from "..";
   planes: i32[][][] = [];
 }
 
-
 @json class Prefix {
   value: i32 = 1;
 }
 
-
 @json class i32Box {
   value: i32 = 1;
 }
-
 
 @json class PrefixHolder {
   tag: i32 = 0;
@@ -59,17 +51,14 @@ namespace Model {
     On,
   }
 
-
   @json export class Record {
     state: State = State.Off;
   }
 }
 
-
 @json class DateHolder {
   date: Date = new Date(0);
 }
-
 
 @json class Wide {
   labels: string[] = [];
@@ -153,7 +142,6 @@ let callbackKind: i32 = 0;
 let callbackObject = new JSON.Obj();
 let callbackArray = new JSON.Arr();
 
-
 @json class Mutator {
 
   @serializer serialize(): string {
@@ -186,37 +174,31 @@ export function mutation(kind: i32): string {
   return kind == 3 ? callbackArray.join(",") : JSON.stringify(callbackArray);
 }
 
-
 @json class EmptyKey {
 
   @alias("") value: i32 = 0;
 }
-
 
 @json class SharedKinds {
   a: Leaf = new Leaf();
   b: Map<string, Leaf> = new Map();
 }
 
-
 @json class SharedStatic {
   a: StaticArray<i32> = [0];
   b: StaticArray<i32> = [0];
 }
 
-
 @json class GenericNullable<T> {
   value!: T;
 }
 
-
 @json class LazyBase<T> {
-  value: JSON.Lazy<T> = changetype<T>(0);
+  value: T = changetype<T>(0);
   constructor(value: T) {
     this.value = value;
   }
 }
-
 
 @json class LazyChild extends LazyBase<string> {
   constructor() {

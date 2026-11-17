@@ -45,7 +45,7 @@ try {
                 ? "assembly/__tests__/ordinary-namespace-binding.fixture.ts"
                 : "",
             JSON_STRICT: strict,
-            JSON_ACCESS_SPECIALIZATION: enabled,
+            JSON_LAZY: enabled,
           },
           stdio: "pipe",
         },

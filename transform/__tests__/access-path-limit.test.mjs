@@ -31,7 +31,7 @@ try {
       ],
       {
         cwd: root,
-        env: { ...process.env, JSON_ACCESS_SPECIALIZATION: String(enabled) },
+        env: { ...process.env, JSON_LAZY: String(enabled) },
         encoding: "utf8",
         timeout: 60000,
       },

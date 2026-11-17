@@ -8,23 +8,20 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
-
 @json class EmptyAlias {
 
   @alias("") value: i32 = 0;
 }
 
-
 @json class LazyEmptyAlias {
 
-  @alias("") value: JSON.Lazy<string> = "default";
+  @alias("") value: string = "default";
 }
 describe("empty aliases are explicit wire names", () => {
   expect(JSON.stringify(new EmptyAlias())).toBe('{"":0}');
   expect(JSON.parse<EmptyAlias>('{"":7}').value).toBe(7);
   expect(JSON.parse<LazyEmptyAlias>('{"":"ok"}').value).toBe("ok");
 });
-
 
 @json class MixedEmptyAlias {
 

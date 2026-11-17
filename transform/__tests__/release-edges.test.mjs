@@ -27,7 +27,7 @@ const expected = [
   '"custom"',
 ];
 const bindings = {
-  namespace: '{"value":5,"tail":9}:1:0:1',
+  namespace: '{"value":5,"tail":9}:1:1:1',
   "root-import": '{"value":7}:{"value":7}',
   "default-inherit": '{"value":7,"tail":9}',
   "default-local": '{"value":7,"tail":9}',

@@ -26,39 +26,30 @@ import {
 // orders; the keys that vary by layer type are @optional so every layer stays on
 // the fast path. ks/ef/shapes (transform/effects/shapes) are deeply irregular
 // animation data kept as JSON.Raw passthrough.
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Layer {
   ddd!: i64;
   ind!: i64;
   ty!: i64;
   nm!: string;
 
-
   @optional refId!: string;
-
 
   @optional parent!: JSON.Box<i64> | null;
   ks!: JSON.Raw | null;
   ao!: i64;
 
-
   @optional ef!: JSON.Raw | null;
-
 
   @optional w!: i64;
 
-
   @optional h!: i64;
-
 
   @optional shapes!: JSON.Raw | null;
 
-
   @optional sw!: i64;
 
-
   @optional sh!: i64;
-
 
   @optional sc!: string;
   ip!: f64;
@@ -68,15 +59,13 @@ class Layer {
   sr!: i64;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Asset {
   id!: string;
   layers!: Layer[];
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Lottie {
   v!: string;
   fr!: f64;

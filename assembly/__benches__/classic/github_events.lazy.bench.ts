@@ -22,7 +22,7 @@ import {
 // fork forkee=repo, issues issue, issue_comment comment, gollum pages), so the
 // eager bench materializes the whole document.
 
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Actor {
   gravatar_id!: string;
   login!: string;
@@ -31,23 +31,20 @@ class Actor {
   id!: i64;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class GhRepo {
   url!: string;
   id!: i64;
   name!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class CommitAuthor {
   email!: string;
   name!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Commit {
   url!: string;
   message!: string;
@@ -56,8 +53,7 @@ class Commit {
   author!: CommitAuthor;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class GhUser {
   url!: string;
   gists_url!: string;
@@ -76,8 +72,7 @@ class GhUser {
   following_url!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Forkee {
   description!: string;
   fork!: boolean;
@@ -89,7 +84,6 @@ class Forkee {
   full_name!: string;
   merges_url!: string;
   forks!: i32;
-
 
   @alias("private")
   is_private!: boolean;
@@ -121,7 +115,6 @@ class Forkee {
   assignees_url!: string;
   ssh_url!: string;
 
-
   @alias("public")
   is_public!: boolean;
   has_wiki!: boolean;
@@ -151,16 +144,14 @@ class Forkee {
   watchers!: i32;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class PullRequestRef {
   html_url!: string | null;
   patch_url!: string | null;
   diff_url!: string | null;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Page {
   page_name!: string;
   html_url!: string;
@@ -170,8 +161,7 @@ class Page {
   action!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Issue {
   user!: GhUser;
   url!: string;
@@ -194,8 +184,7 @@ class Issue {
   comments!: i32;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Comment {
   user!: GhUser;
   url!: string;
@@ -211,7 +200,7 @@ class Comment {
 // per-event (via the per-class fallback) - localized, so the rest of each event
 // still parses fast. (A fully-@optional payload stays on the fast path but
 // currently trips a per-class-fallback memory-corruption bug - left static.)
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Payload {
   commits!: Commit[];
   distinct_size!: i32;
@@ -230,20 +219,17 @@ class Payload {
   pages!: Page[];
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class GhEvent {
   type!: string;
   created_at!: string;
   actor!: Actor;
   repo!: GhRepo;
 
-
   @alias("public")
   isPublic!: boolean;
   payload!: Payload;
   id!: string;
-
 
   @optional org!: Actor | null;
 }

@@ -257,8 +257,7 @@ export class ArrayRowSerializers {
       !this.nestedRecords.has(node) ||
       schema.custom ||
       !schema.static ||
-      node.typeParameters?.length ||
-      schema.members.some((member) => member.flags.has(PropertyFlags.Lazy))
+      node.typeParameters?.length
     )
       return;
     const scope = source
@@ -383,11 +382,9 @@ export class ArrayRowSerializers {
         (member) =>
           member.node.kind === NodeKind.FieldDeclaration &&
           !member.custom &&
-          ![
-            PropertyFlags.Lazy,
-            PropertyFlags.OmitIf,
-            PropertyFlags.OmitNull,
-          ].some((flag) => member.flags.has(flag)),
+          ![PropertyFlags.OmitIf, PropertyFlags.OmitNull].some((flag) =>
+            member.flags.has(flag),
+          ),
       )
     )
       return;
@@ -535,7 +532,6 @@ export class ArrayRowSerializers {
         if (
           member.node.kind !== NodeKind.FieldDeclaration ||
           member.custom ||
-          member.flags.has(PropertyFlags.Lazy) ||
           member.flags.has(PropertyFlags.OmitIf) ||
           member.flags.has(PropertyFlags.OmitNull)
         )
@@ -591,7 +587,6 @@ export class ArrayRowSerializers {
         if (
           member.node.kind !== NodeKind.FieldDeclaration ||
           member.custom ||
-          member.flags.has(PropertyFlags.Lazy) ||
           member.flags.has(PropertyFlags.OmitIf) ||
           member.flags.has(PropertyFlags.OmitNull)
         )

@@ -37,7 +37,7 @@ try {
               ...process.env,
               JSON_MODE: mode,
               JSON_STRICT: strict,
-              JSON_ACCESS_SPECIALIZATION: enabled,
+              JSON_LAZY: enabled,
             },
             stdio: "pipe",
           },

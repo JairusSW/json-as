@@ -17,29 +17,25 @@ import {
   utf8ByteLength,
 } from "../lib/bench";
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class CanadaProperties {
   name!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class CanadaGeometry {
   type!: string;
   coordinates!: Array<Array<Array<f64>>>;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class CanadaFeature {
   type!: string;
   properties!: CanadaProperties;
   geometry!: CanadaGeometry;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Canada {
   type!: string;
   features!: Array<CanadaFeature>;

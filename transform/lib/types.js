@@ -25,8 +25,7 @@ export var PropertyFlags;
     PropertyFlags[PropertyFlags["OmitIf"] = 1] = "OmitIf";
     PropertyFlags[PropertyFlags["Raw"] = 2] = "Raw";
     PropertyFlags[PropertyFlags["Custom"] = 3] = "Custom";
-    PropertyFlags[PropertyFlags["Lazy"] = 4] = "Lazy";
-    PropertyFlags[PropertyFlags["Optional"] = 5] = "Optional";
+    PropertyFlags[PropertyFlags["Optional"] = 4] = "Optional";
 })(PropertyFlags || (PropertyFlags = {}));
 export class Property {
     name = "";
@@ -38,12 +37,7 @@ export class Property {
     flags = new Map();
     node;
     byteSize = 0;
-    lazyInner = null;
-    lazyProperty = null;
     omitIfMethod = null;
-    lazyPacked = false;
-    lazyScalar = false;
-    lazyMaybeArray = false;
     _generic = false;
     _custom = false;
     parent;

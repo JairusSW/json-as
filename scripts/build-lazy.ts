@@ -22,7 +22,7 @@ import {
   rgba,
 } from "./lib/palette";
 
-// Lazy-fields charts (eager vs `@json({ lazy: "auto" })`), SIMD. Backed by the
+// Lazy-fields charts (eager vs `@json({ lazy: true })`), SIMD. Backed by the
 // committed benchmark in assembly/__benches__/lazy/lazy.bench.ts - regenerate
 // the logs with `bun run bench:as lazy/ --mode simd`, then run this script.
 const MODE = process.env["JSON_CHART_LAZY_MODE"] ?? "simd";
@@ -30,7 +30,7 @@ const read = (suite: string, type: string): BenchResult =>
   readBenchLog(`./build/logs/as/${MODE}/${suite}.${type}.as.json`);
 
 const MBPS = "Throughput (MB/s, higher is better)";
-const LAZY = ["eager", 'lazy ("auto")'];
+const LAZY = ["eager", 'lazy (access specialization)'];
 const PAIR = [EAGER_BAR, LAZY_BAR];
 
 // Geometry-based labels (the datalabels plugin mis-places above-bar labels in
@@ -77,7 +77,7 @@ function sizeChart(kind: string, title: string, file: string) {
   const data: Record<string, BenchResult[]> = {};
   const labels: Record<string, string> = {};
   for (const [key, label] of SIZES) {
-    data[key] = [read(`lz-${key}-eager`, kind), read(`lz-${key}-lazy`, kind)];
+    data[key] = [read(`access-${key}-eager`, kind), read(`access-${key}-lazy`, kind)];
     labels[key] = label;
   }
   emit(
@@ -94,24 +94,24 @@ function sizeChart(kind: string, title: string, file: string) {
 
 sizeChart(
   "serialize",
-  "Serialize: eager vs lazy source forwarding",
+  "Serialize: eager vs access-specialized models",
   `${OUT}/lazy-serialize.svg`,
 );
 sizeChart(
   "deserialize",
-  "Deserialize: eager vs lazy (deferred fields not read)",
+  "Deserialize: eager vs access-specialized parsing",
   `${OUT}/lazy-deserialize.svg`,
 );
 sizeChart(
   "roundtrip",
-  "Round-trip: eager vs lazy (parse → stringify, untouched)",
+  "Round-trip: eager vs access-specialized models",
   `${OUT}/lazy-roundtrip.svg`,
 );
 
 // Lazy mode access patterns. SWAR only (the mode the lazy fast-path is showcased
 // in) - read swar logs directly regardless of the size-chart MODE above. Each
 // payload group leads with the eager full-parse baseline, then lazy reads of a
-// growing slice of its deferred fields (none/one/half/all). Backed by
+// growing slice of its fields (none/one/half/all). Backed by
 // assembly/__benches__/lazy/access-pattern.bench.ts (run `bun run bench:as
 // lazy/` to regenerate every mode's logs).
 const SWAR_READ = (suite: string, type: string): BenchResult =>
@@ -145,13 +145,13 @@ const ACCESS_COLORS = [
 const accData: Record<string, BenchResult[]> = {};
 const accLabels: Record<string, string> = {};
 for (const [key, label] of ACCESS_SETS) {
-  accData[key] = READ_LEVELS.map((lvl) => SWAR_READ(`lzap-${key}`, lvl));
+  accData[key] = READ_LEVELS.map((lvl) => SWAR_READ(`access-pattern-${key}`, lvl));
   accLabels[key] = label;
 }
 emit(
   createBarChart(accData, accLabels, {
     title:
-      "Lazy mode access patterns (SWAR) - deferred-field reads vs eager baseline",
+      "Lazy mode access patterns (SWAR) - field reads vs eager baseline",
     yLabel: MBPS,
     xLabel: "",
     datasetLabels: READ_LABELS,

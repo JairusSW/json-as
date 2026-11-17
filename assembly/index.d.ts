@@ -5,46 +5,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-/**
- * Options for the {@link json} class decorator: `@json({ ... })`.
- */
+/** Compile-time access-based parsing options for `@json`. */
 declare class JSONConfig {
-  /**
-   * Class-level lazy (on-demand) parsing mode. A lazy field stores its raw JSON
-   * slice at parse time and only parses it into the field's type on first
-   * access; untouched fields pass their original bytes straight through on
-   * serialize.
-   *
-   * - `true` or `{ lazy }` - use the default access-based specialization.
-   * - `false` or `{ nolazy }` - disable access-based specialization.
-   * - `"none"` - do not defer fields; access-based specialization still applies.
-   * - `"auto"` - the transform defers fields whose estimated parse cost is high
-   *   (nested structs, maps, long strings) and keeps cheap fields
-   *   (primitives, enums, `Date`) eager. Use `@eager` to force a field back to
-   *   eager, or `@lazy` to force one on.
-   * - `"all"` - every supported field is deferred. Best for proxy / filter / forward
-   *   workloads over large payloads; note it generates a getter and a serialize
-   *   branch per field, so module size grows with very wide schemas.
-   * - `"strategic"` - start with deferred fields, then specialize each visible
-   *   parse site using its field accesses. Guaranteed reads become eager;
-   *   conditional reads use weighted branch probabilities and decode costs.
-   *   Unknown/escaping uses keep their deferred representation. Untouched fields
-   *   serialize from their saved JSON ranges; reads after the first serialization
-   *   do not trigger early materialization before that output.
-   * Array-typed fields always parse eagerly, including fields marked `@lazy`.
-   *
-   * @example
-   * ```ts
-   * @json({ lazy: "auto" })
-   * class Repo {
-   *   name: string = "";        // cheap -> stays eager
-   *   owner: Owner = new Owner; // costly -> deferred
-   *   @eager id: i32 = 0;       // opt back out
-   * }
-   * ```
-   */
-  lazy?: boolean | typeof lazy | "none" | "auto" | "all" | "strategic";
-  /** Disable access-based parsing specialization for this class and its descendants. */
+  /** Enable access-based parsing (the default). No deferred slots or getters. */
+  lazy?: boolean;
+  /** Disable access-based parsing for this class and its descendants. */
   nolazy?: boolean;
 }
 
@@ -162,47 +127,11 @@ declare function omitnull(..._): void;
 // @ts-ignore: type
 declare function optional(..._): void;
 
-/**
- * Field decorator that defers parsing of a property until it is first read
- * (on-demand / lazy parsing). The raw JSON slice is stored at parse time and
- * materialized into the field's type on first access, then cached; an untouched
- * field round-trips by copying its original bytes - never re-parsed or
- * re-serialized.
- *
- * Equivalent to the `JSON.Lazy<T>` type-wrapper form. Pays off for fields you
- * usually skip or forward; reading a deferred field is a one-time cost.
- * Array-typed fields parse eagerly even when marked `@lazy`.
- *
- * @example
- * ```ts
- * @json
- * class Repo {
- *   name: string = "";              // eager
- *   @lazy owner: Owner = new Owner; // parsed only when `repo.owner` is read
- * }
- * ```
- */
-declare function lazy(...args: unknown[]): void;
+/** Shorthand for enabling compile-time access specialization in `@json({ lazy })`. */
+declare const lazy: true;
 
-/** Shorthand for disabling automatic access-based specialization in `@json({ nolazy })`. */
+/** Shorthand for an eager class in `@json({ nolazy })`. */
 declare const nolazy: true;
-
-/**
- * Field decorator that forces a property to be parsed eagerly, opting it out of
- * class-level lazy deferral (`@json({ lazy: "auto" | "all" })`). No effect on a
- * class that is not lazy.
- *
- * @example
- * ```ts
- * @json({ lazy: "all" })
- * class Event {
- *   @eager id: i32 = 0;             // always parsed up-front
- *   payload: Payload = new Payload; // deferred
- * }
- * ```
- */
-// @ts-ignore: type
-declare function eager(..._): void;
 
 /**
  * Method decorator marking a member as the class's custom serializer, replacing

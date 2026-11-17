@@ -13,9 +13,8 @@ enum LazyState {
   On,
 }
 
-
 @json class LazyEnumDefault {
-  value!: JSON.Lazy<LazyState>;
+  value!: LazyState;
 }
 describe("lazy enums keep implicit scalar defaults", () => {
   const value = new LazyEnumDefault();

@@ -4,9 +4,9 @@
 
 ### Upgrading from 2.0
 
-Ordinary access specialization is enabled by default. Eligible visible parse sites decode needed fields and scan past proven-unused values; full reads and uncertain uses retain eager handling. Use `@json({ nolazy })` for eager classes or `JSON_ACCESS_SPECIALIZATION=false` for a build-wide control.
+Ordinary access specialization is enabled by default. Eligible visible parse sites decode needed fields and scan past proven-unused values; full reads and uncertain uses retain eager handling. Use `@json({ nolazy })` for eager classes or `JSON_LAZY=false` for a build-wide control.
 
-Explicit lazy fields and strategic classes retain deferred values. Their writers forward untouched source ranges and serialize current materialized or assigned values. Array-typed fields remain eager; deferred elements in dynamic `JSON.Arr` are unchanged.
+Lazy parsing now has one meaning: access specialization. Remove deferred field markers and string-valued class modes; use plain types and `{ lazy }` or `{ nolazy }`. Whole-object serialization keeps every observable field eager. Dynamic JSON values retain their existing deferred behavior.
 
 The public parse/stringify signatures and MPL-2.0 license are unchanged. See the [2.1 upgrade guide](https://docs.jairus.dev/json-as/guide/upgrading-to-2-1).
 
@@ -44,8 +44,6 @@ The public parse/stringify signatures and MPL-2.0 license are unchanged. See the
 
 - Finish clean SIMD string tails with a payload-bounded overlapping 32-byte copy. Preserve exceptional Unicode handling and output ownership, avoiding a second tail scan without caching output.
 
-- Retire unused numeric reservation estimates after completed nested record writers. Preserve caller credits, buffer relocation and existing callback/GC fallbacks, without adding bookkeeping to standalone or deferred records.
-
 - Resume packed SIMD scanning in clean string suffixes from the exceptional writer, preserving Unicode handling, escape expansion, fresh output, and existing buffer/GC ownership.
 
 - Precompute verified float-array exponent metadata when building the transform, emitting a private read-only table for the stock `Array<f64>` writer. Preserve formatter state and scalar code, retain source/binding/alias fallbacks, and cache only immutable metadata bytes during compilation.
@@ -60,35 +58,27 @@ The public parse/stringify signatures and MPL-2.0 license are unchanged. See the
 
 - Skip a pure decimal-rounding product when a clamp already fixes the result. Apply only to the verified stock formatter and helper, retaining original code for unknown sources, bindings, and compiler aliases.
 
-- Keep strategic eager-read plans when forwarding through json-as serialization. Copy untouched deferred fields, serialize current materialized or assigned values, and keep later reads from pulling decoding ahead of the first output. Preserve conservative behavior for ordinary schemas and application-owned writers.
-
 - Expand a stock incremental-GC marking call at compile time without changing collection pacing or state transitions. Unknown runtimes, tracing, profiling, finalizers, and affected aliases retain the original path.
 
 - Reduce native-model serialization overhead with adaptive owned output, grouped plain-string reservations, compile-time digit pairs, and bounded integer inlining. Every call still produces a fresh owning result.
-
-- Traverse callback-free generated Map values directly from native entries after bounded type checks. Preserve snapshot iteration for custom codecs, effectful omission, deferred fields, uncertain subtypes, and unsupported runtime layouts.
 
 - Correct signed SIMD lanes and unsigned packed words when generating Unicode aliases and literal stores.
 
 - Accept `@json({ lazy })` for the default access-based parsing strategy and `@json({ nolazy })` to disable it for a class and its descendants, including for eager benchmark controls.
 
-- Respect function-scoped `var` shadowing when resolving receivers and helpers in strategic access analysis.
-
 - Keep parsing eager inside generic scopes where type parameters could shadow model declarations, and bound helper expansion during access analysis to avoid excessive compilation work.
 
 - Preserve parsed values used through assignment expressions, respect hoisted `var` shadowing during access analysis, and validate preserved numeric and Boolean aliases against their actual target types in strict parsing.
 
-- Preserve call argument evaluation order and conservatively handle rest parameters in access analysis. Bound control-flow path growth and fall back to eager parsing when the limit is reached. Correct signed and unsigned narrow values eagerly decoded into packed lazy slots.
-
 - Keep access-based parsing eager when values can cross conditional assignments, loop iterations, module or namespace boundaries, function-scoped `var` bindings, or omitted helper arguments. Track template and `void` expression reads. Restore lazy startup sentinels and the affected runtime decorators.
 
-- Specialize ordinary `@json` readers at visible parse sites by default. Proven-unused supported fields are scanned without decoding; full reads and uncertain or escaping uses retain eager behavior. Set `JSON_ACCESS_SPECIALIZATION=false` to disable this optimization.
+- Specialize ordinary `@json` readers at visible parse sites by default. Proven-unused supported fields are scanned without decoding; full reads and uncertain or escaping uses retain eager behavior. Set `JSON_LAZY=false` to disable this optimization.
 
 - Parse array-typed fields eagerly, including `JSON.Arr` fields using lazy markers or class-wide lazy modes. Dynamic `JSON.Arr` retains its existing deferred-element behavior.
 
-- Add explicit `@json({ lazy: "strategic" })` deferred parse-site specialization. Analyze guaranteed and conditionally weighted field reads, compare estimated eager/lazy costs, and generate compile-time reader plans without allocating strategy objects. Preserve ordinary explicit-lazy timing unless `JSON_STRATEGIC_LAZINESS=true` is enabled.
 
-- Keep generated fast readers enabled for lazy fields with pure defaults. Analyze the original field initializer and resolved native defaults instead of generated storage expressions; retain non-speculative parsing for application constructors and effectful defaults.
+
+- Consolidate lazy parsing into access specialization with boolean class options and `JSON_LAZY`. Remove deferred typed-field storage, strategic planning, field markers, and their source-forwarding writer paths. Hide runtime helper exports from editor completion while preserving generated calls.
 
 ## 2026-11-09 - v2.0.0
 

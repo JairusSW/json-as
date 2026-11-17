@@ -79,8 +79,8 @@ export const ARRAY_ROW_SOURCES = new Map<string, readonly [string, string]>([
   [
     "own:assembly/index",
     [
-      "4f4ce83c595e62bdaf3e3ce3ac20e5b4e29e1dbd422b6bbca4ca4d0cdb9121f8",
-      "4004efa731b8bbadf4950b8dcfc6123caca077b587b8af957023ecd547482eb0",
+      "150297395f3a661c12eeb2fcf8116866ea99a9602177296f7fe9970d1b83c89f",
+      "17eb9cdd39d7e5d8759f28d339c55fc0a7db756489f785b4bb7784f2a20f754b",
     ],
   ],
   [

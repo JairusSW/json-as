@@ -8,12 +8,10 @@
 import { JSON } from "../..";
 import { describe, expect } from "as-test";
 
-
 @json
 class StrictChild {
   id: i32 = 0;
 }
-
 
 @json
 class StrictStruct {
@@ -23,7 +21,6 @@ class StrictStruct {
   lookup: Map<string, i32> = new Map<string, i32>();
 }
 
-
 @json
 class StrictFastBoundsStruct {
   integer: i32 = 0;
@@ -31,7 +28,6 @@ class StrictFastBoundsStruct {
   float: f64 = 0;
   enabled: bool = false;
 }
-
 
 @json
 class StrictUnmarkedMidStruct {
@@ -45,21 +41,19 @@ class StrictUnmarkedMidStruct {
   h: i32 = 0;
 }
 
-
 @json
 class StrictStringFastBoundsStruct {
   first: string = "";
   second: string = "";
 }
 
-
-@json({ lazy: "all" })
+@json({ lazy: true })
 class StrictLazyStruct {
   name: string = "";
-  child: JSON.Lazy<StrictChild> = new StrictChild();
-  values: JSON.Lazy<i32[]> = [];
-  lookup: JSON.Lazy<Map<string, i32>> = new Map<string, i32>();
-  dynamic: JSON.Lazy<JSON.Obj> = new JSON.Obj();
+  child: StrictChild = new StrictChild();
+  values: i32[] = [];
+  lookup: Map<string, i32> = new Map<string, i32>();
+  dynamic: JSON.Obj = new JSON.Obj();
 }
 
 let strictPublicInput = "";

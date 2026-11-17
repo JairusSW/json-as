@@ -10,7 +10,6 @@ import { bench, blackbox, dumpToFile, utf8ByteLength } from "../lib/bench";
 
 const ITER: u32 = 1_000_000;
 
-
 @json
 class Addr {
   street: string = "742 Evergreen Terrace";
@@ -20,8 +19,7 @@ class Addr {
   country: string = "United States";
 }
 
-
-@json
+@json({ nolazy })
 class SmallE {
   id: i32 = 8472;
   name: string = "jairus";
@@ -29,8 +27,7 @@ class SmallE {
   email: string = "me@jairus.dev";
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class SmallL {
   id: i32 = 8472;
   name: string = "jairus";
@@ -38,8 +35,7 @@ class SmallL {
   email: string = "me@jairus.dev";
 }
 
-
-@json
+@json({ nolazy })
 class MediumE {
   id: i32 = 8472;
   name: string = "Jairus Tanaka";
@@ -54,8 +50,7 @@ class MediumE {
   updated: string = "2025-12-23T04:30:00Z";
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class MediumL {
   id: i32 = 8472;
   name: string = "Jairus Tanaka";
@@ -70,8 +65,7 @@ class MediumL {
   updated: string = "2025-12-23T04:30:00Z";
 }
 
-
-@json
+@json({ nolazy })
 class LargeE {
   id: i32 = 8472;
   uuid: string = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
@@ -104,8 +98,7 @@ class LargeE {
     "All systems nominal; payload intentionally padded to a few kilobytes for the large case.";
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class LargeL {
   id: i32 = 8472;
   uuid: string = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
@@ -153,7 +146,7 @@ bench(
   ITER,
   smallBytes,
 );
-dumpToFile("lz-small-eager", "deserialize");
+dumpToFile("access-small-eager", "deserialize");
 
 bench(
   "Deserialize Small Lazy",
@@ -163,7 +156,7 @@ bench(
   ITER,
   smallBytes,
 );
-dumpToFile("lz-small-lazy", "deserialize");
+dumpToFile("access-small-lazy", "deserialize");
 
 bench(
   "Deserialize Medium Eager",
@@ -173,7 +166,7 @@ bench(
   ITER,
   mediumBytes,
 );
-dumpToFile("lz-medium-eager", "deserialize");
+dumpToFile("access-medium-eager", "deserialize");
 
 bench(
   "Deserialize Medium Lazy",
@@ -183,7 +176,7 @@ bench(
   ITER,
   mediumBytes,
 );
-dumpToFile("lz-medium-lazy", "deserialize");
+dumpToFile("access-medium-lazy", "deserialize");
 
 bench(
   "Deserialize Large Eager",
@@ -193,7 +186,7 @@ bench(
   ITER,
   largeBytes,
 );
-dumpToFile("lz-large-eager", "deserialize");
+dumpToFile("access-large-eager", "deserialize");
 
 bench(
   "Deserialize Large Lazy",
@@ -203,4 +196,4 @@ bench(
   ITER,
   largeBytes,
 );
-dumpToFile("lz-large-lazy", "deserialize");
+dumpToFile("access-large-lazy", "deserialize");

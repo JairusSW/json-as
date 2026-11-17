@@ -20,7 +20,7 @@ import {
 // poet (yyjson_benchmark): a flat array of ~8934 {desc, name, id} string
 // records. Trivial uniform schema - pure struct fast path.
 
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Poem {
   desc!: string;
   name!: string;

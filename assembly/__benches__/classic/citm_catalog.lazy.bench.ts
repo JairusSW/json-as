@@ -22,29 +22,26 @@ import {
 // id->event map; `performances` is a uniform struct array. All on the typed
 // fast path (struct + Map + typed arrays).
 
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Price {
   amount!: i64;
   audienceSubCategoryId!: i64;
   seatCategoryId!: i64;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Area {
   areaId!: i64;
   blockIds!: i64[];
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class SeatCategory {
   areas!: Area[];
   seatCategoryId!: i64;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Performance {
   eventId!: i64;
   id!: i64;
@@ -57,8 +54,7 @@ class Performance {
   venueCode!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class CitmEvent {
   description!: string | null;
   id!: i64;
@@ -70,8 +66,7 @@ class CitmEvent {
   topicIds!: i64[];
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Citm {
   areaNames!: Map<string, string>;
   audienceSubCategoryNames!: Map<string, string>;

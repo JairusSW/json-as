@@ -9,35 +9,23 @@ import { BinaryExpression, ArrayLiteralExpression, BlockStatement, CallExpressio
 import { Visitor } from "./visitor.js";
 export type AccessPath = ReadonlyMap<number, boolean>;
 export declare function accessProbability(paths: AccessPath[]): number;
-export interface AccessDecision {
-    probability: number;
-    expectedReads: number;
-    decodeCost: number;
-    eagerCost: number;
-    lazyCost: number;
-    eager: boolean;
-}
-export declare function materializationDecision(paths: AccessPath[], decodeCost: number, origin?: AccessPath[]): AccessDecision;
-export interface StrategicSite {
+export interface ParseSite {
     call: CallExpression;
     source: Source;
     declaration: ClassDeclaration;
     origin: AccessPath[];
     accesses: Map<string, AccessPath[]>;
-    serializationAccesses?: Map<string, AccessPath[]>;
-    parent?: StrategicSite;
+    parent?: ParseSite;
     writes: Set<string>;
     escaped: boolean;
-    children: Map<string, StrategicSite>;
+    children: Map<string, ParseSite>;
 }
-export declare class StrategicAccessAnalysis extends Visitor {
+export declare class AccessAnalysis extends Visitor {
     private resolveParse;
     private resolveChild;
-    private conservativeEscapes;
-    private resolveSerialization;
     private pathLimitReached;
     private callableSiteStart;
-    readonly sites: StrategicSite[];
+    readonly sites: ParseSite[];
     private scopes;
     private paths;
     private exits;
@@ -56,14 +44,13 @@ export declare class StrategicAccessAnalysis extends Visitor {
     private captures;
     private expanding;
     private byCall;
-    constructor(resolveParse: (call: CallExpression, shadowed: (name: string) => boolean, scope: string, genericScope: boolean) => ClassDeclaration | null, resolveChild?: (owner: ClassDeclaration, property: string) => ClassDeclaration | null, conservativeEscapes?: boolean, resolveSerialization?: (call: CallExpression, shadowed: (name: string) => boolean) => boolean);
+    constructor(resolveParse: (call: CallExpression, shadowed: (name: string) => boolean, scope: string, genericScope: boolean) => ClassDeclaration | null, resolveChild?: (owner: ClassDeclaration, property: string) => ClassDeclaration | null);
     private binding;
     private shadowed;
     private names;
     visitSource(node: Source): void;
     private origin;
     private read;
-    private serializationBoundary;
     visitPropertyAccessExpression(node: PropertyAccessExpression): void;
     visitIdentifierExpression(node: IdentifierExpression, parent?: Node | null): void;
     visitVariableDeclaration(node: VariableDeclaration): void;

@@ -6,4 +6,4 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { JSON } from "..";
-export type PublicLazy<T> = JSON.Lazy<T>;
+export type PublicLazy<T> = T;

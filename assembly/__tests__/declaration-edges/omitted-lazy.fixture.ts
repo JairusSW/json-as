@@ -7,15 +7,13 @@
 
 import { JSON } from "../../index";
 
-
 @json class Base {
-  value: JSON.Lazy<i32> = 1;
+  value: i32 = 1;
 }
-
 
 @json class Child extends Base {
 
-  @omit value: JSON.Lazy<i32> = 2;
+  @omit value: i32 = 2;
   tail: i32 = 3;
 }
 export function run(): string {

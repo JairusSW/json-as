@@ -29,8 +29,7 @@ export declare enum PropertyFlags {
     OmitIf = 1,
     Raw = 2,
     Custom = 3,
-    Lazy = 4,
-    Optional = 5
+    Optional = 4
 }
 export declare class Property {
     name: string;
@@ -42,12 +41,7 @@ export declare class Property {
     flags: Map<PropertyFlags, Expression | null>;
     node: FieldDeclaration;
     byteSize: number;
-    lazyInner: string | null;
-    lazyProperty: string | null;
     omitIfMethod: string | null;
-    lazyPacked: boolean;
-    lazyScalar: boolean;
-    lazyMaybeArray: boolean;
     _generic: boolean;
     _custom: boolean;
     parent: Schema;

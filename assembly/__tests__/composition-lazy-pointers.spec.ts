@@ -8,15 +8,13 @@
 import { JSON } from "..";
 import { describe, expect } from "as-test";
 
-
 @json class PointerLazy {
-  signed!: JSON.Lazy<isize>;
-  unsigned!: JSON.Lazy<usize>;
+  signed!: isize;
+  unsigned!: usize;
 }
 
-
 @json class NativeLazyControl {
-  value!: JSON.Lazy<u32>;
+  value!: u32;
 }
 describe("lazy pointer-sized integers compile and preserve values", () => {
   expect(JSON.stringify(new NativeLazyControl())).toBe('{"value":0}');

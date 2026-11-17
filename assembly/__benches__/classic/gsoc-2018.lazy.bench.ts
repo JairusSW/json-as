@@ -22,7 +22,7 @@ import {
 // the @-prefixed JSON-LD keys are aliased, and the irregular sponsor/author
 // sub-objects stay JSON.Raw passthrough.
 
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Sponsor {
 
   @alias("@type")
@@ -34,8 +34,7 @@ class Sponsor {
   logo!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Author {
 
   @alias("@type")
@@ -43,13 +42,11 @@ class Author {
   name!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Org {
 
   @alias("@context")
   context!: string;
-
 
   @alias("@type")
   type!: string;

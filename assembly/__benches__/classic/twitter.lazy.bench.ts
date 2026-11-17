@@ -23,21 +23,19 @@ import {
 // on the fast path; retweeted_status is recursively a Status (a retweet is just
 // a tweet, with no nested retweet of its own - hence @optional).
 
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class TweetMetadata {
   result_type!: string;
   iso_language_code!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Hashtag {
   text!: string;
   indices!: i32[];
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class UrlEntity {
   url!: string;
   expanded_url!: string;
@@ -45,8 +43,7 @@ class UrlEntity {
   indices!: i32[];
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Mention {
   screen_name!: string;
   name!: string;
@@ -55,16 +52,14 @@ class Mention {
   indices!: i32[];
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Size {
   w!: i32;
   h!: i32;
   resize!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class MediaSizes {
   medium!: Size;
   small!: Size;
@@ -72,8 +67,7 @@ class MediaSizes {
   large!: Size;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Media {
   id!: i64;
   id_str!: string;
@@ -86,48 +80,40 @@ class Media {
   type!: string;
   sizes!: MediaSizes;
 
-
   @optional source_status_id!: JSON.Box<i64> | null;
-
 
   @optional source_status_id_str!: string | null;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Entities {
   hashtags!: Hashtag[];
   symbols!: string[];
   urls!: UrlEntity[];
   user_mentions!: Mention[];
 
-
   @optional media!: Media[];
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class UrlList {
   urls!: UrlEntity[];
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class UserEntities {
 
   @optional url!: UrlList | null;
   description!: UrlList;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class GeoJSON {
   type!: string;
   coordinates!: f64[];
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Place {
   id!: string;
   url!: string;
@@ -141,13 +127,12 @@ class Place {
 // Always null in this dataset; a nullable struct (with a representative field so
 // it gets deserialize methods) sidesteps the nullable-array path while keeping
 // the key modeled (no JSON.Raw).
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class ContributorList {
   id!: i64;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class TweetUser {
   id!: i64;
   id_str!: string;
@@ -157,7 +142,6 @@ class TweetUser {
   description!: string;
   url!: string | null;
   entities!: UserEntities;
-
 
   @alias("protected")
   isProtected!: boolean;
@@ -182,7 +166,6 @@ class TweetUser {
   profile_image_url!: string;
   profile_image_url_https!: string;
 
-
   @optional profile_banner_url!: string;
   profile_link_color!: string;
   profile_sidebar_border_color!: string;
@@ -196,8 +179,7 @@ class TweetUser {
   notifications!: boolean;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Status {
   metadata!: TweetMetadata;
   created_at!: string;
@@ -217,7 +199,6 @@ class Status {
   place!: Place | null;
   contributors!: ContributorList | null;
 
-
   @optional retweeted_status!: Status | null;
   retweet_count!: i32;
   favorite_count!: i32;
@@ -225,13 +206,11 @@ class Status {
   favorited!: boolean;
   retweeted!: boolean;
 
-
   @optional possibly_sensitive!: boolean;
   lang!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class SearchMetadata {
   completed_in!: f64;
   max_id!: i64;
@@ -244,8 +223,7 @@ class SearchMetadata {
   since_id_str!: string;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Twitter {
   statuses!: Status[];
   search_metadata!: SearchMetadata;

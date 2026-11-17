@@ -21,7 +21,7 @@
   - [Comparison to JavaScript](#comparison-to-javascript)
   - [Library Comparison](#library-comparison)
   - [Runtime Comparison](#runtime-comparison)
-  - [Lazy Fields](#lazy-fields)
+  - [Lazy Parsing](#lazy-parsing)
   - [Upgrading to 2.1](#upgrading-to-21)
   - [Performance Tuning](#performance-tuning)
   - [Running Benchmarks Locally](#running-benchmarks-locally)
@@ -33,7 +33,7 @@
 
 </details>
 
-`json-as` 2.1 compiles typed JSON readers and writers for AssemblyScript. Ordinary `@json` classes specialize visible parse sites to decode fields the program needs. Full reads and uncertain uses keep eager behavior; explicit lazy fields support deferred materialization and source forwarding.
+`json-as` 2.1 compiles typed JSON readers and writers for AssemblyScript. Ordinary `@json` classes specialize visible parse sites to decode fields the program needs. Full reads and uncertain uses keep eager behavior. Lazy parsing means access specialization; it adds no deferred slots or getters.
 
 ## Installation
 
@@ -535,10 +535,6 @@ Every `@json` schema compiles to specialized WebAssembly. The charts below recor
 
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/classic-payload-serialize-v8.svg" alt="Serialization throughput across nine classic JSON payloads">
 
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/overview-serialize.svg" alt="Performance Chart 1">
-
-<img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/overview-deserialize.svg" alt="Performance Chart 2">
-
 <details>
 <summary>String serialization chart (click to expand)</summary>
 
@@ -591,14 +587,12 @@ Every `@json` schema compiles to specialized WebAssembly. The charts below recor
 <img src="https://raw.githubusercontent.com/JairusSW/json-as/refs/heads/docs/charts/v2.1.0/runtimes-serialize.svg" alt="Serialization throughput across WebAssembly runtimes">
 </details>
 
-### Lazy Fields
+### Lazy Parsing
 
-Ordinary `@json` parsing also uses access analysis by default. When a visible
-`JSON.parse<T>` result stays local, the transform can generate a reader that
-scans proven-unused fields without decoding them. For example:
+Lazy parsing is enabled by default for `@json` classes. At eligible local parse sites, the transform decodes needed fields and scans past fields proven unused:
 
 ```ts
-@json
+@json({ lazy })
 class Point {
   x: f32 = 0;
   y: f32 = 0;
@@ -607,72 +601,28 @@ class Point {
 
 function readX(input: string): f32 {
   const point = JSON.parse<Point>(input);
-  return point.x; // y and name can be skipped at this local parse site
+  return point.x;
 }
 ```
 
-Here, the transform can prove that only `point.x` is observed. It scans `y` and `name` without decoding them. Returning the object, passing it to unknown code, or serializing it whole keeps every observable field.
+When all fields are read, the result escapes, or analysis is uncertain, observable fields retain eager behavior. Initializer and custom-codec effects are preserved. There are no deferred getters, saved typed-field source slices, or first-read materialization.
 
-Use `{ lazy }` as shorthand for the default access strategy. To disable automatic specialization for a class and its descendants, use `{ nolazy }`. Leave out explicit lazy field markers for a fully eager benchmark control.
+Use `@json({ nolazy })` or `@json({ lazy: false })` for an eager class and its descendants, including benchmark controls. `@json`, `@json({ lazy })`, and `@json({ lazy: true })` select the same default strategy. Set `JSON_LAZY=false` to disable it across a build.
 
-```ts
-@json({ nolazy })
-class EagerPoint {
-  x: f32 = 0;
-  y: f32 = 0;
-}
-```
-
-For deferred serialization, use explicit lazy fields or a strategic class:
-
-```ts
-@json({ lazy: "strategic" })
-class Response {
-  id: i32 = 0;
-  description: string = "";
-}
-
-function forward(input: string): string {
-  const response = JSON.parse<Response>(input);
-  if (response.id == 0) return "";
-  return JSON.stringify(response);
-}
-```
-
-The visible read makes `id` eager. An untouched deferred `description` is
-serialized by copying its original JSON range, without decoding or re-escaping
-it. Reads after the first serialization do not pull decoding ahead of that
-output. `JSON.stringify` calls bound to json-as preserve this strategic read plan,
-including imported aliases and namespace imports. An application-owned method
-named `stringify` is handled conservatively.
-
-Reading a deferred field materializes it; subsequent serialization encodes its
-current value. Assignments replace the saved range, and mutations through a
-materialized child are included. Omission decorators still apply. An untouched
-custom-codec field invokes neither decoder nor serializer; accessing or replacing
-it restores the typed codec path. This is per-field source forwarding, not a
-cache of the whole output string. Array-typed fields remain eager; dynamic
-`JSON.Arr` elements retain their existing deferred behavior.
-
-Ordinary `@json` access specialization does not retain deferred source ranges.
-Whole-object serialization therefore keeps its ordinary fields eager rather
-than dropping fields that the serializer observes. `@json({ nolazy })` remains
-an eager control for benchmarks.
+Serialization observes every field it emits, so whole-object serialization retains those fields and writes their current values. It does not forward saved typed-field source ranges. Dynamic `JSON.Value`, `JSON.Obj`, and `JSON.Arr` retain their separate deferred behavior.
 
 ### Upgrading to 2.1
 
-The public parse/stringify signatures stay the same. Ordinary access specialization is enabled by default; `@json({ nolazy })` disables it per class, and `JSON_ACCESS_SPECIALIZATION=false` disables it for a build. Explicit `@lazy` / `JSON.Lazy<T>` retain their deferred representation. Array-typed fields parse eagerly, while dynamic `JSON.Arr` elements keep their existing deferred behavior.
+Lazy now means access-based parsing only. The old string modes (`"auto"`, `"all"`, `"none"`, and `"strategic"`), instance-field `@lazy`/`@eager`, and `JSON.Lazy<T>` were removed. Use plain field types and class-level `{ lazy }` or `{ nolazy }`. The AssemblyScript built-in `@lazy` for module/static initialization is unaffected.
 
-See the [2.1 upgrade guide](https://docs.jairus.dev/json-as/guide/upgrading-to-2-1) for the distinction between skipping unused decoding and forwarding untouched deferred values during serialization.
+`JSON_LAZY` replaces `JSON_ACCESS_SPECIALIZATION` and `JSON_STRATEGIC_LAZINESS`. The public parse/stringify signatures are unchanged. See the [2.1 upgrade guide](https://docs.jairus.dev/json-as/guide/upgrading-to-2-1).
 
 ### Performance Tuning
 
 Instead of using flags for setting options, `json-as` is configured by environmental variables.
 Here's a short list:
 
-**JSON_ACCESS_SPECIALIZATION** (default: enabled) - Set to `false` to disable ordinary parse-site field skipping. Full reads and uncertain or escaping uses retain conservative eager behavior.
-
-**JSON_STRATEGIC_LAZINESS** - Set to `false` to disable parse-site eager-read plans for strategic classes; deferred fields still materialize on access. Set to `true` to apply strategic analysis to existing lazy declarations as well. This flag is separate from ordinary access specialization.
+**JSON_LAZY** (default: enabled) - Set to `false` to disable compile-time access specialization. Full reads and uncertain or escaping uses retain conservative eager behavior.
 
 **JSON_CACHE** (default: 0) - Controls the experimental internal string-cache API. Regular serialization does not use this cache; enabling it does not accelerate `JSON.stringify`. Cache storage is allocated lazily, and a disabled cache has no arena storage. Accepts `true|false`, raw bytes (`JSON_CACHE=1048576`), bits (`JSON_CACHE=512kb`, `2mb`, `1gb`), and bytes (`JSON_CACHE=64KB`, `2MB`, `1GB`).
 
@@ -682,7 +632,7 @@ Here's a short list:
 
 **JSON_STRICT** (default: false) - Set to `true` when compiling for complete JSON syntax validation through the checked parser or validated fallback.
 
-**JSON_DIAGNOSTICS** (default: true) - Set to `false` when compiling to replace library-owned throws and aborts, including generated readers, with Wasm `unreachable` traps. This removes diagnostic formatting and the host abort call on those failure paths. It preserves checks and does not enable additional fast parsing. Application code and custom codec errors retain their behavior; compiler and standard-library checks remain separate. A trap is not a catchable `try-as` exception. Static error messages may already require no allocation in diagnostic builds, so measure throughput and size before choosing this flag.
+**JSON_DIAGNOSTICS** (default: true) - Swaps out `throw new Error` with `unreachable()` which makes wrong branch predictions essentially free if it predicts it will trap since `new Error` includes an allocation.
 
 **JSON_USE_FAST_PATH** (default: 1) - The transform emits the fast `__DESERIALIZE` implementation for generated structs by default. Set to `0`, `false`, `off`, or `no` to force slow-path-only output.
 

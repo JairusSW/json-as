@@ -52,8 +52,7 @@ try {
                   checks === 0
                     ? "assembly/__tests__/ordinary-specialization.fixture.ts"
                     : "",
-                JSON_STRATEGIC_LAZINESS: "",
-                JSON_ACCESS_SPECIALIZATION: enabled ? "true" : "false",
+                JSON_LAZY: enabled ? "true" : "false",
                 JSON_STRICT: String(strict),
                 JSON_USE_FAST_PATH: fast ? "1" : "0",
               },

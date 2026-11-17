@@ -9,27 +9,23 @@ import { JSON as Json } from "json-as/assembly";
 const JSON: i32 = 3;
 type Num = i32;
 
-
 @json class Concrete {
-  value!: Json.Lazy<i32>;
+  value!: i32;
   other: i32 = JSON;
 }
 
-
 @json class Generic<T> {
-  value!: Json.Lazy<T>;
+  value!: T;
 }
 
-
 @json class Alias {
-  value!: Json.Lazy<Num>;
+  value!: Num;
 }
 namespace M {
   const JSON: i32 = 4;
 
-
   @json export class Owner {
-    value!: Json.Lazy<i32>;
+    value!: i32;
     other: i32 = JSON;
   }
 }

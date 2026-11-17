@@ -38,7 +38,7 @@ try {
             ...process.env,
             JSON_MODE: "SWAR",
             JSON_STRICT: strict,
-            JSON_ACCESS_SPECIALIZATION: "true",
+            JSON_LAZY: "true",
             JSON_USE_FAST_PATH: fast,
           },
           stdio: "pipe",

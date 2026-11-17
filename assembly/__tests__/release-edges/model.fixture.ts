@@ -17,17 +17,15 @@ export namespace M {
   }
   let calls: i32 = 0;
 
-
   @json class Token {
     value: i32 = 0;
-
 
     @deserializer("number") decode(_s: string): Token {
       calls++;
       return new Token();
     }
   }
-  export type Deferred = JSON.Lazy<Token>;
+  export type Deferred = Token;
   export function make(): Deferred {
     return new Token();
   }

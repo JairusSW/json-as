@@ -14,7 +14,6 @@ class PrivateBase {
   }
 }
 
-
 @json class PrivateChild extends PrivateBase {
   tail!: i32;
 }
@@ -25,7 +24,6 @@ class ProtectedBase {
     return this.hidden;
   }
 }
-
 
 @json class ProtectedChild extends ProtectedBase {
   tail!: i32;
@@ -39,11 +37,9 @@ class OmitBase {
   }
 }
 
-
 @json class OmitChild extends OmitBase {
   tail!: i32;
 }
-
 
 @json class Grandparent {
   private hidden: i32 = 7;
@@ -54,14 +50,12 @@ class OmitBase {
 }
 class Middle extends Grandparent {}
 
-
 @json class Grandchild extends Middle {
   tail!: i32;
 }
 let source: string = "";
 let calls: i32 = 0;
 let sameOwner: bool = false;
-
 
 @json class Probe {
 
@@ -74,34 +68,29 @@ let sameOwner: bool = false;
   }
 }
 
-
 @json class LazyBase {
-  payload!: JSON.Lazy<Probe>;
+  payload!: Probe;
 }
 class LazyMiddle extends LazyBase {
   mid: i32 = 1;
 }
 
-
 @json class DecoratedMiddle extends LazyBase {
   mid: i32 = 1;
 }
 
-
 @json class DecoratedLeaf extends DecoratedMiddle {
-  own!: JSON.Lazy<i32>;
+  own!: i32;
   tail: i32 = 0;
 }
-
 
 @json class EagerLeaf extends LazyMiddle {
   own: i32 = 0;
   tail: i32 = 0;
 }
 
-
 @json class LazyLeaf extends LazyMiddle {
-  own!: JSON.Lazy<i32>;
+  own!: i32;
   tail: i32 = 0;
 }
 class IncrementMap extends Map<string, i32> {

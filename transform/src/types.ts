@@ -61,7 +61,6 @@ export enum PropertyFlags {
   OmitIf,
   Raw,
   Custom,
-  Lazy,
   Optional,
 }
 
@@ -79,15 +78,7 @@ export class Property {
   >();
   public node!: FieldDeclaration;
   public byteSize: number = 0;
-  // For `JSON.Lazy<T>` slot members: the inner type T, used by the
-  // deserialize (range store) and serialize (raw emit / materialized) codegen.
-  public lazyInner: string | null = null;
-  public lazyProperty: string | null = null;
   public omitIfMethod: string | null = null;
-  public lazyPacked: boolean = false;
-  public lazyScalar: boolean = false;
-  // Generic lazy fields may be instantiated with an array type.
-  public lazyMaybeArray: boolean = false;
   public _generic: boolean = false;
   public _custom: boolean = false;
   public parent: Schema;

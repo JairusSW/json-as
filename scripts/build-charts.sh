@@ -47,7 +47,7 @@ JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-primitive-deserialize.ts
 # Library comparison (json-as vs other JSON libraries).
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-library-serialize.ts
 JSON_CHART_RUNTIME="$CHART_RUNTIME" bun ./scripts/build-library-deserialize.ts
-# Lazy-fields charts (eager vs @json({ lazy: "auto" }))
+# Lazy parsing charts (eager vs access specialization)
 bun ./scripts/build-lazy.ts
 # Classic payloads with built-in JS, json-as modes/lazy, and owning simdjson.
 bun ./scripts/build-chart-classic.ts

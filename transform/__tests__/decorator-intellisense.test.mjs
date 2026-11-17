@@ -24,14 +24,11 @@ try {
     @json({ nolazy }) class Eager {}
     @json({ lazy: true }) class Enabled {}
     @json({ lazy: false }) class Disabled {}
-    @json({ lazy: "strategic" }) class Deferred {}
-    @json({ lazy: "none" }) class None {}
-    @json({ lazy: "auto" }) class Auto {}
-    @json({ lazy: "all" }) class All {}
     @serializable class AliasBare {}
     @serializable() class AliasEmpty {}
     @serializable({ lazy }) class AliasStrategic {}
     @serializable({ nolazy }) class AliasEager {}
+    // @ts-expect-error Field lazy decorators were removed.
     class Fields { @lazy value: string = ""; }
     // @ts-expect-error Unsupported lazy mode.
     @json({ lazy: "invalid" }) class InvalidMode {}

@@ -47,7 +47,7 @@ try {
               env: {
                 ...process.env,
                 JSON_MODE: mode,
-                JSON_ACCESS_SPECIALIZATION: specialize,
+                JSON_LAZY: specialize,
                 JSON_STRICT: strict,
                 JSON_USE_FAST_PATH: fast,
                 JSON_WRITE: inspect

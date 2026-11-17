@@ -9,13 +9,11 @@ import { JSON } from "../index";
 import { canSnapshotCallbackKeys } from "../util/runtime";
 import { canSerializeMapWithoutCallbacks } from "../serialize/naive/map";
 
-
 @json
 class Leaf {
   n: i32 = 7;
   text: string = "ok";
 }
-
 
 @json
 class Graph {
@@ -39,16 +37,13 @@ class ManualNumbers extends Array<i32> {
   }
 }
 
-
 @json
 class Generic<T> {
   value: T = <T>7;
 }
 
-
 @json
 class Empty {}
-
 
 @unmanaged
 class UnmanagedKey {
@@ -64,7 +59,6 @@ class UnmanagedKey {
 
 let active: Map<string, Leaf> | null = null;
 let calls: i32 = 0;
-
 
 @json
 class MutatingLeaf extends Leaf {
@@ -83,7 +77,6 @@ class MutatingLeaf extends Leaf {
   }
 }
 
-
 @json
 class Omission {
 
@@ -91,12 +84,10 @@ class Omission {
   n: i32 = 9;
 }
 
-
 @json
 class Deferred {
-  value: JSON.Lazy<i32> = 9;
+  value: i32 = 9;
 }
-
 
 @json
 class Cycle {
@@ -262,7 +253,6 @@ export function run(kind: i32): string {
   map.set("a", new Omission());
   return JSON.stringify(map) + "|" + calls.toString();
 }
-
 
 @global
 export function finalizeSnapshotObject(_ptr: usize): void {}

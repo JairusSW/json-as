@@ -7,42 +7,36 @@
 
 import { JSON } from "../../index";
 
-
 @json
 class Item {
   n: i32 = 0;
   s: string = "";
 }
 
-
 @json
 class Base {
-  value: JSON.Lazy<i32> = 1;
-  text: JSON.Lazy<string> = "base";
+  value: i32 = 1;
+  text: string = "base";
 }
-
 
 @json
 class Child extends Base {
-  value: JSON.Lazy<i32> = 2;
-  text: JSON.Lazy<string> = "child";
+  value: i32 = 2;
+  text: string = "child";
   tail: i32 = 3;
 }
-
 
 @json
 class Aliased extends Base {
 
-  @alias("changed") value: JSON.Lazy<i32> = 2;
+  @alias("changed") value: i32 = 2;
 }
-
 
 @json
 class Views {
   a: Uint8Array = new Uint8Array(2);
   b: Uint8Array = Uint8Array.wrap(this.a.buffer);
 }
-
 
 @json
 class BufferAndView {
@@ -114,13 +108,11 @@ export function buffer(reuse: bool): string {
   );
 }
 
-
 @json
 class ReversedBuffer {
   view: Uint8Array = new Uint8Array(4);
   bytes: ArrayBuffer = this.view.buffer;
 }
-
 
 @json
 class OffsetViews {
@@ -129,10 +121,9 @@ class OffsetViews {
 }
 class Middle extends Base {}
 
-
 @json
 class Leaf extends Middle {
-  value: JSON.Lazy<i32> = 4;
+  value: i32 = 4;
 }
 export function ancestorOverride(): string {
   return JSON.stringify(JSON.parse<Leaf>('{"value":7,"text":"base"}'));

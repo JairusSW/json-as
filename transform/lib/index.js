@@ -29,7 +29,7 @@ import { specializeSweepRuns } from "./sweep.js";
 import { inlineGcMarking } from "./gc-marking.js";
 import { specializeDecimalClamps } from "./decimal-clamps.js";
 import { generateCursorParser } from "./cursor.js";
-import { StrategicAccessAnalysis, materializationDecision, } from "./strategic-laziness.js";
+import { AccessAnalysis } from "./access-analysis.js";
 import { keyDispatch } from "./key-dispatch.js";
 import { parseDiagnosticsFlag, collectOriginalMethods, diagnosticsRuntimeRoot, lowerDiagnostics, } from "./diagnostics.js";
 let indent = "  ";
@@ -46,7 +46,6 @@ let DEBUG = rawValue === "true"
 let DIAGNOSTICS = parseDiagnosticsFlag(process.env["JSON_DIAGNOSTICS"]);
 let STRICT = process.env["JSON_STRICT"] && process.env["JSON_STRICT"] == "true";
 const DEFAULT_JSON_CACHE_BYTES = 1 << 20;
-const ARRAY_FIELD_TYPE = /^(?:Array|StaticArray|(?:Uint|Int|Float)\d+Array|Uint8ClampedArray)$/;
 export function normalizeJsonAsBaseRel(baseRel) {
     if (baseRel.endsWith("json-as")) {
         return "json-as" + baseRel.slice(baseRel.lastIndexOf("json-as") + 7);
@@ -175,8 +174,8 @@ function getSerializeCall(type, realName, native) {
         return syncSerializeCursor(`JSON.__serialize<ArrayBuffer>(load<ArrayBuffer>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
     }
     return syncSerializeCursor(needsReferenceLoad(type)
-        ? `JSON.__serializeLazyValue<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n`
-        : `JSON.__serializeLazyValue<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
+        ? `JSON.__serializeFieldValue<${type}>(changetype<${type}>(load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))));\n`
+        : `JSON.__serializeFieldValue<${type}>(load<${type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
 }
 const CUSTOM_JSON_KINDS = new Set([
     "any",
@@ -262,283 +261,51 @@ export class JSONTransform extends Visitor {
     visitedClasses = new Set();
     pureNumericConstants = new Set();
     numericConstantShadows = new Set();
-    prepareStrategicLaziness(sources) {
-        if (process.env["JSON_STRATEGIC_LAZINESS"] === "false")
-            return;
-        const inheritedFieldCache = new Map();
-        const inheritedFields = (owner) => {
-            const cached = inheritedFieldCache.get(owner);
-            if (cached)
-                return cached;
-            const declaration = owner;
-            const fields = [];
-            const seen = new Set();
-            const visited = new Set();
-            while (owner && !visited.has(owner)) {
-                visited.add(owner);
-                for (const member of owner.members) {
-                    if (member.kind !== NodeKind.FieldDeclaration ||
-                        seen.has(member.name.text))
-                        continue;
-                    seen.add(member.name.text);
-                    fields.push({ owner, field: member });
-                }
-                owner = owner.extendsType
-                    ? this.sources
-                        .get(owner.range.source)
-                        .resolveClass(toString(owner.extendsType), owner, this.parser)
-                    : null;
-            }
-            inheritedFieldCache.set(declaration, fields);
-            return fields;
-        };
-        if (process.env["JSON_STRATEGIC_LAZINESS"] !== "true" &&
-            !sources.some((source) => this.sources
-                .get(source)
-                .getClasses()
-                .some((owner) => classLazyMode(owner) === "strategic")))
-            return;
-        const has = (node, name) => node.decorators?.some((d) => d.name.text === name) ?? false;
-        const runtimeRoot = diagnosticsRuntimeRoot(this.parser.sources);
-        const pureModels = new Set();
-        const pureMaterialization = (meaning, visiting = new Set()) => {
-            const declaration = meaning.declaration;
-            if (!declaration || isStdlib(declaration)) {
-                if (isPrimitive(meaning.name) || isString(meaning.name))
-                    return true;
-                if (!/^(Array|StaticArray|Map|Set|ArrayBuffer|Date|(?:Uint|Int|Float)\d+Array|Uint8ClampedArray)$/.test(meaning.name))
-                    return false;
-                return meaning.arguments.every((argument) => pureMaterialization(argument, visiting));
-            }
-            if (declaration.kind === NodeKind.EnumDeclaration)
-                return true;
-            if (declaration.kind !== NodeKind.ClassDeclaration)
-                return false;
-            const node = declaration;
-            if (node.typeParameters?.length || visiting.has(node))
-                return false;
-            if (pureModels.has(node))
-                return true;
-            const chain = [node, ...this.classAncestors(node)];
-            if (chain[chain.length - 1].extendsType)
-                return false;
-            if (!node.decorators?.some((decorator) => ["json", "serializable"].includes(decorator.name.text)))
-                return false;
-            if (chain.some((owner) => owner.members.some((member) => member.name.text === "constructor" ||
-                (member.kind === NodeKind.MethodDeclaration &&
-                    member.name.text.startsWith("__")) ||
-                member.decorators?.some((decorator) => ["serializer", "deserializer"].includes(decorator.name.text.toLowerCase())))))
-                return false;
-            if (this.initializerChainHasEffects(node))
-                return false;
-            visiting.add(node);
-            for (const { owner, field } of inheritedFields(node)) {
-                if (field.is(32) || !field.type)
-                    continue;
-                const source = this.sources.get(owner.range.source);
-                const scope = source
-                    .getQualifiedName(owner)
-                    .split(".")
-                    .slice(0, -1)
-                    .join(".");
-                const type = this.lazyInnerType(field.type, source, scope, owner) ||
-                    toString(field.type);
-                const child = source.resolveTypeMeaning(type, scope, this.parser, source.classTypeParameters(owner));
-                if (!pureMaterialization(child, visiting)) {
-                    visiting.delete(node);
-                    return false;
-                }
-            }
-            visiting.delete(node);
-            pureModels.add(node);
-            return true;
-        };
-        const analysis = new StrategicAccessAnalysis((call, shadowed, scope, genericScope) => {
-            if (genericScope)
-                return null;
-            if (call.typeArguments?.length !== 1 ||
-                call.expression.kind !== NodeKind.PropertyAccess)
-                return null;
-            const method = call.expression;
-            if (method.property.text !== "parse" ||
-                method.expression.kind !== NodeKind.Identifier)
-                return null;
-            const receiver = method.expression.text;
-            if (shadowed(receiver))
-                return null;
-            const source = this.sources.get(call.range.source);
-            const binding = source.getImportedBinding(receiver + ".Value", this.parser);
-            if (!binding ||
-                binding.source.internalPath !== runtimeRoot + "assembly/index")
-                return null;
-            const meaning = source.resolveTypeMeaning(toString(call.typeArguments[0]), scope, this.parser);
-            const declaration = meaning.declaration?.kind === NodeKind.ClassDeclaration
-                ? meaning.declaration
-                : null;
-            if (!declaration ||
-                (classLazyMode(declaration) !== "strategic" &&
-                    !inheritedFields(declaration).some(({ owner }) => classLazyMode(owner) === "strategic") &&
-                    process.env["JSON_STRATEGIC_LAZINESS"] !== "true"))
-                return null;
-            return declaration;
-        }, (owner, property) => {
-            if (owner.typeParameters?.length)
-                return null;
-            const inherited = inheritedFields(owner).find(({ field }) => field.name.text === property);
-            if (!inherited?.field.type)
-                return null;
-            const source = this.sources.get(inherited.owner.range.source);
-            const scope = source
-                .getQualifiedName(inherited.owner)
-                .split(".")
-                .slice(0, -1)
-                .join(".");
-            const type = this.lazyInnerType(inherited.field.type, source, scope, inherited.owner) || toString(inherited.field.type);
-            const meaning = source.resolveTypeMeaning(type, scope, this.parser, source.classTypeParameters(inherited.owner));
-            const declaration = meaning.declaration;
-            if (!declaration ||
-                declaration.kind !== NodeKind.ClassDeclaration ||
-                isStdlib(declaration))
-                return null;
-            const child = declaration;
-            if (child.typeParameters?.length)
-                return null;
-            if (process.env["JSON_STRATEGIC_LAZINESS"] !== "true" &&
-                classLazyMode(child) !== "strategic" &&
-                !inheritedFields(child).some(({ owner }) => classLazyMode(owner) === "strategic"))
-                return null;
-            if ([child, ...this.classAncestors(child)].some((ancestor) => ancestor.members.some((member) => member.name.text.startsWith("__DESERIALIZE") ||
-                member.decorators?.some((decorator) => decorator.name.text.toLowerCase() === "deserializer"))))
-                return null;
-            return child;
-        }, false, (call, shadowed) => {
-            if (call.expression.kind !== NodeKind.PropertyAccess)
-                return false;
-            const method = call.expression;
-            if (method.property.text !== "stringify")
-                return false;
-            let receiver = method.expression;
-            const parts = [];
-            while (receiver.kind === NodeKind.PropertyAccess) {
-                const property = receiver;
-                parts.unshift(property.property.text);
-                receiver = property.expression;
-            }
-            if (receiver.kind !== NodeKind.Identifier)
-                return false;
-            const root = receiver.text;
-            if (shadowed(root))
-                return false;
-            parts.unshift(root);
-            const binding = this.sources
-                .get(call.range.source)
-                .getImportedBinding(parts.join(".") + ".Value", this.parser);
-            return (binding?.source.internalPath === runtimeRoot + "assembly/index" &&
-                binding.name === "JSON.Value");
-        });
-        for (const source of sources)
-            analysis.visit(source);
-        let id = 0;
-        const plans = new Map();
-        const makePlan = (site) => {
-            if (site.escaped)
-                return null;
-            const selected = [];
-            let effectful = false;
-            for (const { owner, field } of inheritedFields(site.declaration)) {
-                const ownerSource = this.sources.get(owner.range.source);
-                if (field.kind !== NodeKind.FieldDeclaration ||
-                    field.is(32) ||
-                    field.is(512) ||
-                    field.is(1024))
-                    continue;
-                const declaration = field;
-                if (site.writes.has(declaration.name.text) ||
-                    !declaration.type ||
-                    declaration.type.kind === NodeKind.FunctionType ||
-                    has(declaration, "omit") ||
-                    has(declaration, "eager"))
-                    continue;
-                const scope = ownerSource
-                    .getQualifiedName(owner)
-                    .split(".")
-                    .slice(0, -1)
-                    .join(".");
-                const inner = this.lazyInnerType(declaration.type, ownerSource, scope, owner);
-                const mode = classLazyMode(owner);
-                if (inner === null &&
-                    mode !== "strategic" &&
-                    mode !== "all" &&
-                    !has(declaration, "lazy") &&
-                    !(mode === "auto" &&
-                        lazyAutoCost(toString(declaration.type), ownerSource, this.parser) >= LAZY_AUTO_THRESHOLD))
-                    continue;
-                const type = inner || toString(declaration.type);
-                const meaning = ownerSource.resolveTypeMeaning(type, scope, this.parser, ownerSource.classTypeParameters(owner));
-                if (this.isArrayFieldType(type, ownerSource, scope, owner, meaning))
-                    continue;
-                const canonical = typeMeaningText(meaning);
-                const enumType = meaning.declaration?.kind === NodeKind.EnumDeclaration;
-                const applicationClass = meaning.declaration?.kind === NodeKind.ClassDeclaration &&
-                    !meaning.declaration.range.source.internalPath.startsWith("~lib/") &&
-                    meaning.declaration.range.source.internalPath !==
-                        runtimeRoot + "assembly/index";
-                const decodeCost = enumType
-                    ? 1
-                    : applicationClass
-                        ? 20
-                        : lazyTypeCost(canonical, ownerSource, this.parser);
-                const decision = materializationDecision((site.serializationAccesses ?? site.accesses).get(declaration.name.text) || [], decodeCost, site.origin);
-                if (DEBUG)
-                    console.log(`[strategic] ${site.source.internalPath}:${site.call.range.start} ${declaration.name.text}: ${JSON.stringify(decision)}`);
-                if (decision.eager) {
-                    selected.push(declaration.name.text);
-                    effectful ||=
-                        ownerSource.classTypeParameters(owner).has(meaning.name) ||
-                            !pureMaterialization(meaning);
-                }
-            }
-            if (!selected.length)
-                return null;
-            const children = selected.flatMap((field) => {
-                const child = site.children.get(field);
-                const plan = child && makePlan(child);
-                return plan ? [{ field, plan }] : [];
-            });
-            const key = String(effectful) +
-                ":" +
-                selected.sort().join("\0") +
-                ":" +
-                children
-                    .map(({ field, plan }) => `${field}=${plan}`)
-                    .sort()
-                    .join("\0");
-            if (!plans.has(site.source))
-                plans.set(site.source, new Map());
-            let name = plans.get(site.source).get(key);
-            if (!name) {
-                do {
-                    name = `__JSON_StrategicPlan_${id++}`;
-                } while (this.parser.sources.some((source) => source.text.includes(name)));
-                const plan = SimpleParser.parseTopLevelStatement(`class ${name} { ${effectful ? "__json_strategic_effects(): void {}" : ""} ${selected.map((field) => `__json_eager_${field}(): void {}`).join("\n")} ${children.map(({ field, plan }) => `__json_child_${field}(): ${plan} { return changetype<${plan}>(0); }`).join("\n")} }`);
-                site.source.statements.push(plan);
-                plans.get(site.source).set(key, name);
-            }
-            return name;
-        };
-        for (const site of analysis.sites) {
-            const name = makePlan(site);
-            if (!name)
-                continue;
-            const type = SimpleParser.parseStatement(`let __plan: ${name};`).declarations[0].type;
-            site.call.typeArguments.push(type);
-        }
-    }
     ordinarySpecializedFields = new WeakMap();
     ordinaryGenericFields = new WeakMap();
     ordinaryObjectValidators = new WeakMap();
+    validateLazyOptions(sources) {
+        for (const flag of [
+            "JSON_STRATEGIC_LAZINESS",
+            "JSON_ACCESS_SPECIALIZATION",
+        ]) {
+            if (process.env[flag])
+                throw new Error(`${flag} was removed. Use JSON_LAZY=false to disable access-based parsing.`);
+        }
+        for (const source of sources) {
+            for (const owner of this.sources.get(source).getClasses()) {
+                const decorator = owner.decorators?.find((d) => ["json", "serializable"].includes(toString(d.name)));
+                if (!decorator)
+                    continue;
+                const options = decorator.args?.[0];
+                if (options) {
+                    if (options.kind !== NodeKind.Literal ||
+                        options.literalKind !== 6)
+                        throw new Error("@json options must be { lazy } or { nolazy }.");
+                    const object = options;
+                    for (let i = 0; i < object.names.length; i++) {
+                        const name = object.names[i].text;
+                        if (!["lazy", "nolazy"].includes(name))
+                            throw new Error(`Unknown @json option: ${name}`);
+                        const value = toString(object.values[i]);
+                        if (!["true", "false", name].includes(value))
+                            throw new Error("Deferred lazy modes were removed. Use @json({ lazy }) for access-based parsing or @json({ nolazy }) for eager parsing.");
+                    }
+                }
+                for (const declaration of [owner, ...this.classAncestors(owner)]) {
+                    for (const member of declaration.members) {
+                        if (member.kind !== NodeKind.FieldDeclaration ||
+                            member.is(32))
+                            continue;
+                        if (member.decorators?.some((d) => ["lazy", "eager"].includes(toString(d.name))))
+                            throw new Error("Field @lazy/@eager decorators were removed. Use @json({ lazy }) or @json({ nolazy }) on the class.");
+                    }
+                }
+            }
+        }
+    }
     prepareOrdinarySpecialization(sources) {
-        if (process.env["JSON_ACCESS_SPECIALIZATION"] === "false")
+        if (process.env["JSON_LAZY"] === "false")
             return;
         const runtimeRoot = diagnosticsRuntimeRoot(this.parser.sources);
         const modelFields = new WeakMap();
@@ -559,28 +326,16 @@ export class JSONTransform extends Visitor {
             for (const declaration of chain) {
                 if (!fields)
                     break;
-                if (classLazyMode(declaration) !== "none" ||
-                    declaration.members.some((member) => member.kind === NodeKind.MethodDeclaration ||
-                        member.decorators?.some((d) => ["lazy", "serializer", "deserializer"].includes(d.name.text.toLowerCase())))) {
+                if (declaration.members.some((member) => member.kind === NodeKind.MethodDeclaration ||
+                    member.decorators?.some((d) => ["serializer", "deserializer"].includes(d.name.text.toLowerCase())))) {
                     fields = null;
                     break;
                 }
-                const source = this.sources.get(declaration.range.source);
-                const scope = source
-                    .getQualifiedName(declaration)
-                    .split(".")
-                    .slice(0, -1)
-                    .join(".");
                 for (const member of declaration.members) {
                     if (member.kind !== NodeKind.FieldDeclaration ||
                         member.is(32))
                         continue;
                     const field = member;
-                    if (field.type &&
-                        this.lazyInnerType(field.type, source, scope, declaration) !== null) {
-                        fields = null;
-                        break;
-                    }
                     if (!seen.has(field.name.text)) {
                         seen.add(field.name.text);
                         fieldOwners.set(field, declaration);
@@ -619,7 +374,7 @@ export class JSONTransform extends Visitor {
                     field.decorators?.some((d) => d.name.text.toLowerCase() === "omit"))
                     continue;
                 if (!field.type ||
-                    field.decorators?.some((d) => ["raw", "lazy"].includes(d.name.text.toLowerCase()))) {
+                    field.decorators?.some((d) => ["raw"].includes(d.name.text.toLowerCase()))) {
                     result = null;
                     break;
                 }
@@ -702,7 +457,7 @@ export class JSONTransform extends Visitor {
             return result;
         };
         const siteMeanings = new WeakMap();
-        const analysis = new StrategicAccessAnalysis((call, shadowed, scope, genericScope) => {
+        const analysis = new AccessAnalysis((call, shadowed, scope, genericScope) => {
             if (genericScope)
                 return null;
             if (call.args.length !== 1 ||
@@ -732,7 +487,7 @@ export class JSONTransform extends Visitor {
                 return null;
             siteMeanings.set(call, meaning);
             return owner;
-        }, undefined, true);
+        });
         for (const source of sources) {
             const indexed = this.sources.get(source);
             if (!indexed.hasNamespaceImports() &&
@@ -848,9 +603,6 @@ export class JSONTransform extends Visitor {
             site.call.typeArguments.push(type);
         }
     }
-    eagerOverrides = new Set();
-    lazySourceFields = new Map();
-    lazySourceInstalled = new Set();
     unusedMemberName(node, stem) {
         const names = new Set();
         const visited = new Set();
@@ -883,166 +635,9 @@ export class JSONTransform extends Visitor {
         }
         return this.generatedRuntimeName;
     }
-    lazyRuntimeSource;
-    isArrayFieldType(type, source, scope, owner, resolved) {
-        const meaning = resolved ||
-            source.resolveTypeMeaning(type, scope, this.parser, source.classTypeParameters(owner));
-        if (meaning.name === "JSON.Arr" &&
-            !!meaning.declaration &&
-            !!this.lazyRuntimeSource &&
-            meaning.declaration.range.source === this.lazyRuntimeSource)
-            return true;
-        if ((!meaning.declaration || isStdlib(meaning.declaration)) &&
-            ARRAY_FIELD_TYPE.test(meaning.name))
-            return true;
-        if (meaning.declaration?.kind !== NodeKind.ClassDeclaration)
-            return false;
-        let node = meaning.declaration;
-        const seen = new Set();
-        while (!seen.has(node)) {
-            seen.add(node);
-            if (isStdlib(node))
-                return ARRAY_FIELD_TYPE.test(node.name.text);
-            if (!node.extendsType)
-                return false;
-            const declaringSource = this.sources.get(node.range.source);
-            const name = declaringSource.resolveExtendsName(node);
-            const parent = declaringSource.resolveTypeMeaning(name, declaringSource
-                .getQualifiedName(node)
-                .split(".")
-                .slice(0, -1)
-                .join("."), this.parser, declaringSource.classTypeParameters(node));
-            if (!parent.declaration)
-                return ARRAY_FIELD_TYPE.test(parent.name);
-            if (parent.declaration.kind !== NodeKind.ClassDeclaration)
-                return false;
-            node = parent.declaration;
-        }
-        return false;
-    }
-    lazyInnerType(type, source, scope = "", owner) {
-        if (!type || type.kind !== NodeKind.NamedType)
-            return null;
-        if (this.lazyRuntimeSource === undefined)
-            this.lazyRuntimeSource =
-                this.parser.sources.find((candidate) => candidate.internalPath.endsWith("/json-as/assembly/index") ||
-                    candidate.internalPath === process.env["JSON_AS_LIBRARY_SOURCE"]) ??
-                    this.parser.sources.find((candidate) => candidate.internalPath.endsWith("assembly/index") &&
-                        this.sources.get(candidate).getClass("JSON.Value")) ??
-                    null;
-        const runtime = this.lazyRuntimeSource;
-        const meaning = source.resolveTypeMeaning(toString(type), scope, this.parser, owner ? source.classTypeParameters(owner) : new Map(), (alias) => alias.name === "JSON.Lazy" &&
-            alias.declaration?.range.source === runtime);
-        if (meaning.name !== "JSON.Lazy" || meaning.arguments.length !== 1)
-            return null;
-        const inner = {
-            ...meaning.arguments[0],
-            nullable: meaning.nullable || meaning.arguments[0].nullable,
-        };
-        const resolved = typeMeaningText(inner);
-        return isPrimitive(stripNull(resolved)) || isString(resolved)
-            ? resolved
-            : toString(type) + (inner.nullable && !type.isNullable ? " | null" : "");
-    }
-    prepareLazyOverrides(sources) {
-        const specs = new Map();
-        const parent = new Map();
-        const root = (field) => {
-            const next = parent.get(field);
-            if (next === field)
-                return field;
-            const result = root(next);
-            parent.set(field, result);
-            return result;
-        };
-        const has = (field, name) => field.decorators?.some((decorator) => decorator.name.text === name) ?? false;
-        for (const source of sources) {
-            const src = this.sources.get(source);
-            for (const owner of src.getClasses()) {
-                const decorated = has(owner, "json") || has(owner, "serializable");
-                const mode = decorated ? classLazyMode(owner) : "none";
-                const custom = owner.members.some((member) => member.decorators?.some((decorator) => ["serializer", "deserializer"].includes(decorator.name.text)));
-                for (const member of owner.members) {
-                    if (member.kind !== NodeKind.FieldDeclaration ||
-                        member.is(32) ||
-                        member.is(512) ||
-                        member.is(1024))
-                        continue;
-                    const field = member;
-                    if (!field.type)
-                        continue;
-                    const scope = src
-                        .getQualifiedName(owner)
-                        .split(".")
-                        .slice(0, -1)
-                        .join(".");
-                    const inner = this.lazyInnerType(field.type, src, scope, owner);
-                    const auto = mode !== "none" &&
-                        field.type.kind !== NodeKind.FunctionType &&
-                        !has(field, "eager") &&
-                        !has(field, "omit") &&
-                        (mode === "all" ||
-                            mode === "strategic" ||
-                            lazyAutoCost(this.resolveType(toString(field.type), src, new Set(), scope, true, owner), src, this.parser) >= LAZY_AUTO_THRESHOLD);
-                    const arrayField = (inner !== null || has(field, "lazy") || auto) &&
-                        this.isArrayFieldType(inner || toString(field.type), src, scope, owner);
-                    specs.set(field, {
-                        field,
-                        owner,
-                        source: src,
-                        inner,
-                        lazy: decorated &&
-                            !has(field, "omit") &&
-                            !custom &&
-                            !arrayField &&
-                            (inner !== null || has(field, "lazy") || auto),
-                    });
-                    parent.set(field, field);
-                }
-            }
-        }
-        for (const spec of specs.values()) {
-            let owner = spec.owner;
-            const seen = new Set();
-            while (owner.extendsType && !seen.has(owner)) {
-                seen.add(owner);
-                const src = this.sources.get(owner.range.source);
-                const name = src.resolveExtendsName(owner);
-                const base = src.getClassInContext(name, owner) ||
-                    src.getImportedClass(name, this.parser) ||
-                    src.getAvailableClass(name, this.parser);
-                if (!base || isStdlib(base))
-                    break;
-                const field = base.members.find((member) => member.kind === NodeKind.FieldDeclaration &&
-                    member.name.text === spec.field.name.text);
-                if (field && specs.has(field)) {
-                    parent.set(root(spec.field), root(field));
-                    break;
-                }
-                owner = base;
-            }
-        }
-        const groups = new Map();
-        for (const spec of specs.values()) {
-            const key = root(spec.field);
-            const group = groups.get(key) ?? [];
-            group.push(spec);
-            groups.set(key, group);
-        }
-        for (const group of groups.values()) {
-            if (!group.some((spec) => spec.lazy) || !group.some((spec) => !spec.lazy))
-                continue;
-            for (const spec of group) {
-                this.eagerOverrides.add(spec.field);
-                if (spec.inner !== null) {
-                    const type = SimpleParser.parseTopLevelStatement(`type __JSON_EAGER = ${spec.inner};`).type;
-                    type.range = spec.field.type.range;
-                    spec.field.type = type;
-                }
-                spec.field.decorators =
-                    spec.field.decorators?.filter((decorator) => decorator.name.text !== "lazy") ?? null;
-            }
-        }
+    get runtimeSource() {
+        return (this.parser.sources.find((source) => source.internalPath.endsWith("assembly/index") &&
+            this.sources.get(source).getClass("JSON.Value")) ?? null);
     }
     usesBuiltinRepresentation(node, visited = new Set()) {
         if (visited.has(node))
@@ -1072,7 +667,7 @@ export class JSONTransform extends Visitor {
         if (isStdlib(node) && builtins.includes(node.name.text))
             return true;
         const source = this.sources.get(node.range.source);
-        if (node.range.source.internalPath === this.lazyRuntimeSource?.internalPath &&
+        if (node.range.source.internalPath === this.runtimeSource?.internalPath &&
             ["JSON.Raw", "JSON.Value", "JSON.Obj", "JSON.Arr", "JSON.Box"].includes(source.getQualifiedName(node)))
             return true;
         if (!node.extendsType)
@@ -1131,7 +726,7 @@ export class JSONTransform extends Visitor {
                 alias.declaration = declaration;
                 source.registerAlias(alias, ns ? namespaces : []);
             };
-            addAlias(name, member.lazyInner || member.type, statements, namespace);
+            addAlias(name, member.type, statements, namespace);
             if (scope.length) {
                 const exported = name + "_Export";
                 addAlias(exported, scope.join(".") + "." + name + useParameters, owner.statements, null);
@@ -1162,10 +757,8 @@ export class JSONTransform extends Visitor {
             [];
         return name + (arguments_.length ? `<${arguments_.join(",")}>` : "");
     }
-    lazyMetadata = new Map();
-    lazyOriginalFields = new Map();
     logicalFieldName(field) {
-        return this.lazyMetadata.get(field)?.propertyName || field.name.text;
+        return field.name.text;
     }
     collectInheritedFieldMembers(node, source, members, visited = new Set(), throughUndecorated = false) {
         if (!node.extendsType)
@@ -1291,13 +884,6 @@ export class JSONTransform extends Visitor {
                     return this.inheritedTypeBinding(property, parent, node);
                 };
                 inherited.type = SimpleParser.parseClassMember(`__type: ${bindType(toString(original.type))};`, node).type;
-                const lazy = this.lazyMetadata.get(original);
-                if (lazy)
-                    this.lazyMetadata.set(inherited, {
-                        ...lazy,
-                        inner: bindType(lazy.inner),
-                        valueType: bindType(lazy.valueType),
-                    });
                 if (inheritedMembers.includes(original) && original.initializer) {
                     let helper = this.inheritedDefaultHelpers.get(original);
                     if (!helper) {
@@ -1389,40 +975,7 @@ export class JSONTransform extends Visitor {
             if (member.kind !== NodeKind.FieldDeclaration ||
                 member.is(32))
                 return false;
-            let field = member;
-            if (this.lazyOriginalFields.has(field)) {
-                const original = this.lazyOriginalFields.get(field);
-                if (!original)
-                    return false;
-                field = original;
-                if (!field.initializer) {
-                    const source = this.sources.get(node.range.source);
-                    const type = this.lazyInnerType(field.type, source, namespaces.join("."), node) || toString(field.type);
-                    const meaning = source.resolveTypeMeaning(type, namespaces.join("."), this.parser, source.classTypeParameters(node));
-                    if (meaning.nullable)
-                        return false;
-                    if (source.classTypeParameters(node).has(meaning.name))
-                        return true;
-                    if (meaning.declaration && !isStdlib(meaning.declaration)) {
-                        if (meaning.declaration.kind === NodeKind.EnumDeclaration)
-                            return false;
-                        if (meaning.declaration.kind !== NodeKind.ClassDeclaration)
-                            return true;
-                        const declaration = meaning.declaration;
-                        return ([declaration, ...this.classAncestors(declaration)].some((owner) => owner.members.some((member) => member.name.text === "constructor") ||
-                            !!this.schemas
-                                .get(owner.range.source.internalPath)
-                                ?.find((schema) => schema.node === owner)
-                                ?.hasCustomCursorLifecycle ||
-                            owner.members.some((member) => member.range.source === owner.range.source &&
-                                (member.name.text.startsWith("__INITIALIZE") ||
-                                    member.name.text === "__FINALIZE_CURSOR"))) || this.initializerChainHasEffects(declaration, new Set(seen)));
-                    }
-                    return (!isPrimitive(meaning.name) &&
-                        !isString(meaning.name) &&
-                        !/^(Array|StaticArray|Map|Set|ArrayBuffer|Date|(?:Uint|Int|Float)\d+Array|Uint8ClampedArray)$/.test(meaning.name));
-                }
-            }
+            const field = member;
             return (!!field.initializer &&
                 initializerHasEffects(field.initializer, pureConstants));
         }))
@@ -1489,9 +1042,7 @@ export class JSONTransform extends Visitor {
             !schema.static ||
             schema.node.isGeneric ||
             this.hasCustomCursorLifecycle(schema) ||
-            schema.members.some((member) => !!member.value ||
-                member.generic ||
-                member.flags.has(PropertyFlags.Lazy)))
+            schema.members.some((member) => !!member.value || member.generic))
             return false;
         visiting.add(schema);
         for (const member of schema.members) {
@@ -1737,185 +1288,10 @@ export class JSONTransform extends Visitor {
             return;
         if (!this.schemas.has(source.internalPath))
             this.schemas.set(source.internalPath, []);
-        const lazyInner = new Map();
-        const lazyMode = classLazyMode(node);
-        const hasCustomSerde = node.members.some((m) => m.kind === NodeKind.MethodDeclaration &&
-            (m.decorators?.some((d) => {
-                const t = d.name.text.toLowerCase();
-                return t === "serializer" || t === "deserializer";
-            }) ??
-                false));
-        let __hasLazy = false;
-        let sourceField = this.lazySourceFields.get(node);
-        if (!sourceField) {
-            sourceField = this.unusedMemberName(node, "__src");
-            this.lazySourceFields.set(node, sourceField);
-        }
-        const __lazyValInits = new Map();
-        for (let i = node.members.length - 1; i >= 0; i--) {
-            const fd = node.members[i];
-            if (fd.kind !== NodeKind.FieldDeclaration ||
-                fd.is(32) ||
-                fd.is(512) ||
-                fd.is(1024) ||
-                !fd.type)
-                continue;
-            if (this.eagerOverrides.has(fd))
-                continue;
-            if (lazyMode === "strategic" &&
-                fd.type.kind === NodeKind.FunctionType)
-                continue;
-            const written = toString(fd.type).trim();
-            const decos = fd.decorators;
-            const hasDeco = (name) => decos?.some((d) => d.name.text === name) ??
-                false;
-            let inner = this.lazyInnerType(fd.type, source, source.getQualifiedName(node).split(".").slice(0, -1).join("."), node);
-            if (inner === null) {
-                if (hasDeco("lazy")) {
-                    inner = written;
-                }
-                else if (lazyMode !== "none" &&
-                    !hasDeco("eager") &&
-                    !hasDeco("omit")) {
-                    if (lazyMode === "all" || lazyMode === "strategic")
-                        inner = written;
-                    else if (lazyAutoCost(this.resolveType(written, source, new Set(), source.getQualifiedName(node).split(".").slice(0, -1).join("."), true, node), source, this.parser) >= LAZY_AUTO_THRESHOLD)
-                        inner = written;
-                }
-            }
-            if (inner === null)
-                continue;
-            if (this.isArrayFieldType(inner, source, source.getQualifiedName(node).split(".").slice(0, -1).join("."), node)) {
-                if (!fd.initializer &&
-                    !fd.is(16384) &&
-                    !hasDeco("omit")) {
-                    const scope = source
-                        .getQualifiedName(node)
-                        .split(".")
-                        .slice(0, -1)
-                        .join(".");
-                    const meaning = source.resolveTypeMeaning(inner, scope, this.parser, source.classTypeParameters(node));
-                    if (!meaning.nullable) {
-                        const generated = SimpleParser.parseClassMember(`__array_default: ${inner} = ${this.runtimeReference()}.__lazyDefault<${inner}>();`, node);
-                        fd.initializer = generated.initializer;
-                    }
-                }
-                fd.decorators =
-                    decos?.filter((d) => d.name.text !== "lazy") ?? null;
-                continue;
-            }
-            if (hasDeco("omit")) {
-                fd.decorators =
-                    decos?.filter((d) => d.name.text !== "lazy") ?? null;
-                continue;
-            }
-            if (hasCustomSerde)
-                throwError("Lazy fields (@lazy / JSON.Lazy<T> / @json({ lazy })) are not supported " +
-                    "on a class with a custom @serializer/@deserializer - the custom methods " +
-                    "bypass the generated (de)serializer, so the deferred slot is never filled. " +
-                    "Remove the lazy marker or the custom (de)serializer.", fd.range);
-            const fname = fd.name.text;
-            let backing = "__" + fname;
-            for (let suffix = 1; this.unusedMemberName(node, backing + "_lz") !== backing + "_lz" ||
-                this.unusedMemberName(node, backing + "_val") !== backing + "_val"; suffix++)
-                backing = "__" + fname + "_" + suffix;
-            const slotName = backing + "_lz";
-            const alias = decos?.find((d) => d.name.text === "alias");
-            const key = alias?.args?.[0]
-                ? toString(alias.args[0])
-                : JSON.stringify(fname);
-            const optional = hasDeco("optional") ? "@optional " : "";
-            const T = inner;
-            const baseT = stripNull(T);
-            const storesScalar = isPrimitive(baseT) || isEnum(baseT, source, this.parser);
-            const inferredInner = node.typeParameters?.some((parameter) => parameter.name.text === baseT) ||
-                this.resolveType(T, source, new Set(), source.getQualifiedName(node).split(".").slice(0, -1).join("."), false, node) !== T;
-            const valueType = inferredInner || storesScalar || baseT != T ? T : `${T} | null`;
-            const valueDefault = isBoolean(baseT)
-                ? "false"
-                : storesScalar
-                    ? "0"
-                    : "null";
-            const fdInit = fd.initializer;
-            const fieldDefault = fdInit ? toString(fdInit) : null;
-            const refDefault = fieldDefault != null
-                ? fieldDefault
-                : inferredInner || (!storesScalar && baseT == T)
-                    ? `${this.runtimeReference()}.__lazyDefault<${T}>()`
-                    : null;
-            __hasLazy = true;
-            const omitIfDeco = decos?.find((d) => d.name.text === "omitif");
-            lazyInner.set(slotName, {
-                inner: T,
-                propertyName: fname,
-                valueType,
-                scalar: storesScalar,
-                omitNull: hasDeco("omitnull"),
-                omitIf: omitIfDeco?.args?.[0] ?? null,
-            });
-            const packScalar = baseT === "i8" ||
-                baseT === "u8" ||
-                baseT === "i16" ||
-                baseT === "u16" ||
-                baseT === "i32" ||
-                baseT === "u32" ||
-                baseT === "bool" ||
-                baseT === "boolean" ||
-                baseT === "f32";
-            const encVal = (v) => baseT === "f32"
-                ? `(<u64>reinterpret<u32>(${v}))`
-                : `(<u64><u32>(${v}))`;
-            const decSlot = (lz) => baseT === "f32"
-                ? `reinterpret<f32>(<u32>(${lz}))`
-                : `(<${T}>(<u32>(${lz})))`;
-            lazyInner.get(slotName).packed = packScalar;
-            const lowered = (packScalar
-                ? [
-                    `@alias(${key}) ${optional}private ${backing}_lz: u64 = ${fieldDefault != null
-                        ? `(((<u64>0xffffffff) << 32) | ${encVal(`<${T}>(${fieldDefault})`)})`
-                        : "0"};`,
-                    `get ${fname}(): ${T} {\n` +
-                        `  const __lz = this.${backing}_lz;\n` +
-                        `  if ((__lz >>> 32) == 0xffffffff) return ${decSlot("__lz")};\n` +
-                        `  if (__lz != 0) {\n` +
-                        `    const __v = JSON.__deserializeLazy<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz), this.${sourceField});\n` +
-                        `    this.${backing}_lz = ((<u64>0xffffffff) << 32) | ${encVal("__v")};\n` +
-                        `    return __v;\n` +
-                        `  }\n` +
-                        `  return ${valueDefault};\n}`,
-                    `set ${fname}(value: ${T}) {\n` +
-                        `  this.${backing}_lz = ((<u64>0xffffffff) << 32) | ${encVal("value")};\n}`,
-                ]
-                : [
-                    `@alias(${key}) ${optional}private ${backing}_lz: u64 = ${refDefault != null ? "u64.MAX_VALUE" : "0"};`,
-                    `private ${backing}_val: ${valueType} = ${refDefault ?? valueDefault};`,
-                    `get ${fname}(): ${T} {\n` +
-                        `  const __lz = this.${backing}_lz;\n` +
-                        `  if (__lz != 0 && __lz != u64.MAX_VALUE) {\n` +
-                        `    this.${backing}_val = JSON.__deserializeLazy<${T}>(<usize>(__lz >>> 32), <usize>(<u32>__lz), this.${sourceField});\n` +
-                        `    this.${backing}_lz = u64.MAX_VALUE;\n` +
-                        `  }\n` +
-                        `  return this.${backing}_val as ${T};\n}`,
-                    `set ${fname}(value: ${T}) {\n` +
-                        `  this.${backing}_val = value;\n` +
-                        `  this.${backing}_lz = u64.MAX_VALUE;\n}`,
-                ]).map((src) => SimpleParser.parseClassMember(src, node));
-            node.members.splice(i, 1, ...lowered);
-            this.lazyOriginalFields.set(lowered[0], fd);
-            if (!packScalar)
-                this.lazyOriginalFields.set(lowered[1], null);
-            this.lazyMetadata.set(lowered[0], lazyInner.get(slotName));
-            if (!packScalar && refDefault != null) {
-                const valueInit = `  store<${valueType}>(changetype<usize>(this), ${refDefault}, offsetof<this>(${JSON.stringify(`${backing}_val`)}));\n`;
-                __lazyValInits.set(`${backing}_lz`, valueInit);
-                lazyInner.get(`${backing}_lz`).valueInit = valueInit;
-            }
-        }
         const members = [
             ...node.members.filter((v) => v.kind === NodeKind.FieldDeclaration &&
                 !v.is(32) &&
-                (!v.is(512) ||
-                    this.lazyMetadata.has(v)) &&
+                !v.is(512) &&
                 !v.is(1024) &&
                 !v.decorators?.some((decorator) => decorator.name.text === "omit")),
         ];
@@ -2076,7 +1452,6 @@ export class JSONTransform extends Visitor {
                             if (arguments_[j])
                                 bindings.set(parameters[j].name.text, arguments_[j]);
                         }
-                        const lazy = this.lazyMetadata.get(declaration);
                         declaration = cloneNode(declaration);
                         class InstantiateTypes extends Visitor {
                             visitNamedTypeNode(type) {
@@ -2092,55 +1467,9 @@ export class JSONTransform extends Visitor {
                         }
                         const instantiate = new InstantiateTypes();
                         instantiate.visit(declaration);
-                        if (lazy) {
-                            const instantiateType = (type) => {
-                                const field = SimpleParser.parseClassMember("__type: " + type + ";", node);
-                                instantiate.visit(field);
-                                return toString(field.type);
-                            };
-                            const initializer = lazy.valueInit
-                                ? SimpleParser.parseStatement(lazy.valueInit)
-                                : null;
-                            if (initializer)
-                                instantiate.visit(initializer);
-                            const omitIf = lazy.omitIf
-                                ? cloneNode(lazy.omitIf)
-                                : null;
-                            if (omitIf)
-                                instantiate.visit(omitIf);
-                            this.lazyMetadata.set(declaration, {
-                                ...lazy,
-                                inner: instantiateType(lazy.inner),
-                                valueType: instantiateType(lazy.valueType),
-                                valueInit: initializer
-                                    ? toString(initializer) + "\n"
-                                    : undefined,
-                                omitIf,
-                            });
-                        }
-                    }
-                    const inheritedLazy = this.lazyMetadata.get(declaration);
-                    if (crossesScope &&
-                        inheritedLazy &&
-                        !isPrimitive(inheritedLazy.inner) &&
-                        !isString(inheritedLazy.inner)) {
-                        declaration = cloneNode(declaration);
-                        const binding = this.inheritedTypeBinding(inherited, schema.parent, node);
-                        this.lazyMetadata.set(declaration, {
-                            ...inheritedLazy,
-                            inner: binding,
-                            valueType: binding +
-                                (inheritedLazy.valueType.endsWith(" | null") &&
-                                    !inheritedLazy.inner.endsWith(" | null")
-                                    ? " | null"
-                                    : ""),
-                        });
                     }
                     if (isPrimitive(inherited.type) || isString(inherited.type)) {
-                        const lazy = this.lazyMetadata.get(declaration);
                         declaration = cloneNode(declaration);
-                        if (lazy)
-                            this.lazyMetadata.set(declaration, lazy);
                         declaration.type = SimpleParser.parseClassMember(`__type: ${inherited.type};`, node).type;
                     }
                     if (crossesScope &&
@@ -2275,22 +1604,7 @@ export class JSONTransform extends Visitor {
                 }
             }
         }
-        for (const member of members) {
-            const metadata = this.lazyMetadata.get(member);
-            if (!metadata)
-                continue;
-            lazyInner.set(member.name.text, metadata);
-            if (metadata.valueInit)
-                __lazyValInits.set(member.name.text, metadata.valueInit);
-        }
-        __hasLazy = lazyInner.size > 0;
         const ancestors = this.classAncestors(node);
-        const inheritsLazy = ancestors.some((ancestor) => this.lazySourceInstalled.has(ancestor));
-        const ownsLazy = node.members.some((member) => this.lazyMetadata.has(member));
-        if (ownsLazy && !this.lazySourceInstalled.has(node)) {
-            node.members.push(SimpleParser.parseClassMember(`protected ${sourceField}: string = "";`, node), SimpleParser.parseClassMember(`@inline __SET_SRC(s: string): void { ${inheritsLazy ? "super.__SET_SRC(s); " : ""}this.${sourceField} = s; }`, node));
-            this.lazySourceInstalled.add(node);
-        }
         this.schemas.get(source.internalPath).push(schema);
         this.schema = schema;
         this.visitedClasses.add(fullClassPath);
@@ -2303,9 +1617,6 @@ export class JSONTransform extends Visitor {
             if (callbackField(members[index], node))
                 members.splice(index, 1);
         const wireNodes = new Set(members);
-        const generatedBacking = (field) => (__hasLazy && field.name.text === sourceField) ||
-            members.some((member) => this.lazyMetadata.has(member) &&
-                field.name.text === member.name.text.slice(0, -3) + "_val");
         schema.hasInternalInitializers =
             !!schema.parent?.hasInternalInitializers ||
                 ancestors.some((ancestor) => ancestor.members.some((field) => field.kind === NodeKind.FieldDeclaration &&
@@ -2318,7 +1629,6 @@ export class JSONTransform extends Visitor {
                 node.members.some((field) => field.kind === NodeKind.FieldDeclaration &&
                     !field.is(32) &&
                     !wireNodes.has(field) &&
-                    !generatedBacking(field) &&
                     !!field.initializer);
         schema.hasInitializerEffects = this.initializerChainHasEffects(node);
         const effectful = (candidate, seen = new Set()) => {
@@ -2335,11 +1645,6 @@ export class JSONTransform extends Visitor {
         let INITIALIZE = "@inline __INITIALIZE(): this {\n";
         let DESERIALIZE = '__DESERIALIZE_SLOW<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = false, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {\n  let decodedKey: string = "";\n';
         let DESERIALIZE_FAST = "__DESERIALIZE_FAST<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {\n";
-        const lazySourceHeader = __hasLazy
-            ? "  changetype<this>(out).__SET_SRC(JSON.Util.getParseSource());\n"
-            : "";
-        DESERIALIZE += lazySourceHeader;
-        DESERIALIZE_FAST += lazySourceHeader;
         let fastPrettyTailStart = 0;
         let DESERIALIZE_CUSTOM = "";
         let SERIALIZE_CUSTOM = "";
@@ -2535,33 +1840,6 @@ export class JSONTransform extends Visitor {
                 });
             }
             mem.custom = !!this.getSchema(type)?.customReader;
-            const lzInner = lazyInner.get(name.text);
-            if (lzInner !== undefined) {
-                mem.flags.set(PropertyFlags.Lazy, null);
-                mem.lazyPacked = !!lzInner.packed;
-                mem.lazyScalar = !!lzInner.scalar;
-                mem.lazyInner = lzInner.inner;
-                mem.byteSize = 0;
-                mem.lazyProperty = lzInner.propertyName;
-                const parameters = source.classTypeParameters(node);
-                const scope = source
-                    .getQualifiedName(node)
-                    .split(".")
-                    .slice(0, -1)
-                    .join(".");
-                const innerMeaning = source.resolveTypeMeaning(lzInner.inner, scope, this.parser, parameters);
-                mem.lazyMaybeArray =
-                    parameters.has(innerMeaning.name) ||
-                        this.isArrayFieldType(lzInner.inner, source, scope, node, innerMeaning);
-                if (lzInner.omitNull) {
-                    mem.flags.set(PropertyFlags.OmitNull, null);
-                    this.schema.static = false;
-                }
-                if (lzInner.omitIf) {
-                    mem.flags.set(PropertyFlags.OmitIf, lzInner.omitIf);
-                    this.schema.static = false;
-                }
-            }
             this.schema.byteSize += mem.byteSize;
             if (member.decorators) {
                 for (const decorator of member.decorators) {
@@ -2650,7 +1928,6 @@ export class JSONTransform extends Visitor {
         const hasOmitNullMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.OmitNull));
         const hasExplicitOptionalMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.Optional));
         const hasOptionalMembers = hasOmitIfMembers || hasOmitNullMembers || hasExplicitOptionalMembers;
-        const hasLazyMembers = this.schema.members.some((v) => v.flags.has(PropertyFlags.Lazy));
         const supportsFastOptionalPath = requestedFastPath && hasOptionalMembers;
         const hasTypeParams = !!node.typeParameters && node.typeParameters.length > 0;
         const useFastPath = requestedFastPath &&
@@ -2681,8 +1958,7 @@ export class JSONTransform extends Visitor {
                 isString(member.type) ||
                 /^Array<(?:i16|u16|i32|u32|i64|u64)>$/.test(member.type)));
         const directStringMembers = this.schema.static
-            ? this.schema.members.filter((member) => !member.flags.has(PropertyFlags.Lazy) &&
-                !this.getSchema(member.type) &&
+            ? this.schema.members.filter((member) => !this.getSchema(member.type) &&
                 isString(member.type) &&
                 !defaultStringLiterals.has(member.name))
             : [];
@@ -2696,8 +1972,7 @@ export class JSONTransform extends Visitor {
                 strings = [];
             };
             for (const member of this.schema.members) {
-                if (member.flags.has(PropertyFlags.Lazy) ||
-                    this.getSchema(member.type) ||
+                if (this.getSchema(member.type) ||
                     (!isReservedPrimitive(member.type) && !isString(member.type))) {
                     finish();
                 }
@@ -2717,9 +1992,7 @@ export class JSONTransform extends Visitor {
             .join(" + ");
         const wideIntegerArrayCandidates = this.schema.static && canReserveDynamicPayloads
             ? this.schema.members.filter((member) => {
-                if (member.flags.has(PropertyFlags.Lazy) ||
-                    member.nullable ||
-                    !member.type.startsWith("Array<"))
+                if (member.nullable || !member.type.startsWith("Array<"))
                     return false;
                 const element = member.type.slice(6, -1).trim();
                 return ["i16", "u16", "i32", "u32", "i64", "u64"].includes(element);
@@ -2727,100 +2000,54 @@ export class JSONTransform extends Visitor {
             : [];
         const directWideIntegerArrays = wideIntegerArrayCandidates.length == 1 ? wideIntegerArrayCandidates : [];
         const serValue = (member, realName) => {
-            if (!member.flags.has(PropertyFlags.Lazy)) {
-                const defaultString = defaultStringLiterals.get(member.name);
-                if (defaultString) {
-                    const stores = this.getStores(defaultString.encoded, this.program.options.hasFeature(16), "__dst").join("\n");
-                    return (`{\n` +
-                        `  const __str = load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)}));\n` +
-                        `  if (changetype<usize>(__str) == changetype<usize>(${defaultString.expression})) {\n` +
-                        stores
-                            .split("\n")
-                            .map((line) => `    ${line}\n`)
-                            .join("") +
-                        `  } else {\n` +
-                        `    bs.offset = __dst;\n` +
-                        `    JSON.__serialize<${member.type}>(__str);\n` +
-                        `    __dst = bs.offset;\n` +
-                        `  }\n` +
-                        `}\n`);
-                }
-                if (directStringSet.has(member)) {
-                    const writer = member.nullable
-                        ? "__serializeNullableStringPointerReservedAt"
-                        : "__serializeStringPointerReservedAt";
-                    const group = stringPayloadReserves.get(member);
-                    const reserve = group
-                        ? `bs.offset = __dst; bs.proposeSize(${stringPayloadSize(group)}); __dst = bs.offset;\n`
-                        : "";
-                    return (reserve +
-                        `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
-                }
-                if (directWideIntegerArrays.includes(member)) {
-                    return `__dst = JSON.__serializeIntegerArrayPointerReservedAt<${member.type}>(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
-                }
-                const resolvedType = stripNull(member.type);
-                const resolvedSchema = this.getSchema(resolvedType);
-                if (resolvedSchema &&
-                    !resolvedSchema.custom &&
-                    !member.custom &&
-                    !member.generic &&
-                    !member.nullable) {
-                    return syncSerializeCursor(`JSON.__serializeObject<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
-                }
-                return getSerializeCall(member.type, realName, !resolvedSchema);
-            }
-            const T = member.lazyInner;
-            const baseName = realName.slice(0, -3);
-            const baseT = stripNull(T);
-            const packScalar = member.lazyPacked;
-            if (packScalar) {
-                const dec = baseT === "f32"
-                    ? `reinterpret<f32>(<u32>(__s))`
-                    : `(<${T}>(<u32>(__s)))`;
-                const def = baseT === "bool" || baseT === "boolean" ? "false" : "0";
-                return syncSerializeCursor(`{\n` +
-                    `  const __s = this.${realName};\n` +
-                    `  if ((__s >>> 32) == 0xffffffff) {\n` +
-                    `    JSON.__serializeLazyValue<${T}>(${dec});\n` +
-                    `  } else if (__s != 0) {\n` +
-                    `    const __hi = <usize>(__s >>> 32);\n` +
-                    `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
-                    `    bs.proposeSize(<u32>__len);\n` +
-                    `    memory.copy(bs.offset, __hi, __len);\n` +
-                    `    bs.offset += __len;\n` +
+            const defaultString = defaultStringLiterals.get(member.name);
+            if (defaultString) {
+                const stores = this.getStores(defaultString.encoded, this.program.options.hasFeature(16), "__dst").join("\n");
+                return (`{\n` +
+                    `  const __str = load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)}));\n` +
+                    `  if (changetype<usize>(__str) == changetype<usize>(${defaultString.expression})) {\n` +
+                    stores
+                        .split("\n")
+                        .map((line) => `    ${line}\n`)
+                        .join("") +
                     `  } else {\n` +
-                    `    JSON.__serializeLazyValue<${T}>(${def});\n` +
+                    `    bs.offset = __dst;\n` +
+                    `    JSON.__serialize<${member.type}>(__str);\n` +
+                    `    __dst = bs.offset;\n` +
                     `  }\n` +
                     `}\n`);
             }
-            return syncSerializeCursor(`{\n` +
-                `  const __s = this.${realName};\n` +
-                `  if (__s == u64.MAX_VALUE) {\n` +
-                `    JSON.__serializeLazyValue<${T}>(this.${baseName}_val as ${T});\n` +
-                `  } else if (__s != 0) {\n` +
-                `    const __hi = <usize>(__s >>> 32);\n` +
-                `    const __len = (<usize>(<u32>__s)) - __hi;\n` +
-                `    bs.proposeSize(<u32>__len);\n` +
-                `    memory.copy(bs.offset, __hi, __len);\n` +
-                `    bs.offset += __len;\n` +
-                `  } else {\n` +
-                (member.lazyScalar
-                    ? `    JSON.__serializeLazyValue<${T}>(0);\n`
-                    : `    bs.proposeSize(8);\n` +
-                        `    store<u64>(bs.offset, 0x006c006c0075006e);\n` +
-                        `    bs.offset += 8;\n`) +
-                `  }\n` +
-                `}\n`);
+            if (directStringSet.has(member)) {
+                const writer = member.nullable
+                    ? "__serializeNullableStringPointerReservedAt"
+                    : "__serializeStringPointerReservedAt";
+                const group = stringPayloadReserves.get(member);
+                const reserve = group
+                    ? `bs.offset = __dst; bs.proposeSize(${stringPayloadSize(group)}); __dst = bs.offset;\n`
+                    : "";
+                return (reserve +
+                    `__dst = JSON.${writer}(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
+            }
+            if (directWideIntegerArrays.includes(member)) {
+                return `__dst = JSON.__serializeIntegerArrayPointerReservedAt<${member.type}>(__dst, load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`;
+            }
+            const resolvedType = stripNull(member.type);
+            const resolvedSchema = this.getSchema(resolvedType);
+            if (resolvedSchema &&
+                !resolvedSchema.custom &&
+                !member.custom &&
+                !member.generic &&
+                !member.nullable) {
+                return syncSerializeCursor(`JSON.__serializeObject<${member.type}>(load<${member.type}>(ptr, offsetof<this>(${JSON.stringify(realName)})));\n`);
+            }
+            return getSerializeCall(member.type, realName, !resolvedSchema);
         };
         const cursorMayDefer = STRICT &&
             !schema.hasInternalInitializers &&
             !DESERIALIZE_CUSTOM &&
             new Set(this.schema.members.map((member) => member.alias ?? member.name))
                 .size == this.schema.members.length &&
-            this.schema.members.every((member) => !member.value &&
-                !member.generic &&
-                !member.flags.has(PropertyFlags.Lazy)) &&
+            this.schema.members.every((member) => !member.value && !member.generic) &&
             !this.hasCustomCursorLifecycle(this.schema);
         const initializationFragments = new Map();
         const cursorInitializers = new Set();
@@ -2833,12 +2060,9 @@ export class JSONTransform extends Visitor {
             const realName = member.name;
             if (member.value) {
                 INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${member.value}, offsetof<this>(${JSON.stringify(member.name)}));\n`;
-                const __valInit = __lazyValInits.get(member.name);
-                if (__valInit)
-                    INITIALIZE += __valInit;
             }
             else if (member.generic && !member.nullable) {
-                INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${this.runtimeReference()}.__lazyDefault<${member.type}>(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
+                INITIALIZE += `  store<${member.type}>(changetype<usize>(this), ${this.runtimeReference()}.__defaultValue<${member.type}>(), offsetof<this>(${JSON.stringify(member.name)}));\n`;
             }
             else if (!member.nullable) {
                 if (this.getSchema(member.type)) {
@@ -2898,10 +2122,6 @@ export class JSONTransform extends Visitor {
             if (isRegular && isPure) {
                 const keyPart = (isFirst ? "{" : ",") + aliasName + ":";
                 this.schema.byteSize += keyPart.length << 1;
-                if (hasLazyMembers)
-                    SERIALIZE +=
-                        indent +
-                            `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
                 SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                     .map((v) => indent + v + "\n")
                     .join("");
@@ -2916,10 +2136,6 @@ export class JSONTransform extends Visitor {
                     SERIALIZE +=
                         indent +
                             "if (wrote) { store<u16>(__dst, 44, 0); __dst += 2; } // ,\n";
-                    if (hasLazyMembers)
-                        SERIALIZE +=
-                            indent +
-                                `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
                     SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
@@ -2928,10 +2144,6 @@ export class JSONTransform extends Visitor {
                 else {
                     const keyPart = (isFirst ? "" : ",") + aliasName + ":";
                     this.schema.byteSize += keyPart.length << 1;
-                    if (hasLazyMembers)
-                        SERIALIZE +=
-                            indent +
-                                `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
                     SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
@@ -2943,14 +2155,7 @@ export class JSONTransform extends Visitor {
             else {
                 let omitNullCond = "true";
                 if (member.flags.has(PropertyFlags.OmitNull)) {
-                    if (member.flags.has(PropertyFlags.Lazy)) {
-                        const base = realName.slice(0, -3);
-                        omitNullCond =
-                            `!JSON.__lazyIsNull(` +
-                                `load<usize>(ptr, offsetof<this>(${JSON.stringify(base + "_val")})), ` +
-                                `load<u64>(ptr, offsetof<this>(${JSON.stringify(realName)})))`;
-                    }
-                    else {
+                    {
                         omitNullCond = `(block = load<usize>(ptr, offsetof<this>(${JSON.stringify(realName)}))) !== 0`;
                     }
                 }
@@ -2963,10 +2168,6 @@ export class JSONTransform extends Visitor {
                     SERIALIZE +=
                         indent +
                             "if (wrote) { store<u16>(__dst, 44, 0); __dst += 2; } // ,\n";
-                    if (hasLazyMembers)
-                        SERIALIZE +=
-                            indent +
-                                `bs.offset = __dst; bs.ensureSize(${keyPart.length << 1}); __dst = bs.offset;\n`;
                     SERIALIZE += this.getStores(keyPart, SIMD_ENABLED, "__dst")
                         .map((v) => indent + v + "\n")
                         .join("");
@@ -3046,47 +2247,6 @@ export class JSONTransform extends Visitor {
                     sortedMembers.object.push(member);
             }
         }
-        const lazyMembers = this.schema.members.filter((member) => member.flags.has(PropertyFlags.Lazy));
-        const withLazyMembers = (members) => {
-            if (!lazyMembers.length)
-                return members;
-            const out = members.slice();
-            for (const member of lazyMembers) {
-                if (!out.includes(member))
-                    out.push(member);
-            }
-            return out;
-        };
-        const slowStringMembers = withLazyMembers(sortedMembers.string);
-        const slowNumberMembers = withLazyMembers(sortedMembers.number);
-        const slowObjectMembers = withLazyMembers(sortedMembers.object);
-        const slowArrayMembers = withLazyMembers(sortedMembers.array);
-        const slowBooleanMembers = withLazyMembers(sortedMembers.boolean);
-        const slowNullMembers = withLazyMembers(sortedMembers.null);
-        const strategicLazyStore = (member, start, end, dst) => {
-            const metadata = this.lazyMetadata.get(member.node);
-            const property = metadata?.propertyName || member.name;
-            const type = member.lazyInner;
-            const offset = `offsetof<this>(${JSON.stringify(member.name)})`;
-            const range = `store<u64>(${dst}, ((<u64>${start}) << 32) | (<u64>(<u32>${end})), ${offset});`;
-            const value = member.lazyPacked
-                ? `store<u64>(${dst}, ((<u64>0xffffffff) << 32) | ${stripNull(type) === "f32" ? "<u64>reinterpret<u32>(__eager)" : "<u64><u32>__eager"}, ${offset});`
-                : `store<${type}>(${dst}, __eager, offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")}));
-           store<u64>(${dst}, u64.MAX_VALUE, ${offset});
-           if (isManaged<${type}>()) JSON.__linkObject(${dst}, changetype<usize>(__eager), false);`;
-            const eagerArray = member.lazyMaybeArray
-                ? `JSON.__isArrayField<${type}>() || `
-                : "";
-            return `if (${eagerArray}isDefined(changetype<__JSON_PLAN>(0).__json_eager_${property})) {
-        let __eager: ${type};
-        if (isDefined(changetype<__JSON_PLAN>(0).__json_child_${property})) {
-          __eager = JSON.__deserializePlannedValue(changetype<${type}>(0), changetype<__JSON_PLAN>(0).__json_child_${property}(), ${start}, ${end});
-        } else {
-          __eager = JSON.__deserializeValue<${type}>(${start}, ${end});
-        }
-        ${value}
-      } else { ${range} }`;
-        };
         const getComparisions = (data, ptr, operator) => {
             const dataBytes = data.length << 1;
             let offset = 0;
@@ -3225,87 +2385,6 @@ export class JSONTransform extends Visitor {
                 : "__DESERIALIZE_FAST";
             const fieldOffset = `offsetof<this>(${JSON.stringify(member.name)})`;
             const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
-            if (member.flags.has(PropertyFlags.Lazy)) {
-                const lazyInner = member.lazyInner;
-                if (fastPath &&
-                    !isPrimitive(stripNull(lazyInner)) &&
-                    !isString(lazyInner)) {
-                    const lazyScope = source
-                        .getQualifiedName(node)
-                        .split(".")
-                        .slice(0, -1)
-                        .join(".");
-                    const lazyMeaning = source.resolveTypeMeaning(lazyInner, lazyScope, this.parser, source.classTypeParameters(node));
-                    const lazyDeclaration = lazyMeaning.declaration;
-                    const lazyClass = lazyDeclaration?.kind === NodeKind.ClassDeclaration &&
-                        !isStdlib(lazyDeclaration)
-                        ? lazyDeclaration
-                        : null;
-                    const customLazyReader = lazyClass &&
-                        [lazyClass, ...this.classAncestors(lazyClass)].some((owner) => owner.members.some((entry) => (entry.range.source === owner.range.source &&
-                            entry.name.text.startsWith("__DESERIALIZE")) ||
-                            entry.decorators?.some((decorator) => decorator.name.text.toLowerCase() === "deserializer")));
-                    if (lazyClass &&
-                        !lazyClass.typeParameters?.length &&
-                        !lazyMeaning.nullable &&
-                        !customLazyReader &&
-                        lazyClass.decorators?.some((decorator) => ["json", "serializable"].includes(decorator.name.text))) {
-                        const property = this.lazyMetadata.get(member.node)?.propertyName || member.name;
-                        const valueOffset = `offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")})`;
-                        out.push(`if (isDefined(changetype<__JSON_PLAN>(0).__json_eager_${property})) {`, `  if (!isDefined(changetype<__JSON_PLAN>(0).__json_strategic_effects) && isDefined(changetype<nonnull<${lazyInner}>>(0).__DESERIALIZE_FAST) && isDefined(changetype<nonnull<${lazyInner}>>(0).__DESERIALIZE_FAST_ENABLED) && changetype<nonnull<${lazyInner}>>(0).__DESERIALIZE_FAST_ENABLED()) {`, `    const __start = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`, `    const __value = changetype<${lazyInner}>(JSON.__allocateObject(offsetof<nonnull<${lazyInner}>>(), idof<nonnull<${lazyInner}>>()));`, `    const __initialized = JSON.__initializePlannedObject(__value);`, `    store<${lazyInner}>(${outPtr}, __value, ${valueOffset});`, `    store<u64>(${outPtr}, u64.MAX_VALUE, ${fieldOffset});`, `    JSON.__linkObject(${outPtr}, changetype<usize>(__value), false);`, `    let __next: usize;`, `    if (isDefined(changetype<__JSON_PLAN>(0).__json_child_${property})) {`, `      __next = JSON.__deserializePlannedObjectField(__value, changetype<__JSON_PLAN>(0).__json_child_${property}(), __start, srcEnd, !__initialized, ${whitespaceTier});`, `    } else {`, `      __next = JSON.__deserializePlannedObjectField(__value, 0, __start, srcEnd, !__initialized, ${whitespaceTier});`, `    }`, `    if (!__next) break;`, `    ${srcPtr} = __next;`, `  } else {`, `    const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`, `    const valueEnd = JSON.Util.scanValueEnd<${lazyInner}>(valueStart, srcEnd);`, `    if (!valueEnd) break;`, strategicLazyStore(member, "valueStart", "valueEnd", outPtr), `    ${srcPtr} = valueEnd;`, `  }`, `} else {`, `  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`, `  const valueEnd = JSON.Util.scanValueEnd<${lazyInner}>(valueStart, srcEnd);`, `  if (!valueEnd) break;`, `  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`, `  ${srcPtr} = valueEnd;`, `}`);
-                        return out;
-                    }
-                }
-                if (stripNull(lazyInner) === "string") {
-                    const property = this.lazyMetadata.get(member.node)?.propertyName || member.name;
-                    const valueOffset = `offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")})`;
-                    out.push(`if (isDefined(changetype<__JSON_PLAN>(0).__json_eager_${property})) {`);
-                    if (stripNull(lazyInner) !== lazyInner) {
-                        out.push(`const __start = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`, `if (__start + 8 <= srcEnd && load<u64>(__start) == 30399761348886638) {`, `  store<usize>(${outPtr}, 0, ${valueOffset});`, `  store<u64>(${outPtr}, u64.MAX_VALUE, ${fieldOffset});`, `  ${srcPtr} = __start + 8;`, `} else {`);
-                    }
-                    out.push(`${srcPtr} = ${STRING_FIELD_DESERIALIZER}<string>(${valuePtr}, srcEnd, ${outPtr}, ${valueOffset});`, `if (!${srcPtr}) break;`, `store<u64>(${outPtr}, u64.MAX_VALUE, ${fieldOffset});`, `JSON.__linkObject(${outPtr}, load<usize>(${outPtr}, ${valueOffset}), false);`);
-                    if (stripNull(lazyInner) !== lazyInner)
-                        out.push(`}`);
-                    out.push(`} else {`, `  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`, `  const valueEnd = JSON.Util.scanValueEnd<string>(valueStart, srcEnd);`, `  if (!valueEnd) break;`, `  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`, `  ${srcPtr} = valueEnd;`, `}`);
-                    return out;
-                }
-                if (isBoolean(lazyInner) && member.lazyPacked) {
-                    const property = this.lazyMetadata.get(member.node)?.propertyName || member.name;
-                    out.push(`if (isDefined(changetype<__JSON_PLAN>(0).__json_eager_${property})) {`, `  const __start = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`, `  if (__start + 8 <= srcEnd && load<u64>(__start) == 28429475166421108) {`, `    store<u64>(${outPtr}, ((<u64>0xffffffff) << 32) | 1, ${fieldOffset});`, `    ${srcPtr} = __start + 8;`, `  } else if (__start + 10 <= srcEnd && load<u64>(__start) == 32370086184550502 && load<u16>(__start, 8) == 101) {`, `    store<u64>(${outPtr}, (<u64>0xffffffff) << 32, ${fieldOffset});`, `    ${srcPtr} = __start + 10;`, `  } else break;`, `} else {`, `  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`, `  const valueEnd = JSON.Util.scanValueEnd<${lazyInner}>(valueStart, srcEnd);`, `  if (!valueEnd) break;`, `  store<u64>(${outPtr}, ((<u64>valueStart) << 32) | (<u64>(<u32>valueEnd)), ${fieldOffset});`, `  ${srcPtr} = valueEnd;`, `}`);
-                    return out;
-                }
-                const nativeScalar = INTEGER_TYPES.includes(lazyInner) || FLOAT_TYPES.includes(lazyInner);
-                if (nativeScalar) {
-                    const property = this.lazyMetadata.get(member.node)?.propertyName || member.name;
-                    const eagerOffset = member.lazyPacked
-                        ? fieldOffset
-                        : `offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")})`;
-                    const decoder = FLOAT_TYPES.includes(lazyInner)
-                        ? "__deserializeFloatField"
-                        : SIGNED_INTEGER_TYPES.includes(lazyInner)
-                            ? "__deserializeIntegerField"
-                            : "__deserializeUnsignedField";
-                    out.push(`if (isDefined(changetype<__JSON_PLAN>(0).__json_eager_${property})) {`);
-                    out.push(`${srcPtr} = ${decoder}<${lazyInner}>(${valuePtr}, srcEnd, ${outPtr}, ${eagerOffset});`);
-                    out.push(`if (!${srcPtr}) break;`);
-                    if (member.lazyPacked)
-                        out.push(`if (sizeof<${lazyInner}>() < 4) store<u32>(${outPtr}, <u32>load<${lazyInner}>(${outPtr}, ${fieldOffset}), ${fieldOffset});`);
-                    out.push(member.lazyPacked
-                        ? `store<u32>(${outPtr}, 0xffffffff, ${fieldOffset} + 4);`
-                        : `store<u64>(${outPtr}, u64.MAX_VALUE, ${fieldOffset});`);
-                    out.push("} else {");
-                }
-                out.push("{");
-                out.push(`  const valueStart = JSON.Util.skipWhitespace(${valuePtr}, srcEnd);`);
-                out.push(`  const valueEnd = JSON.Util.scanValueEnd<${lazyInner}>(valueStart, srcEnd);`);
-                out.push("  if (!valueEnd) break;");
-                out.push(strategicLazyStore(member, "valueStart", "valueEnd", outPtr));
-                out.push(`  ${srcPtr} = valueEnd;`);
-                out.push("}");
-                if (nativeScalar)
-                    out.push("}");
-                return out;
-            }
             if (INTEGER_TYPES.includes(resolvedType)) {
                 const helper = SIGNED_INTEGER_TYPES.includes(resolvedType)
                     ? "__deserializeIntegerField"
@@ -3781,9 +2860,7 @@ export class JSONTransform extends Visitor {
         };
         const getDeserializer = (type, srcPtr, outPtr, member, keyOffset = 0, fastPath = false, whitespaceTier = false, cacheArrayPublication = false) => {
             const schema = this.getSchema(stripNull(type));
-            const publishes = !member.flags.has(PropertyFlags.Lazy) &&
-                !isString(stripNull(type)) &&
-                (!schema || schema.customReader);
+            const publishes = !isString(stripNull(type)) && (!schema || schema.customReader);
             const publication = cacheArrayPublication && publishes && !member.nullable
                 ? {
                     condition: `!isDefined(ASC_RTRACE) && !isDefined(ASC_PROFILE) && !isDefined(__finalize) && !isNullable<${member.type}>()`,
@@ -3820,7 +2897,6 @@ export class JSONTransform extends Visitor {
                 .get(node)
                 ?.has(member.name);
             if (this.ordinarySpecializedFields.get(node)?.has(member.name) &&
-                !member.flags.has(PropertyFlags.Lazy) &&
                 (genericSkip || isString(stripNull(type)) || isScalarType(type))) {
                 const valuePtr = keyOffset ? `${srcPtr} + ${keyOffset}` : srcPtr;
                 const trusted = !STRICT && fastPath && !whitespaceTier && keyOffset !== 0;
@@ -3875,14 +2951,6 @@ export class JSONTransform extends Visitor {
                 ? `changetype<this>(${destination}).__JSON_INITIALIZE_FIELD_${member.name}();`
                 : `store<${member.type}>(${destination}, JSON.__zero<${member.type}>(), ${offset});`;
             body += ` if (isManaged<${member.type}>()) JSON.__linkObject(${destination}, load<usize>(${destination}, ${offset}), false);`;
-            if (member.flags.has(PropertyFlags.Lazy) && !member.lazyPacked) {
-                const backing = member.name.slice(0, -3) + "_val";
-                if (!__lazyValInits.has(member.name)) {
-                    const type = this.lazyMetadata.get(member.node)?.valueType || member.lazyInner;
-                    body += ` store<${type}>(${destination}, JSON.__zero<${type}>(), offsetof<this>(${JSON.stringify(backing)}));`;
-                }
-                body += ` if (isManaged<${member.lazyInner}>()) JSON.__linkObject(${destination}, load<usize>(${destination}, offsetof<this>(${JSON.stringify(backing)})), false);`;
-            }
             return `{ ${body} }`;
         };
         const missingIndex = new Map(initializationMembers.map((member, index) => [member, index]));
@@ -4330,7 +3398,6 @@ export class JSONTransform extends Visitor {
                 type.startsWith("Set<"));
         });
         const wideKeyedFallback = tier2Ok &&
-            !hasLazyMembers &&
             !hasOptionalMembers &&
             structKeyedSchema &&
             this.schema.members.length > 24 &&
@@ -4339,7 +3406,6 @@ export class JSONTransform extends Visitor {
             new Set(this.schema.members.map((member) => member.alias ?? member.name))
                 .size === this.schema.members.length;
         const keyedFallbackEnabled = (tier2Ok &&
-            !hasLazyMembers &&
             this.schema.members.length > 0 &&
             this.schema.members.length <= 24 &&
             (keyedUnionAlternatives >= 2 ||
@@ -4508,7 +3574,7 @@ export class JSONTransform extends Visitor {
         DESERIALIZE += [...slowSeen.values()]
             .map((name) => `  let ${name} = false;\n`)
             .join("");
-        if (!STRICT || slowObjectMembers.length || slowArrayMembers.length)
+        if (!STRICT || sortedMembers.object.length || sortedMembers.array.length)
             DESERIALIZE += indent + "  let depth: i32 = 0;\n";
         DESERIALIZE += indent + "  let lastIndex: usize = 0;\n\n";
         DESERIALIZE +=
@@ -4706,14 +3772,7 @@ export class JSONTransform extends Visitor {
                 DESERIALIZE += toMemCDecl(Math.max(...members.map((m) => (m.alias ?? m.name).length << 1)), "            ");
             }
         };
-        const getLazyRangeStore = (member, valueStart, valueEnd, prefix) => {
-            return (prefix +
-                strategicLazyStore(member, valueStart, valueEnd, "changetype<usize>(out)") +
-                "\n");
-        };
         const getSlowValueStore = (member, valueStart, valueEnd, prefix, allowSkip = true) => {
-            if (member.flags.has(PropertyFlags.Lazy))
-                return getLazyRangeStore(member, valueStart, valueEnd, prefix);
             const validator = this.ordinaryObjectValidators
                 .get(node)
                 ?.get(member.name);
@@ -4758,8 +3817,6 @@ export class JSONTransform extends Visitor {
                 `store<${member.type}>(changetype<usize>(out), JSON.__deserializeValue<${member.type}>(${valueStart}, ${valueEnd}), offsetof<this>(${offset}));\n`);
         };
         const getSlowBooleanStore = (member, value, valueStart, valueEnd, prefix) => {
-            if (member.flags.has(PropertyFlags.Lazy))
-                return getLazyRangeStore(member, valueStart, valueEnd, prefix);
             if (this.ordinarySpecializedFields.get(node)?.has(member.name) &&
                 isBoolean(member.type)) {
                 return (prefix +
@@ -4781,8 +3838,6 @@ export class JSONTransform extends Visitor {
                 `store<boolean>(changetype<usize>(out), ${value}, offsetof<this>(${JSON.stringify(member.name)}));\n`);
         };
         const getSlowNullStore = (member, valueStart, valueEnd, prefix) => {
-            if (member.flags.has(PropertyFlags.Lazy))
-                return getLazyRangeStore(member, valueStart, valueEnd, prefix);
             if (member.generic ||
                 ((this.getSchema(member.type)?.customReader ||
                     ["JSON.Raw", "JSON.Value"].includes(stripNull(member.type))) &&
@@ -4792,7 +3847,7 @@ export class JSONTransform extends Visitor {
                 `store<usize>(changetype<usize>(out), 0, offsetof<this>(${JSON.stringify(member.name)}));\n`);
         };
         let mbElse = "      ";
-        if (!STRICT || slowStringMembers.length) {
+        if (!STRICT || sortedMembers.string.length) {
             DESERIALIZE += mbElse + "if (code == 34) {\n";
             DESERIALIZE += "          lastIndex = srcStart;\n";
             DESERIALIZE += "          srcStart += 2;\n";
@@ -4805,7 +3860,7 @@ export class JSONTransform extends Visitor {
                     '              console.log("Value (string, ' +
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart + 2));';
-            generateGroups(slowStringMembers, (group) => {
+            generateGroups(sortedMembers.string, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias ?? first.name;
@@ -4865,7 +3920,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "      }\n";
             mbElse = " else ";
         }
-        if (!STRICT || slowNumberMembers.length) {
+        if (!STRICT || sortedMembers.number.length) {
             DESERIALIZE += mbElse + "if (code - 48 <= 9 || code == 45) {\n";
             DESERIALIZE += "        lastIndex = srcStart;\n";
             DESERIALIZE += "        srcStart += 2;\n";
@@ -4878,7 +3933,7 @@ export class JSONTransform extends Visitor {
                     '              console.log("Value (number, ' +
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart));';
-            generateGroups(slowNumberMembers, (group) => {
+            generateGroups(sortedMembers.number, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias ?? first.name;
@@ -4937,7 +3992,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "      }";
             mbElse = " else ";
         }
-        if (!STRICT || slowObjectMembers.length) {
+        if (!STRICT || sortedMembers.object.length) {
             DESERIALIZE += mbElse + "if (code == 123) {\n";
             DESERIALIZE += "        lastIndex = srcStart;\n";
             DESERIALIZE += "        depth++;\n";
@@ -4965,7 +4020,7 @@ export class JSONTransform extends Visitor {
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart));';
             indent = "  ";
-            generateGroups(slowObjectMembers, (group) => {
+            generateGroups(sortedMembers.object, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias ?? first.name;
@@ -5023,7 +4078,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "      }";
             mbElse = " else ";
         }
-        if (!STRICT || slowArrayMembers.length) {
+        if (!STRICT || sortedMembers.array.length) {
             DESERIALIZE += mbElse + "if (code == 91) {\n";
             DESERIALIZE += "        lastIndex = srcStart;\n";
             DESERIALIZE += "        depth++;\n";
@@ -5051,7 +4106,7 @@ export class JSONTransform extends Visitor {
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart));';
             indent = "  ";
-            generateGroups(slowArrayMembers, (group) => {
+            generateGroups(sortedMembers.array, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias ?? first.name;
@@ -5109,7 +4164,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "      }";
             mbElse = " else ";
         }
-        if (!STRICT || slowBooleanMembers.length) {
+        if (!STRICT || sortedMembers.boolean.length) {
             DESERIALIZE += mbElse + "if (code == 116) {\n";
             DESERIALIZE +=
                 "        if (load<u64>(srcStart) == 28429475166421108) {\n";
@@ -5119,7 +4174,7 @@ export class JSONTransform extends Visitor {
                     '              console.log("Value (bool, ' +
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart - 8));';
-            generateGroups(slowBooleanMembers, (group) => {
+            generateGroups(sortedMembers.boolean, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias ?? first.name;
@@ -5187,7 +4242,7 @@ export class JSONTransform extends Visitor {
                     '              console.log("Value (bool, ' +
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart - 10));';
-            generateGroups(slowBooleanMembers, (group) => {
+            generateGroups(sortedMembers.boolean, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias ?? first.name;
@@ -5244,7 +4299,7 @@ export class JSONTransform extends Visitor {
             DESERIALIZE += "\n      }";
             mbElse = " else ";
         }
-        if (!STRICT || slowNullMembers.length) {
+        if (!STRICT || sortedMembers.null.length) {
             DESERIALIZE += mbElse + "if (code == 110) {\n";
             DESERIALIZE +=
                 "        if (load<u64>(srcStart) == 30399761348886638) {\n";
@@ -5254,7 +4309,7 @@ export class JSONTransform extends Visitor {
                     '              console.log("Value (null, ' +
                         ++id +
                         '): " + JSON.Util.ptrToStr(lastIndex, srcStart - 8));';
-            generateGroups(slowNullMembers, (group) => {
+            generateGroups(sortedMembers.null, (group) => {
                 generateConsts(group);
                 const first = group[0];
                 const fName = first.alias ?? first.name;
@@ -5361,9 +4416,6 @@ export class JSONTransform extends Visitor {
                 "  this.__JSON_INITIALIZE_FIELDS();\n";
         INITIALIZE += "  return this;\n";
         INITIALIZE += "}";
-        if (__hasLazy && !DESERIALIZE_CUSTOM) {
-            node.members.push(SimpleParser.parseClassMember("__DESERIALIZE_RETAINS_SOURCE(): void {}", node));
-        }
         if (DEBUG > 0) {
             console.log(SERIALIZE_CUSTOM || SERIALIZE);
             console.log(INITIALIZE);
@@ -5383,8 +4435,6 @@ export class JSONTransform extends Visitor {
             let wide = false;
             let strings = false;
             for (const member of schema.members) {
-                if (member.flags.has(PropertyFlags.Lazy))
-                    continue;
                 const type = source.resolveTypeMeaning(member.type, scope, this.parser, parameters);
                 if (!type.declaration && ["i64", "u64"].includes(type.name)) {
                     wide = true;
@@ -5410,7 +4460,6 @@ export class JSONTransform extends Visitor {
         const DESERIALIZE_SLOW_METHOD = SimpleParser.parseClassMember(DESERIALIZE, node);
         const WHITESPACE_METHOD = useFastPath
             ? SimpleParser.parseClassMember("__DESERIALIZE_WHITESPACE<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, __resetMissing: bool = true, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {\n" +
-                lazySourceHeader +
                 "  const start = srcStart;\n  const dst = changetype<usize>(out);\n" +
                 DESERIALIZE_FAST.slice(fastPrettyTailStart), node)
             : null;
@@ -5434,7 +4483,6 @@ export class JSONTransform extends Visitor {
                 !member.node.decorators?.length &&
                 !member.nullable &&
                 !member.flags.has(PropertyFlags.Optional) &&
-                !member.flags.has(PropertyFlags.Lazy) &&
                 (isPrimitive(member.type) || numericRowArray(member)))) {
             const body = WHITESPACE_METHOD
                 .body;
@@ -5461,8 +4509,7 @@ export class JSONTransform extends Visitor {
             schema.members.every((member) => {
                 if (member.generic ||
                     member.custom ||
-                    member.flags.has(PropertyFlags.Optional) ||
-                    member.flags.has(PropertyFlags.Lazy))
+                    member.flags.has(PropertyFlags.Optional))
                     return false;
                 const type = stripNull(member.type);
                 if (isPrimitive(type) || isString(type))
@@ -5483,12 +4530,11 @@ export class JSONTransform extends Visitor {
         const sourceFreeDeserialize = !DESERIALIZE_CUSTOM &&
             this.schema.members.every((member) => {
                 const type = stripNull(member.type);
-                return (!member.flags.has(PropertyFlags.Lazy) &&
-                    (isPrimitive(type) ||
-                        isString(type) ||
-                        type == "Date" ||
-                        type == "JSON.Raw" ||
-                        type == "Raw"));
+                return (isPrimitive(type) ||
+                    isString(type) ||
+                    type == "Date" ||
+                    type == "JSON.Raw" ||
+                    type == "Raw");
             });
         const SOURCE_FREE_METHOD = sourceFreeDeserialize
             ? SimpleParser.parseClassMember("__DESERIALIZE_SOURCE_FREE(): void {}", node)
@@ -5565,7 +4611,7 @@ export class JSONTransform extends Visitor {
                     node.members.push(SimpleParser.parseClassMember("__FINALIZE_CURSOR(): void {\n" + complete + "}", node));
                 }
                 const supported = this.schema.members
-                    .map((member) => `JSON.__cursorSupports<${member.lazyInner || member.type}>(depth + 1)`)
+                    .map((member) => `JSON.__cursorSupports<${member.type}>(depth + 1)`)
                     .join(" && ") || "true";
                 node.members.push(SimpleParser.parseClassMember(`__CURSOR_SUPPORTED(depth: i32): bool { return depth < 256 && (${supported}); }`, node));
                 node.members.push(SimpleParser.parseClassMember(generateCursorParser(this.schema.members, getComparisions, cursorMayDefer && cursorDeferred.length > 0, this.ordinarySpecializedFields.get(node), this.ordinaryObjectValidators.get(node), this.ordinaryGenericFields.get(node)), node));
@@ -5579,8 +4625,7 @@ export class JSONTransform extends Visitor {
         const callbackFreeSerializer = !schema.custom &&
             !schema.parent?.custom &&
             !hasManualSerializer(node) &&
-            schema.members.every((member) => !member.flags.has(PropertyFlags.OmitIf) &&
-                !member.flags.has(PropertyFlags.Lazy));
+            schema.members.every((member) => !member.flags.has(PropertyFlags.OmitIf));
         const callbackFreeFields = callbackFreeSerializer
             ? schema.members
                 .map((member) => `${this.runtimeReference()}.__serializeCallbackFree<${member.type}>(load<${member.type}>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})), depth + 1)`)
@@ -5590,7 +4635,6 @@ export class JSONTransform extends Visitor {
             !schema.parent?.custom &&
             !hasManualSerializer(node) &&
             schema.members.every((member) => !member.flags.has(PropertyFlags.OmitIf) &&
-                !member.flags.has(PropertyFlags.Lazy) &&
                 (isPrimitive(member.type) ||
                     isString(member.type) ||
                     isEnum(stripNull(member.type), source, this.parser)));
@@ -5703,9 +4747,6 @@ export class JSONTransform extends Visitor {
         const fields = node.members.filter((member) => member.kind === NodeKind.FieldDeclaration &&
             !member.is(32));
         const wire = new Map(this.schema.members.map((member) => [member.node, member]));
-        const backing = new Set(this.schema.members
-            .filter((member) => member.flags.has(PropertyFlags.Lazy))
-            .map((member) => member.name.slice(0, -3) + "_val"));
         let body = this.baseInitializer(node)
             ? "  super.__JSON_INITIALIZE_FIELDS();\n"
             : "";
@@ -5719,11 +4760,8 @@ export class JSONTransform extends Visitor {
             if (member && fragments.has(member)) {
                 body += fragments.get(member);
                 body += `  if (isManaged<${member.type}>()) __link(changetype<usize>(this), load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(member.name)})), false);\n`;
-                const valueField = fields.find((candidate) => candidate.name.text === member.name.slice(0, -3) + "_val");
-                if (member.flags.has(PropertyFlags.Lazy) && valueField)
-                    body += `  if (isManaged<${toString(valueField.type)}>()) __link(changetype<usize>(this), load<usize>(changetype<usize>(this), offsetof<this>(${JSON.stringify(valueField.name.text)})), false);\n`;
             }
-            else if (!backing.has(field.name.text))
+            else
                 body += this.explicitFieldInitializer(field);
         }
         node.members.push(SimpleParser.parseClassMember(`__JSON_INITIALIZE_FIELDS(): void {\n${body}}`, node));
@@ -6165,9 +5203,8 @@ export default class Transformer extends Transform {
         transformer.serializerBindings = new SerializerBindings(parser, transformer.sources, this.program.options.globalAliases);
         const stockFloatCallbacks = preserveFloatCallbackPolicy(parser.sources, this.program.options.globalAliases);
         transformer.arrayRows = new ArrayRowSerializers(sources, parser, transformer.sources, this.program.options, (node) => transformer.serializerBindings.hasNativeBindings(node));
-        transformer.prepareStrategicLaziness(sources);
+        transformer.validateLazyOptions(sources);
         transformer.prepareOrdinarySpecialization(sources);
-        transformer.prepareLazyOverrides(sources);
         for (const source of sources) {
             transformer.imports = [];
             transformer.currentSource = source;
@@ -6369,78 +5406,6 @@ function classNoLazy(node) {
     const obj = arg;
     return obj.names.some((name, index) => (name.text === "nolazy" && toString(obj.values[index]) !== "false") ||
         (name.text === "lazy" && toString(obj.values[index]) === "false"));
-}
-function classLazyMode(node) {
-    const dec = node.decorators?.find((d) => {
-        const n = d.name.text;
-        return n === "json" || n === "serializable";
-    });
-    if (!dec || !dec.args || dec.args.length === 0)
-        return "none";
-    const arg = dec.args[0];
-    if (arg.kind !== NodeKind.Literal ||
-        arg.literalKind !== 6)
-        return "none";
-    const obj = arg;
-    for (let i = 0; i < obj.names.length; i++) {
-        if (obj.names[i].text !== "lazy")
-            continue;
-        const v = obj.values[i];
-        if (["lazy", "true", "false"].includes(toString(v)))
-            return "none";
-        if (v.kind === NodeKind.Literal &&
-            v.literalKind === 2) {
-            const s = v.value;
-            if (s === "none" || s === "auto" || s === "all" || s === "strategic")
-                return s;
-        }
-        throwError(`@json lazy must be "none", "auto", "all", or "strategic"`, v.range);
-    }
-    return "none";
-}
-const LAZY_AUTO_THRESHOLD = 10;
-function lazyTypeCost(type, source, parser) {
-    const base = stripNull(type);
-    if (isPrimitive(base) || isBoolean(base) || isEnum(base, source, parser))
-        return 1;
-    if (base === "Date")
-        return 4;
-    if (isString(base))
-        return 10;
-    if (base === "JSON.Value" ||
-        base === "Value" ||
-        base === "JSON.Obj" ||
-        base === "Obj" ||
-        base === "JSON.Arr" ||
-        base === "Arr" ||
-        base === "JSON.Raw" ||
-        base === "Raw")
-        return 15;
-    return 20;
-}
-function lazyAutoCost(type, source, parser) {
-    const direct = lazyTypeCost(type, source, parser);
-    if (direct < 20)
-        return direct;
-    const decl = source.getClass(stripNull(type));
-    if (!decl)
-        return 20;
-    let sum = 0;
-    for (let i = 0; i < decl.members.length; i++) {
-        const m = decl.members[i];
-        if (m.kind !== NodeKind.FieldDeclaration)
-            continue;
-        const fd = m;
-        if (fd.is(32) ||
-            fd.is(512) ||
-            fd.is(1024) ||
-            !fd.type)
-            continue;
-        sum += lazyTypeCost(toString(fd.type), source, parser);
-        if (sum >= LAZY_AUTO_THRESHOLD)
-            return sum;
-    }
-    return sum;
 }
 function estimatedSerializedByteSize(type, source, parser) {
     const trimmed = type.trim();

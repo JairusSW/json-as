@@ -8,11 +8,7 @@
 import "../lib/index.js";
 import assert from "node:assert/strict";
 import { Parser } from "assemblyscript/dist/assemblyscript.js";
-import {
-  StrategicAccessAnalysis,
-  accessProbability,
-  materializationDecision,
-} from "../lib/strategic-laziness.js";
+import { AccessAnalysis, accessProbability } from "../lib/access-analysis.js";
 
 const path = (...pairs) => new Map(pairs);
 assert.equal(accessProbability([]), 0);
@@ -24,16 +20,6 @@ assert.equal(
   accessProbability([path([0, true], [1, true], [2, false])]),
   0.125,
 );
-assert.equal(materializationDecision([path()], 1000).eager, true);
-assert.equal(materializationDecision([path([0, true])], 1).eager, true);
-assert.equal(materializationDecision([path([0, true])], 20).eager, false);
-assert.equal(
-  materializationDecision([path([0, true], [1, true], [2, true])], 1).eager,
-  false,
-);
-const repeated = Array.from({ length: 8 }, (_, i) => path([i, true]));
-assert.equal(materializationDecision(repeated, 20).eager, true);
-
 function analyze(body) {
   const parser = new Parser();
   parser.parseFile(
@@ -41,13 +27,8 @@ function analyze(body) {
     "fixture.ts",
     true,
   );
-  const analysis = new StrategicAccessAnalysis(
-    (call, shadowed) =>
-      call.expression.property?.text === "parse" && !shadowed("JSON")
-        ? {}
-        : null,
-    undefined,
-    true,
+  const analysis = new AccessAnalysis((call, shadowed) =>
+    call.expression.property?.text === "parse" && !shadowed("JSON") ? {} : null,
   );
   analysis.visit(parser.sources[0]);
   return analysis.sites;
@@ -69,10 +50,8 @@ const probability = (site, field) =>
     "helpers.ts",
     true,
   );
-  const analysis = new StrategicAccessAnalysis(
-    (call) => (call.expression.property?.text === "parse" ? {} : null),
-    undefined,
-    true,
+  const analysis = new AccessAnalysis((call) =>
+    call.expression.property?.text === "parse" ? {} : null,
   );
   analysis.visit(parser.sources[0]);
   assert.equal(analysis.sites[0].escaped, true);
@@ -93,10 +72,8 @@ assert.equal(boundedSites[0].escaped, true);
     "bounded.ts",
     true,
   );
-  const analysis = new StrategicAccessAnalysis(
-    (call) => (call.expression.property?.text === "parse" ? {} : null),
-    undefined,
-    true,
+  const analysis = new AccessAnalysis((call) =>
+    call.expression.property?.text === "parse" ? {} : null,
   );
   analysis.visit(parser.sources[0]);
   assert.equal(analysis.sites[0].escaped, true);
@@ -127,7 +104,7 @@ assert.equal(
   analyze('if (a) { var JSON = local(); } JSON.parse<Vec3>("{}");').length,
   0,
 );
-for (const conservative of [false, true]) {
+{
   const parser = new Parser();
   parser.parseFile(
     `
@@ -151,16 +128,11 @@ for (const conservative of [false, true]) {
       JSON.parse<Vec3>("{}");
     }
   `,
-    "strategic-hoisted.ts",
+    "access-hoisted.ts",
     true,
   );
-  const analysis = new StrategicAccessAnalysis(
-    (call, shadowed) =>
-      call.expression.property?.text === "parse" && !shadowed("JSON")
-        ? {}
-        : null,
-    undefined,
-    conservative,
+  const analysis = new AccessAnalysis((call, shadowed) =>
+    call.expression.property?.text === "parse" && !shadowed("JSON") ? {} : null,
   );
   analysis.visit(parser.sources[0]);
   assert.equal(analysis.sites.length, 2);
@@ -312,10 +284,8 @@ assert.ok(sites[0].escaped || sites[0].accesses.has("x"));
     "global.ts",
     true,
   );
-  const analysis = new StrategicAccessAnalysis(
-    (call) => (call.expression.property?.text === "parse" ? {} : null),
-    undefined,
-    true,
+  const analysis = new AccessAnalysis((call) =>
+    call.expression.property?.text === "parse" ? {} : null,
   );
   analysis.visit(parser.sources[0]);
   assert.equal(analysis.sites[0].escaped, true);
@@ -327,14 +297,12 @@ assert.ok(sites[0].escaped || sites[0].accesses.has("x"));
     "global-block.ts",
     true,
   );
-  const analysis = new StrategicAccessAnalysis(
-    (call) => (call.expression.property?.text === "parse" ? {} : null),
-    undefined,
-    true,
+  const analysis = new AccessAnalysis((call) =>
+    call.expression.property?.text === "parse" ? {} : null,
   );
   analysis.visit(parser.sources[0]);
   assert.equal(analysis.sites[0].escaped, true);
 }
 console.log(
-  "Strategic analysis: weighted paths, costs, aliases, shadowing, exits, closures and loops passed",
+  "Access analysis: bounded paths, aliases, shadowing, exits, closures and loops passed",
 );

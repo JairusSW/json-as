@@ -7,7 +7,6 @@
 
 import { JSON } from "../..";
 
-
 @json class Hidden<T = i32> {
   value: T = changetype<T>(7);
 }
@@ -15,9 +14,9 @@ enum State {
   Off,
   On,
 }
-export type DeferredArray = JSON.Lazy<Hidden[]>;
-export type DeferredGeneric<T> = JSON.Lazy<Hidden<T>>;
-export type DeferredEnum = JSON.Lazy<State>;
+export type DeferredArray = Hidden[];
+export type DeferredGeneric<T> = Hidden<T>;
+export type DeferredEnum = State;
 export function array(): DeferredArray {
   return [];
 }

@@ -6,7 +6,6 @@
 // Copyright (c) 2026 Jairus Tanaka
 
 import { keyDispatch } from "./key-dispatch.js";
-import { PropertyFlags } from "./types.js";
 import { isScalarType } from "./scalars.js";
 export function generateCursorParser(members, compare, completeDefaults = false, specializedFields, objectValidators, genericFields) {
     const entries = members.map((member, id) => ({
@@ -67,30 +66,19 @@ export function generateCursorParser(members, compare, completeDefaults = false,
     const values = entries
         .map(({ member, id }) => {
         const field = `offsetof<this>(${JSON.stringify(member.name)})`;
-        if (member.flags.has(PropertyFlags.Lazy)) {
-            return `case ${id}: {
-        ${readLazy(member, field)}
-        break;
-      }`;
-        }
         return `case ${id}: {
       ${readField(member, field)}
       break;
     }`;
     })
         .join("\n");
-    const anchor = members.some((member) => member.flags.has(PropertyFlags.Lazy))
-        ? "out.__SET_SRC(JSON.Util.getParseSource());"
-        : "";
     const hot = entries.length <= 16
         ? "do {\n" +
             entries
                 .map((entry) => {
                 const { member, id } = entry;
                 const field = `offsetof<this>(${JSON.stringify(member.name)})`;
-                const read = member.flags.has(PropertyFlags.Lazy)
-                    ? `${readLazy(member, field)}`
-                    : readField(member, field);
+                const read = readField(member, field);
                 return `{
           const keyStart = srcStart;
           if (!(keyStart + ${(entry.encoded.length + 1) << 1} <= srcEnd && ${compare(entry.encoded + ":", "keyStart", "==").join(" && ")})) break;
@@ -114,7 +102,6 @@ export function generateCursorParser(members, compare, completeDefaults = false,
         : "";
     return `__DESERIALIZE_CURSOR<__JSON_T, __JSON_PLAN = i32>(srcStart: usize, srcEnd: usize, out: __JSON_T, depth: i32, __plan: __JSON_PLAN = changetype<__JSON_PLAN>(0)): usize {
     if (depth >= 256 || srcStart >= srcEnd || load<u16>(srcStart) != 123) return 0;
-    ${anchor}
     srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);
     if (srcStart < srcEnd && load<u16>(srcStart) == 125) {
       if (isDefined(out.__FINALIZE_CURSOR)) out.__FINALIZE_CURSOR();
@@ -159,32 +146,5 @@ export function generateCursorParser(members, compare, completeDefaults = false,
       srcStart = JSON.__cursorWhitespace(srcStart + 2, srcEnd);
     }
     return 0;
-  }`;
-}
-function readLazy(member, field) {
-    const offset = member.lazyPacked
-        ? field
-        : `offsetof<this>(${JSON.stringify(member.name.slice(0, -3) + "_val")})`;
-    const mark = member.lazyPacked
-        ? `store<u32>(changetype<usize>(out), 0xffffffff, ${field} + 4);`
-        : `store<u64>(changetype<usize>(out), u64.MAX_VALUE, ${field});
-       if (isManaged<${member.lazyInner}>()) JSON.__linkObject(changetype<usize>(out), load<usize>(changetype<usize>(out), ${offset}), false);`;
-    const eagerArray = member.lazyMaybeArray
-        ? `JSON.__isArrayField<${member.lazyInner}>() || `
-        : "";
-    return `if (${eagerArray}isDefined(changetype<__JSON_PLAN>(0).__json_eager_${member.lazyProperty || member.name})) {
-    if (isDefined(changetype<__JSON_PLAN>(0).__json_child_${member.lazyProperty || member.name})) {
-      srcStart = JSON.__cursorReadPlanned(changetype<${member.lazyInner}>(0), changetype<__JSON_PLAN>(0).__json_child_${member.lazyProperty || member.name}(), srcStart, srcEnd, changetype<usize>(out), ${offset}, depth + 1);
-    } else {
-      srcStart = JSON.__cursorRead<${member.lazyInner}>(srcStart, srcEnd, changetype<usize>(out), ${offset}, depth + 1);
-    }
-    if (!srcStart) return 0;
-    ${member.lazyPacked ? `if (sizeof<${member.lazyInner}>() < 4) store<u32>(changetype<usize>(out), <u32>load<${member.lazyInner}>(changetype<usize>(out), ${offset}), ${offset});` : ""}
-    ${mark}
-  } else {
-    const valueStart = srcStart;
-    srcStart = JSON.__cursorSkipValue(srcStart, srcEnd, depth + 1);
-    if (!srcStart) return 0;
-    store<u64>(changetype<usize>(out), (<u64>valueStart << 32) | <u64><u32>srcStart, ${field});
   }`;
 }

@@ -25,7 +25,7 @@ import {
 // shape for a file this size. Minified-only (the pretty form is ~195 MB);
 // yyjson_benchmark likewise ships otfcc minified.
 
-@json({ lazy: "auto" })
+@json({ lazy: true })
 class Otfcc {
   head!: JSON.Raw | null;
   hhea!: JSON.Raw | null;

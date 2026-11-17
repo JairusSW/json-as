@@ -6,20 +6,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jairus Tanaka
 
-// Regenerates the classic `*.lazy.bench.ts` variants from their eager
-// `*.bench.ts` counterparts, so the two stay in lockstep. The lazy variant is
-// the eager schema with:
-//   - every `@json` class decorator switched to `@json({ lazy: "auto" })`
-//   - bench labels suffixed with " Lazy"
-//   - dumpToFile keys suffixed with "-lazy"
-//   - deserialize benches changed from parse-and-stop to parse-and-touch, using
-//     generated schema-aware accessors with bounded array/map traversal
-//   - reuse target/buffer stripped because lazy fields pin source slices
-//   - serialize benches dropped ONLY for the two datasets that genuinely trap
-//     under lazy passthrough serialize (github_events, gsoc-2018 — deferred
-//     nested structs); Raw-valued maps/fields (otfcc, fgo) serialize fine
-//
-// Usage: node scripts/sync-lazy-benches.mjs   (run from the repo root)
+// Regenerate access-specialization and dynamic-object variants of classic
+// native-model workloads. Lazy variants use the default boolean class option;
+// their visible field reads determine whether a parse site can skip decoding.
+// There are no deferred typed fields or source-forwarding typed serializers.
+// Usage: node scripts/sync-lazy-benches.mjs
 import fs from "node:fs";
 import path from "node:path";
 
@@ -39,12 +30,6 @@ const LAZY_DATASETS = [
 ];
 // The dynamic JSON.Obj variant is schema-agnostic and covers every lazy dataset.
 const OBJ_DATASETS = LAZY_DATASETS;
-
-// Datasets whose lazy SERIALIZE bench is dropped. Previously github_events and
-// gsoc-2018 trapped (an absent ref lazy field with a declared default was left
-// with slot==MAX but __x_val==null, so serialize hit `null as T`); that's fixed
-// in the transform (__INITIALIZE now seeds __x_val), so every dataset serializes.
-const NO_LAZY_SERIALIZE = new Set([]);
 
 const NUMERIC_TYPES = new Set([
   "i8",
@@ -365,9 +350,9 @@ function touchDistinctUserId(root: Twitter): f64 {
 function toLazy(src, dataset) {
   let s = src;
 
-  // 1. Class decorators: @json -> @json({ lazy: "auto" }). Only matches a bare
+  // 1. Class decorators: @json -> @json({ lazy: true }). Only matches a bare
   //    `@json` on its own line (class decorators); never @json({ ... }) configs.
-  s = s.replace(/^@json$/gm, '@json({ lazy: "auto" })');
+  s = s.replace(/^@json$/gm, "@json({ lazy: true })");
 
   // 2. Bench labels: "Deserialize X (pretty)" -> "Deserialize X Lazy (pretty)".
   s = s.replace(
@@ -405,7 +390,7 @@ function toLazy(src, dataset) {
   );
 
   // 3d. Match simdjson's benchmark shape more closely: parse, then read enough
-  //     of the result to force lazy fields to materialize. The generated
+  //     of the result to make the observed field set explicit. The generated
   //     touchRoot is schema-aware for @json classes and raw/map roots.
   s = s.replace(
     /blackbox\(JSON\.parse<([\s\S]*?)>\((prettyJson|minJson)\)\);/g,
@@ -450,21 +435,6 @@ bench(
 );
 dumpToFile("twitter-distinct_user_id-lazy-min", "deserialize");
 `,
-    );
-  }
-
-  // 4. Drop the serialize bench only for datasets that genuinely trap under lazy
-  //    passthrough serialize (verified empirically): documents with deferred
-  //    nested *structs* whose slices don't survive serialize — github_events'
-  //    per-class-fallback tagged-union `payload`, and gsoc-2018's
-  //    `Map<string, Org>`. Raw-valued maps/fields (fgo, otfcc) serialize fine.
-  if (NO_LAZY_SERIALIZE.has(dataset)) {
-    s = s.replace(
-      /\nbench\(\s*\n\s*"Serialize[^"]*",[\s\S]*?dumpToFile\([^)]*"serialize"\);\n/,
-      "\n// NOTE: no lazy serialize bench - lazy passthrough serialize traps for\n" +
-        "// this document (a deferred nested struct - tagged-union payload or a\n" +
-        "// Map<string, struct> - whose slices don't survive serialize). The eager\n" +
-        "// bench covers serialize; lazy mode is about the parse numbers.\n",
     );
   }
 

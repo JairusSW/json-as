@@ -9,7 +9,6 @@ import { JSON, JSONMode } from "../..";
 import { readFile, utf8ByteLength } from "../lib/bench";
 import { JSON as ASJ } from "assemblyscript-json/assembly";
 
-
 @json
 export class RepoOwner {
   public login: string = "octocat";
@@ -42,7 +41,6 @@ export class RepoOwner {
   public site_admin: boolean = false;
 }
 
-
 @json
 export class RepoLicense {
   public key: string = "";
@@ -51,7 +49,6 @@ export class RepoLicense {
   public url: string | null = null;
   public node_id: string = "";
 }
-
 
 @json
 export class Repo {
@@ -206,8 +203,8 @@ export const JSON_OBJ_STRINGIFY_OPS: i32 = 900_000;
 export const ASJ_DESERIALIZE_OPS: i32 = 10_000;
 export const ASJ_STRINGIFY_OPS: i32 = 35_000;
 
-// --- lazy: "auto" variants of the structs above (same fields, deferred parse) ---
-@json({ lazy: "auto" })
+// --- lazy: true variants of the structs above (same fields, access-specialized parsing) ---
+@json({ lazy: true })
 export class RepoOwnerLazy {
   public login: string = "octocat";
   public id: i32 = 583231;
@@ -239,8 +236,7 @@ export class RepoOwnerLazy {
   public site_admin: boolean = false;
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 export class RepoLicenseLazy {
   public key: string = "";
   public name: string = "";
@@ -249,8 +245,7 @@ export class RepoLicenseLazy {
   public node_id: string = "";
 }
 
-
-@json({ lazy: "auto" })
+@json({ lazy: true })
 export class RepoLazy {
   public id: i32 = 132935648;
   public node_id: string = "MDEwOlJlcG9zaXRvcnkxMzI5MzU2NDg=";

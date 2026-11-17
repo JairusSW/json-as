@@ -74,7 +74,7 @@ try {
                 JSON_STRICT: String(strict),
                 JSON_USE_FAST_PATH: fast ? "1" : "0",
                 JSON_CACHE: "0",
-                JSON_ACCESS_SPECIALIZATION: "false",
+                JSON_LAZY: "false",
               },
             },
           );

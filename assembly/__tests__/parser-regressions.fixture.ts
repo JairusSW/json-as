@@ -7,18 +7,15 @@
 
 import { JSON } from "..";
 
-
 @json
 class Item {
   n: i32 = 0;
 }
 
-
 @json
 class Items {
   items: Item[] = [];
 }
-
 
 @json
 class Collections {
@@ -28,40 +25,33 @@ class Collections {
   dynamic: (JSON.Arr | null)[] = [];
 }
 
-
 @json
 class LazyItem {
 
-  @lazy text: string = "";
+  text: string = "";
 }
-
 
 @json
 class LazyHolder {
   item: LazyItem = new LazyItem();
 }
 
-
 @json
 class Deferred {
 
-  @lazy item: LazyItem = new LazyItem();
+  item: LazyItem = new LazyItem();
 
+  items: LazyItem[] = [];
 
-  @lazy items: LazyItem[] = [];
+  values: Map<string, LazyItem> = new Map<string, LazyItem>();
 
-
-  @lazy values: Map<string, LazyItem> = new Map<string, LazyItem>();
-
-
-  @lazy dynamic: JSON.Obj = new JSON.Obj();
+  dynamic: JSON.Obj = new JSON.Obj();
 }
-
 
 @json
 class LazyInteger {
 
-  @lazy n: i32 = 0;
+  n: i32 = 0;
 }
 
 export function allocInput(size: i32): usize {

@@ -212,7 +212,6 @@ function valIntTag<T>(): u32 {
   return isSigned<T>() ? JSON.Types.I64 : JSON.Types.U64;
 }
 
-
 @inline
 function numericCast<T, V>(value: V): T {
   if (isBoolean<T>()) return <T>(value != 0);
@@ -289,8 +288,8 @@ function utf16Equals(ptrA: usize, ptrB: usize, len: i32): bool {
 const OBJ_LINEAR_MAX: i32 = 6;
 
 // Deferred-value record for a lazy JSON.Value (see JSON.Types.Lazy). `lz` packs
-// the unparsed source slice as (sliceStart << 32) | sliceEnd - the same encoding
-// the transform uses for @lazy struct fields. `src` is the GC anchor that keeps
+// the unparsed source slice as (sliceStart << 32) | sliceEnd - the encoding
+// used by dynamic values. `src` is the GC anchor that keeps
 // the source string (and therefore the slice pointers, which index into its
 // UTF-16 buffer) alive until the value is materialized. Managed so `src` is
 // traced automatically; a JSON.Value's __visit traces the LazyRef itself.
@@ -302,14 +301,6 @@ class LazyRef {
 }
 
 export namespace JSON {
-  /**
-   * On-demand field marker. `JSON.Lazy<T>` is structurally just `T` (a no-op
-   * type alias), so a field declared `JSON.Lazy<T>` is typed and accessed
-   * exactly like `T`. The transform detects the annotation and defers that
-   * field: its raw JSON slice is stored at parse time and parsed into `T` on
-   * first access (a generated get accessor). Array-typed fields parse eagerly.
-   */
-  export type Lazy<T> = T;
 
   // Stateless custom adapters still require a real receiver for virtual dispatch.
   // Cache zeroed descriptors, rooted as managed objects, once per requested type.
@@ -332,23 +323,6 @@ export namespace JSON {
     }
     // @ts-expect-error: supplied by transform
     return receiver.__DESERIALIZE_CUSTOM(source);
-  }
-  /* eslint-enable @typescript-eslint/no-wrapper-object-types */
-
-  /**
-   * Whether a lazy slot's value is JSON null - for `@omitnull` on lazy fields,
-   * without forcing materialization. The slot encodes the state: `u64.MAX_VALUE`
-   * = materialized (null iff the value pointer is 0), `0` = absent (null), any
-   * other value = a not-yet-parsed slice range (null iff it is literally `null`).
-   * @param valPtr pointer of the materialized value (0 when null)
-   * @param lz    the packed slot
-   */
-  export function __lazyIsNull(valPtr: usize, lz: u64): bool {
-    if (lz == u64.MAX_VALUE) return valPtr == 0;
-    if (lz == 0) return true;
-    const hi = <usize>(lz >>> 32);
-    // raw slice of length 4 (8 bytes) equal to the UTF-16 word "null"
-    return <usize>(<u32>lz) - hi == 8 && load<u64>(hi) == 0x006c006c0075006e;
   }
 
   /**
@@ -523,17 +497,15 @@ export namespace JSON {
 
   // Generated code uses this stable namespace surface; the implementation and
   // capability graph live with the checked readers in deserialize/cursor-value.
-  @inline export function __cursorSupports<T>(depth: i32 = 0): bool {
+  @inline function __cursorSupports<T>(depth: i32 = 0): bool {
     return supportsCursor<T>(depth);
   }
 
-
-  @inline export function __cursorDefault<T>(): T {
+  @inline function __cursorDefault<T>(): T {
     return createCursorDefault<T>();
   }
 
-
-  @inline export function __cursorRead<T>(
+  @inline function __cursorRead<T>(
     start: usize,
     end: usize,
     dst: usize,
@@ -543,31 +515,15 @@ export namespace JSON {
     return readCursorValue<T>(start, end, dst, offset, depth);
   }
 
-
-  @inline export function __cursorReadPlanned<T, P>(
-    _type: T,
-    plan: P,
-    start: usize,
-    end: usize,
-    dst: usize,
-    offset: usize = 0,
-    depth: i32 = 0,
-  ): usize {
-    return readCursorValue<T, P>(start, end, dst, offset, depth, plan);
-  }
-
-
-  @inline export function __cursorWhitespace(ptr: usize, end: usize): usize {
+  @inline function __cursorWhitespace(ptr: usize, end: usize): usize {
     return skipCursorWhitespace(ptr, end);
   }
 
-
-  @inline export function __cursorSkipString(ptr: usize, end: usize): usize {
+  @inline function __cursorSkipString(ptr: usize, end: usize): usize {
     return skipCursorString(ptr, end);
   }
 
-
-  @inline export function __cursorSkipTrustedString(
+  @inline function __cursorSkipTrustedString(
     ptr: usize,
     end: usize,
   ): usize {
@@ -576,21 +532,18 @@ export namespace JSON {
       : skipCursorString(ptr, end);
   }
 
-
-  @inline export function __cursorSkipScalar<T>(ptr: usize, end: usize): usize {
+  @inline function __cursorSkipScalar<T>(ptr: usize, end: usize): usize {
     return skipCursorScalar<T>(ptr, end);
   }
 
-
-  @inline export function __cursorSkipGeneric<T>(
+  @inline function __cursorSkipGeneric<T>(
     ptr: usize,
     end: usize,
   ): usize {
     return skipCursorGeneric<T>(ptr, end);
   }
 
-
-  @inline export function __cursorSkipNative(
+  @inline function __cursorSkipNative(
     ptr: usize,
     end: usize,
     kind: i32,
@@ -598,56 +551,49 @@ export namespace JSON {
     return skipCursorNative(ptr, end, kind);
   }
 
-
-  @inline export function __cursorSkipStringArray(
+  @inline function __cursorSkipStringArray(
     ptr: usize,
     end: usize,
   ): usize {
     return skipCursorNativeArray<string>(ptr, end);
   }
 
-
-  @inline export function __cursorSkipNullableStringArray(
+  @inline function __cursorSkipNullableStringArray(
     ptr: usize,
     end: usize,
   ): usize {
     return skipCursorNativeArray<string | null>(ptr, end);
   }
 
-
-  @inline export function __cursorSkipBooleanArray(
+  @inline function __cursorSkipBooleanArray(
     ptr: usize,
     end: usize,
   ): usize {
     return skipCursorNativeArray<bool>(ptr, end);
   }
 
-
-  @inline export function __cursorSkipSignedArray(
+  @inline function __cursorSkipSignedArray(
     ptr: usize,
     end: usize,
   ): usize {
     return skipCursorNativeArray<i32>(ptr, end);
   }
 
-
-  @inline export function __cursorSkipUnsignedArray(
+  @inline function __cursorSkipUnsignedArray(
     ptr: usize,
     end: usize,
   ): usize {
     return skipCursorNativeArray<u32>(ptr, end);
   }
 
-
-  @inline export function __cursorSkipFloatArray(
+  @inline function __cursorSkipFloatArray(
     ptr: usize,
     end: usize,
   ): usize {
     return skipCursorNativeArray<f64>(ptr, end);
   }
 
-
-  @inline export function __cursorSkipValue(
+  @inline function __cursorSkipValue(
     ptr: usize,
     end: usize,
     depth: i32,
@@ -655,13 +601,11 @@ export namespace JSON {
     return skipCheckedValue(ptr, end, depth);
   }
 
-
-  @inline export function __cursorScanKey(ptr: usize, end: usize): u64 {
+  @inline function __cursorScanKey(ptr: usize, end: usize): u64 {
     return scanCursorString(ptr, end);
   }
 
-
-  @inline export function __cursorDecodeKey(ptr: usize, end: usize): string {
+  @inline function __cursorDecodeKey(ptr: usize, end: usize): string {
     return decodeCursorKey(ptr, end);
   }
 
@@ -687,7 +631,6 @@ export namespace JSON {
         fresh = changetype<usize>(out) == 0;
       if (
         fresh &&
-        !isDefined(changetype<__JSON_PLAN>(0).__json_strategic_effects) &&
         __cursorSupports<T>()
       ) {
         if (isNullable<T>()) {
@@ -992,9 +935,6 @@ export namespace JSON {
         // @ts-expect-error: a derived schema may disable inherited fast methods
         if (isDefined(obj.__DESERIALIZE_FAST_ENABLED))
           canFast = obj.__DESERIALIZE_FAST_ENABLED();
-        // Strategy types carry compile-time decisions only; no plan is allocated.
-        if (isDefined(changetype<__JSON_PLAN>(0).__json_strategic_effects))
-          canFast = false;
         // The certificate belongs to the declaring schema, not its descendants.
         let fullWrite = false;
         if (isDefined(type.__DESERIALIZE_FULL_WRITE)) {
@@ -1060,13 +1000,6 @@ export namespace JSON {
             JSON.Util.skipWhitespace(fastEnd, dataPtr + dataSize) ==
               dataPtr + dataSize
           ) {
-            // @ts-expect-error: Defined by transform for @lazy-field structs -
-            // pins the source so stored slice ranges stay valid.
-            if (
-              isDefined(obj.__SET_SRC) &&
-              !isDefined(obj.__DESERIALIZE_RETAINS_SOURCE)
-            )
-              obj.__SET_SRC(data);
             return obj;
           }
         }
@@ -1086,12 +1019,6 @@ export namespace JSON {
           else
             slowEnd = obj.__DESERIALIZE_SLOW(dataPtr, dataPtr + dataSize, obj);
           if (slowEnd == 0) markProductionParseError();
-          // @ts-expect-error: Defined by transform for @lazy-field structs.
-          if (
-            isDefined(obj.__SET_SRC) &&
-            !isDefined(obj.__DESERIALIZE_RETAINS_SOURCE)
-          )
-            obj.__SET_SRC(data);
           return obj;
         }
         throw new Error(`No deserialize method defined for type ${type}`);
@@ -1385,7 +1312,6 @@ export namespace JSON {
   @final export class Value {
     /** Map of struct type IDs to their serialization function indices */
     @lazy static METHODS: Map<u32, u32> = new Map<u32, u32>();
-
 
     @lazy private static PURE_SERIALIZERS: Set<u32> = new Set<u32>();
 
@@ -1999,7 +1925,6 @@ export namespace JSON {
       if (this.type == JSON.Types.F64) return this.get<f64>().toString();
       return JSON.stringify<JSON.Value>(this);
     }
-
 
     @unsafe private __visit(cookie: u32): void {
       const w = this.bits;
@@ -2709,7 +2634,6 @@ export namespace JSON {
       }
       return parsed.get<JSON.Obj>();
     }
-
 
     @unsafe private __visit(cookie: u32): void {
       __visit(changetype<usize>(this._kbuf), cookie);
@@ -3540,41 +3464,7 @@ export namespace JSON {
     }
   }
 
-  /**
-   * Serializes JSON data but writes directly to the buffer.
-   * Should only be used if you know what you are doing.
-   * Reference dispatch stays here to avoid a second managed wrapper frame.
-   * @param data - T
-   * @returns void
-   */
-  // A field's usize zero is numeric, even though the public scalar API uses
-  // usize(0) as its internal null sentinel. Lazy fields preserve eager spelling.
-  /** Array-valued generic fields are decoded eagerly even through JSON.Lazy<T>. */
-  @inline
-  function __isArrayField<T>(): bool {
-    if (isArray<nonnull<T>>()) return true;
-    if (isReference<T>()) {
-      const type = changetype<nonnull<T>>(0);
-      return (
-        type instanceof JSON.Arr ||
-        type instanceof StaticArray ||
-        type instanceof Int8Array ||
-        type instanceof Uint8Array ||
-        type instanceof Uint8ClampedArray ||
-        type instanceof Int16Array ||
-        type instanceof Uint16Array ||
-        type instanceof Int32Array ||
-        type instanceof Uint32Array ||
-        type instanceof Int64Array ||
-        type instanceof Uint64Array ||
-        type instanceof Float32Array ||
-        type instanceof Float64Array
-      );
-    }
-    return false;
-  }
-
-  function __lazyDefault<T>(): T {
+  function __defaultValue<T>(): T {
     if (isNullable<T>()) return changetype<T>(0);
     if (isBoolean<T>() || isInteger<T>() || isFloat<T>()) return <T>0;
     if (isString<T>()) return "" as T;
@@ -3583,7 +3473,7 @@ export namespace JSON {
     if (type instanceof JSON.Value) return changetype<T>(JSON.Value.empty());
     if (type instanceof JSON.Raw) return instantiate<nonnull<T>>("null") as T;
     if (type instanceof Date) return instantiate<nonnull<T>>(<i64>0) as T;
-    if (type instanceof JSON.Box) return __lazyBoxDefault(type, type.value);
+    if (type instanceof JSON.Box) return __boxDefault(type, type.value);
     if (
       type instanceof ArrayBuffer ||
       type instanceof StaticArray ||
@@ -3604,11 +3494,11 @@ export namespace JSON {
     return instantiate<nonnull<T>>() as T;
   }
 
-  function __lazyBoxDefault<T, V>(_box: T, _value: V): T {
+  function __boxDefault<T, V>(_box: T, _value: V): T {
     return instantiate<nonnull<T>>(<V>0) as T;
   }
 
-  function __serializeLazyValue<T>(data: T): void {
+  function __serializeFieldValue<T>(data: T): void {
     if (isInteger<T>()) {
       if (nameof<T>() == "usize") {
         __serialize<u64>(<u64>data);
@@ -3819,7 +3709,6 @@ export namespace JSON {
     return newNativeArray<T>(isManaged<valueof<nonnull<T>>>() ? 16 : 8);
   }
 
-
   @inline
   function __appendArray<T extends unknown[]>(out: T, item: valueof<T>): void {
     appendNativeArray<T>(out, item);
@@ -3983,23 +3872,6 @@ export namespace JSON {
     data.__SERIALIZE(changetype<usize>(data));
   }
 
-  /** Materialize a deferred field while retaining its source for descendants. */
-  function __deserializeLazy<T>(
-    srcStart: usize,
-    srcEnd: usize,
-    source: string,
-  ): T {
-    // Deferred children can create their own deferred descendants. Propagate
-    // the original owner while decoding, then restore any surrounding parse.
-    const previous = getParseSrc();
-    setParseSrc(source);
-    const value = __deserializeValue<T>(srcStart, srcEnd);
-    setParseSrc(previous);
-    if (takeProductionParseError())
-      throw new Error("Malformed lazy JSON value");
-    return value;
-  }
-
   /**
    * Deserializes JSON data directly from the buffer.
    * Should only be used if you know what you are doing.
@@ -4042,7 +3914,6 @@ export namespace JSON {
     return false;
   }
 
-
   @inline
   function __deserializePlannedObjectField<T, P>(
     value: T,
@@ -4065,15 +3936,6 @@ export namespace JSON {
     }
     // @ts-expect-error: generated reader
     return value.__DESERIALIZE_FAST(start, end, value, resetMissing, plan);
-  }
-
-  function __deserializePlannedValue<T, P>(
-    _type: T,
-    plan: P,
-    srcStart: usize,
-    srcEnd: usize,
-  ): T {
-    return __deserializeValue<T, P>(srcStart, srcEnd, 0, plan);
   }
 
   function __deserializeValue<T, __JSON_PLAN = i32>(
@@ -4146,7 +4008,6 @@ export namespace JSON {
         // @ts-expect-error: supplied by transform
         if (isDefined(out.__DESERIALIZE_FAST_ENABLED))
           canFast = out.__DESERIALIZE_FAST_ENABLED();
-        if (isDefined(plan.__json_strategic_effects)) canFast = false;
         // Generated fast paths may preserve omitted fields and reuse existing
         // strings/containers. Initialize only a freshly allocated object here;
         // callers that pass `dst` intentionally retain that reusable graph.
@@ -4297,11 +4158,10 @@ export namespace JSON {
         `Input: "${snippet.length > 50 ? snippet.slice(0, 50) + "..." : snippet}"`,
     );
   }
-  export namespace Util {
+  namespace Util {
     export function hasCompositeReuseScope(): bool {
       return compositeReuseScopeActive();
     }
-
 
     @inline
     export function reuseCompositeBuffer(value: usize, field: usize): usize {
@@ -4323,7 +4183,6 @@ export namespace JSON {
       return code == 0x20 || code - 9 <= 4;
     }
 
-
     @inline
     export function beginObjectTrace(
       dst: usize,
@@ -4333,24 +4192,20 @@ export namespace JSON {
       return beginObjectFieldTrace(dst, srcStart, typeTag);
     }
 
-
     @inline
     export function getObjectTraceMask(slot: i32): u64 {
       return objectFieldTraceMask(slot);
     }
-
 
     @inline
     export function getObjectTraceTier(slot: i32): u8 {
       return objectFieldTraceTier(slot);
     }
 
-
     @inline
     export function getObjectTraceSeparator(slot: i32): usize {
       return objectFieldTraceSeparator(slot);
     }
-
 
     @inline
     export function saveObjectTrace(
@@ -4387,7 +4242,7 @@ export namespace JSON {
     }
     /** Internal ordered-reader specialization for small numeric rows. */
     @inline
-    export function __skipNumericRowWhitespace(
+    function __skipNumericRowWhitespace(
       srcStart: usize,
       srcEnd: usize,
     ): usize {
