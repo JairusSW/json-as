@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Grow the output buffer in chunks when serializing large native integer arrays, instead of reserving the entire worst-case output up front.
+
 ## 2026-11-17 - v2.1.0
 
 ### Upgrading from 2.0

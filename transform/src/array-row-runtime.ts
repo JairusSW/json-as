@@ -114,8 +114,8 @@ export const ARRAY_ROW_SOURCES = new Map<string, readonly [string, string]>([
   [
     "own:assembly/serialize/naive/array",
     [
-      "e6fc586bea8bdf0c320b6ca4227e2535ceef1b6baba9e3bbcde025af27ea82b8",
-      "4fbbb6f3293cddcf12227d173e4ad318fce33f48d9380c93f2e8f3518e66a996",
+      "646692a64715d3a88231ed3b7c1d368df2082bfd7e4dfe20c9790451b4cb7f91",
+      "e324e7e0df65f2ed692701b100ecf7a3add23a61a5c39946ed72e776251e9067",
     ],
   ],
   [
