@@ -67,6 +67,40 @@ describe("Should serialize integer arrays", () => {
   );
 });
 
+describe("Should serialize large native integer arrays across buffer growth", () => {
+  // u32 uses a 22-byte bound per element; these straddle the 1 MiB cutoff.
+  const below = new Array<u32>(47662).fill(0);
+  const above = new Array<u32>(47663).fill(0);
+  expect(
+    JSON.stringify(below) == "[" + "0,".repeat(below.length - 1) + "0]",
+  ).toBe(true);
+  const zeroOutput = JSON.stringify(above);
+  const expectedZeros = "[" + "0,".repeat(above.length - 1) + "0]";
+
+  expect(
+    JSON.stringify<u32[][]>([above, [42]]) == "[" + expectedZeros + ",[42]]",
+  ).toBe(true);
+
+  // Dense signed values retain the one-reservation fast path.
+  const wide = new Array<i64>(24577).fill(i64.MIN_VALUE);
+  const expectedWide =
+    "[" +
+    "-9223372036854775808,".repeat(wide.length - 1) +
+    "-9223372036854775808]";
+  expect(JSON.stringify(wide) == expectedWide).toBe(true);
+  expect(
+    JSON.stringify<i64[][]>([wide, [42]]) == "[" + expectedWide + ",[42]]",
+  ).toBe(true);
+
+  // Keep the earlier result live and exercise another output allocation.
+  above[above.length - 1] = u32.MAX_VALUE;
+  expect(
+    JSON.stringify(above) ==
+      "[" + "0,".repeat(above.length - 1) + "4294967295]",
+  ).toBe(true);
+  expect(zeroOutput == expectedZeros).toBe(true);
+});
+
 describe("Should serialize float arrays", () => {
   expect(
     JSON.stringify<f64[]>([7.23, 10e2, 10e2, 123456e-5, 123456e-5, 0.0, 7.23]),

@@ -378,6 +378,96 @@ function serializeIntegerArrayFast<T extends number[]>(src: usize): void {
   bs.offset = serializeIntegerArrayReservedAt<T>(src, bs.offset);
 }
 
+// Keep the one-reservation path for small arrays and generated pointer writers.
+const INTEGER_ARRAY_CHUNK_THRESHOLD: u64 = 1 << 20;
+const INTEGER_ARRAY_CHUNK_ELEMENTS: i32 = 4096;
+const INTEGER_ARRAY_ONE_SHOT_LIMIT: u64 = 1 << 28;
+
+// A small, evenly spaced sample selects the existing writer for wide values.
+// Each cutoff is the first value whose UTF-16 digits, sign and comma together
+// exceed half this type's worst-case per-element byte count. This is only a
+// performance hint: the selected writer still reserves the full bound.
+function integerArrayLooksDense<T extends number[]>(
+  src: usize,
+  len: i32,
+): bool {
+  const data = load<usize>(src, offsetof<T>("dataStart"));
+  const stride = <usize>(len >>> 4) * sizeof<valueof<T>>();
+  const size = sizeof<valueof<T>>();
+  let wide = 0;
+  for (let i = 0; i < 16; i++) {
+    const value = load<valueof<T>>(data + <usize>i * stride);
+    if (isSigned<valueof<T>>()) {
+      const v = <i64>value;
+      const cutoff: i64 =
+        size == 2 ? 100 : size == 4 ? 100_000 : 10_000_000_000;
+      if (v >= cutoff || v <= -(cutoff / 10)) wide++;
+    } else {
+      const cutoff: u64 = size == 2 ? 100 : size == 4 ? 10_000 : 1_000_000_000;
+      if (<u64>value >= cutoff) wide++;
+    }
+  }
+  return wide >= 12;
+}
+
+
+@inline
+function serializeIntegerArrayAdaptive<T extends number[]>(src: usize): void {
+  const len = load<i32>(src, offsetof<T>("length_"));
+  const perItem = maxIntegerBytes<valueof<T>>() + 2;
+  const bound = 4 + <u64>len * perItem;
+  if (
+    bound <= INTEGER_ARRAY_CHUNK_THRESHOLD ||
+    (bound <= INTEGER_ARRAY_ONE_SHOT_LIMIT &&
+      integerArrayLooksDense<T>(src, len))
+  ) {
+    serializeIntegerArrayFast<T>(src);
+    return;
+  }
+  serializeIntegerArrayChunked<T>(src, len, perItem);
+}
+
+function serializeIntegerArrayChunked<T extends number[]>(
+  src: usize,
+  len: i32,
+  perItem: u32,
+): void {
+  bs.proposeSize(4);
+  store<u16>(bs.offset, BRACKET_LEFT);
+  bs.offset += 2;
+  ensureItoaPairs();
+
+  let data = load<usize>(src, offsetof<T>("dataStart"));
+  const stride = sizeof<valueof<T>>();
+  let remaining = len;
+  let dense = false;
+  while (remaining > 0) {
+    // If the previous block filled over half its bound, geometric growth
+    // can erase the savings. Reserve the remainder once instead.
+    const count =
+      dense && <u64>remaining * perItem <= INTEGER_ARRAY_ONE_SHOT_LIMIT
+        ? remaining
+        : min(INTEGER_ARRAY_CHUNK_ELEMENTS, remaining);
+    const bound = <u32>count * perItem;
+    bs.prepareGrowth(bound, bound);
+    const start = bs.offset;
+    let offset = start;
+    const end = data + <usize>count * stride;
+    for (; data != end; data += stride) {
+      const value = load<valueof<T>>(data);
+      offset += (<usize>itoaFast<valueof<T>>(offset, value)) << 1;
+      store<u16>(offset, COMMA);
+      offset += 2;
+    }
+    const written = <u32>(offset - start);
+    bs.addSize(written);
+    dense = written > bound >> 1;
+    bs.offset = offset;
+    remaining -= count;
+  }
+  store<u16>(bs.offset - 2, BRACKET_RIGHT);
+}
+
 /** Cursor-returning entry for a generated object that already reserved the
  * complete wide-integer array bound. */
 @inline
@@ -447,7 +537,7 @@ export function serializeArray<T extends any[]>(src: T): void {
   }
   if (isInteger<valueof<T>>()) {
     // u8[] and i8[] returned through their lookup-table paths above.
-    serializeIntegerArrayFast<T>(changetype<usize>(src));
+    serializeIntegerArrayAdaptive<T>(changetype<usize>(src));
     return;
   }
   if (isString<valueof<T>>() && !isNullable<valueof<T>>()) {
